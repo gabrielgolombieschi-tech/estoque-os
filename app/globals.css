@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-zinc-950 text-zinc-100;
+  }
+
+  table {
+    @apply text-zinc-100;
+  }
+
+  th {
+    @apply text-zinc-200;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply bg-zinc-900 text-zinc-100 border border-zinc-700 rounded-md;
+  }
+
+  button:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+}
+
+@layer components {
+  .form-control {
+    @apply bg-zinc-900 text-zinc-100 border border-zinc-700 rounded-md;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
