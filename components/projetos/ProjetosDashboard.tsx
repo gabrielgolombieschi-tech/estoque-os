@@ -186,9 +186,15 @@ function KpiCard({ label, value, accent }: { label: string; value: number; accen
   );
 }
 
-function Th({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-3 ${className ?? ""}`}>{children}</th>;
-}
+type ThProps = React.ComponentPropsWithoutRef<"th">;
+
+const Th = ({ children, className = "", ...rest }: ThProps) => {
+  return (
+    <th {...rest} className={`px-4 py-3 ${className}`}>
+      {children}
+    </th>
+  );
+};
 
 function Td({
   children,
