@@ -11,6 +11,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const [loading, setLoading] = useState(true);
   const isPublic = pathname === "/login";
+  const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
   useEffect(() => {
     (async () => {
@@ -51,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
+      {!hideHeader && (<header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <a href="/" className="font-semibold tracking-tight text-zinc-100">
@@ -93,9 +94,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             Sair
           </button>
         </div>
-      </header>
+      </header>)}
 
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className={hideHeader ? "w-full px-6 py-6" : "mx-auto max-w-6xl px-4 py-6"}>{children}</main>
     </div>
   );
 }

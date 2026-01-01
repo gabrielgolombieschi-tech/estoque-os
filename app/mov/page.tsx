@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
+import { formatDecimalBR } from "../../lib/decimal";
 
 type MovTipo = "entrada" | "saida" | "ajuste";
 
@@ -174,7 +175,7 @@ export default function MovimentacoesPage() {
 
                 <td className="px-4 py-3 text-right tabular-nums">
                   {r.tipo === "saida" ? "-" : "+"}
-                  {Number(r.quantidade).toFixed(0)}
+                  {formatDecimalBR(Number(r.quantidade ?? 0), 3)}
                 </td>
 
                 <td className="px-4 py-3 text-zinc-300">

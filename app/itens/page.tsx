@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
+import { parseDecimalBR } from "../../lib/decimal";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -218,9 +219,9 @@ export default function ItensPage() {
 
       unidade_medida: (form.unidade_medida || "UN").trim().toUpperCase(),
       controla_estoque: controlaEstoque,
-      estoque_minimo: controlaEstoque ? Math.trunc(form.estoque_minimo ?? 0) : 0,
-      estoque_maximo: controlaEstoque ? Math.trunc(form.estoque_maximo ?? 0) : 0,
-      estoque_ideal: controlaEstoque ? Math.trunc(form.estoque_ideal ?? 0) : 0,
+      estoque_minimo: controlaEstoque ? Number(form.estoque_minimo ?? 0) : 0,
+      estoque_maximo: controlaEstoque ? Number(form.estoque_maximo ?? 0) : 0,
+      estoque_ideal: controlaEstoque ? Number(form.estoque_ideal ?? 0) : 0,
 
       custo_ultima_compra: Number(form.custo_ultima_compra ?? 0),
       custo_medio: Number(form.custo_medio ?? 0),
@@ -550,15 +551,38 @@ export default function ItensPage() {
                   <div className="grid grid-cols-3 gap-2 mt-2">
                     <div className="space-y-1">
                       <div className="text-[11px] text-zinc-400">Minimo</div>
-                      <input type="number" className="w-full px-3 py-2" value={form.estoque_minimo} disabled={form.tipo !== "produto" || !form.controla_estoque} onChange={(e) => setForm((s) => ({ ...s, estoque_minimo: Number(e.target.value) }))} />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="w-full px-3 py-2"
+                        value={form.estoque_minimo}
+                        disabled={form.tipo !== "produto" || !form.controla_estoque}
+                        onChange={(e) => setForm((s) => ({ ...s, estoque_minimo: parseDecimalBR(e.target.value) || 0 }))}
+                      />
                     </div>
                     <div className="space-y-1">
                       <div className="text-[11px] text-zinc-400">Ideal</div>
-                      <input type="number" className="w-full px-3 py-2" value={form.estoque_ideal} disabled={form.tipo !== "produto" || !form.controla_estoque} onChange={(e) => setForm((s) => ({ ...s, estoque_ideal: Number(e.target.value) }))} />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="w-full px-3 py-2"
+                        value={form.estoque_ideal}
+                        disabled={form.tipo !== "produto" || !form.controla_estoque}
+                        onChange={(e) => setForm((s) => ({ ...s, estoque_ideal: parseDecimalBR(e.target.value) || 0 }))}
+                      />
                     </div>
                     <div className="space-y-1">
                       <div className="text-[11px] text-zinc-400">Maximo</div>
-                      <input type="number" className="w-full px-3 py-2" value={form.estoque_maximo} disabled={form.tipo !== "produto" || !form.controla_estoque} onChange={(e) => setForm((s) => ({ ...s, estoque_maximo: Number(e.target.value) }))} />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="w-full px-3 py-2"
+                        value={form.estoque_maximo}
+                        disabled={form.tipo !== "produto" || !form.controla_estoque}
+                        onChange={(e) =>
+                          setForm((s) => ({ ...s, estoque_maximo: parseDecimalBR(e.target.value) || 0 }))
+                        }
+                      />
                     </div>
                   </div>
                 </div>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabaseBrowser } from "../../../lib/supabase/client";
-import { useRef } from "react";
+import { parseDecimalBR, formatDecimalBR } from "../../../lib/decimal";
 
 type OS = {
   id: number;
@@ -15,6 +15,7 @@ type OS = {
   data_abertura: string;
   orcado: number | null;
   tipo_pedido?: string | null;
+  tem_gestao?: boolean | null;
 };
 
 type OsItemRow = {
@@ -52,6 +53,38 @@ const statusBadge: Record<string, string> = {
   cancelada: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
+type GestaoTipo = "projeto" | "execucao";
+type GestaoArea = "eletrico" | "mecanico" | "seguranca" | "software";
+
+type GestaoItem = {
+  id?: number;
+  os_id?: number;
+  item_tipo: GestaoTipo;
+  area: GestaoArea;
+  habilitado: boolean;
+  responsavel_id: string | null;
+  data_prevista: string | null;
+  progresso_percent: number;
+};
+
+const gestaoDefs: Array<{ item_tipo: GestaoTipo; area: GestaoArea; label: string; grupo: "projetos" | "execucoes" }> =
+  [
+    { item_tipo: "projeto", area: "eletrico", label: "Projeto Eletrico", grupo: "projetos" },
+    { item_tipo: "projeto", area: "mecanico", label: "Projeto Mecanico", grupo: "projetos" },
+    { item_tipo: "projeto", area: "seguranca", label: "Projeto Seguranca", grupo: "projetos" },
+    { item_tipo: "projeto", area: "software", label: "Projeto Software", grupo: "projetos" },
+    { item_tipo: "execucao", area: "eletrico", label: "Execucao Eletrica", grupo: "execucoes" },
+    { item_tipo: "execucao", area: "mecanico", label: "Execucao Mecanica", grupo: "execucoes" },
+  ];
+
+const gestaoKey = (it: { item_tipo: GestaoTipo; area: GestaoArea }) => `${it.item_tipo}-${it.area}`;
+const gestaoOrder = gestaoDefs.map((d) => gestaoKey(d));
+
+function orderGestaoItems(items: GestaoItem[]): GestaoItem[] {
+  const map = new Map(items.map((it) => [gestaoKey(it), it]));
+  return gestaoOrder.map((key) => map.get(key)).filter(Boolean) as GestaoItem[];
+}
+
 export default function OsDetailPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const params = useParams();
@@ -60,14 +93,22 @@ export default function OsDetailPage() {
   const [os, setOs] = useState<OS | null>(null);
   const [rows, setRows] = useState<OsItemRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isConcluding, setIsConcluding] = useState(false);
+  const [showGestaoModal, setShowGestaoModal] = useState(false);
+  const [temGestao, setTemGestao] = useState(false);
+  const [gestaoItems, setGestaoItems] = useState<GestaoItem[]>([]);
+  const [gestaoLoading, setGestaoLoading] = useState(false);
+  const [gestaoSaving, setGestaoSaving] = useState(false);
+  const [gestaoErr, setGestaoErr] = useState<string | null>(null);
 
   // adicionar item
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
   const [found, setFound] = useState<ItemPick[]>([]);
   const [pick, setPick] = useState<ItemPick | null>(null);
-  const [qty, setQty] = useState<number>(1);
+  const [qty, setQty] = useState<string>("1");
   const [vunit, setVunit] = useState<number>(0);
   const [baixa, setBaixa] = useState<boolean>(true);
   const qtyRef = useRef<HTMLInputElement | null>(null);
@@ -107,12 +148,72 @@ export default function OsDetailPage() {
     return Math.round(final * 100) / 100;
   };
 
+  async function loadGestaoItens() {
+    if (!Number.isFinite(osId)) return;
+
+    setGestaoErr(null);
+    setGestaoLoading(true);
+
+    const { data, error } = await supabase
+      .from("os_gestao_itens")
+      .select("id,os_id,item_tipo,area,habilitado,responsavel_id,data_prevista,progresso_percent")
+      .eq("os_id", osId);
+
+    if (error) {
+      setGestaoErr(error.message);
+      setGestaoItems([]);
+      setGestaoLoading(false);
+      return;
+    }
+
+    let items = (data ?? []) as GestaoItem[];
+
+    const missing = gestaoDefs
+      .filter((def) => !items.some((it) => it.item_tipo === def.item_tipo && it.area === def.area))
+      .map((def) => ({
+        os_id: osId,
+        item_tipo: def.item_tipo,
+        area: def.area,
+        habilitado: false,
+        responsavel_id: null,
+        data_prevista: null,
+        progresso_percent: 0,
+      }));
+
+    if (missing.length > 0) {
+      const { error: missingErr } = await supabase
+        .from("os_gestao_itens")
+        .upsert(missing, { onConflict: "os_id,item_tipo,area" });
+
+      if (missingErr) {
+        setGestaoErr(missingErr.message);
+        setGestaoItems(orderGestaoItems(items));
+        setGestaoLoading(false);
+        return;
+      }
+
+      const { data: reload, error: reloadErr } = await supabase
+        .from("os_gestao_itens")
+        .select("id,os_id,item_tipo,area,habilitado,responsavel_id,data_prevista,progresso_percent")
+        .eq("os_id", osId);
+
+      if (!reloadErr) {
+        items = (reload ?? []) as GestaoItem[];
+      } else {
+        setGestaoErr(reloadErr.message);
+      }
+    }
+
+    setGestaoItems(orderGestaoItems(items));
+    setGestaoLoading(false);
+  }
+
   async function load() {
     setErr(null);
 
     const { data: osData, error: osErr } = await supabase
       .from("ordens_servico")
-      .select("id,numero_os,cliente_nome,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido")
+      .select("id,numero_os,cliente_nome,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao")
       .eq("id", osId)
       .single();
 
@@ -121,6 +222,8 @@ export default function OsDetailPage() {
       return;
     }
     setOs(osData as OS);
+    setTemGestao(Boolean((osData as any).tem_gestao));
+    await loadGestaoItens();
 
     const { data: itemsData, error: itemsErr } = await supabase
       .from("os_itens")
@@ -136,6 +239,15 @@ export default function OsDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osId]);
+
+  useEffect(() => {
+    if (!showGestaoModal) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeGestaoModal();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [showGestaoModal]);
 
   async function removeItem(osItemId: number) {
     const ok = confirm("Remover este item da OS?\nSe baixou estoque, será devolvido.");
@@ -163,10 +275,6 @@ export default function OsDetailPage() {
   async function setStatus(newStatus: OS["status"]) {
     if (!os) return;
 
-    if (newStatus === "concluida") {
-      const ok = confirm("Concluir esta OS? Depois disso, a edição será bloqueada.");
-      if (!ok) return;
-    }
     if (newStatus === "cancelada") {
       const ok = confirm("Cancelar esta OS? Depois disso, a edição será bloqueada.");
       if (!ok) return;
@@ -187,6 +295,108 @@ export default function OsDetailPage() {
     if (error) return setErr(error.message);
 
     await load();
+  }
+
+  async function concluirOs() {
+    if (!os) return;
+    const ok = confirm("Concluir OS? Isso marcará projetos e execução como 100%.");
+    if (!ok) return;
+
+    setIsConcluding(true);
+    setErr(null);
+    setOkMsg(null);
+
+    const osIdNumber = Number(os.id);
+    const { error } = await supabase.rpc("concluir_os", { os_id_param: osIdNumber });
+
+    setIsConcluding(false);
+
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+
+    setOkMsg("OS concluída");
+    await load();
+  }
+
+  function updateGestaoItem(item_tipo: GestaoTipo, area: GestaoArea, patch: Partial<GestaoItem>) {
+    setGestaoItems((prev) => {
+      const exists = prev.some((it) => it.item_tipo === item_tipo && it.area === area);
+      if (!exists) return prev;
+      return prev.map((it) => (it.item_tipo === item_tipo && it.area === area ? { ...it, ...patch } : it));
+    });
+  }
+
+  async function saveGestao() {
+    if (!os) return;
+
+    setGestaoErr(null);
+    setGestaoSaving(true);
+    setOkMsg(null);
+
+    if (gestaoItems.length === 0) {
+      setGestaoSaving(false);
+      setGestaoErr("Itens de gestao nao carregados. Tente novamente.");
+      return;
+    }
+
+    const payload = gestaoItems.map((it) => {
+      const progress = Number(it.progresso_percent ?? 0);
+      return {
+        os_id: os.id,
+        item_tipo: it.item_tipo,
+        area: it.area,
+        habilitado: !!it.habilitado,
+        responsavel_id: it.responsavel_id?.trim() ? it.responsavel_id.trim() : null,
+        data_prevista: it.data_prevista ? it.data_prevista : null,
+        progresso_percent: Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.trunc(progress))) : NaN,
+      };
+    });
+
+    if (payload.some((p) => !Number.isFinite(p.progresso_percent) || p.progresso_percent < 0 || p.progresso_percent > 100)) {
+      setGestaoSaving(false);
+      setGestaoErr("Progresso deve estar entre 0 e 100.");
+      return;
+    }
+
+    const { error: osErr } = await supabase
+      .from("ordens_servico")
+      .update({ tem_gestao: temGestao, atualizado_em: new Date().toISOString() })
+      .eq("id", os.id);
+
+    if (osErr) {
+      setGestaoSaving(false);
+      setGestaoErr(osErr.message);
+      return;
+    }
+
+    const { error: upsertErr } = await supabase
+      .from("os_gestao_itens")
+      .upsert(payload, { onConflict: "os_id,item_tipo,area" });
+
+    setGestaoSaving(false);
+
+    if (upsertErr) {
+      setGestaoErr(upsertErr.message);
+      return;
+    }
+
+    closeGestaoModal(false);
+    setOkMsg("Gestao atualizada.");
+    await load();
+  }
+
+  function openGestaoModal() {
+    if (os) setTemGestao(Boolean(os.tem_gestao));
+    setGestaoErr(null);
+    setShowGestaoModal(true);
+    loadGestaoItens();
+  }
+
+  function closeGestaoModal(reset = true) {
+    setShowGestaoModal(false);
+    if (reset && os) setTemGestao(Boolean(os.tem_gestao));
   }
 
   async function handleSearch(nextNome?: string, nextFornecedor?: string) {
@@ -325,6 +535,73 @@ export default function OsDetailPage() {
 
   const sortedRows = useMemo(() => sortRows(lookupRows, sortKey, sortDir), [lookupRows, sortKey, sortDir]);
 
+  const renderGestaoRow = (def: (typeof gestaoDefs)[number]) => {
+    const item = gestaoItems.find((it) => it.item_tipo === def.item_tipo && it.area === def.area);
+    if (!item) return null;
+
+    const fieldsDisabled = gestaoSaving || gestaoLoading || !item.habilitado;
+
+    return (
+      <div
+        key={gestaoKey(def)}
+        className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_140px] gap-3 items-start border border-zinc-800 rounded-lg px-3 py-3 bg-zinc-900/40"
+      >
+        <div className="space-y-2">
+          <div className="text-sm font-medium">{def.label}</div>
+          <label className="inline-flex items-center gap-2 text-xs text-zinc-200">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={item.habilitado}
+              onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { habilitado: e.target.checked })}
+              disabled={gestaoSaving || gestaoLoading}
+            />
+            Habilitado
+          </label>
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-400">Responsavel</div>
+          <input
+            className="w-full px-3 py-2"
+            value={item.responsavel_id ?? ""}
+            onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { responsavel_id: e.target.value })}
+            disabled={fieldsDisabled}
+            placeholder="responsavel (texto livre)"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-400">Data prevista</div>
+          <input
+            type="date"
+            className="w-full px-3 py-2"
+            value={item.data_prevista ? item.data_prevista.slice(0, 10) : ""}
+            onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { data_prevista: e.target.value || null })}
+            disabled={fieldsDisabled}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-400">Progresso %</div>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            className="w-full px-3 py-2"
+            value={item.progresso_percent ?? 0}
+            onChange={(e) =>
+              updateGestaoItem(def.item_tipo, def.area, {
+                progresso_percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+              })
+            }
+            disabled={fieldsDisabled}
+          />
+        </div>
+      </div>
+    );
+  };
+
   function openLookupModal() {
     setShowLookup(true);
     setLookupErr(null);
@@ -368,7 +645,7 @@ export default function OsDetailPage() {
     setPick(it);
     setFound([]);
     setQ(`${it.codigo_interno} - ${it.nome}`);
-    setQty(1);
+    setQty("1");
     setVunit(calculateUnitPriceWithTaxes(it));
     // default: baixa estoque apenas se for produto
     setBaixa(it.tipo === "produto");
@@ -380,8 +657,9 @@ export default function OsDetailPage() {
 
   async function addItem() {
     if (!pick) return setErr("Selecione um item.");
-    if (qty <= 0) return setErr("Quantidade inválida.");
-    if (vunit < 0) return setErr("Valor unitário inválido.");
+    const qtyNumber = parseDecimalBR(qty);
+    if (!Number.isFinite(qtyNumber) || qtyNumber <= 0) return setErr("Quantidade invalida.");
+    if (vunit < 0) return setErr("Valor unitario invalido.");
 
     setBusy(true);
     setErr(null);
@@ -393,7 +671,7 @@ export default function OsDetailPage() {
     const { error } = await supabase.rpc("add_os_item_baixa_imediata", {
       p_os_id: osId,
       p_item_id: pick.id,
-      p_quantidade: Math.trunc(qty),
+      p_quantidade: qtyNumber,
       p_valor_unitario: Number(vunit),
       p_baixa_estoque: baixa,
       p_realizado_por: userEmail,
@@ -408,7 +686,7 @@ export default function OsDetailPage() {
     setPick(null);
     setQ("");
     setFound([]);
-    setQty(1);
+    setQty("1");
     setVunit(0);
     setBaixa(true);
 
@@ -478,23 +756,36 @@ export default function OsDetailPage() {
 
           <button
             onClick={() => setStatus("em_andamento")}
-            disabled={busy}
+            disabled={busy || isConcluding}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
           >
             Em andamento
           </button>
 
           <button
-            onClick={() => setStatus("concluida")}
-            disabled={busy || locked}
+            onClick={openGestaoModal}
+            disabled={busy}
+            className={[
+              "px-3 py-2 rounded-md font-medium",
+              temGestao
+                ? "bg-emerald-300 text-emerald-950 hover:bg-emerald-200"
+                : "border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800",
+            ].join(" ")}
+          >
+            Projetos
+          </button>
+
+          <button
+            onClick={concluirOs}
+            disabled={busy || locked || isConcluding}
             className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
           >
-            Concluir
+            {isConcluding ? "Concluindo..." : "Concluir"}
           </button>
 
           <button
             onClick={() => setStatus("cancelada")}
-            disabled={busy || locked}
+            disabled={busy || locked || isConcluding}
             className="px-3 py-2 rounded-md bg-red-300 text-red-950 hover:bg-red-200 font-medium"
           >
             Cancelar
@@ -509,6 +800,7 @@ export default function OsDetailPage() {
       )}
 
       {err && <div className="text-sm text-red-400">{err}</div>}
+      {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}
 
       {/* Descrição */}
       {os?.descricao_servico && (
@@ -586,11 +878,12 @@ export default function OsDetailPage() {
           <div className="md:col-span-1 space-y-1">
             <div className="text-xs text-zinc-400">Qtd</div>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               ref={qtyRef}
               className="w-full px-3 py-2"
               value={qty}
-              onChange={(e) => setQty(Number(e.target.value))}
+              onChange={(e) => setQty(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -631,12 +924,99 @@ export default function OsDetailPage() {
           </div>
         </div>
 
-        {pick && (
-          <div className="text-sm text-zinc-300 mt-3">
-            Selecionado: <b>[{pick.codigo_interno}] {pick.nome}</b> ({pick.tipo})
+      {pick && (
+        <div className="text-sm text-zinc-300 mt-3">
+          Selecionado: <b>[{pick.codigo_interno}] {pick.nome}</b> ({pick.tipo})
+        </div>
+      )}
+    </div>
+
+      {showGestaoModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeGestaoModal();
+          }}
+        >
+          <div
+            className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="gestao-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div id="gestao-title" className="text-lg font-semibold">
+                  Gestao de Projetos e Execucao
+                </div>
+                <div className="text-sm text-zinc-400">Configure responsaveis, datas e progresso.</div>
+              </div>
+              <button
+                onClick={() => closeGestaoModal()}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="border border-zinc-800 rounded-lg px-4 py-3 bg-zinc-900/40 flex items-center justify-between flex-wrap gap-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={temGestao}
+                  onChange={(e) => setTemGestao(e.target.checked)}
+                  disabled={gestaoSaving || gestaoLoading}
+                />
+                <span>Habilitar gestao nesta OS</span>
+              </label>
+              <div className="text-xs text-zinc-400">Salve para atualizar o status da gestao.</div>
+            </div>
+
+            {gestaoErr && <div className="text-sm text-red-400">{gestaoErr}</div>}
+
+            {gestaoLoading && <div className="text-sm text-zinc-300">Carregando dados de gestao...</div>}
+
+            {!gestaoLoading && !temGestao && (
+              <div className="text-sm text-zinc-300">
+                Gestao desabilitada para esta OS. Ative o controle acima para editar os itens. Valores existentes serao mantidos.
+              </div>
+            )}
+
+            {!gestaoLoading && temGestao && (
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  <div className="text-sm font-semibold text-zinc-200">Projetos (Engenharia)</div>
+                  {gestaoDefs.filter((d) => d.grupo === "projetos").map((def) => renderGestaoRow(def))}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="text-sm font-semibold text-zinc-200">Execucoes (Campo)</div>
+                  {gestaoDefs.filter((d) => d.grupo === "execucoes").map((def) => renderGestaoRow(def))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => closeGestaoModal()}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                disabled={gestaoSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveGestao}
+                disabled={gestaoSaving || gestaoLoading}
+                className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+              >
+                {gestaoSaving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {showLookup && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -756,7 +1136,7 @@ export default function OsDetailPage() {
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoney(Number(it.preco_unitario ?? 0))}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        {typeof it.estoque_atual === "number" ? Number(it.estoque_atual).toFixed(0) : "—"}
+                        {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
                       </td>
                     </tr>
                   ))}
@@ -808,7 +1188,7 @@ export default function OsDetailPage() {
                 </td>
 
                 <td className="px-4 py-3 text-right tabular-nums">
-                  {Number(r.quantidade).toFixed(0)}
+                  {formatDecimalBR(Number(r.quantidade ?? 0), 3)}
                 </td>
 
                 <td className="px-4 py-3 text-right tabular-nums">

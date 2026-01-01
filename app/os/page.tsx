@@ -35,6 +35,7 @@ export default function OsListPage() {
   const [status, setStatus] = useState("em_andamento");
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [itensTotalPorOs, setItensTotalPorOs] = useState<Record<number, number>>({});
 
   // criacao
   const [creating, setCreating] = useState(false);
@@ -63,6 +64,7 @@ export default function OsListPage() {
 
   async function load() {
     setErr(null);
+    setItensTotalPorOs({});
 
     let q = supabase
       .from("ordens_servico")
@@ -72,8 +74,30 @@ export default function OsListPage() {
     if (status !== "todas") q = q.eq("status", status);
 
     const { data, error } = await q;
-    if (error) setErr(error.message);
-    else setRows((data ?? []) as unknown as OS[]);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+
+    const osList = (data ?? []) as unknown as OS[];
+    setRows(osList);
+
+    const osIds = osList.map((r) => r.id);
+    if (osIds.length > 0) {
+      const { data: itensData } = await supabase
+        .from("os_itens")
+        .select("os_id,valor_total")
+        .in("os_id", osIds);
+
+      const totals: Record<number, number> = {};
+      (itensData ?? []).forEach((row: any) => {
+        const osId = Number(row.os_id);
+        if (!Number.isFinite(osId)) return;
+        const prev = totals[osId] ?? 0;
+        totals[osId] = prev + Number(row.valor_total ?? 0);
+      });
+      setItensTotalPorOs(totals);
+    }
   }
 
   useEffect(() => {
@@ -237,9 +261,11 @@ export default function OsListPage() {
 
                 {(() => {
                   const pedido = Number(r.orcado ?? 0);
-                  const itensTotal = Number(r.valor_total ?? 0);
-                  const percExtra = 0.22; // 22% para material ou servico
-                  const custo = itensTotal + pedido * percExtra;
+                  const imposto = pedido * 0.22; // mesma regra usada no detalhe
+                  const itensTotal = itensTotalPorOs[r.id] ?? 0;
+                  const custoBanco = Number(r.custo ?? NaN);
+                  const custoCalculado = itensTotal + imposto;
+                  const custo = Number.isFinite(custoBanco) && custoBanco > 0 ? custoBanco : custoCalculado;
                   const alerta = pedido > 0 && custo >= pedido * 0.9;
                   const custoClass = alerta
                     ? "text-red-300 border-red-500/40"

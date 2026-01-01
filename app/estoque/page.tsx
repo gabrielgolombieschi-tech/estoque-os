@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
+import { parseDecimalBR, formatDecimalBR } from "../../lib/decimal";
 
 type EstoqueRow = {
   id: number;
@@ -67,6 +68,9 @@ export default function EstoquePage() {
   // importação XML
   const [showImport, setShowImport] = useState(false);
   const [xmlText, setXmlText] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isReading, setIsReading] = useState(false);
+  const readReqIdRef = useRef(0);
   const [nfeInfo, setNfeInfo] = useState<ParsedNfe | null>(null);
   const [parsedItens, setParsedItens] = useState<ParsedItem[]>([]);
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
@@ -74,6 +78,7 @@ export default function EstoquePage() {
   const [importErr, setImportErr] = useState<string | null>(null);
   const [importOk, setImportOk] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
+  const [cadBusy, setCadBusy] = useState(false);
   const [itemMap, setItemMap] = useState<Map<string, number>>(new Map());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -121,11 +126,11 @@ export default function EstoquePage() {
     const parser = new DOMParser();
     const doc = parser.parseFromString(raw, "application/xml");
     const num = (n: string | null | undefined) => {
-      const v = Number(n ?? 0);
+      const v = parseDecimalBR(n ?? "0");
       return Number.isFinite(v) ? v : 0;
     };
     const numOrNull = (n: string | null | undefined) => {
-      const v = Number(n ?? 0);
+      const v = parseDecimalBR(n ?? "0");
       return Number.isFinite(v) ? v : null;
     };
     const inf = doc.querySelector("infNFe");
@@ -295,15 +300,61 @@ export default function EstoquePage() {
     return data.id as number;
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function readXmlFile(file: File) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setXmlText(String(reader.result || ""));
-    reader.readAsText(file);
+
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".xml")) {
+      setImportErr("Selecione um arquivo .xml.");
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setImportErr("Arquivo muito grande. Limite de 5MB.");
+      return;
+    }
+
+    const reqId = readReqIdRef.current + 1;
+    readReqIdRef.current = reqId;
+    setIsReading(true);
+    setImportErr(null);
+    setImportOk(null);
+
+    try {
+      const text = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.readAsText(file);
+      });
+
+      if (reqId !== readReqIdRef.current) {
+        // leitura antiga, ignorar
+        return;
+      }
+
+      setXmlText(text);
+      await parseXmlAndCheck(text);
+    } catch (e: any) {
+      if (reqId === readReqIdRef.current) {
+        setImportErr(typeof e?.message === "string" ? e.message : "Erro ao ler XML.");
+      }
+    } finally {
+      if (reqId === readReqIdRef.current) {
+        setIsReading(false);
+      }
+    }
   }
 
-  async function parseXmlAndCheck() {
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    if (file) {
+      void readXmlFile(file);
+    }
+  }
+
+  async function parseXmlAndCheck(rawOverride?: string) {
     setImportErr(null);
     setImportOk(null);
     setNfeInfo(null);
@@ -311,12 +362,14 @@ export default function EstoquePage() {
     setFornecedorId(null);
     setFornecedorNome(null);
 
-    if (!xmlText.trim()) {
+    const raw = typeof rawOverride === "string" ? rawOverride : xmlText;
+
+    if (!raw.trim()) {
       setImportErr("Cole ou selecione um XML.");
       return;
     }
     try {
-      const parsed = parseXml(xmlText);
+      const parsed = parseXml(raw);
       setNfeInfo(parsed.nfe);
       setParsedItens(parsed.itens);
       await checkFornecedor(parsed.nfe.cnpjEmitente);
@@ -333,7 +386,40 @@ export default function EstoquePage() {
     }
   }
 
+  async function cadastrarFornecedorEItens() {
+    setImportErr(null);
+    setImportOk(null);
+    setCadBusy(true);
+
+    try {
+      if (!nfeInfo) throw new Error("Nenhum XML processado.");
+      if (parsedItens.length === 0) throw new Error("Nenhum item para cadastrar.");
+
+      let fornecedorFinal = fornecedorId;
+      if (!fornecedorFinal && nfeInfo.cnpjEmitente && nfeInfo.emitente) {
+        fornecedorFinal = await criarFornecedor(nfeInfo.cnpjEmitente, nfeInfo.emitente);
+      }
+
+      let map = await carregarItensPorCodigo(parsedItens.map((i) => i.codigo));
+
+      for (const it of parsedItens) {
+        if (!map.has(it.codigo)) {
+          const created = await criarItemRapido(it, fornecedorFinal ?? null, nfeInfo.dataEmissao ?? null);
+          if (created) map.set(it.codigo, created);
+        }
+      }
+
+      setItemMap(map);
+      setImportOk("Fornecedor e itens cadastrados.");
+    } catch (e: any) {
+      setImportErr(typeof e?.message === "string" ? e.message : "Erro ao cadastrar.");
+    } finally {
+      setCadBusy(false);
+    }
+  }
+
   async function importarNfe() {
+    if (isReading || importBusy) return;
     setImportErr(null);
     setImportOk(null);
     setImportBusy(true);
@@ -411,7 +497,7 @@ export default function EstoquePage() {
         await supabase.from("movimentacoes").insert({
           item_id: itemId,
           tipo: "entrada",
-          quantidade: Math.trunc(it.quantidade),
+          quantidade: Number(it.quantidade),
           motivo: `NF ${nfeInfo.numero ?? ""}/${nfeInfo.serie ?? ""} chave ${nfeInfo.chave ?? ""} emitente ${
             nfeInfo.emitente ?? ""
           }`,
@@ -421,8 +507,11 @@ export default function EstoquePage() {
       }
 
       setItemMap(map);
-      setImportOk("ImportaÇõÇœo concluÇðda.");
+      setImportOk("Importação concluída.");
+      setOk("Importação concluída.");
       await load();
+      setShowImport(false);
+
     } catch (e: any) {
       setImportErr(typeof e?.message === "string" ? e.message : "Erro ao importar.");
     } finally {
@@ -449,13 +538,13 @@ export default function EstoquePage() {
 
     if (!ajusteItemId) return setErr("Selecione um item para ajustar.");
     if (!Number.isFinite(ajusteQuantidade)) return setErr("Quantidade inválida.");
-    const novoSaldo = Math.trunc(ajusteQuantidade);
+    const novoSaldo = Number(ajusteQuantidade);
 
     setBusy(true);
 
     // precisamos do saldo atual pra gerar ajuste como diferença (entrada/saida)
     const atualRow = rows.find((r) => r.item_id === ajusteItemId);
-    const saldoAtual = Math.trunc(Number(atualRow?.quantidade_atual ?? 0));
+    const saldoAtual = Number(atualRow?.quantidade_atual ?? 0);
     const diff = novoSaldo - saldoAtual;
 
     if (diff === 0) {
@@ -569,11 +658,11 @@ export default function EstoquePage() {
 
       {showImport && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-3">
-            <div className="flex items-center justify-between gap-2">
+          <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-800 shrink-0">
               <div>
                 <div className="text-lg font-semibold">Importar NF-e (XML)</div>
-                <div className="text-sm text-zinc-400">Fornecedor por CNPJ, itens por código do produto.</div>
+                <div className="text-sm text-zinc-400">Fornecedor por CNPJ, itens por codigo do produto.</div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -584,7 +673,7 @@ export default function EstoquePage() {
                 </button>
                 <button
                   onClick={importarNfe}
-                  disabled={importBusy || parsedItens.length === 0}
+                  disabled={isReading || importBusy || parsedItens.length === 0}
                   className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
                 >
                   {importBusy ? "Importando..." : "Importar"}
@@ -592,145 +681,172 @@ export default function EstoquePage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex gap-2 items-center">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xml"
-                  onChange={handleFile}
-                  className="text-sm text-zinc-200"
-                />
-                <button
-                  onClick={parseXmlAndCheck}
-                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                  disabled={importBusy}
-                >
-                  Ler XML
-                </button>
-              </div>
-              <textarea
-                className="w-full px-3 py-2 min-h-[120px] bg-zinc-900 border border-zinc-700 rounded-lg text-sm"
-                placeholder="Cole o XML aqui"
-                value={xmlText}
-                onChange={(e) => setXmlText(e.target.value)}
-              />
-            </div>
-
-            {nfeInfo && (
-              <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-1">
-                <div className="font-semibold text-zinc-100">NF-e</div>
-                <div>Chave: {nfeInfo.chave ?? "?"}</div>
-                <div>Número/Série: {nfeInfo.numero ?? "?"}/{nfeInfo.serie ?? "?"}</div>
-                <div>Emitente: {nfeInfo.emitente ?? "?"} {nfeInfo.cnpjEmitente ? `(CNPJ ${nfeInfo.cnpjEmitente})` : ""}</div>
-                <div>Data emissão: {nfeInfo.dataEmissao ?? "?"}</div>
-              </div>
-            )}
-
-            <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-zinc-100">Fornecedor</div>
-                  <div className="text-xs text-zinc-400">Valida por CNPJ</div>
-                </div>
-                {nfeInfo?.cnpjEmitente && !fornecedorId && (
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div className="space-y-2">
+                <div className="flex gap-2 items-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xml"
+                    onChange={handleFile}
+                    className="text-sm text-zinc-200"
+                    disabled={isReading || importBusy}
+                  />
                   <button
-                    onClick={() => criarFornecedor(nfeInfo.cnpjEmitente!, nfeInfo.emitente ?? "Fornecedor NF")}
-                    disabled={importBusy}
-                    className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                    onClick={() => parseXmlAndCheck()}
+                    className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                    disabled={isReading || (!selectedFile && !xmlText) || importBusy}
                   >
-                    Cadastrar fornecedor
+                    {isReading ? "Lendo..." : "Ler XML"}
                   </button>
-                )}
+                </div>
+                <textarea
+                  className="w-full px-3 py-2 min-h-[120px] bg-zinc-900 border border-zinc-700 rounded-lg text-sm"
+                  placeholder="Cole o XML aqui"
+                  value={xmlText}
+                  onChange={(e) => setXmlText(e.target.value)}
+                />
               </div>
-              {nfeInfo?.cnpjEmitente && (
-                <div className="text-sm">
-                  CNPJ: {nfeInfo.cnpjEmitente} {fornecedorNome ? `• Encontrado: ${fornecedorNome}` : "• Não cadastrado"}
+
+              {nfeInfo && (
+                <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-1">
+                  <div className="font-semibold text-zinc-100">NF-e</div>
+                  <div>Chave: {nfeInfo.chave ?? "?"}</div>
+                  <div>Numero/Serie: {nfeInfo.numero ?? "?"}/{nfeInfo.serie ?? "?"}</div>
+                  <div>Emitente: {nfeInfo.emitente ?? "?"} {nfeInfo.cnpjEmitente ? `(CNPJ ${nfeInfo.cnpjEmitente})` : ""}</div>
+                  <div>Data emissao: {nfeInfo.dataEmissao ?? "?"}</div>
                 </div>
               )}
+
+              <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-zinc-100">Fornecedor</div>
+                    <div className="text-xs text-zinc-400">Valida por CNPJ</div>
+                  </div>
+                  {nfeInfo?.cnpjEmitente && !fornecedorId && (
+                    <button
+                      onClick={() => criarFornecedor(nfeInfo.cnpjEmitente!, nfeInfo.emitente ?? "Fornecedor NF")}
+                      disabled={importBusy}
+                      className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                    >
+                      Cadastrar fornecedor
+                    </button>
+                  )}
+                </div>
+                {nfeInfo?.cnpjEmitente && (
+                  <div className="text-sm">
+                    CNPJ: {nfeInfo.cnpjEmitente} {fornecedorNome ? `Encontrado: ${fornecedorNome}` : "Nao cadastrado"}
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-zinc-100">Itens da NF</div>
+                  <div className="text-xs text-zinc-400">Confirme codigos e cadastre os faltantes.</div>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="max-h-[55vh] overflow-auto rounded-lg border border-zinc-800">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-900/60 text-zinc-200 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Codigo</th>
+                          <th className="px-3 py-2 text-left">Descricao NF</th>
+                          <th className="px-3 py-2 text-right">Qtd</th>
+                          <th className="px-3 py-2 text-right">V.Unit</th>
+                          <th className="px-3 py-2 text-right">Total</th>
+                          <th className="px-3 py-2 text-center">Status</th>
+                          <th className="px-3 py-2 text-center">Acoes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {parsedItens.map((it) => {
+                          const foundId = itemMap.get(it.codigo);
+                          return (
+                            <tr key={it.codigo} className="hover:bg-zinc-900/40">
+                              <td className="px-3 py-2 font-medium">{it.codigo}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded"
+                                  value={it.overrideNome ?? it.nome}
+                                  onChange={(e) =>
+                                    setParsedItens((prev) =>
+                                      prev.map((p) =>
+                                        p.codigo === it.codigo ? { ...p, overrideNome: e.target.value } : p
+                                      )
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(it.quantidade, 3)}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">R$ {it.valorUnit.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">R$ {it.total.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-center">
+                                {foundId ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 text-xs">
+                                    Cadastrado (id {foundId})
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-md border border-amber-500/40 text-amber-300 text-xs">
+                                    Nao encontrado
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {!foundId && (
+                                  <button
+                                    onClick={() => criarItemRapido(it)}
+                                    className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
+                                  >
+                                    Cadastrar item
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {parsedItens.length === 0 && (
+                          <tr>
+                            <td colSpan={8} className="px-3 py-4 text-zinc-400 text-center">
+                              Nenhum item lido ainda.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {importErr && <div className="text-sm text-red-400">{importErr}</div>}
+                {importOk && <div className="text-sm text-emerald-300">{importOk}</div>}
+              </div>
             </div>
 
-            <div className="border border-zinc-800 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="font-semibold text-zinc-100">Itens da NF</div>
-                <div className="text-xs text-zinc-400">Confirme códigos e cadastre os faltantes.</div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-zinc-900/60 text-zinc-200">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Código</th>
-                      <th className="px-3 py-2 text-left">Descrição NF</th>
-                      <th className="px-3 py-2 text-right">Qtd</th>
-                      <th className="px-3 py-2 text-right">V.Unit</th>
-                      <th className="px-3 py-2 text-right">Total</th>
-                      <th className="px-3 py-2 text-center">Status</th>
-                      <th className="px-3 py-2 text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800">
-                    {parsedItens.map((it) => {
-                      const foundId = itemMap.get(it.codigo);
-                      return (
-                        <tr key={it.codigo} className="hover:bg-zinc-900/40">
-                          <td className="px-3 py-2 font-medium">{it.codigo}</td>
-                          <td className="px-3 py-2">
-                            <input
-                              className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded"
-                              value={it.overrideNome ?? it.nome}
-                              onChange={(e) =>
-                                setParsedItens((prev) =>
-                                  prev.map((p) =>
-                                    p.codigo === it.codigo ? { ...p, overrideNome: e.target.value } : p
-                                  )
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{it.quantidade}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">R$ {it.valorUnit.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">R$ {it.total.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-center">
-                            {foundId ? (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 text-xs">
-                                Cadastrado (id {foundId})
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md border border-amber-500/40 text-amber-300 text-xs">
-                                Não encontrado
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {!foundId && (
-                              <button
-                                onClick={() => criarItemRapido(it)}
-                                className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
-                              >
-                                Cadastrar item
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {parsedItens.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="px-3 py-4 text-zinc-400 text-center">
-                          Nenhum item lido ainda.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {importErr && <div className="text-sm text-red-400 mt-3">{importErr}</div>}
-              {importOk && <div className="text-sm text-emerald-300 mt-3">{importOk}</div>}
+            <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 sticky bottom-0 shrink-0 flex justify-end gap-2">
+              <button
+                onClick={() => setShowImport(false)}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Fechar
+              </button>
+              <button
+                onClick={cadastrarFornecedorEItens}
+                disabled={cadBusy || importBusy || isReading || parsedItens.length === 0}
+                className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
+              >
+                {cadBusy ? "Cadastrando..." : "Cadastrar fornecedor e itens"}
+              </button>
+              <button
+                onClick={importarNfe}
+                disabled={isReading || importBusy || parsedItens.length === 0}
+                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+              >
+                {importBusy ? "Importando..." : "Importar"}
+              </button>
             </div>
           </div>
         </div>
       )}
-
       {/* Ajuste rÇ­pido */}
 
       {/* Ajuste rápido */}
@@ -754,10 +870,12 @@ export default function EstoquePage() {
           <div className="md:col-span-2 space-y-1">
             <div className="text-xs text-zinc-400">Novo saldo desejado</div>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
+              step="0.001"
               className="w-full px-3 py-2"
               value={ajusteQuantidade}
-              onChange={(e) => setAjusteQuantidade(Number(e.target.value))}
+              onChange={(e) => setAjusteQuantidade(parseDecimalBR(e.target.value) || 0)}
               disabled={!ajusteItemId}
             />
           </div>
@@ -818,10 +936,10 @@ export default function EstoquePage() {
                       {r.itens?.unidade_medida ?? "UN"} • {abaixo ? "Abaixo do mínimo" : "OK"}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{saldo}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{min}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{ideal}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{max}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(saldo, 3)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(min, 3)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(ideal, 3)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(max, 3)}</td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => startAjuste(r.item_id, saldo)}
