@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Area = "eletrico" | "mecanico" | "seguranca" | "software";
 
@@ -16,6 +17,7 @@ type DashRow = {
   numero_os: string;
   cliente_nome: string;
   descricao_servico: string | null;
+  status: "aberta" | "em_andamento" | "concluida" | "cancelada" | null;
 };
 
 type Props = {
@@ -37,6 +39,16 @@ export default function ProjetosDashboard({ initialRows }: Props) {
   const areaOrder: Area[] = ["eletrico", "seguranca", "mecanico", "software"];
   const [areaIndex, setAreaIndex] = useState(0);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const [rows, setRows] = useState<DashRow[]>(initialRows);
+  const [selected, setSelected] = useState<DashRow | null>(null);
+  const [progressValue, setProgressValue] = useState<string>("0");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
 
   const today = useMemo(() => {
     const d = new Date();
@@ -53,10 +65,7 @@ export default function ProjetosDashboard({ initialRows }: Props) {
 
   const areaAtual = areaOrder[areaIndex % areaOrder.length];
 
-  const rowsBase = useMemo(
-    () => initialRows.filter((r) => r.habilitado && r.area === areaAtual && r.item_tipo === "projeto"),
-    [areaAtual, initialRows]
-  );
+  const rowsBase = useMemo(() => rows.filter((r) => r.habilitado && r.area === areaAtual && r.item_tipo === "projeto"), [areaAtual, rows]);
 
   const anoVigente = today.getFullYear();
 
@@ -106,6 +115,63 @@ export default function ProjetosDashboard({ initialRows }: Props) {
     software: "Software",
   };
 
+  const statusLabel: Record<NonNullable<DashRow["status"]>, string> = {
+    aberta: "Aberta",
+    em_andamento: "Em andamento",
+    concluida: "Concluida",
+    cancelada: "Cancelada",
+  };
+
+  const statusChip: Record<NonNullable<DashRow["status"]>, string> = {
+    aberta: "bg-zinc-800 text-zinc-200",
+    em_andamento: "bg-amber-500/20 text-amber-200",
+    concluida: "bg-emerald-500/20 text-emerald-200",
+    cancelada: "bg-red-500/20 text-red-200",
+  };
+
+  const handleRowClick = (row: DashRow) => {
+    setSelected(row);
+    setProgressValue(String(Math.max(0, Math.min(100, Math.trunc(Number(row.progresso_percent ?? 0))))));
+    setSaveError(null);
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+    setSelected(null);
+    setSaveError(null);
+  };
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    setSaveError(null);
+
+    const progressNum = Math.max(0, Math.min(100, Math.trunc(Number(progressValue))));
+
+    const { error } = await supabase
+      .from("os_gestao_itens")
+      .update({ progresso_percent: progressNum })
+      .eq("os_id", selected.os_id)
+      .eq("item_tipo", selected.item_tipo)
+      .eq("area", selected.area);
+
+    setSaving(false);
+
+    if (error) {
+      setSaveError(error.message);
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((r) =>
+        r.os_id === selected.os_id && r.area === selected.area && r.item_tipo === selected.item_tipo
+          ? { ...r, progresso_percent: progressNum }
+          : r
+      )
+    );
+    setSelected(null);
+  };
+
   return (
     <div className="space-y-5">
       <header className="bg-blue-700 text-white rounded-xl shadow-md">
@@ -139,7 +205,7 @@ export default function ProjetosDashboard({ initialRows }: Props) {
                 <Th onClick={toggleSort} className="cursor-pointer select-none">
                   Data de entrega {sortDir === "asc" ? "(asc)" : "(desc)"}
                 </Th>
-                <Th className="text-right pr-4">Status</Th>
+                <Th className="text-right pr-4">Progresso</Th>
               </tr>
             </thead>
             <tbody>
@@ -151,7 +217,11 @@ export default function ProjetosDashboard({ initialRows }: Props) {
                     ? new Date(r.data_prevista).toLocaleDateString("pt-BR")
                     : "-";
                 return (
-                  <tr key={`${r.os_id}-${r.area}-${r.item_tipo}-${idx}`} className={idx % 2 === 0 ? "bg-zinc-900/40" : ""}>
+                  <tr
+                    key={`${r.os_id}-${r.area}-${r.item_tipo}-${idx}`}
+                    className={`${idx % 2 === 0 ? "bg-zinc-900/40" : ""} hover:bg-zinc-900/70 cursor-pointer`}
+                    onClick={() => handleRowClick(r)}
+                  >
                     <Td>{r.numero_os}</Td>
                     <Td>{r.cliente_nome}</Td>
                     <Td>{r.descricao_servico || "Sem descricao"}</Td>
@@ -173,6 +243,76 @@ export default function ProjetosDashboard({ initialRows }: Props) {
           </table>
         </div>
       </div>
+
+      {selected && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <div
+            className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold text-zinc-100">Atualizar status da OS {selected.numero_os}</div>
+                <div className="text-sm text-zinc-400">
+                  {selected.cliente_nome} • {selected.area.toUpperCase()}
+                </div>
+              </div>
+              <button
+                onClick={closeModal}
+                className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                disabled={saving}
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div>
+                <div className="text-zinc-400 uppercase text-[11px]">Descrição</div>
+                <div className="text-zinc-100 whitespace-pre-wrap">{selected.descricao_servico || "Sem descrição"}</div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-zinc-400 uppercase text-[11px]">Status - {selected.area.toUpperCase()}</div>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={progressValue}
+                  onChange={(e) => setProgressValue(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100"
+                  placeholder="0 a 100%"
+                />
+              </div>
+
+              {saveError && <div className="text-sm text-red-400">{saveError}</div>}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={closeModal}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+              >
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
