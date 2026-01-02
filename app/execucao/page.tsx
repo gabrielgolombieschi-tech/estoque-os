@@ -14,6 +14,7 @@ type DashRow = {
   numero_os: string;
   cliente_nome: string;
   descricao_servico: string | null;
+  status: "aberta" | "em_andamento" | "concluida" | "cancelada" | null;
 };
 
 export default async function ExecucaoPage() {
@@ -30,7 +31,7 @@ export default async function ExecucaoPage() {
         responsavel_id,
         data_prevista,
         progresso_percent,
-        ordens_servico (id, numero_os, cliente_nome, descricao_servico)
+        ordens_servico (id, numero_os, cliente_nome, descricao_servico, status)
       `
     )
     .eq("habilitado", true)
@@ -53,6 +54,7 @@ export default async function ExecucaoPage() {
         numero_os: row.ordens_servico?.numero_os ?? String(row.os_id),
         cliente_nome: row.ordens_servico?.cliente_nome ?? "-",
         descricao_servico: row.ordens_servico?.descricao_servico ?? null,
+        status: (row.ordens_servico?.status as any) ?? null,
       }))
       .filter((r) => !!r.data_prevista && (r.area === "eletrico" || r.area === "mecanico"));
 

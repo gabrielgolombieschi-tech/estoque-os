@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Area = "eletrico" | "mecanico";
 
@@ -16,6 +17,7 @@ type DashRow = {
   numero_os: string;
   cliente_nome: string;
   descricao_servico: string | null;
+  status: "aberta" | "em_andamento" | "concluida" | "cancelada" | null;
 };
 
 type Props = {
@@ -37,6 +39,16 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
   const areaOrder: Area[] = ["eletrico", "mecanico"];
   const [areaIndex, setAreaIndex] = useState(0);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const [rows, setRows] = useState<DashRow[]>(initialRows);
+  const [selected, setSelected] = useState<DashRow | null>(null);
+  const [progressValue, setProgressValue] = useState<string>("0");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
 
   const today = useMemo(() => {
     const d = new Date();
@@ -54,11 +66,9 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
   const areaAtual = areaOrder[areaIndex % areaOrder.length];
 
   const rowsBase = useMemo(() => {
-    const base = initialRows.filter(
-      (r) => r.habilitado && r.item_tipo === "execucao" && r.area === areaAtual
-    );
+    const base = rows.filter((r) => r.habilitado && r.item_tipo === "execucao" && r.area === areaAtual);
     return base;
-  }, [areaAtual, initialRows]);
+  }, [areaAtual, rows]);
 
   const anoVigente = today.getFullYear();
 
@@ -103,15 +113,58 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
   const toggleSort = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
 
   useEffect(() => {
-    console.log("execucao total rows", initialRows.length);
+    console.log("execucao total rows", rows.length);
     console.log("execucao rowsBase (habilitado/item_tipo/area)", rowsBase.length);
     console.log("execucao table rows (<100)", tableRows.length);
-    console.log("has49", initialRows.find((r) => r.os_id === 49));
-  }, [initialRows, rowsBase.length, tableRows.length]);
+    console.log("has49", rows.find((r) => r.os_id === 49));
+  }, [rows, rowsBase.length, tableRows.length]);
 
   const areaLabel: Record<Area, string> = {
     eletrico: "Execucao Eletrica",
     mecanico: "Execucao Mecanica",
+  };
+
+  const handleRowClick = (row: DashRow) => {
+    setSelected(row);
+    setProgressValue(String(Math.max(0, Math.min(100, Math.trunc(Number(row.progresso_percent ?? 0))))));
+    setSaveError(null);
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+    setSelected(null);
+    setSaveError(null);
+  };
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    setSaveError(null);
+
+    const progressNum = Math.max(0, Math.min(100, Math.trunc(Number(progressValue))));
+
+    const { error } = await supabase
+      .from("os_gestao_itens")
+      .update({ progresso_percent: progressNum })
+      .eq("os_id", selected.os_id)
+      .eq("item_tipo", selected.item_tipo)
+      .eq("area", selected.area);
+
+    setSaving(false);
+
+    if (error) {
+      setSaveError(error.message);
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((r) =>
+        r.os_id === selected.os_id && r.area === selected.area && r.item_tipo === selected.item_tipo
+          ? { ...r, progresso_percent: progressNum }
+          : r
+      )
+    );
+    setSelected(null);
   };
 
   return (
@@ -147,7 +200,7 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
                 <Th onClick={toggleSort} className="cursor-pointer select-none">
                   Data de entrega {sortDir === "asc" ? "(asc)" : "(desc)"}
                 </Th>
-                <Th className="text-right pr-4">Status</Th>
+                <Th className="text-right pr-4">Progresso</Th>
               </tr>
             </thead>
             <tbody>
@@ -155,7 +208,11 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
                 const overdue = isOverdue(r, today);
                 const dateBg = overdue ? "bg-red-900/70 text-red-100" : "bg-emerald-900/50 text-emerald-100";
                 return (
-                  <tr key={`${r.os_id}-${r.area}-${idx}`} className={idx % 2 === 0 ? "bg-zinc-900/40" : ""}>
+                  <tr
+                    key={`${r.os_id}-${r.area}-${idx}`}
+                    className={`${idx % 2 === 0 ? "bg-zinc-900/40" : ""} hover:bg-zinc-900/70 cursor-pointer`}
+                    onClick={() => handleRowClick(r)}
+                  >
                     <Td>{r.numero_os}</Td>
                     <Td>{r.cliente_nome}</Td>
                     <Td>{r.descricao_servico || "Sem descricao"}</Td>
@@ -179,6 +236,76 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
           </table>
         </div>
       </div>
+
+      {selected && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <div
+            className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold text-zinc-100">Atualizar status da OS {selected.numero_os}</div>
+              <div className="text-sm text-zinc-400">
+                {selected.cliente_nome} • {selected.area.toUpperCase()}
+              </div>
+            </div>
+            <button
+              onClick={closeModal}
+              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              disabled={saving}
+            >
+              Fechar
+            </button>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            <div>
+              <div className="text-zinc-400 uppercase text-[11px]">Descrição</div>
+              <div className="text-zinc-100 whitespace-pre-wrap">{selected.descricao_servico || "Sem descrição"}</div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-zinc-400 uppercase text-[11px]">Status - {selected.area.toUpperCase()}</div>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={progressValue}
+                onChange={(e) => setProgressValue(e.target.value)}
+                disabled={saving}
+                className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100"
+                placeholder="0 a 100%"
+              />
+            </div>
+
+            {saveError && <div className="text-sm text-red-400">{saveError}</div>}
+          </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={closeModal}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+              >
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

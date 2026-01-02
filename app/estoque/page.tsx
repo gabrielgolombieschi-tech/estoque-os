@@ -658,7 +658,7 @@ export default function EstoquePage() {
 
       {showImport && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-6xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-800 shrink-0">
               <div>
                 <div className="text-lg font-semibold">Importar NF-e (XML)</div>
@@ -766,19 +766,19 @@ export default function EstoquePage() {
                           return (
                             <tr key={it.codigo} className="hover:bg-zinc-900/40">
                               <td className="px-3 py-2 font-medium">{it.codigo}</td>
-                              <td className="px-3 py-2">
-                                <input
-                                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded"
-                                  value={it.overrideNome ?? it.nome}
-                                  onChange={(e) =>
-                                    setParsedItens((prev) =>
-                                      prev.map((p) =>
-                                        p.codigo === it.codigo ? { ...p, overrideNome: e.target.value } : p
-                                      )
-                                    )
-                                  }
-                                />
-                              </td>
+                          <td className="px-3 py-2 align-top">
+                            <textarea
+                              className="w-full px-2 py-2 bg-zinc-900 border border-zinc-700 rounded min-h-[64px] text-sm leading-snug"
+                              value={it.overrideNome ?? it.nome}
+                              onChange={(e) =>
+                                setParsedItens((prev) =>
+                                  prev.map((p) =>
+                                    p.codigo === it.codigo ? { ...p, overrideNome: e.target.value } : p
+                                  )
+                                )
+                              }
+                            />
+                          </td>
                               <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(it.quantidade, 3)}</td>
                               <td className="px-3 py-2 text-right tabular-nums">R$ {it.valorUnit.toFixed(2)}</td>
                               <td className="px-3 py-2 text-right tabular-nums">R$ {it.total.toFixed(2)}</td>

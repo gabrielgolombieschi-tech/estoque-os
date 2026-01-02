@@ -307,7 +307,7 @@ export default function ItensPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto pb-10">
+    <div className="space-y-5 w-full pb-10">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">Itens</h1>
@@ -386,6 +386,7 @@ export default function ItensPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-900/70">
               <tr className="text-zinc-200">
+                <th className="px-4 py-3 text-left w-16">ID</th>
                 <th className="px-4 py-3 text-left">Codigo</th>
                 <th className="px-4 py-3 text-left min-w-[220px]">Nome</th>
                 <th className="px-4 py-3 text-left">Tipo</th>
@@ -399,6 +400,7 @@ export default function ItensPage() {
             <tbody className="divide-y divide-zinc-800">
               {rows.map((r) => (
                 <tr key={r.id} className="hover:bg-zinc-900/40">
+                  <td className="px-4 py-3 font-medium whitespace-nowrap text-zinc-400 tabular-nums">{r.id}</td>
                   <td className="px-4 py-3 font-medium whitespace-nowrap">{r.codigo_interno}</td>
                   <td className="px-4 py-3 align-top">
                     <div className="font-medium">{r.nome}</div>
