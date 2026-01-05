@@ -117,6 +117,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       <a href="/baixa_os" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
                         Apontamentos
                       </a>
+                      <a href="/baixa_os_cel" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
+                        Apontamento Celular
+                      </a>
                       <a href="/execucao" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
                         Painel Execução
                       </a>

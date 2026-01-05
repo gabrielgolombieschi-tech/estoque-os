@@ -29,6 +29,7 @@ type Item = {
 
   fornecedor_id: number | null;
   fornecedores?: { nome: string | null } | null;
+  fiscal_itens?: FiscalItem | null;
 
   ativo: boolean;
   criado_em: string;
@@ -63,6 +64,41 @@ type ItemForm = {
   ativo: boolean;
 };
 
+type FiscalItem = {
+  item_id: number;
+  ncm: string | null;
+  cst_icms: string | null;
+  cst_ipi: string | null;
+  cst_pis: string | null;
+  cst_cofins: string | null;
+  aliquota_icms: number | null;
+  aliquota_ipi: number | null;
+  aliquota_pis: number | null;
+  aliquota_cofins: number | null;
+  credita_icms: boolean;
+  credita_ipi: boolean;
+  ipi_entra_no_custo: boolean;
+  credita_pis: boolean;
+  credita_cofins: boolean;
+};
+
+type FiscalForm = {
+  ncm: string;
+  cst_icms: string;
+  cst_ipi: string;
+  cst_pis: string;
+  cst_cofins: string;
+  aliquota_icms: number | null;
+  aliquota_ipi: number | null;
+  aliquota_pis: number | null;
+  aliquota_cofins: number | null;
+  credita_icms: boolean;
+  credita_ipi: boolean;
+  ipi_entra_no_custo: boolean;
+  credita_pis: boolean;
+  credita_cofins: boolean;
+};
+
 function money(n: number | null | undefined) {
   const v = Number(n ?? 0);
   return `R$ ${v.toFixed(2)}`;
@@ -90,6 +126,25 @@ function emptyForm(): ItemForm {
   };
 }
 
+function emptyFiscalForm(): FiscalForm {
+  return {
+    ncm: "",
+    cst_icms: "",
+    cst_ipi: "",
+    cst_pis: "",
+    cst_cofins: "",
+    aliquota_icms: null,
+    aliquota_ipi: null,
+    aliquota_pis: null,
+    aliquota_cofins: null,
+    credita_icms: false,
+    credita_ipi: false,
+    ipi_entra_no_custo: true,
+    credita_pis: false,
+    credita_cofins: false,
+  };
+}
+
 export default function ItensPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
 
@@ -99,6 +154,7 @@ export default function ItensPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<"geral" | "fiscal">("geral");
 
   // filtros
   const [q, setQ] = useState("");
@@ -107,6 +163,7 @@ export default function ItensPage() {
 
   // form (criar/editar)
   const [form, setForm] = useState<ItemForm>(emptyForm());
+  const [fiscalForm, setFiscalForm] = useState<FiscalForm>(emptyFiscalForm());
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function loadFornecedores() {
@@ -126,7 +183,7 @@ export default function ItensPage() {
     let query = supabase
       .from("itens")
       .select(
-        "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores(nome),ativo,criado_em,atualizado_em"
+        "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores(nome),fiscal_itens(ncm,cst_icms,cst_ipi,cst_pis,cst_cofins,aliquota_icms,aliquota_ipi,aliquota_pis,aliquota_cofins,credita_icms,credita_ipi,ipi_entra_no_custo,credita_pis,credita_cofins),ativo,criado_em,atualizado_em"
       )
       .order("id", { ascending: false })
       .limit(300);
@@ -159,6 +216,8 @@ export default function ItensPage() {
     setErr(null);
     setEditingId(null);
     setForm(emptyForm());
+    setFiscalForm(emptyFiscalForm());
+    setActiveTab("geral");
     setShowForm(true);
   }
 
@@ -188,12 +247,56 @@ export default function ItensPage() {
       fornecedor_id: r.fornecedor_id ?? null,
       ativo: !!r.ativo,
     });
+    const fiscal = r.fiscal_itens;
+    setFiscalForm({
+      ncm: fiscal?.ncm ?? "",
+      cst_icms: fiscal?.cst_icms ?? "",
+      cst_ipi: fiscal?.cst_ipi ?? "",
+      cst_pis: fiscal?.cst_pis ?? "",
+      cst_cofins: fiscal?.cst_cofins ?? "",
+      aliquota_icms: fiscal?.aliquota_icms ?? null,
+      aliquota_ipi: fiscal?.aliquota_ipi ?? null,
+      aliquota_pis: fiscal?.aliquota_pis ?? null,
+      aliquota_cofins: fiscal?.aliquota_cofins ?? null,
+      credita_icms: !!fiscal?.credita_icms,
+      credita_ipi: !!fiscal?.credita_ipi,
+      ipi_entra_no_custo: fiscal?.ipi_entra_no_custo ?? true,
+      credita_pis: !!fiscal?.credita_pis,
+      credita_cofins: !!fiscal?.credita_cofins,
+    });
+    setActiveTab("geral");
   }
 
   function closeForm() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm());
+    setFiscalForm(emptyFiscalForm());
+    setActiveTab("geral");
+  }
+
+  async function saveFiscal(itemId: number) {
+    const numOrNull = (v: number | null | undefined) => (Number.isFinite(v as number) ? Number(v) : null);
+    const payload: any = {
+      item_id: itemId,
+      ncm: fiscalForm.ncm.trim() || null,
+      cst_icms: fiscalForm.cst_icms.trim() || null,
+      cst_ipi: fiscalForm.cst_ipi.trim() || null,
+      cst_pis: fiscalForm.cst_pis.trim() || null,
+      cst_cofins: fiscalForm.cst_cofins.trim() || null,
+      aliquota_icms: numOrNull(fiscalForm.aliquota_icms),
+      aliquota_ipi: numOrNull(fiscalForm.aliquota_ipi),
+      aliquota_pis: numOrNull(fiscalForm.aliquota_pis),
+      aliquota_cofins: numOrNull(fiscalForm.aliquota_cofins),
+      credita_icms: !!fiscalForm.credita_icms,
+      credita_ipi: !!fiscalForm.credita_ipi,
+      ipi_entra_no_custo: fiscalForm.ipi_entra_no_custo,
+      credita_pis: !!fiscalForm.credita_pis,
+      credita_cofins: !!fiscalForm.credita_cofins,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("fiscal_itens").upsert(payload, { onConflict: "item_id" });
+    return error;
   }
 
   async function save() {
@@ -241,6 +344,7 @@ export default function ItensPage() {
     }
 
     let error: any = null;
+    let itemId: number | null = editingId ?? null;
 
     if (editingId) {
       const res = await supabase.from("itens").update(payload).eq("id", editingId);
@@ -256,6 +360,7 @@ export default function ItensPage() {
         .single();
 
       error = res.error;
+      itemId = res.data?.id ?? null;
 
       if (!error && res.data?.id && isProduto) {
         await supabase.from("estoque").insert({
@@ -271,11 +376,25 @@ export default function ItensPage() {
     if (error) {
       const msg = String(error.message || "");
       if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
+        setBusy(false);
         return setErr("Codigo interno ou codigo de barras ja existe. Ajuste e tente novamente.");
       }
+      setBusy(false);
       return setErr(msg);
     }
 
+    if (!itemId) {
+      setBusy(false);
+      return setErr("Falha ao salvar: id do item nao retornado.");
+    }
+
+    const fiscalError = await saveFiscal(itemId);
+    if (fiscalError) {
+      setBusy(false);
+      return setErr(fiscalError.message);
+    }
+
+    setBusy(false);
     setOk(editingId ? "Item atualizado!" : "Item criado!");
     await load();
     closeForm();
@@ -462,160 +581,287 @@ export default function ItensPage() {
             </div>
 
             <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Codigo interno *</div>
-                  <input className="w-full px-3 py-2" value={form.codigo_interno} onChange={(e) => setForm((s) => ({ ...s, codigo_interno: e.target.value }))} />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Codigo de barras</div>
-                  <input className="w-full px-3 py-2" value={form.codigo_barras} onChange={(e) => setForm((s) => ({ ...s, codigo_barras: e.target.value }))} />
-                </div>
-
-                <div className="md:col-span-2 space-y-1">
-                  <div className="text-xs text-zinc-400">Nome *</div>
-                  <input className="w-full px-3 py-2" value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} />
-                </div>
-
-                <div className="md:col-span-2 space-y-1">
-                  <div className="text-xs text-zinc-400">Fornecedor</div>
-                  <select
-                    className="w-full px-3 py-2"
-                    value={form.fornecedor_id ?? ""}
-                    onChange={(e) => setForm((s) => ({ ...s, fornecedor_id: e.target.value ? Number(e.target.value) : null }))}
-                  >
-                    <option value="">--</option>
-                    {fornecedores.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="md:col-span-2 space-y-1">
-                  <div className="text-xs text-zinc-400">Descricao</div>
-                  <textarea className="w-full px-3 py-2 min-h-[70px]" value={form.descricao} onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))} />
-                </div>
+              <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+                <button
+                  className={`px-3 py-1.5 rounded-md text-sm ${activeTab === "geral" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
+                  onClick={() => setActiveTab("geral")}
+                >
+                  Dados gerais
+                </button>
+                <button
+                  className={`px-3 py-1.5 rounded-md text-sm ${activeTab === "fiscal" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
+                  onClick={() => setActiveTab("fiscal")}
+                >
+                  Fiscal
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Tipo *</div>
-                  <select
-                    className="w-full px-3 py-2"
-                    value={form.tipo}
-                    onChange={(e) =>
-                      setForm((s) => {
-                        const t = e.target.value as ItemForm["tipo"];
-                        return { ...s, tipo: t, controla_estoque: t === "produto" ? s.controla_estoque : false };
-                      })
-                    }
-                  >
-                    <option value="produto">Produto</option>
-                    <option value="servico">Servico</option>
-                    <option value="despesa">Despesa</option>
-                  </select>
-                </div>
+              {activeTab === "geral" ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Codigo interno *</div>
+                      <input className="w-full px-3 py-2" value={form.codigo_interno} onChange={(e) => setForm((s) => ({ ...s, codigo_interno: e.target.value }))} />
+                    </div>
 
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Unidade</div>
-                  <input className="w-full px-3 py-2" value={form.unidade_medida} onChange={(e) => setForm((s) => ({ ...s, unidade_medida: e.target.value }))} placeholder="UN, KG, LT..." />
-                </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Codigo de barras</div>
+                      <input className="w-full px-3 py-2" value={form.codigo_barras} onChange={(e) => setForm((s) => ({ ...s, codigo_barras: e.target.value }))} />
+                    </div>
 
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Categoria</div>
-                  <input className="w-full px-3 py-2" value={form.categoria} onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))} />
-                </div>
-              </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <div className="text-xs text-zinc-400">Nome *</div>
+                      <input className="w-full px-3 py-2" value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} />
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Subcategoria</div>
-                  <input className="w-full px-3 py-2" value={form.subcategoria} onChange={(e) => setForm((s) => ({ ...s, subcategoria: e.target.value }))} />
-                </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <div className="text-xs text-zinc-400">Fornecedor</div>
+                      <select
+                        className="w-full px-3 py-2"
+                        value={form.fornecedor_id ?? ""}
+                        onChange={(e) => setForm((s) => ({ ...s, fornecedor_id: e.target.value ? Number(e.target.value) : null }))}
+                      >
+                        <option value="">--</option>
+                        {fornecedores.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                <div className="space-y-1 md:col-span-2">
-                  <div className="text-xs text-zinc-400 flex items-center justify-between">
-                    <span>Estoque</span>
-                    <label className="text-xs text-zinc-300 flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.tipo === "produto" ? form.controla_estoque : false}
-                        disabled={form.tipo !== "produto"}
-                        onChange={(e) => setForm((s) => ({ ...s, controla_estoque: e.target.checked }))}
-                      />
-                      Controla estoque
+                    <div className="md:col-span-2 space-y-1">
+                      <div className="text-xs text-zinc-400">Descricao</div>
+                      <textarea className="w-full px-3 py-2 min-h-[70px]" value={form.descricao} onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Tipo *</div>
+                      <select
+                        className="w-full px-3 py-2"
+                        value={form.tipo}
+                        onChange={(e) =>
+                          setForm((s) => {
+                            const t = e.target.value as ItemForm["tipo"];
+                            return { ...s, tipo: t, controla_estoque: t === "produto" ? s.controla_estoque : false };
+                          })
+                        }
+                      >
+                        <option value="produto">Produto</option>
+                        <option value="servico">Servico</option>
+                        <option value="despesa">Despesa</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Unidade</div>
+                      <input className="w-full px-3 py-2" value={form.unidade_medida} onChange={(e) => setForm((s) => ({ ...s, unidade_medida: e.target.value }))} placeholder="UN, KG, LT..." />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Categoria</div>
+                      <input className="w-full px-3 py-2" value={form.categoria} onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Subcategoria</div>
+                      <input className="w-full px-3 py-2" value={form.subcategoria} onChange={(e) => setForm((s) => ({ ...s, subcategoria: e.target.value }))} />
+                    </div>
+
+                    <div className="space-y-1 md:col-span-2">
+                      <div className="text-xs text-zinc-400 flex items-center justify-between">
+                        <span>Estoque</span>
+                        <label className="text-xs text-zinc-300 flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={form.tipo === "produto" ? form.controla_estoque : false}
+                            disabled={form.tipo !== "produto"}
+                            onChange={(e) => setForm((s) => ({ ...s, controla_estoque: e.target.checked }))}
+                          />
+                          Controla estoque
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-zinc-400">Minimo</div>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="w-full px-3 py-2"
+                            value={form.estoque_minimo}
+                            disabled={form.tipo !== "produto" || !form.controla_estoque}
+                            onChange={(e) => setForm((s) => ({ ...s, estoque_minimo: parseDecimalBR(e.target.value) || 0 }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-zinc-400">Ideal</div>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="w-full px-3 py-2"
+                            value={form.estoque_ideal}
+                            disabled={form.tipo !== "produto" || !form.controla_estoque}
+                            onChange={(e) => setForm((s) => ({ ...s, estoque_ideal: parseDecimalBR(e.target.value) || 0 }))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-zinc-400">Maximo</div>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="w-full px-3 py-2"
+                            value={form.estoque_maximo}
+                            disabled={form.tipo !== "produto" || !form.controla_estoque}
+                            onChange={(e) =>
+                              setForm((s) => ({ ...s, estoque_maximo: parseDecimalBR(e.target.value) || 0 }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Custo ultima compra</div>
+                      <input type="number" className="w-full px-3 py-2" value={form.custo_ultima_compra} onChange={(e) => setForm((s) => ({ ...s, custo_ultima_compra: Number(e.target.value) }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Custo medio</div>
+                      <input type="number" className="w-full px-3 py-2" value={form.custo_medio} onChange={(e) => setForm((s) => ({ ...s, custo_medio: Number(e.target.value) }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Preco unitario</div>
+                      <input type="number" className="w-full px-3 py-2" value={form.preco_unitario} onChange={(e) => setForm((s) => ({ ...s, preco_unitario: Number(e.target.value) }))} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border border-zinc-800 rounded-lg p-3">
+                    <div className="text-sm">
+                      <div className="font-medium">Status do item</div>
+                      <div className="text-xs text-zinc-400">Desativar nao apaga, so oculta do uso.</div>
+                    </div>
+
+                    <label className="text-sm text-zinc-300 flex items-center gap-2">
+                      <input type="checkbox" checked={form.ativo} onChange={(e) => setForm((s) => ({ ...s, ativo: e.target.checked }))} />
+                      Ativo
                     </label>
                   </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">NCM</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.ncm} onChange={(e) => setFiscalForm((s) => ({ ...s, ncm: e.target.value }))} placeholder="Ex: 12345678" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">CST ICMS</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.cst_icms} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_icms: e.target.value }))} placeholder="00, 20, 40..." />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">CST IPI</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.cst_ipi} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_ipi: e.target.value }))} placeholder="50, 99..." />
+                    </div>
+                  </div>
 
-                  <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
-                      <div className="text-[11px] text-zinc-400">Minimo</div>
+                      <div className="text-xs text-zinc-400">CST PIS</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.cst_pis} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_pis: e.target.value }))} placeholder="01, 99..." />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">CST COFINS</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.cst_cofins} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_cofins: e.target.value }))} placeholder="01, 99..." />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Aliquota ICMS (%)</div>
                       <input
-                        type="text"
-                        inputMode="decimal"
                         className="w-full px-3 py-2"
-                        value={form.estoque_minimo}
-                        disabled={form.tipo !== "produto" || !form.controla_estoque}
-                        onChange={(e) => setForm((s) => ({ ...s, estoque_minimo: parseDecimalBR(e.target.value) || 0 }))}
+                        inputMode="decimal"
+                        value={fiscalForm.aliquota_icms ?? ""}
+                        onChange={(e) => {
+                          const v = parseDecimalBR(e.target.value);
+                          setFiscalForm((s) => ({ ...s, aliquota_icms: Number.isFinite(v) ? v : null }));
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[11px] text-zinc-400">Ideal</div>
+                      <div className="text-xs text-zinc-400">Aliquota IPI (%)</div>
                       <input
-                        type="text"
-                        inputMode="decimal"
                         className="w-full px-3 py-2"
-                        value={form.estoque_ideal}
-                        disabled={form.tipo !== "produto" || !form.controla_estoque}
-                        onChange={(e) => setForm((s) => ({ ...s, estoque_ideal: parseDecimalBR(e.target.value) || 0 }))}
+                        inputMode="decimal"
+                        value={fiscalForm.aliquota_ipi ?? ""}
+                        onChange={(e) => {
+                          const v = parseDecimalBR(e.target.value);
+                          setFiscalForm((s) => ({ ...s, aliquota_ipi: Number.isFinite(v) ? v : null }));
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[11px] text-zinc-400">Maximo</div>
+                      <div className="text-xs text-zinc-400">Aliquota PIS (%)</div>
                       <input
-                        type="text"
-                        inputMode="decimal"
                         className="w-full px-3 py-2"
-                        value={form.estoque_maximo}
-                        disabled={form.tipo !== "produto" || !form.controla_estoque}
-                        onChange={(e) =>
-                          setForm((s) => ({ ...s, estoque_maximo: parseDecimalBR(e.target.value) || 0 }))
-                        }
+                        inputMode="decimal"
+                        value={fiscalForm.aliquota_pis ?? ""}
+                        onChange={(e) => {
+                          const v = parseDecimalBR(e.target.value);
+                          setFiscalForm((s) => ({ ...s, aliquota_pis: Number.isFinite(v) ? v : null }));
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Aliquota COFINS (%)</div>
+                      <input
+                        className="w-full px-3 py-2"
+                        inputMode="decimal"
+                        value={fiscalForm.aliquota_cofins ?? ""}
+                        onChange={(e) => {
+                          const v = parseDecimalBR(e.target.value);
+                          setFiscalForm((s) => ({ ...s, aliquota_cofins: Number.isFinite(v) ? v : null }));
+                        }}
                       />
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Custo ultima compra</div>
-                  <input type="number" className="w-full px-3 py-2" value={form.custo_ultima_compra} onChange={(e) => setForm((s) => ({ ...s, custo_ultima_compra: Number(e.target.value) }))} />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border border-zinc-800 rounded-lg p-3">
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-zinc-200">Credita impostos</div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={fiscalForm.credita_icms} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_icms: e.target.checked }))} />
+                        ICMS
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={fiscalForm.credita_ipi} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_ipi: e.target.checked }))} />
+                        IPI
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={fiscalForm.credita_pis} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_pis: e.target.checked }))} />
+                        PIS
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={fiscalForm.credita_cofins} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_cofins: e.target.checked }))} />
+                        COFINS
+                      </label>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-zinc-200">Custo</div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={fiscalForm.ipi_entra_no_custo} onChange={(e) => setFiscalForm((s) => ({ ...s, ipi_entra_no_custo: e.target.checked }))} />
+                        IPI entra no custo
+                      </label>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Custo medio</div>
-                  <input type="number" className="w-full px-3 py-2" value={form.custo_medio} onChange={(e) => setForm((s) => ({ ...s, custo_medio: Number(e.target.value) }))} />
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Preco unitario</div>
-                  <input type="number" className="w-full px-3 py-2" value={form.preco_unitario} onChange={(e) => setForm((s) => ({ ...s, preco_unitario: Number(e.target.value) }))} />
-                </div>
-              </div>
-
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border border-zinc-800 rounded-lg p-3">
-                <div className="text-sm">
-                  <div className="font-medium">Status do item</div>
-                  <div className="text-xs text-zinc-400">Desativar nao apaga, so oculta do uso.</div>
-                </div>
-
-                <label className="text-sm text-zinc-300 flex items-center gap-2">
-                  <input type="checkbox" checked={form.ativo} onChange={(e) => setForm((s) => ({ ...s, ativo: e.target.checked }))} />
-                  Ativo
-                </label>
-              </div>
+              )}
 
               {err && <div className="text-sm text-red-400">{err}</div>}
             </div>

@@ -28,7 +28,17 @@ type ParsedItem = {
   nome: string;
   quantidade: number;
   valorUnit: number;
+  valorProd: number;
   total: number;
+  vIcms: number;
+  vIpi: number;
+  vPis: number;
+  vCofins: number;
+  vSt: number;
+  vFrete: number;
+  vDesc: number;
+  vOutro: number;
+  vSeguro: number;
   overrideNome?: string;
   fornecedorId?: number | null;
   ncm?: string | null;
@@ -45,6 +55,40 @@ type ParsedNfe = {
   emitente: string | null;
   dataEmissao: string | null;
   cnpjEmitente: string | null;
+  valorProdutos: number;
+  valorFrete: number;
+  valorSeguro: number;
+  valorDesconto: number;
+  valorOutros: number;
+  valorTotal: number;
+};
+
+type FiscalPerfil = {
+  item_id: number;
+  ncm: string | null;
+  cst_icms: string | null;
+  cst_pis: string | null;
+  cst_cofins: string | null;
+  aliq_icms: number | null;
+  aliq_ipi: number | null;
+  aliq_pis: number | null;
+  aliq_cofins: number | null;
+  credita_icms: boolean;
+  credita_pis: boolean;
+  credita_cofins: boolean;
+  ipi_entra_no_custo: boolean;
+};
+
+type ImportJob = {
+  id: string;
+  fileName: string;
+  xmlText: string;
+  nfeInfo: ParsedNfe | null;
+  itens: ParsedItem[];
+  fornecedorCnpj: string | null;
+  status: "ok" | "erro" | "importando" | "importado";
+  error?: string;
+  selected: boolean;
 };
 
 export default function EstoquePage() {
@@ -73,14 +117,18 @@ export default function EstoquePage() {
   const readReqIdRef = useRef(0);
   const [nfeInfo, setNfeInfo] = useState<ParsedNfe | null>(null);
   const [parsedItens, setParsedItens] = useState<ParsedItem[]>([]);
-  const [fornecedorId, setFornecedorId] = useState<number | null>(null);
-  const [fornecedorNome, setFornecedorNome] = useState<string | null>(null);
-  const [importErr, setImportErr] = useState<string | null>(null);
-  const [importOk, setImportOk] = useState<string | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
+const [fornecedorId, setFornecedorId] = useState<number | null>(null);
+const [fornecedorNome, setFornecedorNome] = useState<string | null>(null);
+const [importErr, setImportErr] = useState<string | null>(null);
+const [importOk, setImportOk] = useState<string | null>(null);
+const [importBusy, setImportBusy] = useState(false);
   const [cadBusy, setCadBusy] = useState(false);
   const [itemMap, setItemMap] = useState<Map<string, number>>(new Map());
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+const fileInputRef = useRef<HTMLInputElement | null>(null);
+const [jobs, setJobs] = useState<ImportJob[]>([]);
+const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+const [fornecedorCnpjBase, setFornecedorCnpjBase] = useState<string | null>(null);
+const [fornecedorIdBase, setFornecedorIdBase] = useState<number | null>(null);
 
   async function load() {
     setErr(null);
@@ -142,6 +190,14 @@ export default function EstoquePage() {
     const cnpjEmitente = doc.querySelector("emit > CNPJ")?.textContent ?? null;
     const dataEmissao = doc.querySelector("ide > dhEmi")?.textContent ?? null;
 
+    const totalNode = doc.querySelector("total > ICMSTot");
+    const valorFreteNF = num(totalNode?.querySelector("vFrete")?.textContent);
+    const valorProdutosNF = num(totalNode?.querySelector("vProd")?.textContent);
+    const valorSeguroNF = num(totalNode?.querySelector("vSeg")?.textContent);
+    const valorDescontoNF = num(totalNode?.querySelector("vDesc")?.textContent);
+    const valorOutrosNF = num(totalNode?.querySelector("vOutro")?.textContent);
+    const valorTotalNF = num(totalNode?.querySelector("vNF")?.textContent);
+
     const itens: ParsedItem[] = [];
     doc.querySelectorAll("det").forEach((det) => {
       const prod = det.querySelector("prod");
@@ -153,12 +209,16 @@ export default function EstoquePage() {
       const vProd = num(prod.querySelector("vProd")?.textContent);
       const vTotTrib = num(prod.querySelector("vTotTrib")?.textContent);
       const vIPI =
-        num(prod.querySelector("IPI > IPITrib > vIPI")?.textContent) ||
-        num(prod.querySelector("IPI > IPI > vIPI")?.textContent);
-      const vST = num(prod.querySelector("ICMS > * > vICMSST")?.textContent);
+        num(det.querySelector("IPI > IPITrib > vIPI")?.textContent) ||
+        num(det.querySelector("IPI > IPI > vIPI")?.textContent);
+      const vICMS = num(det.querySelector("ICMS > * > vICMS")?.textContent);
+      const vPIS = num(det.querySelector("PIS > * > vPIS")?.textContent);
+      const vCOFINS = num(det.querySelector("COFINS > * > vCOFINS")?.textContent);
+      const vST = num(det.querySelector("ICMS > * > vICMSST")?.textContent);
       const vOutro = num(prod.querySelector("vOutro")?.textContent);
       const vFrete = num(prod.querySelector("vFrete")?.textContent);
       const vDesc = num(prod.querySelector("vDesc")?.textContent);
+      const vSeguro = num(prod.querySelector("vSeg")?.textContent);
       // total = produto + frete + outros + IPI + ST + tributos declarados - desconto
       const totalBase = vProd + vFrete + vOutro + vIPI + vST + vTotTrib - vDesc;
       const total = totalBase > 0 ? totalBase : vProd || quantidade * valorUnit;
@@ -185,7 +245,17 @@ export default function EstoquePage() {
         nome,
         quantidade,
         valorUnit,
+        valorProd: vProd,
         total,
+        vIcms: vICMS,
+        vIpi: vIPI,
+        vPis: vPIS,
+        vCofins: vCOFINS,
+        vSt: vST,
+        vFrete,
+        vDesc,
+        vOutro,
+        vSeguro,
         overrideNome: nome,
         ncm,
         aliquotaIcms,
@@ -196,7 +266,20 @@ export default function EstoquePage() {
     });
 
     return {
-      nfe: { chave, numero, serie, emitente, dataEmissao, cnpjEmitente },
+      nfe: {
+        chave,
+        numero,
+        serie,
+        emitente,
+        dataEmissao,
+        cnpjEmitente,
+        valorProdutos: valorProdutosNF,
+        valorFrete: valorFreteNF,
+        valorSeguro: valorSeguroNF,
+        valorDesconto: valorDescontoNF,
+        valorOutros: valorOutrosNF,
+        valorTotal: valorTotalNF,
+      },
       itens,
     };
   }
@@ -246,6 +329,50 @@ export default function EstoquePage() {
     (data ?? []).forEach((r: any) => map.set(r.codigo_interno, r.id));
     return map;
   }
+
+  async function carregarFiscalPorItens(itemIds: number[]) {
+    if (itemIds.length === 0) return new Map<number, FiscalPerfil>();
+
+    const { data, error } = await supabase
+      .from("fiscal_itens")
+      .select(
+        "item_id,ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,credita_pis,credita_cofins,ipi_entra_no_custo"
+      )
+      .in("item_id", itemIds);
+
+  if (error) {
+    setImportErr(error.message);
+    return new Map();
+  }
+
+  const map = new Map<number, FiscalPerfil>();
+  (data ?? []).forEach((r: any) => map.set(r.item_id, r as FiscalPerfil));
+  return map;
+}
+
+async function upsertFiscalItem(itemId: number, fiscal: Partial<FiscalPerfil>) {
+  const payload: any = {
+    item_id: itemId,
+    ncm: fiscal.ncm ?? null,
+    cst_icms: fiscal.cst_icms ?? null,
+    cst_pis: fiscal.cst_pis ?? null,
+    cst_cofins: fiscal.cst_cofins ?? null,
+    aliq_icms: fiscal.aliq_icms ?? null,
+    aliq_ipi: fiscal.aliq_ipi ?? null,
+    aliq_pis: fiscal.aliq_pis ?? null,
+    aliq_cofins: fiscal.aliq_cofins ?? null,
+    credita_icms: fiscal.credita_icms ?? true,
+    credita_pis: fiscal.credita_pis ?? true,
+    credita_cofins: fiscal.credita_cofins ?? true,
+    ipi_entra_no_custo: fiscal.ipi_entra_no_custo ?? true,
+  };
+
+  const { error } = await supabase
+    .from("fiscal_itens")
+    .upsert(payload, { onConflict: "item_id" });
+
+  if (error) setImportErr(error.message);
+}
 
   async function criarItemRapido(it: ParsedItem, fornecedorId?: number | null, dataEmissao?: string | null) {
     setImportErr(null);
@@ -297,6 +424,15 @@ export default function EstoquePage() {
       return next;
     });
 
+    // cria perfil fiscal inicial (melhor esforço com dados do XML)
+ await upsertFiscalItem(data.id as number, {
+  ncm: it.ncm ?? null,
+  aliq_icms: aliq(it.aliquotaIcms),
+  aliq_ipi: aliq(it.aliquotaIpi),
+  aliq_pis: aliq(it.aliquotaPis),
+  aliq_cofins: aliq(it.aliquotaCofins),
+});
+
     return data.id as number;
   }
 
@@ -347,14 +483,17 @@ export default function EstoquePage() {
   }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    setSelectedFile(file);
-    if (file) {
-      void readXmlFile(file);
-    }
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setSelectedFile(files[0] ?? null);
+    (async () => {
+      for (const f of files) {
+        await readXmlFile(f);
+      }
+    })().catch((err) => setImportErr(err?.message ?? "Erro ao ler arquivos."));
   }
 
-  async function parseXmlAndCheck(rawOverride?: string) {
+async function parseXmlAndCheck(rawOverride?: string) {
     setImportErr(null);
     setImportOk(null);
     setNfeInfo(null);
@@ -369,21 +508,75 @@ export default function EstoquePage() {
       return;
     }
     try {
-      const parsed = parseXml(raw);
-      setNfeInfo(parsed.nfe);
-      setParsedItens(parsed.itens);
-      await checkFornecedor(parsed.nfe.cnpjEmitente);
-      const map = await carregarItensPorCodigo(parsed.itens.map((i) => i.codigo));
-      setItemMap(map);
-      setParsedItens((itens) =>
-        itens.map((it) => {
-          if (map.has(it.codigo)) return { ...it, overrideNome: it.overrideNome };
-          return it;
-        })
-      );
+      await addJobFromRaw(raw, "XML colado");
     } catch (e: any) {
-      setImportErr(`Falha ao ler XML: ${e?.message ?? e}`);
+      setImportErr(typeof e?.message === "string" ? e.message : "Erro ao ler XML.");
     }
+  }
+
+  function newJobId() {
+    if (typeof crypto !== "undefined" && typeof (crypto as any).randomUUID === "function") {
+      return (crypto as any).randomUUID();
+    }
+    return `job-${Math.random().toString(36).slice(2)}`;
+  }
+
+  async function addJobFromRaw(xml: string, fileName: string) {
+    const parsed = parseXml(xml);
+    const cnpj = parsed.nfe.cnpjEmitente ?? null;
+    let status: ImportJob["status"] = "ok";
+    let error: string | undefined;
+    let selected = true;
+
+    // verifica se NF já foi importada (pela chave)
+    const chave = parsed.nfe.chave ?? null;
+    if (chave) {
+      const { count: nfExiste } = await supabase
+        .from("nf_entrada")
+        .select("id", { count: "exact" })
+        .eq("chave", chave)
+        .limit(1);
+      if (typeof nfExiste === "number" && nfExiste > 0) {
+        status = "importado";
+        selected = false;
+        error = "NF já importada";
+      }
+    }
+
+    if (!fornecedorCnpjBase && cnpj) {
+      setFornecedorCnpjBase(cnpj);
+    } else if (fornecedorCnpjBase && cnpj && fornecedorCnpjBase !== cnpj) {
+      status = "erro";
+      error = "Fornecedor diferente do lote";
+      selected = false;
+    }
+
+    const job: ImportJob = {
+      id: newJobId(),
+      fileName,
+      xmlText: xml,
+      nfeInfo: parsed.nfe,
+      itens: parsed.itens,
+      fornecedorCnpj: cnpj,
+      status,
+      error,
+      selected,
+    };
+
+    setJobs((prev) => [...prev, job]);
+    if (selected) {
+      setSelectedJobId(job.id);
+    }
+  }
+
+  async function addJobFromFile(file: File) {
+    const text = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsText(file);
+    });
+    await addJobFromRaw(text, file.name);
   }
 
   async function cadastrarFornecedorEItens() {
@@ -392,25 +585,39 @@ export default function EstoquePage() {
     setCadBusy(true);
 
     try {
-      if (!nfeInfo) throw new Error("Nenhum XML processado.");
-      if (parsedItens.length === 0) throw new Error("Nenhum item para cadastrar.");
+      const jobsToUse = jobs.filter((j) => j.selected && j.status === "ok" && j.itens.length > 0);
+      if (jobsToUse.length === 0) throw new Error("Nenhum XML selecionado.");
 
-      let fornecedorFinal = fornecedorId;
-      if (!fornecedorFinal && nfeInfo.cnpjEmitente && nfeInfo.emitente) {
-        fornecedorFinal = await criarFornecedor(nfeInfo.cnpjEmitente, nfeInfo.emitente);
+      const baseCnpj = fornecedorCnpjBase ?? jobsToUse.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null;
+      let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
+      if (!fornecedorFinal && baseCnpj) {
+        const { data: found } = await supabase.from("fornecedores").select("id").eq("documento", baseCnpj).maybeSingle();
+        fornecedorFinal = found?.id ?? null;
+      }
+      if (!fornecedorFinal) {
+        const first = jobsToUse.find((j) => j.nfeInfo?.emitente && j.nfeInfo?.cnpjEmitente);
+        if (first?.nfeInfo?.cnpjEmitente && first.nfeInfo.emitente) {
+          fornecedorFinal = await criarFornecedor(first.nfeInfo.cnpjEmitente, first.nfeInfo.emitente);
+        }
       }
 
-      let map = await carregarItensPorCodigo(parsedItens.map((i) => i.codigo));
+      const todosItens = jobsToUse.flatMap((j) => j.itens);
+      const codigos = Array.from(new Set(todosItens.map((i) => i.codigo)));
+      let map = await carregarItensPorCodigo(codigos);
 
-      for (const it of parsedItens) {
-        if (!map.has(it.codigo)) {
-          const created = await criarItemRapido(it, fornecedorFinal ?? null, nfeInfo.dataEmissao ?? null);
-          if (created) map.set(it.codigo, created);
+      for (const job of jobsToUse) {
+        const dataCompra = job.nfeInfo?.dataEmissao ?? new Date().toISOString();
+        for (const it of job.itens) {
+          if (!map.has(it.codigo)) {
+            const created = await criarItemRapido(it, fornecedorFinal ?? null, dataCompra);
+            if (created) map.set(it.codigo, created);
+          }
         }
       }
 
       setItemMap(map);
-      setImportOk("Fornecedor e itens cadastrados.");
+      setFornecedorIdBase(fornecedorFinal ?? null);
+      setImportOk("Fornecedor e itens cadastrados para os XMLs selecionados.");
     } catch (e: any) {
       setImportErr(typeof e?.message === "string" ? e.message : "Erro ao cadastrar.");
     } finally {
@@ -418,100 +625,215 @@ export default function EstoquePage() {
     }
   }
 
-  async function importarNfe() {
+    async function importarNfe() {
     if (isReading || importBusy) return;
     setImportErr(null);
     setImportOk(null);
     setImportBusy(true);
 
+    const round6 = (n: number) => (Number.isFinite(n) ? Number(n.toFixed(6)) : 0);
+
     try {
-      if (!nfeInfo || parsedItens.length === 0) {
-        throw new Error("Nenhum XML processado.");
-      }
+      const jobsToImport = jobs.filter((j) => j.selected && j.status === "ok");
+      if (jobsToImport.length === 0) throw new Error("Nenhum XML selecionado para importar.");
 
-      // bloqueia duplicidade por chave (ou numero/serie + CNPJ)
-      if (nfeInfo.chave) {
-        const { count } = await supabase
-          .from("movimentacoes")
-          .select("id", { count: "exact" })
-          .ilike("motivo", `%${nfeInfo.chave}%`)
-          .limit(1);
-        if (typeof count === "number" && count > 0) {
-          throw new Error("NF já importada (chave encontrada em movimentações).");
+      const results: string[] = [];
+
+      for (const job of jobsToImport) {
+        try {
+        const info = job.nfeInfo;
+        if (!info || job.itens.length === 0) {
+          results.push(`${job.fileName}: sem dados de NF ou itens.`);
+          setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "erro", error: "Sem dados" } : j)));
+          continue;
         }
-      } else if (nfeInfo.numero && nfeInfo.serie && nfeInfo.cnpjEmitente) {
-        const { count } = await supabase
-          .from("movimentacoes")
-          .select("id", { count: "exact" })
-          .ilike("motivo", `%NF ${nfeInfo.numero}/${nfeInfo.serie}%${nfeInfo.cnpjEmitente}%`)
-          .limit(1);
-        if (typeof count === "number" && count > 0) {
-          throw new Error("NF já importada (número/série + CNPJ encontrados em movimentações).");
+        if (!info.chave) {
+          results.push(`${job.fileName}: chave não encontrada.`);
+          setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "erro", error: "Chave ausente" } : j)));
+          continue;
         }
-      }
 
-      // garante fornecedor
-      let fornecedorFinal = fornecedorId;
-      if (!fornecedorFinal && nfeInfo.cnpjEmitente && nfeInfo.emitente) {
-        const criado = await criarFornecedor(nfeInfo.cnpjEmitente, nfeInfo.emitente);
-        fornecedorFinal = criado;
-      }
+        setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importando", error: undefined } : j)));
 
-      // recarrega itens existentes
-      let map = await carregarItensPorCodigo(parsedItens.map((i) => i.codigo));
-      const itemsToImport = [...parsedItens];
-      const dataCompra = nfeInfo.dataEmissao ?? new Date().toISOString();
+        const { count: nfJaExiste } = await supabase
+          .from("nf_entrada")
+          .select("id", { count: "exact" })
+          .eq("chave", info.chave)
+          .limit(1);
+        if (typeof nfJaExiste === "number" && nfJaExiste > 0) {
+          results.push(`${job.fileName}: NF já existente, pulada.`);
+          setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importado" } : j)));
+          continue;
+        }
 
-      // se o item já existir sem fornecedor_id, atribui o fornecedor encontrado/criado
-      if (fornecedorFinal) {
-        const ids = Array.from(map.values());
-        if (ids.length > 0) {
-          const { data: itensExist, error: itensErr } = await supabase
-            .from("itens")
-            .select("id,fornecedor_id")
-            .in("id", ids);
-          if (!itensErr) {
-            const semFornecedor = (itensExist ?? []).filter((r: any) => !r.fornecedor_id).map((r: any) => r.id);
-            if (semFornecedor.length > 0) {
-              await supabase.from("itens").update({ fornecedor_id: fornecedorFinal }).in("id", semFornecedor);
+        const fornecedorCnpj = info.cnpjEmitente ?? fornecedorCnpjBase ?? null;
+        let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
+        if (!fornecedorFinal && fornecedorCnpj) {
+          const { data: found } = await supabase.from("fornecedores").select("id").eq("documento", fornecedorCnpj).maybeSingle();
+          fornecedorFinal = found?.id ?? null;
+        }
+        if (!fornecedorFinal && info.cnpjEmitente && info.emitente) {
+          fornecedorFinal = await criarFornecedor(info.cnpjEmitente, info.emitente);
+        }
+
+        const itemsToImport = [...job.itens];
+        let map = await carregarItensPorCodigo(itemsToImport.map((i) => i.codigo));
+        if (fornecedorFinal) {
+          const ids = Array.from(map.values());
+          if (ids.length > 0) {
+            const { data: itensExist, error: itensErr } = await supabase.from("itens").select("id,fornecedor_id").in("id", ids);
+            if (!itensErr) {
+              const semFornecedor = (itensExist ?? []).filter((r: any) => !r.fornecedor_id).map((r: any) => r.id);
+              if (semFornecedor.length > 0) {
+                await supabase.from("itens").update({ fornecedor_id: fornecedorFinal }).in("id", semFornecedor);
+              }
             }
           }
         }
-      }
+        for (const it of itemsToImport) {
+          if (!map.has(it.codigo)) {
+            const createdId = await criarItemRapido(it, fornecedorFinal ?? null, info.dataEmissao ?? null);
+            if (createdId) map.set(it.codigo, createdId);
+          }
+        }
 
-      // cria itens faltantes
-      for (const it of itemsToImport) {
-        if (!map.has(it.codigo)) {
-          const createdId = await criarItemRapido(it, fornecedorFinal ?? null, dataCompra);
-          if (createdId) map.set(it.codigo, createdId);
+        const fiscalMap = await carregarFiscalPorItens(Array.from(map.values()));
+
+        const totalProdutos = itemsToImport.reduce((sum, it) => sum + Number(it.valorProd ?? 0), 0);
+        const totalFrete =
+          Number(info.valorFrete ?? 0) > 0 ? Number(info.valorFrete ?? 0) : itemsToImport.reduce((sum, it) => sum + Number(it.vFrete ?? 0), 0);
+        const totalSeguro =
+          Number(info.valorSeguro ?? 0) > 0 ? Number(info.valorSeguro ?? 0) : itemsToImport.reduce((sum, it) => sum + Number(it.vSeguro ?? 0), 0);
+        const totalOutros =
+          Number(info.valorOutros ?? 0) > 0 ? Number(info.valorOutros ?? 0) : itemsToImport.reduce((sum, it) => sum + Number(it.vOutro ?? 0), 0);
+        const totalDesconto =
+          Number(info.valorDesconto ?? 0) > 0 ? Number(info.valorDesconto ?? 0) : itemsToImport.reduce((sum, it) => sum + Number(it.vDesc ?? 0), 0);
+        const valorTotalNF = Number(info.valorTotal ?? 0) || totalProdutos + totalFrete + totalOutros + totalSeguro - totalDesconto;
+
+        const nfPayload: any = {
+          chave: info.chave,
+          numero: info.numero,
+          serie: info.serie,
+          modelo: "55",
+          emitente_nome: info.emitente,
+          emitente_cnpj: info.cnpjEmitente,
+          fornecedor_id: fornecedorFinal ?? null,
+          data_emissao: info.dataEmissao ?? new Date().toISOString(),
+          valor_produtos: round6(totalProdutos),
+          valor_frete: round6(totalFrete),
+          valor_seguro: round6(totalSeguro),
+          valor_desconto: round6(totalDesconto),
+          valor_outros: round6(totalOutros),
+          valor_total: round6(valorTotalNF),
+          xml_raw: job.xmlText ?? xmlText,
+        };
+        const { data: nfHead, error: nfErr } = await supabase.from("nf_entrada").insert(nfPayload).select("id").single();
+        if (nfErr) throw nfErr;
+        const nfId = (nfHead as any)?.id as number;
+
+        const { data: sess } = await supabase.auth.getSession();
+        const userEmail = sess.session?.user?.email ?? null;
+
+        const itensRows: any[] = [];
+        const movimentacoesRows: any[] = [];
+
+        for (const it of itemsToImport) {
+          const itemId = map.get(it.codigo) ?? null;
+          const fiscal = itemId ? fiscalMap.get(itemId) : undefined;
+          if (!fiscal) {
+            throw new Error(
+              `Item ${it.codigo} (${it.overrideNome ?? it.nome}) está sem perfil fiscal em fiscal_itens. Cadastre na aba Fiscal e tente novamente.`
+            );
+          }
+          const qtd = Number(it.quantidade ?? 0);
+          const baseProd = Number(it.valorProd ?? 0);
+          const baseLiquida = Math.max(0, baseProd - Number(it.vDesc ?? 0));
+          const freteRateado = totalProdutos > 0 && totalFrete > 0 ? (Number(baseProd) / Number(totalProdutos)) * Number(totalFrete) : 0;
+
+          const vIcms = Number(it.vIcms ?? 0);
+          const vIpi = Number(it.vIpi ?? 0);
+          const vPis = Number(it.vPis ?? 0);
+          const vCofins = Number(it.vCofins ?? 0);
+          const creditaIcms = fiscal?.credita_icms !== false;
+          const creditaPis = fiscal?.credita_pis !== false;
+          const creditaCofins = fiscal?.credita_cofins !== false;
+          const creditoIcms = creditaIcms ? vIcms : 0;
+          const creditoPis = creditaPis ? vPis : 0;
+          const creditoCofins = creditaCofins ? vCofins : 0;
+          const ipiEntraNoCusto = fiscal?.ipi_entra_no_custo !== false;
+
+          const custoImpostos =
+            (creditaIcms ? 0 : vIcms) + (creditaPis ? 0 : vPis) + (creditaCofins ? 0 : vCofins) + (ipiEntraNoCusto ? vIpi : 0);
+
+          const custoTotal = baseLiquida + Number(it.vOutro ?? 0) + Number(it.vSeguro ?? 0) + freteRateado + custoImpostos;
+          const custoUnitBruto = qtd > 0 ? baseLiquida / qtd : null;
+          const custoUnitReal = qtd > 0 ? custoTotal / qtd : null;
+
+          itensRows.push({
+            nf_entrada_id: nfId,
+            item_id: itemId,
+            codigo_fornecedor: it.codigo,
+            descricao: it.overrideNome ?? it.nome,
+            ncm: it.ncm ?? fiscal?.ncm ?? null,
+            cfop: null,
+            qtd: round6(qtd),
+            v_unit: round6(it.valorUnit),
+            v_prod: round6(it.valorProd),
+            v_icms: round6(vIcms),
+            v_ipi: round6(vIpi),
+            v_pis: round6(vPis),
+            v_cofins: round6(vCofins),
+            aliq_icms: fiscal?.aliq_icms ?? it.aliquotaIcms ?? null,
+            aliq_ipi: fiscal?.aliq_ipi ?? it.aliquotaIpi ?? null,
+            aliq_pis: fiscal?.aliq_pis ?? it.aliquotaPis ?? null,
+            aliq_cofins: fiscal?.aliq_cofins ?? it.aliquotaCofins ?? null,
+          });
+
+          if (itemId) {
+            movimentacoesRows.push({
+              item_id: itemId,
+              tipo: "entrada",
+              quantidade: round6(qtd),
+              motivo: `NF ${info.numero ?? ""}/${info.serie ?? ""} chave ${info.chave ?? ""} emitente ${info.emitente ?? ""}`,
+              realizado_por: userEmail,
+              data_movimentacao: info.dataEmissao ?? new Date().toISOString(),
+              custo_unitario_bruto: custoUnitBruto !== null ? round6(custoUnitBruto) : null,
+              custo_unitario_real: custoUnitReal !== null ? round6(custoUnitReal) : null,
+              v_ipi: round6(vIpi),
+              v_icms: round6(vIcms),
+              v_pis: round6(vPis),
+              v_cofins: round6(vCofins),
+              v_frete_rateado: round6(freteRateado),
+              credito_icms: round6(creditoIcms),
+              credito_pis: round6(creditoPis),
+              credito_cofins: round6(creditoCofins),
+              origem_nf_entrada_id: nfId,
+            });
+          }
+        }
+
+        if (itensRows.length > 0) {
+          const { error: itensErr } = await supabase.from("nf_entrada_itens").insert(itensRows);
+          if (itensErr) throw itensErr;
+        }
+        if (movimentacoesRows.length > 0) {
+          const { error: movErr } = await supabase.from("movimentacoes").insert(movimentacoesRows);
+          if (movErr) throw movErr;
+        }
+
+        setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importado", error: undefined } : j)));
+        results.push(`${job.fileName}: importado com sucesso.`);
+        } catch (err: any) {
+          results.push(`${job.fileName}: erro - ${err?.message ?? err}`);
+          setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "erro", error: err?.message ?? "Erro" } : j)));
+          continue;
         }
       }
 
-      const { data: sess } = await supabase.auth.getSession();
-      const userEmail = sess.session?.user?.email ?? null;
-
-      // registra movimentaÇõÇœes
-      for (const it of itemsToImport) {
-        const itemId = map.get(it.codigo);
-        if (!itemId) continue;
-        await supabase.from("movimentacoes").insert({
-          item_id: itemId,
-          tipo: "entrada",
-          quantidade: Number(it.quantidade),
-          motivo: `NF ${nfeInfo.numero ?? ""}/${nfeInfo.serie ?? ""} chave ${nfeInfo.chave ?? ""} emitente ${
-            nfeInfo.emitente ?? ""
-          }`,
-          realizado_por: userEmail,
-          data_movimentacao: nfeInfo.dataEmissao ?? new Date().toISOString(),
-        });
-      }
-
-      setItemMap(map);
-      setImportOk("Importação concluída.");
-      setOk("Importação concluída.");
+      // remover importados da fila
+      setJobs((prev) => prev.filter((j) => j.status !== "importado"));
+      setImportOk(results.join(" "));
       await load();
-      setShowImport(false);
-
     } catch (e: any) {
       setImportErr(typeof e?.message === "string" ? e.message : "Erro ao importar.");
     } finally {
@@ -523,6 +845,72 @@ export default function EstoquePage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soAbaixoMin, ativos]);
+
+  useEffect(() => {
+    if (jobs.length === 0) {
+      setSelectedJobId(null);
+      return;
+    }
+    const exists = selectedJobId && jobs.some((j) => j.id === selectedJobId);
+    if (!exists) {
+      setSelectedJobId(jobs[0].id);
+    }
+  }, [jobs, selectedJobId]);
+
+  const selectedJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) ?? jobs[0] ?? null : jobs[0] ?? null;
+  const itensParaTabela = selectedJob?.itens ?? [];
+  const hasSelectedOkJobs = jobs.some((j) => j.selected && j.status === "ok");
+
+  useEffect(() => {
+    const loadMap = async () => {
+      if (!selectedJob || selectedJob.itens.length === 0) {
+        setItemMap(new Map());
+        return;
+      }
+      const codes = Array.from(new Set(selectedJob.itens.map((i) => i.codigo)));
+      const map = await carregarItensPorCodigo(codes);
+      setItemMap(map);
+    };
+    void loadMap();
+  }, [selectedJob]);
+
+  function selectJob(id: string) {
+    setSelectedJobId(id);
+  }
+
+  function toggleJobSelected(id: string) {
+    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, selected: !j.selected } : j)));
+  }
+
+  function removeJob(id: string) {
+    setJobs((prev) => {
+      const next = prev.filter((j) => j.id !== id);
+      if (selectedJobId === id) {
+        setSelectedJobId(next[0]?.id ?? null);
+      }
+      return next;
+    });
+  }
+
+  function clearQueue() {
+    setJobs([]);
+    setSelectedJobId(null);
+    setFornecedorCnpjBase(null);
+    setFornecedorIdBase(null);
+  }
+
+  function closeImportModal() {
+    setShowImport(false);
+    setXmlText("");
+    setSelectedFile(null);
+    clearQueue();
+    setImportErr(null);
+    setImportOk(null);
+    setNfeInfo(null);
+    setParsedItens([]);
+    setFornecedorId(null);
+    setFornecedorNome(null);
+  }
 
   function startAjuste(item_id: number, atual: number) {
     setOk(null);
@@ -666,14 +1054,14 @@ export default function EstoquePage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowImport(false)}
+                  onClick={closeImportModal}
                   className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                 >
                   Fechar
                 </button>
                 <button
                   onClick={importarNfe}
-                  disabled={isReading || importBusy || parsedItens.length === 0}
+                  disabled={isReading || importBusy || !hasSelectedOkJobs}
                   className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
                 >
                   {importBusy ? "Importando..." : "Importar"}
@@ -688,6 +1076,7 @@ export default function EstoquePage() {
                     ref={fileInputRef}
                     type="file"
                     accept=".xml"
+                    multiple
                     onChange={handleFile}
                     className="text-sm text-zinc-200"
                     disabled={isReading || importBusy}
@@ -700,21 +1089,103 @@ export default function EstoquePage() {
                     {isReading ? "Lendo..." : "Ler XML"}
                   </button>
                 </div>
-                <textarea
-                  className="w-full px-3 py-2 min-h-[120px] bg-zinc-900 border border-zinc-700 rounded-lg text-sm"
-                  placeholder="Cole o XML aqui"
-                  value={xmlText}
-                  onChange={(e) => setXmlText(e.target.value)}
-                />
               </div>
 
-              {nfeInfo && (
+              <div className="border border-zinc-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-zinc-100">Fila de XMLs</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400">{jobs.length} arquivos na fila</span>
+                    <button
+                      onClick={clearQueue}
+                      disabled={jobs.length === 0}
+                      className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
+                    >
+                      Limpar fila
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-zinc-900/60 text-zinc-200 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-center">Ver</th>
+                        <th className="px-2 py-1 text-center">Importar</th>
+                        <th className="px-2 py-1 text-left">Arquivo</th>
+                        <th className="px-2 py-1 text-left">Chave</th>
+                        <th className="px-2 py-1 text-left">Nº/Série</th>
+                        <th className="px-2 py-1 text-left">Emissão</th>
+                        <th className="px-2 py-1 text-left">Emitente</th>
+                        <th className="px-2 py-1 text-left">Status</th>
+                        <th className="px-2 py-1 text-center">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {jobs.map((j) => (
+                        <tr key={j.id} className="hover:bg-zinc-900/40">
+                          <td className="px-2 py-1 text-center">
+                            <input
+                              type="radio"
+                              name="job-view"
+                              checked={selectedJobId === j.id}
+                              onChange={() => selectJob(j.id)}
+                            />
+                          </td>
+                          <td className="px-2 py-1 text-center">
+                            <input
+                              type="checkbox"
+                              checked={j.selected}
+                              onChange={() => toggleJobSelected(j.id)}
+                            />
+                          </td>
+                          <td className="px-2 py-1">{j.fileName}</td>
+                          <td className="px-2 py-1">{j.nfeInfo?.chave ?? "?"}</td>
+                          <td className="px-2 py-1">
+                            {j.nfeInfo?.numero ?? "?"}/{j.nfeInfo?.serie ?? "?"}
+                          </td>
+                          <td className="px-2 py-1">{j.nfeInfo?.dataEmissao ?? "?"}</td>
+                          <td className="px-2 py-1">
+                            {j.nfeInfo?.emitente ?? "?"}
+                            {j.nfeInfo?.cnpjEmitente ? ` (${j.nfeInfo.cnpjEmitente})` : ""}
+                          </td>
+                          <td className="px-2 py-1">
+                            {j.status === "ok" && <span className="text-emerald-300">OK</span>}
+                            {j.status === "erro" && <span className="text-red-400">Erro {j.error ? `- ${j.error}` : ""}</span>}
+                            {j.status === "importando" && <span className="text-amber-300">Importando...</span>}
+                            {j.status === "importado" && (
+                              <span className="text-emerald-300">{j.error ? `Importada (${j.error})` : "Importada"}</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 text-center">
+                            <button
+                              onClick={() => removeJob(j.id)}
+                              className="px-2 py-1 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Remover
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {jobs.length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="px-2 py-3 text-center text-zinc-400">
+                            Nenhum XML na fila.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {selectedJob?.nfeInfo && (
                 <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-1">
                   <div className="font-semibold text-zinc-100">NF-e</div>
-                  <div>Chave: {nfeInfo.chave ?? "?"}</div>
-                  <div>Numero/Serie: {nfeInfo.numero ?? "?"}/{nfeInfo.serie ?? "?"}</div>
-                  <div>Emitente: {nfeInfo.emitente ?? "?"} {nfeInfo.cnpjEmitente ? `(CNPJ ${nfeInfo.cnpjEmitente})` : ""}</div>
-                  <div>Data emissao: {nfeInfo.dataEmissao ?? "?"}</div>
+                  <div>Chave: {selectedJob.nfeInfo.chave ?? "?"}</div>
+                  <div>Numero/Serie: {selectedJob.nfeInfo.numero ?? "?"}/{selectedJob.nfeInfo.serie ?? "?"}</div>
+                  <div>Emitente: {selectedJob.nfeInfo.emitente ?? "?"} {selectedJob.nfeInfo.cnpjEmitente ? `(CNPJ ${selectedJob.nfeInfo.cnpjEmitente})` : ""}</div>
+                  <div>Data emissao: {selectedJob.nfeInfo.dataEmissao ?? "?"}</div>
                 </div>
               )}
 
@@ -724,9 +1195,9 @@ export default function EstoquePage() {
                     <div className="font-semibold text-zinc-100">Fornecedor</div>
                     <div className="text-xs text-zinc-400">Valida por CNPJ</div>
                   </div>
-                  {nfeInfo?.cnpjEmitente && !fornecedorId && (
+                  {selectedJob?.nfeInfo?.cnpjEmitente && !fornecedorId && (
                     <button
-                      onClick={() => criarFornecedor(nfeInfo.cnpjEmitente!, nfeInfo.emitente ?? "Fornecedor NF")}
+                      onClick={() => criarFornecedor(selectedJob.nfeInfo!.cnpjEmitente!, selectedJob.nfeInfo!.emitente ?? "Fornecedor NF")}
                       disabled={importBusy}
                       className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
                     >
@@ -734,9 +1205,9 @@ export default function EstoquePage() {
                     </button>
                   )}
                 </div>
-                {nfeInfo?.cnpjEmitente && (
+                {selectedJob?.nfeInfo?.cnpjEmitente && (
                   <div className="text-sm">
-                    CNPJ: {nfeInfo.cnpjEmitente} {fornecedorNome ? `Encontrado: ${fornecedorNome}` : "Nao cadastrado"}
+                    CNPJ: {selectedJob.nfeInfo.cnpjEmitente} {fornecedorNome ? `Encontrado: ${fornecedorNome}` : "Nao cadastrado"}
                   </div>
                 )}
               </div>
@@ -761,7 +1232,7 @@ export default function EstoquePage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-800">
-                        {parsedItens.map((it) => {
+                        {itensParaTabela.map((it) => {
                           const foundId = itemMap.get(it.codigo);
                           return (
                             <tr key={it.codigo} className="hover:bg-zinc-900/40">
@@ -771,11 +1242,21 @@ export default function EstoquePage() {
                               className="w-full px-2 py-2 bg-zinc-900 border border-zinc-700 rounded min-h-[64px] text-sm leading-snug"
                               value={it.overrideNome ?? it.nome}
                               onChange={(e) =>
-                                setParsedItens((prev) =>
-                                  prev.map((p) =>
-                                    p.codigo === it.codigo ? { ...p, overrideNome: e.target.value } : p
-                                  )
-                                )
+                                {
+                                  const value = e.target.value;
+                                  setJobs((prev) =>
+                                    prev.map((j) =>
+                                      j.id === selectedJobId
+                                        ? {
+                                            ...j,
+                                            itens: j.itens.map((p) =>
+                                              p.codigo === it.codigo ? { ...p, overrideNome: value } : p
+                                            ),
+                                          }
+                                        : j
+                                    )
+                                  );
+                                }
                               }
                             />
                           </td>
@@ -806,7 +1287,7 @@ export default function EstoquePage() {
                             </tr>
                           );
                         })}
-                        {parsedItens.length === 0 && (
+                        {itensParaTabela.length === 0 && (
                           <tr>
                             <td colSpan={8} className="px-3 py-4 text-zinc-400 text-center">
                               Nenhum item lido ainda.
@@ -824,21 +1305,21 @@ export default function EstoquePage() {
 
             <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 sticky bottom-0 shrink-0 flex justify-end gap-2">
               <button
-                onClick={() => setShowImport(false)}
+                onClick={closeImportModal}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
               >
                 Fechar
               </button>
               <button
                 onClick={cadastrarFornecedorEItens}
-                disabled={cadBusy || importBusy || isReading || parsedItens.length === 0}
+                disabled={cadBusy || importBusy || isReading || !hasSelectedOkJobs}
                 className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
               >
                 {cadBusy ? "Cadastrando..." : "Cadastrar fornecedor e itens"}
               </button>
               <button
                 onClick={importarNfe}
-                disabled={isReading || importBusy || parsedItens.length === 0}
+                disabled={isReading || importBusy || !hasSelectedOkJobs}
                 className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
               >
                 {importBusy ? "Importando..." : "Importar"}
