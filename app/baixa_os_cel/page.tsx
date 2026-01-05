@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type ItemRow = {
@@ -102,7 +103,9 @@ export default function BaixaOsCelPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [scanSupported, setScanSupported] = useState(false);
+  const [supportsDetector, setSupportsDetector] = useState(false);
+  const [supportsCamera, setSupportsCamera] = useState(false);
+  const [scanMode, setScanMode] = useState<"detector" | "zxing" | "none">("none");
   const [scanningRowId, setScanningRowId] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
@@ -117,9 +120,15 @@ export default function BaixaOsCelPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const scanLoopRef = useRef<number | null>(null);
   const detectorRef = useRef<any>(null);
+  const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const zxingControlsRef = useRef<any>(null);
 
   useEffect(() => {
-    setScanSupported(typeof window !== "undefined" && "BarcodeDetector" in window && !!navigator.mediaDevices);
+    const hasDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
+    const hasCamera = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+    setSupportsDetector(hasDetector);
+    setSupportsCamera(hasCamera);
+    setScanMode(hasDetector ? "detector" : hasCamera ? "zxing" : "none");
   }, []);
 
   useEffect(() => {
@@ -466,6 +475,14 @@ export default function BaixaOsCelPage() {
       cancelAnimationFrame(scanLoopRef.current);
       scanLoopRef.current = null;
     }
+    if (zxingControlsRef.current) {
+      try {
+        zxingControlsRef.current.stop();
+      } catch (e) {
+        // noop
+      }
+      zxingControlsRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -475,54 +492,78 @@ export default function BaixaOsCelPage() {
 
   const startScan = async (rowId: string) => {
     setScanError(null);
-    if (!scanSupported) {
-      setScanError("Camera/BarcodeDetector indisponivel neste dispositivo.");
+    if (!supportsCamera) {
+      setScanError("Camera indisponivel neste dispositivo.");
       return;
     }
-
+    const willUseDetector = supportsDetector;
     try {
-      // lazy init detector
-      if (!detectorRef.current) {
-        detectorRef.current = new (window as any).BarcodeDetector({
-          formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "codabar"],
+      if (willUseDetector) {
+        if (!detectorRef.current) {
+          detectorRef.current = new (window as any).BarcodeDetector({
+            formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "codabar"],
+          });
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
         });
-      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+        streamRef.current = stream;
+        setScanningRowId(rowId);
+        setScanMode("detector");
 
-      streamRef.current = stream;
-      setScanningRowId(rowId);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+        const detect = async () => {
+          if (!detectorRef.current || !videoRef.current) return;
+          try {
+            const codes = await detectorRef.current.detect(videoRef.current);
+            if (codes?.length) {
+              const codeText = codes[0]?.rawValue ?? "";
+              if (codeText) {
+                handleScannedCode(rowId, codeText);
+                stopScan();
+                return;
+              }
+            }
+          } catch (err: any) {
+            setScanError(err?.message ?? "Erro ao ler codigo.");
+          }
+          scanLoopRef.current = requestAnimationFrame(detect);
+        };
 
-      const detect = async () => {
-        if (!detectorRef.current || !videoRef.current) return;
-        try {
-          const codes = await detectorRef.current.detect(videoRef.current);
-          if (codes?.length) {
-            const codeText = codes[0]?.rawValue ?? "";
-            if (codeText) {
-              handleScannedCode(rowId, codeText);
+        detect();
+      } else {
+        // ZXing fallback (melhor suporte no iOS)
+        if (!zxingReaderRef.current) {
+          zxingReaderRef.current = new BrowserMultiFormatReader();
+        }
+        const reader = zxingReaderRef.current;
+        const controls = await reader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current!,
+          (result, err) => {
+            if (result && result.getText()) {
+              handleScannedCode(rowId, result.getText());
               stopScan();
-              return;
+            }
+            if (err && err.name !== "NotFoundException") {
+              setScanError(err.message);
             }
           }
-        } catch (err: any) {
-          setScanError(err?.message ?? "Erro ao ler codigo.");
-        }
-        scanLoopRef.current = requestAnimationFrame(detect);
-      };
-
-      detect();
+        );
+        zxingControlsRef.current = controls;
+        setScanningRowId(rowId);
+        setScanMode("zxing");
+      }
     } catch (err: any) {
       setScanError(err?.message ?? "Nao foi possivel abrir a camera.");
       stopScan();
@@ -645,6 +686,14 @@ export default function BaixaOsCelPage() {
   const statusDisplay = osStatus ? statusLabels[osStatus]?.label ?? "-" : "-";
   const statusClass =
     osStatus && statusLabels[osStatus] ? statusLabels[osStatus].className : "bg-zinc-800 text-zinc-200";
+  const scanStatusLabel =
+    scanMode === "detector"
+      ? "Camera pronta (nativo)"
+      : scanMode === "zxing"
+        ? "Camera pronta (ZXing)"
+        : "Camera indisponivel";
+  const scanStatusClass =
+    scanMode === "none" ? "text-amber-300" : scanMode === "detector" ? "text-emerald-300" : "text-blue-200";
 
   return (
     <div className="min-h-screen px-3 py-4 bg-zinc-950">
@@ -716,11 +765,7 @@ export default function BaixaOsCelPage() {
               <h2 className="text-lg font-semibold text-zinc-100">Itens</h2>
               <p className="text-xs text-zinc-500">Use camera ou digitacao rapida.</p>
             </div>
-            {scanSupported ? (
-              <span className="text-[11px] text-emerald-300">Camera pronta</span>
-            ) : (
-              <span className="text-[11px] text-amber-300">Camera/BarcodeDetector indisponivel</span>
-            )}
+            <span className={`text-[11px] ${scanStatusClass}`}>{scanStatusLabel}</span>
           </div>
 
           <div className="space-y-2">
@@ -757,7 +802,7 @@ export default function BaixaOsCelPage() {
                               ? "border border-emerald-500/60 bg-emerald-900/40 text-emerald-100"
                               : "border border-blue-500/50 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20"
                           }`}
-                          disabled={!scanSupported}
+                          disabled={!supportsCamera}
                         >
                           {scanningRowId === row.id ? "Parar" : "Camera"}
                         </button>
@@ -813,16 +858,18 @@ export default function BaixaOsCelPage() {
 
           {scanError && <div className="text-sm text-red-300">{scanError}</div>}
 
-          {scanningRowId && (
-            <div className="rounded-xl border border-blue-500/40 bg-blue-950/40 p-3 space-y-2">
-              <div className="text-sm font-semibold text-blue-100">Lendo codigo...</div>
-              <video ref={videoRef} className="w-full rounded-lg border border-zinc-800 bg-black" autoPlay muted playsInline />
-              <div className="flex items-center gap-2 text-xs text-blue-100">
-                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Aponte a camera para o codigo de barras ou QR. Fecha automaticamente ao ler.
-              </div>
+          <div
+            className={`rounded-xl border border-blue-500/40 bg-blue-950/40 p-3 space-y-2 ${
+              scanningRowId ? "" : "hidden"
+            }`}
+          >
+            <div className="text-sm font-semibold text-blue-100">Lendo codigo...</div>
+            <video ref={videoRef} className="w-full rounded-lg border border-zinc-800 bg-black" autoPlay muted playsInline />
+            <div className="flex items-center gap-2 text-xs text-blue-100">
+              <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              Aponte a camera para o codigo de barras ou QR. Fecha automaticamente ao ler.
             </div>
-          )}
+          </div>
         </div>
 
         {success && (
