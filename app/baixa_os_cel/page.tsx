@@ -108,6 +108,7 @@ export default function BaixaOsCelPage() {
   const [scanMode, setScanMode] = useState<"detector" | "zxing" | "none">("none");
   const [scanningRowId, setScanningRowId] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [ocrBusyRowId, setOcrBusyRowId] = useState<string | null>(null);
 
   const validItems = useMemo(() => rows.filter(isRowComplete), [rows]);
 
@@ -122,6 +123,8 @@ export default function BaixaOsCelPage() {
   const detectorRef = useRef<any>(null);
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const zxingControlsRef = useRef<any>(null);
+  const ocrInputRef = useRef<HTMLInputElement | null>(null);
+  const ocrRowRef = useRef<string | null>(null);
 
   useEffect(() => {
     const hasDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
@@ -470,6 +473,42 @@ export default function BaixaOsCelPage() {
     fetchItem(rowId, clean);
   };
 
+  const triggerOcrCapture = (rowId: string) => {
+    ocrRowRef.current = rowId;
+    if (ocrInputRef.current) {
+      ocrInputRef.current.value = "";
+      ocrInputRef.current.click();
+    }
+  };
+
+  const handleOcrFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const rowId = ocrRowRef.current;
+    if (!file || !rowId) return;
+
+    setScanError(null);
+    setOcrBusyRowId(rowId);
+
+    try {
+      const { default: Tesseract } = await import("tesseract.js");
+      const { data } = await Tesseract.recognize(file, "eng");
+      const raw = (data?.text ?? "").trim();
+      const match = raw.match(/[0-9A-Za-z_.-]+/);
+      const code = match?.[0] ?? "";
+      if (code) {
+        handleScannedCode(rowId, code);
+      } else {
+        setScanError("Nada reconhecido na foto. Tente enquadrar apenas o numero.");
+      }
+    } catch (err: any) {
+      setScanError(err?.message ?? "Erro ao processar OCR.");
+    } finally {
+      setOcrBusyRowId(null);
+      ocrRowRef.current = null;
+      if (ocrInputRef.current) ocrInputRef.current.value = "";
+    }
+  };
+
   const stopScan = () => {
     if (scanLoopRef.current) {
       cancelAnimationFrame(scanLoopRef.current);
@@ -702,7 +741,7 @@ export default function BaixaOsCelPage() {
           <p className="text-xs uppercase tracking-[0.12em] text-blue-300/80">Apontamento celular</p>
           <h1 className="text-2xl font-semibold text-zinc-100">Baixa OS (Cel)</h1>
           <p className="text-sm text-zinc-400">
-            Focado em celular: digite ou leia o codigo pelo camera e informe a quantidade.
+            Focado em celular: digite, leia por camera (codigo de barras/QR) ou foto OCR de numeros e informe a quantidade.
           </p>
         </header>
 
@@ -806,6 +845,14 @@ export default function BaixaOsCelPage() {
                         >
                           {scanningRowId === row.id ? "Parar" : "Camera"}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => triggerOcrCapture(row.id)}
+                          className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold border border-amber-500/60 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                          disabled={!!ocrBusyRowId}
+                        >
+                          {ocrBusyRowId === row.id ? "OCR..." : "Foto OCR"}
+                        </button>
                       </div>
                       {row.itemError && <span className="text-[11px] text-red-300">{row.itemError}</span>}
                     </div>
@@ -870,6 +917,15 @@ export default function BaixaOsCelPage() {
               Aponte a camera para o codigo de barras ou QR. Fecha automaticamente ao ler.
             </div>
           </div>
+
+          <input
+            ref={ocrInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleOcrFile}
+          />
         </div>
 
         {success && (
