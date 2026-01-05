@@ -491,10 +491,13 @@ export default function BaixaOsCelPage() {
 
     try {
       const { default: Tesseract } = await import("tesseract.js");
-      const { data } = await Tesseract.recognize(file, "eng");
-      const raw = (data?.text ?? "").trim();
-      const match = raw.match(/[0-9A-Za-z_.-]+/);
-      const code = match?.[0] ?? "";
+      const ocrOptions: any = { tessedit_char_whitelist: "0123456789" };
+      const { data } = await Tesseract.recognize(file, "eng", ocrOptions);
+      const raw = (data?.text ?? "").replace(/\s+/g, " ").trim();
+      const numericMatches = raw.match(/\d{2,}/g) || [];
+      const bestNumeric = numericMatches.sort((a, b) => b.length - a.length)[0];
+      const fallbackMatch = raw.match(/[0-9A-Za-z_.-]+/);
+      const code = bestNumeric ?? fallbackMatch?.[0] ?? "";
       if (code) {
         handleScannedCode(rowId, code);
       } else {
