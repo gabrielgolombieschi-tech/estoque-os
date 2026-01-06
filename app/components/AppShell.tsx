@@ -155,6 +155,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       <a href="/itens" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
                         Cadastro
                       </a>
+                      <a href="/estoque/importar" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
+                        Importar XML
+                      </a>
                       <a href="/mov" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
                         Movimentação
                       </a>

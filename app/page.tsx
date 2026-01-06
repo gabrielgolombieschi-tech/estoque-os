@@ -32,6 +32,11 @@
           <div className="text-sm text-zinc-400 mt-1">Saldo atual por produto</div>
         </a>
 
+        <a href="/estoque/importar" className="border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900">
+          <div className="font-medium">Importar XML</div>
+          <div className="text-sm text-zinc-400 mt-1">Importe NF-e (XML) para estoque</div>
+        </a>
+
         <a href="/mov" className="border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900">
           <div className="font-medium">Movimentacoes</div>
           <div className="text-sm text-zinc-400 mt-1">Entradas/saidas/ajustes</div>
