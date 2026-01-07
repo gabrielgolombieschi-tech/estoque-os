@@ -41,6 +41,16 @@
           <div className="font-medium">Movimentacoes</div>
           <div className="text-sm text-zinc-400 mt-1">Entradas/saidas/ajustes</div>
         </a>
+
+        <a href="/colaboradores" className="border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900">
+          <div className="font-medium">Colaboradores</div>
+          <div className="text-sm text-zinc-400 mt-1">Cadastro e valor/hora</div>
+        </a>
+
+        <a href="/apontamentos" className="border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900">
+          <div className="font-medium">Apontamentos</div>
+          <div className="text-sm text-zinc-400 mt-1">Apontamento de horas por OS</div>
+        </a>
       </div>
     </div>
   );

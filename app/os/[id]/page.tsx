@@ -4,11 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabaseBrowser } from "../../../lib/supabase/client";
 import { parseDecimalBR, formatDecimalBR } from "../../../lib/decimal";
+import MaoObraCard from "../../components/os/MaoObraCard";
+
+type Cliente = { id: number; nome: string; ativo: boolean };
 
 type OS = {
   id: number;
   numero_os: string;
   cliente_nome: string;
+  cliente_id?: number | null;
   status: "aberta" | "em_andamento" | "concluida" | "cancelada";
   descricao_servico: string | null;
   valor_total: number;
@@ -16,6 +20,8 @@ type OS = {
   orcado: number | null;
   tipo_pedido?: string | null;
   tem_gestao?: boolean | null;
+  pedido_compra?: string | null;
+  vendedor?: string | null;
 };
 
 type OsItemRow = {
@@ -102,6 +108,19 @@ export default function OsDetailPage() {
   const [gestaoLoading, setGestaoLoading] = useState(false);
   const [gestaoSaving, setGestaoSaving] = useState(false);
   const [gestaoErr, setGestaoErr] = useState<string | null>(null);
+  const [maoObraExtra, setMaoObraExtra] = useState<number>(0);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
+  const [clienteId, setClienteId] = useState<number | null>(null);
+  const [clienteNomeLivre, setClienteNomeLivre] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [pedidoCompra, setPedidoCompra] = useState("");
+  const [tipoPedido, setTipoPedido] = useState<"servico" | "material">("servico");
+  const [vendedor, setVendedor] = useState("");
+  const [orcado, setOrcado] = useState("");
 
   // adicionar item
   const [q, setQ] = useState("");
@@ -132,9 +151,10 @@ export default function OsDetailPage() {
     const maoObra = rows
       .filter((r) => r.itens?.tipo === "servico")
       .reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
+    const maoObraTotal = maoObra + Number(maoObraExtra || 0);
     const imposto = Number(os?.orcado ?? 0) * 0.22;
-    const total = materiais + maoObra + imposto;
-    return { materiais, maoObra, imposto, total };
+    const total = materiais + maoObraTotal + imposto;
+    return { materiais, maoObra: maoObraTotal, imposto, total };
   })();
 
   const totalAlert = Number(os?.orcado ?? 0) > 0 && totais.total >= Number(os?.orcado ?? 0) * 0.9;
@@ -147,6 +167,17 @@ export default function OsDetailPage() {
     const final = base * (1 + ipiPerc / 100);
     return Math.round(final * 100) / 100;
   };
+
+  async function loadClientes() {
+    const { data } = await supabase
+      .from("clientes")
+      .select("id,nome,ativo")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+      .limit(500);
+
+    setClientes((data ?? []) as Cliente[]);
+  }
 
   async function loadGestaoItens() {
     if (!Number.isFinite(osId)) return;
@@ -213,7 +244,9 @@ export default function OsDetailPage() {
 
     const { data: osData, error: osErr } = await supabase
       .from("ordens_servico")
-      .select("id,numero_os,cliente_nome,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao")
+      .select(
+        "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor"
+      )
       .eq("id", osId)
       .single();
 
@@ -233,9 +266,23 @@ export default function OsDetailPage() {
 
     if (itemsErr) setErr(itemsErr.message);
     else setRows((itemsData ?? []) as unknown as OsItemRow[]);
+
+    const { data: maoData, error: maoErr } = await supabase
+      .from("vw_custo_mao_obra_os")
+      .select("custo_mao_obra")
+      .eq("os_id", osId)
+      .maybeSingle();
+
+    if (maoErr) {
+      console.error(maoErr);
+      setMaoObraExtra(0);
+    } else {
+      setMaoObraExtra(Number(maoData?.custo_mao_obra ?? 0));
+    }
   }
 
   useEffect(() => {
+    loadClientes();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [osId]);
@@ -397,6 +444,65 @@ export default function OsDetailPage() {
   function closeGestaoModal(reset = true) {
     setShowGestaoModal(false);
     if (reset && os) setTemGestao(Boolean(os.tem_gestao));
+  }
+
+  function openEditModal() {
+    if (!os) return;
+    setEditErr(null);
+    setClienteId(os.cliente_id ?? null);
+    setClienteNomeLivre(os.cliente_nome ?? "");
+    setDescricao(os.descricao_servico ?? "");
+    setPedidoCompra(os.pedido_compra ?? "");
+    setTipoPedido(os.tipo_pedido === "material" ? "material" : "servico");
+    setVendedor(os.vendedor ?? "");
+    setOrcado(os.orcado != null ? String(os.orcado) : "");
+    setShowEdit(true);
+  }
+
+  async function saveEdit() {
+    if (!os) return;
+    setEditErr(null);
+
+    if (!clienteId && !clienteNomeLivre.trim()) {
+      setEditErr("Selecione um cliente ou informe um nome.");
+      return;
+    }
+
+    const orcadoValor = Number(orcado || 0);
+    if (!Number.isFinite(orcadoValor) || orcadoValor < 0) {
+      setEditErr("Informe um valor orcado valido.");
+      return;
+    }
+
+    setEditSaving(true);
+
+    const clienteNomeFinal = clienteId
+      ? clientes.find((c) => c.id === clienteId)?.nome ?? clienteNomeLivre.trim()
+      : clienteNomeLivre.trim();
+
+    const { error } = await supabase
+      .from("ordens_servico")
+      .update({
+        cliente_id: clienteId,
+        cliente_nome: clienteNomeFinal,
+        descricao_servico: descricao.trim() || null,
+        pedido_compra: pedidoCompra.trim() || null,
+        tipo_pedido: tipoPedido,
+        vendedor: vendedor.trim() || null,
+        orcado: orcadoValor,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", os.id);
+
+    setEditSaving(false);
+
+    if (error) {
+      setEditErr(error.message);
+      return;
+    }
+
+    setShowEdit(false);
+    await load();
   }
 
   async function handleSearch(nextNome?: string, nextFornecedor?: string) {
@@ -755,6 +861,14 @@ export default function OsDetailPage() {
           </button>
 
           <button
+            onClick={openEditModal}
+            disabled={busy}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+          >
+            Editar
+          </button>
+
+          <button
             onClick={() => setStatus("em_andamento")}
             disabled={busy || isConcluding}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
@@ -798,6 +912,8 @@ export default function OsDetailPage() {
           Esta OS está <b>{os?.status}</b>. Edição bloqueada.
         </div>
       )}
+
+      <MaoObraCard osId={osId} />
 
       {err && <div className="text-sm text-red-400">{err}</div>}
       {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}
@@ -930,6 +1046,111 @@ export default function OsDetailPage() {
         </div>
       )}
     </div>
+
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Editar OS</div>
+                <div className="text-sm text-zinc-400">Atualize os dados da ordem de servico.</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowEdit(false)}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveEdit}
+                  disabled={editSaving}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                >
+                  {editSaving ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Pedido de compra</div>
+                <input
+                  className="w-full px-3 py-2"
+                  value={pedidoCompra}
+                  onChange={(e) => setPedidoCompra(e.target.value)}
+                  placeholder="Alfanumerico conforme cliente"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Tipo de pedido</div>
+                <select
+                  className="w-full px-3 py-2"
+                  value={tipoPedido}
+                  onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
+                >
+                  <option value="servico">Servico</option>
+                  <option value="material">Material</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Cliente (cadastro)</div>
+                <select
+                  className="w-full px-3 py-2"
+                  value={clienteId ?? ""}
+                  onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">-</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Cliente (nome livre)</div>
+                <input
+                  className="w-full px-3 py-2"
+                  value={clienteNomeLivre}
+                  onChange={(e) => setClienteNomeLivre(e.target.value)}
+                  placeholder="Se nao estiver cadastrado"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Vendedor</div>
+                <input className="w-full px-3 py-2" value={vendedor} onChange={(e) => setVendedor(e.target.value)} />
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Valor pedido</div>
+                <input
+                  type="number"
+                  className="w-full px-3 py-2"
+                  value={orcado}
+                  onChange={(e) => setOrcado(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-1 md:col-span-3">
+                <div className="text-xs text-zinc-400">Descricao (opcional)</div>
+                <textarea
+                  className="w-full px-3 py-2 min-h-[80px]"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {editErr && <div className="text-sm text-red-400">{editErr}</div>}
+          </div>
+        </div>
+      )}
 
       {showGestaoModal && (
         <div

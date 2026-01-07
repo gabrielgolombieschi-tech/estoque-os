@@ -36,6 +36,7 @@ export default function OsListPage() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [itensTotalPorOs, setItensTotalPorOs] = useState<Record<number, number>>({});
+  const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
 
   // criacao
   const [creating, setCreating] = useState(false);
@@ -65,6 +66,7 @@ export default function OsListPage() {
   async function load() {
     setErr(null);
     setItensTotalPorOs({});
+    setMaoObraPorOs({});
 
     let q = supabase
       .from("ordens_servico")
@@ -97,6 +99,19 @@ export default function OsListPage() {
         totals[osId] = prev + Number(row.valor_total ?? 0);
       });
       setItensTotalPorOs(totals);
+
+      const { data: maoData } = await supabase
+        .from("vw_custo_mao_obra_os")
+        .select("os_id,custo_mao_obra")
+        .in("os_id", osIds);
+
+      const maoTotals: Record<number, number> = {};
+      (maoData ?? []).forEach((row: any) => {
+        const osId = Number(row.os_id);
+        if (!Number.isFinite(osId)) return;
+        maoTotals[osId] = Number(row.custo_mao_obra ?? 0);
+      });
+      setMaoObraPorOs(maoTotals);
     }
   }
 
@@ -263,8 +278,9 @@ export default function OsListPage() {
                   const pedido = Number(r.orcado ?? 0);
                   const imposto = pedido * 0.22; // mesma regra usada no detalhe
                   const itensTotal = itensTotalPorOs[r.id] ?? 0;
+                  const maoObraExtra = maoObraPorOs[r.id] ?? 0;
                   const custoBanco = Number(r.custo ?? NaN);
-                  const custoCalculado = itensTotal + imposto;
+                  const custoCalculado = itensTotal + maoObraExtra + imposto;
                   const custo = Number.isFinite(custoBanco) && custoBanco > 0 ? custoBanco : custoCalculado;
                   const alerta = pedido > 0 && custo >= pedido * 0.9;
                   const custoClass = alerta
