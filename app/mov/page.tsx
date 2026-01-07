@@ -36,6 +36,10 @@ export default function MovimentacoesPage() {
   // filtros
   const [q, setQ] = useState("");
   const [tipo, setTipo] = useState<"todos" | MovTipo>("todos");
+  const [motivoFiltro, setMotivoFiltro] = useState("");
+  const [usuarioFiltro, setUsuarioFiltro] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
 
   async function load() {
     setErr(null);
@@ -63,6 +67,31 @@ export default function MovimentacoesPage() {
     }
 
     if (tipo !== "todos") list = list.filter((r) => r.tipo === tipo);
+
+    const motTerm = motivoFiltro.trim().toLowerCase();
+    if (motTerm) {
+      list = list.filter((r) => (r.motivo ?? "").toLowerCase().includes(motTerm));
+    }
+
+    const usuarioTerm = usuarioFiltro.trim().toLowerCase();
+    if (usuarioTerm) {
+      list = list.filter((r) => (r.realizado_por ?? "").toLowerCase().includes(usuarioTerm));
+    }
+
+    const ini = dataInicio ? new Date(dataInicio) : null;
+    const fim = dataFim ? new Date(dataFim) : null;
+    if (ini || fim) {
+      list = list.filter((r) => {
+        const d = new Date(r.data_movimentacao);
+        if (ini && d < ini) return false;
+        if (fim) {
+          const f = new Date(fim);
+          f.setHours(23, 59, 59, 999);
+          if (d > f) return false;
+        }
+        return true;
+      });
+    }
 
     setRows(list);
   }
@@ -93,8 +122,8 @@ export default function MovimentacoesPage() {
 
       {/* Filtros */}
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <div className="md:col-span-3 space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="md:col-span-2 space-y-1">
             <div className="text-xs text-zinc-400">Buscar</div>
             <input
               className="w-full px-3 py-2"
@@ -118,13 +147,59 @@ export default function MovimentacoesPage() {
             </select>
           </div>
 
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Motivo</div>
+            <input
+              className="w-full px-3 py-2"
+              value={motivoFiltro}
+              onChange={(e) => setMotivoFiltro(e.target.value)}
+              placeholder="Ex: compra, ajuste..."
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Usuário</div>
+            <input
+              className="w-full px-3 py-2"
+              value={usuarioFiltro}
+              onChange={(e) => setUsuarioFiltro(e.target.value)}
+              placeholder="Email ou nome"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Data início</div>
+            <input className="w-full px-3 py-2" type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Data fim</div>
+            <input className="w-full px-3 py-2" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+          </div>
+
           <div className="flex items-end">
-            <button
-              onClick={load}
-              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-full"
-            >
-              Aplicar
-            </button>
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={load}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-full"
+              >
+                Aplicar
+              </button>
+              <button
+                onClick={() => {
+                  setQ("");
+                  setTipo("todos");
+                  setMotivoFiltro("");
+                  setUsuarioFiltro("");
+                  setDataInicio("");
+                  setDataFim("");
+                  void load();
+                }}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-full"
+              >
+                Limpar
+              </button>
+            </div>
           </div>
         </div>
 
@@ -178,13 +253,9 @@ export default function MovimentacoesPage() {
                   {formatDecimalBR(Number(r.quantidade ?? 0), 3)}
                 </td>
 
-                <td className="px-4 py-3 text-zinc-300">
-                  {r.motivo ?? "—"}
-                </td>
+                <td className="px-4 py-3 text-zinc-300">{r.motivo ?? "—"}</td>
 
-                <td className="px-4 py-3 text-zinc-400">
-                  {r.realizado_por ?? "—"}
-                </td>
+                <td className="px-4 py-3 text-zinc-400">{r.realizado_por ?? "—"}</td>
               </tr>
             ))}
 

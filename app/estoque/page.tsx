@@ -36,13 +36,17 @@ export default function EstoquePage() {
   const [soAbaixoMin, setSoAbaixoMin] = useState(false);
   const [ativos, setAtivos] = useState<"ativos" | "todos">("ativos");
   const [codigoId, setCodigoId] = useState("");
-  const [codigoFornecedor, setCodigoFornecedor] = useState("");
   const [fornecedorNome, setFornecedorNome] = useState("");
 
   const [ajusteItemId, setAjusteItemId] = useState<number | null>(null);
   const [ajusteQuantidade, setAjusteQuantidade] = useState<number>(0);
   const [ajusteMotivo, setAjusteMotivo] = useState<string>("Ajuste manual");
   const [showAjuste, setShowAjuste] = useState(false);
+  const [estoqueMinimo, setEstoqueMinimo] = useState<number>(0);
+  const [estoqueIdeal, setEstoqueIdeal] = useState<number>(0);
+  const [estoqueMaximo, setEstoqueMaximo] = useState<number>(0);
+  const [limiteBusy, setLimiteBusy] = useState(false);
+  const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
 
   async function load() {
     setErr(null);
@@ -76,15 +80,6 @@ export default function EstoquePage() {
       list = list.filter((r) => String(r.item_id).includes(idTerm));
     }
 
-    const codFornTerm = codigoFornecedor.trim().toLowerCase();
-    if (codFornTerm) {
-      list = list.filter((r) => {
-        const codBar = ((r.itens as any)?.codigo_barras ?? "").toLowerCase();
-        const codForn = ((r.itens as any)?.codigo_fornecedor ?? "").toLowerCase();
-        return codBar.includes(codFornTerm) || codForn.includes(codFornTerm);
-      });
-    }
-
     const fornTerm = fornecedorNome.trim().toLowerCase();
     if (fornTerm) {
       list = list.filter((r) => {
@@ -106,6 +101,11 @@ export default function EstoquePage() {
     setAjusteItemId(item_id);
     setAjusteQuantidade(atual);
     setAjusteMotivo("Ajuste manual");
+    const row = rows.find((r) => r.item_id === item_id);
+    setEstoqueMinimo(Number(row?.itens?.estoque_minimo ?? 0));
+    setEstoqueIdeal(Number(row?.itens?.estoque_ideal ?? 0));
+    setEstoqueMaximo(Number(row?.itens?.estoque_maximo ?? 0));
+    setLimiteMsg(null);
     setShowAjuste(true);
   }
 
@@ -153,11 +153,32 @@ export default function EstoquePage() {
     await load();
   }
 
+  async function salvarLimites() {
+    if (!ajusteItemId) return;
+    setLimiteBusy(true);
+    setLimiteMsg(null);
+    const { error } = await supabase
+      .from("itens")
+      .update({
+        estoque_minimo: estoqueMinimo,
+        estoque_ideal: estoqueIdeal,
+        estoque_maximo: estoqueMaximo,
+      })
+      .eq("id", ajusteItemId);
+    setLimiteBusy(false);
+    setLimiteMsg(error ? `Erro ao salvar limites: ${error.message}` : "Limites salvos.");
+    if (!error) await load();
+  }
+
   function fecharAjuste() {
     setShowAjuste(false);
     setAjusteItemId(null);
     setAjusteQuantidade(0);
     setAjusteMotivo("Ajuste manual");
+    setEstoqueMinimo(0);
+    setEstoqueIdeal(0);
+    setEstoqueMaximo(0);
+    setLimiteMsg(null);
   }
 
   useEffect(() => {
@@ -187,22 +208,12 @@ export default function EstoquePage() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="md:col-span-2 space-y-1">
             <div className="text-xs text-zinc-400">Buscar</div>
-            <input className="w-full px-3 py-2" value={q} onChange={(e) => setQ(e.target.value)} placeholder="C?digo ou nome" />
+            <input className="w-full px-3 py-2" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Código ou nome" />
           </div>
 
           <div className="space-y-1">
-            <div className="text-xs text-zinc-400">C?digo (id)</div>
+            <div className="text-xs text-zinc-400">Código (id)</div>
             <input className="w-full px-3 py-2" value={codigoId} onChange={(e) => setCodigoId(e.target.value)} placeholder="item_id" />
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-xs text-zinc-400">C?digo (fornecedor)</div>
-            <input
-              className="w-full px-3 py-2"
-              value={codigoFornecedor}
-              onChange={(e) => setCodigoFornecedor(e.target.value)}
-              placeholder="Ex: c?digo barras/fornecedor"
-            />
           </div>
 
           <div className="space-y-1">
@@ -224,9 +235,9 @@ export default function EstoquePage() {
           </div>
 
           <div className="space-y-1">
-            <div className="text-xs text-zinc-400">Abaixo do m?nimo</div>
+            <div className="text-xs text-zinc-400">Abaixo do mínimo</div>
             <select className="w-full px-3 py-2" value={soAbaixoMin ? "sim" : "nao"} onChange={(e) => setSoAbaixoMin(e.target.value === "sim")}>
-              <option value="nao">N?o</option>
+              <option value="nao">Não</option>
               <option value="sim">Sim</option>
             </select>
           </div>
@@ -270,6 +281,9 @@ export default function EstoquePage() {
                   disabled
                   placeholder="Nenhum item selecionado"
                 />
+                <div className="text-xs text-zinc-400">
+                  {rows.find((r) => r.item_id === ajusteItemId)?.itens?.nome ?? "Sem descrição"}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -288,12 +302,7 @@ export default function EstoquePage() {
 
                 <div className="space-y-1">
                   <div className="text-xs text-zinc-400">Motivo</div>
-                  <input
-                    className="w-full px-3 py-2"
-                    value={ajusteMotivo}
-                    onChange={(e) => setAjusteMotivo(e.target.value)}
-                    disabled={!ajusteItemId}
-                  />
+                  <input className="w-full px-3 py-2" value={ajusteMotivo} disabled />
                 </div>
               </div>
 
@@ -316,6 +325,49 @@ export default function EstoquePage() {
                 {busy ? "Aplicando..." : "Aplicar ajuste"}
               </button>
             </div>
+
+            <div className="px-5 py-4 border-t border-zinc-800 bg-zinc-950 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Estoque mínimo</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={estoqueMinimo}
+                    onChange={(e) => setEstoqueMinimo(parseDecimalBR(e.target.value) || 0)}
+                    disabled={!ajusteItemId || limiteBusy}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Estoque ideal</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={estoqueIdeal}
+                    onChange={(e) => setEstoqueIdeal(parseDecimalBR(e.target.value) || 0)}
+                    disabled={!ajusteItemId || limiteBusy}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Estoque máximo</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={estoqueMaximo}
+                    onChange={(e) => setEstoqueMaximo(parseDecimalBR(e.target.value) || 0)}
+                    disabled={!ajusteItemId || limiteBusy}
+                  />
+                </div>
+              </div>
+
+              {limiteMsg && <div className="text-sm text-emerald-300">{limiteMsg}</div>}
+              <div className="flex justify-end">
+                <button
+                  onClick={salvarLimites}
+                  disabled={!ajusteItemId || limiteBusy}
+                  className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
+                >
+                  {limiteBusy ? "Salvando..." : "Salvar limites"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -327,6 +379,7 @@ export default function EstoquePage() {
               <th className="px-4 py-3 text-left">ID</th>
               <th className="px-4 py-3 text-left">Código</th>
               <th className="px-4 py-3 text-left">Produto</th>
+              <th className="px-4 py-3 text-left">Fornecedor</th>
               <th className="px-4 py-3 text-right">Saldo</th>
               <th className="px-4 py-3 text-right">Mín</th>
               <th className="px-4 py-3 text-right">Ideal</th>
@@ -350,6 +403,11 @@ export default function EstoquePage() {
                     <div className="font-medium">{r.itens?.nome}</div>
                     <div className="text-xs text-zinc-400">
                       {r.itens?.unidade_medida ?? "UN"} · {abaixo ? "Abaixo do mínimo" : "OK"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-left">
+                    <div className="text-sm text-zinc-200">
+                      {(r.itens as any)?.fornecedores?.nome ?? "—"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(saldo, 3)}</td>
@@ -384,7 +442,7 @@ export default function EstoquePage() {
             gerarRelatorioEstoque(rows, {
               busca: q,
               codigoId,
-              codigoFornecedor,
+              codigoFornecedor: "",
               fornecedorNome,
               ativos,
               abaixoMinimo: soAbaixoMin,
@@ -398,3 +456,4 @@ export default function EstoquePage() {
     </div>
   );
 }
+

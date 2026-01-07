@@ -303,7 +303,7 @@ export default function ItensPage() {
     setOk(null);
     setErr(null);
 
-    if (!form.codigo_interno.trim()) return setErr("Codigo interno e obrigatorio.");
+    if (!form.codigo_interno.trim()) return setErr("C?digo interno e obrigatorio.");
     if (!form.nome.trim()) return setErr("Nome e obrigatorio.");
 
     const isProduto = form.tipo === "produto";
@@ -377,7 +377,7 @@ export default function ItensPage() {
       const msg = String(error.message || "");
       if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
         setBusy(false);
-        return setErr("Codigo interno ou codigo de barras ja existe. Ajuste e tente novamente.");
+        return setErr("C?digo interno ou codigo de barras ja existe. Ajuste e tente novamente.");
       }
       setBusy(false);
       return setErr(msg);
@@ -461,7 +461,7 @@ export default function ItensPage() {
                 className="w-full px-3 py-2"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Nome, codigo interno ou codigo de barras"
+                placeholder="Nome, c?digo interno ou c?digo de barras"
               />
               <button
                 onClick={load}
@@ -477,7 +477,7 @@ export default function ItensPage() {
             <select className="w-full px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value as any)}>
               <option value="todos">Todos</option>
               <option value="produto">Produto</option>
-              <option value="servico">Servico</option>
+              <option value="servico">Serviço</option>
               <option value="despesa">Despesa</option>
             </select>
           </div>
@@ -506,13 +506,13 @@ export default function ItensPage() {
             <thead className="bg-zinc-900/70">
               <tr className="text-zinc-200">
                 <th className="px-4 py-3 text-left w-16">ID</th>
-                <th className="px-4 py-3 text-left">Codigo</th>
+                <th className="px-4 py-3 text-left">Código</th>
                 <th className="px-4 py-3 text-left min-w-[220px]">Nome</th>
                 <th className="px-4 py-3 text-left">Tipo</th>
                 <th className="px-4 py-3 text-left">Fornecedor</th>
-                <th className="px-4 py-3 text-right">Preco</th>
+                <th className="px-4 py-3 text-right">Pre?o</th>
                 <th className="px-4 py-3 text-center">Ativo</th>
-                <th className="px-4 py-3 text-center">Acoes</th>
+                <th className="px-4 py-3 text-center">A??es</th>
               </tr>
             </thead>
 
@@ -532,7 +532,7 @@ export default function ItensPage() {
                   <td className="px-4 py-3 text-zinc-300 capitalize">{r.tipo}</td>
                   <td className="px-4 py-3 text-zinc-300">{r.fornecedores?.nome ?? fornecedorNome(r.fornecedor_id)}</td>
                   <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{money(r.preco_unitario)}</td>
-                  <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "Nao"}</td>
+                  <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "N?o"}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={() => startEdit(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
@@ -600,12 +600,12 @@ export default function ItensPage() {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Codigo interno *</div>
+                      <div className="text-xs text-zinc-400">C?digo interno *</div>
                       <input className="w-full px-3 py-2" value={form.codigo_interno} onChange={(e) => setForm((s) => ({ ...s, codigo_interno: e.target.value }))} />
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Codigo de barras</div>
+                      <div className="text-xs text-zinc-400">C?digo de barras</div>
                       <input className="w-full px-3 py-2" value={form.codigo_barras} onChange={(e) => setForm((s) => ({ ...s, codigo_barras: e.target.value }))} />
                     </div>
 
@@ -631,7 +631,7 @@ export default function ItensPage() {
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
-                      <div className="text-xs text-zinc-400">Descricao</div>
+                      <div className="text-xs text-zinc-400">Descri??o</div>
                       <textarea className="w-full px-3 py-2 min-h-[70px]" value={form.descricao} onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))} />
                     </div>
                   </div>
@@ -650,7 +650,7 @@ export default function ItensPage() {
                         }
                       >
                         <option value="produto">Produto</option>
-                        <option value="servico">Servico</option>
+                        <option value="servico">Servi?oo</option>
                         <option value="despesa">Despesa</option>
                       </select>
                     </div>
@@ -736,7 +736,7 @@ export default function ItensPage() {
                       <input type="number" className="w-full px-3 py-2" value={form.custo_medio} onChange={(e) => setForm((s) => ({ ...s, custo_medio: Number(e.target.value) }))} />
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Preco unitario</div>
+                      <div className="text-xs text-zinc-400">Pre?o unit?rio</div>
                       <input type="number" className="w-full px-3 py-2" value={form.preco_unitario} onChange={(e) => setForm((s) => ({ ...s, preco_unitario: Number(e.target.value) }))} />
                     </div>
                   </div>
