@@ -73,11 +73,18 @@ type ImportJob = {
   selected: boolean;
 };
 
+function normalizeDocumento(doc: string | null): string | null {
+  if (!doc) return null;
+  const onlyDigits = doc.replace(/\D/g, "");
+  return onlyDigits || null;
+}
+
 export default function ImportarXmlPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
 
   const [xmlText, setXmlText] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isReading, setIsReading] = useState(false);
   const readReqIdRef = useRef(0);
   const [nfeInfo, setNfeInfo] = useState<ParsedNfe | null>(null);
@@ -210,11 +217,12 @@ export default function ImportarXmlPage() {
   async function checkFornecedor(cnpj: string | null) {
     setFornecedorId(null);
     setFornecedorNome(null);
-    if (!cnpj) return;
+    const cnpjNormalizado = normalizeDocumento(cnpj);
+    if (!cnpjNormalizado) return;
     const { data, error } = await supabase
       .from("fornecedores")
-      .select("id,nome,documento")
-      .eq("documento", cnpj)
+      .select("id,nome,documento_norm")
+      .eq("documento_norm", cnpjNormalizado)
       .maybeSingle();
     if (!error && data?.id) {
       setFornecedorId(data.id as number);
@@ -224,13 +232,29 @@ export default function ImportarXmlPage() {
 
   async function criarFornecedor(cnpj: string, nome: string) {
     setImportErr(null);
+    const documento = normalizeDocumento(cnpj);
+    if (!documento) {
+      setImportErr("Documento do fornecedor invalido.");
+      return null;
+    }
+
+    const payload = {
+      nome: nome?.trim() || "Fornecedor NF",
+      documento,
+      ativo: true,
+    };
+
     const { data, error } = await supabase
       .from("fornecedores")
-      .insert({ nome, documento: cnpj, ativo: true })
-      .select("id,nome")
+      .upsert(payload, { onConflict: "documento_norm" })
+      .select("id,nome,documento_norm")
       .single();
     if (error) {
-      setImportErr(error.message);
+      if ((error as any).code === "23505") {
+        setImportErr("Fornecedor ja cadastrado para este documento.");
+      } else {
+        setImportErr(error.message);
+      }
       return null;
     }
     setFornecedorId(data.id as number);
@@ -342,8 +366,15 @@ export default function ImportarXmlPage() {
     setImportErr(null);
     setImportOk(null);
     const files = Array.from(e.target.files ?? []);
-    setSelectedFile(files[0] ?? null);
+    const file = files[0] ?? null;
+    setSelectedFile(file);
+    setSelectedFiles(files);
     setIsReading(false);
+    if (files.length > 0) {
+      setTimeout(() => {
+        parseXmlAndCheck(files);
+      }, 0);
+    }
   }
 
   function newJobId() {
@@ -352,7 +383,8 @@ export default function ImportarXmlPage() {
 
   async function addJobFromRaw(xml: string, fileName: string) {
     const parsed = parseXml(xml);
-    const cnpj = parsed.nfe.cnpjEmitente ?? null;
+    const cnpjRaw = parsed.nfe.cnpjEmitente ?? null;
+    const cnpj = normalizeDocumento(cnpjRaw);
     let status: ImportJob["status"] = "ok";
     let error: string | undefined;
     let selected = true;
@@ -391,8 +423,15 @@ export default function ImportarXmlPage() {
       selected,
     };
 
-    setJobs((prev) => [...prev, job]);
-    if (selected) setSelectedJobId(job.id);
+    const alreadyExists = !!(chave && jobs.some((j) => j.nfeInfo?.chave === chave));
+    setJobs((prev) => {
+      if (alreadyExists) return prev;
+      return [...prev, job];
+    });
+    if (selected && !alreadyExists) setSelectedJobId(job.id);
+    if (selected && cnpj) {
+      await checkFornecedor(cnpj);
+    }
   }
 
   async function addJobFromFile(file: File) {
@@ -405,7 +444,7 @@ export default function ImportarXmlPage() {
     await addJobFromRaw(text, file.name);
   }
 
-  async function parseXmlAndCheck() {
+  async function parseXmlAndCheck(filesOverride?: File[] | null) {
     if (isReading || importBusy) return;
     setImportErr(null);
     setImportOk(null);
@@ -413,14 +452,21 @@ export default function ImportarXmlPage() {
     const reqId = ++readReqIdRef.current;
 
     try {
-      if (!selectedFile && !xmlText.trim()) throw new Error("Selecione um XML para ler.");
+      const fileList = filesOverride ?? selectedFiles;
+      if ((!fileList || fileList.length === 0) && !xmlText.trim()) {
+        throw new Error("Selecione um XML para ler.");
+      }
       setFornecedorId(null);
       setFornecedorNome(null);
       setNfeInfo(null);
       setParsedItens([]);
       setItemMap(new Map());
 
-      if (selectedFile) await addJobFromFile(selectedFile);
+      if (fileList && fileList.length > 0) {
+        for (const file of fileList) {
+          await addJobFromFile(file);
+        }
+      }
       if (xmlText.trim()) await addJobFromRaw(xmlText, "xml-painel");
 
       if (reqId === readReqIdRef.current) setImportOk("XML lido e validado.");
@@ -465,10 +511,16 @@ export default function ImportarXmlPage() {
       const jobsToUse = jobs.filter((j) => j.selected && j.status === "ok" && j.itens.length > 0);
       if (jobsToUse.length === 0) throw new Error("Nenhum XML selecionado.");
 
-      const baseCnpj = fornecedorCnpjBase ?? jobsToUse.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null;
+      const baseCnpj =
+        fornecedorCnpjBase ??
+        normalizeDocumento(jobsToUse.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null);
       let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
       if (!fornecedorFinal && baseCnpj) {
-        const { data: found } = await supabase.from("fornecedores").select("id").eq("documento", baseCnpj).maybeSingle();
+        const { data: found } = await supabase
+          .from("fornecedores")
+          .select("id")
+          .eq("documento_norm", baseCnpj)
+          .maybeSingle();
         fornecedorFinal = found?.id ?? null;
       }
       if (!fornecedorFinal) {
@@ -499,6 +551,19 @@ export default function ImportarXmlPage() {
       setImportErr(typeof e?.message === "string" ? e.message : "Erro ao cadastrar.");
     } finally {
       setCadBusy(false);
+    }
+  }
+
+  async function cadastrarItemManual(it: ParsedItem) {
+    setImportErr(null);
+    const dataCompra = selectedJob?.nfeInfo?.dataEmissao ?? null;
+    const created = await criarItemRapido(it, fornecedorIdBase ?? fornecedorId ?? null, dataCompra);
+    if (created) {
+      setItemMap((prev) => {
+        const next = new Map(prev);
+        next.set(it.codigo, created);
+        return next;
+      });
     }
   }
 
@@ -566,8 +631,8 @@ export default function ImportarXmlPage() {
             chave: info.chave,
             numero: info.numero,
             serie: info.serie,
-            emitente: info.emitente,
-            cnpj_emitente: info.cnpjEmitente,
+            emitente_nome: info.emitente,
+            emitente_cnpj: info.cnpjEmitente,
             valor_produtos: info.valorProdutos ?? 0,
             valor_frete: info.valorFrete ?? 0,
             valor_seguro: info.valorSeguro ?? 0,
@@ -576,7 +641,6 @@ export default function ImportarXmlPage() {
             valor_total: info.valorTotal ?? 0,
             fornecedor_id: fornecedorIdBase ?? fornecedorId ?? null,
             data_emissao: info.dataEmissao ?? new Date().toISOString(),
-            xml_raw: job.xmlText ?? xmlText,
           };
 
           const { data: nfCreated, error: nfErr } = await supabase.from("nf_entrada").insert(nfPayload).select("id").single();
@@ -632,17 +696,14 @@ export default function ImportarXmlPage() {
             itensRows.push({
               nf_entrada_id: nfId,
               item_id: itemId,
-              codigo: it.codigo,
+              codigo_fornecedor: it.codigo,
               descricao: it.overrideNome ?? it.nome,
-              quantidade: round6(qtd),
-              valor_unitario: round6(Number(it.valorUnit ?? 0)),
-              valor_total: round6(baseLiquida),
-              v_desc: round6(Number(it.vDesc ?? 0)),
-              v_frete: round6(freteRateado),
-              v_seguro: round6(Number(it.vSeguro ?? 0)),
-              v_outro: round6(Number(it.vOutro ?? 0)),
-              v_ipi: round6(vIpi),
+              ncm: it.ncm ?? null,
+              qtd: round6(qtd),
+              v_unit: round6(Number(it.valorUnit ?? 0)),
+              v_prod: round6(baseProd),
               v_icms: round6(vIcms),
+              v_ipi: round6(vIpi),
               v_pis: round6(vPis),
               v_cofins: round6(vCofins),
               aliq_icms: fiscal?.aliq_icms ?? it.aliquotaIcms ?? null,
@@ -787,7 +848,7 @@ export default function ImportarXmlPage() {
               <button
                 onClick={() => parseXmlAndCheck()}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                disabled={isReading || (!selectedFile && !xmlText) || importBusy}
+                disabled={isReading || ((selectedFiles.length === 0 && !selectedFile) && !xmlText) || importBusy}
               >
                 {isReading ? "Lendo..." : "Ler XML"}
               </button>
@@ -885,28 +946,30 @@ export default function ImportarXmlPage() {
             </div>
           )}
 
-          <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-zinc-100">Fornecedor</div>
-                <div className="text-xs text-zinc-400">Valida por CNPJ</div>
+          {!fornecedorId && (
+            <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-zinc-100">Fornecedor</div>
+                  <div className="text-xs text-zinc-400">Valida por CNPJ</div>
+                </div>
+                {selectedJob?.nfeInfo?.cnpjEmitente && (
+                  <button
+                    onClick={() => criarFornecedor(selectedJob.nfeInfo!.cnpjEmitente!, selectedJob.nfeInfo!.emitente ?? "Fornecedor NF")}
+                    disabled={importBusy}
+                    className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                  >
+                    Cadastrar fornecedor
+                  </button>
+                )}
               </div>
-              {selectedJob?.nfeInfo?.cnpjEmitente && !fornecedorId && (
-                <button
-                  onClick={() => criarFornecedor(selectedJob.nfeInfo!.cnpjEmitente!, selectedJob.nfeInfo!.emitente ?? "Fornecedor NF")}
-                  disabled={importBusy}
-                  className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-                >
-                  Cadastrar fornecedor
-                </button>
+              {selectedJob?.nfeInfo?.cnpjEmitente && (
+                <div className="text-sm">
+                  CNPJ: {selectedJob.nfeInfo.cnpjEmitente} {fornecedorNome ? `Encontrado: ${fornecedorNome}` : "Nao cadastrado"}
+                </div>
               )}
             </div>
-            {selectedJob?.nfeInfo?.cnpjEmitente && (
-              <div className="text-sm">
-                CNPJ: {selectedJob.nfeInfo.cnpjEmitente} {fornecedorNome ? `Encontrado: ${fornecedorNome}` : "Nao cadastrado"}
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="border border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -928,10 +991,10 @@ export default function ImportarXmlPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
-                    {itensParaTabela.map((it) => {
+                    {itensParaTabela.map((it, idx) => {
                       const foundId = itemMap.get(it.codigo);
                       return (
-                        <tr key={it.codigo} className="hover:bg-zinc-900/40">
+                        <tr key={`${it.codigo}-${idx}`} className="hover:bg-zinc-900/40">
                           <td className="px-3 py-2 font-medium">{it.codigo}</td>
                           <td className="px-3 py-2 align-top">
                             <textarea
@@ -971,7 +1034,7 @@ export default function ImportarXmlPage() {
                           <td className="px-3 py-2 text-center">
                             {!foundId && (
                               <button
-                                onClick={() => criarItemRapido(it)}
+                                onClick={() => cadastrarItemManual(it)}
                                 className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
                               >
                                 Cadastrar item

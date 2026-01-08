@@ -22,6 +22,9 @@ export default function FornecedoresPage() {
   const [busy, setBusy] = useState(false);
 
   const [nome, setNome] = useState("");
+  const [documento, setDocumento] = useState("");
+
+  const normalizeDocumento = (doc: string) => doc.replace(/\D/g, "").trim();
 
   async function load() {
     setErr(null);
@@ -44,19 +47,30 @@ export default function FornecedoresPage() {
     setBusy(true);
     setErr(null);
 
-    const { error } = await supabase.from("fornecedores").insert({
+    const documentoNormalizado = normalizeDocumento(documento);
+    const payload: any = {
       nome: nome.trim(),
+      documento: documentoNormalizado || null,
       ativo: true,
-    });
+    };
+
+    const { error } = await supabase
+      .from("fornecedores")
+      .upsert(payload, { onConflict: "documento" });
 
     setBusy(false);
 
     if (error) {
-      setErr(error.message);
+      if ((error as any).code === "23505") {
+        setErr("Fornecedor ja cadastrado para este documento.");
+      } else {
+        setErr(error.message);
+      }
       return;
     }
 
     setNome("");
+    setDocumento("");
     await load();
   }
 
@@ -82,6 +96,12 @@ export default function FornecedoresPage() {
           placeholder="Nome do fornecedor"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
+        />
+        <input
+          className="w-56 px-3 py-2"
+          placeholder="Documento (CNPJ/CPF)"
+          value={documento}
+          onChange={(e) => setDocumento(e.target.value)}
         />
         <button
           onClick={criar}

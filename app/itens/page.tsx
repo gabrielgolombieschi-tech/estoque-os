@@ -68,15 +68,13 @@ type FiscalItem = {
   item_id: number;
   ncm: string | null;
   cst_icms: string | null;
-  cst_ipi: string | null;
   cst_pis: string | null;
   cst_cofins: string | null;
-  aliquota_icms: number | null;
-  aliquota_ipi: number | null;
-  aliquota_pis: number | null;
-  aliquota_cofins: number | null;
+  aliq_icms: number | null;
+  aliq_ipi: number | null;
+  aliq_pis: number | null;
+  aliq_cofins: number | null;
   credita_icms: boolean;
-  credita_ipi: boolean;
   ipi_entra_no_custo: boolean;
   credita_pis: boolean;
   credita_cofins: boolean;
@@ -85,15 +83,13 @@ type FiscalItem = {
 type FiscalForm = {
   ncm: string;
   cst_icms: string;
-  cst_ipi: string;
   cst_pis: string;
   cst_cofins: string;
-  aliquota_icms: number | null;
-  aliquota_ipi: number | null;
-  aliquota_pis: number | null;
-  aliquota_cofins: number | null;
+  aliq_icms: number | null;
+  aliq_ipi: number | null;
+  aliq_pis: number | null;
+  aliq_cofins: number | null;
   credita_icms: boolean;
-  credita_ipi: boolean;
   ipi_entra_no_custo: boolean;
   credita_pis: boolean;
   credita_cofins: boolean;
@@ -130,15 +126,13 @@ function emptyFiscalForm(): FiscalForm {
   return {
     ncm: "",
     cst_icms: "",
-    cst_ipi: "",
     cst_pis: "",
     cst_cofins: "",
-    aliquota_icms: null,
-    aliquota_ipi: null,
-    aliquota_pis: null,
-    aliquota_cofins: null,
+    aliq_icms: null,
+    aliq_ipi: null,
+    aliq_pis: null,
+    aliq_cofins: null,
     credita_icms: false,
-    credita_ipi: false,
     ipi_entra_no_custo: true,
     credita_pis: false,
     credita_cofins: false,
@@ -183,7 +177,7 @@ export default function ItensPage() {
     let query = supabase
       .from("itens")
       .select(
-        "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores(nome),fiscal_itens(ncm,cst_icms,cst_ipi,cst_pis,cst_cofins,aliquota_icms,aliquota_ipi,aliquota_pis,aliquota_cofins,credita_icms,credita_ipi,ipi_entra_no_custo,credita_pis,credita_cofins),ativo,criado_em,atualizado_em"
+        "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores(nome),fiscal_itens(ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins),ativo,criado_em,atualizado_em"
       )
       .order("id", { ascending: false })
       .limit(300);
@@ -251,15 +245,13 @@ export default function ItensPage() {
     setFiscalForm({
       ncm: fiscal?.ncm ?? "",
       cst_icms: fiscal?.cst_icms ?? "",
-      cst_ipi: fiscal?.cst_ipi ?? "",
       cst_pis: fiscal?.cst_pis ?? "",
       cst_cofins: fiscal?.cst_cofins ?? "",
-      aliquota_icms: fiscal?.aliquota_icms ?? null,
-      aliquota_ipi: fiscal?.aliquota_ipi ?? null,
-      aliquota_pis: fiscal?.aliquota_pis ?? null,
-      aliquota_cofins: fiscal?.aliquota_cofins ?? null,
+      aliq_icms: fiscal?.aliq_icms ?? null,
+      aliq_ipi: fiscal?.aliq_ipi ?? null,
+      aliq_pis: fiscal?.aliq_pis ?? null,
+      aliq_cofins: fiscal?.aliq_cofins ?? null,
       credita_icms: !!fiscal?.credita_icms,
-      credita_ipi: !!fiscal?.credita_ipi,
       ipi_entra_no_custo: fiscal?.ipi_entra_no_custo ?? true,
       credita_pis: !!fiscal?.credita_pis,
       credita_cofins: !!fiscal?.credita_cofins,
@@ -281,15 +273,13 @@ export default function ItensPage() {
       item_id: itemId,
       ncm: fiscalForm.ncm.trim() || null,
       cst_icms: fiscalForm.cst_icms.trim() || null,
-      cst_ipi: fiscalForm.cst_ipi.trim() || null,
       cst_pis: fiscalForm.cst_pis.trim() || null,
       cst_cofins: fiscalForm.cst_cofins.trim() || null,
-      aliquota_icms: numOrNull(fiscalForm.aliquota_icms),
-      aliquota_ipi: numOrNull(fiscalForm.aliquota_ipi),
-      aliquota_pis: numOrNull(fiscalForm.aliquota_pis),
-      aliquota_cofins: numOrNull(fiscalForm.aliquota_cofins),
+      aliq_icms: numOrNull(fiscalForm.aliq_icms),
+      aliq_ipi: numOrNull(fiscalForm.aliq_ipi),
+      aliq_pis: numOrNull(fiscalForm.aliq_pis),
+      aliq_cofins: numOrNull(fiscalForm.aliq_cofins),
       credita_icms: !!fiscalForm.credita_icms,
-      credita_ipi: !!fiscalForm.credita_ipi,
       ipi_entra_no_custo: fiscalForm.ipi_entra_no_custo,
       credita_pis: !!fiscalForm.credita_pis,
       credita_cofins: !!fiscalForm.credita_cofins,
@@ -764,10 +754,6 @@ export default function ItensPage() {
                       <div className="text-xs text-zinc-400">CST ICMS</div>
                       <input className="w-full px-3 py-2" value={fiscalForm.cst_icms} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_icms: e.target.value }))} placeholder="00, 20, 40..." />
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">CST IPI</div>
-                      <input className="w-full px-3 py-2" value={fiscalForm.cst_ipi} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_ipi: e.target.value }))} placeholder="50, 99..." />
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -787,10 +773,10 @@ export default function ItensPage() {
                       <input
                         className="w-full px-3 py-2"
                         inputMode="decimal"
-                        value={fiscalForm.aliquota_icms ?? ""}
+                        value={fiscalForm.aliq_icms ?? ""}
                         onChange={(e) => {
                           const v = parseDecimalBR(e.target.value);
-                          setFiscalForm((s) => ({ ...s, aliquota_icms: Number.isFinite(v) ? v : null }));
+                          setFiscalForm((s) => ({ ...s, aliq_icms: Number.isFinite(v) ? v : null }));
                         }}
                       />
                     </div>
@@ -799,10 +785,10 @@ export default function ItensPage() {
                       <input
                         className="w-full px-3 py-2"
                         inputMode="decimal"
-                        value={fiscalForm.aliquota_ipi ?? ""}
+                        value={fiscalForm.aliq_ipi ?? ""}
                         onChange={(e) => {
                           const v = parseDecimalBR(e.target.value);
-                          setFiscalForm((s) => ({ ...s, aliquota_ipi: Number.isFinite(v) ? v : null }));
+                          setFiscalForm((s) => ({ ...s, aliq_ipi: Number.isFinite(v) ? v : null }));
                         }}
                       />
                     </div>
@@ -811,10 +797,10 @@ export default function ItensPage() {
                       <input
                         className="w-full px-3 py-2"
                         inputMode="decimal"
-                        value={fiscalForm.aliquota_pis ?? ""}
+                        value={fiscalForm.aliq_pis ?? ""}
                         onChange={(e) => {
                           const v = parseDecimalBR(e.target.value);
-                          setFiscalForm((s) => ({ ...s, aliquota_pis: Number.isFinite(v) ? v : null }));
+                          setFiscalForm((s) => ({ ...s, aliq_pis: Number.isFinite(v) ? v : null }));
                         }}
                       />
                     </div>
@@ -823,10 +809,10 @@ export default function ItensPage() {
                       <input
                         className="w-full px-3 py-2"
                         inputMode="decimal"
-                        value={fiscalForm.aliquota_cofins ?? ""}
+                        value={fiscalForm.aliq_cofins ?? ""}
                         onChange={(e) => {
                           const v = parseDecimalBR(e.target.value);
-                          setFiscalForm((s) => ({ ...s, aliquota_cofins: Number.isFinite(v) ? v : null }));
+                          setFiscalForm((s) => ({ ...s, aliq_cofins: Number.isFinite(v) ? v : null }));
                         }}
                       />
                     </div>
@@ -838,10 +824,6 @@ export default function ItensPage() {
                       <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={fiscalForm.credita_icms} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_icms: e.target.checked }))} />
                         ICMS
-                      </label>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={fiscalForm.credita_ipi} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_ipi: e.target.checked }))} />
-                        IPI
                       </label>
                       <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={fiscalForm.credita_pis} onChange={(e) => setFiscalForm((s) => ({ ...s, credita_pis: e.target.checked }))} />
