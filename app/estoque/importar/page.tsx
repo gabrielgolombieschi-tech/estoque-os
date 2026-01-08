@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDecimalBR, parseDecimalBR } from "../../../lib/decimal";
 import { supabaseBrowser } from "../../../lib/supabase/client";
+import { getCurrentTenantId } from "@/lib/auth/tenant";
 
 type ParsedItem = {
   codigo: string;
@@ -87,6 +88,7 @@ export default function ImportarXmlPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isReading, setIsReading] = useState(false);
   const readReqIdRef = useRef(0);
+  const tenantIdRef = useRef<string | null>(null);
   const [nfeInfo, setNfeInfo] = useState<ParsedNfe | null>(null);
   const [parsedItens, setParsedItens] = useState<ParsedItem[]>([]);
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
@@ -214,6 +216,13 @@ export default function ImportarXmlPage() {
     };
   }
 
+  async function ensureTenantId(): Promise<string> {
+    if (tenantIdRef.current) return tenantIdRef.current;
+    const tenantId = await getCurrentTenantId();
+    tenantIdRef.current = tenantId;
+    return tenantId;
+  }
+
   async function checkFornecedor(cnpj: string | null) {
     setFornecedorId(null);
     setFornecedorNome(null);
@@ -321,9 +330,17 @@ export default function ImportarXmlPage() {
     const dataCompra = dataEmissao || new Date().toISOString();
     const margem = 52;
     const aliq = (v?: number | null) => (Number.isFinite(v as number) ? Number(v) : null);
+    let tenantId = "";
+    try {
+      tenantId = await ensureTenantId();
+    } catch (e: any) {
+      setImportErr(e?.message ?? "Erro ao identificar tenant.");
+      return null;
+    }
     const { data, error } = await supabase
       .from("itens")
       .insert({
+        tenant_id: tenantId,
         codigo_interno: it.codigo,
         nome: nomeFinal,
         tipo: "produto",
@@ -581,6 +598,13 @@ export default function ImportarXmlPage() {
 
       const results: string[] = [];
 
+      let tenantId = "";
+      try {
+        tenantId = await ensureTenantId();
+      } catch (e: any) {
+        throw new Error(e?.message ?? "Erro ao identificar tenant.");
+      }
+
       for (const job of jobsToImport) {
         try {
           const info = job.nfeInfo;
@@ -714,6 +738,7 @@ export default function ImportarXmlPage() {
 
             if (itemId) {
               movimentacoesRows.push({
+                tenant_id: tenantId,
                 item_id: itemId,
                 tipo: "entrada",
                 quantidade: round6(qtd),

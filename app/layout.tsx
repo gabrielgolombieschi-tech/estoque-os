@@ -1,5 +1,6 @@
 import "./globals.css";
 import AppShell from "./components/AppShell";
+import ClientProviders from "@/components/auth/ClientProviders";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +9,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta charSet="utf-8" />
       </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <ClientProviders>
+          <AppShell>{children}</AppShell>
+        </ClientProviders>
       </body>
     </html>
   );

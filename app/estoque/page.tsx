@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatDecimalBR, parseDecimalBR } from "../../lib/decimal";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { gerarRelatorioEstoque } from "../../lib/pdf/relatorioEstoque";
+import { getCurrentTenantId } from "@/lib/auth/tenant";
 
 type EstoqueRow = {
   id: number;
@@ -134,7 +135,16 @@ export default function EstoquePage() {
     const tipoMov = diff > 0 ? "entrada" : "saida";
     const qtdMov = Math.abs(diff);
 
+    let tenant_id = "";
+    try {
+      tenant_id = await getCurrentTenantId();
+    } catch (e: any) {
+      setBusy(false);
+      return setErr(e?.message ?? "Erro ao identificar tenant.");
+    }
+
     const { error } = await supabase.from("movimentacoes").insert({
+      tenant_id,
       item_id: ajusteItemId,
       tipo: tipoMov,
       quantidade: qtdMov,

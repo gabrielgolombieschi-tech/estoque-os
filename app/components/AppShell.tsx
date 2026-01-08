@@ -3,13 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "../../lib/supabase/client";
+import { clearPermissionCache } from "@/lib/auth/permissions";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { Can } from "@/components/auth/Can";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const supabase = supabaseBrowser();
   const router = useRouter();
   const pathname = usePathname();
+  const { clear, tenantId } = usePermissions();
 
   const [loading, setLoading] = useState(true);
+  const [userInfo, setUserInfo] = useState<{ id: string; email: string } | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const isPublic = pathname === "/login";
   const isFullWidth = pathname === "/itens";
   const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
@@ -22,6 +28,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     (async () => {
       const { data } = await supabase.auth.getSession();
       const isAuthed = !!data.session;
+      const user = data.session?.user;
+      setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
+      setUserRole(null);
 
       if (!isAuthed && !isPublic) router.replace("/login");
       if (isAuthed && isPublic) router.replace("/");
@@ -30,7 +39,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      clearPermissionCache();
+      clear();
       const isAuthed = !!session;
+      const user = session?.user;
+      setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
+      setUserRole(null);
       if (!isAuthed && !isPublic) router.replace("/login");
       if (isAuthed && isPublic) router.replace("/");
     });
@@ -49,9 +63,50 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("click", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!userInfo?.id || !tenantId) {
+      setUserRole(null);
+      return;
+    }
+
+    let active = true;
+
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user?.id) {
+        if (active) setUserRole(null);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_my_roles");
+      if (error) {
+        console.error("Erro get_my_roles:", error);
+        if (active) setUserRole(null);
+        return;
+      }
+
+      const roles = (data ?? []).map((x: any) => x.role).filter(Boolean);
+      if (active) setUserRole(roles.length ? roles.join(", ") : null);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [userInfo?.id, tenantId]);
+
   async function logout() {
-    await supabase.auth.signOut();
-    router.replace("/login");
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Erro ao sair", e);
+    } finally {
+      clearPermissionCache();
+      clear();
+      router.replace("/login");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
   }
 
   const toggleMenu = (key: "os" | "estoque") => {
@@ -82,10 +137,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isPublic) return <>{children}</>;
 
   return (
-    <div className="min-h-screen">
+      <div className="min-h-screen">
       {!hideHeader && (
-        <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-          <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between" ref={navRef}>
+        <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur pointer-events-auto">
+          <div
+            className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between pointer-events-auto"
+            ref={navRef}
+          >
             <div className="flex items-center gap-4">
               <a href="/" className="font-semibold tracking-tight text-zinc-100">
                 Home
@@ -149,12 +207,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       onMouseEnter={() => openWithHover("estoque")}
                       onMouseLeave={scheduleClose}
                     >
-                      <a href="/estoque" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
-                        Ajuste Estoque
-                      </a>
-                      <a href="/itens" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
-                        Cadastro
-                      </a>
+                      <Can perm="estoque.ajuste.create">
+                        <a href="/estoque" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
+                          Ajuste Estoque
+                        </a>
+                      </Can>
+                      <Can perm="itens.create">
+                        <a href="/itens" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
+                          Cadastro
+                        </a>
+                      </Can>
                       <a href="/estoque/importar" className="block px-3 py-2 hover:bg-zinc-900 cursor-pointer">
                         Importar XML
                       </a>
@@ -164,15 +226,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="px-3 py-1.5 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                >
+                  Sair
+                </button>
               </nav>
             </div>
 
-            <button
-              onClick={logout}
-              className="px-3 py-1.5 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
-            >
-              Sair
-            </button>
+            <div className="flex items-center gap-3 pointer-events-auto">
+              {userInfo && (
+                <div className="text-xs text-zinc-300 pointer-events-none select-none whitespace-nowrap">
+                  <div>USER LOGADO: {userInfo.email}</div>
+                  <div className="text-[11px] text-zinc-400">ROLE: {userRole ?? "-"}</div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
       )}
@@ -188,6 +259,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
-    </div>
+      </div>
   );
 }

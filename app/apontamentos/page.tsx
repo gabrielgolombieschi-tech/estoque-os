@@ -168,6 +168,7 @@ export default function ApontamentosPage() {
   const [tipoSugeridoLoading, setTipoSugeridoLoading] = useState(false);
   const osDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const osSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const horasInputRef = useRef<HTMLInputElement | null>(null);
 
   const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
 
@@ -392,7 +393,7 @@ export default function ApontamentosPage() {
     };
   }, [data, horasText, tipoByCodigo]);
 
-  async function salvarApontamento() {
+  async function salvarApontamento(options?: { preserveHoras?: boolean; advanceDate?: boolean; keepFocus?: boolean }) {
     setMsg(null);
 
     if (!osDbId) return alert("Selecione uma OS.");
@@ -434,9 +435,25 @@ export default function ApontamentosPage() {
       const { error } = await supabase.from("apontamentos_horas").insert(payloads);
       if (error) throw error;
 
-      setHorasText("");
+      if (!options?.preserveHoras) {
+        setHorasText("");
+      }
       setDescricao("");
       setTipoHoraId("");
+      if (options?.advanceDate && data) {
+        const base = new Date(`${data}T00:00:00`);
+        base.setDate(base.getDate() + 1);
+        const yyyy = base.getFullYear();
+        const mm = String(base.getMonth() + 1).padStart(2, "0");
+        const dd = String(base.getDate()).padStart(2, "0");
+        setData(`${yyyy}-${mm}-${dd}`);
+      }
+      if (options?.keepFocus) {
+        setTimeout(() => {
+          horasInputRef.current?.focus();
+          horasInputRef.current?.select();
+        }, 0);
+      }
       await carregarApontamentos();
       setMsg("Apontamento lancado com sucesso.");
     } catch (e: any) {
@@ -593,8 +610,15 @@ export default function ApontamentosPage() {
           <label>
             Horas
             <input
+              ref={horasInputRef}
               value={horasText}
               onChange={(e) => setHorasText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  salvarApontamento({ preserveHoras: true, advanceDate: true, keepFocus: true });
+                }
+              }}
               placeholder="Ex: 8,00"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
             />
@@ -632,7 +656,7 @@ export default function ApontamentosPage() {
           </label>
 
           <button
-            onClick={salvarApontamento}
+            onClick={() => salvarApontamento()}
             disabled={loading || osStatus !== "em_andamento"}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
             style={{ alignSelf: "end", height: 36 }}

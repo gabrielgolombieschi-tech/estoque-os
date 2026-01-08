@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { parseDecimalBR } from "../../lib/decimal";
+import { getCurrentTenantId } from "@/lib/auth/tenant";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -340,12 +341,21 @@ export default function ItensPage() {
       const res = await supabase.from("itens").update(payload).eq("id", editingId);
       error = res.error;
     } else {
+      let tenant_id = "";
+      try {
+        tenant_id = await getCurrentTenantId();
+      } catch (e: any) {
+        setBusy(false);
+        setErr(e?.message ?? "Erro ao identificar tenant.");
+        return;
+      }
+
       const { data: sess } = await supabase.auth.getSession();
       const userEmail = sess.session?.user?.email ?? null;
 
       const res = await supabase
         .from("itens")
-        .insert({ ...payload, criado_por: userEmail, criado_em: new Date().toISOString() })
+        .insert({ ...payload, tenant_id, criado_por: userEmail, criado_em: new Date().toISOString() })
         .select("id")
         .single();
 
@@ -354,6 +364,7 @@ export default function ItensPage() {
 
       if (!error && res.data?.id && isProduto) {
         await supabase.from("estoque").insert({
+          tenant_id,
           item_id: res.data.id,
           quantidade_atual: 0,
           atualizado_em: new Date().toISOString(),

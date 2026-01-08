@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "../../lib/supabase/client";
+import { Can } from "@/components/auth/Can";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type Cliente = { id: number; nome: string; ativo: boolean };
 
@@ -30,6 +32,7 @@ const statusBadge: Record<string, string> = {
 export default function OsListPage() {
   const router = useRouter();
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, loading: permLoading } = usePermissions();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [rows, setRows] = useState<OS[]>([]);
   const [status, setStatus] = useState("em_andamento");
@@ -68,9 +71,17 @@ export default function OsListPage() {
     setItensTotalPorOs({});
     setMaoObraPorOs({});
 
+    if (permLoading) return;
+    if (!tenantId) {
+      setErr("Tenant ativo nao encontrado.");
+      setRows([]);
+      return;
+    }
+
     let q = supabase
       .from("ordens_servico")
       .select("id,numero_os,cliente_nome,cliente_id,status,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido")
+      .eq("tenant_id", tenantId)
       .order("id", { ascending: false });
 
     if (status !== "todas") q = q.eq("status", status);
@@ -119,7 +130,7 @@ export default function OsListPage() {
     loadClientes();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, tenantId, permLoading]);
 
   async function gerarNumeroOs(): Promise<string> {
     const { data } = await supabase
@@ -153,9 +164,21 @@ export default function OsListPage() {
 
     const numeroGerado = await gerarNumeroOs();
 
+    if (permLoading) {
+      setCreating(false);
+      setErr("Carregando permissoes/tenant. Tente novamente.");
+      return;
+    }
+    if (!tenantId) {
+      setCreating(false);
+      setErr("Tenant ativo nao encontrado.");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("ordens_servico")
       .insert({
+        tenant_id: tenantId,
         numero_os: numeroGerado,
         cliente_id: clienteId,
         cliente_nome: clienteNomeFinal,
@@ -210,16 +233,18 @@ export default function OsListPage() {
             Atualizar
           </button>
 
-          <button
-            onClick={() => {
-              setShowCreate(true);
-              setErr(null);
-              setOkMsg(null);
-            }}
-            className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-          >
-            Nova OS
-          </button>
+          <Can perm="os.create">
+            <button
+              onClick={() => {
+                setShowCreate(true);
+                setErr(null);
+                setOkMsg(null);
+              }}
+              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+            >
+              Nova OS
+            </button>
+          </Can>
         </div>
       </div>
 
