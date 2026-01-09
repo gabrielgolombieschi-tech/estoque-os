@@ -136,7 +136,7 @@ export default function ImportarXmlPage() {
     doc.querySelectorAll("det").forEach((det) => {
       const prod = det.querySelector("prod");
       if (!prod) return;
-      const codigo = prod.querySelector("cProd")?.textContent ?? "";
+      const codigo = (prod.querySelector("cProd")?.textContent ?? "").trim().replace(/^0+(?=\d)/, "");
       const nome = prod.querySelector("xProd")?.textContent ?? "";
       const quantidade = num(prod.querySelector("qCom")?.textContent);
       const valorUnit = num(prod.querySelector("vUnCom")?.textContent);
@@ -221,6 +221,17 @@ export default function ImportarXmlPage() {
     const tenantId = await getCurrentTenantId();
     tenantIdRef.current = tenantId;
     return tenantId;
+  }
+
+  async function ensureEstoqueRows(itemIds: number[], tenantId: string) {
+    const uniqueIds = Array.from(new Set(itemIds)).filter((id) => Number.isFinite(id));
+    if (uniqueIds.length === 0) return;
+
+    const { error } = await supabase.rpc("ensure_estoque_rows", {
+      p_tenant_id: tenantId,
+      p_item_ids: uniqueIds,
+    });
+    if (error) throw error;
   }
 
   async function checkFornecedor(cnpj: string | null) {
@@ -605,6 +616,25 @@ export default function ImportarXmlPage() {
         throw new Error(e?.message ?? "Erro ao identificar tenant.");
       }
 
+      let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
+      if (!fornecedorFinal) {
+        const baseCnpj =
+          fornecedorCnpjBase ??
+          normalizeDocumento(jobsToImport.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null);
+        if (baseCnpj) {
+          const { data: found, error: fornecedorErr } = await supabase
+            .from("fornecedores")
+            .select("id")
+            .eq("documento_norm", baseCnpj)
+            .maybeSingle();
+          if (fornecedorErr) throw fornecedorErr;
+          fornecedorFinal = found?.id ?? null;
+        }
+      }
+      if (!fornecedorFinal) {
+        throw new Error("Fornecedor nao cadastrado.");
+      }
+
       for (const job of jobsToImport) {
         try {
           const info = job.nfeInfo;
@@ -634,22 +664,15 @@ export default function ImportarXmlPage() {
 
           const codes = Array.from(new Set(job.itens.map((i) => i.codigo)));
           const map = await carregarItensPorCodigo(codes);
+          const missingCodes = job.itens.filter((it) => !map.get(it.codigo)).map((it) => it.codigo);
+          if (missingCodes.length > 0) {
+            throw new Error(`Itens nao cadastrados: ${missingCodes.join(", ")}`);
+          }
           const itemIds = Array.from(map.values());
           const fiscalMap = await carregarFiscalPorItens(itemIds);
 
           const { data: sess } = await supabase.auth.getSession();
           const userEmail = sess.session?.user?.email ?? null;
-
-          const itemRowsToCreate: ParsedItem[] = [];
-          for (const it of job.itens) {
-            if (!map.get(it.codigo)) itemRowsToCreate.push(it);
-          }
-          if (itemRowsToCreate.length > 0) {
-            for (const it of itemRowsToCreate) {
-              const created = await criarItemRapido(it, fornecedorIdBase ?? fornecedorId ?? null, info.dataEmissao ?? null);
-              if (created) map.set(it.codigo, created);
-            }
-          }
 
           const nfPayload: any = {
             chave: info.chave,
@@ -663,7 +686,7 @@ export default function ImportarXmlPage() {
             valor_outros: info.valorOutros ?? 0,
             valor_desconto: info.valorDesconto ?? 0,
             valor_total: info.valorTotal ?? 0,
-            fornecedor_id: fornecedorIdBase ?? fornecedorId ?? null,
+            fornecedor_id: fornecedorFinal,
             data_emissao: info.dataEmissao ?? new Date().toISOString(),
           };
 
@@ -765,6 +788,10 @@ export default function ImportarXmlPage() {
             if (itensErr) throw itensErr;
           }
           if (movimentacoesRows.length > 0) {
+            await ensureEstoqueRows(
+              movimentacoesRows.map((m) => Number(m.item_id)),
+              tenantId
+            );
             const { error: movErr } = await supabase.from("movimentacoes").insert(movimentacoesRows);
             if (movErr) throw movErr;
           }

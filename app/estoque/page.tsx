@@ -48,6 +48,9 @@ export default function EstoquePage() {
   const [estoqueMaximo, setEstoqueMaximo] = useState<number>(0);
   const [limiteBusy, setLimiteBusy] = useState(false);
   const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 250;
+  const [totalCount, setTotalCount] = useState<number | null>(null);
 
   async function load() {
     setErr(null);
@@ -55,13 +58,15 @@ export default function EstoquePage() {
     let query = supabase
       .from("estoque")
       .select(
-        "id,item_id,quantidade_atual,atualizado_em,localizacao,itens(codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores(nome))"
+        "id,item_id,quantidade_atual,atualizado_em,localizacao,itens(codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores(nome))",
+        { count: "exact" }
       )
       .order("id", { ascending: false })
-      .limit(500);
+      .range(page * pageSize, page * pageSize + pageSize - 1);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) return setErr(error.message);
+    setTotalCount(typeof count === "number" ? count : null);
 
     let list: EstoqueRow[] = (data ?? []) as unknown as EstoqueRow[];
     list = list.filter((r) => r.itens?.tipo === "produto" && r.itens?.controla_estoque);
@@ -194,7 +199,11 @@ export default function EstoquePage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soAbaixoMin, ativos]);
+  }, [soAbaixoMin, ativos, page]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [q, codigoId, fornecedorNome, soAbaixoMin, ativos]);
 
   return (
     <div className="space-y-4">
@@ -445,6 +454,30 @@ export default function EstoquePage() {
             )}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <div className="text-xs text-zinc-400">
+          Pagina {page + 1}
+          {typeof totalCount === "number" && totalCount > 0
+            ? ` de ${Math.ceil(totalCount / pageSize)}`
+            : ""}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            Anterior
+          </button>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={typeof totalCount === "number" ? (page + 1) * pageSize >= totalCount : false}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            Proxima
+          </button>
+        </div>
       </div>
       <div className="flex justify-end mt-4">
         <button

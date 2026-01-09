@@ -363,12 +363,14 @@ export default function ItensPage() {
       itemId = res.data?.id ?? null;
 
       if (!error && res.data?.id && isProduto) {
-        await supabase.from("estoque").insert({
-          tenant_id,
-          item_id: res.data.id,
-          quantidade_atual: 0,
-          atualizado_em: new Date().toISOString(),
+        const { error: estoqueErr } = await supabase.rpc("ensure_estoque_rows", {
+          p_tenant_id: tenant_id,
+          p_item_ids: [res.data.id],
         });
+        if (estoqueErr) {
+          setBusy(false);
+          return setErr(estoqueErr.message);
+        }
       }
     }
 

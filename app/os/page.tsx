@@ -40,6 +40,7 @@ export default function OsListPage() {
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [itensTotalPorOs, setItensTotalPorOs] = useState<Record<number, number>>({});
   const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
+  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(null);
 
   // criacao
   const [creating, setCreating] = useState(false);
@@ -66,13 +67,32 @@ export default function OsListPage() {
     if (!error) setClientes((data ?? []) as unknown as Cliente[]);
   }
 
+  async function ensureTenantId(): Promise<string | null> {
+    if (tenantId) {
+      if (resolvedTenantId !== tenantId) setResolvedTenantId(tenantId);
+      return tenantId;
+    }
+
+    if (resolvedTenantId) return resolvedTenantId;
+
+    const { data, error } = await supabase.rpc("get_my_active_tenant");
+    if (error) {
+      console.error("Erro get_my_active_tenant:", error);
+      return null;
+    }
+
+    if (data) setResolvedTenantId(data);
+    return data ?? null;
+  }
+
   async function load() {
     setErr(null);
     setItensTotalPorOs({});
     setMaoObraPorOs({});
 
     if (permLoading) return;
-    if (!tenantId) {
+    const tenant = await ensureTenantId();
+    if (!tenant) {
       setErr("Tenant ativo nao encontrado.");
       setRows([]);
       return;
@@ -81,7 +101,7 @@ export default function OsListPage() {
     let q = supabase
       .from("ordens_servico")
       .select("id,numero_os,cliente_nome,cliente_id,status,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", tenant)
       .order("id", { ascending: false });
 
     if (status !== "todas") q = q.eq("status", status);
@@ -132,10 +152,11 @@ export default function OsListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId, permLoading]);
 
-  async function gerarNumeroOs(): Promise<string> {
+  async function gerarNumeroOs(tenant: string): Promise<string> {
     const { data } = await supabase
       .from("ordens_servico")
       .select("numero_os")
+      .eq("tenant_id", tenant)
       .order("id", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -162,23 +183,19 @@ export default function OsListPage() {
     const clienteNomeFinal =
       clienteId ? (clientes.find((c) => c.id === clienteId)?.nome ?? clienteNomeLivre.trim()) : clienteNomeLivre.trim();
 
-    const numeroGerado = await gerarNumeroOs();
-
-    if (permLoading) {
-      setCreating(false);
-      setErr("Carregando permissoes/tenant. Tente novamente.");
-      return;
-    }
-    if (!tenantId) {
+    const tenant = await ensureTenantId();
+    if (!tenant) {
       setCreating(false);
       setErr("Tenant ativo nao encontrado.");
       return;
     }
 
+    const numeroGerado = await gerarNumeroOs(tenant);
+
     const { data, error } = await supabase
       .from("ordens_servico")
       .insert({
-        tenant_id: tenantId,
+        tenant_id: tenant,
         numero_os: numeroGerado,
         cliente_id: clienteId,
         cliente_nome: clienteNomeFinal,
