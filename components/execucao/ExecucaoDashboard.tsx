@@ -22,6 +22,7 @@ type DashRow = {
 
 type Props = {
   initialRows: DashRow[];
+  emptyMessage?: string;
 };
 
 type SortDir = "asc" | "desc";
@@ -35,7 +36,7 @@ function isOverdue(row: DashRow, today: Date) {
   return progress < 100 && date < today;
 }
 
-export default function ExecucaoDashboard({ initialRows }: Props) {
+export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) {
   const areaOrder: Area[] = ["eletrico", "mecanico"];
   const [areaIndex, setAreaIndex] = useState(0);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -213,7 +214,7 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
               {tableRows.length === 0 && (
                 <tr>
                   <Td colSpan={6} className="text-center py-6 text-zinc-400">
-                    Nenhuma execução em aberto.
+                    {emptyMessage ?? "Nenhuma execução em aberto."}
                   </Td>
                 </tr>
               )}

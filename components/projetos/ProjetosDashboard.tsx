@@ -22,6 +22,7 @@ type DashRow = {
 
 type Props = {
   initialRows: DashRow[];
+  emptyMessage?: string;
 };
 
 type SortDir = "asc" | "desc";
@@ -35,7 +36,7 @@ function isOverdue(row: DashRow, today: Date) {
   return progress < 100 && !!date && date < today;
 }
 
-export default function ProjetosDashboard({ initialRows }: Props) {
+export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) {
   const areaOrder: Area[] = ["eletrico", "seguranca", "mecanico", "software"];
   const [areaIndex, setAreaIndex] = useState(0);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -221,7 +222,7 @@ export default function ProjetosDashboard({ initialRows }: Props) {
               {sortedTable.length === 0 && (
                 <tr>
                   <Td colSpan={6} className="text-center py-6 text-zinc-400">
-                    Nenhum registro para os filtros selecionados.
+                    {emptyMessage ?? "Nenhum registro para os filtros selecionados."}
                   </Td>
                 </tr>
               )}

@@ -1,7 +1,10 @@
-"use server";
+"use client";
 
-import { supabaseServer } from "../../lib/supabase/server";
+import { useEffect, useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { applyTenant } from "@/lib/db/scopes";
 import ExecucaoDashboard from "../../components/execucao/ExecucaoDashboard";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 
 type DashRow = {
   os_id: number;
@@ -25,53 +28,138 @@ type OsGestaoRow = {
   responsavel_id: string | null;
   data_prevista: string;
   progresso_percent: number | null;
-  ordens_servico?: {
-    numero_os?: string | null;
-    cliente_nome?: string | null;
-    descricao_servico?: string | null;
-    status?: DashRow["status"] | null;
-  } | null;
 };
 
-export default async function ExecucaoPage() {
-  const supabase = supabaseServer();
+export default function ExecucaoPage() {
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
+  const [rows, setRows] = useState<DashRow[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const { data, error } = await supabase
-    .from("os_gestao_itens")
-    .select(
-      `
-        os_id,
-        item_tipo,
-        area,
-        habilitado,
-        responsavel_id,
-        data_prevista,
-        progresso_percent,
-        ordens_servico (id, numero_os, cliente_nome, descricao_servico, status)
-      `
-    )
-    .eq("habilitado", true)
-    .eq("item_tipo", "execucao");
+  useEffect(() => {
+    let active = true;
 
-  if (error) {
-    console.error("Erro ao carregar execucao:", error.message);
+    (async () => {
+      if (tenantLoading) return;
+      if (!tenantId) {
+        if (active) {
+          setErr("Tenant nao carregado.");
+          setLoading(false);
+        }
+        return;
+      }
+
+      setLoading(true);
+      setErr(null);
+
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", {
+        p_tenant_id: tenantId,
+      });
+      if (tenantErr) {
+        if (active) {
+          setErr(tenantErr.message ?? "Erro ao definir tenant atual.");
+          setRows([]);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const { data, error } = await applyTenant(
+        supabase.from("os_gestao_itens").select(
+          `
+            os_id,
+            item_tipo,
+            area,
+            habilitado,
+            responsavel_id,
+            data_prevista,
+            progresso_percent
+          `
+        ),
+        tenantId
+      )
+        .eq("habilitado", true)
+        .eq("item_tipo", "execucao");
+
+      if (!active) return;
+
+      if (error) {
+        console.error("Erro ao carregar execucao:", error.message ?? error);
+        setErr(error.message);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
+      const gestaoRows = (data ?? []) as OsGestaoRow[];
+      const osIds = Array.from(new Set(gestaoRows.map((row) => row.os_id)));
+      const osMap = new Map<
+        number,
+        { numero_os?: string | null; cliente_nome?: string | null; descricao_servico?: string | null; status?: DashRow["status"] | null }
+      >();
+
+      if (osIds.length > 0) {
+        const { data: osData, error: osErr } = await applyTenant(
+          supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+          tenantId
+        )
+          .in("id", osIds);
+
+        if (osErr) {
+          console.error("Erro ao carregar ordens_servico:", osErr.message ?? osErr);
+          setErr(osErr.message);
+          setRows([]);
+          setLoading(false);
+          return;
+        }
+
+        (osData ?? []).forEach((os) => {
+          osMap.set(os.id, {
+            numero_os: os.numero_os,
+            cliente_nome: os.cliente_nome,
+            descricao_servico: os.descricao_servico,
+            status: os.status,
+          });
+        });
+      }
+
+      const mapped: DashRow[] = gestaoRows
+        .map((row) => ({
+          os_id: row.os_id,
+          item_tipo: "execucao" as const,
+          area: row.area,
+          habilitado: !!row.habilitado,
+          responsavel_id: row.responsavel_id,
+          data_prevista: row.data_prevista,
+          progresso_percent: Number(row.progresso_percent ?? 0),
+          numero_os: osMap.get(row.os_id)?.numero_os ?? String(row.os_id),
+          cliente_nome: osMap.get(row.os_id)?.cliente_nome ?? "-",
+          descricao_servico: osMap.get(row.os_id)?.descricao_servico ?? null,
+          status: osMap.get(row.os_id)?.status ?? null,
+        }))
+        .filter((r) => !!r.data_prevista && (r.area === "eletrico" || r.area === "mecanico"));
+
+      setRows(mapped);
+      setLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [supabase, tenantId, tenantLoading]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando...
+      </div>
+    );
   }
 
-  const rows: DashRow[] = ((data ?? []) as OsGestaoRow[])
-    .map((row) => ({
-      os_id: row.os_id,
-      item_tipo: "execucao" as const,
-      area: row.area,
-      habilitado: !!row.habilitado,
-      responsavel_id: row.responsavel_id,
-      data_prevista: row.data_prevista,
-      progresso_percent: Number(row.progresso_percent ?? 0),
-      numero_os: row.ordens_servico?.numero_os ?? String(row.os_id),
-      cliente_nome: row.ordens_servico?.cliente_nome ?? "-",
-      descricao_servico: row.ordens_servico?.descricao_servico ?? null,
-      status: row.ordens_servico?.status ?? null,
-    }))
-    .filter((r) => !!r.data_prevista && (r.area === "eletrico" || r.area === "mecanico"));
+  if (err) {
+    return <div className="p-6 text-sm text-red-400">{err}</div>;
+  }
 
-  return <ExecucaoDashboard initialRows={rows} />;
+  return <ExecucaoDashboard initialRows={rows} emptyMessage="Nenhuma execucao habilitada encontrada." />;
 }
