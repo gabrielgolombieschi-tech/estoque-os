@@ -37,10 +37,9 @@ type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number };
 export default function EstoquePage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
-  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
-  const hasEstoqueAccess = has("estoque.acessar") || (permissions ?? []).some((perm) => perm.startsWith("estoque."));
-  const canView = hasEstoqueAccess || has("estoque.view");
-  const canAdjust = hasEstoqueAccess || has("estoque.ajuste.create");
+  const { has, loading: permissionsLoading, ready } = usePermissions();
+  const canView = has("estoque.read");
+  const canAdjust = has("estoque.write");
 
   const [rows, setRows] = useState<EstoqueRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -310,6 +309,7 @@ export default function EstoquePage() {
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Ativos</div>
             <select
+            aria-label="Ativos"
               className="w-full px-3 py-2"
               value={ativos}
               onChange={(e) => setAtivos(e.target.value as "ativos" | "todos")}
@@ -321,7 +321,12 @@ export default function EstoquePage() {
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Abaixo do mínimo</div>
-            <select className="w-full px-3 py-2" value={soAbaixoMin ? "sim" : "nao"} onChange={(e) => setSoAbaixoMin(e.target.value === "sim")}>
+              <select
+                aria-label="Abaixo do mínimo"
+                className="w-full px-3 py-2"
+                value={soAbaixoMin ? "sim" : "nao"}
+                onChange={(e) => setSoAbaixoMin(e.target.value === "sim")}
+              >
               <option value="nao">Não</option>
               <option value="sim">Sim</option>
             </select>
@@ -361,6 +366,7 @@ export default function EstoquePage() {
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Item selecionado</div>
                 <input
+                aria-label="Item selecionado"
                   className="w-full px-3 py-2"
                   value={ajusteItemId ? `item_id=${ajusteItemId}` : ""}
                   disabled
@@ -377,6 +383,7 @@ export default function EstoquePage() {
                   <input
                     type="text"
                     inputMode="decimal"
+                      aria-label="Novo saldo desejado"
                     step="0.001"
                     className="w-full px-3 py-2"
                     value={ajusteQuantidade}
@@ -387,7 +394,7 @@ export default function EstoquePage() {
 
                 <div className="space-y-1">
                   <div className="text-xs text-zinc-400">Motivo</div>
-                  <input className="w-full px-3 py-2" value={ajusteMotivo} disabled />
+                    <input aria-label="Motivo" className="w-full px-3 py-2" value={ajusteMotivo} disabled />
                 </div>
               </div>
 
@@ -416,6 +423,7 @@ export default function EstoquePage() {
                 <div className="space-y-1">
                   <div className="text-xs text-zinc-400">Estoque mínimo</div>
                   <input
+                      aria-label="Estoque mínimo"
                     className="w-full px-3 py-2"
                     value={estoqueMinimo}
                     onChange={(e) => setEstoqueMinimo(parseDecimalBR(e.target.value) || 0)}
@@ -425,6 +433,7 @@ export default function EstoquePage() {
                 <div className="space-y-1">
                   <div className="text-xs text-zinc-400">Estoque ideal</div>
                   <input
+                      aria-label="Estoque ideal"
                     className="w-full px-3 py-2"
                     value={estoqueIdeal}
                     onChange={(e) => setEstoqueIdeal(parseDecimalBR(e.target.value) || 0)}
@@ -434,6 +443,7 @@ export default function EstoquePage() {
                 <div className="space-y-1">
                   <div className="text-xs text-zinc-400">Estoque máximo</div>
                   <input
+                      aria-label="Estoque máximo"
                     className="w-full px-3 py-2"
                     value={estoqueMaximo}
                     onChange={(e) => setEstoqueMaximo(parseDecimalBR(e.target.value) || 0)}
@@ -500,7 +510,7 @@ export default function EstoquePage() {
                   <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(ideal, 3)}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(max, 3)}</td>
                   <td className="px-4 py-3 text-center">
-                    <Can perm="estoque.ajuste.create">
+                    <Can perm="estoque.write">
                       <button
                         onClick={() => startAjuste(r.item_id, saldo)}
                         className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"

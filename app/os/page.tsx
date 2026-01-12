@@ -290,6 +290,7 @@ export default function OsListPage() {
           gestaoPayload.map((it) => ({
             ...it,
             os_id: newOsId,
+            tenant_id: tenant,
           })),
           { onConflict: "os_id,item_tipo,area" }
         );
@@ -363,6 +364,8 @@ export default function OsListPage() {
             onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { responsavel_id: e.target.value })}
             disabled={fieldsDisabled}
             placeholder="responsavel (texto livre)"
+            aria-label={`${def.label}: responsavel`}
+            title={`${def.label}: responsavel`}
           />
         </div>
 
@@ -374,6 +377,8 @@ export default function OsListPage() {
             value={item.data_prevista ? item.data_prevista.slice(0, 10) : ""}
             onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { data_prevista: e.target.value || null })}
             disabled={fieldsDisabled}
+            aria-label={`${def.label}: data prevista`}
+            title={`${def.label}: data prevista`}
           />
         </div>
 
@@ -391,6 +396,8 @@ export default function OsListPage() {
               })
             }
             disabled={fieldsDisabled}
+            aria-label={`${def.label}: progresso (percentual)`}
+            title={`${def.label}: progresso (percentual)`}
           />
         </div>
       </div>
@@ -406,7 +413,13 @@ export default function OsListPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-3 py-2">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="px-3 py-2"
+            aria-label="Filtrar por status"
+            title="Filtrar por status"
+          >
             <option value="todas">Todas</option>
             <option value="aberta">Aberta</option>
             <option value="em_andamento">Em andamento</option>
@@ -418,7 +431,7 @@ export default function OsListPage() {
             Atualizar
           </button>
 
-          <Can perm="os.create">
+          <Can perm="os.write">
             <button
               onClick={() => {
                 setShowCreate(true);
@@ -554,6 +567,8 @@ export default function OsListPage() {
                   value={pedidoCompra}
                   onChange={(e) => setPedidoCompra(e.target.value)}
                   placeholder="Alfanumerico conforme cliente"
+                  aria-label="Pedido de compra"
+                  title="Pedido de compra"
                 />
               </div>
 
@@ -563,6 +578,8 @@ export default function OsListPage() {
                   className="w-full px-3 py-2"
                   value={tipoPedido}
                   onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
+                  aria-label="Tipo de pedido"
+                  title="Tipo de pedido"
                 >
                   <option value="servico">Servico</option>
                   <option value="material">Material</option>
@@ -575,6 +592,8 @@ export default function OsListPage() {
                   className="w-full px-3 py-2"
                   value={clienteId ?? ""}
                   onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                  aria-label="Cliente (cadastro)"
+                  title="Cliente (cadastro)"
                 >
                   <option value="">-</option>
                   {clientes.map((c) => (
@@ -592,12 +611,20 @@ export default function OsListPage() {
                   value={clienteNomeLivre}
                   onChange={(e) => setClienteNomeLivre(e.target.value)}
                   placeholder="Se nao estiver cadastrado"
+                  aria-label="Cliente (nome livre)"
+                  title="Cliente (nome livre)"
                 />
               </div>
 
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Vendedor</div>
-                <input className="w-full px-3 py-2" value={vendedor} onChange={(e) => setVendedor(e.target.value)} />
+                <input
+                  className="w-full px-3 py-2"
+                  value={vendedor}
+                  onChange={(e) => setVendedor(e.target.value)}
+                  aria-label="Vendedor"
+                  title="Vendedor"
+                />
               </div>
 
               <div className="space-y-1">
@@ -608,12 +635,20 @@ export default function OsListPage() {
                   value={orcado}
                   onChange={(e) => setOrcado(e.target.value)}
                   placeholder="0.00"
+                  aria-label="Valor pedido"
+                  title="Valor pedido"
                 />
               </div>
 
               <div className="space-y-1 md:col-span-3">
                 <div className="text-xs text-zinc-400">Descricao (opcional)</div>
-                <textarea className="w-full px-3 py-2 min-h-[80px]" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+                <textarea
+                  className="w-full px-3 py-2 min-h-[80px]"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  aria-label="Descricao"
+                  title="Descricao"
+                />
               </div>
             </div>
 

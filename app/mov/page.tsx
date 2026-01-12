@@ -6,6 +6,7 @@ import { formatDecimalBR } from "../../lib/decimal";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { requireAny } from "@/lib/auth/capabilities";
 
 type MovTipo = "entrada" | "saida" | "ajuste";
 
@@ -33,13 +34,9 @@ const tipoBadge: Record<MovTipo, string> = {
 export default function MovimentacoesPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
-  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
-  const hasEstoqueAccess = has("estoque.acessar") || (permissions ?? []).some((perm) => perm.startsWith("estoque."));
-  const canView = hasEstoqueAccess || has("movimentacoes.view");
-  const canImport = hasEstoqueAccess || has("fiscal.nf_entrada");
-  const canCreateFornecedor = hasEstoqueAccess || has("cadastros.fornecedores");
-  const canCreateItem = hasEstoqueAccess || has("itens.create");
-  const canAccessPage = hasEstoqueAccess || canView || canImport || canCreateFornecedor || canCreateItem;
+  const { loading: permissionsLoading, ready, capabilities } = usePermissions();
+  const canView = requireAny(capabilities, ["estoque.read", "estoque.write"]);
+  const canAccessPage = canView;
 
   const [rows, setRows] = useState<MovRow[]>([]);
   const [err, setErr] = useState<string | null>(null);

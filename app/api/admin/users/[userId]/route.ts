@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 
-const ADMIN_PERMISSION = "admin.users.manage";
-
 function jerr(status: number, error: string) {
   return NextResponse.json({ error }, { status });
 }
@@ -36,8 +34,9 @@ async function getAdminContext(req: NextRequest): Promise<AdminContext> {
     return { error: "Nao autenticado.", status: 401 } as const;
   }
 
-  const { data: hasPerm, error: permErr } = await supabase.rpc("has_permission", {
-    p_code: ADMIN_PERMISSION,
+  const { data: hasPerm, error: permErr } = await supabase.rpc("can", {
+    p_resource: "admin",
+    p_action: "manage_users",
   });
   if (permErr || !hasPerm) {
     return { error: "Sem permissao.", status: 403 } as const;

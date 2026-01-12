@@ -205,6 +205,13 @@ export default function OsDetailPage() {
   async function loadGestaoItens() {
     if (!Number.isFinite(osId)) return;
 
+    if (!tenantId) {
+      setGestaoErr("Tenant nao carregado.");
+      setGestaoItems([]);
+      setGestaoLoading(false);
+      return;
+    }
+
     setGestaoErr(null);
     setGestaoLoading(true);
 
@@ -232,6 +239,7 @@ export default function OsDetailPage() {
         responsavel_id: null,
         data_prevista: null,
         progresso_percent: 0,
+        tenant_id: tenantId,
       }));
 
     if (missing.length > 0) {
@@ -473,7 +481,13 @@ export default function OsDetailPage() {
 
     const { error: upsertErr } = await supabase
       .from("os_gestao_itens")
-      .upsert(payload, { onConflict: "os_id,item_tipo,area" });
+      .upsert(
+        payload.map((row) => ({
+          ...row,
+          tenant_id: tenantId,
+        })),
+        { onConflict: "os_id,item_tipo,area" }
+      );
 
     setGestaoSaving(false);
 

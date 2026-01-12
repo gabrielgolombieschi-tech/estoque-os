@@ -194,9 +194,9 @@ export default function ImportarXmlPage() {
   const { tenantId, empresaId } = useTenantEmpresa();
   const { has, loading: permissionsLoading, refreshing, ready } = usePermissions();
 
-  const canImport = has("fiscal.nf_entrada");
-  const canCreateFornecedor = has("cadastros.fornecedores");
-  const canCreateItem = has("itens.create");
+  const canImport = has("xml_import.execute");
+  const canCreateFornecedor = has("cad_fornecedores.write");
+  const canCreateItem = has("cad_itens.write");
   const canAccessPage = canImport || canCreateFornecedor || canCreateItem;
 
   function parseXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] } {
@@ -1488,7 +1488,7 @@ export default function ImportarXmlPage() {
                 </div>
 
                 {selectedJob?.nfeInfo?.cnpjEmitente && (
-                  <Can perm="cadastros.fornecedores">
+                  <Can perm="cad_fornecedores.write">
                     <button
                       onClick={() => {
                         if (!finalidadeLote) {
@@ -1582,7 +1582,7 @@ export default function ImportarXmlPage() {
                           </td>
                           <td className="px-3 py-2 text-center">
                             {!foundId && (
-                              <Can perm="itens.create">
+                              <Can perm="cad_itens.write">
                                 <button
                                   onClick={() => void cadastrarItemManual(it)}
                                   className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"

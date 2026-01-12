@@ -45,9 +45,8 @@ const naturezaBadge: Record<TituloNatureza, string> = {
 export default function ContasPagarReceberPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const { tenantId, loading: tenantLoading } = useTenantEmpresa();
-  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
-  const canView =
-    has("financeiro.gerenciar") || (permissions ?? []).some((perm) => perm.startsWith("financeiro."));
+  const { has, loading: permissionsLoading, ready } = usePermissions();
+  const canView = has("financeiro.read");
 
   const [rows, setRows] = useState<TituloRow[]>([]);
   const [categorias, setCategorias] = useState<CategoriaRow[]>([]);

@@ -32,8 +32,9 @@ function getEmpresaNome(row: EmpresaRow): string | null {
 }
 
 async function hasAdminAccess(supabase: SupabaseClient): Promise<boolean> {
-  const { data, error } = await supabase.rpc("has_permission", {
-    p_code: "admin.users.manage",
+  const { data, error } = await supabase.rpc("can", {
+    p_resource: "admin",
+    p_action: "manage_users",
   });
   if (error) {
     return false;

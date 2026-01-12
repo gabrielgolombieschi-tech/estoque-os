@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 
-const ADMIN_PERMISSION = "admin.users.manage";
+const ADMIN_PERMISSION = "admin.manage_users";
 
 type Role = {
   id: string;

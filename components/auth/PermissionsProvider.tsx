@@ -1,17 +1,20 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { clearPermissionCache, loadUserPermissions } from "@/lib/auth/permissions";
+import { clearPermissionCache, loadUserCapabilities } from "@/lib/auth/permissions";
 import { getCurrentTenantId } from "@/lib/auth/tenant";
+import { ensureCurrentTenant } from "@/lib/tenant";
+import { type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type PermissionsContextValue = {
-  permissions: string[] | null;
+  capabilities: Capabilities | null;
   loading: boolean;
+  loadingInitial: boolean;
   refreshing: boolean;
   ready: boolean;
   tenantId: string | null;
-  has: (permission: string) => boolean;
+  has: (capability: CapabilityKey) => boolean | undefined;
   reload: () => Promise<void>;
   clear: () => void;
 };
@@ -21,19 +24,19 @@ const PermissionsContext = createContext<PermissionsContextValue | null>(null);
 type CachedPermissions = {
   userId: string;
   tenantId: string;
-  permissions: string[];
+  capabilities: Capabilities;
 };
 
 const CACHE_LAST_KEY = "permissions_cache:last";
 const cacheKeyFor = (userId: string, tenantId: string) => `permissions_cache:${userId}:${tenantId}`;
 
-function readCache(key: string): string[] | null {
+function readCache(key: string): Capabilities | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.sessionStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as string[]) : null;
+    return parsed && typeof parsed === "object" ? (parsed as Capabilities) : null;
   } catch {
     return null;
   }
@@ -45,34 +48,44 @@ function readLastCache(): CachedPermissions | null {
     const raw = window.sessionStorage.getItem(CACHE_LAST_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedPermissions;
-    if (!parsed?.userId || !parsed?.tenantId || !Array.isArray(parsed.permissions)) return null;
+    if (!parsed?.userId || !parsed?.tenantId || !parsed?.capabilities) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-function writeCache(userId: string, tenantId: string, permissions: string[]) {
+function writeCache(userId: string, tenantId: string, capabilities: Capabilities) {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(cacheKeyFor(userId, tenantId), JSON.stringify(permissions));
+    window.sessionStorage.setItem(cacheKeyFor(userId, tenantId), JSON.stringify(capabilities));
     window.sessionStorage.setItem(
       CACHE_LAST_KEY,
-      JSON.stringify({ userId, tenantId, permissions })
+      JSON.stringify({ userId, tenantId, capabilities })
     );
   } catch {
     // Ignore storage errors.
   }
 }
 
-export function PermissionsProvider({ children }: { children: ReactNode }) {
+export function PermissionsProvider({
+  children,
+  initialCapabilities = null,
+  initialTenantId = null,
+}: {
+  children: ReactNode;
+  initialCapabilities?: Capabilities | null;
+  initialTenantId?: string | null;
+}) {
   const lastCache = readLastCache();
-  const [permissions, setPermissions] = useState<string[] | null>(lastCache?.permissions ?? null);
-  const [loading, setLoading] = useState(!lastCache);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(
+    initialCapabilities ?? lastCache?.capabilities ?? null
+  );
+  const [loading, setLoading] = useState(!lastCache && initialCapabilities == null);
   const [refreshing, setRefreshing] = useState(false);
-  const [tenantId, setTenantId] = useState<string | null>(lastCache?.tenantId ?? null);
+  const [tenantId, setTenantId] = useState<string | null>(initialTenantId ?? lastCache?.tenantId ?? null);
   const userIdRef = useRef<string | null>(lastCache?.userId ?? null);
-  const permissionsRef = useRef<string[] | null>(lastCache?.permissions ?? null);
+  const permissionsRef = useRef<Capabilities | null>(initialCapabilities ?? lastCache?.capabilities ?? null);
   const inflightRef = useRef<Promise<void> | null>(null);
   const inflightKeyRef = useRef<string | null>(null);
 
@@ -94,12 +107,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
           if (!userId) {
             clearPermissionCache();
-            setPermissions(null);
+            setCapabilities(null);
             setTenantId(null);
             return;
           }
 
-          const tenantIdResolved = opts?.tenantId ?? (await getCurrentTenantId());
+          const tenantIdResolved = opts?.tenantId ?? (await ensureCurrentTenant(supabase));
           const inflightKey = `${userId}:${tenantIdResolved ?? "none"}`;
           if (inflightKeyRef.current && inflightKeyRef.current !== inflightKey) {
             inflightRef.current = null;
@@ -118,12 +131,17 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           userIdRef.current = userId;
 
           clearPermissionCache();
-          const perms = await loadUserPermissions();
+          const perms = await loadUserCapabilities(supabase);
           if (userIdRef.current !== userId) {
             return;
           }
-          setPermissions(perms);
-          writeCache(userId, tenantIdResolved, perms);
+          // If loadUserCapabilities failed (null), do not overwrite existing capabilities.
+          if (perms) {
+            setCapabilities(perms);
+            writeCache(userId, tenantIdResolved, perms);
+          } else {
+            console.warn("loadUserCapabilities returned null; keeping existing capabilities");
+          }
         } catch (e) {
           console.warn("Erro ao atualizar permissoes", e);
         } finally {
@@ -144,13 +162,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   );
 
   const reload = useCallback(async () => {
-    const hasCache = permissions !== null;
+    const hasCache = capabilities !== null;
     await refreshPermissions({ background: hasCache });
-  }, [permissions, refreshPermissions]);
+  }, [capabilities, refreshPermissions]);
 
   useEffect(() => {
-    permissionsRef.current = permissions;
-  }, [permissions]);
+    permissionsRef.current = capabilities;
+  }, [capabilities]);
 
   useEffect(() => {
     const supabase = supabaseBrowser();
@@ -162,12 +180,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         inflightKeyRef.current = null;
         if (!nextUserId) {
           clearPermissionCache();
-          setPermissions(null);
+          setCapabilities(null);
           setTenantId(null);
           setLoading(false);
           return;
         }
-        setPermissions(null);
+        setCapabilities(null);
         setTenantId(null);
         setLoading(permissionsRef.current === null);
         void refreshPermissions({ background: permissionsRef.current !== null, userId: nextUserId });
@@ -194,14 +212,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         userIdRef.current = userId;
 
         if (!userId) {
-          setPermissions(null);
+          setCapabilities(null);
           setTenantId(null);
           setLoading(false);
           return;
         }
 
         if (lastCache && lastCache.userId !== userId) {
-          setPermissions(null);
+          setCapabilities(null);
           setLoading(true);
         }
 
@@ -213,14 +231,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
           const key = cacheKeyFor(userId, tenantIdResolved);
           const cached = readCache(key);
           if (cached) {
-            setPermissions(cached);
+            setCapabilities(cached);
             setLoading(false);
             void refreshPermissions({ background: true, userId, tenantId: tenantIdResolved });
             return;
           }
         }
 
-        setPermissions(null);
+        setCapabilities(null);
         setLoading(true);
         await refreshPermissions({ background: false, userId, tenantId: tenantIdResolved });
       } catch (e) {
@@ -235,13 +253,18 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshPermissions, lastCache]);
 
-  const has = useCallback((permission: string) => permissions?.includes(permission) ?? false, [permissions]);
-  const ready = permissions !== null && tenantId !== null;
+  const has = useCallback(
+    (capability: CapabilityKey) => (capabilities === null ? undefined : capabilities[capability] ?? false),
+    [capabilities]
+  );
+  const ready = capabilities !== null && tenantId !== null;
+  const loadingInitial = loading && capabilities === null;
 
   const value = useMemo(
     () => ({
-      permissions,
+      capabilities,
       loading,
+      loadingInitial,
       refreshing,
       ready,
       tenantId,
@@ -249,12 +272,12 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       reload,
       clear: () => {
         clearPermissionCache();
-        setPermissions(null);
+        setCapabilities(null);
         setTenantId(null);
         setLoading(false);
       },
     }),
-    [permissions, loading, refreshing, ready, tenantId, has, reload]
+    [capabilities, loading, loadingInitial, refreshing, ready, tenantId, has, reload]
   );
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

@@ -7,6 +7,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
+import { requireAny } from "@/lib/auth/capabilities";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -189,11 +190,10 @@ function emptyFiscalForm(): FiscalForm {
 export default function ItensPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
-  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
-  const hasEstoqueAccess = has("estoque.acessar") || (permissions ?? []).some((perm) => perm.startsWith("estoque."));
-  const canView = hasEstoqueAccess || has("itens.view");
-  const canEdit = hasEstoqueAccess || has("itens.create");
-  const canEditFiscal = hasEstoqueAccess || has("fiscal.edit");
+  const { has, loading: permissionsLoading, ready, capabilities } = usePermissions();
+  const canView = requireAny(capabilities, ["estoque.read", "os.read", "cad_itens.write"]);
+  const canEdit = requireAny(capabilities, ["estoque.write", "cad_itens.write"]);
+  const canEditFiscal = has("fiscal_itens.write");
 
   const [rows, setRows] = useState<Item[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -573,7 +573,7 @@ export default function ItensPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Can perm="itens.create">
+          <Can perm="cad_itens.write">
             <button
               onClick={startNew}
               className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-100 text-zinc-900 hover:bg-white font-medium shadow-sm"
@@ -597,6 +597,7 @@ export default function ItensPage() {
             <div className="text-xs text-zinc-400">Buscar</div>
             <div className="flex gap-2">
               <input
+                aria-label="Buscar itens"
                 className="w-full px-3 py-2"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -614,6 +615,7 @@ export default function ItensPage() {
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Tipo</div>
             <select
+              aria-label="Filtrar por tipo"
               className="w-full px-3 py-2"
               value={tipo}
               onChange={(e) => setTipo(e.target.value as "todos" | Item["tipo"])}
@@ -628,6 +630,7 @@ export default function ItensPage() {
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Ativo</div>
             <select
+              aria-label="Filtrar por ativo"
               className="w-full px-3 py-2"
               value={ativo}
               onChange={(e) => setAtivo(e.target.value as "todos" | "ativos" | "inativos")}
@@ -682,12 +685,12 @@ export default function ItensPage() {
                   <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "N?o"}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <Can perm="itens.create">
+                      <Can perm="cad_itens.write">
                         <button onClick={() => startEdit(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
                           Editar
                         </button>
                       </Can>
-                      <Can perm="itens.create">
+                      <Can perm="cad_itens.write">
                         <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
                           {r.ativo ? "Desativar" : "Ativar"}
                         </button>
@@ -739,7 +742,7 @@ export default function ItensPage() {
                 >
                   Dados gerais
                 </button>
-                <Can perm="fiscal.edit">
+                <Can perm="fiscal_itens.write">
                   <button
                     className={`px-3 py-1.5 rounded-md text-sm ${activeTab === "fiscal" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
                     onClick={() => setActiveTab("fiscal")}
@@ -754,22 +757,38 @@ export default function ItensPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">C?digo interno *</div>
-                      <input className="w-full px-3 py-2" value={form.codigo_interno} onChange={(e) => setForm((s) => ({ ...s, codigo_interno: e.target.value }))} />
+                      <input
+                        aria-label="Código interno"
+                        className="w-full px-3 py-2"
+                        value={form.codigo_interno}
+                        onChange={(e) => setForm((s) => ({ ...s, codigo_interno: e.target.value }))}
+                      />
                     </div>
 
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">C?digo de barras</div>
-                      <input className="w-full px-3 py-2" value={form.codigo_barras} onChange={(e) => setForm((s) => ({ ...s, codigo_barras: e.target.value }))} />
+                      <input
+                        aria-label="Código de barras"
+                        className="w-full px-3 py-2"
+                        value={form.codigo_barras}
+                        onChange={(e) => setForm((s) => ({ ...s, codigo_barras: e.target.value }))}
+                      />
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
                       <div className="text-xs text-zinc-400">Nome *</div>
-                      <input className="w-full px-3 py-2" value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} />
+                      <input
+                        aria-label="Nome"
+                        className="w-full px-3 py-2"
+                        value={form.nome}
+                        onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))}
+                      />
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
                       <div className="text-xs text-zinc-400">Fornecedor</div>
                       <select
+                        aria-label="Fornecedor"
                         className="w-full px-3 py-2"
                         value={form.fornecedor_id ?? ""}
                         onChange={(e) => setForm((s) => ({ ...s, fornecedor_id: e.target.value ? Number(e.target.value) : null }))}
@@ -785,7 +804,12 @@ export default function ItensPage() {
 
                     <div className="md:col-span-2 space-y-1">
                       <div className="text-xs text-zinc-400">Descri??o</div>
-                      <textarea className="w-full px-3 py-2 min-h-[70px]" value={form.descricao} onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))} />
+                      <textarea
+                        aria-label="Descrição"
+                        className="w-full px-3 py-2 min-h-[70px]"
+                        value={form.descricao}
+                        onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))}
+                      />
                     </div>
                   </div>
 
@@ -793,6 +817,7 @@ export default function ItensPage() {
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Tipo *</div>
                       <select
+                        aria-label="Tipo"
                         className="w-full px-3 py-2"
                         value={form.tipo}
                         onChange={(e) =>
@@ -815,14 +840,24 @@ export default function ItensPage() {
 
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Categoria</div>
-                      <input className="w-full px-3 py-2" value={form.categoria} onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))} />
+                      <input
+                        aria-label="Categoria"
+                        className="w-full px-3 py-2"
+                        value={form.categoria}
+                        onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))}
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Subcategoria</div>
-                      <input className="w-full px-3 py-2" value={form.subcategoria} onChange={(e) => setForm((s) => ({ ...s, subcategoria: e.target.value }))} />
+                      <input
+                        aria-label="Subcategoria"
+                        className="w-full px-3 py-2"
+                        value={form.subcategoria}
+                        onChange={(e) => setForm((s) => ({ ...s, subcategoria: e.target.value }))}
+                      />
                     </div>
 
                     <div className="space-y-1 md:col-span-2">
@@ -845,6 +880,7 @@ export default function ItensPage() {
                           <input
                             type="text"
                             inputMode="decimal"
+                            aria-label="Estoque mínimo"
                             className="w-full px-3 py-2"
                             value={form.estoque_minimo}
                             disabled={form.tipo !== "produto" || !form.controla_estoque}
@@ -856,6 +892,7 @@ export default function ItensPage() {
                           <input
                             type="text"
                             inputMode="decimal"
+                            aria-label="Estoque ideal"
                             className="w-full px-3 py-2"
                             value={form.estoque_ideal}
                             disabled={form.tipo !== "produto" || !form.controla_estoque}
@@ -867,6 +904,7 @@ export default function ItensPage() {
                           <input
                             type="text"
                             inputMode="decimal"
+                            aria-label="Estoque máximo"
                             className="w-full px-3 py-2"
                             value={form.estoque_maximo}
                             disabled={form.tipo !== "produto" || !form.controla_estoque}
@@ -882,15 +920,33 @@ export default function ItensPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Custo ultima compra</div>
-                      <input type="number" className="w-full px-3 py-2" value={form.custo_ultima_compra} onChange={(e) => setForm((s) => ({ ...s, custo_ultima_compra: Number(e.target.value) }))} />
+                      <input
+                        aria-label="Custo última compra"
+                        type="number"
+                        className="w-full px-3 py-2"
+                        value={form.custo_ultima_compra}
+                        onChange={(e) => setForm((s) => ({ ...s, custo_ultima_compra: Number(e.target.value) }))}
+                      />
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Custo medio</div>
-                      <input type="number" className="w-full px-3 py-2" value={form.custo_medio} onChange={(e) => setForm((s) => ({ ...s, custo_medio: Number(e.target.value) }))} />
+                      <input
+                        aria-label="Custo médio"
+                        type="number"
+                        className="w-full px-3 py-2"
+                        value={form.custo_medio}
+                        onChange={(e) => setForm((s) => ({ ...s, custo_medio: Number(e.target.value) }))}
+                      />
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Pre?o unit?rio</div>
-                      <input type="number" className="w-full px-3 py-2" value={form.preco_unitario} onChange={(e) => setForm((s) => ({ ...s, preco_unitario: Number(e.target.value) }))} />
+                      <input
+                        aria-label="Preço unitário"
+                        type="number"
+                        className="w-full px-3 py-2"
+                        value={form.preco_unitario}
+                        onChange={(e) => setForm((s) => ({ ...s, preco_unitario: Number(e.target.value) }))}
+                      />
                     </div>
                   </div>
 
@@ -934,6 +990,7 @@ export default function ItensPage() {
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Aliquota ICMS (%)</div>
                       <input
+                        aria-label="Aliquota ICMS (%)"
                         className="w-full px-3 py-2"
                         inputMode="decimal"
                         value={fiscalForm.aliq_icms ?? ""}
@@ -946,6 +1003,7 @@ export default function ItensPage() {
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Aliquota IPI (%)</div>
                       <input
+                        aria-label="Aliquota IPI (%)"
                         className="w-full px-3 py-2"
                         inputMode="decimal"
                         value={fiscalForm.aliq_ipi ?? ""}
@@ -958,6 +1016,7 @@ export default function ItensPage() {
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Aliquota PIS (%)</div>
                       <input
+                        aria-label="Aliquota PIS (%)"
                         className="w-full px-3 py-2"
                         inputMode="decimal"
                         value={fiscalForm.aliq_pis ?? ""}
@@ -970,6 +1029,7 @@ export default function ItensPage() {
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Aliquota COFINS (%)</div>
                       <input
+                        aria-label="Aliquota COFINS (%)"
                         className="w-full px-3 py-2"
                         inputMode="decimal"
                         value={fiscalForm.aliq_cofins ?? ""}

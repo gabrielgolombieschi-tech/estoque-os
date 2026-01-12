@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { ensureCurrentTenant } from "@/lib/tenant";
@@ -17,15 +17,12 @@ type TenantOption = {
 
 const isDev = process.env.NODE_ENV !== "production";
 const logError = (...args: unknown[]) => {
-  if (isDev) {
-    console.warn(...args);
-  }
+  if (isDev) console.warn(...args);
 };
 
 export function useTenantBoot() {
   useEffect(() => {
     const supabase = supabaseBrowser();
-
     (async () => {
       try {
         await ensureCurrentTenant(supabase);
@@ -36,12 +33,13 @@ export function useTenantBoot() {
   }, []);
 }
 
-
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => supabaseBrowser(), []);
   useTenantBoot();
+
   const router = useRouter();
   const pathname = usePathname();
+
   const empresaCtx = useContext(EmpresaContext);
   const empresaId = empresaCtx?.empresaId ?? null;
   const empresas = empresaCtx?.empresas ?? [];
@@ -49,9 +47,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const empresaLoading = empresaCtx?.loading ?? false;
   const empresaError = empresaCtx?.error ?? null;
 
-  // Seu provider deve expor pelo menos clear() e idealmente reload()
-  // Se não tiver reload(), remova do destructuring e as chamadas abaixo.
-  const { clear, reload, has, refreshing, permissions } = usePermissions();
+  /**
+   * ✅ Robustez: não assume que o provider expõe reload/ready/loadingInitial/etc.
+   * Assim não quebra o header/menu em runtime.
+   */
+  const perms = usePermissions();
+
+  const clear: () => void = perms?.clear ?? (() => {});
+  const _rawHas = perms?.has ?? (() => false);
+  const has: (k: string) => boolean | undefined = (_rawHas as unknown) as (k: string) => boolean | undefined;
+  const reload: () => Promise<void> = perms?.reload ?? (async () => {});
+  const refreshing: boolean = perms?.refreshing ?? false;
+  const loadingInitial: boolean = perms?.loadingInitial ?? false;
+  const permsCapabilities = (perms as unknown as { capabilities?: unknown } | null)?.capabilities;
+  const permissionsFailed: boolean = !loadingInitial && permsCapabilities === null;
+
+  // ready pode não existir; se não existir, consideramos "ready" quando não está no loadingInitial
+  const permissionsReady: boolean = perms?.ready ?? !loadingInitial;
 
   const [booting, setBooting] = useState(true);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
@@ -68,6 +80,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [openMenu, setOpenMenu] = useState<"os" | "estoque" | "financeiro" | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper único para checar capability (nunca use has() direto no JSX)
+  const can = (k: string) => Boolean(has(k));
+
+  const canAccessOs = can("os.read");
+  const canExecuteOs = can("os_rpcs.execute");
+  const canAccessApontamentos = can("apontamentos.read");
+  const canAccessEstoque = can("estoque.read") || can("estoque.write");
+  const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
+  const canImportXml = can("xml_import.execute");
+  const canAccessFinanceiro = can("financeiro.read");
+  const canAccessAdmin = can("admin.manage_users");
+
+  const toggleMenu = (key: "os" | "estoque" | "financeiro") =>
+    setOpenMenu((prev) => (prev === key ? null : key));
+
+  const openWithHover = (key: "os" | "estoque" | "financeiro") => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setOpenMenu(key);
+  };
+
+  const scheduleClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpenMenu(null), 150);
+  };
 
   // 1) Boot: pega sessão 1x e libera a UI (não trava esperando permissões)
   useEffect(() => {
@@ -120,7 +157,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 3) Guard de rota
+  // 3) Guard de rota (login)
   useEffect(() => {
     if (booting) return;
 
@@ -130,6 +167,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booting, userInfo?.id, pathname]);
 
+  // 3.5) Guard de empresa (se tiver mais de 1)
   useEffect(() => {
     if (booting || isPublic || isEmpresaSelection) return;
     if (!userInfo?.id) return;
@@ -187,6 +225,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [userInfo?.id, supabase]);
 
+  // 6) Carrega tenants (para selector)
   useEffect(() => {
     if (!userInfo?.id) {
       setTenants([]);
@@ -208,7 +247,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           .select("tenant_id, tenants(name)")
           .eq("status", "active");
         if (listErr) {
-          logError("Erro ao carregar empresas:", listErr);
+          logError("Erro ao carregar tenants:", listErr);
           return;
         }
 
@@ -217,7 +256,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const ctxTenantId = (ctx as { tenant_id?: string | null } | null)?.tenant_id ?? null;
         setTenantId(ctxTenantId);
       } catch (e) {
-        logError("Erro ao carregar empresas:", e);
+        logError("Erro ao carregar tenants:", e);
       }
     })();
 
@@ -236,7 +275,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       window.location.reload();
     } catch (e) {
-      logError("Erro ao trocar empresa:", e);
+      logError("Erro ao trocar tenant:", e);
       setTenantBusy(false);
     }
   }
@@ -253,25 +292,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       if (typeof window !== "undefined") window.location.href = "/login";
     }
   }
-
-  const canAccessMov =
-    has("movimentacoes.view") || has("fiscal.nf_entrada") || has("cadastros.fornecedores") || has("itens.create");
-  const hasPermissionPrefix = (prefix: string) => permissions?.some((perm) => perm.startsWith(prefix)) ?? false;
-  const canAccessEstoque = has("estoque.acessar") || hasPermissionPrefix("estoque.");
-  const canAccessFinanceiro = has("financeiro.gerenciar") || hasPermissionPrefix("financeiro.");
-
-  const toggleMenu = (key: "os" | "estoque" | "financeiro") =>
-    setOpenMenu((prev) => (prev === key ? null : key));
-
-  const openWithHover = (key: "os" | "estoque" | "financeiro") => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    setOpenMenu(key);
-  };
-
-  const scheduleClose = () => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = setTimeout(() => setOpenMenu(null), 150);
-  };
 
   if (booting) {
     return (
@@ -303,100 +323,129 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       {!hideHeader && (
         <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-          <div
-            className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between"
-            ref={navRef}
-          >
+          <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between" ref={navRef}>
             <div className="flex items-center gap-4">
               <Link href="/" className="font-semibold tracking-tight text-zinc-100">
                 Home
               </Link>
 
               <nav className="relative flex flex-wrap items-center gap-4 text-sm text-zinc-200">
-                <div
-                  className="relative"
-                  onMouseEnter={() => openWithHover("os")}
-                  onMouseLeave={scheduleClose}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleMenu("os")}
-                    className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
+                {loadingInitial && (
+                  <div className="text-xs text-zinc-500">Carregando menus...</div>
+                )}
+
+                {permissionsFailed && (
+                  <div className="text-xs text-amber-400">
+                    Permissões não carregaram. Se este banco é novo, aplique migrations (inclui
+                    <span className="font-mono"> 20260206_can_many.sql</span>) e clique em{" "}
+                    <button type="button" className="underline" onClick={() => reload()}>
+                      recarregar
+                    </button>
+                    .
+                  </div>
+                )}
+
+                {permissionsReady && canAccessOs && (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => openWithHover("os")}
+                    onMouseLeave={scheduleClose}
                   >
-                    OS <span className="text-[10px]">▼</span>
-                  </button>
-
-                  {openMenu === "os" && (
-                    <div
-                      className="absolute left-0 top-full mt-1 w-52 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
-                      onMouseEnter={() => openWithHover("os")}
-                      onMouseLeave={scheduleClose}
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("os")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
                     >
-                      <Link href="/os" className="block px-3 py-2 hover:bg-zinc-900">
-                        OSs
-                      </Link>
-                      <Link href="/baixa_os" className="block px-3 py-2 hover:bg-zinc-900">
-                        Baixa PC
-                      </Link>
-                      <Link href="/baixa_os_cel" className="block px-3 py-2 hover:bg-zinc-900">
-                        Baixa Celular
-                      </Link>
-                      <Link href="/apontamentos" className="block px-3 py-2 hover:bg-zinc-900">
-                        Apontamentos Horas
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                      OS
+                    </button>
 
-                {canAccessEstoque && (
+                    {openMenu === "os" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-56 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("os")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        {can("os.read") && (
+                          <Link href="/os" className="block px-3 py-2 hover:bg-zinc-900">
+                            OSs
+                          </Link>
+                        )}
+                        {can("os.read") && (
+                          <Link href="/projetos" className="block px-3 py-2 hover:bg-zinc-900">
+                            Projetos
+                          </Link>
+                        )}
+                        {canExecuteOs && (
+                          <Link href="/execucao" className="block px-3 py-2 hover:bg-zinc-900">
+                            Execucao
+                          </Link>
+                        )}
+                        {canExecuteOs && (
+                          <Link href="/baixa_os" className="block px-3 py-2 hover:bg-zinc-900">
+                            Baixa PC
+                          </Link>
+                        )}
+                        {canExecuteOs && (
+                          <Link href="/baixa_os_cel" className="block px-3 py-2 hover:bg-zinc-900">
+                            Baixa Celular
+                          </Link>
+                        )}
+                        {canAccessApontamentos && (
+                          <Link href="/apontamentos" className="block px-3 py-2 hover:bg-zinc-900">
+                            Apontamentos Horas
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {permissionsReady && canAccessEstoque && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("estoque")}
                     onMouseLeave={scheduleClose}
                   >
-                  <button
-                    type="button"
-                    onClick={() => toggleMenu("estoque")}
-                    className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
-                  >
-                    Estoque <span className="text-[10px]">▼</span>
-                  </button>
-
-                  {openMenu === "estoque" && (
-                    <div
-                      className="absolute left-0 top-full mt-1 w-52 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
-                      onMouseEnter={() => openWithHover("estoque")}
-                      onMouseLeave={scheduleClose}
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("estoque")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
                     >
-                      {(canAccessEstoque || has("estoque.view")) && (
-                        <Link href="/estoque" className="block px-3 py-2 hover:bg-zinc-900">
-                          Ajuste Estoque
-                        </Link>
-                      )}
+                      Estoque
+                    </button>
 
-                      {(canAccessEstoque || has("itens.view")) && (
-                        <Link href="/itens" className="block px-3 py-2 hover:bg-zinc-900">
-                          Cadastro
-                        </Link>
-                      )}
-
-                      {(canAccessEstoque || has("fiscal.nf_entrada")) && (
-                        <Link href="/estoque/importar" className="block px-3 py-2 hover:bg-zinc-900">
-                          Importar XML
-                        </Link>
-                      )}
-
-                      {(canAccessEstoque || canAccessMov) && (
-                        <Link href="/mov" className="block px-3 py-2 hover:bg-zinc-900">
-                          Movimentações
-                        </Link>
-                      )}
-                    </div>
-                  )}
+                    {openMenu === "estoque" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-52 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("estoque")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        {can("estoque.read") && (
+                          <Link href="/estoque" className="block px-3 py-2 hover:bg-zinc-900">
+                            Ajuste Estoque
+                          </Link>
+                        )}
+                        {canAccessCadastroItens && (
+                          <Link href="/itens" className="block px-3 py-2 hover:bg-zinc-900">
+                            Cadastro
+                          </Link>
+                        )}
+                        {canImportXml && (
+                          <Link href="/estoque/importar" className="block px-3 py-2 hover:bg-zinc-900">
+                            Importar XML
+                          </Link>
+                        )}
+                        {can("estoque.read") && (
+                          <Link href="/mov" className="block px-3 py-2 hover:bg-zinc-900">
+                            Movimentacoes
+                          </Link>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {canAccessFinanceiro && (
+                {permissionsReady && canAccessFinanceiro && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("financeiro")}
@@ -407,7 +456,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       onClick={() => toggleMenu("financeiro")}
                       className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
                     >
-                      Financeiro <span className="text-[10px]">▼</span>
+                      Financeiro
                     </button>
 
                     {openMenu === "financeiro" && (
@@ -427,7 +476,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
 
-                {has("admin.users.manage") && (
+                {permissionsReady && canAccessAdmin && (
                   <Link href="/usuarios" className="px-3 py-1 rounded-md hover:bg-zinc-900">
                     Usuarios
                   </Link>
@@ -441,13 +490,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   Atualizando permissoes...
                 </div>
               )}
+
               {tenants.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-zinc-400">Tenant</span>
                   <select
+                    aria-label="Selecionar tenant"
                     className="bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 rounded px-2 py-1"
                     value={tenantId ?? ""}
-                    onChange={(e) => handleTenantChange(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => handleTenantChange(e.currentTarget.value)}
                     disabled={tenantBusy}
                   >
                     <option value="" disabled>
@@ -461,16 +512,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </select>
                 </div>
               )}
+
               {empresaError && (
                 <div className="text-xs text-red-400 max-w-[240px]">{empresaError}</div>
               )}
+
               {empresas.length > 1 && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-zinc-400">Empresa</span>
                   <select
+                    aria-label="Selecionar empresa"
                     className="bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 rounded px-2 py-1"
                     value={empresaId ?? ""}
-                    onChange={(e) => setEmpresaId(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setEmpresaId(e.currentTarget.value)}
                     disabled={empresaLoading}
                   >
                     <option value="" disabled>
@@ -484,12 +538,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </select>
                 </div>
               )}
+
               {userInfo && (
                 <div className="text-xs text-zinc-300 select-none whitespace-nowrap">
                   <div>{userInfo.email}</div>
                   <div className="text-[11px] text-zinc-400">{userRole ?? "-"}</div>
                 </div>
               )}
+
               <button
                 type="button"
                 onClick={logout}
@@ -516,9 +572,3 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-
-
-
-
-

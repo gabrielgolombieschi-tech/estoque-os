@@ -58,7 +58,7 @@ export default function EmpresaUsuariosPage() {
     }
   }, [defaultEmpresaId, empresas, selectedEmpresaId]);
 
-  const isAdmin = has("admin.users.manage");
+  const isAdmin = has("admin.manage_users");
 
   useEffect(() => {
     let active = true;
@@ -214,6 +214,7 @@ export default function EmpresaUsuariosPage() {
         <div className="space-y-1">
           <div className="text-xs text-zinc-400">Empresa</div>
           <select
+            aria-label="Selecionar empresa"
             className="w-full px-3 py-2"
             value={selectedEmpresaId ?? ""}
             onChange={(e) => setSelectedEmpresaId(e.target.value)}
@@ -255,6 +256,7 @@ export default function EmpresaUsuariosPage() {
                   <td className="px-4 py-3">
                     {membership ? (
                       <select
+                        aria-label="Selecionar role"
                         className="px-2 py-1 bg-zinc-900 border border-zinc-700 text-xs rounded"
                         value={membership.role}
                         onChange={(e) => updateRole(membership.id, e.target.value)}
