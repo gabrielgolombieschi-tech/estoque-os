@@ -21,6 +21,9 @@ type Item = {
   categoria: string | null;
   subcategoria: string | null;
 
+  fabricante: string | null;
+  finalidade: string | null;
+
   unidade_medida: string | null;
   controla_estoque: boolean | null;
   estoque_minimo: number | null;
@@ -52,6 +55,9 @@ type ItemForm = {
   tipo: "produto" | "servico" | "despesa";
   categoria: string;
   subcategoria: string;
+
+  fabricante: string;
+  finalidade: string; // public.item_finalidade ("" = null)
 
   unidade_medida: string;
   controla_estoque: boolean;
@@ -94,6 +100,8 @@ type ItemPayload = {
   tipo: Item["tipo"];
   categoria: string | null;
   subcategoria: string | null;
+  fabricante: string | null;
+  finalidade: string | null;
   unidade_medida: string;
   controla_estoque: boolean;
   estoque_minimo: number;
@@ -123,7 +131,7 @@ type FiscalPayload = {
   ipi_entra_no_custo: boolean;
   credita_pis: boolean;
   credita_cofins: boolean;
-  updated_at: string;
+  atualizado_em: string;
 };
 
 type DbError = { message?: string; code?: string } | null;
@@ -157,6 +165,10 @@ function emptyForm(): ItemForm {
     tipo: "produto",
     categoria: "",
     subcategoria: "",
+
+    fabricante: "",
+    finalidade: "",
+
     unidade_medida: "UN",
     controla_estoque: true,
     estoque_minimo: 0,
@@ -204,9 +216,11 @@ export default function ItensPage() {
   const [activeTab, setActiveTab] = useState<"geral" | "fiscal">("geral");
 
   // filtros
-  const [q, setQ] = useState("");
+  const [filterId, setFilterId] = useState("todos");
+  const [filterNome, setFilterNome] = useState("");
+  const [filterFornecedor, setFilterFornecedor] = useState("todos");
   const [tipo, setTipo] = useState<"todos" | Item["tipo"]>("todos");
-  const [ativo, setAtivo] = useState<"todos" | "ativos" | "inativos">("ativos");
+  const [ativo, setAtivo] = useState<"todos" | "ativos" | "inativos">("todos");
 
   // form (criar/editar)
   const [form, setForm] = useState<ItemForm>(emptyForm());
@@ -239,22 +253,37 @@ export default function ItensPage() {
       supabase
         .from("itens")
         .select(
-          "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores:fornecedor_id(nome),ativo,criado_em,atualizado_em"
+          "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores:fornecedor_id(nome),ativo,criado_em,atualizado_em"
         ),
       tenantId
     )
       .order("id", { ascending: false })
       .limit(300);
 
+    const idRaw = filterId.trim();
+    if (idRaw && idRaw !== "todos") {
+      const parsed = Number.parseInt(idRaw, 10);
+      if (!Number.isFinite(parsed)) {
+        setErr("ID invalido.");
+        return;
+      }
+      query = query.eq("id", parsed);
+    }
+
+    const nomeTerm = filterNome.trim();
+    if (nomeTerm) {
+      query = query.ilike("nome", `%${nomeTerm}%`);
+    }
+
     if (tipo !== "todos") query = query.eq("tipo", tipo);
     if (ativo === "ativos") query = query.eq("ativo", true);
     if (ativo === "inativos") query = query.eq("ativo", false);
 
-    const term = q.trim();
-    if (term) {
-      query = query.or(
-        `nome.ilike.%${term}%,codigo_interno.ilike.%${term}%,codigo_barras.ilike.%${term}%`
-      );
+    if (filterFornecedor !== "todos") {
+      const fornecedorId = Number.parseInt(filterFornecedor, 10);
+      if (Number.isFinite(fornecedorId)) {
+        query = query.eq("fornecedor_id", fornecedorId);
+      }
     }
 
     const { data, error } = await query;
@@ -301,7 +330,15 @@ export default function ItensPage() {
     loadFornecedores();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo, ativo, tenantId, tenantEmpresaLoading]);
+  }, [tenantId, empresaId, tenantEmpresaLoading]);
+
+  function resetFiltros() {
+    setFilterId("todos");
+    setFilterNome("");
+    setTipo("todos");
+    setFilterFornecedor("todos");
+    setAtivo("todos");
+  }
 
   function startNew() {
     setOk(null);
@@ -336,6 +373,10 @@ export default function ItensPage() {
       tipo: r.tipo,
       categoria: r.categoria ?? "",
       subcategoria: r.subcategoria ?? "",
+
+      fabricante: r.fabricante ?? "",
+      finalidade: r.finalidade ? String(r.finalidade) : "",
+
       unidade_medida: r.unidade_medida ?? "UN",
       controla_estoque: !!r.controla_estoque,
       estoque_minimo: Number(r.estoque_minimo ?? 0),
@@ -394,11 +435,13 @@ export default function ItensPage() {
       ipi_entra_no_custo: fiscalForm.ipi_entra_no_custo,
       credita_pis: !!fiscalForm.credita_pis,
       credita_cofins: !!fiscalForm.credita_cofins,
-      updated_at: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
     };
-    const { error } = await supabase
-      .from("fiscal_itens")
-      .upsert(payload, { onConflict: "tenant_id,empresa_id,item_id" });
+    const { error } = await applyTenantEmpresa(
+      supabase.from("fiscal_itens").upsert(payload, { onConflict: "tenant_id,empresa_id,item_id" }),
+      tenantId,
+      empresaId
+    );
     return error;
   }
 
@@ -410,8 +453,8 @@ export default function ItensPage() {
       return;
     }
 
-    if (!form.codigo_interno.trim()) return setErr("C?digo interno e obrigatorio.");
-    if (!form.nome.trim()) return setErr("Nome e obrigatorio.");
+    if (!form.codigo_interno.trim()) return setErr("Código interno é obrigatório.");
+    if (!form.nome.trim()) return setErr("Nome é obrigatório.");
 
     const isProduto = form.tipo === "produto";
     const controlaEstoque = isProduto ? form.controla_estoque : false;
@@ -426,6 +469,9 @@ export default function ItensPage() {
       tipo: form.tipo,
       categoria: form.categoria.trim() || null,
       subcategoria: form.subcategoria.trim() || null,
+
+      fabricante: form.fabricante.trim() || null,
+      finalidade: form.finalidade.trim() || null,
 
       unidade_medida: (form.unidade_medida || "UN").trim().toUpperCase(),
       controla_estoque: controlaEstoque,
@@ -488,7 +534,7 @@ export default function ItensPage() {
       const msg = String(error.message || "");
       if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
         setBusy(false);
-        return setErr("C?digo interno ou codigo de barras ja existe. Ajuste e tente novamente.");
+        return setErr("Código interno ou código de barras já existe. Ajuste e tente novamente.");
       }
       setBusy(false);
       return setErr(msg);
@@ -509,8 +555,8 @@ export default function ItensPage() {
 
     setBusy(false);
     setOk(editingId ? "Item atualizado!" : "Item criado!");
-    await load();
     closeForm();
+    await load();
   }
 
   async function toggleAtivo(id: number, to: boolean) {
@@ -592,24 +638,27 @@ export default function ItensPage() {
       </div>
 
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.9fr_0.7fr_0.7fr] gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.9fr_0.9fr_0.7fr_0.7fr] gap-3">
           <div className="space-y-1">
-            <div className="text-xs text-zinc-400">Buscar</div>
-            <div className="flex gap-2">
-              <input
-                aria-label="Buscar itens"
-                className="w-full px-3 py-2"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Nome, c?digo interno ou c?digo de barras"
-              />
-              <button
-                onClick={load}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Buscar
-              </button>
-            </div>
+            <div className="text-xs text-zinc-400">ID</div>
+            <input
+              aria-label="Filtrar por ID"
+              className="w-full px-3 py-2"
+              value={filterId}
+              onChange={(e) => setFilterId(e.target.value)}
+              placeholder="todos"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Nome</div>
+            <input
+              aria-label="Filtrar por nome"
+              className="w-full px-3 py-2"
+              value={filterNome}
+              onChange={(e) => setFilterNome(e.target.value)}
+              placeholder="Digite parte do nome..."
+            />
           </div>
 
           <div className="space-y-1">
@@ -628,6 +677,23 @@ export default function ItensPage() {
           </div>
 
           <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Fornecedor</div>
+            <select
+              aria-label="Filtrar por fornecedor"
+              className="w-full px-3 py-2"
+              value={filterFornecedor}
+              onChange={(e) => setFilterFornecedor(e.target.value)}
+            >
+              <option value="todos">Todos</option>
+              {fornecedores.map((f) => (
+                <option key={f.id} value={String(f.id)}>
+                  {f.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
             <div className="text-xs text-zinc-400">Ativo</div>
             <select
               aria-label="Filtrar por ativo"
@@ -635,11 +701,29 @@ export default function ItensPage() {
               value={ativo}
               onChange={(e) => setAtivo(e.target.value as "todos" | "ativos" | "inativos")}
             >
+              <option value="todos">Todos</option>
               <option value="ativos">Ativos</option>
               <option value="inativos">Inativos</option>
-              <option value="todos">Todos</option>
             </select>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={load}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+          >
+            Buscar
+          </button>
+          <button
+            onClick={() => {
+              resetFiltros();
+              void load();
+            }}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+          >
+            Limpar
+          </button>
         </div>
 
         {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
@@ -659,10 +743,11 @@ export default function ItensPage() {
                 <th className="px-4 py-3 text-left">Código</th>
                 <th className="px-4 py-3 text-left min-w-[220px]">Nome</th>
                 <th className="px-4 py-3 text-left">Tipo</th>
+                <th className="px-4 py-3 text-left">Finalidade</th>
                 <th className="px-4 py-3 text-left">Fornecedor</th>
-                <th className="px-4 py-3 text-right">Pre?o</th>
+                <th className="px-4 py-3 text-right">Preço</th>
                 <th className="px-4 py-3 text-center">Ativo</th>
-                <th className="px-4 py-3 text-center">A??es</th>
+                <th className="px-4 py-3 text-center">Ações</th>
               </tr>
             </thead>
 
@@ -680,9 +765,12 @@ export default function ItensPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-zinc-300 capitalize">{r.tipo}</td>
+                  <td className="px-4 py-3 text-zinc-300">
+                    {r.finalidade ? String(r.finalidade).replace(/_/g, " ") : "-"}
+                  </td>
                   <td className="px-4 py-3 text-zinc-300">{r.fornecedores?.nome ?? fornecedorNome(r.fornecedor_id)}</td>
                   <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{money(r.preco_unitario)}</td>
-                  <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "N?o"}</td>
+                  <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "Não"}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Can perm="cad_itens.write">
@@ -702,7 +790,7 @@ export default function ItensPage() {
 
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-zinc-400">
+                  <td colSpan={9} className="px-4 py-6 text-zinc-400">
                     Nenhum item encontrado.
                   </td>
                 </tr>
@@ -756,7 +844,7 @@ export default function ItensPage() {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">C?digo interno *</div>
+                      <div className="text-xs text-zinc-400">Código interno *</div>
                       <input
                         aria-label="Código interno"
                         className="w-full px-3 py-2"
@@ -766,7 +854,7 @@ export default function ItensPage() {
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">C?digo de barras</div>
+                      <div className="text-xs text-zinc-400">Código de barras</div>
                       <input
                         aria-label="Código de barras"
                         className="w-full px-3 py-2"
@@ -803,7 +891,7 @@ export default function ItensPage() {
                     </div>
 
                     <div className="md:col-span-2 space-y-1">
-                      <div className="text-xs text-zinc-400">Descri??o</div>
+                      <div className="text-xs text-zinc-400">Descrição</div>
                       <textarea
                         aria-label="Descrição"
                         className="w-full px-3 py-2 min-h-[70px]"
@@ -828,8 +916,25 @@ export default function ItensPage() {
                         }
                       >
                         <option value="produto">Produto</option>
-                        <option value="servico">Servi?oo</option>
+                        <option value="servico">Serviço</option>
                         <option value="despesa">Despesa</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Finalidade</div>
+                      <select
+                        aria-label="Finalidade"
+                        className="w-full px-3 py-2"
+                        value={form.finalidade}
+                        onChange={(e) => setForm((s) => ({ ...s, finalidade: e.target.value }))}
+                      >
+                        <option value="">(Sem)</option>
+                        <option value="consumo">Consumo</option>
+                        <option value="materia_prima">Matéria-prima</option>
+                        <option value="revenda">Revenda</option>
+                        <option value="imobilizado">Imobilizado</option>
+                        <option value="outros">Outros</option>
                       </select>
                     </div>
 
@@ -845,6 +950,19 @@ export default function ItensPage() {
                         className="w-full px-3 py-2"
                         value={form.categoria}
                         onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1 md:col-span-2">
+                      <div className="text-xs text-zinc-400">Fabricante</div>
+                      <input
+                        aria-label="Fabricante"
+                        className="w-full px-3 py-2"
+                        value={form.fabricante}
+                        onChange={(e) => setForm((s) => ({ ...s, fabricante: e.target.value }))}
+                        placeholder="Ex: WEG, Siemens..."
                       />
                     </div>
                   </div>
@@ -939,7 +1057,7 @@ export default function ItensPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Pre?o unit?rio</div>
+                      <div className="text-xs text-zinc-400">Preço unitário</div>
                       <input
                         aria-label="Preço unitário"
                         type="number"

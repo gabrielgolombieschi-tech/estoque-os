@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { ensureCurrentTenant } from "@/lib/tenant";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type Colaborador = { id: string; nome: string; ativo: boolean };
 type TipoHora = { id: string; codigo: string; descricao: string; fator: number; ativo: boolean };
@@ -146,6 +147,7 @@ async function computeHourPolicy(dateISO: string, horas: number): Promise<HourPo
 
 export default function ApontamentosPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId } = usePermissions();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -486,11 +488,21 @@ export default function ApontamentosPage() {
     if (horas == null || horas <= 0 || horas > 24) return alert("Horas invalidas (0 a 24).");
 
     setLoading(true);
+
+    if (!tenantId) {
+      setLoading(false);
+      return alert("Tenant não encontrado. Recarregue a página.");
+    }
+
     try {
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      if (tenantErr) throw tenantErr;
+
       const policy = await computeHourPolicy(data, horas);
       const descricaoBase = descricao.trim();
 
       const payloadBase = {
+        tenant_id: tenantId,
         os_id: osDbId,
         colaborador_id: colabId,
         data,
@@ -539,7 +551,6 @@ export default function ApontamentosPage() {
       await carregarApontamentos();
       setMsg("Apontamento lancado com sucesso.");
     } catch (e: unknown) {
-      console.error(e);
       alert(getErrorMessage(e, "Erro ao salvar apontamento."));
     } finally {
       setLoading(false);
@@ -554,7 +565,6 @@ export default function ApontamentosPage() {
       if (error) throw error;
       await carregarApontamentos();
     } catch (e: unknown) {
-      console.error(e);
       alert(getErrorMessage(e, "Erro ao excluir."));
     } finally {
       setLoading(false);
