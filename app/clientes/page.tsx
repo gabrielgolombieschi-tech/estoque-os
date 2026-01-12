@@ -24,6 +24,19 @@ type Form = {
   ativo: boolean;
 };
 
+type ClientePayload = {
+  nome: string;
+  documento: string | null;
+  email: string | null;
+  telefone: string | null;
+  endereco: string | null;
+  observacoes: string | null;
+  ativo: boolean;
+  atualizado_em: string;
+};
+
+type DbError = { message?: string } | null;
+
 function emptyForm(): Form {
   return {
     nome: "",
@@ -108,11 +121,11 @@ export default function ClientesPage() {
     setErr(null);
     setOk(null);
 
-    if (!form.nome.trim()) return setErr("Nome é obrigatório.");
+    if (!form.nome.trim()) return setErr("Nome obrigatorio.");
 
     setBusy(true);
 
-    const payload: any = {
+    const payload: ClientePayload = {
       nome: form.nome.trim(),
       documento: form.documento.trim() || null,
       email: form.email.trim() || null,
@@ -123,19 +136,19 @@ export default function ClientesPage() {
       atualizado_em: new Date().toISOString(),
     };
 
-    let error: any = null;
+    let error: DbError = null;
 
     if (editingId) {
       const res = await supabase.from("clientes").update(payload).eq("id", editingId);
-      error = res.error;
+      error = res.error ?? null;
     } else {
       const res = await supabase.from("clientes").insert(payload);
-      error = res.error;
+      error = res.error ?? null;
     }
 
     setBusy(false);
 
-    if (error) return setErr(error.message);
+    if (error) return setErr(error.message ?? "Erro ao salvar cliente.");
 
     setOk(editingId ? "Cliente atualizado!" : "Cliente criado!");
     await load();
@@ -187,7 +200,11 @@ export default function ClientesPage() {
           </div>
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Status</div>
-            <select className="w-full px-3 py-2" value={ativo} onChange={(e) => setAtivo(e.target.value as any)}>
+            <select
+              className="w-full px-3 py-2"
+              value={ativo}
+              onChange={(e) => setAtivo(e.target.value as "ativos" | "inativos" | "todos")}
+            >
               <option value="ativos">Ativos</option>
               <option value="inativos">Inativos</option>
               <option value="todos">Todos</option>

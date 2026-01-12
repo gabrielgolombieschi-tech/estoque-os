@@ -34,3 +34,10 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## RLS multi-tenant e multi-empresa
+
+- As policies usam `tenant_memberships` (user_id + tenant_id + status = 'active') para validar o tenant do usuario.
+- O acesso por empresa usa `empresa_memberships` (user_id + empresa_id + status = 'active') para limitar empresas permitidas.
+- Para tabelas com `empresa_id`, as policies exigem `empresa_id` nao nulo em SELECT/INSERT/UPDATE/DELETE.
+- Tabelas cobertas: `itens`, `fornecedores`, `estoque`, `movimentacoes`, `nf_entrada`, `nf_entrada_itens`, `fiscal_itens`, `empresa_memberships`.

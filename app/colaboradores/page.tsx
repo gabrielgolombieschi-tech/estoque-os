@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 type RowView = {
@@ -15,6 +15,16 @@ type RowView = {
   vigencia_inicio: string | null;
   vigencia_fim: string | null;
 };
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: string }).message;
+    if (typeof msg === "string" && msg.trim() !== "") return msg;
+  }
+  return fallback;
+}
 
 function todayISO() {
   const d = new Date();
@@ -84,7 +94,7 @@ export default function ColaboradoresPage() {
   // controle p/ evitar duplicar taxa ao editar sem mudanca
   const [valorHoraOriginal, setValorHoraOriginal] = useState<number | null>(null);
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
@@ -95,18 +105,17 @@ export default function ColaboradoresPage() {
 
       if (error) throw error;
       setRows((data ?? []) as RowView[]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e?.message ?? "Falha ao carregar colaboradores.");
+      setErrorMsg(getErrorMessage(e, "Falha ao carregar colaboradores."));
     } finally {
       setLoading(false);
     }
-  }
+  }, [supabase]);
 
   useEffect(() => {
     carregar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [carregar]);
 
   function abrirNovo() {
     setEditId(null);
@@ -266,10 +275,11 @@ export default function ColaboradoresPage() {
 
       setModalOpen(false);
       await carregar();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e?.message ?? "Erro ao salvar.");
-      alert(e?.message ?? "Erro ao salvar.");
+      const msg = getErrorMessage(e, "Erro ao salvar.");
+      setErrorMsg(msg);
+      alert(msg);
     } finally {
       setLoading(false);
     }
@@ -287,10 +297,11 @@ export default function ColaboradoresPage() {
 
       if (error) throw error;
       await carregar();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e?.message ?? "Erro ao atualizar.");
-      alert(e?.message ?? "Erro ao atualizar.");
+      const msg = getErrorMessage(e, "Erro ao atualizar.");
+      setErrorMsg(msg);
+      alert(msg);
     } finally {
       setLoading(false);
     }

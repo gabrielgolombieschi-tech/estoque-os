@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:backup": "node scripts/db-backup.js",
+    "db:restore:dev": "node scripts/db-restore.js",
+    "db:migrate": "node scripts/db-migrate.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

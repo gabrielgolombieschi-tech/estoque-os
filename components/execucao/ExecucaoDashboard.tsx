@@ -77,16 +77,6 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
     [rowsBase]
   );
 
-  const sortedTable = useMemo(() => {
-    return [...tableRows].sort((a, b) => {
-      const da = a.data_prevista ? new Date(a.data_prevista).getTime() : null;
-      const db = b.data_prevista ? new Date(b.data_prevista).getTime() : null;
-      if (da === null && db === null) return 0;
-      if (da === null) return 1;
-      if (db === null) return -1;
-      return sortDir === "asc" ? da - db : db - da;
-    });
-  }, [tableRows, sortDir]);
 
   // KPIs continuam considerando todos (concluídos inclusos, mas apenas concluidos do ano vigente contam no KPI de concluidos)
   const rowsConcluidosAno = useMemo(
@@ -118,11 +108,6 @@ export default function ExecucaoDashboard({ initialRows }: Props) {
     console.log("execucao table rows (<100)", tableRows.length);
     console.log("has49", rows.find((r) => r.os_id === 49));
   }, [rows, rowsBase.length, tableRows.length]);
-
-  const areaLabel: Record<Area, string> = {
-    eletrico: "Execucao Eletrica",
-    mecanico: "Execucao Mecanica",
-  };
 
   const handleRowClick = (row: DashRow) => {
     setSelected(row);

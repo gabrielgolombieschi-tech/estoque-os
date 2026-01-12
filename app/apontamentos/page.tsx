@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { ensureCurrentTenant } from "@/lib/tenant";
 
 type Colaborador = { id: string; nome: string; ativo: boolean };
 type TipoHora = { id: string; codigo: string; descricao: string; fator: number; ativo: boolean };
 
 type OSRow = {
   id: number;
-  numero_os: string;
-  cliente_nome: string;
+  numero_os: string | null;
+  cliente_nome: string | null;
+  descricao_servico?: string | null;
   status: string | null;
 };
 
@@ -27,6 +30,16 @@ type ApontamentoRow = {
 
 const feriadosCache = new Map<number, Set<string>>();
 const feriadosPending = new Map<number, Promise<Set<string>>>();
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: string }).message;
+    if (typeof msg === "string" && msg.trim() !== "") return msg;
+  }
+  return fallback;
+}
 
 function todayISO() {
   const d = new Date();
@@ -133,6 +146,7 @@ async function computeHourPolicy(dateISO: string, horas: number): Promise<HourPo
 
 export default function ApontamentosPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -172,14 +186,23 @@ export default function ApontamentosPage() {
 
   const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
 
-  async function carregarCombos() {
+  const ensureTenant = useCallback(async () => {
+    try {
+      await ensureCurrentTenant(supabase);
+    } catch (e: unknown) {
+      console.error("Erro ao garantir tenant atual:", e);
+    }
+  }, [supabase]);
+
+  const carregarCombos = useCallback(async () => {
+    await ensureTenant();
     const [{ data: c, error: e1 }, { data: th, error: e2 }, { data: os, error: e3 }] =
       await Promise.all([
         supabase.from("colaboradores").select("id,nome,ativo").eq("ativo", true).order("nome"),
         supabase.from("tipos_horas").select("id,codigo,descricao,fator,ativo").eq("ativo", true).order("codigo"),
         supabase
           .from("ordens_servico")
-          .select("id,numero_os,cliente_nome,status")
+          .select("id,numero_os,cliente_nome,descricao_servico,status")
           .in("status", ["aberta", "em_andamento"])
           .order("id", { ascending: false })
           .limit(200),
@@ -192,12 +215,13 @@ export default function ApontamentosPage() {
     setColaboradores((c ?? []) as Colaborador[]);
     setTiposHoras((th ?? []) as TipoHora[]);
     setOsList((os ?? []) as OSRow[]);
-  }
+  }, [ensureTenant, supabase]);
 
-  async function carregarApontamentos() {
+  const carregarApontamentos = useCallback(async () => {
     setLoading(true);
     setMsg(null);
     try {
+      await ensureTenant();
       const q = supabase
         .from("apontamentos_horas")
         .select("*")
@@ -211,13 +235,13 @@ export default function ApontamentosPage() {
       const { data, error } = await q;
       if (error) throw error;
       setApontamentos((data ?? []) as ApontamentoRow[]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setMsg(e?.message ?? "Erro ao carregar apontamentos.");
+      setMsg(getErrorMessage(e, "Erro ao carregar apontamentos."));
     } finally {
       setLoading(false);
     }
-  }
+  }, [ensureTenant, filtroColabId, filtroOsId, osDbId, supabase]);
 
   useEffect(() => {
     (async () => {
@@ -225,24 +249,23 @@ export default function ApontamentosPage() {
         setLoading(true);
         await carregarCombos();
         await carregarApontamentos();
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error(e);
-        setMsg(e?.message ?? "Erro ao iniciar tela.");
+        setMsg(getErrorMessage(e, "Erro ao iniciar tela."));
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [carregarApontamentos, carregarCombos]);
 
   useEffect(() => {
     if (osDbId) {
       setFiltroOsId(String(osDbId));
       carregarApontamentos();
     }
-  }, [osDbId]);
+  }, [carregarApontamentos, osDbId]);
 
-  const fetchOsDescricao = async (osDigitada: string) => {
+  const fetchOsDescricao = useCallback(async (osDigitada: string) => {
     const trimmed = osDigitada.trim();
 
     if (!trimmed) {
@@ -259,7 +282,7 @@ export default function ApontamentosPage() {
 
     try {
       const isNumeric = /^\d+$/.test(trimmed);
-      let found: any = null;
+      let found: OSRow | null = null;
 
       const base = supabase
         .from("ordens_servico")
@@ -273,14 +296,15 @@ export default function ApontamentosPage() {
           .ilike("numero_os", `%${trimmed}%`)
           .limit(50);
         if (listErr) throw listErr;
+        const rows = (list ?? []) as OSRow[];
         if (isNumeric) {
           found =
-            (list ?? []).find((o: any) => {
+            rows.find((o) => {
               const num = String(o?.numero_os ?? "").replace(/\D/g, "").replace(/^0+/, "");
               return num === trimmed;
             }) ?? null;
         } else {
-          found = (list ?? [])[0] ?? null;
+          found = rows[0] ?? null;
         }
       }
 
@@ -298,7 +322,7 @@ export default function ApontamentosPage() {
       setOsDbId(found?.id ?? null);
       setOsCliente(found?.cliente_nome ?? "");
       setOsStatus(found?.status ?? "");
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(e);
       setOsDescricao("");
       setOsDbId(null);
@@ -308,7 +332,65 @@ export default function ApontamentosPage() {
     } finally {
       setOsDescLoading(false);
     }
-  };
+  }, [supabase]);
+
+  const fetchOsById = useCallback(
+    async (id: number) => {
+      if (!Number.isFinite(id)) return false;
+      setOsDescLoading(true);
+      setOsDescError(null);
+
+      try {
+        const { data, error } = await supabase
+          .from("ordens_servico")
+          .select("id,numero_os,descricao_servico,cliente_nome,status")
+          .eq("id", id)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return false;
+
+        const numero = data.numero_os ?? String(data.id);
+        setOsNumero(numero);
+        setOsDescricao(data.descricao_servico ?? "");
+        setOsDbId(data.id ?? null);
+        setOsCliente(data.cliente_nome ?? "");
+        setOsStatus(data.status ?? "");
+        setOsDescError(null);
+        return true;
+      } catch (e: unknown) {
+        console.error(e);
+        setOsDescError("Erro ao buscar OS");
+        setOsDescricao("");
+        setOsDbId(null);
+        setOsCliente("");
+        setOsStatus("");
+        return false;
+      } finally {
+        setOsDescLoading(false);
+      }
+    },
+    [supabase]
+  );
+
+  useEffect(() => {
+    const osParam = searchParams.get("os");
+    if (!osParam) return;
+    const normalized = osParam.trim();
+    if (!normalized) return;
+    const timer = setTimeout(() => {
+      const isNumeric = /^\d+$/.test(normalized);
+      if (isNumeric) {
+        void fetchOsById(Number(normalized)).then((found) => {
+          if (!found) {
+            fetchOsDescricao(normalized);
+          }
+        });
+        return;
+      }
+      fetchOsDescricao(normalized);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchOsById, fetchOsDescricao, searchParams]);
 
   const buscarOs = async (term: string) => {
     const trimmed = term.trim();
@@ -330,9 +412,9 @@ export default function ApontamentosPage() {
         .limit(50);
       if (error) throw error;
       setOsSearchResults((data ?? []) as OSRow[]);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setOsSearchError(e?.message ?? "Erro ao buscar OS.");
+      setOsSearchError(getErrorMessage(e, "Erro ao buscar OS."));
     } finally {
       setOsSearchLoading(false);
     }
@@ -456,9 +538,9 @@ export default function ApontamentosPage() {
       }
       await carregarApontamentos();
       setMsg("Apontamento lancado com sucesso.");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      alert(e?.message ?? "Erro ao salvar apontamento.");
+      alert(getErrorMessage(e, "Erro ao salvar apontamento."));
     } finally {
       setLoading(false);
     }
@@ -471,9 +553,9 @@ export default function ApontamentosPage() {
       const { error } = await supabase.from("apontamentos_horas").delete().eq("id", id);
       if (error) throw error;
       await carregarApontamentos();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      alert(e?.message ?? "Erro ao excluir.");
+      alert(getErrorMessage(e, "Erro ao excluir."));
     } finally {
       setLoading(false);
     }
@@ -715,54 +797,51 @@ export default function ApontamentosPage() {
         </div>
 
         <div style={{ marginTop: 12, border: "1px solid #222", borderRadius: 8, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left" }}>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Data</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>OS</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Colaborador</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Horas</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Tipo</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Descricao</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {apontamentos.map((a) => {
-                const os = osMap.get(a.os_id);
-                const col = colMap.get(a.colaborador_id);
-                const tipo = a.tipo_hora_id ? tipoMap.get(a.tipo_hora_id) : null;
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left" }}>
+                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Data</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Colaborador</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Horas</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Tipo</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>OS / Descricao</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Cliente</th>
+                </tr>
+              </thead>
+              <tbody>
+                {apontamentos.map((a) => {
+                  const os = osMap.get(a.os_id);
+                  const col = colMap.get(a.colaborador_id);
+                  const tipo = a.tipo_hora_id ? tipoMap.get(a.tipo_hora_id) : null;
+                  const osDesc = os?.descricao_servico ?? "-";
+                  const clienteNome = os?.cliente_nome ?? "-";
 
-                return (
-                  <tr key={a.id}>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{formatDateBR(a.data)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                      {os?.numero_os ?? "-"}
-                    </td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{col?.nome ?? a.colaborador_id}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{Number(a.horas).toFixed(2)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{tipo ? tipo.codigo : "NORMAL"}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{a.descricao ?? "-"}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                      <button
-                        onClick={() => excluirApontamento(a.id)}
-                        disabled={loading}
-                        className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                      >
-                        Excluir
-                      </button>
+                  return (
+                    <tr
+                      key={a.id}
+                      className="hover:bg-zinc-900/40 cursor-pointer"
+                      title="Clique para excluir"
+                      onClick={() => excluirApontamento(a.id)}
+                    >
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{formatDateBR(a.data)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{col?.nome ?? a.colaborador_id}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{Number(a.horas).toFixed(2)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{tipo ? tipo.codigo : "NORMAL"}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        {a.os_id} - {osDesc}
+                      </td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{clienteNome}</td>
+                    </tr>
+                  );
+                })}
+
+                {apontamentos.length === 0 && (
+                  <tr>
+                    <td style={{ padding: 10 }} colSpan={6}>
+                      Nenhum apontamento no periodo.
                     </td>
                   </tr>
-                );
-              })}
-
-              {apontamentos.length === 0 && (
-                <tr>
-                  <td style={{ padding: 10 }} colSpan={7}>
-                    Nenhum apontamento no periodo.
-                  </td>
-                </tr>
-              )}
+                )}
             </tbody>
           </table>
         </div>
@@ -820,13 +899,18 @@ export default function ApontamentosPage() {
                       <tr key={o.id} className="hover:bg-zinc-900/40">
                         <td className="px-3 py-2">{o.numero_os}</td>
                         <td className="px-3 py-2">{o.cliente_nome || "-"}</td>
-                        <td className="px-3 py-2">{(o as any).descricao_servico || "-"}</td>
+                        <td className="px-3 py-2">{o.descricao_servico || "-"}</td>
                         <td className="px-3 py-2 text-center">
                           <button
                             onClick={() => {
-                              setOsNumero(o.numero_os);
+                              const numero = o.numero_os ?? String(o.id);
+                              setOsNumero(numero);
                               setShowOsModal(false);
-                              fetchOsDescricao(o.numero_os);
+                              if (o.numero_os) {
+                                fetchOsDescricao(o.numero_os);
+                              } else {
+                                fetchOsById(o.id);
+                              }
                             }}
                             className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                           >

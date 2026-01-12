@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -50,9 +51,21 @@ export default function MaoObraCard({ osId }: { osId: number }) {
     <div style={{ marginTop: 12, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ fontWeight: 700 }}>Mao de obra</div>
-        <button onClick={carregar} disabled={loading} style={{ height: 32 }}>
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/apontamentos?os=${osId}`}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm text-zinc-100"
+          >
+            Apontamentos
+          </Link>
+          <button
+            onClick={carregar}
+            disabled={loading}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm text-zinc-100 disabled:opacity-60"
+          >
+            {loading ? "Atualizando..." : "Atualizar"}
+          </button>
+        </div>
       </div>
 
       <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

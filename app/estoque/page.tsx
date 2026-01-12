@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { formatDecimalBR, parseDecimalBR } from "../../lib/decimal";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { gerarRelatorioEstoque } from "../../lib/pdf/relatorioEstoque";
-import { getCurrentTenantId } from "@/lib/auth/tenant";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { Can } from "@/components/auth/Can";
 
 type EstoqueRow = {
   id: number;
@@ -14,6 +17,7 @@ type EstoqueRow = {
   localizacao: string | null;
   itens: {
     codigo_interno: string;
+    codigo_barras: string | null;
     nome: string;
     tipo: string;
     unidade_medida: string | null;
@@ -22,11 +26,21 @@ type EstoqueRow = {
     estoque_ideal: number | null;
     estoque_maximo: number | null;
     ativo: boolean;
+    fornecedor_id: number | null;
+    fornecedores?: { nome: string | null } | null;
   } | null;
 };
 
+type EstoqueBaseRow = Omit<EstoqueRow, "itens">;
+type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number };
+
 export default function EstoquePage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
+  const hasEstoqueAccess = has("estoque.acessar") || (permissions ?? []).some((perm) => perm.startsWith("estoque."));
+  const canView = hasEstoqueAccess || has("estoque.view");
+  const canAdjust = hasEstoqueAccess || has("estoque.ajuste.create");
 
   const [rows, setRows] = useState<EstoqueRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -54,13 +68,17 @@ export default function EstoquePage() {
 
   async function load() {
     setErr(null);
+    if (tenantEmpresaLoading) return;
+    if (!tenantId || !empresaId) {
+      setErr("Tenant ou empresa nao carregados.");
+      return;
+    }
 
-    let query = supabase
-      .from("estoque")
-      .select(
-        "id,item_id,quantidade_atual,atualizado_em,localizacao,itens(codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores(nome))",
-        { count: "exact" }
-      )
+    const query = applyTenantEmpresa(
+      supabase.from("estoque").select("id,item_id,quantidade_atual,atualizado_em,localizacao", { count: "exact" }),
+      tenantId,
+      empresaId
+    )
       .order("id", { ascending: false })
       .range(page * pageSize, page * pageSize + pageSize - 1);
 
@@ -68,7 +86,30 @@ export default function EstoquePage() {
     if (error) return setErr(error.message);
     setTotalCount(typeof count === "number" ? count : null);
 
-    let list: EstoqueRow[] = (data ?? []) as unknown as EstoqueRow[];
+    const estoqueRows = (data ?? []) as unknown as EstoqueBaseRow[];
+    const itemIds = Array.from(new Set(estoqueRows.map((row) => row.item_id).filter(Number.isFinite)));
+    const itensMap = new Map<number, EstoqueRow["itens"]>();
+
+    if (itemIds.length > 0) {
+      const { data: itensData, error: itensErr } = await applyTenant(
+        supabase
+          .from("itens")
+          .select(
+            "id,codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores:fornecedor_id(nome)"
+          ),
+        tenantId
+      ).in("id", itemIds);
+      if (itensErr) return setErr(itensErr.message);
+      const typedItens = (itensData ?? []) as unknown as EstoqueItemRow[];
+      typedItens.forEach((item) => {
+        itensMap.set(item.id, item);
+      });
+    }
+
+    let list: EstoqueRow[] = estoqueRows.map((row) => ({
+      ...row,
+      itens: itensMap.get(row.item_id) ?? null,
+    }));
     list = list.filter((r) => r.itens?.tipo === "produto" && r.itens?.controla_estoque);
     if (ativos === "ativos") list = list.filter((r) => r.itens?.ativo);
 
@@ -89,7 +130,7 @@ export default function EstoquePage() {
     const fornTerm = fornecedorNome.trim().toLowerCase();
     if (fornTerm) {
       list = list.filter((r) => {
-        const nomeForn = ((r.itens as any)?.fornecedores?.nome ?? "").toLowerCase();
+        const nomeForn = (r.itens?.fornecedores?.nome ?? "").toLowerCase();
         return nomeForn.includes(fornTerm);
       });
     }
@@ -118,6 +159,7 @@ export default function EstoquePage() {
   async function aplicarAjuste() {
     setOk(null);
     setErr(null);
+    if (!canAdjust) return setErr("Sem permissao para ajustar estoque.");
 
     if (!ajusteItemId) return setErr("Selecione um item para ajustar.");
     if (!Number.isFinite(ajusteQuantidade)) return setErr("Quantidade inválida.");
@@ -140,16 +182,14 @@ export default function EstoquePage() {
     const tipoMov = diff > 0 ? "entrada" : "saida";
     const qtdMov = Math.abs(diff);
 
-    let tenant_id = "";
-    try {
-      tenant_id = await getCurrentTenantId();
-    } catch (e: any) {
+    if (!tenantId || !empresaId) {
       setBusy(false);
-      return setErr(e?.message ?? "Erro ao identificar tenant.");
+      return setErr("Tenant ou empresa nao carregados.");
     }
 
     const { error } = await supabase.from("movimentacoes").insert({
-      tenant_id,
+      tenant_id: tenantId,
+      empresa_id: empresaId,
       item_id: ajusteItemId,
       tipo: tipoMov,
       quantidade: qtdMov,
@@ -170,16 +210,22 @@ export default function EstoquePage() {
 
   async function salvarLimites() {
     if (!ajusteItemId) return;
+    if (!canAdjust) {
+      setLimiteMsg("Sem permissao para ajustar estoque.");
+      return;
+    }
     setLimiteBusy(true);
     setLimiteMsg(null);
-    const { error } = await supabase
-      .from("itens")
-      .update({
-        estoque_minimo: estoqueMinimo,
-        estoque_ideal: estoqueIdeal,
-        estoque_maximo: estoqueMaximo,
-      })
-      .eq("id", ajusteItemId);
+    if (!tenantId) {
+      setLimiteBusy(false);
+      setLimiteMsg("Tenant nao carregado.");
+      return;
+    }
+    const { error } = await applyTenant(supabase.from("itens").update({
+      estoque_minimo: estoqueMinimo,
+      estoque_ideal: estoqueIdeal,
+      estoque_maximo: estoqueMaximo,
+    }), tenantId).eq("id", ajusteItemId);
     setLimiteBusy(false);
     setLimiteMsg(error ? `Erro ao salvar limites: ${error.message}` : "Limites salvos.");
     if (!error) await load();
@@ -199,11 +245,27 @@ export default function EstoquePage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soAbaixoMin, ativos, page]);
+  }, [soAbaixoMin, ativos, page, tenantId, empresaId, tenantEmpresaLoading]);
 
   useEffect(() => {
     setPage(0);
   }, [q, codigoId, fornecedorNome, soAbaixoMin, ativos]);
+
+  if (!ready && permissionsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando permissoes...
+      </div>
+    );
+  }
+
+  if (!canView) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Acesso negado.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -247,7 +309,11 @@ export default function EstoquePage() {
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Ativos</div>
-            <select className="w-full px-3 py-2" value={ativos} onChange={(e) => setAtivos(e.target.value as any)}>
+            <select
+              className="w-full px-3 py-2"
+              value={ativos}
+              onChange={(e) => setAtivos(e.target.value as "ativos" | "todos")}
+            >
               <option value="ativos">Somente ativos</option>
               <option value="todos">Ativos + inativos</option>
             </select>
@@ -338,7 +404,7 @@ export default function EstoquePage() {
               </button>
               <button
                 onClick={aplicarAjuste}
-                disabled={busy || !ajusteItemId}
+                disabled={busy || !ajusteItemId || !canAdjust}
                 className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
               >
                 {busy ? "Aplicando..." : "Aplicar ajuste"}
@@ -380,7 +446,7 @@ export default function EstoquePage() {
               <div className="flex justify-end">
                 <button
                   onClick={salvarLimites}
-                  disabled={!ajusteItemId || limiteBusy}
+                  disabled={!ajusteItemId || limiteBusy || !canAdjust}
                   className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
                 >
                   {limiteBusy ? "Salvando..." : "Salvar limites"}
@@ -426,7 +492,7 @@ export default function EstoquePage() {
                   </td>
                   <td className="px-4 py-3 text-left">
                     <div className="text-sm text-zinc-200">
-                      {(r.itens as any)?.fornecedores?.nome ?? "—"}
+                      {r.itens?.fornecedores?.nome ?? "—"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(saldo, 3)}</td>
@@ -434,12 +500,14 @@ export default function EstoquePage() {
                   <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(ideal, 3)}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{formatDecimalBR(max, 3)}</td>
                   <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => startAjuste(r.item_id, saldo)}
-                      className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                    >
-                      Ajustar
-                    </button>
+                    <Can perm="estoque.ajuste.create">
+                      <button
+                        onClick={() => startAjuste(r.item_id, saldo)}
+                        className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                      >
+                        Ajustar
+                      </button>
+                    </Can>
                   </td>
                 </tr>
               );

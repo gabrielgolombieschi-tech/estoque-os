@@ -115,20 +115,6 @@ export default function ProjetosDashboard({ initialRows }: Props) {
     software: "Software",
   };
 
-  const statusLabel: Record<NonNullable<DashRow["status"]>, string> = {
-    aberta: "Aberta",
-    em_andamento: "Em andamento",
-    concluida: "Concluida",
-    cancelada: "Cancelada",
-  };
-
-  const statusChip: Record<NonNullable<DashRow["status"]>, string> = {
-    aberta: "bg-zinc-800 text-zinc-200",
-    em_andamento: "bg-amber-500/20 text-amber-200",
-    concluida: "bg-emerald-500/20 text-emerald-200",
-    cancelada: "bg-red-500/20 text-red-200",
-  };
-
   const handleRowClick = (row: DashRow) => {
     setSelected(row);
     setProgressValue(String(Math.max(0, Math.min(100, Math.trunc(Number(row.progresso_percent ?? 0))))));

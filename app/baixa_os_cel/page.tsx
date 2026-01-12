@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 
 type ItemRow = {
   id: string;
@@ -12,6 +13,7 @@ type ItemRow = {
   quantidadeText: string;
   itemId: number | null;
   tipo: string | null;
+  finalidade: string | null;
   controlaEstoque: boolean | null;
   valorUnitario: number | null;
   estoqueAtual: number | null;
@@ -23,7 +25,7 @@ type ItemRow = {
 type OsInfo = {
   id: number;
   descricao: string;
-  status: string;
+  status: string | null;
   clienteNome: string;
 };
 
@@ -31,22 +33,64 @@ type CachedItem = {
   id: number;
   descricao: string;
   tipo: string | null;
+  finalidade: string | null;
   controlaEstoque: boolean | null;
   valorUnitario: number | null;
   estoqueAtual: number | null;
 };
 
+type ClienteRow = {
+  nome: string | null;
+  razao_social: string | null;
+};
+
+type OsRow = {
+  id: number;
+  numero_os?: string | null;
+  descricao_servico?: string | null;
+  descricao?: string | null;
+  status?: string | null;
+  cliente_nome?: string | null;
+  cliente_id?: number | null;
+};
+
+type ItemLookupRow = {
+  id: number;
+  codigo_interno?: string | null;
+  nome?: string | null;
+  descricao?: string | null;
+  tipo?: string | null;
+  finalidade?: string | null;
+  controla_estoque?: boolean | null;
+  preco_unitario?: number | null;
+};
+
+type EstoqueQuantidadeRow = {
+  quantidade_atual: number | null;
+};
+
+type EstoqueItemRow = {
+  item_id: number;
+  quantidade_atual: number | null;
+};
+
+type DetectorLike = {
+  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
+};
+
+type ZxingControls = {
+  stop: () => void;
+};
+
 const createEmptyRow = (): ItemRow => ({
-  id:
-    typeof crypto !== "undefined" && (crypto as any).randomUUID
-      ? (crypto as any).randomUUID()
-      : Math.random().toString(36).slice(2, 8),
+  id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2, 8),
   codigo: "",
   descricao: "",
   quantidade: null,
   quantidadeText: "",
   itemId: null,
   tipo: null,
+  finalidade: null,
   controlaEstoque: null,
   valorUnitario: null,
   estoqueAtual: null,
@@ -66,7 +110,7 @@ const isRowComplete = (row: ItemRow) => {
 };
 
 function ensureTrailingEmptyRow(rows: ItemRow[]) {
-  let next = rows.length ? [...rows] : [createEmptyRow()];
+  const next = rows.length ? [...rows] : [createEmptyRow()];
 
   while (next.length > 1 && isRowEmpty(next[next.length - 1]) && isRowEmpty(next[next.length - 2])) {
     next.pop();
@@ -87,8 +131,19 @@ const statusLabels: Record<string, { label: string; className: string }> = {
   cancelada: { label: "Cancelada", className: "bg-red-900/50 text-red-100" },
 };
 
+function getErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = (err as { message?: string }).message;
+    if (typeof msg === "string" && msg.trim() !== "") return msg;
+  }
+  return fallback;
+}
+
 export default function BaixaOsCelPage() {
   const supabase = supabaseBrowser();
+  const { empresaId } = useTenantEmpresa();
 
   const [os, setOs] = useState("");
   const [osDescricao, setOsDescricao] = useState("");
@@ -97,6 +152,12 @@ export default function BaixaOsCelPage() {
   const [osClienteNome, setOsClienteNome] = useState("");
   const [osLoading, setOsLoading] = useState(false);
   const [osError, setOsError] = useState<string | null>(null);
+
+  const [showOsLookup, setShowOsLookup] = useState(false);
+  const [osLookupTerm, setOsLookupTerm] = useState("");
+  const [osLookupRows, setOsLookupRows] = useState<OsRow[]>([]);
+  const [osLookupLoading, setOsLookupLoading] = useState(false);
+  const [osLookupError, setOsLookupError] = useState<string | null>(null);
 
   const [rows, setRows] = useState<ItemRow[]>([createEmptyRow()]);
   const [error, setError] = useState<string | null>(null);
@@ -115,14 +176,15 @@ export default function BaixaOsCelPage() {
   const osCacheRef = useRef<Record<string, OsInfo | null>>({});
   const itemCacheRef = useRef<Record<string, CachedItem | null>>({});
   const osDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const osLookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanLoopRef = useRef<number | null>(null);
-  const detectorRef = useRef<any>(null);
+  const detectorRef = useRef<DetectorLike | null>(null);
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null);
-  const zxingControlsRef = useRef<any>(null);
+  const zxingControlsRef = useRef<ZxingControls | null>(null);
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
   const ocrRowRef = useRef<string | null>(null);
 
@@ -135,9 +197,11 @@ export default function BaixaOsCelPage() {
   }, []);
 
   useEffect(() => {
+    const timeoutsRef = itemDebounceRef.current;
     return () => {
       if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
-      const timeouts = Object.values(itemDebounceRef.current);
+      if (osLookupDebounceRef.current) clearTimeout(osLookupDebounceRef.current);
+      const timeouts = Object.values(timeoutsRef);
       timeouts.forEach((t) => clearTimeout(t));
       stopScan();
     };
@@ -151,7 +215,7 @@ export default function BaixaOsCelPage() {
     return trimmed;
   };
 
-  const fetchClienteNome = async (clienteId: number | null, clienteNomeInline: string | null) => {
+  const fetchClienteNome = useCallback(async (clienteId: number | null, clienteNomeInline: string | null) => {
     if (clienteNomeInline && clienteNomeInline.trim() !== "") {
       return clienteNomeInline.trim();
     }
@@ -164,11 +228,12 @@ export default function BaixaOsCelPage() {
       .maybeSingle();
 
     if (cliErr || !data) return "-";
-    const nome = (data as any).nome ?? (data as any).razao_social ?? "";
+    const cliente = data as ClienteRow;
+    const nome = cliente.nome ?? cliente.razao_social ?? "";
     return nome.trim() === "" ? "-" : nome;
-  };
+  }, [supabase]);
 
-  const fetchOs = async (numero: string) => {
+  const fetchOs = useCallback(async (numero: string) => {
     const normalized = normalizeOsNumber(numero);
     if (!normalized) {
       setOsDescricao("");
@@ -228,11 +293,12 @@ export default function BaixaOsCelPage() {
       return;
     }
 
-    const osIdDb = Number((data as any).id ?? null);
-    const descricaoDb = (data as any).descricao_servico ?? (data as any).descricao ?? "";
-    const statusDb = (data as any).status ?? null;
-    const clienteNomeInline = (data as any).cliente_nome ?? null;
-    const clienteId = (data as any).cliente_id ?? null;
+    const osRow = data as OsRow;
+    const osIdDb = Number(osRow.id ?? null);
+    const descricaoDb = osRow.descricao_servico ?? osRow.descricao ?? "";
+    const statusDb = osRow.status ?? null;
+    const clienteNomeInline = osRow.cliente_nome ?? null;
+    const clienteId = osRow.cliente_id ?? null;
 
     const clienteNome = await fetchClienteNome(clienteId, clienteNomeInline);
 
@@ -242,7 +308,53 @@ export default function BaixaOsCelPage() {
     setOsStatus(statusDb);
     setOsClienteNome(clienteNome);
     setOsError(null);
+  }, [fetchClienteNome, supabase]);
+
+  const openOsLookup = () => {
+    setOsLookupTerm("");
+    setOsLookupRows([]);
+    setOsLookupError(null);
+    setShowOsLookup(true);
   };
+
+  const closeOsLookup = () => {
+    setShowOsLookup(false);
+  };
+
+  const loadOsLookup = useCallback(async (term: string) => {
+    setOsLookupLoading(true);
+    setOsLookupError(null);
+
+    const trimmed = term.trim();
+    if (!trimmed) {
+      setOsLookupRows([]);
+      setOsLookupLoading(false);
+      return;
+    }
+
+    let query = supabase
+      .from("ordens_servico")
+      .select("id,numero_os,cliente_nome,descricao_servico,status")
+      .order("id", { ascending: false })
+      .limit(50)
+      .eq("status", "em_andamento");
+
+    if (trimmed) {
+      query = query.or(`numero_os.ilike.%${trimmed}%,cliente_nome.ilike.%${trimmed}%`);
+    }
+
+    const { data, error: queryError } = await query;
+
+    setOsLookupLoading(false);
+
+    if (queryError) {
+      setOsLookupError("Erro ao buscar OS");
+      setOsLookupRows([]);
+      return;
+    }
+
+    setOsLookupRows((data ?? []) as OsRow[]);
+  }, [supabase]);
 
   const fetchItem = async (rowId: string, codigo: string) => {
     const trimmed = codigo.trim();
@@ -255,6 +367,7 @@ export default function BaixaOsCelPage() {
                 descricao: "",
                 itemId: null,
                 tipo: null,
+                finalidade: null,
                 controlaEstoque: null,
                 valorUnitario: null,
                 estoqueAtual: null,
@@ -284,11 +397,17 @@ export default function BaixaOsCelPage() {
                     descricao: cached?.descricao ?? "",
                     itemId: cached?.id ?? null,
                     tipo: cached?.tipo ?? null,
+                    finalidade: cached?.finalidade ?? null,
                     controlaEstoque: cached?.controlaEstoque ?? null,
                     valorUnitario: cached?.valorUnitario ?? null,
                     estoqueAtual: cached?.estoqueAtual ?? null,
                     itemFound: cached !== null,
-                    itemError: cached ? null : "Item nao encontrado",
+                    itemError:
+                      cached && (cached.finalidade ?? "") !== "materia_prima"
+                        ? "Apenas materia-prima"
+                        : cached
+                          ? null
+                          : "Item nao encontrado",
                     itemLoading: false,
                   }
                 : r
@@ -303,24 +422,24 @@ export default function BaixaOsCelPage() {
       prev.map((r) => (r.id === rowId ? { ...r, itemLoading: true, itemError: null } : r))
     );
 
-    let data: any = null;
-    let queryError: any = null;
+    let data: ItemLookupRow | null = null;
+    let queryError: { message?: string } | null = null;
 
-    const selectFields = "id,codigo_interno,nome,descricao,tipo,controla_estoque,preco_unitario";
+    const selectFields = "id,codigo_interno,nome,descricao,tipo,finalidade,controla_estoque,preco_unitario";
 
     if (isNumeric) {
       const byNumber = await supabase.from("itens").select(selectFields).eq("id", queryValue).maybeSingle();
-      data = byNumber.data;
-      queryError = byNumber.error;
+      data = (byNumber.data ?? null) as ItemLookupRow | null;
+      queryError = byNumber.error ?? null;
       if (!data && !queryError) {
         const byString = await supabase.from("itens").select(selectFields).eq("id", cacheKey).maybeSingle();
-        data = byString.data;
-        queryError = byString.error;
+        data = (byString.data ?? null) as ItemLookupRow | null;
+        queryError = byString.error ?? null;
       }
     } else {
       const byString = await supabase.from("itens").select(selectFields).eq("id", queryValue).maybeSingle();
-      data = byString.data;
-      queryError = byString.error;
+      data = (byString.data ?? null) as ItemLookupRow | null;
+      queryError = byString.error ?? null;
     }
 
     if (queryError) {
@@ -332,6 +451,7 @@ export default function BaixaOsCelPage() {
                 descricao: "",
                 itemId: null,
                 tipo: null,
+                finalidade: null,
                 controlaEstoque: null,
                 valorUnitario: null,
                 itemFound: false,
@@ -354,6 +474,7 @@ export default function BaixaOsCelPage() {
                 descricao: "",
                 itemId: null,
                 tipo: null,
+                finalidade: null,
                 controlaEstoque: null,
                 valorUnitario: null,
                 itemFound: false,
@@ -367,14 +488,15 @@ export default function BaixaOsCelPage() {
       return;
     }
 
-    const codigoInterno = (data as any).codigo_interno ?? "";
-    const nomeDesc = (data as any).nome ?? (data as any).descricao ?? "";
+    const codigoInterno = data.codigo_interno ?? "";
+    const nomeDesc = data.nome ?? data.descricao ?? "";
     const desc = codigoInterno ? `[${codigoInterno}] ${nomeDesc}` : nomeDesc;
-    const tipo = (data as any).tipo ?? null;
-    const controlaEstoque = (data as any).controla_estoque ?? null;
-    const valorUnitarioRaw = Number((data as any).preco_unitario ?? null);
+    const tipo = data.tipo ?? null;
+    const finalidade = data.finalidade ?? null;
+    const controlaEstoque = data.controla_estoque ?? null;
+    const valorUnitarioRaw = Number(data.preco_unitario ?? null);
     const valorUnitario = Number.isFinite(valorUnitarioRaw) ? valorUnitarioRaw : null;
-    const itemId = Number((data as any).id);
+    const itemId = Number(data.id);
 
     let estoqueAtual: number | null = null;
     const { data: estoqueData } = await supabase
@@ -382,9 +504,21 @@ export default function BaixaOsCelPage() {
       .select("quantidade_atual")
       .eq("item_id", itemId)
       .maybeSingle();
-    if (estoqueData) estoqueAtual = Number((estoqueData as any).quantidade_atual ?? 0);
+    const estoqueRow = (estoqueData ?? null) as EstoqueQuantidadeRow | null;
+    if (estoqueRow) estoqueAtual = Number(estoqueRow.quantidade_atual ?? 0);
 
-    itemCacheRef.current[cacheKey] = { id: itemId, descricao: desc, tipo, controlaEstoque, valorUnitario, estoqueAtual };
+    const isMateriaPrima = (finalidade ?? "") === "materia_prima";
+    const itemError = isMateriaPrima ? null : "Apenas materia-prima";
+
+    itemCacheRef.current[cacheKey] = {
+      id: itemId,
+      descricao: desc,
+      tipo,
+      finalidade,
+      controlaEstoque,
+      valorUnitario,
+      estoqueAtual,
+    };
 
     setRows((prev) =>
       ensureTrailingEmptyRow(
@@ -395,11 +529,12 @@ export default function BaixaOsCelPage() {
                 descricao: desc,
                 itemId,
                 tipo,
+                finalidade,
                 controlaEstoque,
                 valorUnitario,
                 estoqueAtual,
                 itemFound: true,
-                itemError: null,
+                itemError,
                 itemLoading: false,
               }
             : r
@@ -431,6 +566,7 @@ export default function BaixaOsCelPage() {
             itemError: null,
             itemId: null,
             tipo: null,
+            finalidade: null,
             controlaEstoque: null,
             valorUnitario: null,
             estoqueAtual: null,
@@ -505,8 +641,8 @@ export default function BaixaOsCelPage() {
       } else {
         setScanError("Nada reconhecido na foto. Tente enquadrar apenas o numero.");
       }
-    } catch (err: any) {
-      setScanError(err?.message ?? "Erro ao processar OCR.");
+    } catch (err: unknown) {
+      setScanError(getErrorMessage(err, "Erro ao processar OCR."));
     } finally {
       setOcrBusyRowId(null);
       ocrRowRef.current = null;
@@ -522,7 +658,7 @@ export default function BaixaOsCelPage() {
     if (zxingControlsRef.current) {
       try {
         zxingControlsRef.current.stop();
-      } catch (e) {
+      } catch {
         // noop
       }
       zxingControlsRef.current = null;
@@ -543,10 +679,14 @@ export default function BaixaOsCelPage() {
     const willUseDetector = supportsDetector;
     try {
       if (willUseDetector) {
+        const detectorCtor = (window as unknown as { BarcodeDetector?: new (options: { formats?: string[] }) => DetectorLike })
+          .BarcodeDetector;
         if (!detectorRef.current) {
-          detectorRef.current = new (window as any).BarcodeDetector({
-            formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "codabar"],
-          });
+          if (detectorCtor) {
+            detectorRef.current = new detectorCtor({
+              formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "codabar"],
+            });
+          }
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -578,8 +718,8 @@ export default function BaixaOsCelPage() {
                 return;
               }
             }
-          } catch (err: any) {
-            setScanError(err?.message ?? "Erro ao ler codigo.");
+          } catch (err: unknown) {
+            setScanError(getErrorMessage(err, "Erro ao ler codigo."));
           }
           scanLoopRef.current = requestAnimationFrame(detect);
         };
@@ -608,8 +748,8 @@ export default function BaixaOsCelPage() {
         setScanningRowId(rowId);
         setScanMode("zxing");
       }
-    } catch (err: any) {
-      setScanError(err?.message ?? "Nao foi possivel abrir a camera.");
+    } catch (err: unknown) {
+      setScanError(getErrorMessage(err, "Nao foi possivel abrir a camera."));
       stopScan();
     }
   };
@@ -621,6 +761,7 @@ export default function BaixaOsCelPage() {
     if (os.trim() === "") messages.push("Informe a OS");
     if (osStatus !== "em_andamento") messages.push("So e possivel baixar itens em OS em andamento.");
     if (!osId) messages.push("OS nao encontrada");
+    if (!empresaId) messages.push("Selecione uma empresa antes de baixar itens.");
 
     const hasInvalidQty = rows.some((r) => r.quantidade === null && r.quantidadeText.trim() !== "");
     if (hasInvalidQty) messages.push("Quantidade invalida");
@@ -636,6 +777,10 @@ export default function BaixaOsCelPage() {
 
     const hasMissingId = rows.some((r) => r.itemFound === true && r.itemId === null);
     if (hasMissingId) messages.push("Item invalido");
+    const hasNonMateriaPrima = rows.some(
+      (r) => r.itemFound === true && (r.finalidade ?? "") !== "materia_prima"
+    );
+    if (hasNonMateriaPrima) messages.push("Apenas itens de materia-prima podem ser baixados");
 
     if (validItems.length === 0) messages.push("Informe pelo menos 1 item");
 
@@ -659,13 +804,14 @@ export default function BaixaOsCelPage() {
         return;
       }
 
-      (estoqueData ?? []).forEach((e: any) => {
+      const estoqueRows = (estoqueData ?? []) as EstoqueItemRow[];
+      estoqueRows.forEach((e) => {
         estoqueMap.set(Number(e.item_id), Number(e.quantidade_atual ?? 0));
       });
     }
 
     const insuficiente = validItems.find((r) => {
-      const precisaBaixa = (r.tipo ?? "").toLowerCase() === "produto" && r.controlaEstoque !== false;
+      const precisaBaixa = (r.finalidade ?? "") === "materia_prima" && r.controlaEstoque !== false;
       if (!precisaBaixa || r.itemId === null) return false;
       const saldo = estoqueMap.has(r.itemId) ? estoqueMap.get(r.itemId)! : 0;
       return Number(r.quantidade ?? 0) > saldo;
@@ -690,7 +836,7 @@ export default function BaixaOsCelPage() {
     const userEmail = sess.session?.user?.email ?? null;
 
     for (const item of validItems) {
-      const precisaBaixa = (item.tipo ?? "").toLowerCase() === "produto" && item.controlaEstoque !== false;
+      const precisaBaixa = (item.finalidade ?? "") === "materia_prima" && item.controlaEstoque !== false;
       const { error: rpcErr } = await supabase.rpc("add_os_item_baixa_imediata", {
         p_os_id: osId,
         p_item_id: item.itemId,
@@ -699,6 +845,7 @@ export default function BaixaOsCelPage() {
         p_baixa_estoque: precisaBaixa,
         p_realizado_por: userEmail,
         p_motivo: "Baixa manual pela tela Baixa OS Cel",
+        p_empresa_id: empresaId,
       });
 
       if (rpcErr) {
@@ -722,7 +869,7 @@ export default function BaixaOsCelPage() {
     return () => {
       if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
     };
-  }, [os]);
+  }, [os, fetchOs]);
 
   const canSubmit = osStatus === "em_andamento" && !!osDescricao && osId !== null;
   const submitEnabled = canSubmit && !submitting;
@@ -752,36 +899,53 @@ export default function BaixaOsCelPage() {
 
         <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 shadow">
           <div className="grid grid-cols-1 gap-3">
-            <label className="flex flex-col gap-1 text-sm font-medium text-zinc-200">
-              <span>OS</span>
-              <div className="relative">
-                <input
-                  value={os}
-                  onChange={(e) => setOs(e.target.value)}
-                  enterKeyHint="next"
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-3 text-lg text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
-                  placeholder="Numero da OS"
-                  autoComplete="off"
-                  inputMode="numeric"
-                />
-                {osLoading && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-blue-300">
-                    carregando...
-                  </span>
-                )}
-              </div>
-              {osError && <span className="text-xs text-red-300">{osError}</span>}
-            </label>
+            <div className="grid grid-cols-[1fr_1fr] gap-3">
+              <label className="flex flex-col gap-1 text-sm font-medium text-zinc-200">
+                <span>OS</span>
+                <div className="flex gap-2 items-end">
+                  <div className="relative flex-1">
+                    <input
+                      value={os}
+                      onChange={(e) => setOs(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && os.trim() === "") {
+                          e.preventDefault();
+                          openOsLookup();
+                        }
+                      }}
+                      enterKeyHint="next"
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-3 text-lg text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                      placeholder="Numero da OS"
+                      autoComplete="off"
+                      inputMode="numeric"
+                    />
+                    {osLoading && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-blue-300">
+                        carregando...
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openOsLookup}
+                    className="shrink-0 px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-sm text-zinc-100 hover:bg-zinc-800"
+                  >
+                    Pesquisar
+                  </button>
+                </div>
+                {osError && <span className="text-xs text-red-300">{osError}</span>}
+              </label>
 
-            <label className="flex flex-col gap-1 text-sm font-medium text-zinc-200">
-              <span>Cliente</span>
-              <input
-                value={osClienteNome || "-"}
-                readOnly
-                title="Campo preenchido automaticamente"
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-3 text-lg text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none opacity-90 cursor-not-allowed"
-              />
-            </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-zinc-200">
+                <span>Cliente</span>
+                <input
+                  value={osClienteNome || "-"}
+                  readOnly
+                  title="Campo preenchido automaticamente"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-3 text-lg text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none opacity-90 cursor-not-allowed"
+                />
+              </label>
+            </div>
           </div>
 
           <label className="flex flex-col gap-1 text-sm font-medium text-zinc-200">
@@ -954,6 +1118,102 @@ export default function BaixaOsCelPage() {
           {submitting ? "Baixando..." : "Baixar Itens"}
         </button>
       </div>
+
+      {showOsLookup && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && closeOsLookup()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold">Buscar OS</div>
+                  <div className="text-sm text-zinc-400">Digite numero da OS ou cliente para buscar.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeOsLookup}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-auto">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Buscar</div>
+                  <input
+                    value={osLookupTerm}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setOsLookupTerm(value);
+                      if (osLookupDebounceRef.current) clearTimeout(osLookupDebounceRef.current);
+                      osLookupDebounceRef.current = setTimeout(() => {
+                        void loadOsLookup(value);
+                      }, 300);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void loadOsLookup(osLookupTerm);
+                      }
+                    }}
+                    placeholder="Ex: 43 ou nome do cliente"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                    autoFocus
+                  />
+                </div>
+
+                {osLookupLoading && <div className="text-sm text-zinc-400">Buscando...</div>}
+                {osLookupError && <div className="text-sm text-red-400">{osLookupError}</div>}
+
+                <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-zinc-900/70">
+                      <tr className="text-zinc-200">
+                        <th className="px-3 py-2 text-left">OS</th>
+                        <th className="px-3 py-2 text-left">Cliente</th>
+                        <th className="px-3 py-2 text-left">Descricao</th>
+                        <th className="px-3 py-2 text-center">Acao</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {osLookupRows.map((row) => (
+                        <tr key={row.id} className="hover:bg-zinc-900/40">
+                          <td className="px-3 py-2">{row.numero_os ?? row.id}</td>
+                          <td className="px-3 py-2">{row.cliente_nome ?? "-"}</td>
+                          <td className="px-3 py-2">{row.descricao_servico ?? "-"}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const numero = row.numero_os ?? String(row.id);
+                                setOs(numero);
+                                closeOsLookup();
+                              }}
+                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Selecionar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!osLookupLoading && osLookupRows.length === 0 && osLookupTerm.trim() !== "" && (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-4 text-zinc-400">
+                            Nenhuma OS encontrada.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

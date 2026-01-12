@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 
 type Fornecedor = {
@@ -14,6 +14,14 @@ type Fornecedor = {
   ativo: boolean;
 };
 
+type FornecedorPayload = {
+  nome: string;
+  documento: string | null;
+  ativo: boolean;
+};
+
+type DbError = { code?: string; message?: string } | null;
+
 export default function FornecedoresPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
 
@@ -26,7 +34,7 @@ export default function FornecedoresPage() {
 
   const normalizeDocumento = (doc: string) => doc.replace(/\D/g, "").trim();
 
-  async function load() {
+  const load = useCallback(async () => {
     setErr(null);
 
     const { data, error } = await supabase
@@ -36,7 +44,7 @@ export default function FornecedoresPage() {
 
     if (error) setErr(error.message);
     else setRows((data ?? []) as unknown as Fornecedor[]);
-  }
+  }, [supabase]);
 
   async function criar() {
     if (!nome.trim()) {
@@ -48,7 +56,7 @@ export default function FornecedoresPage() {
     setErr(null);
 
     const documentoNormalizado = normalizeDocumento(documento);
-    const payload: any = {
+    const payload: FornecedorPayload = {
       nome: nome.trim(),
       documento: documentoNormalizado || null,
       ativo: true,
@@ -61,7 +69,8 @@ export default function FornecedoresPage() {
     setBusy(false);
 
     if (error) {
-      if ((error as any).code === "23505") {
+      const err = (error && typeof error === "object" ? (error as DbError) : null);
+      if (err?.code === "23505") {
         setErr("Fornecedor ja cadastrado para este documento.");
       } else {
         setErr(error.message);
@@ -75,9 +84,11 @@ export default function FornecedoresPage() {
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const timer = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   return (
     <main className="space-y-4">

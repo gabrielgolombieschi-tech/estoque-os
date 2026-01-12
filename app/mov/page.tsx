@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { formatDecimalBR } from "../../lib/decimal";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type MovTipo = "entrada" | "saida" | "ajuste";
 
@@ -29,6 +32,14 @@ const tipoBadge: Record<MovTipo, string> = {
 
 export default function MovimentacoesPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
+  const hasEstoqueAccess = has("estoque.acessar") || (permissions ?? []).some((perm) => perm.startsWith("estoque."));
+  const canView = hasEstoqueAccess || has("movimentacoes.view");
+  const canImport = hasEstoqueAccess || has("fiscal.nf_entrada");
+  const canCreateFornecedor = hasEstoqueAccess || has("cadastros.fornecedores");
+  const canCreateItem = hasEstoqueAccess || has("itens.create");
+  const canAccessPage = hasEstoqueAccess || canView || canImport || canCreateFornecedor || canCreateItem;
 
   const [rows, setRows] = useState<MovRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -43,12 +54,21 @@ export default function MovimentacoesPage() {
 
   async function load() {
     setErr(null);
+    if (tenantEmpresaLoading) return;
+    if (!tenantId || !empresaId) {
+      setErr("Tenant ou empresa nao carregados.");
+      return;
+    }
 
-    const { data, error } = await supabase
-      .from("movimentacoes")
-      .select(
-        "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,itens(codigo_interno,nome,unidade_medida)"
-      )
+    const { data, error } = await applyTenantEmpresa(
+      supabase
+        .from("movimentacoes")
+        .select(
+          "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida)"
+        ),
+      tenantId,
+      empresaId
+    )
       .order("id", { ascending: false })
       .limit(500);
 
@@ -99,7 +119,23 @@ export default function MovimentacoesPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo]);
+  }, [tipo, tenantId, empresaId, tenantEmpresaLoading]);
+
+  if (!ready && permissionsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando permissoes...
+      </div>
+    );
+  }
+
+  if (!canAccessPage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Acesso negado.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -130,6 +166,8 @@ export default function MovimentacoesPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Código, nome ou motivo"
+              aria-label="Buscar movimentacoes"
+              title="Buscar movimentacoes"
             />
           </div>
 
@@ -139,6 +177,8 @@ export default function MovimentacoesPage() {
               className="w-full px-3 py-2"
               value={tipo}
               onChange={(e) => setTipo(e.target.value as "todos" | MovTipo)}
+              aria-label="Filtrar por tipo"
+              title="Filtrar por tipo"
             >
               <option value="todos">Todos</option>
               <option value="entrada">Entrada</option>
@@ -154,6 +194,8 @@ export default function MovimentacoesPage() {
               value={motivoFiltro}
               onChange={(e) => setMotivoFiltro(e.target.value)}
               placeholder="Ex: compra, ajuste..."
+              aria-label="Filtrar por motivo"
+              title="Filtrar por motivo"
             />
           </div>
 
@@ -164,17 +206,33 @@ export default function MovimentacoesPage() {
               value={usuarioFiltro}
               onChange={(e) => setUsuarioFiltro(e.target.value)}
               placeholder="Email ou nome"
+              aria-label="Filtrar por usuario"
+              title="Filtrar por usuario"
             />
           </div>
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Data início</div>
-            <input className="w-full px-3 py-2" type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+            <input
+              className="w-full px-3 py-2"
+              type="date"
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+              aria-label="Data inicio"
+              title="Data inicio"
+            />
           </div>
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Data fim</div>
-            <input className="w-full px-3 py-2" type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+            <input
+              className="w-full px-3 py-2"
+              type="date"
+              value={dataFim}
+              onChange={(e) => setDataFim(e.target.value)}
+              aria-label="Data fim"
+              title="Data fim"
+            />
           </div>
 
           <div className="flex items-end">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 
 type ItemRow = {
   id: string;
@@ -11,6 +12,7 @@ type ItemRow = {
   quantidadeText: string;
   itemId: number | null;
   tipo: string | null;
+  finalidade: string | null;
   controlaEstoque: boolean | null;
   valorUnitario: number | null;
   estoqueAtual: number | null;
@@ -22,7 +24,7 @@ type ItemRow = {
 type OsInfo = {
   id: number;
   descricao: string;
-  status: string;
+  status: string | null;
   clienteNome: string;
 };
 
@@ -30,9 +32,45 @@ type CachedItem = {
   id: number;
   descricao: string;
   tipo: string | null;
+  finalidade: string | null;
   controlaEstoque: boolean | null;
   valorUnitario: number | null;
   estoqueAtual: number | null;
+};
+
+type ClienteRow = {
+  nome: string | null;
+  razao_social: string | null;
+};
+
+type OsRow = {
+  id: number;
+  numero_os?: string | null;
+  descricao_servico?: string | null;
+  descricao?: string | null;
+  status?: string | null;
+  cliente_nome?: string | null;
+  cliente_id?: number | null;
+};
+
+type ItemLookupRow = {
+  id: number;
+  codigo_interno?: string | null;
+  nome?: string | null;
+  descricao?: string | null;
+  tipo?: string | null;
+  finalidade?: string | null;
+  controla_estoque?: boolean | null;
+  preco_unitario?: number | null;
+};
+
+type EstoqueQuantidadeRow = {
+  quantidade_atual: number | null;
+};
+
+type EstoqueItemRow = {
+  item_id: number;
+  quantidade_atual: number | null;
 };
 
 const createEmptyRow = (): ItemRow => ({
@@ -46,6 +84,7 @@ const createEmptyRow = (): ItemRow => ({
   quantidadeText: "",
   itemId: null,
   tipo: null,
+  finalidade: null,
   controlaEstoque: null,
   valorUnitario: null,
   estoqueAtual: null,
@@ -65,7 +104,7 @@ const isRowComplete = (row: ItemRow) => {
 };
 
 function ensureTrailingEmptyRow(rows: ItemRow[]) {
-  let next = rows.length ? [...rows] : [createEmptyRow()];
+  const next = rows.length ? [...rows] : [createEmptyRow()];
 
   while (next.length > 1 && isRowEmpty(next[next.length - 1]) && isRowEmpty(next[next.length - 2])) {
     next.pop();
@@ -88,6 +127,7 @@ const statusLabels: Record<string, { label: string; className: string }> = {
 
 export default function BaixaOsPage() {
   const supabase = supabaseBrowser();
+  const { empresaId } = useTenantEmpresa();
 
   const [os, setOs] = useState("");
   const [osDescricao, setOsDescricao] = useState("");
@@ -102,11 +142,25 @@ export default function BaixaOsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [showOsLookup, setShowOsLookup] = useState(false);
+  const [osLookupTerm, setOsLookupTerm] = useState("");
+  const [osLookupRows, setOsLookupRows] = useState<OsRow[]>([]);
+  const [osLookupLoading, setOsLookupLoading] = useState(false);
+  const [osLookupError, setOsLookupError] = useState<string | null>(null);
+
+  const [showItemLookup, setShowItemLookup] = useState(false);
+  const [itemLookupTerm, setItemLookupTerm] = useState("");
+  const [itemLookupRows, setItemLookupRows] = useState<ItemLookupRow[]>([]);
+  const [itemLookupLoading, setItemLookupLoading] = useState(false);
+  const [itemLookupError, setItemLookupError] = useState<string | null>(null);
+  const [itemLookupRowId, setItemLookupRowId] = useState<string | null>(null);
+
   const validItems = useMemo(() => rows.filter(isRowComplete), [rows]);
 
   const osCacheRef = useRef<Record<string, OsInfo | null>>({});
   const itemCacheRef = useRef<Record<string, CachedItem | null>>({});
   const osDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const osLookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const normalizeOsNumber = (numero: string) => {
@@ -117,7 +171,7 @@ export default function BaixaOsPage() {
     return trimmed;
   };
 
-  const fetchClienteNome = async (clienteId: number | null, clienteNomeInline: string | null) => {
+  const fetchClienteNome = useCallback(async (clienteId: number | null, clienteNomeInline: string | null) => {
     if (clienteNomeInline && clienteNomeInline.trim() !== "") {
       return clienteNomeInline.trim();
     }
@@ -130,11 +184,12 @@ export default function BaixaOsPage() {
       .maybeSingle();
 
     if (error || !data) return "-";
-    const nome = (data as any).nome ?? (data as any).razao_social ?? "";
+    const cliente = data as ClienteRow;
+    const nome = cliente.nome ?? cliente.razao_social ?? "";
     return nome.trim() === "" ? "-" : nome;
-  };
+  }, [supabase]);
 
-  const fetchOs = async (numero: string) => {
+  const fetchOs = useCallback(async (numero: string) => {
     const normalized = normalizeOsNumber(numero);
     if (!normalized) {
       setOsDescricao("");
@@ -194,11 +249,12 @@ export default function BaixaOsPage() {
       return;
     }
 
-    const osIdDb = Number((data as any).id ?? null);
-    const descricaoDb = (data as any).descricao_servico ?? (data as any).descricao ?? "";
-    const statusDb = (data as any).status ?? null;
-    const clienteNomeInline = (data as any).cliente_nome ?? null;
-    const clienteId = (data as any).cliente_id ?? null;
+    const osRow = data as OsRow;
+    const osIdDb = Number(osRow.id ?? null);
+    const descricaoDb = osRow.descricao_servico ?? osRow.descricao ?? "";
+    const statusDb = osRow.status ?? null;
+    const clienteNomeInline = osRow.cliente_nome ?? null;
+    const clienteId = osRow.cliente_id ?? null;
 
     const clienteNome = await fetchClienteNome(clienteId, clienteNomeInline);
 
@@ -208,7 +264,101 @@ export default function BaixaOsPage() {
     setOsStatus(statusDb);
     setOsClienteNome(clienteNome);
     setOsError(null);
-  };
+  }, [fetchClienteNome, supabase]);
+
+  const loadOsLookup = useCallback(async (term: string) => {
+    setOsLookupLoading(true);
+    setOsLookupError(null);
+
+    const trimmed = term.trim();
+    if (!trimmed) {
+      setOsLookupRows([]);
+      setOsLookupLoading(false);
+      return;
+    }
+
+    let query = supabase
+      .from("ordens_servico")
+      .select("id,numero_os,cliente_nome,descricao_servico,status")
+      .order("id", { ascending: false })
+      .limit(50);
+
+    const likeTerm = `%${trimmed}%`;
+    query = query.or(`numero_os.ilike.${likeTerm},cliente_nome.ilike.${likeTerm}`);
+    query = query.eq("status", "em_andamento");
+
+    const { data, error } = await query;
+
+    if (error) {
+      setOsLookupRows([]);
+      setOsLookupError("Erro ao buscar OS.");
+      setOsLookupLoading(false);
+      return;
+    }
+
+    setOsLookupRows((data ?? []) as OsRow[]);
+    setOsLookupLoading(false);
+  }, [supabase]);
+
+  const openOsLookup = useCallback(() => {
+    setShowOsLookup(true);
+    setOsLookupTerm("");
+    setOsLookupRows([]);
+    setOsLookupError(null);
+  }, []);
+
+  const closeOsLookup = useCallback(() => {
+    setShowOsLookup(false);
+    setOsLookupRows([]);
+    setOsLookupError(null);
+  }, []);
+
+  const loadItemLookup = useCallback(async (term: string) => {
+    setItemLookupLoading(true);
+    setItemLookupError(null);
+
+    let query = supabase
+      .from("itens")
+      .select("id,codigo_interno,nome,descricao,finalidade,tipo,controla_estoque,preco_unitario")
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+      .limit(30);
+
+    const trimmed = term.trim();
+    if (trimmed) {
+      const likeTerm = `%${trimmed}%`;
+      query = query.or(`nome.ilike.${likeTerm},codigo_interno.ilike.${likeTerm}`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      setItemLookupRows([]);
+      setItemLookupError("Erro ao buscar itens.");
+      setItemLookupLoading(false);
+      return;
+    }
+
+    setItemLookupRows((data ?? []) as ItemLookupRow[]);
+    setItemLookupLoading(false);
+  }, [supabase]);
+
+  const openItemLookup = useCallback(
+    (rowId: string) => {
+      setItemLookupRowId(rowId);
+      setShowItemLookup(true);
+      setItemLookupTerm("");
+      void loadItemLookup("");
+    },
+    [loadItemLookup]
+  );
+
+  const closeItemLookup = useCallback(() => {
+    setShowItemLookup(false);
+    setItemLookupRows([]);
+    setItemLookupError(null);
+    setItemLookupRowId(null);
+  }, []);
 
   const fetchItem = async (rowId: string, codigo: string) => {
     const trimmed = codigo.trim();
@@ -221,6 +371,7 @@ export default function BaixaOsPage() {
                 descricao: "",
                 itemId: null,
                 tipo: null,
+                finalidade: null,
                 controlaEstoque: null,
                 valorUnitario: null,
                 estoqueAtual: null,
@@ -252,11 +403,17 @@ export default function BaixaOsPage() {
                   descricao: cached?.descricao ?? "",
                   itemId: cached?.id ?? null,
                   tipo: cached?.tipo ?? null,
+                  finalidade: cached?.finalidade ?? null,
                   controlaEstoque: cached?.controlaEstoque ?? null,
                   valorUnitario: cached?.valorUnitario ?? null,
                   estoqueAtual: cached?.estoqueAtual ?? null,
                   itemFound: cached !== null,
-                  itemError: cached ? null : "Item nao encontrado",
+                  itemError:
+                    cached && (cached.finalidade ?? "") !== "materia_prima"
+                      ? "Apenas materia-prima"
+                      : cached
+                        ? null
+                        : "Item nao encontrado",
                   itemLoading: false,
                 }
               : r
@@ -270,24 +427,24 @@ export default function BaixaOsPage() {
       prev.map((r) => (r.id === rowId ? { ...r, itemLoading: true, itemError: null } : r))
     );
 
-    let data: any = null;
-    let queryError: any = null;
+    let data: ItemLookupRow | null = null;
+    let queryError: { message?: string } | null = null;
 
-    const selectFields = "id,codigo_interno,nome,descricao,tipo,controla_estoque,preco_unitario";
+    const selectFields = "id,codigo_interno,nome,descricao,tipo,finalidade,controla_estoque,preco_unitario";
 
     if (isNumeric) {
       const byNumber = await supabase.from("itens").select(selectFields).eq("id", queryValue).maybeSingle();
-      data = byNumber.data;
-      queryError = byNumber.error;
+      data = (byNumber.data ?? null) as ItemLookupRow | null;
+      queryError = byNumber.error ?? null;
       if (!data && !queryError) {
         const byString = await supabase.from("itens").select(selectFields).eq("id", cacheKey).maybeSingle();
-        data = byString.data;
-        queryError = byString.error;
+        data = (byString.data ?? null) as ItemLookupRow | null;
+        queryError = byString.error ?? null;
       }
     } else {
       const byString = await supabase.from("itens").select(selectFields).eq("id", queryValue).maybeSingle();
-      data = byString.data;
-      queryError = byString.error;
+      data = (byString.data ?? null) as ItemLookupRow | null;
+      queryError = byString.error ?? null;
     }
 
     if (queryError) {
@@ -299,6 +456,7 @@ export default function BaixaOsPage() {
                 descricao: "",
                 itemId: null,
                 tipo: null,
+                finalidade: null,
                 controlaEstoque: null,
                 valorUnitario: null,
                 itemFound: false,
@@ -321,6 +479,7 @@ export default function BaixaOsPage() {
                 descricao: "",
                 itemId: null,
                 tipo: null,
+                finalidade: null,
                 controlaEstoque: null,
                 valorUnitario: null,
                 itemFound: false,
@@ -334,20 +493,32 @@ export default function BaixaOsPage() {
       return;
     }
 
-    const codigoInterno = (data as any).codigo_interno ?? "";
-    const nomeDesc = (data as any).nome ?? (data as any).descricao ?? "";
+    const codigoInterno = data.codigo_interno ?? "";
+    const nomeDesc = data.nome ?? data.descricao ?? "";
     const desc = codigoInterno ? `[${codigoInterno}] ${nomeDesc}` : nomeDesc;
-    const tipo = (data as any).tipo ?? null;
-    const controlaEstoque = (data as any).controla_estoque ?? null;
-    const valorUnitarioRaw = Number((data as any).preco_unitario ?? null);
+    const tipo = data.tipo ?? null;
+    const finalidade = data.finalidade ?? null;
+    const controlaEstoque = data.controla_estoque ?? null;
+    const valorUnitarioRaw = Number(data.preco_unitario ?? null);
     const valorUnitario = Number.isFinite(valorUnitarioRaw) ? valorUnitarioRaw : null;
-    const itemId = Number((data as any).id);
+    const itemId = Number(data.id);
 
     let estoqueAtual: number | null = null;
     const { data: estoqueData } = await supabase.from("estoque").select("quantidade_atual").eq("item_id", itemId).maybeSingle();
-    if (estoqueData) estoqueAtual = Number((estoqueData as any).quantidade_atual ?? 0);
+    const estoqueRow = (estoqueData ?? null) as EstoqueQuantidadeRow | null;
+    if (estoqueRow) estoqueAtual = Number(estoqueRow.quantidade_atual ?? 0);
 
-    itemCacheRef.current[cacheKey] = { id: itemId, descricao: desc, tipo, controlaEstoque, valorUnitario, estoqueAtual };
+    itemCacheRef.current[cacheKey] = {
+      id: itemId,
+      descricao: desc,
+      tipo,
+      finalidade,
+      controlaEstoque,
+      valorUnitario,
+      estoqueAtual,
+    };
+
+    const isMateriaPrima = finalidade === "materia_prima";
 
     setRows((prev) =>
       ensureTrailingEmptyRow(
@@ -358,11 +529,12 @@ export default function BaixaOsPage() {
                 descricao: desc,
                 itemId,
                 tipo,
+                finalidade,
                 controlaEstoque,
                 valorUnitario,
                 estoqueAtual,
                 itemFound: true,
-                itemError: null,
+                itemError: isMateriaPrima ? null : "Apenas materia-prima",
                 itemLoading: false,
               }
             : r
@@ -380,12 +552,14 @@ export default function BaixaOsPage() {
     return () => {
       if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
     };
-  }, [os]);
+  }, [os, fetchOs]);
 
   useEffect(() => {
+    const timeoutsRef = itemDebounceRef.current;
     return () => {
       if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
-      const timeouts = Object.values(itemDebounceRef.current);
+      if (osLookupDebounceRef.current) clearTimeout(osLookupDebounceRef.current);
+      const timeouts = Object.values(timeoutsRef);
       timeouts.forEach((t) => clearTimeout(t));
     };
   }, []);
@@ -413,6 +587,7 @@ export default function BaixaOsPage() {
             itemError: null,
             itemId: null,
             tipo: null,
+            finalidade: null,
             controlaEstoque: null,
             valorUnitario: null,
             estoqueAtual: null,
@@ -448,9 +623,12 @@ export default function BaixaOsPage() {
     const messages: string[] = [];
     setSuccess(null);
 
-    if (os.trim() === "") messages.push("Informe a OS");
+    if (os.trim() === "") {
+      messages.push("Informe a OS");
+    }
     if (osStatus !== "em_andamento") messages.push("So e possivel baixar itens em OS em andamento.");
     if (!osId) messages.push("OS nao encontrada");
+    if (!empresaId) messages.push("Selecione uma empresa antes de baixar itens.");
 
     const hasInvalidQty = rows.some((r) => r.quantidade === null && r.quantidadeText.trim() !== "");
     if (hasInvalidQty) messages.push("Quantidade invalida");
@@ -467,7 +645,16 @@ export default function BaixaOsPage() {
     const hasMissingId = rows.some((r) => r.itemFound === true && r.itemId === null);
     if (hasMissingId) messages.push("Item invalido");
 
-    if (validItems.length === 0) messages.push("Informe pelo menos 1 item");
+    const hasNonMateriaPrima = rows.some(
+      (r) => r.itemFound === true && (r.finalidade ?? "") !== "materia_prima"
+    );
+    if (hasNonMateriaPrima) messages.push("Apenas itens de materia-prima podem ser baixados.");
+
+    if (validItems.length === 0) {
+      messages.push("Informe pelo menos 1 item");
+      const firstRow = rows.find((r) => r.codigo.trim() === "");
+      if (firstRow) openItemLookup(firstRow.id);
+    }
 
     if (messages.length) {
       setError(messages[0]);
@@ -489,13 +676,14 @@ export default function BaixaOsPage() {
         return;
       }
 
-      (estoqueData ?? []).forEach((e: any) => {
+      const estoqueRows = (estoqueData ?? []) as EstoqueItemRow[];
+      estoqueRows.forEach((e) => {
         estoqueMap.set(Number(e.item_id), Number(e.quantidade_atual ?? 0));
       });
     }
 
     const insuficiente = validItems.find((r) => {
-      const precisaBaixa = (r.tipo ?? "").toLowerCase() === "produto" && r.controlaEstoque !== false;
+      const precisaBaixa = (r.finalidade ?? "") === "materia_prima" && r.controlaEstoque !== false;
       if (!precisaBaixa || r.itemId === null) return false;
       const saldo = estoqueMap.has(r.itemId) ? estoqueMap.get(r.itemId)! : 0;
       return Number(r.quantidade ?? 0) > saldo;
@@ -520,7 +708,7 @@ export default function BaixaOsPage() {
     const userEmail = sess.session?.user?.email ?? null;
 
     for (const item of validItems) {
-      const precisaBaixa = (item.tipo ?? "").toLowerCase() === "produto" && item.controlaEstoque !== false;
+      const precisaBaixa = (item.finalidade ?? "") === "materia_prima" && item.controlaEstoque !== false;
       const { error: rpcErr } = await supabase.rpc("add_os_item_baixa_imediata", {
         p_os_id: osId,
         p_item_id: item.itemId,
@@ -529,6 +717,7 @@ export default function BaixaOsPage() {
         p_baixa_estoque: precisaBaixa,
         p_realizado_por: userEmail,
         p_motivo: "Baixa manual pela tela Baixa OS",
+        p_empresa_id: empresaId,
       });
 
       if (rpcErr) {
@@ -569,6 +758,12 @@ export default function BaixaOsPage() {
                 <input
                   value={os}
                   onChange={(e) => setOs(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && os.trim() === "") {
+                      e.preventDefault();
+                      openOsLookup();
+                    }
+                  }}
                   enterKeyHint="next"
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-lg text-white placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
                   placeholder="Numero da OS"
@@ -641,6 +836,15 @@ export default function BaixaOsPage() {
                         <input
                           value={row.codigo}
                           onChange={(e) => handleRowChange(row.id, "codigo", e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && row.codigo.trim() === "") {
+                              e.preventDefault();
+                              openItemLookup(row.id);
+                            }
+                          }}
+                          onFocus={() => {
+                            if (row.codigo.trim() === "") openItemLookup(row.id);
+                          }}
                           className="w-full rounded-lg bg-zinc-950 px-3 py-3 text-base text-white placeholder:text-zinc-500 focus:border focus:border-blue-500 focus:outline-none"
                           placeholder="ID do item"
                           autoComplete="off"
@@ -720,6 +924,195 @@ export default function BaixaOsPage() {
           {submitting ? "Baixando..." : "Baixar Itens"}
         </button>
       </div>
+
+      {showOsLookup && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && closeOsLookup()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold">Buscar OS</div>
+                  <div className="text-sm text-zinc-400">Digite numero da OS ou cliente para buscar.</div>
+                </div>
+                <button
+                  onClick={closeOsLookup}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-auto">
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Buscar</div>
+                <input
+                  value={osLookupTerm}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setOsLookupTerm(value);
+                    if (osLookupDebounceRef.current) clearTimeout(osLookupDebounceRef.current);
+                    osLookupDebounceRef.current = setTimeout(() => {
+                      void loadOsLookup(value);
+                    }, 300);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void loadOsLookup(osLookupTerm);
+                    }
+                  }}
+                  placeholder="Ex: 43 ou nome do cliente"
+                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                />
+              </div>
+
+              {osLookupLoading && <div className="text-sm text-zinc-400">Buscando...</div>}
+              {osLookupError && <div className="text-sm text-red-400">{osLookupError}</div>}
+
+              <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-900/70">
+                    <tr className="text-zinc-200">
+                      <th className="px-3 py-2 text-left">OS</th>
+                      <th className="px-3 py-2 text-left">Cliente</th>
+                      <th className="px-3 py-2 text-left">Descricao</th>
+                      <th className="px-3 py-2 text-center">Acao</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {osLookupRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-zinc-900/40">
+                        <td className="px-3 py-2">{row.numero_os ?? row.id}</td>
+                        <td className="px-3 py-2">{row.cliente_nome ?? "-"}</td>
+                        <td className="px-3 py-2">{row.descricao_servico ?? "-"}</td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            onClick={() => {
+                              const numero = row.numero_os ?? String(row.id);
+                              setOs(numero);
+                              closeOsLookup();
+                            }}
+                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                          >
+                            Selecionar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!osLookupLoading && osLookupRows.length === 0 && osLookupTerm.trim() !== "" && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-4 text-zinc-400">
+                          Nenhuma OS encontrada.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showItemLookup && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && closeItemLookup()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold">Buscar item</div>
+                  <div className="text-sm text-zinc-400">Digite codigo ou descricao para buscar.</div>
+                </div>
+                <button
+                  onClick={closeItemLookup}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-auto">
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Buscar</div>
+                <input
+                  value={itemLookupTerm}
+                  onChange={(e) => setItemLookupTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void loadItemLookup(itemLookupTerm);
+                    }
+                  }}
+                  placeholder="Ex: 123 ou descricao do item"
+                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                />
+              </div>
+
+              {itemLookupLoading && <div className="text-sm text-zinc-400">Buscando...</div>}
+              {itemLookupError && <div className="text-sm text-red-400">{itemLookupError}</div>}
+
+              <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-900/70">
+                    <tr className="text-zinc-200">
+                      <th className="px-3 py-2 text-left">ID</th>
+                      <th className="px-3 py-2 text-left">Codigo</th>
+                      <th className="px-3 py-2 text-left">Descricao</th>
+                      <th className="px-3 py-2 text-left">Tipo</th>
+                      <th className="px-3 py-2 text-center">Acao</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {itemLookupRows.map((item) => {
+                      const nome = item.nome ?? item.descricao ?? "-";
+                      const codigo = item.codigo_interno ?? String(item.id);
+                      const isMateriaPrima = (item.finalidade ?? "") === "materia_prima";
+                      return (
+                        <tr key={item.id} className="hover:bg-zinc-900/40">
+                          <td className="px-3 py-2">{item.id}</td>
+                          <td className="px-3 py-2">{codigo}</td>
+                          <td className="px-3 py-2">{nome}</td>
+                          <td className="px-3 py-2">{isMateriaPrima ? "Materia-prima" : "Nao permitido"}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => {
+                                if (!itemLookupRowId || !isMateriaPrima) return;
+                                const rowId = itemLookupRowId;
+                                handleRowChange(rowId, "codigo", String(item.id));
+                                void fetchItem(rowId, String(item.id));
+                                closeItemLookup();
+                              }}
+                              disabled={!isMateriaPrima}
+                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
+                            >
+                              Selecionar
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!itemLookupLoading && itemLookupRows.length === 0 && itemLookupTerm.trim() !== "" && (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-4 text-zinc-400">
+                          Nenhum item encontrado.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

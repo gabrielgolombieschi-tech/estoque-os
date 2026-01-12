@@ -1,26 +1,20 @@
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export async function getCurrentTenantId(): Promise<string> {
+export async function getCurrentTenantId(): Promise<string | null> {
   const supabase = supabaseBrowser();
-
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw userErr;
-
-  const user = userData.user;
-  if (!user?.id) throw new Error("Usuário não autenticado.");
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id ?? null;
+  if (!userId) return null;
 
   const { data, error } = await supabase
     .from("tenant_memberships")
     .select("tenant_id")
-    .eq("user_id", user.id)          // ✅ FILTRO CRÍTICO
+    .eq("user_id", userId)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (error) throw error;
 
-  const tenantId = data?.[0]?.tenant_id;
-  if (!tenantId) throw new Error("Tenant ativo nao encontrado para este usuario.");
-
-  return tenantId;
+  return data?.[0]?.tenant_id ?? null;
 }

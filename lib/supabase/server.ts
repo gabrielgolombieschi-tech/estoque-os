@@ -8,3 +8,13 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabaseServer = () => createClient(supabaseUrl, supabaseKey);
+
+export const supabaseServerWithAuth = (accessToken: string) =>
+  createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });

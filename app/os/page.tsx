@@ -22,12 +22,55 @@ type OS = {
   tipo_pedido?: string | null;
 };
 
+type OsItemTotalRow = {
+  os_id: number;
+  valor_total: number | null;
+};
+
+type MaoObraRow = {
+  os_id: number;
+  custo_mao_obra: number | null;
+};
+
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   em_andamento: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   concluida: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   cancelada: "bg-red-500/15 text-red-300 border-red-500/30",
 };
+
+type GestaoTipo = "projeto" | "execucao";
+type GestaoArea = "eletrico" | "mecanico" | "seguranca" | "software";
+
+type GestaoItem = {
+  item_tipo: GestaoTipo;
+  area: GestaoArea;
+  habilitado: boolean;
+  responsavel_id: string | null;
+  data_prevista: string | null;
+  progresso_percent: number;
+};
+
+const gestaoDefs: Array<{ item_tipo: GestaoTipo; area: GestaoArea; label: string; grupo: "projetos" | "execucoes" }> =
+  [
+    { item_tipo: "projeto", area: "eletrico", label: "Projeto Eletrico", grupo: "projetos" },
+    { item_tipo: "projeto", area: "mecanico", label: "Projeto Mecanico", grupo: "projetos" },
+    { item_tipo: "projeto", area: "seguranca", label: "Projeto Seguranca", grupo: "projetos" },
+    { item_tipo: "projeto", area: "software", label: "Projeto Software", grupo: "projetos" },
+    { item_tipo: "execucao", area: "eletrico", label: "Execucao Eletrica", grupo: "execucoes" },
+    { item_tipo: "execucao", area: "mecanico", label: "Execucao Mecanica", grupo: "execucoes" },
+  ];
+
+const gestaoKey = (it: { item_tipo: GestaoTipo; area: GestaoArea }) => `${it.item_tipo}-${it.area}`;
+const buildGestaoDefaults = (): GestaoItem[] =>
+  gestaoDefs.map((def) => ({
+    item_tipo: def.item_tipo,
+    area: def.area,
+    habilitado: false,
+    responsavel_id: null,
+    data_prevista: null,
+    progresso_percent: 0,
+  }));
 
 export default function OsListPage() {
   const router = useRouter();
@@ -52,6 +95,8 @@ export default function OsListPage() {
   const [tipoPedido, setTipoPedido] = useState<"servico" | "material">("servico");
   const [vendedor, setVendedor] = useState("");
   const [orcado, setOrcado] = useState("");
+  const [temGestao, setTemGestao] = useState(false);
+  const [gestaoItems, setGestaoItems] = useState<GestaoItem[]>(() => buildGestaoDefaults());
 
   const formatMoney = (value: number) =>
     Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -123,7 +168,8 @@ export default function OsListPage() {
         .in("os_id", osIds);
 
       const totals: Record<number, number> = {};
-      (itensData ?? []).forEach((row: any) => {
+      const itemRows = (itensData ?? []) as OsItemTotalRow[];
+      itemRows.forEach((row) => {
         const osId = Number(row.os_id);
         if (!Number.isFinite(osId)) return;
         const prev = totals[osId] ?? 0;
@@ -137,7 +183,8 @@ export default function OsListPage() {
         .in("os_id", osIds);
 
       const maoTotals: Record<number, number> = {};
-      (maoData ?? []).forEach((row: any) => {
+      const maoRows = (maoData ?? []) as MaoObraRow[];
+      maoRows.forEach((row) => {
         const osId = Number(row.os_id);
         if (!Number.isFinite(osId)) return;
         maoTotals[osId] = Number(row.custo_mao_obra ?? 0);
@@ -175,6 +222,24 @@ export default function OsListPage() {
     const orcadoValor = Number(orcado || 0);
     if (!Number.isFinite(orcadoValor) || orcadoValor < 0) return setErr("Informe um valor orcado valido.");
 
+    const gestaoPayload = temGestao
+      ? gestaoItems.map((it) => {
+          const progress = Number(it.progresso_percent ?? 0);
+          return {
+            item_tipo: it.item_tipo,
+            area: it.area,
+            habilitado: !!it.habilitado,
+            responsavel_id: it.responsavel_id?.trim() ? it.responsavel_id.trim() : null,
+            data_prevista: it.data_prevista ? it.data_prevista : null,
+            progresso_percent: Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.trunc(progress))) : NaN,
+          };
+        })
+      : [];
+
+    if (temGestao && gestaoPayload.some((p) => !Number.isFinite(p.progresso_percent))) {
+      return setErr("Progresso deve estar entre 0 e 100.");
+    }
+
     setCreating(true);
 
     const { data: sess } = await supabase.auth.getSession();
@@ -204,15 +269,41 @@ export default function OsListPage() {
         tipo_pedido: tipoPedido,
         vendedor: vendedor.trim() || null,
         orcado: orcadoValor,
-        status: "aberta",
+        tem_gestao: temGestao,
+        status: "em_andamento",
         criado_por: userEmail,
       })
       .select("id")
       .single();
 
-    setCreating(false);
+    if (error) {
+      setCreating(false);
+      return setErr(error.message);
+    }
 
-    if (error) return setErr(error.message);
+    const newOsId = data?.id;
+
+    if (temGestao && newOsId) {
+      const { error: gestaoErr } = await supabase
+        .from("os_gestao_itens")
+        .upsert(
+          gestaoPayload.map((it) => ({
+            ...it,
+            os_id: newOsId,
+          })),
+          { onConflict: "os_id,item_tipo,area" }
+        );
+
+      if (gestaoErr) {
+        setCreating(false);
+        await load();
+        setShowCreate(false);
+        setErr(`OS criada, mas a gestao nao foi salva: ${gestaoErr.message}`);
+        return;
+      }
+    }
+
+    setCreating(false);
 
     setOkMsg("OS criada!");
     setClienteId(null);
@@ -222,12 +313,89 @@ export default function OsListPage() {
     setTipoPedido("servico");
     setVendedor("");
     setOrcado("");
+    setTemGestao(false);
+    setGestaoItems(buildGestaoDefaults());
     setShowCreate(false);
 
     await load();
 
     if (data?.id) window.location.href = `/os/${data.id}`;
   }
+
+  function updateGestaoItem(item_tipo: GestaoTipo, area: GestaoArea, patch: Partial<GestaoItem>) {
+    setGestaoItems((prev) => {
+      const exists = prev.some((it) => it.item_tipo === item_tipo && it.area === area);
+      if (!exists) return prev;
+      return prev.map((it) => (it.item_tipo === item_tipo && it.area === area ? { ...it, ...patch } : it));
+    });
+  }
+
+  const renderGestaoRow = (def: (typeof gestaoDefs)[number]) => {
+    const item = gestaoItems.find((it) => it.item_tipo === def.item_tipo && it.area === def.area);
+    if (!item) return null;
+
+    const fieldsDisabled = creating || !item.habilitado;
+
+    return (
+      <div
+        key={gestaoKey(def)}
+        className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_140px] gap-3 items-start border border-zinc-800 rounded-lg px-3 py-3 bg-zinc-900/40"
+      >
+        <div className="space-y-2">
+          <div className="text-sm font-medium">{def.label}</div>
+          <label className="inline-flex items-center gap-2 text-xs text-zinc-200">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={item.habilitado}
+              onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { habilitado: e.target.checked })}
+              disabled={creating}
+            />
+            Habilitado
+          </label>
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-400">Responsavel</div>
+          <input
+            className="w-full px-3 py-2"
+            value={item.responsavel_id ?? ""}
+            onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { responsavel_id: e.target.value })}
+            disabled={fieldsDisabled}
+            placeholder="responsavel (texto livre)"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-400">Data prevista</div>
+          <input
+            type="date"
+            className="w-full px-3 py-2"
+            value={item.data_prevista ? item.data_prevista.slice(0, 10) : ""}
+            onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { data_prevista: e.target.value || null })}
+            disabled={fieldsDisabled}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-400">Progresso %</div>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            className="w-full px-3 py-2"
+            value={item.progresso_percent ?? 0}
+            onChange={(e) =>
+              updateGestaoItem(def.item_tipo, def.area, {
+                progresso_percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+              })
+            }
+            disabled={fieldsDisabled}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -354,8 +522,8 @@ export default function OsListPage() {
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto z-50">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4 my-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-lg font-semibold">Nova OS</div>
@@ -391,7 +559,11 @@ export default function OsListPage() {
 
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Tipo de pedido</div>
-                <select className="w-full px-3 py-2" value={tipoPedido} onChange={(e) => setTipoPedido(e.target.value as any)}>
+                <select
+                  className="w-full px-3 py-2"
+                  value={tipoPedido}
+                  onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
+                >
                   <option value="servico">Servico</option>
                   <option value="material">Material</option>
                 </select>
@@ -443,6 +615,47 @@ export default function OsListPage() {
                 <div className="text-xs text-zinc-400">Descricao (opcional)</div>
                 <textarea className="w-full px-3 py-2 min-h-[80px]" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
               </div>
+            </div>
+
+            <div className="border-t border-zinc-800 pt-4 space-y-4">
+              <div>
+                <div className="text-lg font-semibold">Gestao de Projetos e Execucao</div>
+                <div className="text-sm text-zinc-400">Configure responsaveis, datas e progresso.</div>
+              </div>
+
+              <div className="border border-zinc-800 rounded-lg px-4 py-3 bg-zinc-900/40 flex items-center justify-between flex-wrap gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={temGestao}
+                    onChange={(e) => setTemGestao(e.target.checked)}
+                    disabled={creating}
+                  />
+                  <span>Habilitar gestao nesta OS</span>
+                </label>
+                <div className="text-xs text-zinc-400">Salve para atualizar o status da gestao.</div>
+              </div>
+
+              {!temGestao && (
+                <div className="text-sm text-zinc-300">
+                  Gestao desabilitada para esta OS. Ative o controle acima para editar os itens. Valores existentes serao mantidos.
+                </div>
+              )}
+
+              {temGestao && (
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <div className="text-sm font-semibold text-zinc-200">Projetos (Engenharia)</div>
+                    {gestaoDefs.filter((d) => d.grupo === "projetos").map((def) => renderGestaoRow(def))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-sm font-semibold text-zinc-200">Execucoes (Campo)</div>
+                    {gestaoDefs.filter((d) => d.grupo === "execucoes").map((def) => renderGestaoRow(def))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {err && <div className="text-sm text-red-400">{err}</div>}

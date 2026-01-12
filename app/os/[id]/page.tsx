@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabaseBrowser } from "../../../lib/supabase/client";
 import { parseDecimalBR, formatDecimalBR } from "../../../lib/decimal";
 import MaoObraCard from "../../components/os/MaoObraCard";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenant } from "@/lib/db/scopes";
 
 type Cliente = { id: number; nome: string; ativo: boolean };
 
@@ -39,8 +42,10 @@ type ItemPick = {
   codigo_interno: string;
   nome: string;
   tipo: string;
+  finalidade?: string | null;
   preco_unitario: number;
   aliquota_ipi?: number | null;
+  controla_estoque?: boolean | null;
 };
 
 type ItemLookupRow = ItemPick & {
@@ -48,6 +53,22 @@ type ItemLookupRow = ItemPick & {
   ultima_entrada: string | null;
   estoque_atual?: number | null;
 };
+
+type ItemLookupBaseRow = ItemPick & {
+  fornecedores?: { nome?: string | null } | null;
+};
+
+type MovRow = {
+  item_id: number;
+  data_movimentacao: string;
+};
+
+type EstoqueRow = {
+  item_id: number;
+  quantidade_atual: number | null;
+};
+
+type SortValue = string | number | null;
 
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
 type SortDir = "asc" | "desc";
@@ -93,6 +114,7 @@ function orderGestaoItems(items: GestaoItem[]): GestaoItem[] {
 
 export default function OsDetailPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
   const params = useParams();
   const osId = Number(params.id);
 
@@ -129,7 +151,7 @@ export default function OsDetailPage() {
   const [pick, setPick] = useState<ItemPick | null>(null);
   const [qty, setQty] = useState<string>("1");
   const [vunit, setVunit] = useState<number>(0);
-  const [baixa, setBaixa] = useState<boolean>(true);
+  const [estoqueAtual, setEstoqueAtual] = useState<number | null>(null);
   const qtyRef = useRef<HTMLInputElement | null>(null);
   const [showLookup, setShowLookup] = useState(false);
   const [lookupNome, setLookupNome] = useState("");
@@ -139,6 +161,7 @@ export default function OsDetailPage() {
   const [lookupErr, setLookupErr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const isMateriaPrima = (pick?.finalidade ?? "") === "materia_prima";
 
   const locked = os?.status === "concluida" || os?.status === "cancelada";
   const formatMoney = (v: number) =>
@@ -242,11 +265,19 @@ export default function OsDetailPage() {
   async function load() {
     setErr(null);
 
-    const { data: osData, error: osErr } = await supabase
-      .from("ordens_servico")
-      .select(
-        "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor"
-      )
+    if (!tenantId) {
+      setErr("Tenant nao carregado.");
+      return;
+    }
+
+    const { data: osData, error: osErr } = await applyTenant(
+      supabase
+        .from("ordens_servico")
+        .select(
+          "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor"
+        ),
+      tenantId
+    )
       .eq("id", osId)
       .single();
 
@@ -254,13 +285,17 @@ export default function OsDetailPage() {
       setErr(osErr.message);
       return;
     }
-    setOs(osData as OS);
-    setTemGestao(Boolean((osData as any).tem_gestao));
+    const osRow = osData as OS;
+    setOs(osRow);
+    setTemGestao(Boolean(osRow.tem_gestao));
     await loadGestaoItens();
 
-    const { data: itemsData, error: itemsErr } = await supabase
-      .from("os_itens")
-      .select("id,item_id,quantidade,valor_unitario,valor_total,baixa_estoque,itens(nome,codigo_interno,tipo)")
+    const { data: itemsData, error: itemsErr } = await applyTenant(
+      supabase
+        .from("os_itens")
+        .select("id,item_id,quantidade,valor_unitario,valor_total,baixa_estoque,itens(nome,codigo_interno,tipo)"),
+      tenantId
+    )
       .eq("os_id", osId)
       .order("id", { ascending: false });
 
@@ -282,10 +317,19 @@ export default function OsDetailPage() {
   }
 
   useEffect(() => {
+    if (tenantEmpresaLoading) return;
     loadClientes();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [osId]);
+  }, [osId, tenantEmpresaLoading, tenantId]);
+
+  const closeGestaoModal = useCallback(
+    (reset = true) => {
+      setShowGestaoModal(false);
+      if (reset && os) setTemGestao(Boolean(os.tem_gestao));
+    },
+    [os]
+  );
 
   useEffect(() => {
     if (!showGestaoModal) return;
@@ -294,11 +338,16 @@ export default function OsDetailPage() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [showGestaoModal]);
+  }, [closeGestaoModal, showGestaoModal]);
 
   async function removeItem(osItemId: number) {
     const ok = confirm("Remover este item da OS?\nSe baixou estoque, será devolvido.");
     if (!ok) return;
+
+    if (!empresaId) {
+      setErr("Selecione uma empresa antes de remover itens.");
+      return;
+    }
 
     setBusy(true);
     setErr(null);
@@ -310,6 +359,7 @@ export default function OsDetailPage() {
       p_os_item_id: osItemId,
       p_realizado_por: userEmail,
       p_motivo: "Remoção pelo app (devolução automática)",
+      p_empresa_id: empresaId,
     });
 
     setBusy(false);
@@ -330,7 +380,10 @@ export default function OsDetailPage() {
     setBusy(true);
     setErr(null);
 
-    const patch: any = { status: newStatus, atualizado_em: new Date().toISOString() };
+    const patch: { status: OS["status"]; atualizado_em: string; data_conclusao?: string } = {
+      status: newStatus,
+      atualizado_em: new Date().toISOString(),
+    };
     if (newStatus === "concluida") patch.data_conclusao = new Date().toISOString();
 
     const { error } = await supabase
@@ -441,11 +494,6 @@ export default function OsDetailPage() {
     loadGestaoItens();
   }
 
-  function closeGestaoModal(reset = true) {
-    setShowGestaoModal(false);
-    if (reset && os) setTemGestao(Boolean(os.tem_gestao));
-  }
-
   function openEditModal() {
     if (!os) return;
     setEditErr(null);
@@ -513,8 +561,8 @@ export default function OsDetailPage() {
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
 
     const baseSelect = fornecedorTerm
-      ? "id,codigo_interno,nome,tipo,preco_unitario,aliquota_ipi,fornecedores:fornecedor_id!inner(nome)"
-      : "id,codigo_interno,nome,tipo,preco_unitario,aliquota_ipi,fornecedores:fornecedor_id(nome)";
+      ? "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores:fornecedor_id!inner(nome)"
+      : "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores:fornecedor_id(nome)";
 
     let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 
@@ -530,7 +578,7 @@ export default function OsDetailPage() {
       return;
     }
 
-    const baseRows = (data ?? []) as any[];
+    const baseRows = (data ?? []) as ItemLookupBaseRow[];
     const ids = baseRows.map((r) => r.id);
     const ultimaMap = new Map<number, string>();
 
@@ -545,8 +593,9 @@ export default function OsDetailPage() {
         .order("data_movimentacao", { ascending: false });
 
       if (!movErr) {
-        (movData ?? []).forEach((m: any) => {
-          if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao as string);
+        const movRows = (movData ?? []) as MovRow[];
+        movRows.forEach((m) => {
+          if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao);
         });
       }
 
@@ -554,19 +603,22 @@ export default function OsDetailPage() {
         .from("estoque")
         .select("item_id,quantidade_atual")
         .in("item_id", ids);
-      (estData ?? []).forEach((e: any) => {
+      const estoqueRows = (estData ?? []) as EstoqueRow[];
+      estoqueRows.forEach((e) => {
         stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
       });
     }
 
     setLookupRows(
-      baseRows.map((r: any) => ({
+      baseRows.map((r) => ({
         id: r.id,
         codigo_interno: r.codigo_interno,
         nome: r.nome,
         tipo: r.tipo,
+        finalidade: r.finalidade ?? null,
         preco_unitario: r.preco_unitario,
         aliquota_ipi: r.aliquota_ipi,
+        controla_estoque: r.controla_estoque ?? null,
         fornecedor: r.fornecedores?.nome ?? null,
         ultima_entrada: ultimaMap.get(r.id) ?? null,
         estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
@@ -579,7 +631,7 @@ export default function OsDetailPage() {
   function sortRows(rows: ItemLookupRow[], key: SortKey, dir: SortDir): ItemLookupRow[] {
     const factor = dir === "asc" ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const val = (k: SortKey): any => {
+      const val = (k: SortKey): SortValue => {
         switch (k) {
           case "id":
             return a.id;
@@ -661,6 +713,8 @@ export default function OsDetailPage() {
               checked={item.habilitado}
               onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { habilitado: e.target.checked })}
               disabled={gestaoSaving || gestaoLoading}
+              aria-label="Habilitado"
+              title="Habilitado"
             />
             Habilitado
           </label>
@@ -674,6 +728,8 @@ export default function OsDetailPage() {
             onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { responsavel_id: e.target.value })}
             disabled={fieldsDisabled}
             placeholder="responsavel (texto livre)"
+            aria-label="Responsavel"
+            title="Responsavel"
           />
         </div>
 
@@ -685,6 +741,8 @@ export default function OsDetailPage() {
             value={item.data_prevista ? item.data_prevista.slice(0, 10) : ""}
             onChange={(e) => updateGestaoItem(def.item_tipo, def.area, { data_prevista: e.target.value || null })}
             disabled={fieldsDisabled}
+            aria-label="Data prevista"
+            title="Data prevista"
           />
         </div>
 
@@ -702,6 +760,8 @@ export default function OsDetailPage() {
               })
             }
             disabled={fieldsDisabled}
+            aria-label="Progresso percentual"
+            title="Progresso percentual"
           />
         </div>
       </div>
@@ -732,7 +792,7 @@ export default function OsDetailPage() {
 
     const { data, error } = await supabase
       .from("itens")
-      .select("id,codigo_interno,nome,tipo,preco_unitario,aliquota_ipi")
+      .select("id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque")
       .eq("id", id)
       .maybeSingle();
 
@@ -753,8 +813,21 @@ export default function OsDetailPage() {
     setQ(`${it.codigo_interno} - ${it.nome}`);
     setQty("1");
     setVunit(calculateUnitPriceWithTaxes(it));
-    // default: baixa estoque apenas se for produto
-    setBaixa(it.tipo === "produto");
+    setEstoqueAtual(
+      typeof (it as ItemLookupRow).estoque_atual === "number"
+        ? Number((it as ItemLookupRow).estoque_atual ?? 0)
+        : null
+    );
+    if (Number.isFinite(it.id) && it.id > 0) {
+      void (async () => {
+        const { data } = await supabase
+          .from("estoque")
+          .select("quantidade_atual")
+          .eq("item_id", it.id)
+          .maybeSingle();
+        setEstoqueAtual(data?.quantidade_atual ?? null);
+      })();
+    }
     setTimeout(() => {
       qtyRef.current?.focus();
       qtyRef.current?.select();
@@ -763,6 +836,8 @@ export default function OsDetailPage() {
 
   async function addItem() {
     if (!pick) return setErr("Selecione um item.");
+    if (!empresaId) return setErr("Selecione uma empresa antes de adicionar itens.");
+    if ((pick.finalidade ?? "") !== "materia_prima") return setErr("Apenas itens de materia-prima podem ser adicionados.");
     const qtyNumber = parseDecimalBR(qty);
     if (!Number.isFinite(qtyNumber) || qtyNumber <= 0) return setErr("Quantidade invalida.");
     if (vunit < 0) return setErr("Valor unitario invalido.");
@@ -779,9 +854,10 @@ export default function OsDetailPage() {
       p_item_id: pick.id,
       p_quantidade: qtyNumber,
       p_valor_unitario: Number(vunit),
-      p_baixa_estoque: baixa,
+      p_baixa_estoque: Boolean(pick.controla_estoque),
       p_realizado_por: userEmail,
-      p_motivo: "Adição pela tela da OS (baixa imediata)",
+      p_motivo: "Adicao pela tela da OS (baixa imediata)",
+      p_empresa_id: empresaId,
     });
 
     setBusy(false);
@@ -794,7 +870,7 @@ export default function OsDetailPage() {
     setFound([]);
     setQty("1");
     setVunit(0);
-    setBaixa(true);
+    setEstoqueAtual(null);
 
     await load();
   }
@@ -804,13 +880,15 @@ export default function OsDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="space-y-2">
-          <a href="/os" className="text-sm text-zinc-300 hover:text-zinc-100">
+          <Link href="/os" className="text-sm text-zinc-300 hover:text-zinc-100">
             ← Voltar
-          </a>
+          </Link>
 
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold">
-              {os ? `OS ${os.numero_os} — ${os.cliente_nome}` : "Carregando..."}
+              {os
+                ? `OS ${os.numero_os} - ${os.cliente_nome}${os.descricao_servico ? ` - ${os.descricao_servico}` : ""}`
+                : "Carregando..."}
             </h1>
 
             {os?.status && (
@@ -833,7 +911,7 @@ export default function OsDetailPage() {
                   Material: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.materiais)}</span>
                 </span>
                 <span>
-                  - Mão de obra: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.maoObra)}</span>
+                  - Mao de obra: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.maoObra)}</span>
                 </span>
                 <span>
                   - Imposto: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.imposto)}</span>
@@ -869,14 +947,6 @@ export default function OsDetailPage() {
           </button>
 
           <button
-            onClick={() => setStatus("em_andamento")}
-            disabled={busy || isConcluding}
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-          >
-            Em andamento
-          </button>
-
-          <button
             onClick={openGestaoModal}
             disabled={busy}
             className={[
@@ -895,6 +965,14 @@ export default function OsDetailPage() {
             className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
           >
             {isConcluding ? "Concluindo..." : "Concluir"}
+          </button>
+
+          <button
+            onClick={() => setStatus("em_andamento")}
+            disabled={busy || isConcluding}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+          >
+            Em andamento
           </button>
 
           <button
@@ -918,29 +996,19 @@ export default function OsDetailPage() {
       {err && <div className="text-sm text-red-400">{err}</div>}
       {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}
 
-      {/* Descrição */}
-      {os?.descricao_servico && (
-        <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-          <div className="font-medium">Descrição</div>
-          <div className="text-sm text-zinc-300 mt-2 whitespace-pre-wrap">
-            {os.descricao_servico}
-          </div>
-        </div>
-      )}
-
       {/* Adicionar item */}
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <div className="font-medium">Adicionar item</div>
             <div className="text-sm text-zinc-400 mt-1">
-              Produto/serviço/despesa. Produto pode dar baixa no estoque.
+              Produto/servico/despesa. Baixa de estoque segue o cadastro do item.
             </div>
           </div>
 
           <button
             onClick={addItem}
-            disabled={busy || locked}
+            disabled={busy || locked || !isMateriaPrima}
             className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
           >
             {busy ? "Aguarde..." : "Adicionar"}
@@ -963,6 +1031,8 @@ export default function OsDetailPage() {
                   }
                 }}
                 disabled={locked}
+                aria-label="Buscar item"
+                title="Buscar item"
               />
               <button
                 onClick={searchItems}
@@ -1007,6 +1077,8 @@ export default function OsDetailPage() {
                 }
               }}
               disabled={locked}
+              aria-label="Quantidade do item"
+              title="Quantidade do item"
             />
           </div>
 
@@ -1018,6 +1090,8 @@ export default function OsDetailPage() {
               value={vunit}
               onChange={(e) => setVunit(Number(e.target.value))}
               disabled={locked}
+              aria-label="Valor unitario"
+              title="Valor unitario"
             />
             {pick && (
               <div className="text-[11px] text-zinc-400">
@@ -1027,25 +1101,20 @@ export default function OsDetailPage() {
           </div>
 
           <div className="md:col-span-1 space-y-1">
-            <div className="text-xs text-zinc-400">Baixa estoque</div>
-            <select
-              className="w-full px-3 py-2"
-              value={baixa ? "sim" : "nao"}
-              onChange={(e) => setBaixa(e.target.value === "sim")}
-              disabled={locked}
-            >
-              <option value="sim">Sim</option>
-              <option value="nao">Não</option>
-            </select>
+            <div className="text-xs text-zinc-400">Estoque</div>
+            <div className="w-full px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-200">
+              {typeof estoqueAtual === "number" ? formatDecimalBR(estoqueAtual, 3) : "-"}
+            </div>
           </div>
         </div>
 
-      {pick && (
-        <div className="text-sm text-zinc-300 mt-3">
-          Selecionado: <b>[{pick.codigo_interno}] {pick.nome}</b> ({pick.tipo})
-        </div>
-      )}
-    </div>
+        {pick && (
+          <div className="text-sm text-zinc-300 mt-3">
+            Selecionado: <b>[{pick.codigo_interno}] {pick.nome}</b> ({pick.tipo})
+            {!isMateriaPrima && <span className="text-amber-300"> · Apenas materia-prima</span>}
+          </div>
+        )}
+      </div>
 
       {showEdit && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1080,6 +1149,8 @@ export default function OsDetailPage() {
                   value={pedidoCompra}
                   onChange={(e) => setPedidoCompra(e.target.value)}
                   placeholder="Alfanumerico conforme cliente"
+                  aria-label="Pedido de compra"
+                  title="Pedido de compra"
                 />
               </div>
 
@@ -1089,6 +1160,8 @@ export default function OsDetailPage() {
                   className="w-full px-3 py-2"
                   value={tipoPedido}
                   onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
+                  aria-label="Tipo de pedido"
+                  title="Tipo de pedido"
                 >
                   <option value="servico">Servico</option>
                   <option value="material">Material</option>
@@ -1101,6 +1174,8 @@ export default function OsDetailPage() {
                   className="w-full px-3 py-2"
                   value={clienteId ?? ""}
                   onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                  aria-label="Cliente cadastro"
+                  title="Cliente cadastro"
                 >
                   <option value="">-</option>
                   {clientes.map((c) => (
@@ -1118,12 +1193,20 @@ export default function OsDetailPage() {
                   value={clienteNomeLivre}
                   onChange={(e) => setClienteNomeLivre(e.target.value)}
                   placeholder="Se nao estiver cadastrado"
+                  aria-label="Cliente nome livre"
+                  title="Cliente nome livre"
                 />
               </div>
 
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Vendedor</div>
-                <input className="w-full px-3 py-2" value={vendedor} onChange={(e) => setVendedor(e.target.value)} />
+                <input
+                  className="w-full px-3 py-2"
+                  value={vendedor}
+                  onChange={(e) => setVendedor(e.target.value)}
+                  aria-label="Vendedor"
+                  title="Vendedor"
+                />
               </div>
 
               <div className="space-y-1">
@@ -1134,6 +1217,8 @@ export default function OsDetailPage() {
                   value={orcado}
                   onChange={(e) => setOrcado(e.target.value)}
                   placeholder="0.00"
+                  aria-label="Valor pedido"
+                  title="Valor pedido"
                 />
               </div>
 
@@ -1143,6 +1228,8 @@ export default function OsDetailPage() {
                   className="w-full px-3 py-2 min-h-[80px]"
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
+                  aria-label="Descricao da OS"
+                  title="Descricao da OS"
                 />
               </div>
             </div>
@@ -1189,6 +1276,8 @@ export default function OsDetailPage() {
                   checked={temGestao}
                   onChange={(e) => setTemGestao(e.target.checked)}
                   disabled={gestaoSaving || gestaoLoading}
+                  aria-label="Habilitar gestao nesta OS"
+                  title="Habilitar gestao nesta OS"
                 />
                 <span>Habilitar gestao nesta OS</span>
               </label>
@@ -1240,80 +1329,85 @@ export default function OsDetailPage() {
       )}
 
       {showLookup && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-lg font-semibold">Localizar item</div>
-                <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
+            <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold">Localizar item</div>
+                  <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
+                </div>
+                <button
+                  onClick={() => setShowLookup(false)}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
               </div>
-              <button
-                onClick={() => setShowLookup(false)}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Fechar
-              </button>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <div className="text-xs text-zinc-400">Nome</div>
-                <input
-                  className="w-full px-3 py-2"
-                  value={lookupNome}
-                  onChange={(e) => setLookupNome(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSearch(e.currentTarget.value, lookupFornecedor);
-                    }
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Nome</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={lookupNome}
+                    onChange={(e) => setLookupNome(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSearch(e.currentTarget.value, lookupFornecedor);
+                      }
+                    }}
+                    aria-label="Buscar item por nome"
+                    title="Buscar item por nome"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Fornecedor</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={lookupFornecedor}
+                    onChange={(e) => setLookupFornecedor(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSearch(lookupNome, e.currentTarget.value);
+                      }
+                    }}
+                    aria-label="Buscar item por fornecedor"
+                    title="Buscar item por fornecedor"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSearch()}
+                  disabled={lookupBusy}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                >
+                  {lookupBusy ? "Buscando..." : "Buscar"}
+                </button>
+                <button
+                  onClick={() => {
+                    setLookupNome("");
+                    setLookupFornecedor("");
+                    setLookupRows([]);
+                    setLookupErr(null);
+                    handleSearch("", "");
                   }}
-                />
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Limpar
+                </button>
               </div>
 
-              <div className="space-y-1">
-                <div className="text-xs text-zinc-400">Fornecedor</div>
-                <input
-                  className="w-full px-3 py-2"
-                  value={lookupFornecedor}
-                  onChange={(e) => setLookupFornecedor(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSearch(lookupNome, e.currentTarget.value);
-                    }
-                  }}
-                />
-              </div>
-            </div>
+              {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleSearch()}
-                disabled={lookupBusy}
-                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-              >
-                {lookupBusy ? "Buscando..." : "Buscar"}
-              </button>
-              <button
-                onClick={() => {
-                  setLookupNome("");
-                  setLookupFornecedor("");
-                  setLookupRows([]);
-                  setLookupErr(null);
-                  handleSearch("", "");
-                }}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Limpar
-              </button>
-            </div>
-
-            {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
-
-            <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-900/70">
+              <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-auto overscroll-contain">
+                <table className="w-full text-sm min-w-[980px]">
+                  <thead className="bg-zinc-900/70 sticky top-0 z-10">
                   <tr className="text-left text-zinc-200">
                     <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("id")}>
                       ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
@@ -1364,7 +1458,7 @@ export default function OsDetailPage() {
 
                   {lookupRows.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-6 text-zinc-400 text-center">
+                      <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
                         Nenhum resultado ainda. Informe filtros e busque.
                       </td>
                     </tr>
@@ -1374,6 +1468,7 @@ export default function OsDetailPage() {
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* Tabela itens */}
@@ -1436,7 +1531,7 @@ export default function OsDetailPage() {
 
             {rows.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={6}>
+                <td className="px-4 py-6 text-zinc-400" colSpan={7}>
                   Nenhum item ainda.
                 </td>
               </tr>
@@ -1447,3 +1542,4 @@ export default function OsDetailPage() {
     </div>
   );
 }
+

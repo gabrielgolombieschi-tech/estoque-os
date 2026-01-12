@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { parseDecimalBR } from "../../lib/decimal";
-import { getCurrentTenantId } from "@/lib/auth/tenant";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { Can } from "@/components/auth/Can";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -81,6 +84,49 @@ type FiscalItem = {
   credita_cofins: boolean;
 };
 
+type ItemBase = Omit<Item, "fiscal_itens">;
+type ItemPayload = {
+  codigo_interno: string;
+  codigo_barras: string | null;
+  nome: string;
+  descricao: string | null;
+  tipo: Item["tipo"];
+  categoria: string | null;
+  subcategoria: string | null;
+  unidade_medida: string;
+  controla_estoque: boolean;
+  estoque_minimo: number;
+  estoque_maximo: number;
+  estoque_ideal: number;
+  custo_ultima_compra: number;
+  custo_medio: number;
+  preco_unitario: number;
+  fornecedor_id: number | null;
+  ativo: boolean;
+  atualizado_em: string;
+};
+
+type FiscalPayload = {
+  tenant_id: string;
+  empresa_id: string;
+  item_id: number;
+  ncm: string | null;
+  cst_icms: string | null;
+  cst_pis: string | null;
+  cst_cofins: string | null;
+  aliq_icms: number | null;
+  aliq_ipi: number | null;
+  aliq_pis: number | null;
+  aliq_cofins: number | null;
+  credita_icms: boolean;
+  ipi_entra_no_custo: boolean;
+  credita_pis: boolean;
+  credita_cofins: boolean;
+  updated_at: string;
+};
+
+type DbError = { message?: string; code?: string } | null;
+
 type FiscalForm = {
   ncm: string;
   cst_icms: string;
@@ -142,6 +188,12 @@ function emptyFiscalForm(): FiscalForm {
 
 export default function ItensPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { has, loading: permissionsLoading, ready, permissions } = usePermissions();
+  const hasEstoqueAccess = has("estoque.acessar") || (permissions ?? []).some((perm) => perm.startsWith("estoque."));
+  const canView = hasEstoqueAccess || has("itens.view");
+  const canEdit = hasEstoqueAccess || has("itens.create");
+  const canEditFiscal = hasEstoqueAccess || has("fiscal.edit");
 
   const [rows, setRows] = useState<Item[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -162,9 +214,12 @@ export default function ItensPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   async function loadFornecedores() {
-    const { data, error } = await supabase
-      .from("fornecedores")
-      .select("id,nome,ativo")
+    if (tenantEmpresaLoading) return;
+    if (!tenantId) return;
+    const { data, error } = await applyTenant(
+      supabase.from("fornecedores").select("id,nome,ativo"),
+      tenantId
+    )
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .limit(500);
@@ -174,12 +229,20 @@ export default function ItensPage() {
 
   async function load() {
     setErr(null);
+    if (tenantEmpresaLoading) return;
+    if (!tenantId) {
+      setErr("Tenant nao carregado.");
+      return;
+    }
 
-    let query = supabase
-      .from("itens")
-      .select(
-        "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores(nome),fiscal_itens(ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins),ativo,criado_em,atualizado_em"
-      )
+    let query = applyTenant(
+      supabase
+        .from("itens")
+        .select(
+          "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores:fornecedor_id(nome),ativo,criado_em,atualizado_em"
+        ),
+      tenantId
+    )
       .order("id", { ascending: false })
       .limit(300);
 
@@ -196,19 +259,57 @@ export default function ItensPage() {
 
     const { data, error } = await query;
 
-    if (error) setErr(error.message);
-    else setRows((data ?? []) as unknown as Item[]);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+
+    const baseRows = (data ?? []) as unknown as ItemBase[];
+    const itemIds = Array.from(new Set(baseRows.map((row) => row.id).filter(Number.isFinite)));
+    const fiscalMap = new Map<number, FiscalItem>();
+
+    if (itemIds.length > 0 && empresaId) {
+      const { data: fiscalData, error: fiscalErr } = await applyTenantEmpresa(
+        supabase
+          .from("fiscal_itens")
+          .select(
+            "item_id,ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins"
+          ),
+        tenantId,
+        empresaId
+      ).in("item_id", itemIds);
+
+      if (fiscalErr) {
+        setErr(fiscalErr.message);
+      } else {
+        const fiscalRows = (fiscalData ?? []) as FiscalItem[];
+        fiscalRows.forEach((row) => {
+          fiscalMap.set(Number(row.item_id), row);
+        });
+      }
+    }
+
+    const merged = baseRows.map((row) => ({
+      ...row,
+      fiscal_itens: fiscalMap.get(row.id) ?? null,
+    }));
+
+    setRows(merged as Item[]);
   }
 
   useEffect(() => {
     loadFornecedores();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo, ativo]);
+  }, [tipo, ativo, tenantId, tenantEmpresaLoading]);
 
   function startNew() {
     setOk(null);
     setErr(null);
+    if (!canEdit) {
+      setErr("Sem permissao para criar itens.");
+      return;
+    }
     setEditingId(null);
     setForm(emptyForm());
     setFiscalForm(emptyFiscalForm());
@@ -219,6 +320,10 @@ export default function ItensPage() {
   function startEdit(r: Item) {
     setOk(null);
     setErr(null);
+    if (!canEdit) {
+      setErr("Sem permissao para editar itens.");
+      return;
+    }
     setEditingId(r.id);
     setShowForm(true);
 
@@ -269,8 +374,13 @@ export default function ItensPage() {
   }
 
   async function saveFiscal(itemId: number) {
+    if (!tenantId || !empresaId) {
+      return new Error("Tenant ou empresa nao carregados.");
+    }
     const numOrNull = (v: number | null | undefined) => (Number.isFinite(v as number) ? Number(v) : null);
-    const payload: any = {
+    const payload: FiscalPayload = {
+      tenant_id: tenantId,
+      empresa_id: empresaId,
       item_id: itemId,
       ncm: fiscalForm.ncm.trim() || null,
       cst_icms: fiscalForm.cst_icms.trim() || null,
@@ -286,13 +396,19 @@ export default function ItensPage() {
       credita_cofins: !!fiscalForm.credita_cofins,
       updated_at: new Date().toISOString(),
     };
-    const { error } = await supabase.from("fiscal_itens").upsert(payload, { onConflict: "item_id" });
+    const { error } = await supabase
+      .from("fiscal_itens")
+      .upsert(payload, { onConflict: "tenant_id,empresa_id,item_id" });
     return error;
   }
 
   async function save() {
     setOk(null);
     setErr(null);
+    if (!canEdit) {
+      setErr("Sem permissao para salvar itens.");
+      return;
+    }
 
     if (!form.codigo_interno.trim()) return setErr("C?digo interno e obrigatorio.");
     if (!form.nome.trim()) return setErr("Nome e obrigatorio.");
@@ -302,7 +418,7 @@ export default function ItensPage() {
 
     setBusy(true);
 
-    const payload: any = {
+    const payload: ItemPayload = {
       codigo_interno: form.codigo_interno.trim(),
       codigo_barras: form.codigo_barras.trim() || null,
       nome: form.nome.trim(),
@@ -334,19 +450,21 @@ export default function ItensPage() {
       payload.estoque_ideal = 0;
     }
 
-    let error: any = null;
+    let error: DbError = null;
     let itemId: number | null = editingId ?? null;
 
     if (editingId) {
-      const res = await supabase.from("itens").update(payload).eq("id", editingId);
-      error = res.error;
-    } else {
-      let tenant_id = "";
-      try {
-        tenant_id = await getCurrentTenantId();
-      } catch (e: any) {
+      if (!tenantId) {
         setBusy(false);
-        setErr(e?.message ?? "Erro ao identificar tenant.");
+        setErr("Tenant nao carregado.");
+        return;
+      }
+      const res = await applyTenant(supabase.from("itens").update(payload), tenantId).eq("id", editingId);
+      error = res.error ?? null;
+    } else {
+      if (!tenantId) {
+        setBusy(false);
+        setErr("Tenant nao carregado.");
         return;
       }
 
@@ -355,23 +473,13 @@ export default function ItensPage() {
 
       const res = await supabase
         .from("itens")
-        .insert({ ...payload, tenant_id, criado_por: userEmail, criado_em: new Date().toISOString() })
+        .insert({ ...payload, tenant_id: tenantId, criado_por: userEmail, criado_em: new Date().toISOString() })
         .select("id")
         .single();
 
-      error = res.error;
+      error = res.error ?? null;
       itemId = res.data?.id ?? null;
 
-      if (!error && res.data?.id && isProduto) {
-        const { error: estoqueErr } = await supabase.rpc("ensure_estoque_rows", {
-          p_tenant_id: tenant_id,
-          p_item_ids: [res.data.id],
-        });
-        if (estoqueErr) {
-          setBusy(false);
-          return setErr(estoqueErr.message);
-        }
-      }
     }
 
     setBusy(false);
@@ -391,10 +499,12 @@ export default function ItensPage() {
       return setErr("Falha ao salvar: id do item nao retornado.");
     }
 
-    const fiscalError = await saveFiscal(itemId);
-    if (fiscalError) {
-      setBusy(false);
-      return setErr(fiscalError.message);
+    if (canEditFiscal) {
+      const fiscalError = await saveFiscal(itemId);
+      if (fiscalError) {
+        setBusy(false);
+        return setErr(fiscalError.message);
+      }
     }
 
     setBusy(false);
@@ -406,15 +516,23 @@ export default function ItensPage() {
   async function toggleAtivo(id: number, to: boolean) {
     const ok = confirm(to ? "Ativar item?" : "Desativar item?");
     if (!ok) return;
+    if (!canEdit) {
+      setErr("Sem permissao para editar itens.");
+      return;
+    }
 
     setBusy(true);
     setErr(null);
     setOk(null);
 
-    const { error } = await supabase
-      .from("itens")
-      .update({ ativo: to, atualizado_em: new Date().toISOString() })
-      .eq("id", id);
+    if (!tenantId) {
+      setBusy(false);
+      return setErr("Tenant nao carregado.");
+    }
+    const { error } = await applyTenant(
+      supabase.from("itens").update({ ativo: to, atualizado_em: new Date().toISOString() }),
+      tenantId
+    ).eq("id", id);
 
     setBusy(false);
     if (error) return setErr(error.message);
@@ -428,6 +546,22 @@ export default function ItensPage() {
     return fornecedores.find((f) => f.id === id)?.nome ?? `#${id}`;
   }
 
+  if (!ready && permissionsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando permissoes...
+      </div>
+    );
+  }
+
+  if (!canView) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Acesso negado.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 w-full pb-10">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -439,12 +573,14 @@ export default function ItensPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={startNew}
-            className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-100 text-zinc-900 hover:bg-white font-medium shadow-sm"
-          >
-            Novo
-          </button>
+          <Can perm="itens.create">
+            <button
+              onClick={startNew}
+              className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-100 text-zinc-900 hover:bg-white font-medium shadow-sm"
+            >
+              Novo
+            </button>
+          </Can>
 
           <button
             onClick={load}
@@ -477,7 +613,11 @@ export default function ItensPage() {
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Tipo</div>
-            <select className="w-full px-3 py-2" value={tipo} onChange={(e) => setTipo(e.target.value as any)}>
+            <select
+              className="w-full px-3 py-2"
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as "todos" | Item["tipo"])}
+            >
               <option value="todos">Todos</option>
               <option value="produto">Produto</option>
               <option value="servico">Serviço</option>
@@ -487,7 +627,11 @@ export default function ItensPage() {
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Ativo</div>
-            <select className="w-full px-3 py-2" value={ativo} onChange={(e) => setAtivo(e.target.value as any)}>
+            <select
+              className="w-full px-3 py-2"
+              value={ativo}
+              onChange={(e) => setAtivo(e.target.value as "todos" | "ativos" | "inativos")}
+            >
               <option value="ativos">Ativos</option>
               <option value="inativos">Inativos</option>
               <option value="todos">Todos</option>
@@ -538,12 +682,16 @@ export default function ItensPage() {
                   <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "N?o"}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => startEdit(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                        Editar
-                      </button>
-                      <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                        {r.ativo ? "Desativar" : "Ativar"}
-                      </button>
+                      <Can perm="itens.create">
+                        <button onClick={() => startEdit(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+                          Editar
+                        </button>
+                      </Can>
+                      <Can perm="itens.create">
+                        <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+                          {r.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                      </Can>
                     </div>
                   </td>
                 </tr>
@@ -575,7 +723,7 @@ export default function ItensPage() {
                 </button>
                 <button
                   onClick={save}
-                  disabled={busy}
+                  disabled={busy || !canEdit}
                   className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {busy ? "Salvando..." : "Salvar"}
@@ -591,12 +739,14 @@ export default function ItensPage() {
                 >
                   Dados gerais
                 </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-sm ${activeTab === "fiscal" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
-                  onClick={() => setActiveTab("fiscal")}
-                >
-                  Fiscal
-                </button>
+                <Can perm="fiscal.edit">
+                  <button
+                    className={`px-3 py-1.5 rounded-md text-sm ${activeTab === "fiscal" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
+                    onClick={() => setActiveTab("fiscal")}
+                  >
+                    Fiscal
+                  </button>
+                </Can>
               </div>
 
               {activeTab === "geral" ? (
