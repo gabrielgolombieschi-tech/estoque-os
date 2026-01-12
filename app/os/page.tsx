@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { Can } from "@/components/auth/Can";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { ensureCurrentTenant } from "@/lib/tenant";
+import { EmpresaContext } from "@/app/components/EmpresaProvider";
 
 type Cliente = { id: number; nome: string; ativo: boolean };
 
@@ -75,7 +77,10 @@ const buildGestaoDefaults = (): GestaoItem[] =>
 export default function OsListPage() {
   const router = useRouter();
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: permLoading } = usePermissions();
+  const { tenantId, loading: permLoading, has } = usePermissions();
+  const canGestaoWrite = Boolean(has("os_gestao.write"));
+  const empresaCtx = useContext(EmpresaContext);
+  const empresaId = empresaCtx?.empresaId ?? null;
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [rows, setRows] = useState<OS[]>([]);
   const [status, setStatus] = useState("em_andamento");
@@ -114,20 +119,32 @@ export default function OsListPage() {
 
   async function ensureTenantId(): Promise<string | null> {
     if (tenantId) {
+      try {
+        await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      } catch (e) {
+        console.warn("Nao foi possivel setar tenant atual:", e);
+      }
       if (resolvedTenantId !== tenantId) setResolvedTenantId(tenantId);
       return tenantId;
     }
 
-    if (resolvedTenantId) return resolvedTenantId;
-
-    const { data, error } = await supabase.rpc("get_my_active_tenant");
-    if (error) {
-      console.error("Erro get_my_active_tenant:", error);
-      return null;
+    if (resolvedTenantId) {
+      try {
+        await supabase.rpc("set_current_tenant", { p_tenant_id: resolvedTenantId });
+      } catch (e) {
+        console.warn("Nao foi possivel setar tenant atual:", e);
+      }
+      return resolvedTenantId;
     }
 
-    if (data) setResolvedTenantId(data);
-    return data ?? null;
+    try {
+      const t = await ensureCurrentTenant(supabase);
+      if (t) setResolvedTenantId(t);
+      return t;
+    } catch (e) {
+      console.error("Erro ao garantir tenant atual:", e);
+      return null;
+    }
   }
 
   async function load() {
@@ -199,6 +216,10 @@ export default function OsListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tenantId, permLoading]);
 
+  useEffect(() => {
+    if (!canGestaoWrite && temGestao) setTemGestao(false);
+  }, [canGestaoWrite, temGestao]);
+
   async function gerarNumeroOs(tenant: string): Promise<string> {
     const { data } = await supabase
       .from("ordens_servico")
@@ -238,6 +259,10 @@ export default function OsListPage() {
 
     if (temGestao && gestaoPayload.some((p) => !Number.isFinite(p.progresso_percent))) {
       return setErr("Progresso deve estar entre 0 e 100.");
+    }
+
+    if (temGestao && !canGestaoWrite) {
+      return setErr("Sem permissao para habilitar gestao nesta OS.");
     }
 
     setCreating(true);
@@ -284,16 +309,26 @@ export default function OsListPage() {
     const newOsId = data?.id;
 
     if (temGestao && newOsId) {
-      const { error: gestaoErr } = await supabase
-        .from("os_gestao_itens")
-        .upsert(
-          gestaoPayload.map((it) => ({
-            ...it,
-            os_id: newOsId,
-            tenant_id: tenant,
-          })),
-          { onConflict: "os_id,item_tipo,area" }
-        );
+      const baseRows = gestaoPayload.map((it) => ({
+        ...it,
+        os_id: newOsId,
+        tenant_id: tenant,
+      }));
+
+      // Alguns bancos exigem empresa_id em tabelas multi-empresa.
+      // Fazemos tentativa com empresa_id e fallback se a coluna não existir.
+      const tryWithEmpresa = empresaId ? baseRows.map((r) => ({ ...r, empresa_id: empresaId })) : null;
+
+      const firstAttempt = tryWithEmpresa
+        ? await supabase.from("os_gestao_itens").upsert(tryWithEmpresa, { onConflict: "os_id,item_tipo,area" })
+        : await supabase.from("os_gestao_itens").upsert(baseRows, { onConflict: "os_id,item_tipo,area" });
+
+      const gestaoErr =
+        firstAttempt.error &&
+        tryWithEmpresa &&
+        /column\s+"?empresa_id"?.*does not exist|could not find the 'empresa_id' column/i.test(firstAttempt.error.message)
+          ? (await supabase.from("os_gestao_itens").upsert(baseRows, { onConflict: "os_id,item_tipo,area" })).error
+          : firstAttempt.error;
 
       if (gestaoErr) {
         setCreating(false);
@@ -665,11 +700,15 @@ export default function OsListPage() {
                     className="h-4 w-4"
                     checked={temGestao}
                     onChange={(e) => setTemGestao(e.target.checked)}
-                    disabled={creating}
+                    disabled={creating || !canGestaoWrite}
                   />
                   <span>Habilitar gestao nesta OS</span>
                 </label>
-                <div className="text-xs text-zinc-400">Salve para atualizar o status da gestao.</div>
+                <div className={canGestaoWrite ? "text-xs text-zinc-400" : "text-xs text-amber-300"}>
+                  {canGestaoWrite
+                    ? "Salve para atualizar o status da gestao."
+                    : "Seu usuario nao tem permissao para gestao (os_gestao.write)."}
+                </div>
               </div>
 
               {!temGestao && (

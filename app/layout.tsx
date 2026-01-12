@@ -14,8 +14,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let initialCapabilities = null;
   let initialTenantId: string | null = null;
   try {
-    const h = headers();
-    const req = new Request("http://localhost", { headers: h as unknown as HeadersInit });
+    const h = await headers();
+    const authorization = h.get("authorization") ?? "";
+    const req = new Request("http://localhost", { headers: { authorization } });
     const supabase = supabaseFromAuthHeader(req);
     const capsRes = await getCapabilities(supabase);
     initialCapabilities = capsRes.capabilities;

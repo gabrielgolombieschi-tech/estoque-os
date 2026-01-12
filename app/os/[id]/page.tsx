@@ -118,6 +118,32 @@ export default function OsDetailPage() {
   const params = useParams();
   const osId = Number(params.id);
 
+  useEffect(() => {
+    if (!tenantId) return;
+    let active = true;
+    (async () => {
+      const { error } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      if (!active) return;
+      if (error) console.warn("Nao foi possivel setar tenant atual:", error);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [supabase, tenantId]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    let active = true;
+    (async () => {
+      const { error } = await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
+      if (!active) return;
+      if (error) console.warn("Nao foi possivel setar empresa atual:", error);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [supabase, empresaId]);
+
   const [os, setOs] = useState<OS | null>(null);
   const [rows, setRows] = useState<OsItemRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
