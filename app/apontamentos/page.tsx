@@ -125,11 +125,11 @@ async function computeHourPolicy(dateISO: string, horas: number): Promise<HourPo
   const holiday = await isNationalHoliday(dateISO);
 
   if (weekend === "SUN" || holiday) {
-    return { mode: "SINGLE", items: [{ tipoCodigo: "EXTRA100", horas }] };
+    return { mode: "SINGLE", items: [{ tipoCodigo: "EXTRA_100", horas }] };
   }
 
   if (weekend === "SAT") {
-    return { mode: "SINGLE", items: [{ tipoCodigo: "EXTRA50", horas }] };
+    return { mode: "SINGLE", items: [{ tipoCodigo: "EXTRA_50", horas }] };
   }
 
   if (horas > 9) {
@@ -137,7 +137,7 @@ async function computeHourPolicy(dateISO: string, horas: number): Promise<HourPo
       mode: "SPLIT",
       items: [
         { tipoCodigo: "NORMAL", horas: 9 },
-        { tipoCodigo: "EXTRA50", horas: Number((horas - 9).toFixed(2)) },
+        { tipoCodigo: "EXTRA_50", horas: Number((horas - 9).toFixed(2)) },
       ],
     };
   }
