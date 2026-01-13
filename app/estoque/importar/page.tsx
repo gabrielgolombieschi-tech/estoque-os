@@ -47,6 +47,7 @@ type ParsedNfe = {
   valorDesconto: number;
   valorOutros: number;
   valorTotal: number;
+  parcelas?: Array<{ numero: string; vencimento: string; valor: number }>;
 };
 
 type FiscalPerfil = {
@@ -84,11 +85,20 @@ type FornecedorRow = {
   nome: string | null;
   documento_norm?: string | null;
   finalidade_padrao?: ItemFinalidade | null;
+  gerar_contas_pagar_auto?: boolean | null;
 };
 
 type ItemCodigoRow = {
   id: number;
   codigo_interno: string;
+};
+
+type OsLookupRow = {
+  id: number;
+  numero_os?: string | null;
+  cliente_nome?: string | null;
+  descricao_servico?: string | null;
+  status?: string | null;
 };
 
 type DbError = {
@@ -160,6 +170,14 @@ function normalizeDocumento(doc: string | null): string | null {
   return onlyDigits || null;
 }
 
+function toDateOnly(value: string | null | undefined): string | null {
+  const v = (value ?? "").trim();
+  if (!v) return null;
+  // aceita YYYY-MM-DD ou ISO com horário
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+  return null;
+}
+
 export default function ImportarXmlPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
 
@@ -186,18 +204,169 @@ export default function ImportarXmlPage() {
   const [fornecedorCnpjBase, setFornecedorCnpjBase] = useState<string | null>(null);
   const [fornecedorIdBase, setFornecedorIdBase] = useState<number | null>(null);
 
+  const [fornecedorGerarContasAuto, setFornecedorGerarContasAuto] = useState(false);
+  const [gerarContasPagar, setGerarContasPagar] = useState(false);
+  const [gerarContasTouched, setGerarContasTouched] = useState(false);
+
   const [finalidadeLote, setFinalidadeLote] = useState<ItemFinalidade | "">("");
   const [salvarPadraoFornecedor, setSalvarPadraoFornecedor] = useState(false);
+
+  // Vinculo opcional de OS (somente quando finalidade do lote = materia_prima)
+  const [osNumero, setOsNumero] = useState("");
+  const [osId, setOsId] = useState<number | null>(null);
+  const [osLabel, setOsLabel] = useState<string | null>(null);
+  const [osLoading, setOsLoading] = useState(false);
+  const [osError, setOsError] = useState<string | null>(null);
+
+  const [showOsLookup, setShowOsLookup] = useState(false);
+  const [osLookupTerm, setOsLookupTerm] = useState("");
+  const [osLookupRows, setOsLookupRows] = useState<OsLookupRow[]>([]);
+  const [osLookupLoading, setOsLookupLoading] = useState(false);
+  const [osLookupError, setOsLookupError] = useState<string | null>(null);
+  const osLookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const osResolveReqIdRef = useRef(0);
 
   const [loteMissing, setLoteMissing] = useState<string[]>([]);
 
   const { tenantId, empresaId } = useTenantEmpresa();
-  const { has, loading: permissionsLoading, refreshing, ready } = usePermissions();
+  const { has, loading: permissionsLoading, ready } = usePermissions();
 
   const canImport = has("xml_import.execute");
   const canCreateFornecedor = has("cad_fornecedores.write");
   const canCreateItem = has("cad_itens.write");
   const canAccessPage = canImport || canCreateFornecedor || canCreateItem;
+
+  const osEnabled = finalidadeLote === "materia_prima";
+
+  const resolveOsByNumero = useCallback(
+    async (numero: string) => {
+      const reqId = ++osResolveReqIdRef.current;
+      const normalized = numero.trim();
+      if (!normalized) {
+        setOsId(null);
+        setOsLabel(null);
+        setOsError(null);
+        setOsLoading(false);
+        return;
+      }
+
+      setOsLoading(true);
+      setOsError(null);
+
+      const { data, error } = await supabase
+        .from("ordens_servico")
+        .select("id,numero_os,cliente_nome,descricao_servico,status")
+        .eq("numero_os", normalized)
+        .maybeSingle();
+
+      if (reqId !== osResolveReqIdRef.current) return;
+
+      if (error) {
+        setOsId(null);
+        setOsLabel(null);
+        setOsError("Erro ao buscar OS.");
+        setOsLoading(false);
+        return;
+      }
+
+      if (!data) {
+        setOsId(null);
+        setOsLabel(null);
+        setOsError("OS nao encontrada.");
+        setOsLoading(false);
+        return;
+      }
+
+      const row = data as OsLookupRow;
+      setOsId(Number(row.id));
+      const numeroDb = row.numero_os ?? String(row.id);
+      const cliente = row.cliente_nome ?? "-";
+      setOsLabel(`OS ${numeroDb} - ${cliente}`);
+      setOsError(null);
+      setOsLoading(false);
+    },
+    [supabase]
+  );
+
+  const loadOsLookup = useCallback(
+    async (term: string) => {
+      setOsLookupLoading(true);
+      setOsLookupError(null);
+
+      const trimmed = term.trim();
+      if (!trimmed) {
+        setOsLookupRows([]);
+        setOsLookupLoading(false);
+        return;
+      }
+
+      let query = supabase
+        .from("ordens_servico")
+        .select("id,numero_os,cliente_nome,descricao_servico,status")
+        .order("id", { ascending: false })
+        .limit(50);
+
+      const likeTerm = `%${trimmed}%`;
+      query = query.or(`numero_os.ilike.${likeTerm},cliente_nome.ilike.${likeTerm}`);
+
+      const { data, error } = await query;
+      if (error) {
+        setOsLookupRows([]);
+        setOsLookupError("Erro ao buscar OS.");
+        setOsLookupLoading(false);
+        return;
+      }
+
+      setOsLookupRows((data ?? []) as OsLookupRow[]);
+      setOsLookupLoading(false);
+    },
+    [supabase]
+  );
+
+  const openOsLookup = useCallback(() => {
+    setShowOsLookup(true);
+    setOsLookupTerm("");
+    setOsLookupRows([]);
+    setOsLookupError(null);
+  }, []);
+
+  const closeOsLookup = useCallback(() => {
+    setShowOsLookup(false);
+    setOsLookupRows([]);
+    setOsLookupError(null);
+  }, []);
+
+  useEffect(() => {
+    if (osEnabled) return;
+    setOsNumero("");
+    setOsId(null);
+    setOsLabel(null);
+    setOsLoading(false);
+    setOsError(null);
+    setShowOsLookup(false);
+    setOsLookupTerm("");
+    setOsLookupRows([]);
+    setOsLookupError(null);
+    setOsLookupLoading(false);
+  }, [osEnabled]);
+
+  useEffect(() => {
+    if (!osEnabled) return;
+    const trimmed = osNumero.trim();
+    if (!trimmed) {
+      setOsId(null);
+      setOsLabel(null);
+      setOsLoading(false);
+      setOsError(null);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      void resolveOsByNumero(trimmed);
+    }, 400);
+
+    return () => clearTimeout(t);
+  }, [osNumero, osEnabled, resolveOsByNumero]);
 
   function parseXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] } {
     const parser = new DOMParser();
@@ -227,6 +396,7 @@ export default function ImportarXmlPage() {
     const emitente = doc.querySelector("emit > xNome")?.textContent ?? null;
     const cnpjEmitente = doc.querySelector("emit > CNPJ")?.textContent ?? null;
     const dataEmissao = doc.querySelector("ide > dhEmi")?.textContent ?? null;
+    const dataEmissaoDate = toDateOnly(dataEmissao);
 
     const totalNode = doc.querySelector("total > ICMSTot");
     const valorFreteNF = num(totalNode?.querySelector("vFrete")?.textContent);
@@ -309,6 +479,23 @@ export default function ImportarXmlPage() {
       });
     });
 
+    // Parcelas (preferência: <cobr><dup>)
+    const parcelasDup: Array<{ numero: string; vencimento: string; valor: number }> = [];
+    const dupNodes = Array.from(doc.querySelectorAll("cobr > dup"));
+    dupNodes.forEach((dup, idx) => {
+      const numeroRaw = (dup.querySelector("nDup")?.textContent ?? "").trim();
+      const vencRaw = (dup.querySelector("dVenc")?.textContent ?? "").trim();
+      const valor = num(dup.querySelector("vDup")?.textContent);
+
+      if (!Number.isFinite(valor) || valor <= 0) return;
+
+      const numero = numeroRaw || String(idx + 1).padStart(3, "0");
+      const vencimento = toDateOnly(vencRaw) ?? dataEmissaoDate ?? toDateOnly(new Date().toISOString());
+      if (!vencimento) return;
+
+      parcelasDup.push({ numero, vencimento, valor });
+    });
+
     return {
       nfe: {
         chave,
@@ -323,14 +510,22 @@ export default function ImportarXmlPage() {
         valorDesconto: valorDescontoNF,
         valorOutros: valorOutrosNF,
         valorTotal: valorTotalNF,
+        parcelas: parcelasDup,
       },
       itens,
     };
   }
 
+  function applyFornecedorFinanceDefaults(flag: boolean) {
+    setFornecedorGerarContasAuto(Boolean(flag));
+    setGerarContasTouched(false);
+    setGerarContasPagar(Boolean(flag));
+  }
+
   async function checkFornecedor(cnpj: string | null) {
     setFornecedorId(null);
     setFornecedorNome(null);
+    applyFornecedorFinanceDefaults(false);
 
     const cnpjNormalizado = normalizeDocumento(cnpj);
     if (!cnpjNormalizado) return;
@@ -341,7 +536,9 @@ export default function ImportarXmlPage() {
     }
 
     const { data, error } = await applyTenant(
-      supabase.from("fornecedores").select("id,nome,documento_norm,finalidade_padrao"),
+      supabase
+        .from("fornecedores")
+        .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto"),
       tenantId
     )
       .eq("documento_norm", cnpjNormalizado)
@@ -356,6 +553,10 @@ export default function ImportarXmlPage() {
     if (fornecedor?.id) {
       setFornecedorId(fornecedor.id);
       setFornecedorNome(fornecedor.nome ?? null);
+
+      const flag = Boolean(fornecedor.gerar_contas_pagar_auto);
+      if (!gerarContasTouched) applyFornecedorFinanceDefaults(flag);
+
       // Auto-preenche finalidade pelo padrão do fornecedor
       if (fornecedor.finalidade_padrao && !finalidadeLote) {
         setFinalidadeLote(fornecedor.finalidade_padrao);
@@ -401,7 +602,7 @@ export default function ImportarXmlPage() {
     const { data, error } = await supabase
       .from("fornecedores")
       .insert(payload)
-      .select("id,nome,documento_norm,finalidade_padrao")
+      .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto")
       .single();
 
     if (error) {
@@ -410,7 +611,10 @@ export default function ImportarXmlPage() {
       // se já existe, tenta update (mantém robusto)
       if (err?.code === "23505") {
         const { data: updated, error: updateErr } = await applyTenant(
-          supabase.from("fornecedores").update(payload).select("id,nome,documento_norm,finalidade_padrao"),
+          supabase
+            .from("fornecedores")
+            .update(payload)
+            .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto"),
           tenantId
         )
           .eq("documento_norm", documento)
@@ -429,6 +633,8 @@ export default function ImportarXmlPage() {
 
         setFornecedorId(updatedRow.id);
         setFornecedorNome(updatedRow.nome ?? null);
+        const flag = Boolean(updatedRow.gerar_contas_pagar_auto);
+        if (!gerarContasTouched) applyFornecedorFinanceDefaults(flag);
         return updatedRow.id;
       }
 
@@ -441,6 +647,9 @@ export default function ImportarXmlPage() {
 
     setFornecedorId(created.id);
     setFornecedorNome(created.nome ?? null);
+
+    const createdFlag = Boolean(created.gerar_contas_pagar_auto);
+    if (!gerarContasTouched) applyFornecedorFinanceDefaults(createdFlag);
 
     // garante que o padrão fica setado
     if (created.finalidade_padrao && !finalidadeLote) {
@@ -920,6 +1129,12 @@ export default function ImportarXmlPage() {
       if (!canImport) throw new Error("Sem permissao para importar NF.");
       if (!finalidadeLote) throw new Error("Selecione a finalidade antes de importar.");
 
+      // OS opcional, mas se o usuario preencheu, precisa ser valida.
+      if (finalidadeLote === "materia_prima") {
+        if (osLoading) throw new Error("Aguarde a validacao da OS.");
+        if (osNumero.trim() !== "" && osId === null) throw new Error("OS invalida. Limpe o campo ou selecione uma OS valida.");
+      }
+
       const jobsToImport = jobs.filter((j) => j.selected && j.status === "ok");
       if (jobsToImport.length === 0) throw new Error("Nenhum XML selecionado para importar.");
 
@@ -1091,15 +1306,51 @@ export default function ImportarXmlPage() {
             data_emissao: info.dataEmissao ?? new Date().toISOString(),
           };
 
-          const { data: importData, error: importErr } = await supabase.rpc("import_nf_entrada", {
-            p_tenant_id: tenantId,
-            p_empresa_id: empresaId,
-            p_fornecedor_id: fornecedorFinal,
-            p_nf_json: nfJson,
-            p_itens_json: itensPayload,
-            p_xml_raw: job.xmlText,
-            p_finalidade_contexto: finalidadeLote,
+          const shouldGenerateFinance = Boolean(gerarContasPagar);
+          const parcelasFromXml = info.parcelas ?? [];
+          const parcelasJson = shouldGenerateFinance && parcelasFromXml.length > 0 ? parcelasFromXml : null;
+
+          const callImport = async (opts: { gerar: boolean; parcelas: unknown }) => {
+            return supabase.rpc("import_nf_entrada", {
+              p_tenant_id: tenantId,
+              p_empresa_id: empresaId,
+              p_fornecedor_id: fornecedorFinal,
+              p_nf_json: nfJson,
+              p_itens_json: itensPayload,
+              p_xml_raw: job.xmlText,
+              p_finalidade_contexto: finalidadeLote,
+              p_gerar_contas_pagar: opts.gerar,
+              p_parcelas_json: opts.gerar ? opts.parcelas : null,
+              p_os_id: finalidadeLote === "materia_prima" ? osId : null,
+            });
+          };
+
+          let { data: importData, error: importErr } = await callImport({
+            gerar: shouldGenerateFinance,
+            parcelas: parcelasJson,
           });
+
+          // Se falhar a parte financeira, tenta importar a NF sem gerar contas (para não travar a importação)
+          if (importErr && shouldGenerateFinance) {
+            const msgLower = (importErr.message ?? "").toLowerCase();
+            const looksFinance =
+              msgLower.includes("financeiro") || msgLower.includes("parcel") || msgLower.includes("soma das parcelas");
+
+            if (looksFinance) {
+              const retry = await callImport({ gerar: false, parcelas: null });
+              if (retry.error) throw importErr;
+              importData = retry.data;
+
+              results.push(
+                `${job.fileName}: NF importada, mas falhou ao gerar contas a pagar: ${importErr.message}`
+              );
+
+              // limpa o erro para que o parse de status siga normal (importData agora vem do retry)
+              importErr = null;
+            } else {
+              throw importErr;
+            }
+          }
 
           if (importErr) throw importErr;
 
@@ -1111,10 +1362,14 @@ export default function ImportarXmlPage() {
             setJobs((prev) =>
               prev.map((j) => (j.id === job.id ? { ...j, status: "importado", error: message ?? "NF ja importada" } : j))
             );
-            results.push(`${job.fileName}: NF ja importada.`);
+            results.push(`${job.fileName}: NF ja importada (nada foi duplicado).`);
           } else {
             setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importado", error: undefined } : j)));
-            results.push(`${job.fileName}: importado com sucesso.`);
+            if (shouldGenerateFinance && parcelasFromXml.length === 0) {
+              results.push(`${job.fileName}: importado com sucesso. XML sem duplicatas; gerado lançamento à vista.`);
+            } else {
+              results.push(`${job.fileName}: importado com sucesso.`);
+            }
           }
         } catch (err: unknown) {
           const msg = getErrorMessage(err, "Erro");
@@ -1290,10 +1545,100 @@ export default function ImportarXmlPage() {
                 </select>
               </label>
 
+              {osEnabled && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-zinc-200">
+                    OS (opcional)
+                    <span className="text-xs text-zinc-500"> — apenas para Matéria-prima</span>
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        value={osNumero}
+                        onChange={(e) => {
+                          setOsNumero(e.target.value);
+                          setOsId(null);
+                          setOsLabel(null);
+                          setOsError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && osNumero.trim() === "") {
+                            e.preventDefault();
+                            openOsLookup();
+                          }
+                        }}
+                        placeholder="Numero da OS (Enter abre busca)"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                        disabled={importBusy || isReading}
+                        autoComplete="off"
+                        enterKeyHint="search"
+                      />
+
+                      {osLoading && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                          buscando...
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={openOsLookup}
+                      className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                      disabled={importBusy || isReading}
+                    >
+                      Buscar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOsNumero("");
+                        setOsId(null);
+                        setOsLabel(null);
+                        setOsError(null);
+                      }}
+                      className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                      disabled={importBusy || isReading || (!osNumero && osId === null)}
+                      title="Limpar OS"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+
+                  {osLabel && <div className="text-xs text-zinc-400">{osLabel}</div>}
+                  {osError && <div className="text-xs text-red-400">{osError}</div>}
+                </label>
+              )}
+
               {(fornecedorResolvido || (fornecedorCnpjBase && canCreateFornecedor)) && (
                 <label className="flex items-center gap-2 text-sm text-zinc-200">
                   <input type="checkbox" checked={salvarPadraoFornecedor} onChange={(e) => setSalvarPadraoFornecedor(e.target.checked)} />
                   Tornar esta finalidade padrao do fornecedor
+                </label>
+              )}
+
+              {canImport && (
+                <label className="flex items-start gap-2 text-sm text-zinc-200">
+                  <input
+                    type="checkbox"
+                    checked={gerarContasPagar}
+                    disabled={importBusy || isReading || !fornecedorResolvido}
+                    onChange={(e) => {
+                      setGerarContasTouched(true);
+                      setGerarContasPagar(e.target.checked);
+                    }}
+                  />
+                  <span>
+                    Gerar Contas a Pagar automaticamente ao importar XML deste fornecedor
+                    {fornecedorGerarContasAuto && !gerarContasTouched ? (
+                      <span className="text-xs text-zinc-400"> (padrão do fornecedor)</span>
+                    ) : null}
+                    {!fornecedorResolvido ? (
+                      <span className="text-xs text-zinc-500"> — identifique o fornecedor primeiro</span>
+                    ) : null}
+                  </span>
                 </label>
               )}
             </div>
@@ -1630,6 +1975,104 @@ export default function ImportarXmlPage() {
           </button>
         </div>
       </div>
+
+      {showOsLookup && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && closeOsLookup()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold">Buscar OS</div>
+                  <div className="text-sm text-zinc-400">Digite numero da OS ou cliente para buscar.</div>
+                </div>
+                <button
+                  onClick={closeOsLookup}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-auto">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Buscar</div>
+                  <input
+                    value={osLookupTerm}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setOsLookupTerm(value);
+                      if (osLookupDebounceRef.current) clearTimeout(osLookupDebounceRef.current);
+                      osLookupDebounceRef.current = setTimeout(() => {
+                        void loadOsLookup(value);
+                      }, 300);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void loadOsLookup(osLookupTerm);
+                      }
+                    }}
+                    placeholder="Ex: 43 ou nome do cliente"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                    autoFocus
+                  />
+                </div>
+
+                {osLookupLoading && <div className="text-sm text-zinc-400">Buscando...</div>}
+                {osLookupError && <div className="text-sm text-red-400">{osLookupError}</div>}
+
+                <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-zinc-900/70">
+                      <tr className="text-zinc-200">
+                        <th className="px-3 py-2 text-left">OS</th>
+                        <th className="px-3 py-2 text-left">Cliente</th>
+                        <th className="px-3 py-2 text-left">Descricao</th>
+                        <th className="px-3 py-2 text-center">Acao</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {osLookupRows.map((row) => (
+                        <tr key={row.id} className="hover:bg-zinc-900/40">
+                          <td className="px-3 py-2">{row.numero_os ?? row.id}</td>
+                          <td className="px-3 py-2">{row.cliente_nome ?? "-"}</td>
+                          <td className="px-3 py-2">{row.descricao_servico ?? "-"}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const numero = row.numero_os ?? String(row.id);
+                                setOsNumero(numero);
+                                setOsId(Number(row.id));
+                                setOsLabel(`OS ${numero} - ${(row.cliente_nome ?? "-")}`);
+                                setOsError(null);
+                                closeOsLookup();
+                              }}
+                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Selecionar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!osLookupLoading && osLookupRows.length === 0 && osLookupTerm.trim() !== "" && (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-4 text-zinc-400">
+                            Nenhuma OS encontrada.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

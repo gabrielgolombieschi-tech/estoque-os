@@ -87,9 +87,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const canAccessOs = can("os.read");
   const canExecuteOs = can("os_rpcs.execute");
   const canAccessApontamentos = can("apontamentos.read");
+  const canAccessClientes = can("os.read") || can("cad_clientes.write");
   const canAccessEstoque = can("estoque.read") || can("estoque.write");
   const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
   const canImportXml = can("xml_import.execute");
+  const canAccessFornecedores = can("estoque.read") || can("estoque.write") || can("cad_fornecedores.write");
   const canAccessFinanceiro = can("financeiro.read");
   const canAccessAdmin = can("admin.manage_users");
 
@@ -395,6 +397,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             Apontamentos Horas
                           </Link>
                         )}
+                        {canAccessClientes && (
+                          <Link href="/os/clientes" className="block px-3 py-2 hover:bg-zinc-900">
+                            Clientes
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>
@@ -438,6 +445,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         {can("estoque.read") && (
                           <Link href="/mov" className="block px-3 py-2 hover:bg-zinc-900">
                             Movimentacoes
+                          </Link>
+                        )}
+                        {canAccessFornecedores && (
+                          <Link
+                            href="/estoque/fornecedores"
+                            className="block px-3 py-2 hover:bg-zinc-900"
+                          >
+                            Fornecedores
                           </Link>
                         )}
                       </div>
