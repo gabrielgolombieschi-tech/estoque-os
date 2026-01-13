@@ -20,6 +20,10 @@ const logError = (...args: unknown[]) => {
   if (isDev) console.warn(...args);
 };
 
+// Debounce para evitar múltiplos logouts rápidos
+let authChangeDebounceRef: ReturnType<typeof setTimeout> | null = null;
+let lastAuthChangeTime = 0;
+
 export function useTenantBoot() {
   useEffect(() => {
     const supabase = supabaseBrowser();
@@ -62,8 +66,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const permsCapabilities = (perms as unknown as { capabilities?: unknown } | null)?.capabilities;
   const permissionsFailed: boolean = !loadingInitial && permsCapabilities === null;
 
-  // ready pode não existir; se não existir, consideramos "ready" quando não está no loadingInitial
-  const permissionsReady: boolean = perms?.ready ?? !loadingInitial;
+  // Menus renderizam assim que temos capabilities (mesmo em background refresh)
+  // Não espera loadingInitial terminar; confia em cache
+  const hasCapabilities = permsCapabilities !== null;
+  const permissionsReady: boolean = perms?.ready ?? hasCapabilities;
 
   const [booting, setBooting] = useState(true);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
@@ -125,10 +131,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
         setUserRole(null);
 
-        // Recarrega permissões em background (sem travar)
-        if (session) {
-          reload().catch((e: unknown) => logError("reload permissions error:", e));
-        }
+        // PermissionsProvider já carrega permissões automaticamente ao iniciar
+        // Não chamamos reload() aqui para evitar reavaliações desnecessárias
       } finally {
         if (active) setBooting(false);
       }
@@ -140,9 +144,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) Listener de auth 1x (login/logout/troca sessão)
+  // 2) Listener de auth 1x (login/logout/troca sessão) com debounce
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      // Debounce: evita múltiplos dispatchs em <1s
+      const now = Date.now();
+      if (now - lastAuthChangeTime < 1000) {
+        if (authChangeDebounceRef) clearTimeout(authChangeDebounceRef);
+        authChangeDebounceRef = setTimeout(() => {
+          lastAuthChangeTime = now;
+          clearPermissionCache();
+          clear();
+
+          const user = session?.user;
+          setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
+          setUserRole(null);
+
+          // PermissionsProvider já recarrega permissões ao detectar mudança de sessão
+        }, 500);
+        return;
+      }
+
+      lastAuthChangeTime = now;
       clearPermissionCache();
       clear();
 
@@ -150,14 +173,46 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
       setUserRole(null);
 
-      if (session) {
-        reload().catch((e: unknown) => logError("reload permissions error:", e));
-      }
+      // PermissionsProvider já recarrega permissões ao detectar mudança de sessão
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      if (authChangeDebounceRef) clearTimeout(authChangeDebounceRef);
+      sub.subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 2.5) Refresh periódico de sessão (a cada 15 min)
+  useEffect(() => {
+    if (booting) return;
+
+    let sessionRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+    const refreshSession = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) return; // Sem sessão, não precisa renovar
+
+        // Tentar renovar sessão (idempotente, não causa logout se falhar)
+        const { error } = await supabase.auth.refreshSession();
+        if (error && error.message?.toLowerCase().includes("invalid_grant")) {
+          // Sessão expirada e não pode renovar: deixa fazer logout natural
+          logError("Sessão expirada e não pôde renovar. Logout na próxima ação.");
+        }
+      } catch (e) {
+        logError("Erro ao renovar sessão periodicamente:", e);
+      }
+    };
+
+    // Refresh a cada 15 minutos (900s)
+    sessionRefreshInterval = setInterval(refreshSession, 15 * 60 * 1000);
+
+    return () => {
+      if (sessionRefreshInterval) clearInterval(sessionRefreshInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booting]);
 
   // 3) Guard de rota (login)
   useEffect(() => {

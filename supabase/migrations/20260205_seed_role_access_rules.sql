@@ -3,7 +3,7 @@ BEGIN;
 WITH roles_norm AS (
   SELECT id,
          translate(lower(coalesce(name, '')),
-           'багвдйиклнмопутфхцъщыьз',
+           'ГЎГ ГЈГўГ¤Г©ГЁГЄГ«Г­Г¬Г®ГЇГіГІГґГµГ¶ГєГ№Г»ГјГ§',
            'aaaaaeeeeiiiiooooouuuuc') AS name_norm
   FROM public.roles
 ),

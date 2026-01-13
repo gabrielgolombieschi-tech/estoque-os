@@ -143,7 +143,8 @@ function getErrorMessage(err: unknown, fallback: string) {
 
 export default function BaixaOsCelPage() {
   const supabase = supabaseBrowser();
-  const { empresaId } = useTenantEmpresa();
+  const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
+  const [tenantValidated, setTenantValidated] = useState(false);
 
   const [os, setOs] = useState("");
   const [osDescricao, setOsDescricao] = useState("");
@@ -187,6 +188,15 @@ export default function BaixaOsCelPage() {
   const zxingControlsRef = useRef<ZxingControls | null>(null);
   const ocrInputRef = useRef<HTMLInputElement | null>(null);
   const ocrRowRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) {
+      setError("Tenant não carregado. Recarregue a página.");
+      return;
+    }
+    setTenantValidated(true);
+  }, [tenantLoading, tenantId]);
 
   useEffect(() => {
     const hasDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
@@ -907,6 +917,7 @@ export default function BaixaOsCelPage() {
                     <input
                       value={os}
                       onChange={(e) => setOs(e.target.value)}
+                      disabled={!tenantValidated}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && os.trim() === "") {
                           e.preventDefault();

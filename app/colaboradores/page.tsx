@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type RowView = {
   id: string;
@@ -77,6 +78,7 @@ export default function ColaboradoresPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { tenantId } = usePermissions();
 
   const [rows, setRows] = useState<RowView[]>([]);
 
@@ -98,6 +100,11 @@ export default function ColaboradoresPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
+      if (!tenantId) {
+        throw new Error("Tenant não carregado.");
+      }
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      if (tenantErr) throw tenantErr;
       const { data, error } = await supabase
         .from("vw_colaboradores_taxa_atual")
         .select("*")
@@ -106,12 +113,11 @@ export default function ColaboradoresPage() {
       if (error) throw error;
       setRows((data ?? []) as RowView[]);
     } catch (e: unknown) {
-      console.error(e);
       setErrorMsg(getErrorMessage(e, "Falha ao carregar colaboradores."));
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, tenantId]);
 
   useEffect(() => {
     carregar();
@@ -147,17 +153,24 @@ export default function ColaboradoresPage() {
   }
 
   async function criarTaxaNova(params: {
+    tenantId: string;
     colaboradorId: string;
     valor: number;
     vInicio: string;
     taxaAbertaId: string | null;
     taxaAbertaInicio: string | null;
   }) {
-    const { colaboradorId, valor, vInicio, taxaAbertaId, taxaAbertaInicio } = params;
+    const { tenantId, colaboradorId, valor, vInicio, taxaAbertaId, taxaAbertaInicio } = params;
     const taxaInicio = taxaAbertaInicio ?? null;
 
     if (taxaInicio && vInicio <= taxaInicio) {
       throw new Error("Vigencia inicio precisa ser maior que a vigencia atual.");
+    }
+
+    // garante contexto de tenant (necessário para RLS)
+    {
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      if (tenantErr) throw tenantErr;
     }
 
     // fecha a taxa aberta (se existir) com a vespera da vigencia nova
@@ -184,6 +197,7 @@ export default function ColaboradoresPage() {
     // cria nova taxa
     const { error: eNew } = await supabase.from("colaborador_taxas").insert([
       {
+        tenant_id: tenantId,
         colaborador_id: colaboradorId,
         valor_hora: valor,
         vigencia_inicio: vInicio,
@@ -227,11 +241,16 @@ export default function ColaboradoresPage() {
 
     setLoading(true);
     try {
+      if (!tenantId) {
+        throw new Error("Tenant não carregado.");
+      }
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      if (tenantErr) throw tenantErr;
       if (!editId) {
         // cria colaborador
         const { data: novo, error } = await supabase
           .from("colaboradores")
-          .insert([{ nome: nome.trim(), cargo: cargo.trim() || null, ativo }])
+          .insert([{ tenant_id: tenantId, nome: nome.trim(), cargo: cargo.trim() || null, ativo }])
           .select("id")
           .single();
 
@@ -239,14 +258,17 @@ export default function ColaboradoresPage() {
 
         // cria taxa inicial (obrigatoria aqui)
         await criarTaxaNova({
+          tenantId: tenantId,
           colaboradorId: novo.id,
-          valor: valor!, // jǭ validado
+          valor: valor!, // já validado
           vInicio: vIni,
           taxaAbertaId: null,
           taxaAbertaInicio: null,
         });
       } else {
         // atualiza colaborador
+        const { error: tenantErr2 } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+        if (tenantErr2) throw tenantErr2;
         const { error } = await supabase
           .from("colaboradores")
           .update({ nome: nome.trim(), cargo: cargo.trim() || null, ativo })
@@ -264,6 +286,7 @@ export default function ColaboradoresPage() {
           const rowAtual = rows.find((r) => r.id === editId) ?? null;
 
           await criarTaxaNova({
+            tenantId: tenantId,
             colaboradorId: editId,
             valor: valorNovo!,
             vInicio: vIni,
@@ -276,7 +299,6 @@ export default function ColaboradoresPage() {
       setModalOpen(false);
       await carregar();
     } catch (e: unknown) {
-      console.error(e);
       const msg = getErrorMessage(e, "Erro ao salvar.");
       setErrorMsg(msg);
       alert(msg);
@@ -290,6 +312,11 @@ export default function ColaboradoresPage() {
     setLoading(true);
     setErrorMsg(null);
     try {
+      if (!tenantId) {
+        throw new Error("Tenant não carregado.");
+      }
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+      if (tenantErr) throw tenantErr;
       const { error } = await supabase
         .from("colaboradores")
         .update({ ativo: !r.ativo })
@@ -298,7 +325,6 @@ export default function ColaboradoresPage() {
       if (error) throw error;
       await carregar();
     } catch (e: unknown) {
-      console.error(e);
       const msg = getErrorMessage(e, "Erro ao atualizar.");
       setErrorMsg(msg);
       alert(msg);

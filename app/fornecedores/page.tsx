@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenant } from "@/lib/db/scopes";
 
 type Fornecedor = {
   id: number;
@@ -15,6 +17,7 @@ type Fornecedor = {
 };
 
 type FornecedorPayload = {
+  tenant_id: string;
   nome: string;
   documento: string | null;
   ativo: boolean;
@@ -24,6 +27,7 @@ type DbError = { code?: string; message?: string } | null;
 
 export default function FornecedoresPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
 
   const [rows, setRows] = useState<Fornecedor[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -36,19 +40,32 @@ export default function FornecedoresPage() {
 
   const load = useCallback(async () => {
     setErr(null);
+    if (tenantLoading) return;
+    if (!tenantId) {
+      setErr("Tenant não carregado.");
+      return;
+    }
 
-    const { data, error } = await supabase
-      .from("fornecedores")
-      .select("id,nome,documento,email,telefone,endereco,observacoes,ativo")
-      .order("id", { ascending: false });
+    const { data, error } = await applyTenant(
+      supabase
+        .from("fornecedores")
+        .select("id,nome,documento,email,telefone,endereco,observacoes,ativo")
+        .order("id", { ascending: false }),
+      tenantId
+    );
 
     if (error) setErr(error.message);
     else setRows((data ?? []) as unknown as Fornecedor[]);
-  }, [supabase]);
+  }, [supabase, tenantId, tenantLoading]);
 
   async function criar() {
     if (!nome.trim()) {
       setErr("Informe o nome do fornecedor.");
+      return;
+    }
+
+    if (!tenantId) {
+      setErr("Tenant não carregado.");
       return;
     }
 
@@ -57,6 +74,7 @@ export default function FornecedoresPage() {
 
     const documentoNormalizado = normalizeDocumento(documento);
     const payload: FornecedorPayload = {
+      tenant_id: tenantId,
       nome: nome.trim(),
       documento: documentoNormalizado || null,
       ativo: true,
@@ -64,7 +82,7 @@ export default function FornecedoresPage() {
 
     const { error } = await supabase
       .from("fornecedores")
-      .upsert(payload, { onConflict: "documento" });
+      .insert(payload);
 
     setBusy(false);
 

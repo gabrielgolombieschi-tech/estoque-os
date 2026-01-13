@@ -26,7 +26,7 @@ $$;
 WITH roles_norm AS (
   SELECT id,
          translate(lower(coalesce(name, '')),
-           ' …Æƒ„‚Šˆ‰¡Œ‹¢•“ä”£—–‡',
+           'Â â¦ÃÆââÅ Ëâ°Â¡ÂÅâ¹Â¢â¢âÃ¤âÂ£ââÂâ¡',
            'aaaaaeeeeiiiiooooouuuuc') AS name_norm
   FROM public.roles
 ),

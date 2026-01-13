@@ -19,7 +19,13 @@ do $$
 begin
   if to_regclass('public.roles') is not null
     and to_regclass('public.permissions') is not null
-    and to_regclass('public.role_permissions') is not null then
+    and to_regclass('public.role_permissions') is not null
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'role_permissions'
+        and column_name = 'role_id'
+    ) then
     insert into public.role_permissions (role_id, permission_id)
     select r.id, p.id
     from public.roles r

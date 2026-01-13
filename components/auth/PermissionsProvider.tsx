@@ -88,6 +88,10 @@ export function PermissionsProvider({
   const permissionsRef = useRef<Capabilities | null>(initialCapabilities ?? lastCache?.capabilities ?? null);
   const inflightRef = useRef<Promise<void> | null>(null);
   const inflightKeyRef = useRef<string | null>(null);
+  
+  // Flag para evitar reavaliações desnecessárias: permissões carregam UMA VEZ por sessão
+  const initializedRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const refreshPermissions = useCallback(
     async (opts?: { background?: boolean; userId?: string | null; tenantId?: string | null }) => {
@@ -162,6 +166,11 @@ export function PermissionsProvider({
   );
 
   const reload = useCallback(async () => {
+    // Se já foi inicializado, não recarrega.
+    // Permissões não mudam durante a sessão, então cache é suficiente.
+    if (initializedRef.current && permissionsRef.current !== null) {
+      return;
+    }
     const hasCache = capabilities !== null;
     await refreshPermissions({ background: hasCache });
   }, [capabilities, refreshPermissions]);
@@ -172,12 +181,16 @@ export function PermissionsProvider({
 
   useEffect(() => {
     const supabase = supabaseBrowser();
+
+    // Listener de auth: APENAS para login/logout (trocar usuário)
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const nextUserId = session?.user?.id ?? null;
       if (userIdRef.current !== nextUserId) {
         userIdRef.current = nextUserId;
+        currentUserIdRef.current = nextUserId;
         inflightRef.current = null;
         inflightKeyRef.current = null;
+        initializedRef.current = false; // Reset ao fazer logout/login
         if (!nextUserId) {
           clearPermissionCache();
           setCapabilities(null);
@@ -192,7 +205,9 @@ export function PermissionsProvider({
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -206,6 +221,7 @@ export function PermissionsProvider({
           const { data: sessionData } = await supabase.auth.getSession();
           userId = sessionData.session?.user?.id ?? null;
           userIdRef.current = userId;
+          currentUserIdRef.current = userId;
         }
         if (!active) return;
 
@@ -215,6 +231,7 @@ export function PermissionsProvider({
           setCapabilities(null);
           setTenantId(null);
           setLoading(false);
+          initializedRef.current = true;
           return;
         }
 
@@ -233,7 +250,7 @@ export function PermissionsProvider({
           if (cached) {
             setCapabilities(cached);
             setLoading(false);
-            void refreshPermissions({ background: true, userId, tenantId: tenantIdResolved });
+            initializedRef.current = true; // Marcar como inicializado com cache
             return;
           }
         }
@@ -241,9 +258,11 @@ export function PermissionsProvider({
         setCapabilities(null);
         setLoading(true);
         await refreshPermissions({ background: false, userId, tenantId: tenantIdResolved });
+        initializedRef.current = true; // Marcar como inicializado após carregamento
       } catch (e) {
         console.warn("Erro ao iniciar permissoes", e);
         setLoading(false);
+        initializedRef.current = true;
       }
     };
 

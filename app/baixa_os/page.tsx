@@ -127,7 +127,7 @@ const statusLabels: Record<string, { label: string; className: string }> = {
 
 export default function BaixaOsPage() {
   const supabase = supabaseBrowser();
-  const { empresaId } = useTenantEmpresa();
+  const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
 
   const [os, setOs] = useState("");
   const [osDescricao, setOsDescricao] = useState("");
@@ -136,6 +136,7 @@ export default function BaixaOsPage() {
   const [osClienteNome, setOsClienteNome] = useState("");
   const [osLoading, setOsLoading] = useState(false);
   const [osError, setOsError] = useState<string | null>(null);
+  const [tenantValidated, setTenantValidated] = useState(false);
 
   const [rows, setRows] = useState<ItemRow[]>([createEmptyRow()]);
   const [error, setError] = useState<string | null>(null);
@@ -555,6 +556,15 @@ export default function BaixaOsPage() {
   }, [os, fetchOs]);
 
   useEffect(() => {
+    if (tenantLoading) return;
+    if (!tenantId) {
+      setError("Tenant não carregado. Recarregue a página.");
+      return;
+    }
+    setTenantValidated(true);
+  }, [tenantLoading, tenantId]);
+
+  useEffect(() => {
     const timeoutsRef = itemDebounceRef.current;
     return () => {
       if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
@@ -758,6 +768,7 @@ export default function BaixaOsPage() {
                 <input
                   value={os}
                   onChange={(e) => setOs(e.target.value)}
+                  disabled={!tenantValidated}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && os.trim() === "") {
                       e.preventDefault();

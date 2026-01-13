@@ -85,7 +85,7 @@ declare
   v_has_os boolean;
 begin
   if p_nf_json is null then
-    raise exception 'p_nf_json é obrigatório';
+    raise exception 'p_nf_json Ã© obrigatÃ³rio';
   end if;
 
   v_chave := nullif(trim(p_nf_json->>'chave'), '');
@@ -93,7 +93,7 @@ begin
     raise exception 'NF sem chave (p_nf_json.chave)';
   end if;
 
-  -- Já existe?
+  -- JÃ¡ existe?
   select id into v_nf_id
   from public.nf_entrada
   where chave = v_chave
@@ -101,7 +101,7 @@ begin
 
   if v_nf_id is not null then
     status := 'ja_importada';
-    message := 'NF já importada';
+    message := 'NF jÃ¡ importada';
     nf_entrada_id := v_nf_id;
     return next;
     return;
@@ -123,7 +123,7 @@ begin
       where os.id = p_os_id
         and os.tenant_id = p_tenant_id
     ) then
-      raise exception 'OS inválida (id=%) para este tenant', p_os_id;
+      raise exception 'OS invÃ¡lida (id=%) para este tenant', p_os_id;
     end if;
   end if;
 
@@ -222,7 +222,7 @@ begin
     p_tenant_id
   from jsonb_array_elements(coalesce(p_itens_json, '[]'::jsonb)) elem;
 
-  -- 3) Movimentações (ENTRADA)
+  -- 3) MovimentaÃ§Ãµes (ENTRADA)
   insert into public.movimentacoes (
     item_id,
     tipo,
@@ -271,10 +271,10 @@ begin
   -- 4) Financeiro (opcional): contas a pagar por parcelas
   if coalesce(p_gerar_contas_pagar, false) then
     if not public.has_permission('financeiro.gerenciar') then
-      raise exception 'Sem permissão financeiro.gerenciar para gerar contas a pagar';
+      raise exception 'Sem permissÃ£o financeiro.gerenciar para gerar contas a pagar';
     end if;
 
-    -- categoria "Compras (NF Entrada)" por tenant (cria se não existir)
+    -- categoria "Compras (NF Entrada)" por tenant (cria se nÃ£o existir)
     select c.id into v_categoria_id
     from public.financeiro_categorias c
     where c.tenant_id = p_tenant_id
@@ -290,7 +290,7 @@ begin
 
     v_parcelamento_id := gen_random_uuid();
 
-    -- Se não veio parcelas_json, cria 1 parcela padrão (à vista)
+    -- Se nÃ£o veio parcelas_json, cria 1 parcela padrÃ£o (Ã  vista)
     if p_parcelas_json is null or jsonb_typeof(p_parcelas_json) <> 'array' or jsonb_array_length(p_parcelas_json) = 0 then
       p_parcelas_json := jsonb_build_array(
         jsonb_build_object(
@@ -309,7 +309,7 @@ begin
       raise exception 'Soma das parcelas (%.2f) difere do total da NF (%.2f)', v_soma_parcelas, v_total_nf;
     end if;
 
-    -- Insere 1 título por parcela
+    -- Insere 1 tÃ­tulo por parcela
     insert into public.financeiro_titulos (
       tenant_id,
       natureza,
@@ -337,7 +337,7 @@ begin
       (p->>'vencimento')::date,
       (p->>'valor')::numeric,
       v_parcelamento_id,
-      'Gerado automaticamente na importação XML',
+      'Gerado automaticamente na importaÃ§Ã£o XML',
       v_nf_id,
       nullif(p->>'numero',''),
       p_fornecedor_id
@@ -345,7 +345,7 @@ begin
     on conflict do nothing;
   end if;
 
-  -- 5) Vincular OS + criar/atualizar os_itens + baixa automática (opcional)
+  -- 5) Vincular OS + criar/atualizar os_itens + baixa automÃ¡tica (opcional)
   if v_has_os then
     for v_it in select * from jsonb_array_elements(coalesce(p_itens_json, '[]'::jsonb))
     loop
@@ -366,14 +366,14 @@ begin
       );
 
       if v_item_id is null or v_item_id <= 0 then
-        raise exception 'Item inválido em p_itens_json (item_id=%)', v_it->>'item_id';
+        raise exception 'Item invÃ¡lido em p_itens_json (item_id=%)', v_it->>'item_id';
       end if;
 
       if v_qtd <= 0 then
-        raise exception 'Quantidade inválida para item_id=% (qtd=%)', v_item_id, v_qtd;
+        raise exception 'Quantidade invÃ¡lida para item_id=% (qtd=%)', v_item_id, v_qtd;
       end if;
 
-      -- update se já existe
+      -- update se jÃ¡ existe
       with upd as (
         update public.os_itens oi
            set quantidade = oi.quantidade + v_qtd,
@@ -399,11 +399,11 @@ begin
         end,
         v_vtotal,
         0, 0, p_baixar_os,
-        ('Gerado via importação NF-e ' || v_chave),
+        ('Gerado via importaÃ§Ã£o NF-e ' || v_chave),
         p_tenant_id
       where not exists (select 1 from upd);
 
-      -- baixa automática: cria uma SAÍDA referenciando OS
+      -- baixa automÃ¡tica: cria uma SAÃDA referenciando OS
       if p_baixar_os then
         insert into public.movimentacoes (
           item_id,
@@ -421,7 +421,7 @@ begin
           v_item_id,
           'saida',
           v_qtd,
-          ('Baixa automática OS ' || p_os_id || ' via NF-e ' || v_chave),
+          ('Baixa automÃ¡tica OS ' || p_os_id || ' via NF-e ' || v_chave),
           'sistema',
           now(),
           v_nf_id,

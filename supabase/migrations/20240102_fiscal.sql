@@ -1,8 +1,8 @@
--- Fiscal e custo real - criação de tabelas e colunas complementares
--- Idempotente para reexecução segura
+-- Fiscal e custo real - criaÃ§Ã£o de tabelas e colunas complementares
+-- Idempotente para reexecuÃ§Ã£o segura
 begin;
 
--- Função utilitária para atualizar updated_at
+-- FunÃ§Ã£o utilitÃ¡ria para atualizar updated_at
 create or replace function public.set_updated_at()
 returns trigger as $$
 begin
@@ -55,7 +55,7 @@ begin
   end if;
 end$$;
 
--- Cabeçalho da NF de entrada
+-- CabeÃ§alho da NF de entrada
 create table if not exists public.nf_entrada (
   id bigserial primary key,
   chave text not null,
@@ -76,7 +76,7 @@ create table if not exists public.nf_entrada (
   updated_at timestamptz not null default now()
 );
 
--- Constrangimento de não nulo/único para chave
+-- Constrangimento de nÃ£o nulo/Ãºnico para chave
 do $$
 begin
   if exists (select 1 from information_schema.columns where table_schema='public' and table_name='nf_entrada' and column_name='chave') then
@@ -185,7 +185,7 @@ begin
   end if;
 end$$;
 
--- Índices
+-- Ãndices
 create index if not exists idx_nf_entrada_data_emissao on public.nf_entrada(data_emissao);
 create index if not exists idx_nf_entrada_itens_item on public.nf_entrada_itens(item_id);
 create index if not exists idx_mov_origem_nf on public.movimentacoes(origem_nf_entrada_id);
