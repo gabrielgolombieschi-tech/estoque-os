@@ -135,6 +135,24 @@ export async function getAllowedEmpresas(
     throw new Error("Usuario nao autenticado.");
   }
 
+  // 0) Tenta RPC seguro primeiro (funciona mesmo se empresa_memberships tiver RLS restritiva)
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("list_user_empresas", {
+      p_tenant_id: tenantId,
+    });
+    if (!rpcErr && rpcData && rpcData.length > 0) {
+      return (rpcData as EmpresaRow[])
+        .filter((row) => row.ativo !== false)
+        .map((row) => ({
+          id: String(row.id),
+          nome: row.nome ?? null,
+        }));
+    }
+  } catch {
+    // RPC não existe ainda (banco antigo), continua para fallbacks
+  }
+
+  // 1) Tenta query direta em empresa_memberships (com RLS)
   const { data, error } = await supabase
     .from("empresa_memberships")
     .select("empresa_id, criado_em")
@@ -144,19 +162,32 @@ export async function getAllowedEmpresas(
     .order("criado_em", { ascending: true });
 
   if (error) {
+    // 2) Tabela não existe (ambiente antigo)
     if (isMissingRelation(error, "empresa_memberships")) {
       return fetchEmpresasByTenant(supabase, tenantId);
     }
 
-    const isAdmin = await hasAdminAccess(supabase);
-    if (isAdmin) {
+    // 3) RLS bloqueou (coordenador ou outro role sem acesso direto)
+    // Fallback: tenta listar empresas do tenant direto (sem usar empresa_memberships)
+    try {
       const fallback = await fetchEmpresasByTenant(supabase, tenantId);
-      await seedEmpresaMemberships(supabase, tenantId, userId, fallback);
-      return fallback;
+      if (fallback.length > 0) {
+        // Sucesso! Tenta seed para próximas vezes
+        try {
+          await seedEmpresaMemberships(supabase, tenantId, userId, fallback);
+        } catch {
+          // seed falhou, mas já temos as empresas
+        }
+        return fallback;
+      }
+    } catch {
+      // fallback também falhou
     }
 
+    // 4) Se chegou aqui, instrui o usuário
     throw new Error(
-      "Nao foi possivel carregar empresas. Verifique permissao de SELECT em empresa_memberships."
+      "Nao foi possivel carregar empresas. Verifique permissao de SELECT em empresa_memberships. " +
+      "Se o problema persistir, o admin pode executar: npm run db:migrate"
     );
   }
 

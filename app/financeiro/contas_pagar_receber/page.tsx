@@ -671,6 +671,7 @@ export default function ContasPagarReceberPage() {
                   value={formVencimento}
                   onChange={(e) => setFormVencimento(e.target.value)}
                   className="w-full mt-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                  aria-label="Vencimento"
                 />
               </div>
 
@@ -693,6 +694,7 @@ export default function ContasPagarReceberPage() {
                   value={formCategoria}
                   onChange={(e) => setFormCategoria(e.target.value)}
                   className="w-full mt-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                  aria-label="Categoria"
                 >
                   <option value="">Selecione...</option>
                   {categorias.map((cat) => (
@@ -717,6 +719,7 @@ export default function ContasPagarReceberPage() {
                       value={formDataBaixa}
                       onChange={(e) => setFormDataBaixa(e.target.value)}
                       className="w-full mt-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                      aria-label="Data da Baixa"
                     />
                   </div>
 

@@ -334,9 +334,9 @@ export default function ColaboradoresPage() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+    <div className="p-4 space-y-4">
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold">
           Colaboradores
         </h1>
         <button
@@ -346,77 +346,69 @@ export default function ColaboradoresPage() {
         >
           + Novo
         </button>
-        {loading && <span>Carregando...</span>}
+        {loading && <span className="text-zinc-400">Carregando...</span>}
       </div>
 
       {errorMsg && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: 10,
-            border: "1px solid #7a2",
-            borderRadius: 8,
-            background: "rgba(120,160,40,0.12)",
-          }}
-        >
+        <div className="mt-3 p-3 border border-lime-600/50 rounded-lg bg-lime-900/10 text-lime-300 text-sm">
           {errorMsg}
         </div>
       )}
 
-      <div style={{ marginTop: 12, border: "1px solid #333", borderRadius: 8 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left" }}>
-              <th style={{ padding: 10, borderBottom: "1px solid #333" }}>
+      <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950">
+        <table className="w-full text-sm">
+          <thead className="bg-zinc-900/50">
+            <tr className="text-left">
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 ID
               </th>
-              <th style={{ padding: 10, borderBottom: "1px solid #333" }}>
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Nome
               </th>
-              <th style={{ padding: 10, borderBottom: "1px solid #333" }}>
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Cargo
               </th>
-              <th style={{ padding: 10, borderBottom: "1px solid #333" }}>
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Valor/hora (vigente)
               </th>
-              <th style={{ padding: 10, borderBottom: "1px solid #333" }}>
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Ativo
               </th>
-              <th style={{ padding: 10, borderBottom: "1px solid #333" }}>
-                Acoes
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
+                Ações
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-zinc-800">
             {rows.map((r, idx) => (
-              <tr key={r.id}>
-                <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+              <tr key={r.id} className="hover:bg-zinc-900/40">
+                <td className="px-3 py-2 text-zinc-400">
                   {idx + 1}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                <td className="px-3 py-2 text-zinc-200">
                   {r.nome}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                <td className="px-3 py-2 text-zinc-300">
                   {r.cargo ?? "-"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                <td className="px-3 py-2 text-zinc-300">
                   {r.valor_hora != null ? `R$ ${Number(r.valor_hora).toFixed(2)}` : "-"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                  {r.ativo ? "Sim" : "Nǜo"}
+                <td className="px-3 py-2 text-zinc-300">
+                  {r.ativo ? "Sim" : "Não"}
                 </td>
-                <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                <td className="px-3 py-2 space-x-2">
                   <button
                     onClick={() => abrirEditar(r)}
                     disabled={loading}
-                    className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                    className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
                   >
                     Editar
-                  </button>{" "}
+                  </button>
                   <button
                     onClick={() => toggleAtivo(r)}
                     disabled={loading}
-                    className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                    className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
                   >
                     {r.ativo ? "Desativar" : "Ativar"}
                   </button>
@@ -425,7 +417,7 @@ export default function ColaboradoresPage() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td style={{ padding: 10 }} colSpan={6}>
+                <td className="px-3 py-4 text-zinc-400 text-center" colSpan={6}>
                   Nenhum colaborador cadastrado.
                 </td>
               </tr>
@@ -435,47 +427,34 @@ export default function ColaboradoresPage() {
       </div>
 
       {modalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              width: 520,
-              maxWidth: "100%",
-              background: "#111",
-              border: "1px solid #333",
-              borderRadius: 12,
-              padding: 16,
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-zinc-900 border border-zinc-700 rounded-xl p-6 space-y-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-zinc-100">
               {editId ? "Editar colaborador" : "Novo colaborador"}
             </h2>
 
-            <div style={{ display: "grid", gap: 10 }}>
-              <label>
-                Nome*
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-sm text-zinc-300">
+                  Nome*
+                </label>
                 <input
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  style={{ width: "100%" }}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                  aria-label="Nome do colaborador"
                 />
-              </label>
+              </div>
 
-              <label>
-                Cargo
+              <div className="space-y-1">
+                <label className="text-sm text-zinc-300">
+                  Cargo
+                </label>
                 <select
                   value={cargo}
                   onChange={(e) => setCargo(e.target.value)}
-                  style={{ width: "100%" }}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                  aria-label="Cargo do colaborador"
                 >
                   <option value="">Selecione</option>
                   <option value="AUXILIAR MEC">AUXILIAR MEC</option>
@@ -489,59 +468,68 @@ export default function ColaboradoresPage() {
                   <option value="COORDENADOR">COORDENADOR</option>
                   <option value="TEC. SEGURANÇA">TEC. SEGURANÇA</option>
                 </select>
-              </label>
+              </div>
 
-              <label>
-                Valor/hora (para custo)
+              <div className="space-y-1">
+                <label className="text-sm text-zinc-300">
+                  Valor/hora (para custo)
+                </label>
                 <input
                   value={valorHora}
                   onChange={(e) => setValorHora(e.target.value)}
                   placeholder="Ex: 85,00"
-                  style={{ width: "100%" }}
+                  aria-label="Valor hora do colaborador"
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
                 />
                 {editId && (
-                  <small style={{ opacity: 0.8 }}>
-                    * Ao editar, so cria nova taxa se voce realmente mudar o valor.
+                  <small className="text-zinc-400 block mt-1">
+                    * Ao editar, só cria nova taxa se você realmente mudar o valor.
                   </small>
                 )}
                 {!editId && (
-                  <small style={{ opacity: 0.8 }}>
-                    * No cadastro, o valor/hora e obrigatorio.
+                  <small className="text-zinc-400 block mt-1">
+                    * No cadastro, o valor/hora é obrigatório.
                   </small>
                 )}
-              </label>
+              </div>
 
-              <label>
-                Vigencia inicio (para nova taxa)
+              <div className="space-y-1">
+                <label className="text-sm text-zinc-300">
+                  Vigência início (para nova taxa)
+                </label>
                 <input
                   type="date"
                   value={vigenciaInicio}
                   onChange={(e) => setVigenciaInicio(e.target.value)}
+                  aria-label="Data de vigência inicial"
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
                 />
-              </label>
+              </div>
 
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
                 <input
                   type="checkbox"
                   checked={ativo}
                   onChange={(e) => setAtivo(e.target.checked)}
+                  className="w-4 h-4"
                 />
                 Ativo
               </label>
             </div>
 
-            <div
-              style={{
-                marginTop: 14,
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-              }}
-            >
-              <button onClick={() => setModalOpen(false)} disabled={loading}>
+            <div className="border-t border-zinc-700 pt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setModalOpen(false)}
+                disabled={loading}
+                className="px-4 py-2 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              >
                 Cancelar
               </button>
-              <button onClick={salvar} disabled={loading}>
+              <button
+                onClick={salvar}
+                disabled={loading}
+                className="px-4 py-2 rounded bg-zinc-100 text-zinc-900 hover:bg-white font-medium text-sm"
+              >
                 Salvar
               </button>
             </div>
