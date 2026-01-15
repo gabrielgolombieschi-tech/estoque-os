@@ -83,7 +83,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isFullWidth = pathname === "/itens";
   const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
-  const [openMenu, setOpenMenu] = useState<"os" | "estoque" | "financeiro" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"os" | "estoque" | "financeiro" | "cadastro" | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -100,11 +100,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const canAccessFornecedores = can("estoque.read") || can("estoque.write") || can("cad_fornecedores.write");
   const canAccessFinanceiro = can("financeiro.read");
   const canAccessAdmin = can("admin.manage_users");
+  const canAccessTabelasHH = can("os.read"); // Mesmo guard que OS
+  const canAccessCadastros = can("admin.manage_users") || can("financeiro.read");
+  const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read"); // Contratos HH - Admin, Financeiro ou Apontador
+  const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read"); // Colaboradores - Admin ou Financeiro
+  const canAccessClientesCad = can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write"); // Clientes - Admin, Financeiro, Coordenação
+  const canAccessFornecedoresCad = can("admin.manage_users") || can("financeiro.read") || can("cad_fornecedores.write") || can("estoque.read") || can("estoque.write"); // Fornecedores - Admin, Financeiro, Coordenação, Estoque
 
-  const toggleMenu = (key: "os" | "estoque" | "financeiro") =>
+  const toggleMenu = (key: "os" | "estoque" | "financeiro" | "cadastro" | null) =>
     setOpenMenu((prev) => (prev === key ? null : key));
 
-  const openWithHover = (key: "os" | "estoque" | "financeiro") => {
+  const openWithHover = (key: "os" | "estoque" | "financeiro" | "cadastro") => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     setOpenMenu(key);
   };
@@ -452,11 +458,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             Apontamentos Horas
                           </Link>
                         )}
-                        {canAccessClientes && (
-                          <Link href="/os/clientes" className="block px-3 py-2 hover:bg-zinc-900">
-                            Clientes
-                          </Link>
-                        )}
+
                       </div>
                     )}
                   </div>
@@ -502,14 +504,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             Movimentacoes
                           </Link>
                         )}
-                        {canAccessFornecedores && (
-                          <Link
-                            href="/estoque/fornecedores"
-                            className="block px-3 py-2 hover:bg-zinc-900"
-                          >
-                            Fornecedores
-                          </Link>
-                        )}
+
                       </div>
                     )}
                   </div>
@@ -541,6 +536,91 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         >
                           Contas a pagar/Receber
                         </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {permissionsReady && canAccessCadastros && (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => openWithHover("cadastro")}
+                    onMouseLeave={scheduleClose}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("cadastro")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
+                    >
+                      Cadastros
+                    </button>
+
+                    {openMenu === "cadastro" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-56 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("cadastro")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        {canAccessContratos && (
+                          <>
+                            <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Contratos HH</div>
+                            <Link
+                              href="/cadastros/hh/tabelas"
+                              className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                            >
+                              Tabelas
+                            </Link>
+                            <Link
+                              href="/cadastros/hh/especialidades"
+                              className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                            >
+                              Especialidades
+                            </Link>
+                            <Link
+                              href="/cadastros/hh/servicos-cliente"
+                              className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                            >
+                              Valores
+                            </Link>
+                            <Link
+                              href="/cadastros/hh/colaboradores-cliente"
+                              className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                            >
+                              Colaboradores × Cliente
+                            </Link>
+                            <div className="border-t border-zinc-800 my-2"></div>
+                          </>
+                        )}
+                        {canAccessColaboradores && (
+                          <>
+                            <Link
+                              href="/colaboradores"
+                              className="block px-3 py-2 hover:bg-zinc-900"
+                            >
+                              Colaboradores
+                            </Link>
+                            <div className="border-t border-zinc-800 my-2"></div>
+                          </>
+                        )}
+                        {canAccessClientesCad && (
+                          <>
+                            <Link
+                              href="/clientes"
+                              className="block px-3 py-2 hover:bg-zinc-900"
+                            >
+                              Clientes
+                            </Link>
+                            <div className="border-t border-zinc-800 my-2"></div>
+                          </>
+                        )}
+                        {canAccessFornecedoresCad && (
+                          <Link
+                            href="/estoque/fornecedores"
+                            className="block px-3 py-2 hover:bg-zinc-900"
+                          >
+                            Fornecedores
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>

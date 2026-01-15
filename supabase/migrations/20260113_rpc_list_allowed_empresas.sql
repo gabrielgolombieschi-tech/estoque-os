@@ -15,7 +15,7 @@ SET search_path = public
 AS $$
   SELECT
     e.id,
-    COALESCE(e.nome, e.nome_fantasia, e.razao_social),
+    COALESCE(e.nome_fantasia, e.razao_social, 'Empresa '||e.id::text) AS nome,
     e.ativo
   FROM public.empresas e
   WHERE e.tenant_id = p_tenant_id

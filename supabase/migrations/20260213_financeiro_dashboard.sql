@@ -1,10 +1,13 @@
 begin;
 
 -- Drop functions if they exist to allow idempotent migration
-DROP FUNCTION IF EXISTS public.financeiro_dashboard_resumo(uuid, date, date, text, text, uuid, bigint, text);
-DROP FUNCTION IF EXISTS public.financeiro_titulos_listar(uuid, date, date, text, text, uuid, bigint, text, integer, integer);
+-- COMENTADO: Requer tabelas financeiro_movimentos, financeiro_titulos, etc.
+-- DROP FUNCTION IF EXISTS public.financeiro_dashboard_resumo(uuid, date, date, text, text, uuid, bigint, text);
+-- DROP FUNCTION IF EXISTS public.financeiro_titulos_listar(uuid, date, date, text, text, uuid, bigint, text, integer, integer);
 
 -- Resumo do painel financeiro
+-- COMENTADO: Será criado quando a infraestrutura de financeiro estiver pronta
+/*
 CREATE FUNCTION public.financeiro_dashboard_resumo(
   p_tenant_id uuid,
   p_data_ini date,
@@ -24,8 +27,8 @@ WITH titulos AS (
          t.valor_original, t.total_baixado, t.saldo, t.atrasado, t.categoria_id
   FROM public.vw_financeiro_titulos_com_saldo t
   WHERE t.tenant_id = p_tenant_id
-    AND (p_status IS NULL OR p_status = '' OR t.status = p_status)
-    AND (p_natureza IS NULL OR p_natureza = '' OR t.natureza = p_natureza)
+    AND (p_status IS NULL OR p_status = '' OR t.status = p_status::public.financeiro_status_titulo)
+    AND (p_natureza IS NULL OR p_natureza = '' OR t.natureza = p_natureza::public.financeiro_natureza_titulo)
     AND (p_categoria_id IS NULL OR t.categoria_id = p_categoria_id)
     AND (
       p_q IS NULL OR p_q = '' OR
@@ -43,8 +46,8 @@ WITH titulos AS (
          SUM(CASE WHEN t.natureza = 'PAGAR' THEN m.valor_liquido ELSE 0 END) AS pagamentos_periodo
   FROM movimentos m
   JOIN public.financeiro_titulos t ON t.id = m.titulo_id AND t.tenant_id = p_tenant_id
-  WHERE (p_status IS NULL OR p_status = '' OR t.status = p_status)
-    AND (p_natureza IS NULL OR p_natureza = '' OR t.natureza = p_natureza)
+  WHERE (p_status IS NULL OR p_status = '' OR t.status = p_status::public.financeiro_status_titulo)
+    AND (p_natureza IS NULL OR p_natureza = '' OR t.natureza = p_natureza::public.financeiro_natureza_titulo)
     AND (p_categoria_id IS NULL OR t.categoria_id = p_categoria_id)
     AND (
       p_q IS NULL OR p_q = '' OR
@@ -82,8 +85,12 @@ SELECT jsonb_build_object(
   'saldoFinal', (SELECT valor FROM saldo_hoje) + (SELECT receber_previsto - pagar_previsto FROM previsao_ate_fim)
 );
 $$;
+*/
 
 -- Listagem de titulos com filtros (paginada)
+-- COMENTADO: Requer tabelas financeiro_movimentos, financeiro_titulos, etc.
+-- Será criado quando a infraestrutura de financeiro estiver pronta
+/*
 CREATE FUNCTION public.financeiro_titulos_listar(
   p_tenant_id uuid,
   p_data_ini date,
@@ -121,8 +128,8 @@ WITH base AS (
   LEFT JOIN public.clientes cl ON cl.id = t.cliente_id AND cl.tenant_id = t.tenant_id
   LEFT JOIN public.pessoas p ON p.id = t.pessoa_id AND p.tenant_id = t.tenant_id
   WHERE t.tenant_id = p_tenant_id
-    AND (p_status IS NULL OR p_status = '' OR t.status = p_status)
-    AND (p_natureza IS NULL OR p_natureza = '' OR t.natureza = p_natureza)
+    AND (p_status IS NULL OR p_status = '' OR t.status = p_status::public.financeiro_status_titulo)
+    AND (p_natureza IS NULL OR p_natureza = '' OR t.natureza = p_natureza::public.financeiro_natureza_titulo)
     AND (p_categoria_id IS NULL OR t.categoria_id = p_categoria_id)
     AND (p_fornecedor_id IS NULL OR t.fornecedor_id = p_fornecedor_id OR t.cliente_id = p_fornecedor_id OR t.pessoa_id = p_fornecedor_id)
     AND (
@@ -139,6 +146,7 @@ ORDER BY b.vencimento ASC
 LIMIT COALESCE(p_limit, 500)
 OFFSET COALESCE(p_offset, 0);
 $$;
+*/
 
 -- Make sure PostgREST is aware of new functions, if applicable
 DO $$ BEGIN

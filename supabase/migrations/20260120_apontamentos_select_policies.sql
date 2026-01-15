@@ -15,7 +15,12 @@ create policy colaboradores_perm_select on public.colaboradores
   to authenticated
   using (
     tenant_id = public.current_tenant_id()
-    and public.has_permission('apontamentos.lancar')
+    and (
+      public.can('apontamentos', 'read')
+      or public.can('os', 'read')
+      or public.can('admin', 'manage_users')
+      or public.can('financeiro', 'read')
+    )
   );
 
 drop policy if exists tipos_horas_perm_select on public.tipos_horas;

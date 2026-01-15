@@ -12,6 +12,7 @@ type Cliente = {
   endereco: string | null;
   observacoes: string | null;
   ativo: boolean;
+  habilita_hh: boolean;
 };
 
 type Form = {
@@ -22,6 +23,7 @@ type Form = {
   endereco: string;
   observacoes: string;
   ativo: boolean;
+  habilita_hh: boolean;
 };
 
 type ClientePayload = {
@@ -32,6 +34,7 @@ type ClientePayload = {
   endereco: string | null;
   observacoes: string | null;
   ativo: boolean;
+  habilita_hh: boolean;
   atualizado_em: string;
 };
 
@@ -46,6 +49,7 @@ function emptyForm(): Form {
     endereco: "",
     observacoes: "",
     ativo: true,
+    habilita_hh: false,
   };
 }
 
@@ -112,6 +116,7 @@ export default function ClientesPage() {
       endereco: r.endereco ?? "",
       observacoes: r.observacoes ?? "",
       ativo: !!r.ativo,
+      habilita_hh: !!r.habilita_hh,
     });
     setErr(null);
     setOk(null);
@@ -132,8 +137,7 @@ export default function ClientesPage() {
       telefone: form.telefone.trim() || null,
       endereco: form.endereco.trim() || null,
       observacoes: form.observacoes.trim() || null,
-      ativo: !!form.ativo,
-      atualizado_em: new Date().toISOString(),
+      ativo: !!form.ativo,      habilita_hh: form.habilita_hh,      atualizado_em: new Date().toISOString(),
     };
 
     let error: DbError = null;
@@ -270,6 +274,22 @@ export default function ClientesPage() {
                 Ativo
               </label>
             </div>
+
+            <div className="md:col-span-2 border border-zinc-800 rounded-lg px-4 py-3 bg-zinc-900/40 space-y-3">
+              <div className="text-sm font-medium text-zinc-200">Configurações de Serviço</div>
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={form.habilita_hh}
+                  onChange={(e) => setForm((s) => ({ ...s, habilita_hh: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                Habilitar serviços de Hora-Homem (HH) para este cliente
+              </label>
+              <div className="text-xs text-zinc-400">
+                Ao habilitar, você poderá configurar tabelas de preços, especialidades e lançar apontamentos de horas para este cliente.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -281,6 +301,7 @@ export default function ClientesPage() {
                 <th className="px-4 py-3 text-left">Doc</th>
                 <th className="px-4 py-3 text-left">Contato</th>
                 <th className="px-4 py-3 text-center">Ativo</th>
+                <th className="px-4 py-3 text-center">HH</th>
                 <th className="px-4 py-3 text-center">Ações</th>
               </tr>
             </thead>
@@ -294,6 +315,21 @@ export default function ClientesPage() {
                     <div className="text-xs text-zinc-400">{r.email ?? ""}</div>
                   </td>
                   <td className="px-4 py-3 text-center">{r.ativo ? "✅" : "—"}</td>
+                  <td className="px-4 py-3 text-center">
+                    {r.habilita_hh ? (
+                      <a
+                        href={`/cadastros/hh/servicos-cliente?cliente_id=${r.id}`}
+                        className="text-blue-400 hover:text-blue-300 hover:underline text-xs"
+                        title="Configurar serviços HH"
+                      >
+                        ⚙️ Config
+                      </a>
+                    ) : (
+                      <span className="text-zinc-600 text-xs" title="HH não habilitado">
+                        —
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={() => editar(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">

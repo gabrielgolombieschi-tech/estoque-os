@@ -6,8 +6,10 @@ import { useParams } from "next/navigation";
 import { supabaseBrowser } from "../../../lib/supabase/client";
 import { parseDecimalBR, formatDecimalBR } from "../../../lib/decimal";
 import MaoObraCard from "../../components/os/MaoObraCard";
+import RelatorioHHSection from "./components/RelatorioHHSection";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant } from "@/lib/db/scopes";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type Cliente = { id: number; nome: string; ativo: boolean };
 
@@ -25,6 +27,7 @@ type OS = {
   tem_gestao?: boolean | null;
   pedido_compra?: string | null;
   vendedor?: string | null;
+  usa_relatorio_hh?: boolean | null;
 };
 
 type OsItemRow = {
@@ -115,6 +118,7 @@ function orderGestaoItems(items: GestaoItem[]): GestaoItem[] {
 export default function OsDetailPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { has } = usePermissions();
   const params = useParams();
   const osId = Number(params.id);
 
@@ -158,6 +162,7 @@ export default function OsDetailPage() {
   const [gestaoErr, setGestaoErr] = useState<string | null>(null);
   const [maoObraExtra, setMaoObraExtra] = useState<number>(0);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteHabilitaHH, setClienteHabilitaHH] = useState(false);
 
   const [showEdit, setShowEdit] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -168,7 +173,10 @@ export default function OsDetailPage() {
   const [pedidoCompra, setPedidoCompra] = useState("");
   const [tipoPedido, setTipoPedido] = useState<"servico" | "material">("servico");
   const [vendedor, setVendedor] = useState("");
-  const [orcado, setOrcado] = useState("");
+  const [orcadoInput, setOrcadoInput] = useState("");
+  const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"itens" | "hh">("itens");
 
   // adicionar item
   const [q, setQ] = useState("");
@@ -193,6 +201,22 @@ export default function OsDetailPage() {
   const formatMoney = (v: number) =>
     Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const toNum = (v: unknown) => {
+    if (v == null) return 0;
+    if (typeof v === "number") return v;
+    if (typeof v === "string") return Number(v.replace(",", ".")) || 0;
+    return 0;
+  };
+
+  const hhEnabled = clienteHabilitaHH;
+  const canReadOs = Boolean(has("os.read"));
+
+  useEffect(() => {
+    if (!hhEnabled && activeTab !== "itens") {
+      setActiveTab("itens");
+    }
+  }, [activeTab, hhEnabled]);
+
   const totais = (() => {
     const materiais = rows
       .filter((r) => r.itens?.tipo === "produto")
@@ -206,7 +230,11 @@ export default function OsDetailPage() {
     return { materiais, maoObra: maoObraTotal, imposto, total };
   })();
 
-  const totalAlert = Number(os?.orcado ?? 0) > 0 && totais.total >= Number(os?.orcado ?? 0) * 0.9;
+  const orcado = toNum(os?.orcado);
+  const valorTotal = toNum(os?.valor_total);
+  const valorOS = orcado > 0 ? orcado : valorTotal;
+
+  const totalAlert = orcado > 0 && totais.total >= orcado * 0.9;
   const totalClass = totalAlert ? "text-red-300 border-red-500/40" : "text-emerald-300 border-emerald-500/40";
 
   const calculateUnitPriceWithTaxes = (item: { preco_unitario?: number | null; aliquota_ipi?: number | null }) => {
@@ -308,7 +336,7 @@ export default function OsDetailPage() {
       supabase
         .from("ordens_servico")
         .select(
-          "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor"
+          "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor,usa_relatorio_hh"
         ),
       tenantId
     )
@@ -323,6 +351,17 @@ export default function OsDetailPage() {
     setOs(osRow);
     setTemGestao(Boolean(osRow.tem_gestao));
     await loadGestaoItens();
+
+    // Carregar flag habilita_hh do cliente
+    if (osRow.cliente_id) {
+      const { data: clienteData } = await applyTenant(
+        supabase.from("clientes").select("habilita_hh").eq("id", osRow.cliente_id).single(),
+        tenantId
+      );
+      setClienteHabilitaHH(Boolean(clienteData?.habilita_hh));
+    } else {
+      setClienteHabilitaHH(false);
+    }
 
     const { data: itemsData, error: itemsErr } = await applyTenant(
       supabase
@@ -364,6 +403,70 @@ export default function OsDetailPage() {
     },
     [os]
   );
+
+  const openEditModal = useCallback(() => {
+    if (!os) return;
+    setShowEdit(true);
+    setClienteId(os.cliente_id ?? null);
+    setClienteNomeLivre(os.cliente_nome ?? "");
+    setDescricao(os.descricao_servico ?? "");
+    setPedidoCompra(os.pedido_compra ?? "");
+    setTipoPedido(os.tipo_pedido as "servico" | "material");
+    setVendedor(os.vendedor ?? "");
+    setOrcadoInput(String(os.orcado ?? ""));
+    setUsaRelatorioHH(Boolean(os.usa_relatorio_hh));
+    setEditErr(null);
+  }, [os]);
+
+  const closeEditModal = useCallback(() => {
+    setShowEdit(false);
+    setEditErr(null);
+  }, []);
+
+  async function saveEdit() {
+    if (!os) return;
+    if (!clienteId && !clienteNomeLivre.trim()) {
+      setEditErr("Selecione um cliente ou informe um nome.");
+      return;
+    }
+
+    const orcadoValor = Number(orcadoInput || 0);
+    if (!Number.isFinite(orcadoValor)) {
+      setEditErr("Valor orcado invalido.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditErr(null);
+
+    const clienteNomeFinal =
+      clienteId ? (clientes.find((c) => c.id === clienteId)?.nome ?? clienteNomeLivre.trim()) : clienteNomeLivre.trim();
+
+    const { error } = await applyTenant(
+      supabase.from("ordens_servico").update({
+        cliente_id: clienteId,
+        cliente_nome: clienteNomeFinal,
+        descricao_servico: descricao.trim() || null,
+        pedido_compra: pedidoCompra.trim() || null,
+        tipo_pedido: tipoPedido,
+        vendedor: vendedor.trim() || null,
+        orcado: orcadoValor,
+        usa_relatorio_hh: usaRelatorioHH,
+        atualizado_em: new Date().toISOString(),
+      }),
+      tenantId ?? ""
+    ).eq("id", os.id);
+
+    setEditSaving(false);
+
+    if (error) {
+      setEditErr(error.message);
+      return;
+    }
+
+    closeEditModal();
+    await load();
+  }
 
   useEffect(() => {
     if (!showGestaoModal) return;
@@ -532,65 +635,6 @@ export default function OsDetailPage() {
     setGestaoErr(null);
     setShowGestaoModal(true);
     loadGestaoItens();
-  }
-
-  function openEditModal() {
-    if (!os) return;
-    setEditErr(null);
-    setClienteId(os.cliente_id ?? null);
-    setClienteNomeLivre(os.cliente_nome ?? "");
-    setDescricao(os.descricao_servico ?? "");
-    setPedidoCompra(os.pedido_compra ?? "");
-    setTipoPedido(os.tipo_pedido === "material" ? "material" : "servico");
-    setVendedor(os.vendedor ?? "");
-    setOrcado(os.orcado != null ? String(os.orcado) : "");
-    setShowEdit(true);
-  }
-
-  async function saveEdit() {
-    if (!os) return;
-    setEditErr(null);
-
-    if (!clienteId && !clienteNomeLivre.trim()) {
-      setEditErr("Selecione um cliente ou informe um nome.");
-      return;
-    }
-
-    const orcadoValor = Number(orcado || 0);
-    if (!Number.isFinite(orcadoValor) || orcadoValor < 0) {
-      setEditErr("Informe um valor orcado valido.");
-      return;
-    }
-
-    setEditSaving(true);
-
-    const clienteNomeFinal = clienteId
-      ? clientes.find((c) => c.id === clienteId)?.nome ?? clienteNomeLivre.trim()
-      : clienteNomeLivre.trim();
-
-    const { error } = await supabase
-      .from("ordens_servico")
-      .update({
-        cliente_id: clienteId,
-        cliente_nome: clienteNomeFinal,
-        descricao_servico: descricao.trim() || null,
-        pedido_compra: pedidoCompra.trim() || null,
-        tipo_pedido: tipoPedido,
-        vendedor: vendedor.trim() || null,
-        orcado: orcadoValor,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("id", os.id);
-
-    setEditSaving(false);
-
-    if (error) {
-      setEditErr(error.message);
-      return;
-    }
-
-    setShowEdit(false);
-    await load();
   }
 
   async function handleSearch(nextNome?: string, nextFornecedor?: string) {
@@ -1036,6 +1080,55 @@ export default function OsDetailPage() {
       {err && <div className="text-sm text-red-400">{err}</div>}
       {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}
 
+      {hhEnabled && canReadOs && (
+        <div className="flex items-center gap-2 border border-zinc-800 rounded-lg p-2 bg-zinc-950">
+          <button
+            type="button"
+            onClick={() => setActiveTab("itens")}
+            className={
+              activeTab === "itens"
+                ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 font-medium"
+                : "px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+            }
+          >
+            Itens/Serviços
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("hh")}
+            className={
+              activeTab === "hh"
+                ? "px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 font-medium"
+                : "px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+            }
+          >
+            Relatório HH
+          </button>
+        </div>
+      )}
+
+      {(!hhEnabled || activeTab === "itens") && (
+        <>
+          {hhEnabled ? (
+            <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <div className="font-medium">Apontamento HH</div>
+                  <div className="text-sm text-zinc-400 mt-1">
+                    Esta OS usa relatório HH. Lance ou consulte apontamentos de horas para gerar o relatório.
+                  </div>
+                </div>
+                <Link
+                  href={`/apontamentos?os_id=${osId}`}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                >
+                  Abrir apontamentos
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+
       {/* Adicionar item */}
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1155,6 +1248,10 @@ export default function OsDetailPage() {
           </div>
         )}
       </div>
+              </>
+            )}
+          </>
+        )}
 
       {showEdit && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1254,8 +1351,8 @@ export default function OsDetailPage() {
                 <input
                   type="number"
                   className="w-full px-3 py-2"
-                  value={orcado}
-                  onChange={(e) => setOrcado(e.target.value)}
+                  value={orcadoInput}
+                  onChange={(e) => setOrcadoInput(e.target.value)}
                   placeholder="0.00"
                   aria-label="Valor pedido"
                   title="Valor pedido"
@@ -1368,166 +1465,168 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {showLookup && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
-          <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
-            <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">Localizar item</div>
-                  <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
-                </div>
-                <button
-                  onClick={() => setShowLookup(false)}
-                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                >
-                  Fechar
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Nome</div>
-                  <input
-                    className="w-full px-3 py-2"
-                    value={lookupNome}
-                    onChange={(e) => setLookupNome(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSearch(e.currentTarget.value, lookupFornecedor);
-                      }
-                    }}
-                    aria-label="Buscar item por nome"
-                    title="Buscar item por nome"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Fornecedor</div>
-                  <input
-                    className="w-full px-3 py-2"
-                    value={lookupFornecedor}
-                    onChange={(e) => setLookupFornecedor(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSearch(lookupNome, e.currentTarget.value);
-                      }
-                    }}
-                    aria-label="Buscar item por fornecedor"
-                    title="Buscar item por fornecedor"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleSearch()}
-                  disabled={lookupBusy}
-                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-                >
-                  {lookupBusy ? "Buscando..." : "Buscar"}
-                </button>
-                <button
-                  onClick={() => {
-                    setLookupNome("");
-                    setLookupFornecedor("");
-                    setLookupRows([]);
-                    setLookupErr(null);
-                    handleSearch("", "");
-                  }}
-                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                >
-                  Limpar
-                </button>
-              </div>
-
-              {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
-
-              <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-auto overscroll-contain">
-                <table className="w-full text-sm min-w-[980px]">
-                  <thead className="bg-zinc-900/70 sticky top-0 z-10">
-                  <tr className="text-left text-zinc-200">
-                    <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("id")}>
-                      ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("codigo")}>
-                      Codigo {sortKey === "codigo" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("descricao")}>
-                      Descricao {sortKey === "descricao" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("fornecedor")}>
-                      Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("ultima")}>
-                      Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="px-4 py-3 text-right cursor-pointer" onClick={() => handleSort("preco")}>
-                      Preco {sortKey === "preco" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                    <th className="px-4 py-3 text-right cursor-pointer" onClick={() => handleSort("estoque")}>
-                      Saldo {sortKey === "estoque" && (sortDir === "asc" ? "▲" : "▼")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {sortedRows.map((it) => (
-                    <tr
-                      key={it.id}
-                      className="hover:bg-zinc-900/40 cursor-pointer"
-                      onClick={() => {
-                        pickItem(it);
-                        setShowLookup(false);
-                      }}
+      {!hhEnabled && (
+        <>
+          {showLookup && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
+              <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
+                <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-semibold">Localizar item</div>
+                      <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
+                    </div>
+                    <button
+                      onClick={() => setShowLookup(false)}
+                      className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                     >
-                      <td className="px-4 py-3 tabular-nums">{it.id}</td>
-                      <td className="px-4 py-3">{it.codigo_interno}</td>
-                      <td className="px-4 py-3">{it.nome}</td>
-                      <td className="px-4 py-3 text-zinc-300">{it.fornecedor ?? "—"}</td>
-                      <td className="px-4 py-3 text-zinc-300">
-                        {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoney(Number(it.preco_unitario ?? 0))}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                      Fechar
+                    </button>
+                  </div>
 
-                  {lookupRows.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
-                        Nenhum resultado ainda. Informe filtros e busque.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Nome</div>
+                      <input
+                        className="w-full px-3 py-2"
+                        value={lookupNome}
+                        onChange={(e) => setLookupNome(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSearch(e.currentTarget.value, lookupFornecedor);
+                          }
+                        }}
+                        aria-label="Buscar item por nome"
+                        title="Buscar item por nome"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Fornecedor</div>
+                      <input
+                        className="w-full px-3 py-2"
+                        value={lookupFornecedor}
+                        onChange={(e) => setLookupFornecedor(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSearch(lookupNome, e.currentTarget.value);
+                          }
+                        }}
+                        aria-label="Buscar item por fornecedor"
+                        title="Buscar item por fornecedor"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSearch()}
+                      disabled={lookupBusy}
+                      className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                    >
+                      {lookupBusy ? "Buscando..." : "Buscar"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLookupNome("");
+                        setLookupFornecedor("");
+                        setLookupRows([]);
+                        setLookupErr(null);
+                        handleSearch("", "");
+                      }}
+                      className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+
+                  {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
+
+                  <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-auto overscroll-contain">
+                    <table className="w-full text-sm min-w-[980px]">
+                      <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                      <tr className="text-left text-zinc-200">
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("id")}>
+                          ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("codigo")}>
+                          Codigo {sortKey === "codigo" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("descricao")}>
+                          Descricao {sortKey === "descricao" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("fornecedor")}>
+                          Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("ultima")}>
+                          Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 text-right cursor-pointer" onClick={() => handleSort("preco")}>
+                          Preco {sortKey === "preco" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 text-right cursor-pointer" onClick={() => handleSort("estoque")}>
+                          Saldo {sortKey === "estoque" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {sortedRows.map((it) => (
+                        <tr
+                          key={it.id}
+                          className="hover:bg-zinc-900/40 cursor-pointer"
+                          onClick={() => {
+                            pickItem(it);
+                            setShowLookup(false);
+                          }}
+                        >
+                          <td className="px-4 py-3 tabular-nums">{it.id}</td>
+                          <td className="px-4 py-3">{it.codigo_interno}</td>
+                          <td className="px-4 py-3">{it.nome}</td>
+                          <td className="px-4 py-3 text-zinc-300">{it.fornecedor ?? "—"}</td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoney(Number(it.preco_unitario ?? 0))}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">
+                            {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+
+                      {lookupRows.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
+                            Nenhum resultado ainda. Informe filtros e busque.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      )}
+          )}
 
-      {/* Tabela itens */}
-      <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-900/60">
-            <tr className="text-left text-zinc-200">
-              <th className="px-4 py-3">ID</th>
-              <th className="px-4 py-3">Item</th>
-              <th className="px-4 py-3 text-right">Qtd</th>
-              <th className="px-4 py-3 text-right">V.Unit</th>
-              <th className="px-4 py-3 text-right">Total</th>
-              <th className="px-4 py-3 text-center">Baixa</th>
-              <th className="px-4 py-3 text-center">Ações</th>
-            </tr>
-          </thead>
+          {/* Tabela itens */}
+          <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-900/60">
+                <tr className="text-left text-zinc-200">
+                  <th className="px-4 py-3">ID</th>
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3 text-right">Qtd</th>
+                  <th className="px-4 py-3 text-right">V.Unit</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-center">Baixa</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
+                </tr>
+              </thead>
 
-          <tbody className="divide-y divide-zinc-800">
-            {rows.map((r) => (
+              <tbody className="divide-y divide-zinc-800">
+                {rows.map((r) => (
               <tr key={r.id} className="hover:bg-zinc-900/40">
                 <td className="px-4 py-3 tabular-nums">{r.item_id}</td>
                 <td className="px-4 py-3">
@@ -1579,6 +1678,155 @@ export default function OsDetailPage() {
           </tbody>
         </table>
       </div>
+        </>
+      )}
+
+      {/* Modal de edição */}
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl my-4">
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold">Editar OS</div>
+                <div className="text-sm text-zinc-400">Atualize os dados da ordem de serviço</div>
+              </div>
+              <button
+                onClick={closeEditModal}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Cliente (cadastro)</div>
+                  <select
+                    aria-label="Cliente (cadastro)"
+                    className="w-full px-3 py-2"
+                    value={clienteId ?? ""}
+                    onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">-</option>
+                    {clientes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Cliente (nome livre)</div>
+                  <input
+                    aria-label="Cliente (nome livre)"
+                    className="w-full px-3 py-2"
+                    value={clienteNomeLivre}
+                    onChange={(e) => setClienteNomeLivre(e.target.value)}
+                    placeholder="Se nao estiver cadastrado"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Pedido de compra</div>
+                  <input
+                    aria-label="Pedido de compra"
+                    className="w-full px-3 py-2"
+                    value={pedidoCompra}
+                    onChange={(e) => setPedidoCompra(e.target.value)}
+                    placeholder="Pedido de compra"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Tipo de pedido</div>
+                  <select
+                    aria-label="Tipo de pedido"
+                    className="w-full px-3 py-2"
+                    value={tipoPedido}
+                    onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
+                  >
+                    <option value="servico">Serviço</option>
+                    <option value="material">Material</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Vendedor</div>
+                  <input
+                    aria-label="Vendedor"
+                    className="w-full px-3 py-2"
+                    value={vendedor}
+                    onChange={(e) => setVendedor(e.target.value)}
+                    placeholder="Vendedor"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Valor orcado</div>
+                  <input
+                    type="number"
+                    aria-label="Valor orcado"
+                    className="w-full px-3 py-2"
+                    value={orcadoInput}
+                    onChange={(e) => setOrcadoInput(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="md:col-span-2 space-y-1">
+                  <div className="text-xs text-zinc-400">Descrição</div>
+                  <textarea
+                    aria-label="Descrição"
+                    className="w-full px-3 py-2 min-h-[80px]"
+                    value={descricao}
+                    onChange={(e) => setDescricao(e.target.value)}
+                    placeholder="Descrição da OS"
+                  />
+                </div>
+              </div>
+
+              <div className="border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={usaRelatorioHH}
+                    onChange={(e) => setUsaRelatorioHH(e.target.checked)}
+                  />
+                  <span className="font-medium">Usar Relatório HH</span>
+                </label>
+                <div className="text-xs text-zinc-400 mt-1">
+                  Habilita a visualização de apontamentos de horas para esta OS. Apenas usuários com permissão podem acessar.
+                </div>
+              </div>
+
+              {editErr && <div className="text-sm text-red-400">{editErr}</div>}
+            </div>
+
+            <div className="px-5 py-3 border-t border-zinc-800 flex justify-end gap-2">
+              <button
+                onClick={closeEditModal}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={editSaving || locked}
+                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+              >
+                {editSaving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hhEnabled && activeTab === "hh" && (
+        <RelatorioHHSection osId={osId} osDetail={{ cliente_id: os?.cliente_id ?? null }} />
+      )}
     </div>
   );
 }

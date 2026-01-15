@@ -17,6 +17,7 @@ type Cliente = {
   endereco: string | null;
   observacoes: string | null;
   ativo: boolean;
+  habilita_hh: boolean;
   criado_em: string;
   atualizado_em: string;
 };
@@ -29,6 +30,7 @@ type ClienteForm = {
   endereco: string;
   observacoes: string;
   ativo: boolean;
+  habilita_hh: boolean;
 };
 
 type SupabaseErrorLike = { code?: string; message?: string } | null | undefined;
@@ -60,6 +62,7 @@ function emptyForm(): ClienteForm {
     endereco: "",
     observacoes: "",
     ativo: true,
+    habilita_hh: false,
   };
 }
 
@@ -162,6 +165,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
         endereco: initial.endereco ?? "",
         observacoes: initial.observacoes ?? "",
         ativo: !!initial.ativo,
+        habilita_hh: !!initial.habilita_hh,
       };
     }
     return emptyForm();
@@ -325,6 +329,21 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
             </div>
           </div>
 
+          <div className="flex items-center justify-between gap-3 border border-zinc-800 rounded-lg p-3">
+            <div className="text-sm">
+              <div className="font-medium">Relatório HH (Hora-Homem)</div>
+              <div className="text-xs text-zinc-400">Habilita lançamento e relatórios de horas nas OSs deste cliente.</div>
+            </div>
+            <label className="text-sm text-zinc-300 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.habilita_hh}
+                onChange={(e) => setForm((s) => ({ ...s, habilita_hh: e.target.checked }))}
+              />
+              Habilitar HH
+            </label>
+          </div>
+
           {mode === "edit" && (
             <div className="flex items-center justify-between gap-3 border border-zinc-800 rounded-lg p-3">
               <div className="text-sm">
@@ -438,7 +457,7 @@ export default function ClientesPage() {
       let query = applyTenant(
         supabase
           .from("clientes")
-          .select("id,tenant_id,nome,documento,email,telefone,endereco,observacoes,ativo,criado_em,atualizado_em"),
+          .select("id,tenant_id,nome,documento,email,telefone,endereco,observacoes,ativo,habilita_hh,criado_em,atualizado_em"),
         tenantId
       ).order("nome", { ascending: true });
 
@@ -762,13 +781,6 @@ export default function ClientesPage() {
                             className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                           >
                             {r.ativo ? "Desativar" : "Ativar"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteCliente(r)}
-                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                          >
-                            Excluir
                           </button>
                         </div>
                       ) : (
