@@ -157,10 +157,6 @@ export default function ApontamentosPage() {
 
   // combos
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
-  const [colaboradoresVinculados, setColaboradoresVinculados] = useState<Colaborador[]>([]);
-  const [clienteIdDaOs, setClienteIdDaOs] = useState<number | null>(null);
-  const [vinculosLoading, setVinculosLoading] = useState(false);
-  const [vinculosError, setVinculosError] = useState<string | null>(null);
   const [tiposHoras, setTiposHoras] = useState<TipoHora[]>([]);
   const [osList, setOsList] = useState<OSRow[]>([]);
 
@@ -199,58 +195,6 @@ export default function ApontamentosPage() {
     }
   }, [supabase]);
 
-  const carregarColaboradoresVinculados = useCallback(async (clienteId: number) => {
-    if (!tenantId || !Number.isFinite(clienteId)) {
-      setColaboradoresVinculados([]);
-      setVinculosError(null);
-      return;
-    }
-
-    setVinculosLoading(true);
-    setVinculosError(null);
-
-    try {
-      // Query 1: buscar colaborador_ids vinculados ao cliente
-      const { data: vinculos, error: vinculosErr } = await supabase
-        .from("colaborador_cliente_funcao")
-        .select("colaborador_id")
-        .eq("tenant_id", tenantId)
-        .eq("cliente_id", clienteId)
-        .eq("ativo", true);
-
-      if (vinculosErr) throw vinculosErr;
-
-      const colaboradorIds = Array.from(
-        new Set((vinculos ?? []).map((v: { colaborador_id: string }) => v.colaborador_id).filter(Boolean))
-      );
-
-      if (colaboradorIds.length === 0) {
-        setColaboradoresVinculados([]);
-        setVinculosError("Nenhum colaborador vinculado ao contrato deste cliente.");
-        return;
-      }
-
-      // Query 2: buscar dados dos colaboradores
-      const { data: colaboradoresData, error: colaboradoresErr } = await supabase
-        .from("colaboradores")
-        .select("id,nome,ativo")
-        .eq("tenant_id", tenantId)
-        .in("id", colaboradorIds)
-        .eq("ativo", true)
-        .order("nome", { ascending: true });
-
-      if (colaboradoresErr) throw colaboradoresErr;
-
-      setColaboradoresVinculados((colaboradoresData ?? []) as Colaborador[]);
-      setVinculosError(null);
-    } catch (e: unknown) {
-      setColaboradoresVinculados([]);
-      setVinculosError(getErrorMessage(e, "Erro ao carregar colaboradores vinculados."));
-    } finally {
-      setVinculosLoading(false);
-    }
-  }, [supabase, tenantId]);
-
   const carregarCombos = useCallback(async () => {
     await ensureTenant();
     const [{ data: c, error: e1 }, { data: th, error: e2 }, { data: os, error: e3 }] =
@@ -279,9 +223,10 @@ export default function ApontamentosPage() {
     setMsg(null);
     try {
       await ensureTenant();
+      
       const q = supabase
         .from("apontamentos_horas")
-        .select("*")
+        .select("id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,tenant_id,hh_especialidade_id")
         .order("data", { ascending: false })
         .order("criado_em", { ascending: false });
 
@@ -290,9 +235,13 @@ export default function ApontamentosPage() {
       if (filtroColabId) q.eq("colaborador_id", filtroColabId);
 
       const { data, error } = await q;
-      if (error) throw error;
+      if (error) {
+        console.error("Erro na query apontamentos_horas:", error);
+        throw error;
+      }
       setApontamentos((data ?? []) as ApontamentoRow[]);
     } catch (e: unknown) {
+      console.error("Erro em carregarApontamentos:", e);
       setMsg(getErrorMessage(e, "Erro ao carregar apontamentos."));
     } finally {
       setLoading(false);
@@ -329,8 +278,6 @@ export default function ApontamentosPage() {
       setOsDescError(null);
       setOsCliente("");
       setOsStatus("");
-      setClienteIdDaOs(null);
-      setColaboradoresVinculados([]);
       return;
     }
 
@@ -371,8 +318,6 @@ export default function ApontamentosPage() {
         setOsDescError("OS nao encontrada");
         setOsCliente("");
         setOsStatus("");
-        setClienteIdDaOs(null);
-        setColaboradoresVinculados([]);
         return;
       }
 
@@ -381,28 +326,16 @@ export default function ApontamentosPage() {
       setOsDbId(found?.id ?? null);
       setOsCliente(found?.cliente_nome ?? "");
       setOsStatus(found?.status ?? "");
-
-      // Carregar colaboradores vinculados ao cliente
-      const clienteId = found?.cliente_id;
-      if (clienteId) {
-        setClienteIdDaOs(clienteId);
-        await carregarColaboradoresVinculados(clienteId);
-      } else {
-        setClienteIdDaOs(null);
-        setColaboradoresVinculados([]);
-      }
     } catch (e: unknown) {
       setOsDescricao("");
       setOsDbId(null);
       setOsDescError("Erro ao buscar OS");
       setOsCliente("");
       setOsStatus("");
-      setClienteIdDaOs(null);
-      setColaboradoresVinculados([]);
     } finally {
       setOsDescLoading(false);
     }
-  }, [supabase, carregarColaboradoresVinculados]);
+  }, [supabase]);
 
   const fetchOsById = useCallback(
     async (id: number) => {
@@ -413,7 +346,7 @@ export default function ApontamentosPage() {
       try {
         const { data, error } = await supabase
           .from("ordens_servico")
-          .select("id,numero_os,descricao_servico,cliente_nome,cliente_id,status")
+          .select("id,numero_os,descricao_servico,cliente_nome,status")
           .eq("id", id)
           .maybeSingle();
         if (error) throw error;
@@ -427,16 +360,6 @@ export default function ApontamentosPage() {
         setOsStatus(data.status ?? "");
         setOsDescError(null);
 
-        // Carregar colaboradores vinculados ao cliente
-        const clienteId = (data as { cliente_id?: number | null }).cliente_id;
-        if (clienteId) {
-          setClienteIdDaOs(clienteId);
-          await carregarColaboradoresVinculados(clienteId);
-        } else {
-          setClienteIdDaOs(null);
-          setColaboradoresVinculados([]);
-        }
-
         return true;
       } catch (e: unknown) {
         setOsDescError("Erro ao buscar OS");
@@ -444,14 +367,12 @@ export default function ApontamentosPage() {
         setOsDbId(null);
         setOsCliente("");
         setOsStatus("");
-        setClienteIdDaOs(null);
-        setColaboradoresVinculados([]);
         return false;
       } finally {
         setOsDescLoading(false);
       }
     },
-    [supabase, carregarColaboradoresVinculados]
+    [supabase]
   );
 
   useEffect(() => {
@@ -516,19 +437,15 @@ export default function ApontamentosPage() {
     () => new Map(tiposHoras.map((t) => [t.codigo.toUpperCase(), t.id])),
     [tiposHoras]
   );
-  // Usar colaboradores vinculados quando houver OS selecionada, senão todos
-  const colaboradoresDisponiveis = useMemo(() => {
-    return osDbId && colaboradoresVinculados.length > 0 ? colaboradoresVinculados : colaboradores;
-  }, [osDbId, colaboradoresVinculados, colaboradores]);
 
   const colabOptions = useMemo(
     () =>
-      colaboradoresDisponiveis.map((c, idx) => ({
+      colaboradores.map((c, idx) => ({
         id: c.id,
         seq: String(idx + 1),
         nome: c.nome,
       })),
-    [colaboradoresDisponiveis]
+    [colaboradores]
   );
 
   useEffect(() => {
@@ -743,16 +660,7 @@ export default function ApontamentosPage() {
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 2fr", gap: 10, marginTop: 10 }}>
           <label>
             Colaborador
-            {vinculosLoading && (
-              <div style={{ fontSize: 11, color: "#999", marginBottom: 4 }}>
-                Carregando colaboradores do contrato...
-              </div>
-            )}
-            {vinculosError && osDbId && (
-              <div style={{ fontSize: 11, color: "#f59e0b", marginBottom: 4 }}>
-                ⚠️ {vinculosError}
-              </div>
-            )}
+
             <input
               value={colabInput}
               onChange={(e) => {
@@ -773,8 +681,7 @@ export default function ApontamentosPage() {
                 setColabId("");
               }}
               list="colaborador-options"
-              placeholder={osDbId && colaboradoresVinculados.length === 0 ? "Sem colaboradores vinculados" : "Digite o ID sequencial do colaborador"}
-              disabled={!!(osDbId && colaboradoresVinculados.length === 0)}
+              placeholder="Digite o ID sequencial do colaborador"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <datalist id="colaborador-options">

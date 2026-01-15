@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
-import { applyTenant } from "@/lib/db/scopes";
+import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { ensureCurrentTenant } from "@/lib/tenant";
 
 type HHTipoPreco = {
   id: number;
@@ -96,6 +97,9 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
   const canRead = Boolean(has("apontamentos.read"));
   const canWrite = Boolean(has("apontamentos.write"));
 
+  const [resolvedTenantId, setResolvedTenantId] = useState<string | null>(null);
+  const [resolvedEmpresaId, setResolvedEmpresaId] = useState<string | null>(null);
+
   const [relatorios, setRelatorios] = useState<RelatorioRow[]>([]);
   const [linhas, setLinhas] = useState<RelatorioLinha[]>([]);
   const [relatorioAbertoId, setRelatorioAbertoId] = useState<number | null>(null);
@@ -118,25 +122,53 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
   const saldoOs = null as number | null; // TODO: Calcular saldo disponível
 
   async function ensureDbContext() {
-    // Best-effort: garante tenant/empresa no contexto de RLS antes das queries.
-    if (tenantId) {
+    // Resolve tenant/empresa com fallback em RPC para evitar contexto vazio.
+    let tenant = resolvedTenantId ?? tenantId;
+    let empresa = resolvedEmpresaId ?? empresaId;
+
+    if (!tenant) {
       try {
-        await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+        tenant = await ensureCurrentTenant(supabase);
+        if (tenant) setResolvedTenantId(tenant);
+      } catch (e) {
+        console.warn("ensureCurrentTenant falhou", e);
+      }
+    }
+
+    if (tenant) {
+      try {
+        await supabase.rpc("set_current_tenant", { p_tenant_id: tenant });
       } catch (e) {
         console.warn("set_current_tenant falhou", e);
       }
     }
-    if (empresaId) {
+
+    if (!empresa) {
       try {
-        await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
+        const { data: curEmp } = await supabase.rpc("current_empresa_id");
+        if (curEmp) {
+          empresa = String(curEmp);
+          setResolvedEmpresaId(empresa);
+        }
+      } catch (e) {
+        console.warn("current_empresa_id falhou", e);
+      }
+    }
+
+    if (empresa) {
+      try {
+        await supabase.rpc("set_current_empresa", { p_empresa_id: empresa });
       } catch (e) {
         console.warn("set_current_empresa falhou", e);
       }
     }
+
+    return { tenant, empresa } as const;
   }
 
   // Estados para lançamento de horas
   const [showLancamentoForm, setShowLancamentoForm] = useState(false);
+  const [lancamentoFormLoading, setLancamentoFormLoading] = useState(false);
   const [lancamentos, setLancamentos] = useState<HHLancamento[]>([]);
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [hhTipos, setHhTipos] = useState<HHTipoPreco[]>([]);
@@ -152,8 +184,8 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
   const [lancamentoBusy, setLancamentoBusy] = useState(false);
 
   async function loadRelatorios() {
-    if (!tenantId || !Number.isFinite(osId)) return;
-    await ensureDbContext();
+    const ctx = await ensureDbContext();
+    if (!ctx.tenant || !Number.isFinite(osId)) return;
     setLoadingRelatorios(true);
     setErr(null);
     try {
@@ -163,7 +195,7 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
           .select("id,data_emissao,periodo_inicio,periodo_fim,status,total")
           .eq("os_id", osId)
           .order("data_emissao", { ascending: false }),
-        tenantId
+        ctx.tenant
       );
       if (error) throw error;
       setRelatorios((data ?? []) as RelatorioRow[]);
@@ -176,14 +208,13 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
   }
 
   async function loadColaboradores() {
-    if (!tenantId) return;
+    const ctx = await ensureDbContext();
+    if (!ctx.tenant) return;
     if (!osDetail?.cliente_id) {
       setColaboradores([]);
       return;
     }
-    
-    await ensureDbContext();
-    
+
     try {
       // 1) Busca vínculos ativos do cliente
       const { data: vinculos, error: vinculosErr } = await applyTenant(
@@ -192,7 +223,7 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
           .select("colaborador_id")
           .eq("cliente_id", osDetail.cliente_id)
           .eq("ativo", true),
-        tenantId
+        ctx.tenant
       );
       
       if (vinculosErr) throw vinculosErr;
@@ -211,7 +242,7 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
           .select("id,nome,ativo")
           .in("id", colaboradorIds)
           .eq("ativo", true),
-        tenantId
+        ctx.tenant
       );
 
       if (colaboradoresErr) throw colaboradoresErr;
@@ -229,21 +260,75 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
     }
   }
 
-  async function loadHHTipos() {
-    if (!tenantId || !empresaId || !osDetail?.cliente_id) return;
+  async function loadHHTipos(colaboradorId?: string | null) {
+    const ctx = await ensureDbContext();
+    if (!ctx.tenant || !ctx.empresa) return;
+    if (!osDetail?.cliente_id) {
+      setHhTipos([]);
+      return;
+    }
     await ensureDbContext();
     try {
-      const { data, error } = await supabase
-        .from("cliente_hh_servicos")
-        .select("id, nome, preco_base, preco_50, preco_100")
-        .eq("tenant_id", tenantId)
-        .eq("empresa_id", empresaId)
-        .eq("cliente_id", osDetail.cliente_id)
-        .eq("ativo", true)
-        .order("nome", { ascending: true });
+      // Se colaborador selecionado: buscar apenas os serviços vinculados a ele
+      if (colaboradorId) {
+        const { data: vincData, error: vincErr } = await applyTenant(
+          supabase
+            .from("colaborador_cliente_funcao")
+            .select("hh_servico_id")
+            .eq("cliente_id", osDetail.cliente_id)
+            .eq("colaborador_id", colaboradorId)
+            .eq("ativo", true),
+          ctx.tenant
+        );
+        if (vincErr) throw vincErr;
+
+        const servicoIds = Array.from(
+          new Set((vincData ?? []).map((v: { hh_servico_id: number | null }) => v.hh_servico_id).filter(Boolean))
+        ) as number[];
+
+        if (servicoIds.length === 0) {
+          setHhTipos([]);
+          return;
+        }
+
+        const { data, error } = await applyTenantEmpresa(
+          supabase
+            .from("cliente_hh_servicos")
+            .select("id, nome, preco_base, preco_50, preco_100")
+            .eq("cliente_id", osDetail.cliente_id)
+            .in("id", servicoIds)
+            .eq("ativo", true),
+          ctx.tenant,
+          ctx.empresa
+        );
+        if (error) throw error;
+
+        const mapped = (data ?? []).map((item: any) => ({
+          id: item.id,
+          descricao: item.nome,
+          nivel: "",
+          categoria: "",
+          preco_base: item.preco_base,
+          preco_50: item.preco_50,
+          preco_100: item.preco_100,
+        }));
+        setHhTipos(mapped as HHTipoPreco[]);
+        return;
+      }
+
+      // Sem colaborador: todos os serviços do cliente
+      const { data, error } = await applyTenantEmpresa(
+        supabase
+          .from("cliente_hh_servicos")
+          .select("id, nome, preco_base, preco_50, preco_100")
+          .eq("cliente_id", osDetail.cliente_id)
+          .eq("ativo", true)
+          .order("nome", { ascending: true }),
+        ctx.tenant,
+        ctx.empresa
+      );
       if (error) throw error;
       
-      // Mapear para o formato esperado (compatibilidade)
       const mapped = (data ?? []).map((item: any) => ({
         id: item.id,
         descricao: item.nome,
@@ -256,6 +341,7 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
       setHhTipos(mapped as HHTipoPreco[]);
     } catch (e: unknown) {
       console.warn("Erro ao carregar serviços HH do cliente:", e);
+      setHhTipos([]);
     }
   }
 
@@ -427,12 +513,19 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
 
   useEffect(() => {
     if (tenantLoading) return;
-    if (!tenantId || !Number.isFinite(osId)) return;
     void loadRelatorios();
     void loadColaboradores();
     void loadHHTipos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantLoading, tenantId, empresaId, osId, osDetail?.cliente_id]);
+
+  // Recarregar tipos de hora ao abrir o formulário ou trocar colaborador
+  useEffect(() => {
+    if (showLancamentoForm) {
+      setLancamentoFormLoading(true);
+      void loadHHTipos(lancamentoForm.colaborador_id || null).finally(() => setLancamentoFormLoading(false));
+    }
+  }, [showLancamentoForm, lancamentoForm.colaborador_id, tenantId, empresaId, osDetail?.cliente_id]);
 
   if (!ready && permissionsLoading) {
     return (
@@ -525,8 +618,9 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
                 onChange={(e) =>
                   setLancamentoForm((prev) => ({ ...prev, hh_tipo_id: e.target.value }))
                 }
+                disabled={lancamentoFormLoading}
               >
-                <option value="">Selecione...</option>
+                <option value="">{lancamentoFormLoading ? "Carregando..." : "Selecione..."}</option>
                 {hhTipos.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.descricao}
