@@ -36,7 +36,7 @@ type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number };
 
 export default function EstoquePage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { tenantId, empresaId, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canView = has("estoque.read");
   const canAdjust = has("estoque.write");
@@ -69,7 +69,10 @@ export default function EstoquePage() {
     setErr(null);
     if (tenantEmpresaLoading) return;
     if (!tenantId || !empresaId) {
-      setErr("Tenant ou empresa nao carregados.");
+      // Contexto ainda não disponível (sem tenant/empresa selecionados).
+      // Não faz query e não exibe erro genérico.
+      setRows([]);
+      setTotalCount(null);
       return;
     }
 
@@ -90,13 +93,14 @@ export default function EstoquePage() {
     const itensMap = new Map<number, EstoqueRow["itens"]>();
 
     if (itemIds.length > 0) {
-      const { data: itensData, error: itensErr } = await applyTenant(
+      const { data: itensData, error: itensErr } = await applyTenantEmpresa(
         supabase
           .from("itens")
           .select(
-            "id,codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores:fornecedor_id(nome)"
+            "id,codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)"
           ),
-        tenantId
+        tenantId,
+        empresaId
       ).in("id", itemIds);
       if (itensErr) return setErr(itensErr.message);
       const typedItens = (itensData ?? []) as unknown as EstoqueItemRow[];
@@ -214,16 +218,16 @@ export default function EstoquePage() {
     }
     setLimiteBusy(true);
     setLimiteMsg(null);
-    if (!tenantId) {
+    if (!tenantId || !empresaId) {
       setLimiteBusy(false);
-      setLimiteMsg("Tenant nao carregado.");
+      setLimiteMsg("Tenant ou empresa nao carregados.");
       return;
     }
-    const { error } = await applyTenant(supabase.from("itens").update({
+    const { error } = await applyTenantEmpresa(supabase.from("itens").update({
       estoque_minimo: estoqueMinimo,
       estoque_ideal: estoqueIdeal,
       estoque_maximo: estoqueMaximo,
-    }), tenantId).eq("id", ajusteItemId);
+    }), tenantId, empresaId).eq("id", ajusteItemId);
     setLimiteBusy(false);
     setLimiteMsg(error ? `Erro ao salvar limites: ${error.message}` : "Limites salvos.");
     if (!error) await load();
@@ -248,6 +252,32 @@ export default function EstoquePage() {
   useEffect(() => {
     setPage(0);
   }, [q, codigoId, fornecedorNome, soAbaixoMin, ativos]);
+
+  if (tenantEmpresaError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300 p-6">
+        {tenantEmpresaError}
+      </div>
+    );
+  }
+
+  if (tenantEmpresaLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando contexto...
+      </div>
+    );
+  }
+
+  // After login, tenant/empresa should be auto-resolved by the provider.
+  // Keep a simple loading state while IDs are being set.
+  if (!tenantId || !empresaId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando contexto...
+      </div>
+    );
+  }
 
   if (!ready && permissionsLoading) {
     return (

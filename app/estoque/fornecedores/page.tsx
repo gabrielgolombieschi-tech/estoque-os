@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant } from "@/lib/db/scopes";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 
@@ -413,7 +413,7 @@ function FornecedorDialog({
 
 export default function FornecedoresPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { tenantId, empresaId, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
 
   const canView = hasAny(capabilities, ["estoque.read", "cad_fornecedores.write"]);
@@ -457,21 +457,23 @@ export default function FornecedoresPage() {
     setOk(null);
 
     if (tenantEmpresaLoading) return;
-    if (!tenantId) {
-      setErr("Tenant não carregado.");
+    if (!tenantId || !empresaId) {
+      // Contexto ainda não disponível; evita manter dados antigos na tela.
+      setRows([]);
       return;
     }
 
     setLoadingList(true);
 
     try {
-      let query = applyTenant(
+      let query = applyTenantEmpresa(
         supabase
           .from("fornecedores")
           .select(
             "id,tenant_id,nome,documento,email,telefone,endereco,observacoes,finalidade_padrao,gerar_contas_pagar_auto,ativo,criado_em,atualizado_em"
           ),
-        tenantId
+        tenantId,
+        empresaId
       ).order("nome", { ascending: true });
 
       if (ativo === "ativos") query = query.eq("ativo", true);
@@ -496,7 +498,7 @@ export default function FornecedoresPage() {
     } finally {
       setLoadingList(false);
     }
-  }, [ativo, finalidade, search, supabase, tenantEmpresaLoading, tenantId]);
+  }, [ativo, finalidade, search, supabase, tenantEmpresaLoading, tenantId, empresaId]);
 
   useEffect(() => {
     void load();
@@ -524,7 +526,7 @@ export default function FornecedoresPage() {
     setErr(null);
     setOk(null);
 
-    if (!tenantId) throw new Error("Tenant não carregado.");
+    if (!tenantId || !empresaId) throw new Error("Tenant ou empresa não carregados.");
     if (!canEdit) throw new Error("Sem permissão para salvar fornecedores.");
 
     setBusy(true);
@@ -544,7 +546,7 @@ export default function FornecedoresPage() {
       };
 
       if (dialogMode === "edit" && editing) {
-        const res = await applyTenant(supabase.from("fornecedores").update(payload), tenantId).eq(
+        const res = await applyTenantEmpresa(supabase.from("fornecedores").update(payload), tenantId, empresaId).eq(
           "id",
           editing.id
         );
@@ -556,7 +558,7 @@ export default function FornecedoresPage() {
       } else {
         const res = await supabase
           .from("fornecedores")
-          .insert({ tenant_id: tenantId, ...payload, ativo: true })
+          .insert({ tenant_id: tenantId, empresa_id: empresaId, ...payload, ativo: true })
           .select("id")
           .single();
 
@@ -576,7 +578,7 @@ export default function FornecedoresPage() {
   }
 
   async function toggleAtivo(row: Fornecedor) {
-    if (!tenantId) return setErr("Tenant não carregado.");
+    if (!tenantId || !empresaId) return setErr("Tenant ou empresa não carregados.");
     if (!canEdit) return setErr("Sem permissão para editar fornecedores.");
 
     const to = !row.ativo;
@@ -594,9 +596,10 @@ export default function FornecedoresPage() {
     setErr(null);
     setOk(null);
 
-    const { error } = await applyTenant(
+    const { error } = await applyTenantEmpresa(
       supabase.from("fornecedores").update({ ativo: to, atualizado_em: new Date().toISOString() }),
-      tenantId
+      tenantId,
+      empresaId
     ).eq("id", row.id);
 
     setBusy(false);
@@ -607,7 +610,7 @@ export default function FornecedoresPage() {
   }
 
   async function deleteFornecedor(row: Fornecedor) {
-    if (!tenantId) return setErr("Tenant não carregado.");
+    if (!tenantId || !empresaId) return setErr("Tenant ou empresa não carregados.");
     if (!canEdit) return setErr("Sem permissão para excluir fornecedores.");
 
     const confirmed = await confirm({
@@ -623,7 +626,10 @@ export default function FornecedoresPage() {
     setErr(null);
     setOk(null);
 
-    const delRes = await applyTenant(supabase.from("fornecedores").delete(), tenantId).eq("id", row.id);
+    const delRes = await applyTenantEmpresa(supabase.from("fornecedores").delete(), tenantId, empresaId).eq(
+      "id",
+      row.id
+    );
 
     if (!delRes.error) {
       setBusy(false);
@@ -637,9 +643,10 @@ export default function FornecedoresPage() {
     const isFk = code === "23503" || msg.includes("foreign key") || msg.includes("violates foreign key");
 
     // fallback: desativar
-    const updRes = await applyTenant(
+    const updRes = await applyTenantEmpresa(
       supabase.from("fornecedores").update({ ativo: false, atualizado_em: new Date().toISOString() }),
-      tenantId
+      tenantId,
+      empresaId
     ).eq("id", row.id);
 
     setBusy(false);
@@ -654,6 +661,28 @@ export default function FornecedoresPage() {
         : "Fornecedor foi desativado (exclusão falhou)."
     );
     await load();
+  }
+
+  if (tenantEmpresaError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300 p-6">{tenantEmpresaError}</div>
+    );
+  }
+
+  if (tenantEmpresaLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando contexto...
+      </div>
+    );
+  }
+
+  if (!tenantId || !empresaId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Carregando contexto...
+      </div>
+    );
   }
 
   if (!ready && permissionsLoading) {

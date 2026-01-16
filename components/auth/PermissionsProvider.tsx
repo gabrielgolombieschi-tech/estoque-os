@@ -36,14 +36,15 @@ export function PermissionsProvider({
 
 export function usePermissions(): PermissionsContextValue {
   const ctx = useTenantEmpresaContext();
-  const booting = ctx.loading || !ctx.tenantId || !ctx.empresaId;
+  const booting = ctx.loading;
+  const stillLoadingCaps = booting || ctx.capabilities === null;
 
   return {
     capabilities: ctx.capabilities,
-    loading: booting,
-    loadingInitial: booting && ctx.capabilities === null,
+    loading: stillLoadingCaps,
+    loadingInitial: stillLoadingCaps,
     refreshing: ctx.refreshing,
-    ready: !booting && ctx.capabilities !== null,
+    ready: !stillLoadingCaps && ctx.capabilities !== null,
     tenantId: ctx.tenantId,
     has: ctx.has,
     reload: ctx.reload,

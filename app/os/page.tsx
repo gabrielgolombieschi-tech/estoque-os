@@ -260,11 +260,14 @@ export default function OsListPage() {
     }
 
     logDebug("[OS] useEffect:calling loadClientes and load");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadClientes();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [tenantId, empresaId, sessionReady, session?.access_token, status]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!canGestaoWrite && temGestao) setTemGestao(false);
   }, [canGestaoWrite, temGestao]);
 

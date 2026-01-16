@@ -205,11 +205,8 @@ export default function ImportarXmlPage() {
   const [fornecedorIdBase, setFornecedorIdBase] = useState<number | null>(null);
 
   const [fornecedorGerarContasAuto, setFornecedorGerarContasAuto] = useState(false);
-  const [gerarContasPagar, setGerarContasPagar] = useState(false);
-  const [gerarContasTouched, setGerarContasTouched] = useState(false);
 
   const [finalidadeLote, setFinalidadeLote] = useState<ItemFinalidade | "">("");
-  const [salvarPadraoFornecedor, setSalvarPadraoFornecedor] = useState(false);
 
   // Vinculo opcional de OS (somente quando finalidade do lote = materia_prima)
   const [osNumero, setOsNumero] = useState("");
@@ -253,9 +250,20 @@ export default function ImportarXmlPage() {
       setOsLoading(true);
       setOsError(null);
 
-      const { data, error } = await supabase
-        .from("ordens_servico")
-        .select("id,numero_os,cliente_nome,descricao_servico,status")
+      if (!tenantId || !empresaId) {
+        if (reqId !== osResolveReqIdRef.current) return;
+        setOsId(null);
+        setOsLabel(null);
+        setOsError("Tenant ou empresa nao carregados.");
+        setOsLoading(false);
+        return;
+      }
+
+      const { data, error } = await applyTenantEmpresa(
+        supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+        tenantId,
+        empresaId
+      )
         .eq("numero_os", normalized)
         .maybeSingle();
 
@@ -285,7 +293,7 @@ export default function ImportarXmlPage() {
       setOsError(null);
       setOsLoading(false);
     },
-    [supabase]
+    [supabase, tenantId, empresaId]
   );
 
   const loadOsLookup = useCallback(
@@ -300,9 +308,18 @@ export default function ImportarXmlPage() {
         return;
       }
 
-      let query = supabase
-        .from("ordens_servico")
-        .select("id,numero_os,cliente_nome,descricao_servico,status")
+      if (!tenantId || !empresaId) {
+        setOsLookupRows([]);
+        setOsLookupError("Tenant ou empresa nao carregados.");
+        setOsLookupLoading(false);
+        return;
+      }
+
+      let query = applyTenantEmpresa(
+        supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+        tenantId,
+        empresaId
+      )
         .order("id", { ascending: false })
         .limit(50);
 
@@ -320,7 +337,7 @@ export default function ImportarXmlPage() {
       setOsLookupRows((data ?? []) as OsLookupRow[]);
       setOsLookupLoading(false);
     },
-    [supabase]
+    [supabase, tenantId, empresaId]
   );
 
   const openOsLookup = useCallback(() => {
@@ -518,28 +535,27 @@ export default function ImportarXmlPage() {
 
   function applyFornecedorFinanceDefaults(flag: boolean) {
     setFornecedorGerarContasAuto(Boolean(flag));
-    setGerarContasTouched(false);
-    setGerarContasPagar(Boolean(flag));
   }
 
-  async function checkFornecedor(cnpj: string | null) {
+  async function checkFornecedor(params: { documento: string | null; nome: string | null }) {
     setFornecedorId(null);
     setFornecedorNome(null);
     applyFornecedorFinanceDefaults(false);
 
-    const cnpjNormalizado = normalizeDocumento(cnpj);
+    const cnpjNormalizado = normalizeDocumento(params.documento);
     if (!cnpjNormalizado) return;
 
-    if (!tenantId) {
-      setImportErr("Tenant nao carregado.");
+    if (!tenantId || !empresaId) {
+      setImportErr("Tenant ou empresa nao carregados.");
       return;
     }
 
-    const { data, error } = await applyTenant(
+    const { data, error } = await applyTenantEmpresa(
       supabase
         .from("fornecedores")
         .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto"),
-      tenantId
+      tenantId,
+      empresaId
     )
       .eq("documento_norm", cnpjNormalizado)
       .maybeSingle();
@@ -554,23 +570,35 @@ export default function ImportarXmlPage() {
       setFornecedorId(fornecedor.id);
       setFornecedorNome(fornecedor.nome ?? null);
 
-      const flag = Boolean(fornecedor.gerar_contas_pagar_auto);
-      if (!gerarContasTouched) applyFornecedorFinanceDefaults(flag);
+      applyFornecedorFinanceDefaults(Boolean(fornecedor.gerar_contas_pagar_auto));
 
       // Auto-preenche finalidade pelo padrão do fornecedor
       if (fornecedor.finalidade_padrao && !finalidadeLote) {
         setFinalidadeLote(fornecedor.finalidade_padrao);
       }
+
+      return;
+    }
+
+    // Não encontrado: cria automaticamente (requisito)
+    if (!canCreateFornecedor) {
+      setImportErr("Fornecedor nao encontrado e voce nao tem permissao para cadastrar automaticamente.");
+      return;
+    }
+
+    const createdId = await criarFornecedor(
+      params.documento ?? cnpjNormalizado,
+      params.nome ?? "Fornecedor NF",
+      finalidadeLote ? (finalidadeLote as ItemFinalidade) : null
+    );
+
+    if (createdId && finalidadeLote) {
+      await atualizarFinalidadePadraoFornecedor(createdId, finalidadeLote as ItemFinalidade);
     }
   }
 
   async function criarFornecedor(cnpj: string, nome: string, finalidadePadrao?: ItemFinalidade | null) {
     setImportErr(null);
-
-    if (!finalidadeLote) {
-      setImportErr("Selecione a finalidade antes de cadastrar fornecedor.");
-      return null;
-    }
 
     if (!canCreateFornecedor) {
       setImportErr("Sem permissao para cadastrar fornecedor.");
@@ -583,16 +611,17 @@ export default function ImportarXmlPage() {
       return null;
     }
 
-    if (!tenantId) {
-      setImportErr("Tenant nao carregado.");
+    if (!tenantId || !empresaId) {
+      setImportErr("Tenant ou empresa nao carregados.");
       return null;
     }
 
-    // Regras: fornecedor já deve nascer com finalidade_padrao = finalidade do lote
-    const finalidadeParaSalvar = (finalidadePadrao ?? (finalidadeLote as ItemFinalidade)) ?? null;
+    // Regra: fornecedor nasce com finalidade_padrao = finalidade do lote quando houver (senão, null)
+    const finalidadeParaSalvar = (finalidadePadrao ?? null) ?? null;
 
     const payload: Record<string, unknown> = {
       tenant_id: tenantId,
+      empresa_id: empresaId,
       nome: nome?.trim() || "Fornecedor NF",
       documento,
       ativo: true,
@@ -610,12 +639,13 @@ export default function ImportarXmlPage() {
 
       // se já existe, tenta update (mantém robusto)
       if (err?.code === "23505") {
-        const { data: updated, error: updateErr } = await applyTenant(
+        const { data: updated, error: updateErr } = await applyTenantEmpresa(
           supabase
             .from("fornecedores")
             .update(payload)
             .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto"),
-          tenantId
+          tenantId,
+          empresaId
         )
           .eq("documento_norm", documento)
           .maybeSingle();
@@ -633,8 +663,7 @@ export default function ImportarXmlPage() {
 
         setFornecedorId(updatedRow.id);
         setFornecedorNome(updatedRow.nome ?? null);
-        const flag = Boolean(updatedRow.gerar_contas_pagar_auto);
-        if (!gerarContasTouched) applyFornecedorFinanceDefaults(flag);
+        applyFornecedorFinanceDefaults(Boolean(updatedRow.gerar_contas_pagar_auto));
         return updatedRow.id;
       }
 
@@ -648,8 +677,7 @@ export default function ImportarXmlPage() {
     setFornecedorId(created.id);
     setFornecedorNome(created.nome ?? null);
 
-    const createdFlag = Boolean(created.gerar_contas_pagar_auto);
-    if (!gerarContasTouched) applyFornecedorFinanceDefaults(createdFlag);
+    applyFornecedorFinanceDefaults(Boolean(created.gerar_contas_pagar_auto));
 
     // garante que o padrão fica setado
     if (created.finalidade_padrao && !finalidadeLote) {
@@ -660,22 +688,24 @@ export default function ImportarXmlPage() {
   }
 
   async function atualizarFinalidadePadraoFornecedor(fornecedorIdToUpdate: number, finalidade: ItemFinalidade) {
-    if (!tenantId) return;
-    const { error } = await applyTenant(
+    if (!tenantId || !empresaId) return;
+    const { error } = await applyTenantEmpresa(
       supabase.from("fornecedores").update({ finalidade_padrao: finalidade }),
-      tenantId
+      tenantId,
+      empresaId
     ).eq("id", fornecedorIdToUpdate);
 
     if (error) setImportErr(error.message);
   }
 
   const carregarItensPorCodigo = useCallback(
-    async (codigos: string[], tenantIdLocal: string) => {
+    async (codigos: string[], tenantIdLocal: string, empresaIdLocal: string) => {
       if (codigos.length === 0) return new Map<string, number>();
 
-      const { data, error } = await applyTenant(
+      const { data, error } = await applyTenantEmpresa(
         supabase.from("itens").select("id,codigo_interno"),
-        tenantIdLocal
+        tenantIdLocal,
+        empresaIdLocal
       ).in("codigo_interno", codigos);
 
       if (error) {
@@ -791,6 +821,7 @@ export default function ImportarXmlPage() {
       .from("itens")
       .insert({
         tenant_id: tenantId,
+        empresa_id: empresaId,
         codigo_interno: it.codigo,
         nome: nomeFinal,
         tipo: "produto",
@@ -920,8 +951,8 @@ export default function ImportarXmlPage() {
 
     if (selected && !alreadyExists) setSelectedJobId(job.id);
 
-    if (selected && cnpj && status === "ok") {
-      await checkFornecedor(cnpj);
+    if (selected && status === "ok") {
+      await checkFornecedor({ documento: parsed.nfe.cnpjEmitente, nome: parsed.nfe.emitente });
     }
   }
 
@@ -1029,7 +1060,11 @@ export default function ImportarXmlPage() {
       let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
 
       if (!fornecedorFinal && baseCnpj) {
-        const { data: found, error: findErr } = await applyTenant(supabase.from("fornecedores").select("id"), tenantId)
+        const { data: found, error: findErr } = await applyTenantEmpresa(
+          supabase.from("fornecedores").select("id"),
+          tenantId,
+          empresaId
+        )
           .eq("documento_norm", baseCnpj)
           .maybeSingle();
 
@@ -1038,31 +1073,35 @@ export default function ImportarXmlPage() {
       }
 
       if (!fornecedorFinal) {
-        const first = jobsToUse.find((j) => j.nfeInfo?.emitente && j.nfeInfo?.cnpjEmitente);
-
-        if (first?.nfeInfo?.cnpjEmitente && first.nfeInfo.emitente) {
-          if (!canCreateFornecedor) throw new Error("Sem permissao para cadastrar fornecedor.");
-          fornecedorFinal = await criarFornecedor(
-            first.nfeInfo.cnpjEmitente,
-            first.nfeInfo.emitente,
-            // regra: fornecedor já nasce com finalidade do lote
-            (finalidadeLote as ItemFinalidade)
-          );
-        }
+        throw new Error("Fornecedor nao cadastrado. Cadastre o fornecedor antes de cadastrar itens.");
       }
 
-      if (!fornecedorFinal) throw new Error("Fornecedor nao cadastrado.");
+      // Recarrega config do fornecedor (fonte da verdade)
+      let gerarContasAuto = false;
+      {
+        const { data: fornecedorCfg, error: fornecedorCfgErr } = await applyTenantEmpresa(
+          supabase.from("fornecedores").select("nome,gerar_contas_pagar_auto"),
+          tenantId,
+          empresaId
+        )
+          .eq("id", fornecedorFinal)
+          .maybeSingle();
 
-      // se marcou checkbox, garante atualização
-      if (salvarPadraoFornecedor) {
-        await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
+        if (fornecedorCfgErr) throw fornecedorCfgErr;
+
+        gerarContasAuto = Boolean(fornecedorCfg?.gerar_contas_pagar_auto);
+        setFornecedorGerarContasAuto(gerarContasAuto);
+        if (fornecedorCfg?.nome) setFornecedorNome(String(fornecedorCfg.nome));
       }
+
+      // Sempre persiste finalidade padrão do fornecedor (comportamento obrigatório)
+      await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
 
       // agora itens
       const todosItens = jobsToUse.flatMap((j) => j.itens);
       const codigos = Array.from(new Set(todosItens.map((i) => i.codigo)));
 
-      const map = await carregarItensPorCodigo(codigos, tenantId);
+      const map = await carregarItensPorCodigo(codigos, tenantId, empresaId);
 
       // regra: só cria item se tiver permissão
       const missing = codigos.filter((c) => !map.has(c));
@@ -1081,8 +1120,14 @@ export default function ImportarXmlPage() {
       }
 
       setItemMap(map);
+
+      // Atualiza imediatamente os faltantes do lote para liberar a importacao sem precisar recarregar a tela.
+      // (o efeito que recalcula loteMissing depende de selectedOkJobs, que pode não mudar após o cadastro)
+      const nextMissing = codigos.filter((c) => !map.has(c));
+      setLoteMissing(nextMissing);
+
       setFornecedorIdBase(fornecedorFinal ?? null);
-      setImportOk("Fornecedor e itens cadastrados para os XMLs selecionados.");
+      setImportOk("Itens cadastrados para os XMLs selecionados.");
     } catch (e: unknown) {
       setImportErr(getErrorMessage(e, "Erro ao cadastrar."));
     } finally {
@@ -1118,6 +1163,9 @@ export default function ImportarXmlPage() {
         next.set(it.codigo, created);
         return next;
       });
+
+      // Remove o item da lista de faltantes para liberar importacao imediatamente.
+      setLoteMissing((prev) => (prev.length === 0 ? prev : prev.filter((c) => c !== it.codigo)));
     }
   }
 
@@ -1157,10 +1205,11 @@ export default function ImportarXmlPage() {
           normalizeDocumento(jobsToImport.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null);
 
         if (baseCnpj) {
-          const { data: found, error: fornecedorErr } = await applyTenant(
-            supabase.from("fornecedores").select("id"),
-            tenantId
-          )
+            const { data: found, error: fornecedorErr } = await applyTenantEmpresa(
+              supabase.from("fornecedores").select("id"),
+              tenantId,
+              empresaId
+            )
             .eq("documento_norm", baseCnpj)
             .maybeSingle();
 
@@ -1171,9 +1220,23 @@ export default function ImportarXmlPage() {
 
       if (!fornecedorFinal) throw new Error("Fornecedor nao cadastrado.");
 
-      if (salvarPadraoFornecedor) {
-        await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
-      }
+      // Sempre persiste finalidade padrão do fornecedor (comportamento obrigatório)
+      await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
+
+      // Recarrega config do fornecedor (fonte da verdade)
+      const { data: fornecedorCfg, error: fornecedorCfgErr } = await applyTenantEmpresa(
+        supabase.from("fornecedores").select("nome,gerar_contas_pagar_auto"),
+        tenantId,
+        empresaId
+      )
+        .eq("id", fornecedorFinal)
+        .maybeSingle();
+
+      if (fornecedorCfgErr) throw fornecedorCfgErr;
+
+      const gerarContasAuto = Boolean(fornecedorCfg?.gerar_contas_pagar_auto);
+      setFornecedorGerarContasAuto(gerarContasAuto);
+      if (fornecedorCfg?.nome) setFornecedorNome(String(fornecedorCfg.nome));
 
       const results: string[] = [];
 
@@ -1212,7 +1275,7 @@ export default function ImportarXmlPage() {
 
           // valida itens (tem que existir)
           const codes = Array.from(new Set(job.itens.map((i) => i.codigo)));
-          const map = await carregarItensPorCodigo(codes, tenantId);
+          const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
 
           const missingCodes = job.itens.filter((it) => !map.get(it.codigo)).map((it) => it.codigo);
           if (missingCodes.length > 0) {
@@ -1311,7 +1374,7 @@ export default function ImportarXmlPage() {
             data_emissao: info.dataEmissao ?? new Date().toISOString(),
           };
 
-          const shouldGenerateFinance = Boolean(gerarContasPagar);
+          const shouldGenerateFinance = Boolean(gerarContasAuto);
           const parcelasFromXml = info.parcelas ?? [];
           const parcelasJson = shouldGenerateFinance && parcelasFromXml.length > 0 ? parcelasFromXml : null;
 
@@ -1415,20 +1478,20 @@ export default function ImportarXmlPage() {
         setItemMap(new Map());
         return;
       }
-      if (!tenantId) {
-        setImportErr("Tenant nao carregado.");
+      if (!tenantId || !empresaId) {
+        setImportErr("Tenant ou empresa nao carregados.");
         return;
       }
       try {
         const codes = Array.from(new Set(selectedJob.itens.map((i) => i.codigo)));
-        const map = await carregarItensPorCodigo(codes, tenantId);
+        const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
         setItemMap(map);
       } catch (e: unknown) {
         setImportErr(getErrorMessage(e, "Erro ao carregar itens."));
       }
     };
     void loadMap();
-  }, [selectedJob, tenantId, carregarItensPorCodigo]);
+  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo]);
 
   useEffect(() => {
     let active = true;
@@ -1436,7 +1499,7 @@ export default function ImportarXmlPage() {
     const loadLoteMap = async () => {
       const clearMissing = () => setLoteMissing((prev) => (prev.length === 0 ? prev : []));
 
-      if (!tenantId) {
+      if (!tenantId || !empresaId) {
         clearMissing();
         return;
       }
@@ -1453,7 +1516,7 @@ export default function ImportarXmlPage() {
       }
 
       try {
-        const map = await carregarItensPorCodigo(codes, tenantId);
+        const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
         if (!active) return;
 
         const nextMissing = codes.filter((c) => !map.has(c));
@@ -1475,7 +1538,7 @@ export default function ImportarXmlPage() {
     return () => {
       active = false;
     };
-  }, [selectedOkJobs, tenantId, carregarItensPorCodigo]);
+  }, [selectedOkJobs, tenantId, empresaId, carregarItensPorCodigo]);
 
   const fornecedorResolvido = Boolean(fornecedorIdBase ?? fornecedorId);
   const finalidadeSelecionada = Boolean(finalidadeLote);
@@ -1492,12 +1555,11 @@ export default function ImportarXmlPage() {
   const bloqueiaImportacao =
     !hasSelectedOkJobs || !finalidadeSelecionada || !fornecedorResolvido || itensFaltantes || !tenantId || !empresaId;
 
-  const precisaCriarFornecedor = !fornecedorResolvido;
-  const podeCriarFornecedor = !precisaCriarFornecedor || canCreateFornecedor;
   const podeCriarItens = !itensFaltantes || canCreateItem;
 
-  const bloqueiaCadastro =
-    !hasSelectedOkJobs || !finalidadeSelecionada || !tenantId || !empresaId || !podeCriarFornecedor || !podeCriarItens;
+  // regra: o botão "Cadastrar itens" só fica habilitado quando o fornecedor já estiver cadastrado
+  const bloqueiaCadastroItens =
+    !hasSelectedOkJobs || !finalidadeSelecionada || !fornecedorResolvido || !tenantId || !empresaId || !podeCriarItens;
 
   if (!ready && permissionsLoading) {
     return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissoes...</div>;
@@ -1538,7 +1600,14 @@ export default function ImportarXmlPage() {
                 <span className="text-sm text-zinc-200">Finalidade</span>
                 <select
                   value={finalidadeLote}
-                  onChange={(e) => setFinalidadeLote(e.target.value as ItemFinalidade | "")}
+                  onChange={(e) => {
+                    const next = e.target.value as ItemFinalidade | "";
+                    setFinalidadeLote(next);
+                    const fornecedorFinal = fornecedorIdBase ?? fornecedorId;
+                    if (next && fornecedorFinal) {
+                      void atualizarFinalidadePadraoFornecedor(fornecedorFinal, next as ItemFinalidade);
+                    }
+                  }}
                   className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
                 >
                   <option value="">Selecione...</option>
@@ -1617,34 +1686,13 @@ export default function ImportarXmlPage() {
                 </label>
               )}
 
-              {(fornecedorResolvido || (fornecedorCnpjBase && canCreateFornecedor)) && (
-                <label className="flex items-center gap-2 text-sm text-zinc-200">
-                  <input type="checkbox" checked={salvarPadraoFornecedor} onChange={(e) => setSalvarPadraoFornecedor(e.target.checked)} />
-                  Tornar esta finalidade padrao do fornecedor
-                </label>
-              )}
-
-              {canImport && (
-                <label className="flex items-start gap-2 text-sm text-zinc-200">
-                  <input
-                    type="checkbox"
-                    checked={gerarContasPagar}
-                    disabled={importBusy || isReading || !fornecedorResolvido}
-                    onChange={(e) => {
-                      setGerarContasTouched(true);
-                      setGerarContasPagar(e.target.checked);
-                    }}
-                  />
-                  <span>
-                    Gerar Contas a Pagar automaticamente ao importar XML deste fornecedor
-                    {fornecedorGerarContasAuto && !gerarContasTouched ? (
-                      <span className="text-xs text-zinc-400"> (padrão do fornecedor)</span>
-                    ) : null}
-                    {!fornecedorResolvido ? (
-                      <span className="text-xs text-zinc-500"> — identifique o fornecedor primeiro</span>
-                    ) : null}
-                  </span>
-                </label>
+              {fornecedorResolvido && (
+                <div className="text-sm text-zinc-200">
+                  <span className="text-zinc-400">Fornecedor identificado:</span>{" "}
+                  <span className="font-medium">{fornecedorNome ?? "—"}</span>
+                  <span className="text-zinc-500"> — contas a pagar automático: </span>
+                  <span className="font-medium">{fornecedorGerarContasAuto ? "Sim" : "Não"}</span>
+                </div>
               )}
             </div>
           </div>
@@ -1965,10 +2013,11 @@ export default function ImportarXmlPage() {
         <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
           <button
             onClick={() => void cadastrarFornecedorEItens()}
-            disabled={cadBusy || importBusy || isReading || bloqueiaCadastro}
+            disabled={cadBusy || importBusy || isReading || bloqueiaCadastroItens}
             className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
+            title={!fornecedorResolvido ? "Cadastre/identifique o fornecedor para cadastrar itens." : undefined}
           >
-            {cadBusy ? "Cadastrando..." : "Cadastrar fornecedor e itens"}
+            {cadBusy ? "Cadastrando..." : "Cadastrar itens"}
           </button>
 
           <button

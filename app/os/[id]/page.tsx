@@ -624,8 +624,8 @@ export default function OsDetailPage() {
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
 
     const baseSelect = fornecedorTerm
-      ? "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores:fornecedor_id!inner(nome)"
-      : "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores:fornecedor_id(nome)";
+      ? "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
+      : "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
 
     let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 

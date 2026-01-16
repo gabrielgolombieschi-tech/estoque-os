@@ -140,7 +140,7 @@ export default function BaixaOsPage() {
   const [osClienteNome, setOsClienteNome] = useState("");
   const [osLoading, setOsLoading] = useState(false);
   const [osError, setOsError] = useState<string | null>(null);
-  const [tenantValidated, setTenantValidated] = useState(false);
+  const tenantValidated = Boolean(effectiveTenantId && effectiveEmpresaId);
 
   const [rows, setRows] = useState<ItemRow[]>([createEmptyRow()]);
   const [error, setError] = useState<string | null>(null);
@@ -558,10 +558,6 @@ export default function BaixaOsPage() {
       if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
     };
   }, [os, fetchOs]);
-
-  useEffect(() => {
-    setTenantValidated(true);
-  }, [tenantId, effectiveTenantId]);
 
   useEffect(() => {
     const timeoutsRef = itemDebounceRef.current;

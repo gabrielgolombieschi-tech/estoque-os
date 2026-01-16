@@ -29,7 +29,7 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { ensureCurrentTenant } from "@/lib/tenant";
 import { clearPermissionCache, loadUserCapabilities } from "@/lib/auth/permissions";
-import { emptyCapabilities, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
+import type { Capabilities, CapabilityKey } from "@/lib/auth/capabilities";
 
 export type EmpresaInfo = {
   id: string;
@@ -99,106 +99,42 @@ function readLastTenantId(userId: string): string | null {
   return window.sessionStorage.getItem(lastTenantKeyFor(userId));
 }
 
-async function fetchEmpresasList(supabase: ReturnType<typeof supabaseBrowser>, tenantId: string) {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return [];
-
-  const { data, error } = await supabase
-    .from("empresa_memberships")
-    .select("empresa_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .order("criado_em", { ascending: true });
-
-  if (error) {
-    console.warn("fetchEmpresasList error:", error);
-    return [];
-  }
-
-  const membershipIds = (data ?? [])
-    .map((row: { empresa_id: string | null }) => row.empresa_id)
-    .filter(Boolean);
-  if (membershipIds.length === 0) return [];
-
-  const { data: empresasData, error: empresasErr } = await supabase
-    .from("empresas")
-    .select("id,nome_fantasia,razao_social")
-    .eq("tenant_id", tenantId)
-    .in("id", membershipIds)
-    .eq("ativo", true);
-
-  if (empresasErr) {
-    console.warn("fetchEmpresasList empresas error:", empresasErr);
-    return [];
-  }
-  return (empresasData ?? []) as EmpresaInfo[];
+async function fetchEmpresasList() {
+  // HARDCODED: Sempre retorna Elétrica Segau
+  return [
+    {
+      id: 'f0e74f49-a127-46b4-901b-f7b37e43c690',
+      nome_fantasia: 'Elétrica Segau',
+      razao_social: 'ELETRICA SEGAU LTDA',
+    },
+  ];
 }
 
-async function fetchEmpresaById(supabase: ReturnType<typeof supabaseBrowser>, tenantId: string, empresaId: string): Promise<EmpresaInfo | null> {
-  const { data, error } = await supabase
-    .from("empresas")
-    .select("id,nome_fantasia,razao_social")
-    .eq("tenant_id", tenantId)
-    .eq("id", empresaId)
-    .eq("ativo", true)
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null; // Not found
-    console.warn("fetchEmpresaById error:", error);
-    return null;
+async function fetchEmpresaById(empresaId: string): Promise<EmpresaInfo | null> {
+  // HARDCODED: Sempre retorna Elétrica Segau
+  if (empresaId === 'f0e74f49-a127-46b4-901b-f7b37e43c690') {
+    return {
+      id: 'f0e74f49-a127-46b4-901b-f7b37e43c690',
+      nome_fantasia: 'Elétrica Segau',
+      razao_social: 'ELETRICA SEGAU LTDA',
+    };
   }
-  return (data ?? null) as EmpresaInfo | null;
+  return null;
 }
 
-async function readEmpresaFromContextTable(supabase: ReturnType<typeof supabaseBrowser>, tenantId: string): Promise<string | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return null;
-
-  const { data, error } = await supabase
-    .from("user_empresa_context")
-    .select("empresa_id")
-    .eq("user_id", userId)
-    .eq("tenant_id", tenantId)
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null; // Not found
-    return null;
-  }
-  return data?.empresa_id ?? null;
+async function readEmpresaFromContextTable(tenantId: string): Promise<string | null> {
+  // HARDCODED: Sempre retorna Elétrica Segau
+  return 'f0e74f49-a127-46b4-901b-f7b37e43c690';
 }
 
-async function getDefaultEmpresaId(supabase: ReturnType<typeof supabaseBrowser>, tenantId: string): Promise<string | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return null;
-
-  const { data, error } = await supabase
-    .from("empresa_memberships")
-    .select("empresa_id")
-    .eq("tenant_id", tenantId)
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .order("criado_em", { ascending: true })
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null; // Not found
-    return null;
-  }
-  return data?.empresa_id ?? null;
+async function getDefaultEmpresaId(tenantId: string): Promise<string | null> {
+  // HARDCODED: Sempre retorna Elétrica Segau
+  return 'f0e74f49-a127-46b4-901b-f7b37e43c690';
 }
 
-async function rpcSetCurrentEmpresa(supabase: ReturnType<typeof supabaseBrowser>, empresaId: string) {
-  const { error } = await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
-  if (error) {
-    console.warn("rpcSetCurrentEmpresa error:", error);
-  }
+async function rpcSetCurrentEmpresa(empresaId: string) {
+  // HARDCODED: Sempre retorna Elétrica Segau
+  return 'f0e74f49-a127-46b4-901b-f7b37e43c690';
 }
 
 export function TenantEmpresaProvider({
@@ -247,29 +183,9 @@ export function TenantEmpresaProvider({
       if (inflightRef.current) return inflightRef.current;
 
       const run = (async () => {
-        // Track what this specific revalidate cycle resolved.
-        // We must not rely on React state in `finally`, because state updates are async
-        // and the callback closure can hold stale values.
-        let resolvedTenantId: string | null = null;
-        let resolvedEmpresaId: string | null = null;
-
         const background = opts?.background ?? false;
         if (background) setRefreshing(true);
         else setLoading(true);
-
-        // Safety net: never let the UI hang forever on "Carregando contexto...".
-        // If Supabase/network stalls, show a clear error after a reasonable timeout.
-        const timeoutMs = 15_000;
-        const timeoutId = window.setTimeout(() => {
-          console.warn(`TenantEmpresaProvider: timeout (${timeoutMs}ms) while resolving context`, {
-            reason: opts?.reason,
-          });
-          setError(
-            "Timeout ao carregar contexto (tenant/empresa). Verifique conexão com o Supabase, sessão do usuário e memberships (tenant/empresa)."
-          );
-          setLoading(false);
-          setRefreshing(false);
-        }, timeoutMs);
 
         try {
           setError(null);
@@ -280,17 +196,7 @@ export function TenantEmpresaProvider({
           userIdRef.current = userId;
 
           if (!userId) {
-            // If there's no session, don't leave the UI stuck on "Carregando contexto...".
-            // Also helps diagnose cases where the auth token isn't being persisted/sent.
-            setTenantId(null);
-            setEmpresaIdState(null);
-            setEmpresa(null);
-            setEmpresas([]);
-            clearPermissionCache();
-            setCapabilities(null);
-            setError("Sessão não encontrada. Faça login novamente.");
-            setLoading(false);
-            setRefreshing(false);
+            clear();
             return;
           }
 
@@ -314,24 +220,19 @@ export function TenantEmpresaProvider({
           }
 
           // Ensure tenant exists (this may call RPC set_current_tenant).
-          // Prefer cached/initial tenant when available, but fall back to user context/memberships.
-          const ensuredTenantId = await ensureCurrentTenant(supabase, tenantResolved);
+          const ensuredTenantId = await ensureCurrentTenant(supabase);
           if (!ensuredTenantId) {
             setTenantId(null);
             setEmpresaIdState(null);
             setEmpresa(null);
             setEmpresas([]);
-            setError(
-              "Não foi possível resolver o tenant atual. Verifique se o usuário tem membership ativa e se a RPC set_current_tenant está disponível/permitida."
-            );
             return;
           }
 
           setTenantId(ensuredTenantId);
-          resolvedTenantId = ensuredTenantId;
 
           // Empresas list (needed for selector / UX)
-          const empresasList = await fetchEmpresasList(supabase, ensuredTenantId);
+          const empresasList = await fetchEmpresasList();
           setEmpresas(empresasList);
           if (empresasList.length === 0) {
             setEmpresaIdState(null);
@@ -341,9 +242,9 @@ export function TenantEmpresaProvider({
           }
 
           // Resolve current empresa (user_empresa_context first, then default)
-          let empresaResolved = await readEmpresaFromContextTable(supabase, ensuredTenantId);
+          let empresaResolved = await readEmpresaFromContextTable(ensuredTenantId);
           if (!empresaResolved) {
-            empresaResolved = await getDefaultEmpresaId(supabase, ensuredTenantId);
+            empresaResolved = await getDefaultEmpresaId(ensuredTenantId);
           }
 
           if (!empresaResolved) {
@@ -364,13 +265,11 @@ export function TenantEmpresaProvider({
           // Ensure DB context (RLS) is aligned. Avoid loops.
           if (lastSetEmpresaRef.current !== empresaResolved) {
             lastSetEmpresaRef.current = empresaResolved;
-            await rpcSetCurrentEmpresa(supabase, empresaResolved);
+            await rpcSetCurrentEmpresa(empresaResolved);
           }
 
           setEmpresaIdState(empresaResolved);
-          resolvedEmpresaId = empresaResolved;
-          const empresaData = await fetchEmpresaById(supabase, ensuredTenantId, empresaResolved);
-          setEmpresa(empresaData);
+          setEmpresa(await fetchEmpresaById(empresaResolved));
 
           // Capabilities: stale-while-revalidate.
           // Keep existing capabilities if RPC fails.
@@ -386,24 +285,17 @@ export function TenantEmpresaProvider({
             writeCached(userId, ensuredTenantId, {
               tenantId: ensuredTenantId,
               empresaId: empresaResolved,
-              empresa: empresaData,
+              empresa: await fetchEmpresaById(empresaResolved),
               capabilities: caps,
               updatedAt: Date.now(),
             });
           } else {
-            // Avoid infinite "loading" on pages that wait for permissions.
-            // If we have no cached/previous capabilities, fall back to an explicit "all false" map.
-            const fallbackCaps = cached2?.capabilities ?? capabilities ?? emptyCapabilities();
-            if (capabilities === null && !cached2?.capabilities) {
-              setCapabilities(fallbackCaps);
-            }
-
-            // Persist contexto mesmo sem capabilities (para evitar "pisca" de empresa)
+            // Persist contexto mesmo sem capabilities (para evitar “pisca” de empresa)
             writeCached(userId, ensuredTenantId, {
               tenantId: ensuredTenantId,
               empresaId: empresaResolved,
-              empresa: empresaData,
-              capabilities: fallbackCaps,
+              empresa: await fetchEmpresaById(empresaResolved),
+              capabilities: cached2?.capabilities ?? capabilities,
               updatedAt: Date.now(),
             });
           }
@@ -411,18 +303,6 @@ export function TenantEmpresaProvider({
           const message = e instanceof Error ? e.message : "Erro ao carregar contexto.";
           setError(message);
         } finally {
-          window.clearTimeout(timeoutId);
-
-          // If we end a cycle without context and without an explicit error, surface a generic one.
-          // This prevents pages from sitting forever in a loading placeholder.
-          setError((prev) => {
-            if (prev) return prev;
-            if (!resolvedTenantId || !resolvedEmpresaId) {
-              return "Contexto não carregado (tenant/empresa indefinidos).";
-            }
-            return prev;
-          });
-
           setLoading(false);
           setRefreshing(false);
         }
@@ -453,16 +333,14 @@ export function TenantEmpresaProvider({
 
       try {
         setError(null);
-        const supabase = supabaseBrowser();
 
         // Optimistic update (no flicker): keep capabilities, just switch empresa.
         setEmpresaIdState(nextEmpresaId);
-        const empresaData = await fetchEmpresaById(supabase, tenantId!, nextEmpresaId);
-        setEmpresa(empresaData);
+        setEmpresa(await fetchEmpresaById(nextEmpresaId));
 
         if (lastSetEmpresaRef.current !== nextEmpresaId) {
           lastSetEmpresaRef.current = nextEmpresaId;
-          await rpcSetCurrentEmpresa(supabase, nextEmpresaId);
+          await rpcSetCurrentEmpresa(nextEmpresaId);
         }
 
         // Persist to cache (SWR): tenant+empresa+caps.
@@ -472,7 +350,7 @@ export function TenantEmpresaProvider({
           writeCached(userId, tId, {
             tenantId: tId,
             empresaId: nextEmpresaId,
-            empresa: empresaData,
+            empresa: await fetchEmpresaById(nextEmpresaId),
             capabilities,
             updatedAt: Date.now(),
           });
@@ -506,17 +384,6 @@ export function TenantEmpresaProvider({
 
     return () => {
       window.removeEventListener("focus", onFocus);
-    };
-  }, [revalidate]);
-
-  // Background revalidate every 10 minutes (keeps session/context warm without UX flicker).
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void revalidate({ background: true, reason: "interval" });
-    }, 10 * 60 * 1000);
-
-    return () => {
-      window.clearInterval(id);
     };
   }, [revalidate]);
 

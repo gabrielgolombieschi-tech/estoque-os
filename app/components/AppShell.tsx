@@ -120,7 +120,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // 2) Listener de auth 1x (login/logout/troca sessão) com debounce
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
+      // Não reseta contexto em refresh de token ou sessão inicial.
+      // O TenantEmpresaProvider ignora TOKEN_REFRESHED para evitar flicker;
+      // se a shell der clear() aqui, as páginas ficam presas em "Carregando contexto...".
+      if (evt === "TOKEN_REFRESHED" || evt === "INITIAL_SESSION") return;
+
       // Debounce: evita múltiplos dispatchs em <1s
       const now = Date.now();
       if (now - lastAuthChangeTime < 1000) {
@@ -506,27 +511,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               )}
 
-              {tenants.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-400">Tenant</span>
-                  <select
-                    aria-label="Selecionar tenant"
-                    className="bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 rounded px-2 py-1"
-                    value={tenantId ?? ""}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => handleTenantChange(e.currentTarget.value)}
-                    disabled={tenantBusy}
-                  >
-                    <option value="" disabled>
-                      Selecione
-                    </option>
-                    {tenants.map((t) => (
-                      <option key={t.tenant_id} value={t.tenant_id}>
-                        {t.tenants?.[0]?.nome ?? t.tenant_id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Tenant selector removido do menu superior */}
 
               {te.error && (
                 <div className="text-xs text-red-400 max-w-[240px]">{te.error}</div>

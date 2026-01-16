@@ -23,7 +23,7 @@ export async function getCapabilities(supabase: SupabaseClient): Promise<CapResu
     // If tenantId still not present, ensure it (reads user_tenant_context or tenant_memberships)
     if (!tenantId) {
       try {
-        tenantId = await ensureCurrentTenant(supabase);
+        tenantId = await ensureCurrentTenant(supabase, tenantId);
       } catch (e) {
         console.warn("ensureCurrentTenant failed:", e);
       }
