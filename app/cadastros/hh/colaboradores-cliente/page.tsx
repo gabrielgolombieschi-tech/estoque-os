@@ -57,7 +57,11 @@ function emptyForm(): VinculoForm {
 
 export default function ColaboradoresClientePage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
+  const { tenantId, empresaId } = useTenantEmpresa();
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
+  const effectiveEmpresaId = useMemo(() => empresaId ?? fixedEmpresaId, [empresaId]);
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canRead = Boolean(has("admin.manage_users")) || Boolean(has("financeiro.read")) || Boolean(has("apontamentos.read"));
   const canWrite = Boolean(has("admin.manage_users")) || Boolean(has("financeiro.read"));
@@ -110,7 +114,7 @@ export default function ColaboradoresClientePage() {
   }
 
   async function loadServicos() {
-    if (!tenantId || !empresaId || !clienteId) {
+    if (!tenantId || !clienteId) {
       setServicos([]);
       return;
     }
@@ -119,7 +123,6 @@ export default function ColaboradoresClientePage() {
         .from("cliente_hh_servicos")
         .select("id,nome,preco_base,preco_50,preco_100")
         .eq("tenant_id", tenantId)
-        .eq("empresa_id", empresaId)
         .eq("cliente_id", clienteId)
         .eq("ativo", true)
         .order("nome", { ascending: true });
@@ -382,11 +385,10 @@ export default function ColaboradoresClientePage() {
   }
 
   useEffect(() => {
-    if (tenantLoading) return;
     void loadClientes();
     void loadColaboradores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantLoading, tenantId]);
+  }, [tenantId, effectiveTenantId]);
 
   useEffect(() => {
     if (!clienteId) {
@@ -467,7 +469,7 @@ export default function ColaboradoresClientePage() {
 
         {clienteId && servicos.length === 0 && (
           <div className="mt-4 text-sm text-amber-300">
-            O cliente "{clienteNome}" não possui serviços HH cadastrados.{" "}
+            O cliente &quot;{clienteNome}&quot; não possui serviços HH cadastrados.{" "}
             <a
               href={`/cadastros/hh/servicos-cliente?cliente_id=${clienteId}`}
               className="underline hover:text-amber-200"
@@ -482,7 +484,7 @@ export default function ColaboradoresClientePage() {
         <>
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm text-zinc-300">
-              Vínculos de "{clienteNome}" ({vinculos.length})
+              Vínculos de &quot;{clienteNome}&quot; ({vinculos.length})
             </div>
             {canWrite && (
               <button

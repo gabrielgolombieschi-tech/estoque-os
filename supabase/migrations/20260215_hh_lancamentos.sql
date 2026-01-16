@@ -86,18 +86,22 @@ BEGIN
     NEW.horas_trabalhadas := NEW.horas_trabalhadas + 24;
   END IF;
   
-  -- Buscar valor da hora conforme percentual aplicado
-  SELECT 
-    CASE 
-      WHEN NEW.percentual_aplicado = 50 THEN preco_50
-      WHEN NEW.percentual_aplicado = 100 THEN preco_100
-      ELSE preco_base
-    END
-  INTO v_preco
-  FROM public.hh_tabela_precos
-  WHERE id = NEW.hh_tipo_id;
+  -- Se valor_hora não foi fornecido ou é 0, buscar de hh_tabela_precos
+  -- Caso contrário, respeitar o valor enviado (vem de cliente_hh_servicos)
+  IF NEW.valor_hora IS NULL OR NEW.valor_hora = 0 THEN
+    SELECT 
+      CASE 
+        WHEN NEW.percentual_aplicado = 50 THEN preco_50
+        WHEN NEW.percentual_aplicado = 100 THEN preco_100
+        ELSE preco_base
+      END
+    INTO v_preco
+    FROM public.hh_tabela_precos
+    WHERE id = NEW.hh_tipo_id;
+    
+    NEW.valor_hora := COALESCE(v_preco, 0);
+  END IF;
   
-  NEW.valor_hora := COALESCE(v_preco, 0);
   NEW.valor_total := NEW.horas_trabalhadas * NEW.valor_hora;
   
   RETURN NEW;

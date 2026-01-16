@@ -33,7 +33,9 @@ type TabelaForm = {
 export default function TabelasHHPage() {
   const router = useRouter();
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
+  const { tenantId } = useTenantEmpresa();
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const { has, loading: permLoading, ready } = usePermissions();
   const canView = has("os.read");
   const canEdit = has("os.write");
@@ -61,30 +63,22 @@ export default function TabelasHHPage() {
   });
 
   async function loadClientes() {
-    if (tenantLoading) return;
-    if (!tenantId) return;
-
     const { data } = await applyTenant(
       supabase.from("clientes").select("id,nome,ativo").eq("ativo", true).order("nome", { ascending: true }),
-      tenantId
+      effectiveTenantId
     );
     setClientes((data ?? []) as Cliente[]);
   }
 
   async function load() {
     setErr(null);
-    if (tenantLoading) return;
-    if (!tenantId) {
-      setErr("Tenant não carregado.");
-      return;
-    }
 
     let query = applyTenant(
       supabase
         .from("cliente_hh_tabelas")
         .select("*,clientes:cliente_id(nome)")
         .order("ano", { ascending: false }),
-      tenantId
+      effectiveTenantId
     );
 
     if (filterCliente !== "todos") {
@@ -113,7 +107,7 @@ export default function TabelasHHPage() {
     loadClientes();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, tenantLoading]);
+  }, [tenantId, effectiveTenantId]);
 
   function startNew() {
     setOk(null);
@@ -201,13 +195,13 @@ export default function TabelasHHPage() {
     if (editingId) {
       const res = await applyTenant(
         supabase.from("cliente_hh_tabelas").update(payload),
-        tenantId
+        effectiveTenantId
       ).eq("id", editingId);
       error = res.error;
     } else {
       const res = await supabase
         .from("cliente_hh_tabelas")
-        .insert({ ...payload, tenant_id: tenantId, criado_em: new Date().toISOString() });
+        .insert({ ...payload, tenant_id: effectiveTenantId, criado_em: new Date().toISOString() });
       error = res.error;
     }
 

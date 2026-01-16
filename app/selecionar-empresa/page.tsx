@@ -1,32 +1,23 @@
 "use client";
 
-import { useContext, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { EmpresaContext } from "@/app/components/EmpresaProvider";
+import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
 
 export default function SelecionarEmpresaPage() {
   const router = useRouter();
-  const ctx = useContext(EmpresaContext);
-  const empresas = ctx?.empresas ?? [];
-  const empresaId = ctx?.empresaId ?? null;
-  const setEmpresaId = ctx?.setEmpresaId ?? (() => {});
-  const loading = ctx?.loading ?? false;
-  const error = ctx?.error ?? null;
+  const ctx = useTenantEmpresaContext();
+  const empresas = ctx.empresas;
+  const empresaId = ctx.empresaId;
+  const setEmpresaId = ctx.setEmpresaId;
+  const loading = ctx.loading || !ctx.tenantId;
+  const error = ctx.error;
 
   useEffect(() => {
-    if (!ctx) return;
     if (!loading && empresaId && empresas.length === 1) {
       router.replace("/");
     }
-  }, [ctx, loading, empresaId, empresas.length, router]);
-
-  if (!ctx) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-300">
-        EmpresaProvider nao encontrado.
-      </div>
-    );
-  }
+  }, [loading, empresaId, empresas.length, router]);
 
   if (loading) {
     return (
@@ -58,13 +49,13 @@ export default function SelecionarEmpresaPage() {
           {empresas.map((empresa) => (
             <button
               key={empresa.id}
-              onClick={() => {
-                setEmpresaId(empresa.id);
+              onClick={async () => {
+                await setEmpresaId(empresa.id);
                 router.replace("/");
               }}
               className="w-full text-left px-4 py-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
             >
-              <div className="font-medium">{empresa.nome ?? empresa.id}</div>
+              <div className="font-medium">{empresa.nome_fantasia ?? empresa.razao_social ?? empresa.id}</div>
               <div className="text-xs text-zinc-400">{empresa.id}</div>
             </button>
           ))}

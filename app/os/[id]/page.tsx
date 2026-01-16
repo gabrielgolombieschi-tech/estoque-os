@@ -117,36 +117,15 @@ function orderGestaoItems(items: GestaoItem[]): GestaoItem[] {
 
 export default function OsDetailPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const { tenantId, empresaId } = useTenantEmpresa();
   const { has } = usePermissions();
   const params = useParams();
   const osId = Number(params.id);
 
-  useEffect(() => {
-    if (!tenantId) return;
-    let active = true;
-    (async () => {
-      const { error } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
-      if (!active) return;
-      if (error) console.warn("Nao foi possivel setar tenant atual:", error);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [supabase, tenantId]);
-
-  useEffect(() => {
-    if (!empresaId) return;
-    let active = true;
-    (async () => {
-      const { error } = await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
-      if (!active) return;
-      if (error) console.warn("Nao foi possivel setar empresa atual:", error);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [supabase, empresaId]);
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
+  const effectiveEmpresaId = useMemo(() => empresaId ?? fixedEmpresaId, [empresaId]);
 
   const [os, setOs] = useState<OS | null>(null);
   const [rows, setRows] = useState<OsItemRow[]>([]);
@@ -161,6 +140,7 @@ export default function OsDetailPage() {
   const [gestaoSaving, setGestaoSaving] = useState(false);
   const [gestaoErr, setGestaoErr] = useState<string | null>(null);
   const [maoObraExtra, setMaoObraExtra] = useState<number>(0);
+  const [hhTotal, setHhTotal] = useState<number>(0);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteHabilitaHH, setClienteHabilitaHH] = useState(false);
 
@@ -221,19 +201,17 @@ export default function OsDetailPage() {
     const materiais = rows
       .filter((r) => r.itens?.tipo === "produto")
       .reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
-    const maoObra = rows
-      .filter((r) => r.itens?.tipo === "servico")
-      .reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
-    const maoObraTotal = maoObra + Number(maoObraExtra || 0);
-    const imposto = Number(os?.orcado ?? 0) * 0.22;
-    const total = materiais + maoObraTotal + imposto;
-    return { materiais, maoObra: maoObraTotal, imposto, total };
+
+    // Regra de negócio (HH cobrança vs custo):
+    // - Mão de obra aqui é CUSTO (vw_custo_mao_obra_os)
+    // - Total aqui é COBRANÇA HH (vw_hh_total_os)
+    const maoObra = Number(maoObraExtra || 0);
+    const total = Number(hhTotal || 0);
+
+    return { materiais, maoObra, total };
   })();
 
   const orcado = toNum(os?.orcado);
-  const valorTotal = toNum(os?.valor_total);
-  const valorOS = orcado > 0 ? orcado : valorTotal;
-
   const totalAlert = orcado > 0 && totais.total >= orcado * 0.9;
   const totalClass = totalAlert ? "text-red-300 border-red-500/40" : "text-emerald-300 border-emerald-500/40";
 
@@ -259,19 +237,15 @@ export default function OsDetailPage() {
   async function loadGestaoItens() {
     if (!Number.isFinite(osId)) return;
 
-    if (!tenantId) {
-      setGestaoErr("Tenant nao carregado.");
-      setGestaoItems([]);
-      setGestaoLoading(false);
-      return;
-    }
-
     setGestaoErr(null);
     setGestaoLoading(true);
 
-    const { data, error } = await supabase
-      .from("os_gestao_itens")
-      .select("id,os_id,item_tipo,area,habilitado,responsavel_id,data_prevista,progresso_percent")
+    const { data, error } = await applyTenant(
+      supabase
+        .from("os_gestao_itens")
+        .select("id,os_id,item_tipo,area,habilitado,responsavel_id,data_prevista,progresso_percent"),
+      effectiveTenantId
+    )
       .eq("os_id", osId);
 
     if (error) {
@@ -293,7 +267,7 @@ export default function OsDetailPage() {
         responsavel_id: null,
         data_prevista: null,
         progresso_percent: 0,
-        tenant_id: tenantId,
+        tenant_id: effectiveTenantId,
       }));
 
     if (missing.length > 0) {
@@ -308,9 +282,12 @@ export default function OsDetailPage() {
         return;
       }
 
-      const { data: reload, error: reloadErr } = await supabase
-        .from("os_gestao_itens")
-        .select("id,os_id,item_tipo,area,habilitado,responsavel_id,data_prevista,progresso_percent")
+      const { data: reload, error: reloadErr } = await applyTenant(
+        supabase
+          .from("os_gestao_itens")
+          .select("id,os_id,item_tipo,area,habilitado,responsavel_id,data_prevista,progresso_percent"),
+        effectiveTenantId
+      )
         .eq("os_id", osId);
 
       if (!reloadErr) {
@@ -327,18 +304,13 @@ export default function OsDetailPage() {
   async function load() {
     setErr(null);
 
-    if (!tenantId) {
-      setErr("Tenant nao carregado.");
-      return;
-    }
-
     const { data: osData, error: osErr } = await applyTenant(
       supabase
         .from("ordens_servico")
         .select(
           "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor,usa_relatorio_hh"
         ),
-      tenantId
+      effectiveTenantId
     )
       .eq("id", osId)
       .single();
@@ -356,7 +328,7 @@ export default function OsDetailPage() {
     if (osRow.cliente_id) {
       const { data: clienteData } = await applyTenant(
         supabase.from("clientes").select("habilita_hh").eq("id", osRow.cliente_id).single(),
-        tenantId
+        effectiveTenantId
       );
       setClienteHabilitaHH(Boolean(clienteData?.habilita_hh));
     } else {
@@ -367,7 +339,7 @@ export default function OsDetailPage() {
       supabase
         .from("os_itens")
         .select("id,item_id,quantidade,valor_unitario,valor_total,baixa_estoque,itens(nome,codigo_interno,tipo)"),
-      tenantId
+      effectiveTenantId
     )
       .eq("os_id", osId)
       .order("id", { ascending: false });
@@ -387,14 +359,26 @@ export default function OsDetailPage() {
     } else {
       setMaoObraExtra(Number(maoData?.custo_mao_obra ?? 0));
     }
+
+    const { data: hhData, error: hhErr } = await supabase
+      .from("vw_hh_total_os")
+      .select("total_hh")
+      .eq("os_id", osId)
+      .maybeSingle();
+
+    if (hhErr) {
+      console.error(hhErr);
+      setHhTotal(0);
+    } else {
+      setHhTotal(Number((hhData as { total_hh?: number | null } | null)?.total_hh ?? 0));
+    }
   }
 
   useEffect(() => {
-    if (tenantEmpresaLoading) return;
-    loadClientes();
-    load();
+    void loadClientes();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [osId, tenantEmpresaLoading, tenantId]);
+  }, [osId, tenantId, empresaId]);
 
   const closeGestaoModal = useCallback(
     (reset = true) => {
@@ -454,7 +438,7 @@ export default function OsDetailPage() {
         usa_relatorio_hh: usaRelatorioHH,
         atualizado_em: new Date().toISOString(),
       }),
-      tenantId ?? ""
+      effectiveTenantId
     ).eq("id", os.id);
 
     setEditSaving(false);
@@ -481,11 +465,6 @@ export default function OsDetailPage() {
     const ok = confirm("Remover este item da OS?\nSe baixou estoque, será devolvido.");
     if (!ok) return;
 
-    if (!empresaId) {
-      setErr("Selecione uma empresa antes de remover itens.");
-      return;
-    }
-
     setBusy(true);
     setErr(null);
 
@@ -496,7 +475,7 @@ export default function OsDetailPage() {
       p_os_item_id: osItemId,
       p_realizado_por: userEmail,
       p_motivo: "Remoção pelo app (devolução automática)",
-      p_empresa_id: empresaId,
+      p_empresa_id: effectiveEmpresaId,
     });
 
     setBusy(false);
@@ -613,7 +592,7 @@ export default function OsDetailPage() {
       .upsert(
         payload.map((row) => ({
           ...row,
-          tenant_id: tenantId,
+          tenant_id: effectiveTenantId,
         })),
         { onConflict: "os_id,item_tipo,area" }
       );
@@ -997,11 +976,8 @@ export default function OsDetailPage() {
                 <span>
                   - Mao de obra: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.maoObra)}</span>
                 </span>
-                <span>
-                  - Imposto: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.imposto)}</span>
-                </span>
                 <span className="text-base md:text-lg font-semibold text-zinc-100">
-                  - Total:{" "}
+                  - Total (HH):{" "}
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded-md border tabular-nums ${totalClass}`}
                   >
@@ -1081,55 +1057,17 @@ export default function OsDetailPage() {
       {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}
 
       {hhEnabled && canReadOs && (
-        <div className="flex items-center gap-2 border border-zinc-800 rounded-lg p-2 bg-zinc-950">
-          <button
-            type="button"
-            onClick={() => setActiveTab("itens")}
-            className={
-              activeTab === "itens"
-                ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 font-medium"
-                : "px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
-            }
-          >
-            Itens/Serviços
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("hh")}
-            className={
-              activeTab === "hh"
-                ? "px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 font-medium"
-                : "px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
-            }
-          >
-            Relatório HH
-          </button>
+        <div className="border border-zinc-800 rounded-lg p-3 bg-zinc-950">
+          <div className="text-lg font-semibold text-emerald-300">Apontamento HH</div>
+          <div className="text-sm text-zinc-400 mt-1">
+            Gestão de horas trabalhadas e cobrança de mão de obra.
+          </div>
         </div>
       )}
 
-      {(!hhEnabled || activeTab === "itens") && (
+      {!hhEnabled && (
         <>
-          {hhEnabled ? (
-            <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <div className="font-medium">Apontamento HH</div>
-                  <div className="text-sm text-zinc-400 mt-1">
-                    Esta OS usa relatório HH. Lance ou consulte apontamentos de horas para gerar o relatório.
-                  </div>
-                </div>
-                <Link
-                  href={`/apontamentos?os_id=${osId}`}
-                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-                >
-                  Abrir apontamentos
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <>
-
-      {/* Adicionar item */}
+          {/* Adicionar item */}
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
@@ -1248,10 +1186,8 @@ export default function OsDetailPage() {
           </div>
         )}
       </div>
-              </>
-            )}
-          </>
-        )}
+        </>
+      )}
 
       {showEdit && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1824,7 +1760,7 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {hhEnabled && activeTab === "hh" && (
+      {hhEnabled && (
         <RelatorioHHSection osId={osId} osDetail={{ cliente_id: os?.cliente_id ?? null }} />
       )}
     </div>

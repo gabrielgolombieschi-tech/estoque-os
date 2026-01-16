@@ -22,7 +22,7 @@ const sql = readFileSync(migrationPath, 'utf8');
 console.log('Executando migration...');
 
 // Executar SQL via RPC
-const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
+const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
 
 if (error) {
   console.error('Erro ao executar migration:', error);

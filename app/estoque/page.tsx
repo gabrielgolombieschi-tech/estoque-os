@@ -188,7 +188,6 @@ export default function EstoquePage() {
 
     const { error } = await supabase.from("movimentacoes").insert({
       tenant_id: tenantId,
-      empresa_id: empresaId,
       item_id: ajusteItemId,
       tipo: tipoMov,
       quantidade: qtdMov,

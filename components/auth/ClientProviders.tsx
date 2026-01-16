@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { PermissionsProvider } from "@/components/auth/PermissionsProvider";
 import type { Capabilities } from "@/lib/auth/capabilities";
+import { TenantEmpresaProvider } from "@/lib/auth/TenantEmpresaProvider";
 
 type Props = {
   children: ReactNode;
@@ -16,8 +16,8 @@ export default function ClientProviders({
   initialTenantId = null,
 }: Props) {
   return (
-    <PermissionsProvider initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
+    <TenantEmpresaProvider initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
       {children}
-    </PermissionsProvider>
+    </TenantEmpresaProvider>
   );
 }

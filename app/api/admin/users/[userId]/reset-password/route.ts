@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 
-const ADMIN_PERMISSION = "admin.manage_users";
-
 function jerr(status: number, error: string) {
   return NextResponse.json({ error }, { status });
 }

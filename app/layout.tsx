@@ -1,7 +1,6 @@
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import ClientProviders from "@/components/auth/ClientProviders";
-import { EmpresaProvider } from "./components/EmpresaProvider";
 import { headers } from "next/headers";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 import { getCapabilities } from "@/lib/auth/capabilities.server";
@@ -30,13 +29,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         }
       } catch (te) {
         // ignore tenant read error; client will resolve later
-        // eslint-disable-next-line no-console
         console.warn("Could not load server tenantId:", te);
       }
     }
   } catch (e) {
     // ignore server-side capability errors; client will fetch later
-    // eslint-disable-next-line no-console
     console.warn("Could not load server capabilities:", e);
   }
 
@@ -47,9 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <ClientProviders initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
-          <EmpresaProvider>
-            <AppShell>{children}</AppShell>
-          </EmpresaProvider>
+          <AppShell>{children}</AppShell>
         </ClientProviders>
       </body>
     </html>

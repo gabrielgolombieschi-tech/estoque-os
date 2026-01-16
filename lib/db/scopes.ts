@@ -8,7 +8,8 @@ export function applyTenant<T>(query: T, tenantId: string): T {
 }
 
 export function applyTenantEmpresa<T>(query: T, tenantId: string, empresaId: string): T {
-  const withTenant = (query as EqQuery<T>).eq("tenant_id", tenantId);
-  const withEmpresa = (withTenant as EqQuery<T>).eq("empresa_id", empresaId);
-  return withEmpresa;
+  // IMPORTANT: empresa scoping is RLS-only via current_empresa_id() and RPC set_current_empresa.
+  // Do NOT inject `.eq('empresa_id', ...)` here.
+  void empresaId;
+  return applyTenant(query, tenantId);
 }

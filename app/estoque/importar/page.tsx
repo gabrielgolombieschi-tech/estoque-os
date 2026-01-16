@@ -715,7 +715,12 @@ export default function ImportarXmlPage() {
     return map;
   }
 
-  async function upsertFiscalItem(itemId: number, fiscal: Partial<FiscalPerfil>, tenantIdLocal: string, empresaIdLocal: string) {
+  async function upsertFiscalItem(
+    itemId: number,
+    fiscal: Partial<FiscalPerfil>,
+    tenantIdLocal: string,
+    empresaIdLocal: string
+  ) {
     const normCst = (v?: string | null) => {
       const t = (v ?? "").trim();
       return t.length > 0 ? t : null;

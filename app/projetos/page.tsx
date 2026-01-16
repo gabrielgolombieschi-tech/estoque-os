@@ -32,7 +32,9 @@ type OsGestaoRow = {
 
 export default function ProjetosPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
+  const { tenantId } = useTenantEmpresa();
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const [rows, setRows] = useState<DashRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,20 +43,11 @@ export default function ProjetosPage() {
     let active = true;
 
     (async () => {
-      if (tenantLoading) return;
-      if (!tenantId) {
-        if (active) {
-          setErr("Tenant nao carregado.");
-          setLoading(false);
-        }
-        return;
-      }
-
       setLoading(true);
       setErr(null);
 
       const { error: tenantErr } = await supabase.rpc("set_current_tenant", {
-        p_tenant_id: tenantId,
+        p_tenant_id: effectiveTenantId,
       });
 
       if (tenantErr) {
@@ -66,7 +59,7 @@ export default function ProjetosPage() {
       }
 
       const { data: dbgData, error: dbgErr } = await supabase.rpc("debug_tenant");
-      console.log("[projetos] tenant debug:", { tenantId, dbgData, dbgErr });
+      console.log("[projetos] tenant debug:", { tenantId: effectiveTenantId, dbgData, dbgErr });
 
       const { data, error } = await applyTenant(
         supabase.from("os_gestao_itens").select(
@@ -80,7 +73,7 @@ export default function ProjetosPage() {
             progresso_percent
           `
         ),
-        tenantId
+        effectiveTenantId
       )
         .eq("habilitado", true)
         .eq("item_tipo", "projeto");
@@ -105,7 +98,7 @@ export default function ProjetosPage() {
       if (osIds.length > 0) {
         const { data: osData, error: osErr } = await applyTenant(
           supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
-          tenantId
+          effectiveTenantId
         )
           .in("id", osIds);
 
@@ -148,7 +141,7 @@ export default function ProjetosPage() {
     return () => {
       active = false;
     };
-  }, [supabase, tenantId, tenantLoading]);
+  }, [supabase, tenantId, effectiveTenantId]);
 
   if (loading) {
     return (

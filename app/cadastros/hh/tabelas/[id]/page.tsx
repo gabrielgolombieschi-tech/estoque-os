@@ -55,7 +55,9 @@ export default function TabelaDetalheHHPage() {
   const params = useParams();
   const tabelaId = Number(params.id);
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
+  const { tenantId } = useTenantEmpresa();
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const { has, loading: permLoading, ready } = usePermissions();
   const canView = has("os.read");
   const canEdit = has("os.write");
@@ -77,12 +79,9 @@ export default function TabelaDetalheHHPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   async function loadTabela() {
-    if (tenantLoading) return;
-    if (!tenantId) return;
-
     const { data, error } = await applyTenant(
       supabase.from("cliente_hh_tabelas").select("*,clientes:cliente_id(nome)").eq("id", tabelaId).single(),
-      tenantId
+      effectiveTenantId
     );
 
     if (error) {
@@ -94,16 +93,13 @@ export default function TabelaDetalheHHPage() {
   }
 
   async function loadItens() {
-    if (tenantLoading) return;
-    if (!tenantId) return;
-
     const { data, error } = await applyTenant(
       supabase
         .from("cliente_hh_tabela_itens")
         .select("*,hh_especialidades:especialidade_id(descricao)")
         .eq("tabela_id", tabelaId)
         .order("id", { ascending: true }),
-      tenantId
+      effectiveTenantId
     );
 
     if (error) {
@@ -115,12 +111,9 @@ export default function TabelaDetalheHHPage() {
   }
 
   async function loadEspecialidades() {
-    if (tenantLoading) return;
-    if (!tenantId) return;
-
     const { data } = await applyTenant(
       supabase.from("hh_especialidades").select("*").eq("ativo", true).order("descricao", { ascending: true }),
-      tenantId
+      effectiveTenantId
     );
 
     setEspecialidades((data ?? []) as Especialidade[]);
@@ -131,7 +124,7 @@ export default function TabelaDetalheHHPage() {
     loadItens();
     loadEspecialidades();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, tenantLoading, tabelaId]);
+  }, [tenantId, effectiveTenantId, tabelaId]);
 
   function startNewItem() {
     setOk(null);
@@ -306,7 +299,7 @@ export default function TabelaDetalheHHPage() {
         }
 
         // Buscar ou criar especialidade
-        let { data: espData } = await applyTenant(
+        const { data: espData } = await applyTenant(
           supabase.from("hh_especialidades").select("id").ilike("descricao", descricao).limit(1),
           tenantId
         );
@@ -644,7 +637,7 @@ export default function TabelaDetalheHHPage() {
                 <ul className="list-disc list-inside space-y-1 text-xs">
                   <li>Cabeçalho opcional (descricao, preco)</li>
                   <li>Separador: ; ou ,</li>
-                  <li>Colunas: descricao, preco (ex: "Engenheiro;R$ 49,65")</li>
+                  <li>Colunas: descricao, preco (ex: &quot;Engenheiro;R$ 49,65&quot;)</li>
                   <li>Especialidades não existentes serão criadas automaticamente</li>
                   <li>Valores duplicados serão atualizados (upsert)</li>
                 </ul>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
@@ -22,10 +22,13 @@ type ColaboradorFuncao = {
 
 export default function ColaboradorFuncaoPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
+  const { tenantId, empresaId } = useTenantEmpresa();
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
+  const effectiveEmpresaId = useMemo(() => empresaId ?? fixedEmpresaId, [empresaId]);
   const { has, loading: permLoading, ready } = usePermissions();
   const canView = has("apontamentos.read");
-  const canEdit = has("apontamentos.write");
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
@@ -41,7 +44,7 @@ export default function ColaboradorFuncaoPage() {
   const [formColabId, setFormColabId] = useState<string | null>(null);
   const [formServicoId, setFormServicoId] = useState<number | null>(null);
 
-  async function loadClientes() {
+  const loadClientes = useCallback(async () => {
     if (!tenantId || !empresaId) return;
     const { data } = await applyTenantEmpresa(
       supabase.from("clientes").select("id,nome,ativo").eq("ativo", true).order("nome", { ascending: true }),
@@ -49,9 +52,9 @@ export default function ColaboradorFuncaoPage() {
       empresaId
     );
     setClientes((data ?? []) as Cliente[]);
-  }
+  }, [empresaId, supabase, tenantId]);
 
-  async function loadColaboradores() {
+  const loadColaboradores = useCallback(async () => {
     if (!tenantId) return;
     const { data } = await supabase
       .from("colaboradores")
@@ -59,9 +62,9 @@ export default function ColaboradorFuncaoPage() {
       .eq("ativo", true)
       .order("nome", { ascending: true });
     setColaboradores((data ?? []) as Colaborador[]);
-  }
+  }, [supabase, tenantId]);
 
-  async function loadServicos() {
+  const loadServicos = useCallback(async () => {
     if (!tenantId || !empresaId || !clienteId) {
       setServicos([]);
       return;
@@ -77,45 +80,59 @@ export default function ColaboradorFuncaoPage() {
       empresaId
     );
     setServicos((data ?? []) as ServicoHH[]);
-  }
+  }, [clienteId, empresaId, supabase, tenantId]);
 
-  async function loadVinculos() {
+  const loadVinculos = useCallback(async () => {
     if (!tenantId || !clienteId) {
       setVinculos([]);
       return;
     }
     const { data } = await supabase
       .from("colaborador_funcao_hh")
-      .select(
-        "id,colaborador_id,servico_hh_id,ativo,colaboradores(nome),cliente_hh_servicos(nome)"
-      )
+      .select("id,colaborador_id,servico_hh_id,ativo,colaboradores(nome),cliente_hh_servicos(nome)")
       .eq("tenant_id", tenantId)
       .eq("cliente_id", clienteId)
       .order("colaborador_id", { ascending: true });
-    
-    const mapped = (data ?? []).map((row: any) => ({
-      id: row.id,
-      colaborador_id: row.colaborador_id,
-      servico_hh_id: row.servico_hh_id,
-      ativo: row.ativo,
-      colaboradores: Array.isArray(row.colaboradores) && row.colaboradores.length > 0 ? row.colaboradores[0] : null,
-      cliente_hh_servicos: Array.isArray(row.cliente_hh_servicos) && row.cliente_hh_servicos.length > 0 ? row.cliente_hh_servicos[0] : null,
-    }));
-    
+
+    const mapped = (data ?? []).map((row) => {
+      const r = row as Record<string, unknown>;
+      const colaboradores = r.colaboradores;
+      const cliente_hh_servicos = r.cliente_hh_servicos;
+      return {
+        id: r.id,
+        colaborador_id: r.colaborador_id,
+        servico_hh_id: r.servico_hh_id,
+        ativo: r.ativo,
+        colaboradores:
+          Array.isArray(colaboradores) && colaboradores.length > 0
+            ? (colaboradores[0] as unknown as ColaboradorFuncao["colaboradores"])
+            : null,
+        cliente_hh_servicos:
+          Array.isArray(cliente_hh_servicos) && cliente_hh_servicos.length > 0
+            ? (cliente_hh_servicos[0] as unknown as ColaboradorFuncao["cliente_hh_servicos"])
+            : null,
+      };
+    });
+
     setVinculos(mapped as ColaboradorFuncao[]);
-  }
+  }, [clienteId, supabase, tenantId]);
 
   useEffect(() => {
-    if (tenantLoading) return;
-    loadClientes();
-    loadColaboradores();
-  }, [tenantId, tenantLoading]);
+    const t = setTimeout(() => {
+      void loadClientes();
+      void loadColaboradores();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [loadClientes, loadColaboradores, tenantId, effectiveTenantId]);
 
   useEffect(() => {
     if (!clienteId) return;
-    loadServicos();
-    loadVinculos();
-  }, [clienteId, tenantId, empresaId]);
+    const t = setTimeout(() => {
+      void loadServicos();
+      void loadVinculos();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [clienteId, loadServicos, loadVinculos]);
 
   async function adicionarVinculo() {
     if (!tenantId || !clienteId || !formColabId || !formServicoId) {

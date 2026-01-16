@@ -1,42 +1,39 @@
 # Copilot Instructions (Estoque + OS)
 
-## Stack & Architecture
-- Next.js 16 App Router + TypeScript + React 19 + Tailwind 4 + Supabase (RLS/RPC).
-- Multi-tenant + multi-empresa enforced by DB policies; client-side data loading with route guards.
+## Stack
+- Next.js App Router (Next 16) + TypeScript + React 19 + Tailwind 4.
+- Supabase (RLS + RPC) is the source of truth for auth/permissions/tenancy.
 
-## Boot & Context Flow
-- Server preloads capabilities in [app/layout.tsx](../app/layout.tsx) via [lib/auth/capabilities.server.ts](../lib/auth/capabilities.server.ts) and passes them to [components/auth/ClientProviders.tsx](../components/auth/ClientProviders.tsx).
-- Client shell handles auth guards and empresa selection in [app/components/AppShell.tsx](../app/components/AppShell.tsx).
-- Empresa context persists `current_empresa_id` and calls `set_current_empresa` in [app/components/EmpresaProvider.tsx](../app/components/EmpresaProvider.tsx) and [lib/auth/empresa.ts](../lib/auth/empresa.ts).
+## Tenancy + RLS (non-negotiable)
+- The app is **multi-tenant** and many tables are **multi-empresa**. DB policies enforce `tenant_id` and (when present) `empresa_id`.
+- In client pages/components, always resolve context first via `useTenantEmpresa()` (lib/auth/useTenantEmpresa.ts). Never query when `loading` or missing IDs.
+- Always scope queries using helpers from lib/db/scopes.ts:
+  - `applyTenant(query, tenantId)`
+  - `applyTenantEmpresa(query, tenantId, empresaId)`
 
-## Tenancy & RLS (non‑negotiable)
-- Always use `useTenantEmpresa()` and wait for `!loading && tenantId && empresaId` before querying.
-- Apply RLS scopes with `applyTenant()` / `applyTenantEmpresa()` from [lib/db/scopes.ts](../lib/db/scopes.ts).
+## Boot flow (why menus don’t flicker)
+- Server tries to preload capabilities in app/layout.tsx via lib/auth/capabilities.server.ts and passes them into components/auth/ClientProviders.tsx.
+- Client permissions cache lives in components/auth/PermissionsProvider.tsx (sessionStorage + in-memory); it refreshes mainly on login/logout.
+- The shell/guards/menu live in app/components/AppShell.tsx.
+- Empresa selection/state lives in app/components/EmpresaProvider.tsx and is synced to DB via RPC `set_current_empresa`.
 
-## Supabase Clients
-- Client pages: `supabaseBrowser()` singleton from [lib/supabase/client.ts](../lib/supabase/client.ts).
-- API routes: use `supabaseServer()` or `supabaseFromAuthHeader()` from [lib/supabase/server.ts](../lib/supabase/server.ts) and [lib/supabase/serverFromAuthHeader.ts](../lib/supabase/serverFromAuthHeader.ts).
-- Admin ops: `supabaseAdmin()` only, gated by RPC `can` ([lib/supabase/admin.ts](../lib/supabase/admin.ts)).
+## Supabase clients (use the right one)
+- Browser/client components: lib/supabase/client.ts (`supabaseBrowser()` singleton).
+- API routes with user JWT: lib/supabase/serverFromAuthHeader.ts (`supabaseFromAuthHeader(req)`), then call RPCs to set context when needed.
+- Admin/server-role operations: lib/supabase/admin.ts (`supabaseAdmin()`), typically gated by RPC `can('admin','manage_users')` (see app/api/admin/users/route.ts).
 
-## Permissions & Menu Rendering
-- Permissions load once per session in [components/auth/PermissionsProvider.tsx](../components/auth/PermissionsProvider.tsx); `has()` returns `boolean | undefined`.
-- UI checks: `Boolean(has("os.read"))` or wrapper in [components/auth/Can.tsx](../components/auth/Can.tsx).
-- Menu render gate uses `permissionsReady = capabilities !== null && tenantId !== null` (no reloads after boot).
-- RPC `can_many` requires migration [supabase/migrations/20260206_can_many.sql](../supabase/migrations/20260206_can_many.sql).
+## Page pattern (how most screens work)
+- Typical pages (e.g., app/itens/page.tsx, app/estoque/page.tsx): `useMemo(supabaseBrowser)`, `load()` on mount/filters, local state for rows/errors/busy, and reload after mutations.
+- Prefer `<Can perm="...">` (components/auth/Can.tsx) for UI gating; `has()` returns `boolean | undefined` until loaded.
 
-## Page & Mutation Pattern
-- CRUD pages follow: `useMemo(supabaseBrowser)`, `useTenantEmpresa`, `load()` after mutations, states `[rows, setRows]`, `[err, setErr]`, `[busy, setBusy]`.
-- Examples: [app/estoque/page.tsx](../app/estoque/page.tsx), [app/itens/page.tsx](../app/itens/page.tsx), [app/os/page.tsx](../app/os/page.tsx).
+## Domain conventions
+- Brazilian decimals: always use `parseDecimalBR()` / `formatDecimalBR()` (lib/decimal.ts) and prefer `type="text"` + `inputMode="decimal"`.
+- HH module has lots of edge cases; reference docs/HH_BUG_FIX_COMPLETE.md before changing HH flows.
 
-## Domain Conventions
-- HH services are per client in `cliente_hh_servicos`; always filter by `cliente_id` (see [app/os/[id]/components/RelatorioHHSection.tsx](../app/os/[id]/components/RelatorioHHSection.tsx)).
-- Decimal inputs use `parseDecimalBR`/`formatDecimalBR` from [lib/decimal.ts](../lib/decimal.ts) with `type="text"` + `inputMode="decimal"`.
+## Commands
+- Dev: `npm run dev`  | Build: `npm run build` / `npm run start`  | Lint: `npm run lint`
+- DB scripts: `npm run db:migrate`, `npm run db:backup`, `npm run db:restore:dev`
 
-## Workflows & Env
-- Commands: `npm run dev`, `npm run build`, `npm run lint`, `npm run db:migrate`, `npm run db:backup`, `npm run db:restore:dev`.
-- Required env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-- DB tooling details in [docs/DB.md](../docs/DB.md); migrations run alphabetically in supabase/migrations.
-
-## API Route Pattern
-- Use `supabaseServer()` and return `NextResponse.json({ error: error.message }, { status: 400 })` on failures.
-- Example routes: [app/api/os/route.ts](../app/api/os/route.ts) and [app/api/admin/users/route.ts](../app/api/admin/users/route.ts).
+## Common gotchas
+- “RLS violation” usually means missing scope (`applyTenant*`) or missing DB context (RPC `set_current_tenant` / `set_current_empresa`).
+- If RPC `can_many` is missing, apply migration supabase/migrations/20260206_can_many.sql.

@@ -32,7 +32,6 @@ type HHPrecoForm = {
 
 export default function EspecialidadesPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { loading: tenantLoading } = useTenantEmpresa();
   const { has, loading: permLoading, ready } = usePermissions();
   const canView = has("os.read") || has("admin.manage_users") || has("financeiro.read");
   const canEdit = has("os.write") || has("admin.manage_users") || has("financeiro.read");
@@ -59,7 +58,6 @@ export default function EspecialidadesPage() {
 
   async function load() {
     setErr(null);
-    if (tenantLoading) return;
 
     // hh_tabela_precos é global (sem tenant_id)
     let query = supabase.from("hh_tabela_precos").select("*").order("categoria", { ascending: true }).order("nivel", { ascending: true });
@@ -81,7 +79,7 @@ export default function EspecialidadesPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantLoading, q, filterCategoria]);
+  }, [q, filterCategoria]);
 
   function startNew() {
     setOk(null);

@@ -11,7 +11,7 @@ type CanProps = {
 };
 
 export function Can({ perm, children, fallback = null }: CanProps) {
-  const { loadingInitial, loading, has } = usePermissions();
+  const { loadingInitial, has } = usePermissions();
 
   const allowed = has(perm as unknown as CapabilityKey);
   if (loadingInitial || allowed === undefined) return fallback;

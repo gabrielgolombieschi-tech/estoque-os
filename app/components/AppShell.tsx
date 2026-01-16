@@ -1,19 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useContext, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "../../lib/supabase/client";
-import { ensureCurrentTenant } from "@/lib/tenant";
-import { clearPermissionCache } from "@/lib/auth/permissions";
-import { usePermissions } from "@/components/auth/PermissionsProvider";
-import { EmpresaContext } from "@/app/components/EmpresaProvider";
+import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
 
 type UserInfo = { id: string; email: string };
 type TenantOption = {
   tenant_id: string;
-  tenants?: { name: string | null }[] | null;
+  tenants?: { nome: string | null }[] | null;
 };
+
 
 const isDev = process.env.NODE_ENV !== "production";
 const logError = (...args: unknown[]) => {
@@ -24,62 +22,35 @@ const logError = (...args: unknown[]) => {
 let authChangeDebounceRef: ReturnType<typeof setTimeout> | null = null;
 let lastAuthChangeTime = 0;
 
-export function useTenantBoot() {
-  useEffect(() => {
-    const supabase = supabaseBrowser();
-    (async () => {
-      try {
-        await ensureCurrentTenant(supabase);
-      } catch (e) {
-        logError("Erro ao definir tenant atual:", e);
-      }
-    })();
-  }, []);
-}
-
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  useTenantBoot();
+  const te = useTenantEmpresaContext();
 
   const router = useRouter();
   const pathname = usePathname();
 
-  const empresaCtx = useContext(EmpresaContext);
-  const empresaId = empresaCtx?.empresaId ?? null;
-  const empresas = empresaCtx?.empresas ?? [];
-  const setEmpresaId = empresaCtx?.setEmpresaId ?? (() => {});
-  const empresaLoading = empresaCtx?.loading ?? false;
-  const empresaError = empresaCtx?.error ?? null;
+  const currentTenantId = te.tenantId;
+  const empresaId = te.empresaId;
+  const empresas = te.empresas;
 
-  /**
-   * ✅ Robustez: não assume que o provider expõe reload/ready/loadingInitial/etc.
-   * Assim não quebra o header/menu em runtime.
-   */
-  const perms = usePermissions();
+  // IMPORTANT: Never treat undefined permissions as false (prevents flicker).
+  const has = te.has as unknown as (k: string) => boolean | undefined;
+  const clear = te.clear;
+  const reload = te.reload;
+  const refreshing = te.refreshing;
 
-  const clear: () => void = perms?.clear ?? (() => {});
-  const _rawHas = perms?.has ?? (() => false);
-  const has: (k: string) => boolean | undefined = (_rawHas as unknown) as (k: string) => boolean | undefined;
-  const reload: () => Promise<void> = perms?.reload ?? (async () => {});
-  const refreshing: boolean = perms?.refreshing ?? false;
-  const loadingInitial: boolean = perms?.loadingInitial ?? false;
-  const permsCapabilities = (perms as unknown as { capabilities?: unknown } | null)?.capabilities;
-  const permissionsFailed: boolean = !loadingInitial && permsCapabilities === null;
-
-  // Menus renderizam assim que temos capabilities (mesmo em background refresh)
-  // Não espera loadingInitial terminar; confia em cache
-  const hasCapabilities = permsCapabilities !== null;
-  const permissionsReady: boolean = perms?.ready ?? hasCapabilities;
+  const bootingTenantEmpresa = te.loading || !currentTenantId || !empresaId;
+  const loadingInitial = bootingTenantEmpresa && te.capabilities === null;
+  const permissionsFailed = !loadingInitial && te.capabilities === null;
+  const permissionsReady = te.capabilities !== null;
 
   const [booting, setBooting] = useState(true);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [tenantBusy, setTenantBusy] = useState(false);
 
   const isPublic = pathname === "/login";
-  const isEmpresaSelection = pathname === "/selecionar-empresa";
   const isFullWidth = pathname === "/itens";
   const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
@@ -88,19 +59,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper único para checar capability (nunca use has() direto no JSX)
-  const can = (k: string) => Boolean(has(k));
+  // Se capabilities ainda não carregaram, libera menu para evitar header vazio
+  const can = (k: string) => has(k) ?? true;
 
   const canAccessOs = can("os.read");
   const canExecuteOs = can("os_rpcs.execute");
   const canAccessApontamentos = can("apontamentos.read");
-  const canAccessClientes = can("os.read") || can("cad_clientes.write");
   const canAccessEstoque = can("estoque.read") || can("estoque.write");
   const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
   const canImportXml = can("xml_import.execute");
-  const canAccessFornecedores = can("estoque.read") || can("estoque.write") || can("cad_fornecedores.write");
   const canAccessFinanceiro = can("financeiro.read");
   const canAccessAdmin = can("admin.manage_users");
-  const canAccessTabelasHH = can("os.read"); // Mesmo guard que OS
   const canAccessCadastros = can("admin.manage_users") || can("financeiro.read");
   const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read"); // Contratos HH - Admin, Financeiro ou Apontador
   const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read"); // Colaboradores - Admin ou Financeiro
@@ -135,7 +104,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const user = session?.user;
 
         setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
-        setUserRole(null);
 
         // PermissionsProvider já carrega permissões automaticamente ao iniciar
         // Não chamamos reload() aqui para evitar reavaliações desnecessárias
@@ -159,12 +127,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (authChangeDebounceRef) clearTimeout(authChangeDebounceRef);
         authChangeDebounceRef = setTimeout(() => {
           lastAuthChangeTime = now;
-          clearPermissionCache();
           clear();
 
           const user = session?.user;
           setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
-          setUserRole(null);
 
           // PermissionsProvider já recarrega permissões ao detectar mudança de sessão
         }, 500);
@@ -172,12 +138,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
 
       lastAuthChangeTime = now;
-      clearPermissionCache();
       clear();
 
       const user = session?.user;
       setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
-      setUserRole(null);
 
       // PermissionsProvider já recarrega permissões ao detectar mudança de sessão
     });
@@ -230,15 +194,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booting, userInfo?.id, pathname]);
 
-  // 3.5) Guard de empresa (se tiver mais de 1)
-  useEffect(() => {
-    if (booting || isPublic || isEmpresaSelection) return;
-    if (!userInfo?.id) return;
-    if (empresaLoading) return;
-    if (!empresaId && empresas.length > 1) {
-      router.replace("/selecionar-empresa");
-    }
-  }, [booting, isPublic, isEmpresaSelection, userInfo?.id, empresaLoading, empresaId, empresas.length, router]);
+  // 3.5) Guard de empresa - REMOVIDO: sempre usa Elétrica Segau automaticamente
+  // Não há mais necessidade de redirecionar para /selecionar-empresa
 
   // 4) Fecha menu ao clicar fora
   useEffect(() => {
@@ -251,82 +208,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("click", handleClickOutside);
   }, []);
 
-  // 5) Carrega Role via RPC debug_me (nao depende de tenantId do provider)
+  // 6) Carrega tenants - SIMPLIFICADO: sempre usa tenant fixo
   useEffect(() => {
-    if (!userInfo?.id) {
-      setUserRole(null);
-      return;
-    }
-
-    let active = true;
-
-    (async () => {
-      try {
-        const { data: u } = await supabase.auth.getUser();
-        if (!u.user?.id) {
-          if (active) setUserRole(null);
-          return;
-        }
-
-        const dbg = await supabase.rpc("debug_me");
-        if (dbg.error) {
-          logError("Erro debug_me:", dbg.error);
-          if (active) setUserRole(null);
-          return;
-        }
-
-        const roles = (dbg.data as { roles?: string[] | null } | null)?.roles ?? [];
-        if (active) setUserRole(roles.length ? roles.join(", ") : null);
-      } catch (e) {
-        logError("Erro ao carregar role:", e);
-        if (active) setUserRole(null);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [userInfo?.id, supabase]);
-
-  // 6) Carrega tenants (para selector)
-  useEffect(() => {
-    if (!userInfo?.id) {
+    if (!userInfo?.id || !currentTenantId) {
       setTenants([]);
       setTenantId(null);
       return;
     }
 
-    let active = true;
-    (async () => {
-      try {
-        const { data: ctx, error: ctxErr } = await supabase
-          .from("user_tenant_context")
-          .select("tenant_id")
-          .maybeSingle();
-        if (ctxErr) logError("Erro ao carregar tenant atual:", ctxErr);
-
-        const { data: list, error: listErr } = await supabase
-          .from("tenant_memberships")
-          .select("tenant_id, tenants(name)")
-          .eq("status", "active");
-        if (listErr) {
-          logError("Erro ao carregar tenants:", listErr);
-          return;
-        }
-
-        if (!active) return;
-        setTenants((list ?? []) as TenantOption[]);
-        const ctxTenantId = (ctx as { tenant_id?: string | null } | null)?.tenant_id ?? null;
-        setTenantId(ctxTenantId);
-      } catch (e) {
-        logError("Erro ao carregar tenants:", e);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [userInfo?.id, supabase]);
+    // Usar tenant do contexto TenantEmpresaProvider
+    setTenantId(currentTenantId);
+    setTenants([
+      {
+        tenant_id: currentTenantId,
+        tenants: [{ nome: "Elétrica Segau" }],
+      },
+    ]);
+  }, [userInfo?.id, currentTenantId]);
 
   async function handleTenantChange(nextTenantId: string) {
     if (!nextTenantId || nextTenantId === tenantId || tenantBusy) return;
@@ -349,7 +247,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } catch (e) {
       logError("Erro ao sair", e);
     } finally {
-      clearPermissionCache();
       clear();
       router.replace("/login");
       if (typeof window !== "undefined") window.location.href = "/login";
@@ -366,21 +263,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isPublic) return <>{children}</>;
 
-  if (!empresaLoading && userInfo?.id && empresas.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-300">
-        {empresaError ?? "Sem acesso a empresas. Fale com o admin."}
-      </div>
-    );
-  }
-
-  if (!empresaLoading && !empresaId && empresas.length > 1 && !isEmpresaSelection) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-300">
-        Redirecionando para selecao de empresa...
-      </div>
-    );
-  }
+  // REMOVIDO: Verificação de empresas.length === 0
+  // Como tudo está hardcoded para Elétrica Segau, não precisamos dessa verificação
+  // que estava bloqueando o acesso
 
   return (
     <div className="min-h-screen">
@@ -393,22 +278,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
 
               <nav className="relative flex flex-wrap items-center gap-4 text-sm text-zinc-200">
-                {loadingInitial && (
-                  <div className="text-xs text-zinc-500">Carregando menus...</div>
-                )}
 
-                {permissionsFailed && (
-                  <div className="text-xs text-amber-400">
-                    Permissões não carregaram. Se este banco é novo, aplique migrations (inclui
-                    <span className="font-mono"> 20260206_can_many.sql</span>) e clique em{" "}
-                    <button type="button" className="underline" onClick={() => reload()}>
-                      recarregar
-                    </button>
-                    .
-                  </div>
-                )}
-
-                {permissionsReady && canAccessOs && (
+                {canAccessOs && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("os")}
@@ -464,7 +335,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
 
-                {permissionsReady && canAccessEstoque && (
+                {canAccessEstoque && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("estoque")}
@@ -510,7 +381,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
 
-                {permissionsReady && canAccessFinanceiro && (
+                {canAccessFinanceiro && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("financeiro")}
@@ -541,7 +412,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
 
-                {permissionsReady && canAccessCadastros && (
+                {canAccessCadastros && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("cadastro")}
@@ -571,16 +442,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                               Tabelas
                             </Link>
                             <Link
-                              href="/cadastros/hh/especialidades"
-                              className="block px-5 py-2 hover:bg-zinc-900 text-sm"
-                            >
-                              Especialidades
-                            </Link>
-                            <Link
                               href="/cadastros/hh/servicos-cliente"
                               className="block px-5 py-2 hover:bg-zinc-900 text-sm"
                             >
-                              Valores
+                              Especialidades
                             </Link>
                             <Link
                               href="/cadastros/hh/colaboradores-cliente"
@@ -626,7 +491,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
 
-                {permissionsReady && canAccessAdmin && (
+                {canAccessAdmin && (
                   <Link href="/usuarios" className="px-3 py-1 rounded-md hover:bg-zinc-900">
                     Usuarios
                   </Link>
@@ -656,43 +521,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </option>
                     {tenants.map((t) => (
                       <option key={t.tenant_id} value={t.tenant_id}>
-                        {t.tenants?.[0]?.name ?? t.tenant_id}
+                        {t.tenants?.[0]?.nome ?? t.tenant_id}
                       </option>
                     ))}
                   </select>
                 </div>
               )}
 
-              {empresaError && (
-                <div className="text-xs text-red-400 max-w-[240px]">{empresaError}</div>
+              {te.error && (
+                <div className="text-xs text-red-400 max-w-[240px]">{te.error}</div>
               )}
 
-              {empresas.length > 1 && (
+              {/* Seletor de empresa REMOVIDO - sempre usa Elétrica Segau */}
+              {empresaId && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-400">Empresa</span>
-                  <select
-                    aria-label="Selecionar empresa"
-                    className="bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 rounded px-2 py-1"
-                    value={empresaId ?? ""}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setEmpresaId(e.currentTarget.value)}
-                    disabled={empresaLoading}
-                  >
-                    <option value="" disabled>
-                      Selecione
-                    </option>
-                    {empresas.map((empresa) => (
-                      <option key={empresa.id} value={empresa.id}>
-                        {empresa.nome ?? empresa.id}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="text-xs text-zinc-400">Empresa:</span>
+                  <span className="text-xs text-zinc-100 font-medium">
+                    {empresas.find((e) => e.id === empresaId)?.nome_fantasia ?? "Elétrica Segau"}
+                  </span>
                 </div>
               )}
 
               {userInfo && (
                 <div className="text-xs text-zinc-300 select-none whitespace-nowrap">
                   <div>{userInfo.email}</div>
-                  <div className="text-[11px] text-zinc-400">{userRole ?? "-"}</div>
                 </div>
               )}
 

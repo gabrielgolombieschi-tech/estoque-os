@@ -66,7 +66,6 @@ export async function getCapabilities(supabase: SupabaseClient): Promise<CapResu
 
     // Diagnostics: log context in dev
     try {
-      // eslint-disable-next-line no-console
       console.info("[capabilities] resolving context", { tenantId, empresaId });
     } catch {}
 
@@ -80,7 +79,6 @@ export async function getCapabilities(supabase: SupabaseClient): Promise<CapResu
 
     // diagnostics
     try {
-      // eslint-disable-next-line no-console
       console.info("[capabilities] can_many result", { tenantId, empresaId, result: data });
     } catch {}
 

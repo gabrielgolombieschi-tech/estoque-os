@@ -1,10 +1,9 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
-import { EmpresaContext } from "@/app/components/EmpresaProvider";
 
 type Profile = {
   id: string;
@@ -37,14 +36,15 @@ function getErrorMessage(err: unknown, fallback: string) {
 
 export default function EmpresaUsuariosPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
+  const te = useTenantEmpresaContext();
+  const tenantId = te.tenantId;
+  const empresaId = te.empresaId;
+  const empresas = te.empresas;
+  const setEmpresaId = te.setEmpresaId;
+  const tenantLoading = te.loading || !tenantId || !empresaId;
   const { has, loading: permLoading } = usePermissions();
-  const empresaCtx = useContext(EmpresaContext);
 
-  const empresas = useMemo(() => empresaCtx?.empresas ?? [], [empresaCtx?.empresas]);
-  const defaultEmpresaId = empresaCtx?.empresaId ?? null;
-
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string | null>(defaultEmpresaId);
+  const [switchingEmpresa, setSwitchingEmpresa] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [memberships, setMemberships] = useState<EmpresaMembership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,19 +52,13 @@ export default function EmpresaUsuariosPage() {
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
-    if (!selectedEmpresaId && empresas.length > 0) {
-      setSelectedEmpresaId(defaultEmpresaId ?? empresas[0].id);
-    }
-  }, [defaultEmpresaId, empresas, selectedEmpresaId]);
-
   const isAdmin = has("admin.manage_users");
 
   useEffect(() => {
     let active = true;
 
     (async () => {
-      if (!tenantId || !selectedEmpresaId || permLoading || !isAdmin) {
+      if (!tenantId || !empresaId || permLoading || !isAdmin) {
         if (active) setLoading(false);
         return;
       }
@@ -100,7 +94,6 @@ export default function EmpresaUsuariosPage() {
           .from("empresa_memberships")
           .select("id,user_id,role,status")
           .eq("tenant_id", tenantId)
-          .eq("empresa_id", selectedEmpresaId)
           .eq("status", "active")
           .order("criado_em", { ascending: true });
         if (empresaErr) throw empresaErr;
@@ -119,16 +112,15 @@ export default function EmpresaUsuariosPage() {
     return () => {
       active = false;
     };
-  }, [supabase, tenantId, selectedEmpresaId, permLoading, isAdmin, reloadKey]);
+  }, [supabase, tenantId, empresaId, permLoading, isAdmin, reloadKey]);
 
   async function addMembership(userId: string) {
-    if (!tenantId || !selectedEmpresaId) return;
+    if (!tenantId || !empresaId) return;
     setBusyUserId(userId);
     setErr(null);
     const { error } = await supabase.from("empresa_memberships").upsert(
       {
         tenant_id: tenantId,
-        empresa_id: selectedEmpresaId,
         user_id: userId,
         role: "user",
         status: "active",
@@ -144,14 +136,13 @@ export default function EmpresaUsuariosPage() {
   }
 
   async function removeMembership(userId: string) {
-    if (!tenantId || !selectedEmpresaId) return;
+    if (!tenantId || !empresaId) return;
     setBusyUserId(userId);
     setErr(null);
     const { error } = await supabase
       .from("empresa_memberships")
       .delete()
       .eq("tenant_id", tenantId)
-      .eq("empresa_id", selectedEmpresaId)
       .eq("user_id", userId);
     setBusyUserId(null);
     if (error) {
@@ -162,7 +153,7 @@ export default function EmpresaUsuariosPage() {
   }
 
   async function updateRole(membershipId: number, role: string) {
-    if (!tenantId || !selectedEmpresaId) return;
+    if (!tenantId || !empresaId) return;
     setErr(null);
     const { error } = await supabase
       .from("empresa_memberships")
@@ -175,7 +166,7 @@ export default function EmpresaUsuariosPage() {
     setReloadKey((prev) => prev + 1);
   }
 
-  if (tenantLoading || permLoading || loading) {
+  if (tenantLoading || permLoading || switchingEmpresa || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300">
         Carregando...
@@ -187,6 +178,14 @@ export default function EmpresaUsuariosPage() {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300">
         Tenant nao carregado.
+      </div>
+    );
+  }
+
+  if (!empresaId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300">
+        Empresa nao carregada.
       </div>
     );
   }
@@ -216,15 +215,25 @@ export default function EmpresaUsuariosPage() {
           <select
             aria-label="Selecionar empresa"
             className="w-full px-3 py-2"
-            value={selectedEmpresaId ?? ""}
-            onChange={(e) => setSelectedEmpresaId(e.target.value)}
+            value={empresaId ?? ""}
+            onChange={async (e) => {
+              const next = e.target.value;
+              if (!next || next === empresaId) return;
+              setSwitchingEmpresa(true);
+              try {
+                await setEmpresaId(next);
+                setReloadKey((prev) => prev + 1);
+              } finally {
+                setSwitchingEmpresa(false);
+              }
+            }}
           >
             <option value="" disabled>
               Selecione
             </option>
             {empresas.map((empresa) => (
               <option key={empresa.id} value={empresa.id}>
-                {empresa.nome ?? empresa.id}
+                {empresa.nome_fantasia ?? empresa.razao_social ?? empresa.id}
               </option>
             ))}
           </select>

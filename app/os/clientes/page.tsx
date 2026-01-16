@@ -368,39 +368,6 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
   );
 }
 
-async function countOsVinculadas(opts: {
-  supabase: ReturnType<typeof supabaseBrowser>;
-  tenantId: string;
-  clienteId: number;
-}): Promise<{ count: number; warnTable?: string } | { error: string }> {
-  // Prefer schema.sql (public.os). Fallback para tabela usada no app (ordens_servico), caso o ambiente esteja diferente.
-  const tables = ["os", "ordens_servico"] as const;
-
-  for (const table of tables) {
-    const { error, count } = await applyTenant(
-      opts.supabase
-        .from(table)
-        .select("id", { count: "exact", head: true }),
-      opts.tenantId
-    ).eq("cliente_id", opts.clienteId);
-
-    if (!error) {
-      return { count: typeof count === "number" ? count : 0, warnTable: table === "ordens_servico" ? table : undefined };
-    }
-
-    const msg = (error as SupabaseErrorLike)?.message?.toLowerCase() ?? "";
-    const missingRelation =
-      (error as SupabaseErrorLike)?.code === "42P01" || msg.includes("relation") || msg.includes("schema cache");
-    if (missingRelation) {
-      continue;
-    }
-
-    return { error: mapClienteError(error as SupabaseErrorLike) };
-  }
-
-  return { error: "Tabela de OS não encontrada para checar vínculos." };
-}
-
 export default function ClientesPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const { tenantId, loading: tenantEmpresaLoading } = useTenantEmpresa();
@@ -582,59 +549,6 @@ export default function ClientesPage() {
     if (error) return setErr(mapClienteError(error as SupabaseErrorLike));
 
     setOk(to ? "Cliente ativado." : "Cliente desativado.");
-    await load();
-  }
-
-  async function deleteCliente(row: Cliente) {
-    if (!tenantId) return setErr("Tenant não carregado.");
-    if (!canEdit) return setErr("Sem permissão para excluir clientes.");
-
-    // Checa vínculos com OS antes de excluir.
-    const countRes = await countOsVinculadas({ supabase, tenantId, clienteId: row.id });
-
-    if ("error" in countRes) {
-      setErr(countRes.error);
-      return;
-    }
-
-    if (countRes.count > 0) {
-      const chooseDisable = await confirm({
-        title: "Cliente possui OS vinculadas",
-        description:
-          "Excluir vai remover o vínculo (cliente ficará vazio nas OS). Recomendado: desativar. Deseja desativar em vez de excluir?",
-        confirmText: "Desativar",
-        cancelText: "Excluir mesmo assim",
-        destructive: false,
-      });
-
-      if (chooseDisable) {
-        await toggleAtivo({ ...row, ativo: true });
-        return;
-      }
-    } else {
-      const confirmed = await confirm({
-        title: "Excluir definitivamente?",
-        description: "Preferimos desativar para manter histórico. Confirma excluir?",
-        confirmText: "Excluir",
-        destructive: true,
-      });
-      if (!confirmed) return;
-    }
-
-    setBusy(true);
-    setErr(null);
-    setOk(null);
-
-    const delRes = await applyTenant(supabase.from("clientes").delete(), tenantId).eq("id", row.id);
-
-    setBusy(false);
-
-    if (delRes.error) {
-      setErr("Não foi possível excluir. Recomendado desativar.");
-      return;
-    }
-
-    setOk("Cliente excluído.");
     await load();
   }
 

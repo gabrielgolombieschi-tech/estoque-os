@@ -1,5 +1,9 @@
 BEGIN;
 
+-- DEPRECATED: RPC complexa desabilitada em favor de geração de PDF cliente-side
+-- Esta RPC tentava criar tabelas que não existem (cliente_hh_tabelas, etc)
+-- A exportação de PDF agora é feita via gerarRelatorioPDF() no frontend
+/*
 -- RPC: gera relatorio de HH por OS (snapshot) com regras ERP (lucro real)
 -- Retorna o id do relatorio e o total calculado
 CREATE OR REPLACE FUNCTION public.gerar_relatorio_hh_os(
@@ -52,7 +56,7 @@ BEGIN
   v_ano := EXTRACT(YEAR FROM p_periodo_inicio)::int;
   SELECT t.id
     INTO v_tabela_hh_id
-  FROM public.cliente_hh_tabela t
+  FROM public.cliente_hh_tabelas t
   WHERE t.tenant_id = v_tenant_id
     AND t.cliente_id = v_cliente_id
     AND t.ano = v_ano
@@ -258,6 +262,7 @@ BEGIN
   RETURN QUERY SELECT v_relatorio_id, v_total;
 END;
 $$;
+*/
 
 -- Recarrega schema no PostgREST
 NOTIFY pgrst, 'reload schema';

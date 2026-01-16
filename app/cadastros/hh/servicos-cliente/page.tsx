@@ -168,7 +168,6 @@ export default function ServicosClientePage() {
       const { error } = await supabase.from("cliente_hh_servicos").insert({
         ...payload,
         tenant_id: tenantId,
-        empresa_id: empresaId,
         criado_por: userEmail,
         criado_em: new Date().toISOString(),
       });

@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type EmpresaOption = { id: string; nome: string | null };
 
+type EmpresaMembershipRow = {
+  empresa_id: string;
+  criado_em?: string | null;
+};
+
 type EmpresaRow = {
   id: string | number;
   nome?: string | null;
@@ -10,59 +15,8 @@ type EmpresaRow = {
   ativo?: boolean | null;
 };
 
-type EmpresaMembershipRow = {
-  empresa_id: string;
-  criado_em?: string | null;
-};
-
-type SupabaseError = { code?: string; message?: string } | null | undefined;
-
-function isMissingRelation(error: SupabaseError, tableName: string): boolean {
-  const message = error?.message?.toLowerCase() ?? "";
-  return (
-    error?.code === "42P01" ||
-    message.includes("schema cache") ||
-    message.includes(`relation "${tableName}"`) ||
-    message.includes(tableName)
-  );
-}
-
 function getEmpresaNome(row: EmpresaRow): string | null {
   return (row.nome ?? row.nome_fantasia ?? row.razao_social ?? null) as string | null;
-}
-
-async function hasAdminAccess(supabase: SupabaseClient): Promise<boolean> {
-  const { data, error } = await supabase.rpc("can", {
-    p_resource: "admin",
-    p_action: "manage_users",
-  });
-  if (error) {
-    return false;
-  }
-  return Boolean(data);
-}
-
-async function fetchEmpresasByTenant(
-  supabase: SupabaseClient,
-  tenantId: string
-): Promise<EmpresaOption[]> {
-  const { data, error } = await supabase
-    .from("empresas")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("criado_em", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
-  const rows = (data ?? []) as EmpresaRow[];
-  return rows
-    .filter((row) => row.ativo !== false)
-    .map((row) => ({
-      id: String(row.id),
-      nome: getEmpresaNome(row),
-    }));
 }
 
 async function fetchEmpresasByIds(
@@ -78,9 +32,7 @@ async function fetchEmpresasByIds(
     .eq("tenant_id", tenantId)
     .in("id", ids);
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
   const rows = (data ?? []) as EmpresaRow[];
   return rows
@@ -89,30 +41,6 @@ async function fetchEmpresasByIds(
       id: String(row.id),
       nome: getEmpresaNome(row),
     }));
-}
-
-async function seedEmpresaMemberships(
-  supabase: SupabaseClient,
-  tenantId: string,
-  userId: string,
-  empresas: EmpresaOption[]
-): Promise<void> {
-  if (empresas.length === 0) return;
-  try {
-    await supabase
-      .from("empresa_memberships")
-      .upsert(
-        empresas.map((empresa) => ({
-          tenant_id: tenantId,
-          empresa_id: empresa.id,
-          user_id: userId,
-          status: "active",
-        })),
-        { onConflict: "tenant_id,empresa_id,user_id" }
-      );
-  } catch {
-    // Ignore membership seeding errors for environments without this table.
-  }
 }
 
 export function getStoredEmpresaId(): string | null {
@@ -129,30 +57,11 @@ export async function getAllowedEmpresas(
   supabase: SupabaseClient,
   tenantId: string
 ): Promise<EmpresaOption[]> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id ?? null;
-  if (!userId) {
-    throw new Error("Usuario nao autenticado.");
-  }
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr) throw userErr;
+  const userId = userData.user?.id ?? null;
+  if (!userId) throw new Error("Usuario nao autenticado.");
 
-  // 0) Tenta RPC seguro primeiro (funciona mesmo se empresa_memberships tiver RLS restritiva)
-  try {
-    const { data: rpcData, error: rpcErr } = await supabase.rpc("list_user_empresas", {
-      p_tenant_id: tenantId,
-    });
-    if (!rpcErr && rpcData && rpcData.length > 0) {
-      return (rpcData as EmpresaRow[])
-        .filter((row) => row.ativo !== false)
-        .map((row) => ({
-          id: String(row.id),
-          nome: row.nome ?? null,
-        }));
-    }
-  } catch {
-    // RPC não existe ainda (banco antigo), continua para fallbacks
-  }
-
-  // 1) Tenta query direta em empresa_memberships (com RLS)
   const { data, error } = await supabase
     .from("empresa_memberships")
     .select("empresa_id, criado_em")
@@ -162,45 +71,14 @@ export async function getAllowedEmpresas(
     .order("criado_em", { ascending: true });
 
   if (error) {
-    // 2) Tabela não existe (ambiente antigo)
-    if (isMissingRelation(error, "empresa_memberships")) {
-      return fetchEmpresasByTenant(supabase, tenantId);
-    }
-
-    // 3) RLS bloqueou (coordenador ou outro role sem acesso direto)
-    // Fallback: tenta listar empresas do tenant direto (sem usar empresa_memberships)
-    try {
-      const fallback = await fetchEmpresasByTenant(supabase, tenantId);
-      if (fallback.length > 0) {
-        // Sucesso! Tenta seed para próximas vezes
-        try {
-          await seedEmpresaMemberships(supabase, tenantId, userId, fallback);
-        } catch {
-          // seed falhou, mas já temos as empresas
-        }
-        return fallback;
-      }
-    } catch {
-      // fallback também falhou
-    }
-
-    // 4) Se chegou aqui, instrui o usuário
-    throw new Error(
-      "Nao foi possivel carregar empresas. Verifique permissao de SELECT em empresa_memberships. " +
-      "Se o problema persistir, o admin pode executar: npm run db:migrate"
-    );
+    throw error;
   }
 
   const memberships = (data ?? []) as EmpresaMembershipRow[];
   const membershipIds = memberships.map((row) => row.empresa_id).filter(Boolean);
 
   if (membershipIds.length === 0) {
-    const isAdmin = await hasAdminAccess(supabase);
-    if (!isAdmin) return [];
-
-    const fallback = await fetchEmpresasByTenant(supabase, tenantId);
-    await seedEmpresaMemberships(supabase, tenantId, userId, fallback);
-    return fallback;
+    return [];
   }
 
   const empresas = await fetchEmpresasByIds(supabase, tenantId, membershipIds);

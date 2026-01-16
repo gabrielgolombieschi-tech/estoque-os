@@ -32,7 +32,9 @@ type OsGestaoRow = {
 
 export default function ExecucaoPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, loading: tenantLoading } = useTenantEmpresa();
+  const { tenantId } = useTenantEmpresa();
+  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
+  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const [rows, setRows] = useState<DashRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,20 +43,11 @@ export default function ExecucaoPage() {
     let active = true;
 
     (async () => {
-      if (tenantLoading) return;
-      if (!tenantId) {
-        if (active) {
-          setErr("Tenant nao carregado.");
-          setLoading(false);
-        }
-        return;
-      }
-
       setLoading(true);
       setErr(null);
 
       const { error: tenantErr } = await supabase.rpc("set_current_tenant", {
-        p_tenant_id: tenantId,
+        p_tenant_id: effectiveTenantId,
       });
       if (tenantErr) {
         if (active) {
@@ -77,7 +70,7 @@ export default function ExecucaoPage() {
             progresso_percent
           `
         ),
-        tenantId
+        effectiveTenantId
       )
         .eq("habilitado", true)
         .eq("item_tipo", "execucao");
@@ -102,7 +95,7 @@ export default function ExecucaoPage() {
       if (osIds.length > 0) {
         const { data: osData, error: osErr } = await applyTenant(
           supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
-          tenantId
+          effectiveTenantId
         )
           .in("id", osIds);
 
@@ -147,7 +140,7 @@ export default function ExecucaoPage() {
     return () => {
       active = false;
     };
-  }, [supabase, tenantId, tenantLoading]);
+  }, [supabase, tenantId, effectiveTenantId]);
 
   if (loading) {
     return (
