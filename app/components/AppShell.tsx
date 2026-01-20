@@ -1,85 +1,76 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { supabaseBrowser } from "../../lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
-
-type UserInfo = { id: string; email: string };
-type TenantOption = {
-  tenant_id: string;
-  tenants?: { nome: string | null }[] | null;
-};
-
+import { useIsAdminTenant } from "@/lib/auth/useIsAdminTenant";
+import type { CapabilityKey } from "@/lib/auth/capabilities";
+import AdminDebugPanel from "./AdminDebugPanel";
 
 const isDev = process.env.NODE_ENV !== "production";
 const logError = (...args: unknown[]) => {
   if (isDev) console.warn(...args);
 };
 
-// Debounce para evitar múltiplos logouts rápidos
-let authChangeDebounceRef: ReturnType<typeof setTimeout> | null = null;
-let lastAuthChangeTime = 0;
-
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const te = useTenantEmpresaContext();
 
   const router = useRouter();
   const pathname = usePathname();
 
-  const currentTenantId = te.tenantId;
-  const empresaId = te.empresaId;
-  const empresas = te.empresas;
-
-  // IMPORTANT: Never treat undefined permissions as false (prevents flicker).
-  const has = te.has as unknown as (k: string) => boolean | undefined;
-  const clear = te.clear;
-  const reload = te.reload;
-  const refreshing = te.refreshing;
-
-  const bootingTenantEmpresa = te.loading || !currentTenantId || !empresaId;
-  const loadingInitial = bootingTenantEmpresa && te.capabilities === null;
-  const permissionsFailed = !loadingInitial && te.capabilities === null;
-  const permissionsReady = te.capabilities !== null;
-
-  const [booting, setBooting] = useState(true);
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [tenants, setTenants] = useState<TenantOption[]>([]);
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [tenantBusy, setTenantBusy] = useState(false);
-
   const isPublic = pathname === "/login";
   const isFullWidth = pathname === "/itens";
   const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
-  const [openMenu, setOpenMenu] = useState<"os" | "estoque" | "financeiro" | "cadastro" | null>(null);
+  const tenantId = te.tenantId;
+  const empresaId = te.empresaId;
+  const empresas = te.empresas;
+
+  const { isAdmin: isTenantAdmin, loading: adminLoading } = useIsAdminTenant(tenantId ?? null);
+  const didAutoSelectEmpresaRef = useRef(false);
+
+  const effectiveEmpresa = useMemo(() => {
+    if (empresaId) return empresas.find((e) => e.id === empresaId) ?? null;
+    if (empresas.length === 1) return empresas[0];
+    return null;
+  }, [empresaId, empresas]);
+
+  useEffect(() => {
+    if (te.sessionUserId === undefined) return;
+    const isAuthed = Boolean(te.sessionUserId);
+    if (!isAuthed && !isPublic) router.replace("/login");
+    if (isAuthed && isPublic) router.replace("/");
+  }, [isPublic, router, te.sessionUserId]);
+
+  useEffect(() => {
+    if (te.sessionUserId === null) {
+      didAutoSelectEmpresaRef.current = false;
+    }
+  }, [te.sessionUserId]);
+
+  useEffect(() => {
+    if (didAutoSelectEmpresaRef.current) return;
+    if (!te.sessionUserId) return; // só quando logado
+    if (!empresaId && empresas.length === 1) {
+      didAutoSelectEmpresaRef.current = true;
+      void te.setEmpresaId(empresas[0].id);
+    }
+  }, [empresaId, empresas, te.sessionUserId, te.setEmpresaId]);
+
+  const [openMenu, setOpenMenu] = useState<"os" | "estoque" | "financeiro" | "cadastro" | "admin" | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Helper único para checar capability (nunca use has() direto no JSX)
-  // Se capabilities ainda não carregaram, libera menu para evitar header vazio
-  const can = (k: string) => has(k) ?? true;
-
-  const canAccessOs = can("os.read");
-  const canExecuteOs = can("os_rpcs.execute");
-  const canAccessApontamentos = can("apontamentos.read");
-  const canAccessEstoque = can("estoque.read") || can("estoque.write");
-  const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
-  const canImportXml = can("xml_import.execute");
-  const canAccessFinanceiro = can("financeiro.read");
-  const canAccessAdmin = can("admin.manage_users");
-  const canAccessCadastros = can("admin.manage_users") || can("financeiro.read");
-  const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read"); // Contratos HH - Admin, Financeiro ou Apontador
-  const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read"); // Colaboradores - Admin ou Financeiro
-  const canAccessClientesCad = can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write"); // Clientes - Admin, Financeiro, Coordenação
-  const canAccessFornecedoresCad = can("admin.manage_users") || can("financeiro.read") || can("cad_fornecedores.write") || can("estoque.read") || can("estoque.write"); // Fornecedores - Admin, Financeiro, Coordenação, Estoque
-
-  const toggleMenu = (key: "os" | "estoque" | "financeiro" | "cadastro" | null) =>
+  const toggleMenu = (key: "os" | "estoque" | "financeiro" | "cadastro" | "admin" | null) =>
     setOpenMenu((prev) => (prev === key ? null : key));
 
-  const openWithHover = (key: "os" | "estoque" | "financeiro" | "cadastro") => {
+  const openWithHover = (key: "os" | "estoque" | "financeiro" | "cadastro" | "admin") => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     setOpenMenu(key);
   };
@@ -89,162 +80,41 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     closeTimerRef.current = setTimeout(() => setOpenMenu(null), 150);
   };
 
-  // 1) Boot: pega sessão 1x e libera a UI (não trava esperando permissões)
-  useEffect(() => {
-    let active = true;
+  const can = (k: CapabilityKey) => {
+    if (te.capabilities === null) return true;
+    return te.has(k) ?? false;
+  };
 
-    (async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (!active) return;
-
-        if (error) logError("getSession error:", error);
-
-        const session = data.session;
-        const user = session?.user;
-
-        setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
-
-        // PermissionsProvider já carrega permissões automaticamente ao iniciar
-        // Não chamamos reload() aqui para evitar reavaliações desnecessárias
-      } finally {
-        if (active) setBooting(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 2) Listener de auth 1x (login/logout/troca sessão) com debounce
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
-      // Não reseta contexto em refresh de token ou sessão inicial.
-      // O TenantEmpresaProvider ignora TOKEN_REFRESHED para evitar flicker;
-      // se a shell der clear() aqui, as páginas ficam presas em "Carregando contexto...".
-      if (evt === "TOKEN_REFRESHED" || evt === "INITIAL_SESSION") return;
-
-      // Debounce: evita múltiplos dispatchs em <1s
-      const now = Date.now();
-      if (now - lastAuthChangeTime < 1000) {
-        if (authChangeDebounceRef) clearTimeout(authChangeDebounceRef);
-        authChangeDebounceRef = setTimeout(() => {
-          lastAuthChangeTime = now;
-          clear();
-
-          const user = session?.user;
-          setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
-
-          // PermissionsProvider já recarrega permissões ao detectar mudança de sessão
-        }, 500);
-        return;
-      }
-
-      lastAuthChangeTime = now;
-      clear();
-
-      const user = session?.user;
-      setUserInfo(user ? { id: user.id, email: user.email ?? "" } : null);
-
-      // PermissionsProvider já recarrega permissões ao detectar mudança de sessão
-    });
-
-    return () => {
-      if (authChangeDebounceRef) clearTimeout(authChangeDebounceRef);
-      sub.subscription.unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 2.5) Refresh periódico de sessão (a cada 15 min)
-  useEffect(() => {
-    if (booting) return;
-
-    let sessionRefreshInterval: ReturnType<typeof setInterval> | null = null;
-
-    const refreshSession = async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session) return; // Sem sessão, não precisa renovar
-
-        // Tentar renovar sessão (idempotente, não causa logout se falhar)
-        const { error } = await supabase.auth.refreshSession();
-        if (error && error.message?.toLowerCase().includes("invalid_grant")) {
-          // Sessão expirada e não pode renovar: deixa fazer logout natural
-          logError("Sessão expirada e não pôde renovar. Logout na próxima ação.");
-        }
-      } catch (e) {
-        logError("Erro ao renovar sessão periodicamente:", e);
-      }
-    };
-
-    // Refresh a cada 15 minutos (900s)
-    sessionRefreshInterval = setInterval(refreshSession, 15 * 60 * 1000);
-
-    return () => {
-      if (sessionRefreshInterval) clearInterval(sessionRefreshInterval);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booting]);
-
-  // 3) Guard de rota (login)
-  useEffect(() => {
-    if (booting) return;
-
-    const isAuthed = !!userInfo?.id;
-    if (!isAuthed && !isPublic) router.replace("/login");
-    if (isAuthed && isPublic) router.replace("/");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booting, userInfo?.id, pathname]);
-
-  // 3.5) Guard de empresa - REMOVIDO: sempre usa Elétrica Segau automaticamente
-  // Não há mais necessidade de redirecionar para /selecionar-empresa
-
-  // 4) Fecha menu ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (ev: MouseEvent) => {
-      if (!navRef.current) return;
-      if (navRef.current.contains(ev.target as Node)) return;
-      setOpenMenu(null);
-    };
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  // 6) Carrega tenants - SIMPLIFICADO: sempre usa tenant fixo
-  useEffect(() => {
-    if (!userInfo?.id || !currentTenantId) {
-      setTenants([]);
-      setTenantId(null);
-      return;
-    }
-
-    // Usar tenant do contexto TenantEmpresaProvider
-    setTenantId(currentTenantId);
-    setTenants([
-      {
-        tenant_id: currentTenantId,
-        tenants: [{ nome: "Elétrica Segau" }],
-      },
-    ]);
-  }, [userInfo?.id, currentTenantId]);
-
-  async function handleTenantChange(nextTenantId: string) {
-    if (!nextTenantId || nextTenantId === tenantId || tenantBusy) return;
-    setTenantBusy(true);
-    try {
-      const { error } = await supabase.rpc("set_current_tenant", {
-        p_tenant_id: nextTenantId,
-      });
-      if (error) throw error;
-      window.location.reload();
-    } catch (e) {
-      logError("Erro ao trocar tenant:", e);
-      setTenantBusy(false);
-    }
-  }
+  const canAccessOs = can("os.read");
+  const canExecuteOs = can("os_rpcs.execute");
+  const canAccessApontamentos = can("apontamentos.read");
+  const canAccessEstoque = can("estoque.read") || can("estoque.write");
+  const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
+  const canImportXml = can("xml_import.execute");
+  const canAccessFinanceiro = can("financeiro.read");
+  const canAccessAdmin = can("admin.manage_users");
+  const shouldShowAdmin = isTenantAdmin && (!adminLoading ? canAccessAdmin : true);
+  const adminReason = useMemo(() => {
+    if (shouldShowAdmin) return "ok";
+    const reasons: string[] = [];
+    if (te.sessionUserId === undefined) reasons.push("sessionUserId=undefined");
+    if (te.sessionUserId === null) reasons.push("not authenticated");
+    if (!te.tenantId) reasons.push("tenantId missing");
+    if (adminLoading) reasons.push("adminLoading");
+    if (!isTenantAdmin) reasons.push("isAdminTenant=false");
+    if (!adminLoading && isTenantAdmin && !canAccessAdmin) reasons.push("can(admin.manage_users)=false");
+    return reasons.join(", ") || "unknown";
+  }, [adminLoading, canAccessAdmin, isTenantAdmin, shouldShowAdmin, te.sessionUserId, te.tenantId]);
+  const canAccessCadastros = can("admin.manage_users") || can("financeiro.read");
+  const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read");
+  const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read");
+  const canAccessClientesCad = can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write");
+  const canAccessFornecedoresCad =
+    can("admin.manage_users") ||
+    can("financeiro.read") ||
+    can("cad_fornecedores.write") ||
+    can("estoque.read") ||
+    can("estoque.write");
 
   async function logout() {
     try {
@@ -252,25 +122,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } catch (e) {
       logError("Erro ao sair", e);
     } finally {
-      clear();
       router.replace("/login");
       if (typeof window !== "undefined") window.location.href = "/login";
     }
   }
 
-  if (booting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-300">
-        Carregando...
-      </div>
-    );
-  }
-
   if (isPublic) return <>{children}</>;
-
-  // REMOVIDO: Verificação de empresas.length === 0
-  // Como tudo está hardcoded para Elétrica Segau, não precisamos dessa verificação
-  // que estava bloqueando o acesso
 
   return (
     <div className="min-h-screen">
@@ -283,13 +140,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
 
               <nav className="relative flex flex-wrap items-center gap-4 text-sm text-zinc-200">
-
                 {canAccessOs && (
-                  <div
-                    className="relative"
-                    onMouseEnter={() => openWithHover("os")}
-                    onMouseLeave={scheduleClose}
-                  >
+                  <div className="relative" onMouseEnter={() => openWithHover("os")} onMouseLeave={scheduleClose}>
                     <button
                       type="button"
                       onClick={() => toggleMenu("os")}
@@ -334,7 +186,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             Apontamentos Horas
                           </Link>
                         )}
-
                       </div>
                     )}
                   </div>
@@ -380,7 +231,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             Movimentacoes
                           </Link>
                         )}
-
                       </div>
                     )}
                   </div>
@@ -440,10 +290,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         {canAccessContratos && (
                           <>
                             <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Contratos HH</div>
-                            <Link
-                              href="/cadastros/hh/tabelas"
-                              className="block px-5 py-2 hover:bg-zinc-900 text-sm"
-                            >
+                            <Link href="/cadastros/hh/tabelas" className="block px-5 py-2 hover:bg-zinc-900 text-sm">
                               Tabelas
                             </Link>
                             <Link
@@ -456,17 +303,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                               href="/cadastros/hh/colaboradores-cliente"
                               className="block px-5 py-2 hover:bg-zinc-900 text-sm"
                             >
-                              Colaboradores × Cliente
+                              Colaboradores - Cliente
                             </Link>
                             <div className="border-t border-zinc-800 my-2"></div>
                           </>
                         )}
                         {canAccessColaboradores && (
                           <>
-                            <Link
-                              href="/colaboradores"
-                              className="block px-3 py-2 hover:bg-zinc-900"
-                            >
+                            <Link href="/colaboradores" className="block px-3 py-2 hover:bg-zinc-900">
                               Colaboradores
                             </Link>
                             <div className="border-t border-zinc-800 my-2"></div>
@@ -474,20 +318,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         )}
                         {canAccessClientesCad && (
                           <>
-                            <Link
-                              href="/clientes"
-                              className="block px-3 py-2 hover:bg-zinc-900"
-                            >
+                            <Link href="/clientes" className="block px-3 py-2 hover:bg-zinc-900">
                               Clientes
                             </Link>
                             <div className="border-t border-zinc-800 my-2"></div>
                           </>
                         )}
                         {canAccessFornecedoresCad && (
-                          <Link
-                            href="/estoque/fornecedores"
-                            className="block px-3 py-2 hover:bg-zinc-900"
-                          >
+                          <Link href="/estoque/fornecedores" className="block px-3 py-2 hover:bg-zinc-900">
                             Fornecedores
                           </Link>
                         )}
@@ -496,42 +334,89 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
 
-                {canAccessAdmin && (
-                  <Link href="/usuarios" className="px-3 py-1 rounded-md hover:bg-zinc-900">
-                    Usuarios
-                  </Link>
+                {shouldShowAdmin && (
+                  <div className="relative" onMouseEnter={() => openWithHover("admin")} onMouseLeave={scheduleClose}>
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("admin")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
+                    >
+                      Admin
+                    </button>
+
+                    {openMenu === "admin" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-52 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("admin")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        <Link href="/admin/usuarios" className="block px-3 py-2 hover:bg-zinc-900">
+                          Usuarios
+                        </Link>
+                        <Link href="/admin/empresas" className="block px-3 py-2 hover:bg-zinc-900">
+                          Empresas
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 )}
               </nav>
             </div>
 
             <div className="flex items-center gap-3">
-              {refreshing && (
+              {te.refreshing && (
                 <div className="text-[11px] text-zinc-400 whitespace-nowrap">
-                  Atualizando permissoes...
+                  Atualizando...
                 </div>
               )}
 
-              {/* Tenant selector removido do menu superior */}
+              {te.error && <div className="text-xs text-red-400 max-w-[240px]">{te.error}</div>}
 
-              {te.error && (
-                <div className="text-xs text-red-400 max-w-[240px]">{te.error}</div>
-              )}
-
-              {/* Seletor de empresa REMOVIDO - sempre usa Elétrica Segau */}
-              {empresaId && (
+              {effectiveEmpresa && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-zinc-400">Empresa:</span>
                   <span className="text-xs text-zinc-100 font-medium">
-                    {empresas.find((e) => e.id === empresaId)?.nome_fantasia ?? "Elétrica Segau"}
+                    {effectiveEmpresa.nome_fantasia ?? effectiveEmpresa.razao_social ?? "Empresa"}
+                  </span>
+                </div>
+              )}
+              {!effectiveEmpresa && te.sessionUserId && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-400">Empresa:</span>
+                  <span className="text-xs text-zinc-100 font-medium opacity-70">
+                    Carregando...
                   </span>
                 </div>
               )}
 
-              {userInfo && (
-                <div className="text-xs text-zinc-300 select-none whitespace-nowrap">
-                  <div>{userInfo.email}</div>
-                </div>
-              )}
+              <div className="flex flex-col items-end gap-1">
+                {te.sessionEmail && (
+                  <div className="text-xs text-zinc-300 select-none whitespace-nowrap">
+                    <div>{te.sessionEmail}</div>
+                  </div>
+                )}
+                <AdminDebugPanel
+                  providerBuildId={te.providerBuildId}
+                  sessionUserId={te.sessionUserId}
+                  email={te.sessionEmail}
+                  tenantId={te.tenantId}
+                  empresaId={te.empresaId}
+                  empresas={te.empresas}
+                  isAdminTenant={isTenantAdmin}
+                  adminLoading={adminLoading}
+                  capabilities={te.capabilities}
+                  lastLoadPermissions={te.lastLoadPermissions}
+                  lastLoadPermissionsRaw={te.lastLoadPermissionsRaw}
+                  lastLoadSource={te.lastLoadSource}
+                  lastLoadCount={te.lastLoadCount}
+                  lastLoadError={te.lastLoadError}
+                  can={can}
+                  canAdminManageUsers={canAccessAdmin}
+                  shouldShowAdmin={shouldShowAdmin}
+                  reason={adminReason}
+                  onRefreshCapabilities={te.refreshCapabilities}
+                />
+              </div>
 
               <button
                 type="button"

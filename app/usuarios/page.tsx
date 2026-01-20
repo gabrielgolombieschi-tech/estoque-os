@@ -63,7 +63,10 @@ function emptyResetForm(): ResetForm {
 }
 
 export default function UsuariosPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { has, loading: permissionsLoading, ready } = usePermissions();
 
   const canManage = has(ADMIN_PERMISSION);

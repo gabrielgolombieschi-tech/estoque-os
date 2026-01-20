@@ -11,18 +11,38 @@ type Profile = {
   nome: string | null;
 };
 
-type EmpresaMembership = {
-  id: number;
-  user_id: string;
-  role: string;
-  status: string;
+type EmpresaRole =
+  | "ADMIN"
+  | "FINANCEIRO"
+  | "COORDENACAO"
+  | "COMPRAS"
+  | "ALMOXARIFADO"
+  | "TECNICO"
+  | "APONTAMENTO_RH"
+  | "PAINEL_TV";
+
+type UsuarioEmpresaRow = {
+  id: string;
+  usuario_id: string;
+  empresa_id: string;
+  papel: EmpresaRole;
+  ativo: boolean;
 };
 
 type TenantMembershipRow = {
-  user_id: string | null;
+  usuario_id: string | null;
 };
 
-const roleOptions = ["admin", "user", "fiscal", "estoque", "financeiro"];
+const roleOptions: EmpresaRole[] = [
+  "ADMIN",
+  "FINANCEIRO",
+  "COORDENACAO",
+  "COMPRAS",
+  "ALMOXARIFADO",
+  "TECNICO",
+  "APONTAMENTO_RH",
+  "PAINEL_TV",
+];
 
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -35,7 +55,10 @@ function getErrorMessage(err: unknown, fallback: string) {
 }
 
 export default function EmpresaUsuariosPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const te = useTenantEmpresaContext();
   const tenantId = te.tenantId;
   const empresaId = te.empresaId;
@@ -46,7 +69,7 @@ export default function EmpresaUsuariosPage() {
 
   const [switchingEmpresa, setSwitchingEmpresa] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
-  const [memberships, setMemberships] = useState<EmpresaMembership[]>([]);
+  const [memberships, setMemberships] = useState<UsuarioEmpresaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -67,15 +90,17 @@ export default function EmpresaUsuariosPage() {
 
       try {
         const { data: tenantUsers, error: tenantUsersErr } = await supabase
-          .from("tenant_memberships")
-          .select("user_id")
+          .schema("a")
+          .from("usuario_tenant")
+          .select("usuario_id")
           .eq("tenant_id", tenantId)
-          .eq("status", "active");
+          .eq("ativo", true)
+          .is("deleted_at", null);
         if (tenantUsersErr) throw tenantUsersErr;
 
         const tenantRows = (tenantUsers ?? []) as TenantMembershipRow[];
-        const userIds = Array.from(new Set(tenantRows.map((r) => r.user_id).filter(Boolean)));
-        if (userIds.length === 0) {
+        const usuarioIds = Array.from(new Set(tenantRows.map((r) => r.usuario_id).filter(Boolean)));
+        if (usuarioIds.length === 0) {
           if (active) {
             setUsers([]);
             setMemberships([]);
@@ -84,23 +109,26 @@ export default function EmpresaUsuariosPage() {
         }
 
         const { data: profiles, error: profilesErr } = await supabase
-          .from("profiles")
+          .schema("a")
+          .from("usuario")
           .select("id,email,nome")
-          .in("id", userIds)
+          .in("id", usuarioIds)
+          .is("deleted_at", null)
           .order("email", { ascending: true });
         if (profilesErr) throw profilesErr;
 
         const { data: empresaUsers, error: empresaErr } = await supabase
-          .from("empresa_memberships")
-          .select("id,user_id,role,status")
-          .eq("tenant_id", tenantId)
-          .eq("status", "active")
-          .order("criado_em", { ascending: true });
+          .schema("a")
+          .from("usuario_empresa")
+          .select("id,usuario_id,empresa_id,papel,ativo")
+          .eq("empresa_id", empresaId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true });
         if (empresaErr) throw empresaErr;
 
         if (active) {
           setUsers((profiles ?? []) as Profile[]);
-          setMemberships((empresaUsers ?? []) as EmpresaMembership[]);
+          setMemberships((empresaUsers ?? []) as UsuarioEmpresaRow[]);
         }
       } catch (e: unknown) {
         if (active) setErr(getErrorMessage(e, "Erro ao carregar usuarios."));
@@ -118,15 +146,13 @@ export default function EmpresaUsuariosPage() {
     if (!tenantId || !empresaId) return;
     setBusyUserId(userId);
     setErr(null);
-    const { error } = await supabase.from("empresa_memberships").upsert(
-      {
-        tenant_id: tenantId,
-        user_id: userId,
-        role: "user",
-        status: "active",
-      },
-      { onConflict: "tenant_id,empresa_id,user_id" }
-    );
+
+    const existing = memberships.find((m) => m.usuario_id === userId && m.empresa_id === empresaId) ?? null;
+    const payload = { usuario_id: userId, empresa_id: empresaId, papel: "TECNICO" as EmpresaRole, ativo: true };
+
+    const { error } = existing?.id
+      ? await supabase.schema("a").from("usuario_empresa").update(payload as any).eq("id", existing.id).is("deleted_at", null)
+      : await supabase.schema("a").from("usuario_empresa").insert(payload as any);
     setBusyUserId(null);
     if (error) {
       setErr(error.message);
@@ -139,11 +165,18 @@ export default function EmpresaUsuariosPage() {
     if (!tenantId || !empresaId) return;
     setBusyUserId(userId);
     setErr(null);
+    const existing = memberships.find((m) => m.usuario_id === userId && m.empresa_id === empresaId) ?? null;
+    if (!existing?.id) {
+      setBusyUserId(null);
+      return;
+    }
+
     const { error } = await supabase
-      .from("empresa_memberships")
-      .delete()
-      .eq("tenant_id", tenantId)
-      .eq("user_id", userId);
+      .schema("a")
+      .from("usuario_empresa")
+      .update({ ativo: false } as any)
+      .eq("id", existing.id)
+      .is("deleted_at", null);
     setBusyUserId(null);
     if (error) {
       setErr(error.message);
@@ -152,13 +185,15 @@ export default function EmpresaUsuariosPage() {
     setReloadKey((prev) => prev + 1);
   }
 
-  async function updateRole(membershipId: number, role: string) {
+  async function updateRole(membershipId: string, role: EmpresaRole) {
     if (!tenantId || !empresaId) return;
     setErr(null);
     const { error } = await supabase
-      .from("empresa_memberships")
-      .update({ role })
-      .eq("id", membershipId);
+      .schema("a")
+      .from("usuario_empresa")
+      .update({ papel: role } as any)
+      .eq("id", membershipId)
+      .is("deleted_at", null);
     if (error) {
       setErr(error.message);
       return;
@@ -253,9 +288,10 @@ export default function EmpresaUsuariosPage() {
               <th className="px-4 py-3 text-center">Acao</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {users.map((user) => {
-              const membership = memberships.find((m) => m.user_id === user.id) ?? null;
+            <tbody className="divide-y divide-zinc-800">
+              {users.map((user) => {
+              const membership = memberships.find((m) => m.usuario_id === user.id) ?? null;
+              const isActive = Boolean(membership?.ativo);
               return (
                 <tr key={user.id} className="hover:bg-zinc-900/40">
                   <td className="px-4 py-3">
@@ -263,12 +299,12 @@ export default function EmpresaUsuariosPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-300">{user.email ?? "-"}</td>
                   <td className="px-4 py-3">
-                    {membership ? (
+                    {isActive ? (
                       <select
                         aria-label="Selecionar role"
                         className="px-2 py-1 bg-zinc-900 border border-zinc-700 text-xs rounded"
-                        value={membership.role}
-                        onChange={(e) => updateRole(membership.id, e.target.value)}
+                        value={membership?.papel ?? "TECNICO"}
+                        onChange={(e) => updateRole(membership!.id, e.target.value as EmpresaRole)}
                       >
                         {roleOptions.map((role) => (
                           <option key={role} value={role}>
@@ -281,10 +317,10 @@ export default function EmpresaUsuariosPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {membership ? "Vinculado" : "Sem vinculo"}
+                    {isActive ? "Vinculado" : "Sem vinculo"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {membership ? (
+                    {isActive ? (
                       <button
                         onClick={() => removeMembership(user.id)}
                         disabled={busyUserId === user.id}

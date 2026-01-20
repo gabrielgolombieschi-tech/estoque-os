@@ -369,7 +369,10 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
 }
 
 export default function ClientesPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, loading: tenantEmpresaLoading } = useTenantEmpresa();
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
 

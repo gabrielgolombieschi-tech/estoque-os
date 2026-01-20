@@ -44,7 +44,10 @@ function emptyForm(): ServicoForm {
 }
 
 export default function ServicosClientePage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
   const { has, loading: permLoading } = usePermissions();
   const canView = has("apontamentos.read");

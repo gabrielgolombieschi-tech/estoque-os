@@ -412,7 +412,10 @@ function FornecedorDialog({
 }
 
 export default function FornecedoresPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
 

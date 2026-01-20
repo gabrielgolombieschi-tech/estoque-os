@@ -1,39 +1,55 @@
-# Copilot Instructions (Estoque + OS)
+# Padrões do ERP (obrigatório)
 
-## Stack
-- Next.js App Router (Next 16) + TypeScript + React 19 + Tailwind 4.
-- Supabase (RLS + RPC) is the source of truth for auth/permissions/tenancy.
+## Banco (Postgres/Supabase)
+- Schemas por área: a (geral), c (cadastros), m (movimentos), f (fiscal), r (relatórios)
+- Multi-tenant obrigatório: toda tabela de negócio tem tenant_id uuid
+- PK padrão: id uuid default gen_random_uuid()
+- Auditoria mínima: created_at, updated_at timestamptz
+- Auditoria autor quando fizer sentido: created_by, updated_by uuid
+- Soft delete preferencial: deleted_at timestamptz
+- Log de auditoria: audit_log com old_data/new_data jsonb (+ change_reason quando aplicável)
 
-## Tenancy + RLS (non-negotiable)
-- The app is **multi-tenant** and many tables are **multi-empresa**. DB policies enforce `tenant_id` and (when present) `empresa_id`.
-- In client pages/components, always resolve context first via `useTenantEmpresa()` (lib/auth/useTenantEmpresa.ts). Never query when `loading` or missing IDs.
-- Always scope queries using helpers from lib/db/scopes.ts:
-  - `applyTenant(query, tenantId)`
-  - `applyTenantEmpresa(query, tenantId, empresaId)`
+## Normalização de texto
+- Cadastros funcionais em MAIÚSCULO: nomes/descrições/endereço/classificações
+- Texto livre preservado: observação/comentário/notas
+- Campos web em minúsculo: email/username/slug/url
+- Documentos/telefone somente números: cpf/cnpj/ie/telefone
+- Quando necessário: coluna *_norm = trim + upper + unaccent
 
-## Boot flow (why menus don’t flicker)
-- Server tries to preload capabilities in app/layout.tsx via lib/auth/capabilities.server.ts and passes them into components/auth/ClientProviders.tsx.
-- Client permissions cache lives in components/auth/PermissionsProvider.tsx (sessionStorage + in-memory); it refreshes mainly on login/logout.
-- The shell/guards/menu live in app/components/AppShell.tsx.
-- Empresa selection/state lives in app/components/EmpresaProvider.tsx and is synced to DB via RPC `set_current_empresa`.
+## Datas/valores
+- date para datas puras; timestamptz para eventos
+- timezone: America/Sao_Paulo
+- moeda: numeric(15,2); percentual: numeric(7,4)
+- guardar base_calculo, aliquota, valor_calculado, valor_ajustado
 
-## Supabase clients (use the right one)
-- Browser/client components: lib/supabase/client.ts (`supabaseBrowser()` singleton).
-- API routes with user JWT: lib/supabase/serverFromAuthHeader.ts (`supabaseFromAuthHeader(req)`), then call RPCs to set context when needed.
-- Admin/server-role operations: lib/supabase/admin.ts (`supabaseAdmin()`), typically gated by RPC `can('admin','manage_users')` (see app/api/admin/users/route.ts).
+## Unicidade e naming
+- codigo obrigatório em cadastros
+- unique (tenant_id, codigo); às vezes unique (tenant_id, nome)
+- documentos: modelo, serie, numero e unique (tenant_id, modelo, serie, numero)
+- constraints/index:
+  - pk_<schema>_<tabela>
+  - fk_<tabela>__<coluna>__<ref>
+  - uq_<tabela>__<colunas>
+  - idx_<tabela>__<colunas>
 
-## Page pattern (how most screens work)
-- Typical pages (e.g., app/itens/page.tsx, app/estoque/page.tsx): `useMemo(supabaseBrowser)`, `load()` on mount/filters, local state for rows/errors/busy, and reload after mutations.
-- Prefer `<Can perm="...">` (components/auth/Can.tsx) for UI gating; `has()` returns `boolean | undefined` until loaded.
+## Relatórios
+- Views de relatório começam com r_ e são read-only
 
-## Domain conventions
-- Brazilian decimals: always use `parseDecimalBR()` / `formatDecimalBR()` (lib/decimal.ts) and prefer `type="text"` + `inputMode="decimal"`.
-- HH module has lots of edge cases; reference docs/HH_BUG_FIX_COMPLETE.md before changing HH flows.
 
-## Commands
-- Dev: `npm run dev`  | Build: `npm run build` / `npm run start`  | Lint: `npm run lint`
-- DB scripts: `npm run db:migrate`, `npm run db:backup`, `npm run db:restore:dev`
+Você está trabalhando no projeto "Criação ERP Completo para lucro real".
 
-## Common gotchas
-- “RLS violation” usually means missing scope (`applyTenant*`) or missing DB context (RPC `set_current_tenant` / `set_current_empresa`).
-- If RPC `can_many` is missing, apply migration supabase/migrations/20260206_can_many.sql.
+REGRAS OBRIGATÓRIAS:
+1) Siga integralmente deste arquivo
+2) Banco: Postgres/Supabase. Use schemas a/c/m/f/r e multi-tenant com tenant_id uuid em toda tabela de negócio.
+3) PK uuid default gen_random_uuid(); auditoria created_at/updated_at timestamptz; soft delete deleted_at.
+4) Texto de cadastro em MAIÚSCULO; email/username/url em minúsculo; documentos/telefone só números.
+5) Moeda numeric(15,2); percentuais numeric(7,4); datas: date; eventos: timestamptz.
+6) Naming de constraints e índices conforme standards.
+7) Entregue código pronto e consistente. Se houver tradeoff, explique rápido e escolha a opção mais alinhada ao standards.
+
+CHECKLIST antes de finalizar:
+- [ ] Todas tabelas de negócio têm tenant_id?
+- [ ] PK uuid + auditoria + soft delete?
+- [ ] UQ/IDX nomeados?
+- [ ] Normalização de texto aplicada?
+- [ ] Datas/valores com tipos corretos?

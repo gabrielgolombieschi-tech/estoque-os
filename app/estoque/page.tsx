@@ -35,7 +35,10 @@ type EstoqueBaseRow = Omit<EstoqueRow, "itens">;
 type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number };
 
 export default function EstoquePage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canView = has("estoque.read");

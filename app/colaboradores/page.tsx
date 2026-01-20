@@ -82,7 +82,10 @@ function sameMoney(a: number | null, b: number | null) {
 }
 
 export default function ColaboradoresPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { tenantId } = usePermissions();
@@ -594,6 +597,5 @@ export default function ColaboradoresPage() {
     </div>
   );
 }
-
 
 

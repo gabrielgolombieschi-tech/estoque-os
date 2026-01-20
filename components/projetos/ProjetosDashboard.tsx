@@ -40,7 +40,10 @@ export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) 
   const areaOrder: Area[] = ["eletrico", "seguranca", "mecanico", "software"];
   const [areaIndex, setAreaIndex] = useState(0);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const [rows, setRows] = useState<DashRow[]>(initialRows);
   const [selected, setSelected] = useState<DashRow | null>(null);
   const [progressValue, setProgressValue] = useState<string>("0");

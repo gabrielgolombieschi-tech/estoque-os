@@ -32,7 +32,10 @@ const tipoBadge: Record<MovTipo, string> = {
 };
 
 export default function MovimentacoesPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
   const canView = requireAny(capabilities, ["estoque.read", "estoque.write"]);

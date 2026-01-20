@@ -228,7 +228,10 @@ async function computeHourPolicy(dateISO: string, horas: number): Promise<HourPo
 }
 
 export default function ApontamentosPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, empresaId: ctxEmpresaId } = useTenantEmpresa();
   const searchParams = useSearchParams();
 

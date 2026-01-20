@@ -179,7 +179,10 @@ function toDateOnly(value: string | null | undefined): string | null {
 }
 
 export default function ImportarXmlPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
 
   const [xmlText, setXmlText] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

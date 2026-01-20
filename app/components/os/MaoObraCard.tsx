@@ -10,7 +10,10 @@ type MaoObraData = {
 };
 
 export default function MaoObraCard({ osId }: { osId: number }) {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const [loading, setLoading] = useState(false);
   const [dados, setDados] = useState<MaoObraData>({
     total_horas: 0,

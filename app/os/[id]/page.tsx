@@ -10,8 +10,9 @@ import RelatorioHHSection from "./components/RelatorioHHSection";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { getOsDetailAccess } from "@/lib/auth/osAccess";
 
-type Cliente = { id: number; nome: string; ativo: boolean };
+type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 
 type OS = {
   id: number;
@@ -116,8 +117,12 @@ function orderGestaoItems(items: GestaoItem[]): GestaoItem[] {
 }
 
 export default function OsDetailPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, empresaId } = useTenantEmpresa();
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
+  const te = useTenantEmpresa();
+  const { tenantId, empresaId } = te;
   const { has } = usePermissions();
   const params = useParams();
   const osId = Number(params.id);
@@ -126,6 +131,18 @@ export default function OsDetailPage() {
   const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
   const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const effectiveEmpresaId = useMemo(() => empresaId ?? fixedEmpresaId, [empresaId]);
+
+  const empresaPapel = useMemo(() => {
+    const byId = (te.empresas ?? []).find((e) => e.id === effectiveEmpresaId) ?? null;
+    if (byId?.papel) return byId.papel;
+    if (te.empresa?.id === effectiveEmpresaId) return te.empresa?.papel ?? null;
+    return null;
+  }, [effectiveEmpresaId, te.empresa, te.empresas]);
+
+  const detailAccess = useMemo(() => getOsDetailAccess(empresaPapel), [empresaPapel]);
+  const readOnly = detailAccess.readOnly;
+  const hideCustos = detailAccess.hideCustos;
+  const hideTotais = detailAccess.hideTotais;
 
   const [os, setOs] = useState<OS | null>(null);
   const [rows, setRows] = useState<OsItemRow[]>([]);
@@ -177,7 +194,7 @@ export default function OsDetailPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const isMateriaPrima = (pick?.finalidade ?? "") === "materia_prima";
 
-  const locked = os?.status === "concluida" || os?.status === "cancelada";
+  const locked = readOnly || os?.status === "concluida" || os?.status === "cancelada";
   const formatMoney = (v: number) =>
     Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -188,7 +205,16 @@ export default function OsDetailPage() {
     return 0;
   };
 
-  const hhEnabled = clienteHabilitaHH;
+  const hhClientEnabled = clienteHabilitaHH;
+  const hhEnabled = hhClientEnabled && Boolean(os?.usa_relatorio_hh) && !hideTotais;
+
+  const editClienteHabilitaHH = useMemo(() => {
+    if (!clienteId) return false;
+    const found = clientes.find((c) => c.id === clienteId);
+    if (found) return Boolean(found.habilita_hh);
+    if (clienteId === (os?.cliente_id ?? null)) return hhClientEnabled;
+    return false;
+  }, [clienteId, clientes, hhClientEnabled, os?.cliente_id]);
   const canReadOs = Boolean(has("os.read"));
 
   useEffect(() => {
@@ -226,7 +252,7 @@ export default function OsDetailPage() {
   async function loadClientes() {
     const { data } = await supabase
       .from("clientes")
-      .select("id,nome,ativo")
+      .select("id,nome,ativo,habilita_hh")
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .limit(500);
@@ -375,10 +401,11 @@ export default function OsDetailPage() {
   }
 
   useEffect(() => {
+    if (!detailAccess.canView) return;
     void loadClientes();
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [osId, tenantId, empresaId]);
+  }, [detailAccess.canView, osId, tenantId, empresaId]);
 
   const closeGestaoModal = useCallback(
     (reset = true) => {
@@ -389,6 +416,7 @@ export default function OsDetailPage() {
   );
 
   const openEditModal = useCallback(() => {
+    if (readOnly) return;
     if (!os) return;
     setShowEdit(true);
     setClienteId(os.cliente_id ?? null);
@@ -398,9 +426,9 @@ export default function OsDetailPage() {
     setTipoPedido(os.tipo_pedido as "servico" | "material");
     setVendedor(os.vendedor ?? "");
     setOrcadoInput(String(os.orcado ?? ""));
-    setUsaRelatorioHH(Boolean(os.usa_relatorio_hh));
+    setUsaRelatorioHH(Boolean(os.usa_relatorio_hh) && hhClientEnabled);
     setEditErr(null);
-  }, [os]);
+  }, [hhClientEnabled, os, readOnly]);
 
   const closeEditModal = useCallback(() => {
     setShowEdit(false);
@@ -408,6 +436,7 @@ export default function OsDetailPage() {
   }, []);
 
   async function saveEdit() {
+    if (readOnly) return;
     if (!os) return;
     if (!clienteId && !clienteNomeLivre.trim()) {
       setEditErr("Selecione um cliente ou informe um nome.");
@@ -426,6 +455,8 @@ export default function OsDetailPage() {
     const clienteNomeFinal =
       clienteId ? (clientes.find((c) => c.id === clienteId)?.nome ?? clienteNomeLivre.trim()) : clienteNomeLivre.trim();
 
+    const usaRelatorioHHFinal = editClienteHabilitaHH ? usaRelatorioHH : false;
+
     const { error } = await applyTenant(
       supabase.from("ordens_servico").update({
         cliente_id: clienteId,
@@ -435,7 +466,7 @@ export default function OsDetailPage() {
         tipo_pedido: tipoPedido,
         vendedor: vendedor.trim() || null,
         orcado: orcadoValor,
-        usa_relatorio_hh: usaRelatorioHH,
+        usa_relatorio_hh: usaRelatorioHHFinal,
         atualizado_em: new Date().toISOString(),
       }),
       effectiveTenantId
@@ -610,6 +641,7 @@ export default function OsDetailPage() {
   }
 
   function openGestaoModal() {
+    if (readOnly) return;
     if (os) setTemGestao(Boolean(os.tem_gestao));
     setGestaoErr(null);
     setShowGestaoModal(true);
@@ -938,6 +970,18 @@ export default function OsDetailPage() {
     await load();
   }
 
+  if (te.loading) {
+    return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando...</div>;
+  }
+
+  if (!detailAccess.canView) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300 px-4">
+        Sem permissão para visualizar OS.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -971,18 +1015,22 @@ export default function OsDetailPage() {
               <div>Abertura: {new Date(os.data_abertura).toLocaleString("pt-BR")}</div>
               <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
                 <span>
-                  Material: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.materiais)}</span>
+                  Material:{" "}
+                  <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.materiais)}`}</span>
                 </span>
                 <span>
-                  - Mao de obra: <span className="text-zinc-200 tabular-nums">R$ {formatMoney(totais.maoObra)}</span>
+                  - Mao de obra:{" "}
+                  <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.maoObra)}`}</span>
                 </span>
                 <span className="text-base md:text-lg font-semibold text-zinc-100">
                   - Total (HH):{" "}
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded-md border tabular-nums ${totalClass}`}
-                  >
-                    R$ {formatMoney(totais.total)}
-                  </span>
+                  {hideTotais ? (
+                    <span className="text-zinc-200 tabular-nums">—</span>
+                  ) : (
+                    <span className={`inline-flex items-center px-2 py-1 rounded-md border tabular-nums ${totalClass}`}>
+                      R$ {formatMoney(totais.total)}
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -1000,7 +1048,7 @@ export default function OsDetailPage() {
 
           <button
             onClick={openEditModal}
-            disabled={busy}
+            disabled={busy || readOnly}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
           >
             Editar
@@ -1008,7 +1056,7 @@ export default function OsDetailPage() {
 
           <button
             onClick={openGestaoModal}
-            disabled={busy}
+            disabled={busy || readOnly}
             className={[
               "px-3 py-2 rounded-md font-medium",
               temGestao
@@ -1029,7 +1077,7 @@ export default function OsDetailPage() {
 
           <button
             onClick={() => setStatus("em_andamento")}
-            disabled={busy || isConcluding}
+            disabled={busy || readOnly || isConcluding}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
           >
             Em andamento
@@ -1051,7 +1099,7 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      <MaoObraCard osId={osId} />
+      {!hideCustos && <MaoObraCard osId={osId} />}
 
       {err && <div className="text-sm text-red-400">{err}</div>}
       {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}
@@ -1246,7 +1294,19 @@ export default function OsDetailPage() {
                 <select
                   className="w-full px-3 py-2"
                   value={clienteId ?? ""}
-                  onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => {
+                    const nextId = e.target.value ? Number(e.target.value) : null;
+                    setClienteId(nextId);
+
+                    let nextHabilita = false;
+                    if (nextId) {
+                      const found = clientes.find((c) => c.id === nextId);
+                      if (found) nextHabilita = Boolean(found.habilita_hh);
+                      else if (nextId === (os?.cliente_id ?? null)) nextHabilita = hhClientEnabled;
+                    }
+
+                    if (!nextHabilita) setUsaRelatorioHH(false);
+                  }}
                   aria-label="Cliente cadastro"
                   title="Cliente cadastro"
                 >
@@ -1282,18 +1342,20 @@ export default function OsDetailPage() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <div className="text-xs text-zinc-400">Valor pedido</div>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2"
-                  value={orcadoInput}
-                  onChange={(e) => setOrcadoInput(e.target.value)}
-                  placeholder="0.00"
-                  aria-label="Valor pedido"
-                  title="Valor pedido"
-                />
-              </div>
+              {!hideTotais && (
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Valor pedido</div>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2"
+                    value={orcadoInput}
+                    onChange={(e) => setOrcadoInput(e.target.value)}
+                    placeholder="0.00"
+                    aria-label="Valor pedido"
+                    title="Valor pedido"
+                  />
+                </div>
+              )}
 
               <div className="space-y-1 md:col-span-3">
                 <div className="text-xs text-zinc-400">Descricao (opcional)</div>
@@ -1306,6 +1368,20 @@ export default function OsDetailPage() {
                 />
               </div>
             </div>
+
+            {editClienteHabilitaHH && (
+              <div className="border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={usaRelatorioHH}
+                    onChange={(e) => setUsaRelatorioHH(e.target.checked)}
+                  />
+                  <span className="font-medium">Esta OS é de HH?</span>
+                </label>
+              </div>
+            )}
 
             {editErr && <div className="text-sm text-red-400">{editErr}</div>}
           </div>
@@ -1642,7 +1718,19 @@ export default function OsDetailPage() {
                     aria-label="Cliente (cadastro)"
                     className="w-full px-3 py-2"
                     value={clienteId ?? ""}
-                    onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                    onChange={(e) => {
+                      const nextId = e.target.value ? Number(e.target.value) : null;
+                      setClienteId(nextId);
+
+                      let nextHabilita = false;
+                      if (nextId) {
+                        const found = clientes.find((c) => c.id === nextId);
+                        if (found) nextHabilita = Boolean(found.habilita_hh);
+                        else if (nextId === (os?.cliente_id ?? null)) nextHabilita = hhClientEnabled;
+                      }
+
+                      if (!nextHabilita) setUsaRelatorioHH(false);
+                    }}
                   >
                     <option value="">-</option>
                     {clientes.map((c) => (
@@ -1699,17 +1787,19 @@ export default function OsDetailPage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Valor orcado</div>
-                  <input
-                    type="number"
-                    aria-label="Valor orcado"
-                    className="w-full px-3 py-2"
-                    value={orcadoInput}
-                    onChange={(e) => setOrcadoInput(e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
+                {!hideTotais && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-400">Valor orcado</div>
+                    <input
+                      type="number"
+                      aria-label="Valor orcado"
+                      className="w-full px-3 py-2"
+                      value={orcadoInput}
+                      onChange={(e) => setOrcadoInput(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
 
                 <div className="md:col-span-2 space-y-1">
                   <div className="text-xs text-zinc-400">Descrição</div>
@@ -1723,20 +1813,19 @@ export default function OsDetailPage() {
                 </div>
               </div>
 
-              <div className="border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={usaRelatorioHH}
-                    onChange={(e) => setUsaRelatorioHH(e.target.checked)}
-                  />
-                  <span className="font-medium">Usar Relatório HH</span>
-                </label>
-                <div className="text-xs text-zinc-400 mt-1">
-                  Habilita a visualização de apontamentos de horas para esta OS. Apenas usuários com permissão podem acessar.
+              {editClienteHabilitaHH && (
+                <div className="border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={usaRelatorioHH}
+                      onChange={(e) => setUsaRelatorioHH(e.target.checked)}
+                    />
+                    <span className="font-medium">Esta OS é de HH?</span>
+                  </label>
                 </div>
-              </div>
+              )}
 
               {editErr && <div className="text-sm text-red-400">{editErr}</div>}
             </div>
@@ -1761,7 +1850,7 @@ export default function OsDetailPage() {
       )}
 
       {hhEnabled && (
-        <RelatorioHHSection osId={osId} osDetail={{ cliente_id: os?.cliente_id ?? null }} />
+        <RelatorioHHSection osId={osId} osDetail={{ cliente_id: os?.cliente_id ?? null }} enabled={hhEnabled} />
       )}
     </div>
   );

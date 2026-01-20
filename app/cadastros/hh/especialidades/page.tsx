@@ -31,7 +31,10 @@ type HHPrecoForm = {
 };
 
 export default function EspecialidadesPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { has, loading: permLoading, ready } = usePermissions();
   const canView = has("os.read") || has("admin.manage_users") || has("financeiro.read");
   const canEdit = has("os.write") || has("admin.manage_users") || has("financeiro.read");

@@ -11,6 +11,10 @@ import { requireAny } from "@/lib/auth/capabilities";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
+type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
+const ITEM_FINALIDADES: ItemFinalidade[] = ["consumo", "materia_prima", "revenda", "imobilizado", "outros"];
+const PAGE_SIZE = 100;
+
 type Item = {
   id: number;
   codigo_interno: string;
@@ -200,10 +204,22 @@ function emptyFiscalForm(): FiscalForm {
 }
 
 export default function ItensPage() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
-  const { tenantId, empresaId, loading: tenantEmpresaLoading } = useTenantEmpresa();
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
+  const te = useTenantEmpresa();
+  const tenantId = te.tenantId;
+  const empresaId = te.empresaId;
+  const tenantEmpresaLoading = te.loading;
   const { has, loading: permissionsLoading, ready, capabilities } = usePermissions();
-  const canView = requireAny(capabilities, ["estoque.read", "os.read", "cad_itens.write"]);
+  const empresaPapel = String(te.empresa?.papel ?? "")
+    .trim()
+    .toUpperCase();
+  const canViewByEmpresaPapel = Boolean(
+    empresaPapel && ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS"].includes(empresaPapel)
+  );
+  const canView = requireAny(capabilities, ["estoque.read", "os.read", "cad_itens.write"]) || canViewByEmpresaPapel;
   const canEdit = requireAny(capabilities, ["estoque.write", "cad_itens.write"]);
   const canEditFiscal = has("fiscal_itens.write");
 
@@ -216,16 +232,48 @@ export default function ItensPage() {
   const [activeTab, setActiveTab] = useState<"geral" | "fiscal">("geral");
 
   // filtros
-  const [filterId, setFilterId] = useState("todos");
-  const [filterNome, setFilterNome] = useState("");
-  const [filterFornecedor, setFilterFornecedor] = useState("todos");
-  const [tipo, setTipo] = useState<"todos" | Item["tipo"]>("todos");
-  const [ativo, setAtivo] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [listLoading, setListLoading] = useState(false);
+  const [filterId, setFilterId] = useState("");
+  const [filterQuery, setFilterQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [filterFornecedorId, setFilterFornecedorId] = useState("");
+  const [filterTipo, setFilterTipo] = useState<"" | Item["tipo"]>("");
+  const [filterFinalidade, setFilterFinalidade] = useState<"" | ItemFinalidade>("");
+  const [filterAtivo, setFilterAtivo] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // form (criar/editar)
   const [form, setForm] = useState<ItemForm>(emptyForm());
   const [fiscalForm, setFiscalForm] = useState<FiscalForm>(emptyFiscalForm());
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(filterQuery.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [filterQuery]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalCount]);
+
+  function openPrint() {
+    const params = new URLSearchParams();
+
+    const id = filterId.trim();
+    const q = filterQuery.trim();
+
+    if (id) params.set("id", id);
+    if (q) params.set("q", q);
+    if (filterFornecedorId) params.set("fornecedor_id", filterFornecedorId);
+    if (filterTipo) params.set("tipo", filterTipo);
+    if (filterFinalidade) params.set("finalidade", filterFinalidade);
+    if (filterAtivo !== "todos") params.set("ativo", filterAtivo);
+
+    const url = params.toString() ? `/itens/imprimir?${params.toString()}` : "/itens/imprimir";
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   async function loadFornecedores() {
     if (tenantEmpresaLoading) return;
@@ -249,95 +297,125 @@ export default function ItensPage() {
       return;
     }
 
-    let query = applyTenant(
-      supabase
-        .from("itens")
-        .select(
-          "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em"
-        ),
-      tenantId
-    )
-      .order("id", { ascending: false })
-      .limit(300);
+    setListLoading(true);
 
-    const idRaw = filterId.trim();
-    if (idRaw && idRaw !== "todos") {
-      const parsed = Number.parseInt(idRaw, 10);
-      if (!Number.isFinite(parsed)) {
-        setErr("ID invalido.");
+    try {
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = applyTenant(
+        supabase
+          .from("itens")
+          .select(
+            "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em",
+            { count: "exact" }
+          ),
+        tenantId
+      ).order("nome", { ascending: true });
+
+      const idRaw = filterId.trim();
+      if (idRaw) {
+        const parsed = Number.parseInt(idRaw, 10);
+        if (!Number.isFinite(parsed)) {
+          setErr("ID invalido.");
+          setRows([]);
+          setTotalCount(0);
+          return;
+        }
+        query = query.eq("id", parsed);
+      }
+
+      const q = debouncedQuery.trim().replace(/,/g, " ").replace(/\s+/g, " ").trim();
+      if (q) {
+        query = query.or(`codigo_interno.ilike.%${q}%,nome.ilike.%${q}%`);
+      }
+
+      if (filterFornecedorId) {
+        const fornecedorId = Number.parseInt(filterFornecedorId, 10);
+        if (Number.isFinite(fornecedorId)) query = query.eq("fornecedor_id", fornecedorId);
+      }
+
+      if (filterTipo) query = query.eq("tipo", filterTipo);
+      if (filterFinalidade) query = query.eq("finalidade", filterFinalidade);
+      if (filterAtivo === "ativos") query = query.eq("ativo", true);
+      if (filterAtivo === "inativos") query = query.eq("ativo", false);
+
+      const { data, error, count } = await query.range(from, to);
+
+      if (error) {
+        setErr(error.message);
+        setRows([]);
+        setTotalCount(0);
         return;
       }
-      query = query.eq("id", parsed);
-    }
 
-    const nomeTerm = filterNome.trim();
-    if (nomeTerm) {
-      query = query.ilike("nome", `%${nomeTerm}%`);
-    }
+      setTotalCount(count ?? 0);
 
-    if (tipo !== "todos") query = query.eq("tipo", tipo);
-    if (ativo === "ativos") query = query.eq("ativo", true);
-    if (ativo === "inativos") query = query.eq("ativo", false);
+      const baseRows = (data ?? []) as unknown as ItemBase[];
+      const itemIds = Array.from(new Set(baseRows.map((row) => row.id).filter(Number.isFinite)));
+      const fiscalMap = new Map<number, FiscalItem>();
 
-    if (filterFornecedor !== "todos") {
-      const fornecedorId = Number.parseInt(filterFornecedor, 10);
-      if (Number.isFinite(fornecedorId)) {
-        query = query.eq("fornecedor_id", fornecedorId);
+      if (itemIds.length > 0 && empresaId) {
+        const { data: fiscalData, error: fiscalErr } = await applyTenantEmpresa(
+          supabase
+            .from("fiscal_itens")
+            .select(
+              "item_id,ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins"
+            ),
+          tenantId,
+          empresaId
+        ).in("item_id", itemIds);
+
+        if (fiscalErr) {
+          setErr(fiscalErr.message);
+        } else {
+          const fiscalRows = (fiscalData ?? []) as FiscalItem[];
+          fiscalRows.forEach((row) => {
+            fiscalMap.set(Number(row.item_id), row);
+          });
+        }
       }
+
+      const merged = baseRows.map((row) => ({
+        ...row,
+        fiscal_itens: fiscalMap.get(row.id) ?? null,
+      }));
+
+      setRows(merged as Item[]);
+    } finally {
+      setListLoading(false);
     }
-
-    const { data, error } = await query;
-
-    if (error) {
-      setErr(error.message);
-      return;
-    }
-
-    const baseRows = (data ?? []) as unknown as ItemBase[];
-    const itemIds = Array.from(new Set(baseRows.map((row) => row.id).filter(Number.isFinite)));
-    const fiscalMap = new Map<number, FiscalItem>();
-
-    if (itemIds.length > 0 && empresaId) {
-      const { data: fiscalData, error: fiscalErr } = await applyTenantEmpresa(
-        supabase
-          .from("fiscal_itens")
-          .select(
-            "item_id,ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins"
-          ),
-        tenantId,
-        empresaId
-      ).in("item_id", itemIds);
-
-      if (fiscalErr) {
-        setErr(fiscalErr.message);
-      } else {
-        const fiscalRows = (fiscalData ?? []) as FiscalItem[];
-        fiscalRows.forEach((row) => {
-          fiscalMap.set(Number(row.item_id), row);
-        });
-      }
-    }
-
-    const merged = baseRows.map((row) => ({
-      ...row,
-      fiscal_itens: fiscalMap.get(row.id) ?? null,
-    }));
-
-    setRows(merged as Item[]);
   }
 
   useEffect(() => {
-    loadFornecedores();
-    load();
+    void loadFornecedores();
+  }, [tenantId, tenantEmpresaLoading]);
+
+  useEffect(() => {
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, empresaId, tenantEmpresaLoading]);
+  }, [
+    tenantId,
+    empresaId,
+    tenantEmpresaLoading,
+    page,
+    filterId,
+    debouncedQuery,
+    filterFornecedorId,
+    filterTipo,
+    filterFinalidade,
+    filterAtivo,
+  ]);
 
   function resetFiltros() {
-    setFilterId("todos");
-    setFilterNome("");
-    setTipo("todos");
-    setFilterFornecedor("todos");
-    setAtivo("todos");
+    setFilterId("");
+    setFilterQuery("");
+    setDebouncedQuery("");
+    setFilterFornecedorId("");
+    setFilterTipo("");
+    setFilterFinalidade("");
+    setFilterAtivo("todos");
+    setPage(1);
   }
 
   function startNew() {
@@ -608,6 +686,10 @@ export default function ItensPage() {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const showingFrom = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const showingTo = Math.min(page * PAGE_SIZE, totalCount);
+
   return (
     <div className="space-y-5 w-full pb-10">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -638,53 +720,49 @@ export default function ItensPage() {
       </div>
 
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.9fr_0.9fr_0.7fr_0.7fr] gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
           <div className="space-y-1">
-            <div className="text-xs text-zinc-400">ID</div>
+            <div className="text-xs text-zinc-400">Id</div>
             <input
-              aria-label="Filtrar por ID"
-              className="w-full px-3 py-2"
+              aria-label="Filtrar por id"
+              type="number"
+              inputMode="numeric"
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
               value={filterId}
-              onChange={(e) => setFilterId(e.target.value)}
-              placeholder="todos"
+              onChange={(e) => {
+                setFilterId(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Ex: 123"
             />
           </div>
 
-          <div className="space-y-1">
-            <div className="text-xs text-zinc-400">Nome</div>
+          <div className="space-y-1 md:col-span-2">
+            <div className="text-xs text-zinc-400">Código/nome</div>
             <input
-              aria-label="Filtrar por nome"
-              className="w-full px-3 py-2"
-              value={filterNome}
-              onChange={(e) => setFilterNome(e.target.value)}
-              placeholder="Digite parte do nome..."
+              aria-label="Filtrar por código interno ou nome"
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+              value={filterQuery}
+              onChange={(e) => {
+                setFilterQuery(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Buscar por código interno ou nome..."
             />
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-xs text-zinc-400">Tipo</div>
-            <select
-              aria-label="Filtrar por tipo"
-              className="w-full px-3 py-2"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as "todos" | Item["tipo"])}
-            >
-              <option value="todos">Todos</option>
-              <option value="produto">Produto</option>
-              <option value="servico">Serviço</option>
-              <option value="despesa">Despesa</option>
-            </select>
           </div>
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Fornecedor</div>
             <select
               aria-label="Filtrar por fornecedor"
-              className="w-full px-3 py-2"
-              value={filterFornecedor}
-              onChange={(e) => setFilterFornecedor(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+              value={filterFornecedorId}
+              onChange={(e) => {
+                setFilterFornecedorId(e.target.value);
+                setPage(1);
+              }}
             >
-              <option value="todos">Todos</option>
+              <option value="">Todos</option>
               {fornecedores.map((f) => (
                 <option key={f.id} value={String(f.id)}>
                   {f.nome}
@@ -694,12 +772,53 @@ export default function ItensPage() {
           </div>
 
           <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Tipo</div>
+            <select
+              aria-label="Filtrar por tipo"
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+              value={filterTipo}
+              onChange={(e) => {
+                setFilterTipo(e.target.value as "" | Item["tipo"]);
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="produto">Produto</option>
+              <option value="servico">Serviço</option>
+              <option value="despesa">Despesa</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Finalidade</div>
+            <select
+              aria-label="Filtrar por finalidade"
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+              value={filterFinalidade}
+              onChange={(e) => {
+                setFilterFinalidade(e.target.value as "" | ItemFinalidade);
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              {ITEM_FINALIDADES.map((f) => (
+                <option key={f} value={f}>
+                  {String(f).replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
             <div className="text-xs text-zinc-400">Ativo</div>
             <select
               aria-label="Filtrar por ativo"
-              className="w-full px-3 py-2"
-              value={ativo}
-              onChange={(e) => setAtivo(e.target.value as "todos" | "ativos" | "inativos")}
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+              value={filterAtivo}
+              onChange={(e) => {
+                setFilterAtivo(e.target.value as "todos" | "ativos" | "inativos");
+                setPage(1);
+              }}
             >
               <option value="todos">Todos</option>
               <option value="ativos">Ativos</option>
@@ -708,22 +827,32 @@ export default function ItensPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-3">
-          <button
-            onClick={load}
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-          >
-            Buscar
-          </button>
-          <button
-            onClick={() => {
-              resetFiltros();
-              void load();
-            }}
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-          >
-            Limpar
-          </button>
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void load()}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+            >
+              Atualizar
+            </button>
+            <button
+              onClick={openPrint}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+            >
+              Imprimir
+            </button>
+            <button
+              onClick={resetFiltros}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+            >
+              Limpar
+            </button>
+            {listLoading && <div className="text-xs text-zinc-400">Carregando...</div>}
+          </div>
+
+          <div className="text-xs text-zinc-500">
+            Página {page} de {totalPages} • {showingFrom}-{showingTo} de {totalCount}
+          </div>
         </div>
 
         {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
@@ -732,71 +861,124 @@ export default function ItensPage() {
 
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-900/80">
-          <div className="text-sm text-zinc-300">Lista de itens</div>
-          <div className="text-xs text-zinc-500">Exibindo {rows.length} registro(s)</div>
+          <div className="text-sm text-zinc-300">Itens</div>
+          <div className="text-xs text-zinc-500">
+            {showingFrom}-{showingTo} de {totalCount}
+          </div>
         </div>
         <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-900/70">
+            <thead className="sticky top-0 bg-zinc-950/90 backdrop-blur border-b border-zinc-800">
               <tr className="text-zinc-200">
-                <th className="px-4 py-3 text-left w-16">ID</th>
-                <th className="px-4 py-3 text-left">Código</th>
-                <th className="px-4 py-3 text-left min-w-[220px]">Nome</th>
+                <th className="px-4 py-3 text-left w-20">Id</th>
+                <th className="px-4 py-3 text-left min-w-[160px]">Código</th>
+                <th className="px-4 py-3 text-left min-w-[280px]">Nome</th>
                 <th className="px-4 py-3 text-left">Tipo</th>
                 <th className="px-4 py-3 text-left">Finalidade</th>
-                <th className="px-4 py-3 text-left">Fornecedor</th>
-                <th className="px-4 py-3 text-right">Preço</th>
+                <th className="px-4 py-3 text-left min-w-[200px]">Fornecedor</th>
                 <th className="px-4 py-3 text-center">Ativo</th>
                 <th className="px-4 py-3 text-center">Ações</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-zinc-800">
-              {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-900/40">
-                  <td className="px-4 py-3 font-medium whitespace-nowrap text-zinc-400 tabular-nums">{r.id}</td>
-                  <td className="px-4 py-3 font-medium whitespace-nowrap">{r.codigo_interno}</td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="font-medium">{r.nome}</div>
-                    {r.categoria && (
-                      <div className="text-xs text-zinc-400">
-                        {r.categoria}{r.subcategoria ? ` / ${r.subcategoria}` : ""}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-300 capitalize">{r.tipo}</td>
-                  <td className="px-4 py-3 text-zinc-300">
-                    {r.finalidade ? String(r.finalidade).replace(/_/g, " ") : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-300">{r.fornecedores?.nome ?? fornecedorNome(r.fornecedor_id)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{money(r.preco_unitario)}</td>
-                  <td className="px-4 py-3 text-center">{r.ativo ? "Sim" : "Não"}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Can perm="cad_itens.write">
-                        <button onClick={() => startEdit(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                          Editar
-                        </button>
-                      </Can>
-                      <Can perm="cad_itens.write">
-                        <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                          {r.ativo ? "Desativar" : "Ativar"}
-                        </button>
-                      </Can>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {listLoading &&
+                Array.from({ length: 8 }).map((_, idx) => (
+                  <tr key={`sk-${idx}`} className="animate-pulse">
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-12 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-24 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-56 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-20 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-24 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-32 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-6 w-16 bg-zinc-800 rounded-full mx-auto" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-8 w-28 bg-zinc-800 rounded mx-auto" />
+                    </td>
+                  </tr>
+                ))}
 
-              {rows.length === 0 && (
+              {!listLoading &&
+                rows.map((r) => (
+                  <tr key={r.id} className="hover:bg-zinc-900/40">
+                    <td className="px-4 py-3 font-medium whitespace-nowrap text-zinc-400 tabular-nums">{r.id}</td>
+                    <td className="px-4 py-3 font-medium whitespace-nowrap">
+                      <div>{r.codigo_interno}</div>
+                      {r.codigo_barras ? <div className="text-xs text-zinc-500">{r.codigo_barras}</div> : null}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-medium">{r.nome}</div>
+                      {r.categoria && (
+                        <div className="text-xs text-zinc-400">
+                          {r.categoria}
+                          {r.subcategoria ? ` / ${r.subcategoria}` : ""}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300 capitalize">{r.tipo}</td>
+                    <td className="px-4 py-3 text-zinc-300">{r.finalidade ? String(r.finalidade).replace(/_/g, " ") : "-"}</td>
+                    <td className="px-4 py-3 text-zinc-300">{r.fornecedores?.nome ?? fornecedorNome(r.fornecedor_id)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={
+                          r.ativo
+                            ? "inline-flex items-center rounded-full bg-emerald-950/40 text-emerald-300 border border-emerald-900/40 px-2 py-0.5 text-xs"
+                            : "inline-flex items-center rounded-full bg-zinc-900/60 text-zinc-300 border border-zinc-800 px-2 py-0.5 text-xs"
+                        }
+                      >
+                        {r.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <Can perm="cad_itens.write">
+                          <button
+                            onClick={() => startEdit(r)}
+                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                          >
+                            Editar
+                          </button>
+                        </Can>
+                        <Can perm="cad_itens.write">
+                          <button
+                            onClick={() => toggleAtivo(r.id, !r.ativo)}
+                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                          >
+                            {r.ativo ? "Desativar" : "Ativar"}
+                          </button>
+                        </Can>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+              {!listLoading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-zinc-400">
+                  <td colSpan={8} className="px-4 py-10 text-zinc-400 text-center">
                     Nenhum item encontrado.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-4 py-3 border-t border-zinc-900/80 bg-zinc-950">
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </div>
       </div>
 
@@ -1191,6 +1373,98 @@ export default function ItensPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function buildPaginationModel(currentPage: number, totalPages: number): Array<number | "..."> {
+  const total = Math.max(1, totalPages);
+  const current = Math.min(Math.max(1, currentPage), total);
+
+  if (total <= 9) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const candidates = new Set<number>([1, 2, total - 1, total, current - 1, current, current + 1]);
+  const pages = Array.from(candidates)
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
+
+  const out: Array<number | "..."> = [];
+  let prev: number | null = null;
+  for (const p of pages) {
+    if (prev !== null && p - prev > 1) out.push("...");
+    out.push(p);
+    prev = p;
+  }
+  return out;
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  const total = Math.max(1, totalPages);
+  const current = Math.min(Math.max(1, page), total);
+  const model = buildPaginationModel(current, total);
+
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="text-xs text-zinc-500">
+        Página {current} de {total}
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-label="Página anterior"
+          disabled={current <= 1}
+          onClick={() => onChange(Math.max(1, current - 1))}
+          className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
+        >
+          ‹
+        </button>
+
+        {model.map((p, idx) => {
+          if (p === "...") {
+            return (
+              <div key={`dots-${idx}`} className="px-2 text-zinc-500 select-none">
+                ...
+              </div>
+            );
+          }
+
+          const isActive = p === current;
+          return (
+            <button
+              key={p}
+              type="button"
+              aria-current={isActive ? "page" : undefined}
+              onClick={() => onChange(p)}
+              className={
+                isActive
+                  ? "h-9 min-w-9 px-3 rounded-md bg-zinc-100 text-zinc-900 font-medium"
+                  : "h-9 min-w-9 px-3 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
+              }
+            >
+              {p}
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          aria-label="Próxima página"
+          disabled={current >= total}
+          onClick={() => onChange(Math.min(total, current + 1))}
+          className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
+        >
+          ›
+        </button>
+      </div>
     </div>
   );
 }

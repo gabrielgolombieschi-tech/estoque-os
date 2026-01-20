@@ -5,6 +5,19 @@ import { getAllowedEmpresas } from "@/lib/auth/empresa";
 
 type CapResult = { capabilities: Capabilities | null; tenantId: string | null; empresaId: string | null; error?: unknown };
 
+const isDev = process.env.NODE_ENV !== "production";
+
+function getErrorMessage(error: unknown): string {
+  if (!error) return "";
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && "message" in (error as any)) return String((error as any).message ?? "");
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
 export async function getCapabilities(supabase: SupabaseClient): Promise<CapResult> {
   const payload = buildCanManyPayload();
 
@@ -25,7 +38,7 @@ export async function getCapabilities(supabase: SupabaseClient): Promise<CapResu
       try {
         tenantId = await ensureCurrentTenant(supabase, tenantId);
       } catch (e) {
-        console.warn("ensureCurrentTenant failed:", e);
+        if (isDev) console.debug("[capabilities] ensureCurrentTenant failed:", e);
       }
     }
 
@@ -51,7 +64,7 @@ export async function getCapabilities(supabase: SupabaseClient): Promise<CapResu
           }
         }
       } catch (e) {
-        console.warn("getAllowedEmpresas failed:", e);
+        if (isDev) console.debug("[capabilities] getAllowedEmpresas failed:", e);
       }
     }
 
@@ -64,28 +77,38 @@ export async function getCapabilities(supabase: SupabaseClient): Promise<CapResu
       }
     }
 
-    // Diagnostics: log context in dev
-    try {
-      console.info("[capabilities] resolving context", { tenantId, empresaId });
-    } catch {}
-
     const { data, error } = await supabase.rpc("can_many", { p_pairs: payload });
 
     if (error) {
-      // diagnostics log
-      console.error("Erro can_many:", error, { tenantId, empresaId, payload });
+      const message = getErrorMessage(error).toLowerCase();
+
+      // Common + non-fatal cases for SSR: missing RPC, no auth context, or RLS denies server call.
+      if (
+        message.includes("could not find the function public.can_many") ||
+        message.includes("permission denied") ||
+        message.includes("jwt") ||
+        message.includes("not authenticated")
+      ) {
+        if (isDev) {
+          console.debug("[capabilities] can_many unavailable on server (will load on client)", {
+            message: getErrorMessage(error),
+            tenantId,
+            empresaId,
+          });
+        }
+        return { capabilities: null, tenantId, empresaId, error };
+      }
+
+      if (isDev) {
+        console.debug("[capabilities] can_many error", { message: getErrorMessage(error), tenantId, empresaId });
+      }
       return { capabilities: null, tenantId, empresaId, error };
     }
-
-    // diagnostics
-    try {
-      console.info("[capabilities] can_many result", { tenantId, empresaId, result: data });
-    } catch {}
 
     const caps = mapCapabilities(data as Record<string, boolean> | null);
     return { capabilities: caps, tenantId, empresaId };
   } catch (e) {
-    console.error("getCapabilities unexpected error:", e, { tenantId, empresaId });
+    if (isDev) console.debug("[capabilities] getCapabilities unexpected error:", e, { tenantId, empresaId });
     return { capabilities: null, tenantId, empresaId, error: e };
   }
 }

@@ -25,10 +25,11 @@ export const CAPABILITY_KEYS = [
   "cad_fornecedores.write",
   "cad_itens.write",
   "admin.manage_users",
+  "admin.users.manage",
 ] as const;
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
-export type Capabilities = Record<CapabilityKey, boolean>;
+export type Capabilities = Record<string, boolean>;
 export type CapabilityPair = { key: CapabilityKey; resource: string; action: string };
 
 export function buildCanManyPayload(keys: readonly CapabilityKey[] = CAPABILITY_KEYS): CapabilityPair[] {

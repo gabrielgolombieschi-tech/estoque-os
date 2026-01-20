@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { createContext, useMemo } from "react";
-import { useTenantEmpresaContext, type EmpresaOption } from "@/lib/auth/TenantEmpresaProvider";
+import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
+import type { EmpresaInfo as EmpresaOption } from "@/lib/auth/types";
 
 export type EmpresaContextValue = {
   empresaId: string | null;
@@ -23,7 +24,7 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
       setEmpresaId: (id: string) => {
         void ctx.setEmpresaId(id);
       },
-      loading: ctx.loading || !ctx.empresaId,
+      loading: ctx.loading,
       error: ctx.error,
     }),
     [ctx]

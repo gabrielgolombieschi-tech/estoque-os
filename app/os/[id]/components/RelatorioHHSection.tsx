@@ -6,6 +6,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { syncHhToApontamentos } from "@/lib/hh/syncHhToApontamentos";
 
 type EspecialidadeOption = { id: string; descricao: string | null };
 type TabelaAtiva = {
@@ -282,8 +283,19 @@ async function gerarRelatorioPDF(
   }
 }
 
-export default function RelatorioHHSection({ osId, osDetail }: { osId: number; osDetail?: { cliente_id: number | null } | null }) {
-  const supabase = useMemo(() => supabaseBrowser(), []);
+export default function RelatorioHHSection({
+  osId,
+  osDetail,
+  enabled = true,
+}: {
+  osId: number;
+  osDetail?: { cliente_id: number | null } | null;
+  enabled?: boolean;
+}) {
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canRead = Boolean(has("os.read"));
@@ -329,6 +341,7 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
   const [lancamentoBusy, setLancamentoBusy] = useState(false);
   const lancamentoDateRef = useRef<HTMLInputElement | null>(null);
   const lancamentoSubmitLockRef = useRef(false);
+  const editingOriginalKeyRef = useRef<{ data: string; colaborador_id: string } | null>(null);
 
   useEffect(() => {
     if (!showLancamentoForm) return;
@@ -780,6 +793,7 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
   function closeLancamentoForm() {
     setShowLancamentoForm(false);
     setEditingId(null);
+    editingOriginalKeyRef.current = null;
     setErr(null);
     setOk(null);
   }
@@ -846,6 +860,11 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
         hh_servico_id: String(data.hh_servico_id ?? ""),
         observacao: String(data.observacao ?? ""),
       });
+
+      editingOriginalKeyRef.current = {
+        data: String(data.data ?? ""),
+        colaborador_id: String(data.colaborador_id ?? ""),
+      };
 
       const e1 = formatTimeHHMM(data.entrada_1) || "";
       const s1 = formatTimeHHMM(data.saida_1) || "";
@@ -1210,6 +1229,46 @@ export default function RelatorioHHSection({ osId, osDetail }: { osId: number; o
 
         if (error) throw error;
         setOk("Lançamento HH salvo com sucesso!");
+      }
+
+      if (enabled) {
+        try {
+          const baseDate = lancamentoForm.data;
+          const colabId = String(lancamentoForm.colaborador_id);
+
+          // Se mudou colaborador/data durante a edição, apagar possíveis lançamentos antigos (D e D+1).
+          if (editingId && editingOriginalKeyRef.current) {
+            const prevKey = editingOriginalKeyRef.current;
+            if (prevKey.data && prevKey.colaborador_id && (prevKey.data !== baseDate || prevKey.colaborador_id !== colabId)) {
+              await syncHhToApontamentos({
+                supabase,
+                tenantId: ctx.tenant,
+                empresaId: ctx.empresa,
+                osId,
+                colaboradorId: prevKey.colaborador_id,
+                dataISO: prevKey.data,
+                periodos: [],
+              });
+            }
+          }
+
+          await syncHhToApontamentos({
+            supabase,
+            tenantId: ctx.tenant,
+            empresaId: ctx.empresa,
+            osId,
+            colaboradorId: colabId,
+            dataISO: baseDate,
+            periodos: [
+              { entrada: minutosParaHHMM(entrada1), saida: minutosParaHHMM(saida1) },
+              { entrada: minutosParaHHMM(entrada2), saida: minutosParaHHMM(saida2) },
+            ],
+            descricao: descRaw || "HH lançado na OS",
+          });
+        } catch (syncErr: unknown) {
+          console.error("[HH] Falha ao sincronizar apontamentos_horas (gerado_por_hh)", syncErr);
+          setErr("Lançamento HH salvo, mas falhou ao sincronizar apontamentos. Tente novamente ou contate o admin.");
+        }
       }
 
       await loadHhLancamentos();

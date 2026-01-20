@@ -7,8 +7,9 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { useSessionReady } from "@/lib/auth/useSessionReady";
+import { getOsListAccess } from "@/lib/auth/osAccess";
 
-type Cliente = { id: number; nome: string; ativo: boolean };
+type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh: boolean };
 
 type OS = {
   id: number;
@@ -22,6 +23,7 @@ type OS = {
   orcado: number | null;
   custo: number | null;
   tipo_pedido?: string | null;
+  usa_relatorio_hh?: boolean | null;
 };
 
 type OsItemTotalRow = {
@@ -76,15 +78,31 @@ const buildGestaoDefaults = (): GestaoItem[] =>
 
 export default function OsListPage() {
   const router = useRouter();
-  const supabase = useMemo(() => supabaseBrowser(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
+    return supabaseBrowser();
+  }, []);
   const { has } = usePermissions();
-  const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
+  const te = useTenantEmpresa();
+  const { tenantId, empresaId, loading: tenantLoading } = te;
   const { session, sessionReady } = useSessionReady();
   const canGestaoWrite = has("os_gestao.write") ?? true;
   const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
   const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
   const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const effectiveEmpresaId = useMemo(() => empresaId ?? fixedEmpresaId, [empresaId]);
+
+  const empresaPapel = useMemo(() => {
+    const byId = (te.empresas ?? []).find((e) => e.id === effectiveEmpresaId) ?? null;
+    if (byId?.papel) return byId.papel;
+    if (te.empresa?.id === effectiveEmpresaId) return te.empresa?.papel ?? null;
+    return null;
+  }, [effectiveEmpresaId, te.empresa, te.empresas]);
+
+  const osAccess = useMemo(() => getOsListAccess(empresaPapel), [empresaPapel]);
+  const canView = osAccess.canView;
+  const readOnly = osAccess.readOnly;
+  const hideValorPedido = osAccess.hideValorPedido;
   const debugEnabled = process.env.NODE_ENV !== "production";
   const clientesReqIdRef = useRef(0);
   const osReqIdRef = useRef(0);
@@ -108,10 +126,16 @@ export default function OsListPage() {
   const [vendedor, setVendedor] = useState("");
   const [orcado, setOrcado] = useState("");
   const [temGestao, setTemGestao] = useState(false);
+  const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
   const [gestaoItems, setGestaoItems] = useState<GestaoItem[]>(() => buildGestaoDefaults());
 
   const formatMoney = (value: number) =>
     Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const clienteHabilitaHH = useMemo(() => {
+    if (!clienteId) return false;
+    return Boolean(clientes.find((c) => c.id === clienteId)?.habilita_hh);
+  }, [clienteId, clientes]);
 
   const logDebug = (...args: unknown[]) => {
     if (debugEnabled) console.debug(...args);
@@ -129,7 +153,12 @@ export default function OsListPage() {
       hasSession: !!session?.access_token,
     });
     const { data, error } = await applyTenantEmpresa(
-      supabase.from("clientes").select("id,nome,ativo").eq("ativo", true).order("nome", { ascending: true }).limit(500),
+      supabase
+        .from("clientes")
+        .select("id,nome,ativo,habilita_hh")
+        .eq("ativo", true)
+        .order("nome", { ascending: true })
+        .limit(500),
       effectiveTenantId,
       effectiveEmpresaId
     );
@@ -259,12 +288,14 @@ export default function OsListPage() {
       return;
     }
 
+    if (!canView) return;
+
     logDebug("[OS] useEffect:calling loadClientes and load");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadClientes();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [tenantId, empresaId, sessionReady, session?.access_token, status]);
+  }, [canView, tenantId, empresaId, sessionReady, session?.access_token, status]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -287,6 +318,7 @@ export default function OsListPage() {
     setErr(null);
     setOkMsg(null);
 
+    if (readOnly) return setErr("Sem permissão para criar OS.");
     if (!clienteId && !clienteNomeLivre.trim()) return setErr("Selecione um cliente ou informe um nome.");
 
     const orcadoValor = Number(orcado || 0);
@@ -329,6 +361,7 @@ export default function OsListPage() {
     }
 
     const numeroGerado = await gerarNumeroOs(effectiveTenantId, effectiveEmpresaId);
+    const usaRelatorioHHFinal = clienteHabilitaHH ? usaRelatorioHH : false;
 
     const { data, error } = await supabase
       .from("ordens_servico")
@@ -344,6 +377,7 @@ export default function OsListPage() {
         vendedor: vendedor.trim() || null,
         orcado: orcadoValor,
         tem_gestao: temGestao,
+        usa_relatorio_hh: usaRelatorioHHFinal,
         status: "em_andamento",
         criado_por: userEmail,
       })
@@ -389,6 +423,7 @@ export default function OsListPage() {
     setVendedor("");
     setOrcado("");
     setTemGestao(false);
+    setUsaRelatorioHH(false);
     setGestaoItems(buildGestaoDefaults());
     setShowCreate(false);
 
@@ -478,6 +513,14 @@ export default function OsListPage() {
     );
   };
 
+  if (!tenantLoading && !osAccess.canView) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-zinc-300 px-4">
+        Sem permissão para visualizar OS.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
@@ -505,16 +548,19 @@ export default function OsListPage() {
             Atualizar
           </button>
 
-          <button
-            onClick={() => {
-              setShowCreate(true);
-              setErr(null);
-              setOkMsg(null);
-            }}
-            className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-          >
-            Nova OS
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => {
+                setShowCreate(true);
+                setErr(null);
+                setOkMsg(null);
+                setUsaRelatorioHH(false);
+              }}
+              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+            >
+              Nova OS
+            </button>
+          )}
         </div>
       </div>
 
@@ -531,7 +577,7 @@ export default function OsListPage() {
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Descrição</th>
               <th className="px-4 py-3 text-right">Custo</th>
-              <th className="px-4 py-3 text-right">Valor pedido</th>
+              {!hideValorPedido && <th className="px-4 py-3 text-right">Valor pedido</th>}
             </tr>
           </thead>
 
@@ -570,14 +616,14 @@ export default function OsListPage() {
                 </td>
 
                 {(() => {
-                  const pedido = Number(r.orcado ?? 0);
-                  const imposto = pedido * 0.22; // mesma regra usada no detalhe
+                  const pedido = hideValorPedido ? 0 : Number(r.orcado ?? 0);
+                  const imposto = hideValorPedido ? 0 : pedido * 0.22; // mesma regra usada no detalhe
                   const itensTotal = itensTotalPorOs[r.id] ?? 0;
                   const maoObraExtra = maoObraPorOs[r.id] ?? 0;
                   const custoBanco = Number(r.custo ?? NaN);
                   const custoCalculado = itensTotal + maoObraExtra + imposto;
                   const custo = Number.isFinite(custoBanco) && custoBanco > 0 ? custoBanco : custoCalculado;
-                  const alerta = pedido > 0 && custo >= pedido * 0.9;
+                  const alerta = !hideValorPedido && pedido > 0 && custo >= pedido * 0.9;
                   const custoClass = alerta
                     ? "text-red-300 border-red-500/40"
                     : "text-emerald-300 border-emerald-500/40";
@@ -588,7 +634,9 @@ export default function OsListPage() {
                           R$ {formatMoney(custo)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-200">R$ {formatMoney(pedido)}</td>
+                      {!hideValorPedido && (
+                        <td className="px-4 py-3 text-right tabular-nums text-zinc-200">R$ {formatMoney(pedido)}</td>
+                      )}
                     </>
                   );
                 })()}
@@ -597,7 +645,7 @@ export default function OsListPage() {
 
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-zinc-400">
+                <td colSpan={hideValorPedido ? 5 : 6} className="px-4 py-6 text-zinc-400">
                   Carregando...
                 </td>
               </tr>
@@ -605,7 +653,7 @@ export default function OsListPage() {
 
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-zinc-400">
+                <td colSpan={hideValorPedido ? 5 : 6} className="px-4 py-6 text-zinc-400">
                   Nenhuma OS encontrada.
                 </td>
               </tr>
@@ -671,7 +719,12 @@ export default function OsListPage() {
                 <select
                   className="w-full px-3 py-2"
                   value={clienteId ?? ""}
-                  onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => {
+                    const nextId = e.target.value ? Number(e.target.value) : null;
+                    setClienteId(nextId);
+                    const nextHabilita = nextId ? Boolean(clientes.find((c) => c.id === nextId)?.habilita_hh) : false;
+                    if (!nextHabilita) setUsaRelatorioHH(false);
+                  }}
                   aria-label="Cliente (cadastro)"
                   title="Cliente (cadastro)"
                 >
@@ -695,6 +748,21 @@ export default function OsListPage() {
                   title="Cliente (nome livre)"
                 />
               </div>
+
+              {clienteHabilitaHH && (
+                <div className="md:col-span-3 border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={usaRelatorioHH}
+                      onChange={(e) => setUsaRelatorioHH(e.target.checked)}
+                      disabled={creating}
+                    />
+                    <span className="font-medium">Esta OS é de HH?</span>
+                  </label>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Vendedor</div>

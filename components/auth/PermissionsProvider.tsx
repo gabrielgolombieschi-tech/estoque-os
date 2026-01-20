@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { TenantEmpresaProvider, useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
+import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
 import type { Capabilities, CapabilityKey } from "@/lib/auth/capabilities";
 
 export type PermissionsContextValue = {
@@ -25,13 +25,12 @@ export function PermissionsProvider({
   initialCapabilities?: Capabilities | null;
   initialTenantId?: string | null;
 }) {
-  // Compatibility wrapper: existing screens may still mount PermissionsProvider.
-  // Source of truth remains TenantEmpresaProvider.
-  return (
-    <TenantEmpresaProvider initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
-      {children}
-    </TenantEmpresaProvider>
-  );
+  void initialCapabilities;
+  void initialTenantId;
+
+  // Compatibility wrapper: some routes still mount PermissionsProvider, but the app's
+  // single source of truth is the TenantEmpresaProvider mounted in `app/layout.tsx`.
+  return <>{children}</>;
 }
 
 export function usePermissions(): PermissionsContextValue {

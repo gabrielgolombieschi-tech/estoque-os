@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildCanManyPayload, mapCapabilities, type Capabilities } from "@/lib/auth/capabilities";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { getSupabaseBrowser } from "@/lib/auth/supabase";
 
 let cachedCapabilities: Capabilities | null = null;
 
 export async function loadUserCapabilities(
-  supabase: SupabaseClient = supabaseBrowser()
+  supabase: SupabaseClient = getSupabaseBrowser()
 ): Promise<Capabilities | null> {
   if (cachedCapabilities) return cachedCapabilities;
 
