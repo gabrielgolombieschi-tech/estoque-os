@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { Capabilities } from "@/lib/auth/capabilities";
 import { TenantEmpresaProvider } from "@/lib/auth/TenantEmpresaProvider";
+import SessionKeepAlive from "@/components/auth/SessionKeepAlive";
 
 type Props = {
   children: ReactNode;
@@ -17,6 +18,7 @@ export default function ClientProviders({
 }: Props) {
   return (
     <TenantEmpresaProvider initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
+      <SessionKeepAlive />
       {children}
     </TenantEmpresaProvider>
   );

@@ -53,6 +53,16 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
+function normalizeEmpresaPapel(papel: string | null | undefined): string {
+  return typeof papel === "string" ? papel.trim().toUpperCase() : "";
+}
+
+function isPainelTvEmpresaRole(state: TenantEmpresaState): boolean {
+  const papel =
+    state.empresa?.papel ?? state.empresas.find((e) => e.id === state.empresaId)?.papel ?? null;
+  return normalizeEmpresaPapel(papel) === "PAINEL_TV";
+}
+
 function readCached(userId: string, tenantId: string): CachedTenantEmpresa | null {
   if (typeof window === "undefined") return null;
   return safeJsonParse<CachedTenantEmpresa>(window.sessionStorage.getItem(cacheKeyFor(userId, tenantId)));
@@ -504,9 +514,21 @@ export function TenantEmpresaProvider({
   });
 
   const has = useCallback(
-    (capability: CapabilityKey) =>
-      state.capabilities === null ? undefined : state.capabilities[capability] ?? false,
-    [state.capabilities]
+    (capability: CapabilityKey) => {
+      if (state.capabilities === null) return undefined;
+
+      if (isPainelTvEmpresaRole(state)) {
+        if (capability === "os.read" || capability === "os_rpcs.execute") return true;
+        if (capability.endsWith(".write") || capability.endsWith(".delete") || capability.endsWith(".config")) {
+          return false;
+        }
+        if (capability === "xml_import.execute") return false;
+        if (capability === "admin.manage_users" || capability === "admin.users.manage") return false;
+      }
+
+      return state.capabilities[capability] ?? false;
+    },
+    [state]
   );
 
   const clear = useCallback(() => {

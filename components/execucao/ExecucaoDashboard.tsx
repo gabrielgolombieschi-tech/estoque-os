@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { useTenantEmpresa } from "@/lib/auth/hooks";
 
 type Area = "eletrico" | "mecanico";
 
@@ -37,6 +38,7 @@ function isOverdue(row: DashRow, today: Date) {
 }
 
 export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) {
+  const te = useTenantEmpresa();
   const areaOrder: Area[] = ["eletrico", "mecanico"];
   const [areaIndex, setAreaIndex] = useState(0);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -44,6 +46,10 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
     return supabaseBrowser();
   }, []);
+  const isPainelTv = useMemo(() => {
+    const papel = te.empresa?.papel;
+    return typeof papel === "string" && papel.trim().toUpperCase() === "PAINEL_TV";
+  }, [te.empresa?.papel]);
   const [rows, setRows] = useState<DashRow[]>(initialRows);
   const [selected, setSelected] = useState<DashRow | null>(null);
   const [progressValue, setProgressValue] = useState<string>("0");
@@ -127,6 +133,7 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
 
   const handleSave = async () => {
     if (!selected) return;
+    if (isPainelTv) return;
     setSaving(true);
     setSaveError(null);
 
@@ -199,7 +206,7 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
                 return (
                   <tr
                     key={`${r.os_id}-${r.area}-${idx}`}
-                    className={`${idx % 2 === 0 ? "bg-zinc-900/40" : ""} hover:bg-zinc-900/70 cursor-pointer`}
+                    className={`${idx % 2 === 0 ? "bg-zinc-900/40" : ""} ${isPainelTv ? "" : "hover:bg-zinc-900/70 cursor-pointer"}`}
                     onClick={() => handleRowClick(r)}
                   >
                     <Td>{r.numero_os}</Td>
@@ -267,13 +274,14 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
                 max={100}
                 value={progressValue}
                 onChange={(e) => setProgressValue(e.target.value)}
-                disabled={saving}
+                disabled={saving || isPainelTv}
                 className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100"
                 placeholder="0 a 100%"
               />
             </div>
 
             {saveError && <div className="text-sm text-red-400">{saveError}</div>}
+            {isPainelTv && <div className="text-xs text-zinc-400">Somente leitura (PAINEL_TV).</div>}
           </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -284,13 +292,15 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
               >
                 Cancelar
               </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
-              >
-                {saving ? "Salvando..." : "Salvar"}
-              </button>
+              {!isPainelTv && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+                >
+                  {saving ? "Salvando..." : "Salvar"}
+                </button>
+              )}
             </div>
           </div>
         </div>

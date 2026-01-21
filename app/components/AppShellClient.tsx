@@ -21,8 +21,6 @@ export default function AppShellClient({ children }: { children: React.ReactNode
 
   const isPublic = pathname === "/login";
   const isFullWidth = pathname === "/itens" || pathname === "/itens/imprimir";
-  const hideHeader =
-    pathname === "/itens/imprimir" || pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
   const lastKnownCapsRef = useRef<Capabilities | null>(null);
@@ -37,6 +35,19 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     if (empresas.length === 1) return empresas[0];
     return null;
   }, [empresaId, empresas]);
+
+  const empresaRole = useMemo(() => {
+    const role = effectiveEmpresa?.papel;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [effectiveEmpresa?.papel]);
+  const isPainelTv = empresaRole === "PAINEL_TV";
+
+  const hideHeader =
+    isPainelTv ||
+    pathname === "/itens/imprimir" ||
+    pathname === "/painel-tv" ||
+    pathname?.startsWith("/projetos") ||
+    pathname?.startsWith("/execucao");
 
   useEffect(() => {
     if (te.capabilities) lastKnownCapsRef.current = te.capabilities;
@@ -76,6 +87,24 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     if (!isAuthed && !isPublic) router.replace("/login");
     if (isAuthed && isPublic) router.replace("/");
   }, [isPublic, router, te.sessionUserId]);
+
+  useEffect(() => {
+    if (te.sessionUserId === undefined) return;
+    if (!te.sessionUserId) return;
+    if (!isPainelTv) return;
+    if (!effectiveEmpresa) return;
+
+    const allowed =
+      pathname === "/painel" ||
+      pathname === "/painel-tv" ||
+      pathname.startsWith("/painel-tv/") ||
+      pathname === "/projetos" ||
+      pathname.startsWith("/projetos/") ||
+      pathname === "/execucao" ||
+      pathname.startsWith("/execucao/");
+
+    if (!allowed) router.replace("/painel-tv");
+  }, [effectiveEmpresa, isPainelTv, pathname, router, te.sessionUserId]);
 
   const [openMenu, setOpenMenu] = useState<"os" | "estoque" | "financeiro" | "cadastro" | "admin" | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
