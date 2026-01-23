@@ -92,7 +92,6 @@ export default function OsListPage() {
   const te = useTenantEmpresa();
   const { tenantId, empresaId, loading: tenantLoading } = te;
   const { session, sessionReady } = useSessionReady();
-  const canGestaoWrite = has("os_gestao.write") ?? true;
   const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
   const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
   const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
@@ -104,6 +103,9 @@ export default function OsListPage() {
     if (te.empresa?.id === effectiveEmpresaId) return te.empresa?.papel ?? null;
     return null;
   }, [effectiveEmpresaId, te.empresa, te.empresas]);
+
+  const canGestaoWrite = (has("os_gestao.write") ?? true) || 
+    (empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(String(empresaPapel).toUpperCase()));
 
   const osAccess = useMemo(() => getOsListAccess(empresaPapel), [empresaPapel]);
   const canView = osAccess.canView;

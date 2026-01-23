@@ -14,7 +14,7 @@ end$$;
 
 alter table public.tenant_memberships
   add constraint tenant_memberships_role_check
-  check (role in ('admin', 'fiscal', 'estoque', 'projetos', 'financeiro', 'coordenacao'));
+  check (role in ('admin', 'fiscal', 'estoque', 'projetos', 'financeiro'));
 
 do $$
 begin
