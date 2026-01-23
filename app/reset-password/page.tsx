@@ -2,6 +2,6 @@
 
 import ResetPasswordClient from "@/components/auth/ResetPasswordClient";
 
-export default function ResetPasswordPage() {
+export default function ResetPasswordAliasPage() {
   return <ResetPasswordClient redirectTo="/login" />;
 }
