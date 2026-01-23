@@ -21,6 +21,7 @@ export const supabaseBrowser = () => {
   if (!globalThis.__supabaseBrowserClient) {
     globalThis.__supabaseBrowserClient = createClient(url, anon, {
       auth: {
+        flowType: "pkce",
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,

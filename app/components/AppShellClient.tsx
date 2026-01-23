@@ -21,12 +21,13 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublic =
-    pathname === "/login" ||
+  const isLoginPage = pathname === "/login";
+  const isResetPasswordPage =
     pathname === "/reset-password" ||
     pathname === "/auth/reset-password" ||
     pathname === "/reset-password/" ||
     pathname === "/auth/reset-password/";
+  const isPublic = isLoginPage || isResetPasswordPage;
   const isFullWidth = pathname === "/itens" || pathname === "/itens/imprimir";
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
@@ -92,8 +93,10 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     if (sessionUserId === undefined) return;
     const isAuthed = Boolean(sessionUserId);
     if (!isAuthed && !isPublic) router.replace("/login");
-    if (isAuthed && isPublic) router.replace("/");
-  }, [isPublic, router, te.sessionUserId]);
+    // Only redirect authed users away from the login page.
+    // Password reset links often establish a session; keep user on reset screen.
+    if (isAuthed && isLoginPage) router.replace("/");
+  }, [isLoginPage, isPublic, router, te.sessionUserId]);
 
   useEffect(() => {
     if (te.sessionUserId === undefined) return;
