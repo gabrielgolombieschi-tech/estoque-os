@@ -30,11 +30,52 @@ export default function ResetPasswordClient({ redirectTo = "/login" }: Props) {
     const run = async () => {
       try {
         const supabase = getSupabaseBrowser();
-        const { data, error: sessErr } = await supabase.auth.getSession();
+        const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+
+        const tryGetSession = async () => {
+          const { data, error: sessErr } = await supabase.auth.getSession();
+          return { session: data.session ?? null, error: sessErr ?? null };
+        };
+
+        // 1) If detectSessionInUrl already ran, this should be populated.
+        let { session } = await tryGetSession();
+
+        // 2) If the link is PKCE-based, it may include ?code=... (exchange for session).
+        if (!session && url) {
+          const code = url.searchParams.get("code");
+          if (code) {
+            try {
+              const { data: exData, error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+              if (!exErr) session = exData.session ?? null;
+            } catch {
+              // ignore
+            }
+          }
+        }
+
+        // 3) If the link is hash-based, it may include #access_token=...&refresh_token=...
+        // (Supabase recovery emails often use this format.)
+        if (!session && url && url.hash) {
+          const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+          const hp = new URLSearchParams(hash);
+          const access_token = hp.get("access_token");
+          const refresh_token = hp.get("refresh_token");
+          if (access_token && refresh_token) {
+            try {
+              const { data: setData, error: setErr } = await supabase.auth.setSession({
+                access_token,
+                refresh_token,
+              });
+              if (!setErr) session = setData.session ?? null;
+            } catch {
+              // ignore
+            }
+          }
+        }
 
         if (!active) return;
 
-        if (sessErr || !data.session) {
+        if (!session) {
           setPhase("invalid");
           return;
         }

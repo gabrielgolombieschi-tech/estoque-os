@@ -21,7 +21,12 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublic = pathname === "/login";
+  const isPublic =
+    pathname === "/login" ||
+    pathname === "/reset-password" ||
+    pathname === "/auth/reset-password" ||
+    pathname === "/reset-password/" ||
+    pathname === "/auth/reset-password/";
   const isFullWidth = pathname === "/itens" || pathname === "/itens/imprimir";
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
