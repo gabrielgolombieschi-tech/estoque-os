@@ -118,6 +118,7 @@ export default function OsListPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [rows, setRows] = useState<OS[]>([]);
   const [status, setStatus] = useState("em_andamento");
+  const [clienteFiltroId, setClienteFiltroId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
@@ -226,6 +227,7 @@ export default function OsListPage() {
     );
 
     if (status !== "todas") q = q.eq("status", status);
+    if (clienteFiltroId) q = q.eq("cliente_id", clienteFiltroId);
 
     const { data, error } = await q;
     if (reqId !== osReqIdRef.current) {
@@ -334,7 +336,7 @@ export default function OsListPage() {
     void loadClientes();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [canView, tenantId, empresaId, sessionReady, session?.access_token, status]);
+  }, [canView, tenantId, empresaId, sessionReady, session?.access_token, status, clienteFiltroId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -568,7 +570,26 @@ export default function OsListPage() {
           <p className="text-sm text-zinc-400 mt-1">Criar, filtrar e acessar OS.</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={clienteFiltroId ?? ""}
+            onChange={(e) => {
+              const parsed = e.target.value ? Number(e.target.value) : null;
+              const next = parsed !== null && Number.isFinite(parsed) ? parsed : null;
+              setClienteFiltroId(next);
+            }}
+            className="px-3 py-2 min-w-[220px]"
+            aria-label="Filtrar por cliente"
+            title="Filtrar por cliente"
+          >
+            <option value="">Todos os clientes</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}

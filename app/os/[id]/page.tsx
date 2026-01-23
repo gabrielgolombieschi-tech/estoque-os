@@ -1418,13 +1418,13 @@ export default function OsDetailPage() {
           }}
         >
           <div
-            className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4"
+            className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl flex flex-col max-h-[calc(100dvh-2rem)] min-h-0 overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-labelledby="gestao-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-3 shrink-0">
               <div>
                 <div id="gestao-title" className="text-lg font-semibold">
                   Gestao de Projetos e Execucao
@@ -1439,47 +1439,50 @@ export default function OsDetailPage() {
               </button>
             </div>
 
-            <div className="border border-zinc-800 rounded-lg px-4 py-3 bg-zinc-900/40 flex items-center justify-between flex-wrap gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={temGestao}
-                  onChange={(e) => setTemGestao(e.target.checked)}
-                  disabled={gestaoSaving || gestaoLoading}
-                  aria-label="Habilitar gestao nesta OS"
-                  title="Habilitar gestao nesta OS"
-                />
-                <span>Habilitar gestao nesta OS</span>
-              </label>
-              <div className="text-xs text-zinc-400">Salve para atualizar o status da gestao.</div>
+            <div className="px-5 py-4 overflow-y-auto min-h-0 space-y-4">
+              <div className="border border-zinc-800 rounded-lg px-4 py-3 bg-zinc-900/40 flex items-center justify-between flex-wrap gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={temGestao}
+                    onChange={(e) => setTemGestao(e.target.checked)}
+                    disabled={gestaoSaving || gestaoLoading}
+                    aria-label="Habilitar gestao nesta OS"
+                    title="Habilitar gestao nesta OS"
+                  />
+                  <span>Habilitar gestao nesta OS</span>
+                </label>
+                <div className="text-xs text-zinc-400">Salve para atualizar o status da gestao.</div>
+              </div>
+
+              {gestaoErr && <div className="text-sm text-red-400">{gestaoErr}</div>}
+
+              {gestaoLoading && <div className="text-sm text-zinc-300">Carregando dados de gestao...</div>}
+
+              {!gestaoLoading && !temGestao && (
+                <div className="text-sm text-zinc-300">
+                  Gestao desabilitada para esta OS. Ative o controle acima para editar os itens. Valores existentes serao
+                  mantidos.
+                </div>
+              )}
+
+              {!gestaoLoading && temGestao && (
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <div className="text-sm font-semibold text-zinc-200">Projetos (Engenharia)</div>
+                    {gestaoDefs.filter((d) => d.grupo === "projetos").map((def) => renderGestaoRow(def))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="text-sm font-semibold text-zinc-200">Execucoes (Campo)</div>
+                    {gestaoDefs.filter((d) => d.grupo === "execucoes").map((def) => renderGestaoRow(def))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {gestaoErr && <div className="text-sm text-red-400">{gestaoErr}</div>}
-
-            {gestaoLoading && <div className="text-sm text-zinc-300">Carregando dados de gestao...</div>}
-
-            {!gestaoLoading && !temGestao && (
-              <div className="text-sm text-zinc-300">
-                Gestao desabilitada para esta OS. Ative o controle acima para editar os itens. Valores existentes serao mantidos.
-              </div>
-            )}
-
-            {!gestaoLoading && temGestao && (
-              <div className="space-y-5">
-                <div className="space-y-3">
-                  <div className="text-sm font-semibold text-zinc-200">Projetos (Engenharia)</div>
-                  {gestaoDefs.filter((d) => d.grupo === "projetos").map((def) => renderGestaoRow(def))}
-                </div>
-
-                <div className="space-y-3">
-                  <div className="text-sm font-semibold text-zinc-200">Execucoes (Campo)</div>
-                  {gestaoDefs.filter((d) => d.grupo === "execucoes").map((def) => renderGestaoRow(def))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="px-5 py-4 border-t border-zinc-800 flex items-center justify-end gap-2 shrink-0">
               <button
                 onClick={() => closeGestaoModal()}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"

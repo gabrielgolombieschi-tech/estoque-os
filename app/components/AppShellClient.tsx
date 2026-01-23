@@ -149,11 +149,22 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canExecuteOs = can("os_rpcs.execute");
   const canAccessEstoque = can("estoque.read") || can("estoque.write");
   const canAccessCadastroItens = can("cad_itens.write");
-  const canAccessCadastros = can("admin.manage_users") || can("financeiro.read");
+
+  const canAccessCadastrosByEmpresaPapel = Boolean(
+    empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole)
+  );
+
+  const canAccessCadastros =
+    can("admin.manage_users") ||
+    can("financeiro.read") ||
+    can("cad_clientes.write") ||
+    can("cad_fornecedores.write") ||
+    canAccessCadastrosByEmpresaPapel;
   const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read");
   const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read");
   const canAccessApontamentos = can("apontamentos.read") || can("apontamentos.write");
-  const canAccessClientesCad = can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write");
+  const canAccessClientesCad =
+    can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write") || canAccessCadastrosByEmpresaPapel;
   const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write");
   const canImportXml = can("xml_import.execute");
   const canAdminManageUsers = can("admin.manage_users");
@@ -164,7 +175,8 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     can("financeiro.read") ||
     can("cad_fornecedores.write") ||
     can("estoque.read") ||
-    can("estoque.write");
+    can("estoque.write") ||
+    canAccessCadastrosByEmpresaPapel;
 
   const empresaPapel = String(effectiveEmpresa?.papel ?? "")
     .trim()

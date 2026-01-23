@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const isDev = process.env.NODE_ENV !== "production";
 
 type UsuarioIdRow = { id: string };
-type UsuarioTenantRow = { tenant_id: string; papel: string | null };
+type UsuarioTenantRow = { tenant_id: string; papel: string | null; created_at?: string | null };
 
 function isMissingRpc(error: unknown, rpcName: string) {
   const message =
@@ -52,9 +52,9 @@ async function resolveUsuarioId(
 
 function pickTenantId(rows: UsuarioTenantRow[]): string | null {
   if (!rows.length) return null;
-  const score = (papel: string | null) => (papel === "OWNER" ? 0 : papel === "ADMIN" ? 1 : 2);
-  const sorted = [...rows].sort((a, b) => score(a.papel) - score(b.papel));
-  return sorted[0]?.tenant_id ? String(sorted[0].tenant_id) : null;
+  // Keep behavior aligned with public.current_tenant_id(): prefer the oldest membership.
+  // (If the app wants a different tenant, it should pass preferredTenantId or rely on cached selection.)
+  return rows[0]?.tenant_id ? String(rows[0].tenant_id) : null;
 }
 
 export async function ensureCurrentTenant(
@@ -106,7 +106,7 @@ export async function ensureCurrentTenant(
   const { data, error } = await supabase
     .schema("a")
     .from("usuario_tenant")
-    .select("tenant_id,papel")
+    .select("tenant_id,papel,created_at")
     .eq("usuario_id", usuarioId)
     .eq("ativo", true)
     .is("deleted_at", null);
@@ -114,6 +114,12 @@ export async function ensureCurrentTenant(
   if (error) return null;
 
   const rows = (data ?? []) as UsuarioTenantRow[];
+  // Ensure deterministic ordering so we don't pick a different tenant than DB-side current_tenant_id().
+  rows.sort((a, b) => {
+    const at = a.created_at ? Date.parse(String(a.created_at)) : Number.POSITIVE_INFINITY;
+    const bt = b.created_at ? Date.parse(String(b.created_at)) : Number.POSITIVE_INFINITY;
+    return at - bt;
+  });
   const tenantId = pickTenantId(rows);
   if (!tenantId) return null;
 

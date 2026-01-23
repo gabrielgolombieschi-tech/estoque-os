@@ -15,13 +15,6 @@ type RowView = {
   valor_hora: number | null;
   vigencia_inicio: string | null;
   vigencia_fim: string | null;
-  hh_especialidade_id: number | null;
-};
-
-type Especialidade = {
-  id: number;
-  descricao: string;
-  ativo: boolean;
 };
 
 function getErrorMessage(err: unknown, fallback: string) {
@@ -91,7 +84,6 @@ export default function ColaboradoresPage() {
   const { tenantId } = usePermissions();
 
   const [rows, setRows] = useState<RowView[]>([]);
-  const [especialidades, setEspecialidades] = useState<Especialidade[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -99,7 +91,6 @@ export default function ColaboradoresPage() {
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
   const [ativo, setAtivo] = useState(true);
-  const [hhEspecialidadeId, setHhEspecialidadeId] = useState<number | null>(null);
 
   // taxa / vigencia
   const [valorHora, setValorHora] = useState<string>("");
@@ -126,15 +117,6 @@ export default function ColaboradoresPage() {
       if (error) throw error;
       setRows((data ?? []) as RowView[]);
 
-      // Carregar especialidades HH
-      const { data: espData } = await supabase
-        .from("hh_especialidades")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("ativo", true)
-        .order("descricao", { ascending: true });
-      
-      setEspecialidades((espData ?? []) as Especialidade[]);
     } catch (e: unknown) {
       setErrorMsg(getErrorMessage(e, "Falha ao carregar colaboradores."));
     } finally {
@@ -151,7 +133,6 @@ export default function ColaboradoresPage() {
     setNome("");
     setCargo("");
     setAtivo(true);
-    setHhEspecialidadeId(null);
 
     setValorHora("");
     setVigenciaInicio(todayISO());
@@ -166,7 +147,6 @@ export default function ColaboradoresPage() {
     setNome(r.nome);
     setCargo(r.cargo ?? "");
     setAtivo(!!r.ativo);
-    setHhEspecialidadeId(r.hh_especialidade_id);
 
     setValorHoraOriginal(r.valor_hora ?? null);
 
@@ -279,8 +259,7 @@ export default function ColaboradoresPage() {
             tenant_id: tenantId, 
             nome: nome.trim(), 
             cargo: cargo.trim() || null, 
-            ativo,
-            hh_especialidade_id: hhEspecialidadeId || null
+            ativo
           }])
           .select("id")
           .single();
@@ -305,8 +284,7 @@ export default function ColaboradoresPage() {
           .update({ 
             nome: nome.trim(), 
             cargo: cargo.trim() || null, 
-            ativo,
-            hh_especialidade_id: hhEspecialidadeId || null
+            ativo
           })
           .eq("id", editId);
 
@@ -504,28 +482,6 @@ export default function ColaboradoresPage() {
                   <option value="COORDENADOR">COORDENADOR</option>
                   <option value="TEC. SEGURANÇA">TEC. SEGURANÇA</option>
                 </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm text-zinc-300">
-                  Especialidade HH
-                </label>
-                <select
-                  value={hhEspecialidadeId ?? ""}
-                  onChange={(e) => setHhEspecialidadeId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
-                  aria-label="Especialidade HH"
-                >
-                  <option value="">Sem especialidade</option>
-                  {especialidades.map((esp) => (
-                    <option key={esp.id} value={esp.id}>
-                      {esp.descricao}
-                    </option>
-                  ))}
-                </select>
-                <small className="text-zinc-400 block mt-1">
-                  Usada para cálculo de Relatórios HH.
-                </small>
               </div>
 
               <div className="space-y-1">

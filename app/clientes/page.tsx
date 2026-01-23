@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "../../lib/supabase/client";
+import { useTenantEmpresa } from "@/lib/auth/hooks";
+import { getSupabaseBrowser } from "@/lib/auth/supabase";
 
 type Cliente = {
   id: number;
@@ -54,10 +55,17 @@ function emptyForm(): Form {
 }
 
 export default function ClientesPage() {
-  const supabase = useMemo(() => {
-    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
-    return supabaseBrowser();
-  }, []);
+  const supabase = useMemo(() => (typeof window === "undefined" ? null : getSupabaseBrowser()), []);
+  const te = useTenantEmpresa();
+  const empresaPapel = te.empresa?.papel ?? null;
+  const tenantId = te.tenantId;
+  const empresaId = te.empresaId;
+
+  const canDelete = useMemo(() => {
+    const papel = String(empresaPapel ?? "").toUpperCase();
+    return papel === "ADMIN";
+  }, [empresaPapel]);
+
   const [rows, setRows] = useState<Cliente[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -72,9 +80,11 @@ export default function ClientesPage() {
   async function load() {
     setErr(null);
 
+    if (!supabase) return;
+
     const { data, error } = await supabase
       .from("clientes")
-      .select("id,nome,documento,email,telefone,endereco,observacoes,ativo")
+      .select("id,nome,documento,email,telefone,endereco,observacoes,ativo,habilita_hh")
       .order("id", { ascending: false })
       .limit(500);
 
@@ -129,6 +139,9 @@ export default function ClientesPage() {
     setErr(null);
     setOk(null);
 
+    if (!supabase) return;
+    if (!tenantId || !empresaId) return setErr("Contexto (tenant/empresa) não carregado.");
+
     if (!form.nome.trim()) return setErr("Nome obrigatorio.");
 
     setBusy(true);
@@ -149,7 +162,7 @@ export default function ClientesPage() {
       const res = await supabase.from("clientes").update(payload).eq("id", editingId);
       error = res.error ?? null;
     } else {
-      const res = await supabase.from("clientes").insert(payload);
+      const res = await supabase.from("clientes").insert({ tenant_id: tenantId, empresa_id: empresaId, ...payload });
       error = res.error ?? null;
     }
 
@@ -165,6 +178,9 @@ export default function ClientesPage() {
   async function toggleAtivo(id: number, to: boolean) {
     const ok = confirm(to ? "Ativar cliente?" : "Desativar cliente?");
     if (!ok) return;
+
+    if (!supabase) return;
+    if (!tenantId || !empresaId) return setErr("Contexto (tenant/empresa) não carregado.");
 
     setBusy(true);
     setErr(null);
@@ -338,9 +354,11 @@ export default function ClientesPage() {
                       <button onClick={() => editar(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
                         Editar
                       </button>
-                      <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                        {r.ativo ? "Desativar" : "Ativar"}
-                      </button>
+                      {canDelete && (
+                        <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+                          {r.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

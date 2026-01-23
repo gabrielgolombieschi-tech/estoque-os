@@ -249,10 +249,10 @@ export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) 
           }}
         >
           <div
-            className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4"
+            className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl flex flex-col max-h-[calc(100dvh-2rem)] min-h-0 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-3 shrink-0">
               <div>
                 <div className="text-lg font-semibold text-zinc-100">Atualizar status da OS {selected.numero_os}</div>
                 <div className="text-sm text-zinc-400">
@@ -268,31 +268,33 @@ export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) 
               </button>
             </div>
 
-            <div className="space-y-2 text-sm">
-              <div>
-                <div className="text-zinc-400 uppercase text-[11px]">Descrição</div>
-                <div className="text-zinc-100 whitespace-pre-wrap">{selected.descricao_servico || "Sem descrição"}</div>
-              </div>
+            <div className="px-5 py-4 overflow-y-auto min-h-0">
+              <div className="space-y-2 text-sm">
+                <div>
+                  <div className="text-zinc-400 uppercase text-[11px]">Descrição</div>
+                  <div className="text-zinc-100 whitespace-pre-wrap">{selected.descricao_servico || "Sem descrição"}</div>
+                </div>
 
-              <div className="space-y-1">
-                <div className="text-zinc-400 uppercase text-[11px]">Status - {selected.area.toUpperCase()}</div>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={progressValue}
-                  onChange={(e) => setProgressValue(e.target.value)}
-                  disabled={saving || isPainelTv}
-                  className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100"
-                  placeholder="0 a 100%"
-                />
-              </div>
+                <div className="space-y-1">
+                  <div className="text-zinc-400 uppercase text-[11px]">Status - {selected.area.toUpperCase()}</div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={progressValue}
+                    onChange={(e) => setProgressValue(e.target.value)}
+                    disabled={saving || isPainelTv}
+                    className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100"
+                    placeholder="0 a 100%"
+                  />
+                </div>
 
-              {saveError && <div className="text-sm text-red-400">{saveError}</div>}
-              {isPainelTv && <div className="text-xs text-zinc-400">Somente leitura (PAINEL_TV).</div>}
+                {saveError && <div className="text-sm text-red-400">{saveError}</div>}
+                {isPainelTv && <div className="text-xs text-zinc-400">Somente leitura (PAINEL_TV).</div>}
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="px-5 py-4 border-t border-zinc-800 flex items-center justify-end gap-2 shrink-0">
               <button
                 onClick={closeModal}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"

@@ -416,11 +416,17 @@ export default function FornecedoresPage() {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
     return supabaseBrowser();
   }, []);
-  const { tenantId, empresaId, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
+  const { tenantId, empresaId, empresa, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
 
-  const canView = hasAny(capabilities, ["estoque.read", "cad_fornecedores.write"]);
-  const canEdit = hasAny(capabilities, ["estoque.write", "cad_fornecedores.write"]);
+  const empresaPapel = String(empresa?.papel ?? "")
+    .trim()
+    .toUpperCase();
+  const canAccessByPapel = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaPapel));
+
+  const canView = hasAny(capabilities, ["estoque.read", "cad_fornecedores.write"]) || canAccessByPapel;
+  const canEdit = hasAny(capabilities, ["estoque.write", "cad_fornecedores.write"]) || canAccessByPapel;
+  const canDelete = empresaPapel === "ADMIN";
 
   const [rows, setRows] = useState<Fornecedor[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -614,7 +620,7 @@ export default function FornecedoresPage() {
 
   async function deleteFornecedor(row: Fornecedor) {
     if (!tenantId || !empresaId) return setErr("Tenant ou empresa não carregados.");
-    if (!canEdit) return setErr("Sem permissão para excluir fornecedores.");
+    if (!canDelete) return setErr("Sem permissão para excluir fornecedores.");
 
     const confirmed = await confirm({
       title: "Excluir definitivamente?",
@@ -857,13 +863,15 @@ export default function FornecedoresPage() {
                           >
                             {r.ativo ? "Desativar" : "Ativar"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteFornecedor(r)}
-                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                          >
-                            Excluir
-                          </button>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => void deleteFornecedor(r)}
+                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Excluir
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <span className="text-xs text-zinc-500">—</span>
