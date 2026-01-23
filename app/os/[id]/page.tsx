@@ -206,7 +206,7 @@ export default function OsDetailPage() {
   };
 
   const hhClientEnabled = clienteHabilitaHH;
-  const hhEnabled = hhClientEnabled && Boolean(os?.usa_relatorio_hh) && !hideTotais;
+  const hhEnabled = hhClientEnabled && Boolean(os?.usa_relatorio_hh);
 
   const editClienteHabilitaHH = useMemo(() => {
     if (!clienteId) return false;
@@ -228,13 +228,31 @@ export default function OsDetailPage() {
       .filter((r) => r.itens?.tipo === "produto")
       .reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
 
-    // Regra de negócio (HH cobrança vs custo):
-    // - Mão de obra aqui é CUSTO (vw_custo_mao_obra_os)
-    // - Total aqui é COBRANÇA HH (vw_hh_total_os)
+    // Mão de obra é CUSTO (vw_custo_mao_obra_os)
     const maoObra = Number(maoObraExtra || 0);
-    const total = Number(hhTotal || 0);
 
-    return { materiais, maoObra, total };
+    // Cálculo de impostos:
+    // - Se usa HH: 19% do total de HH
+    // - Se material: 21% do valor de material
+    // - Se serviço normal: 19% do total
+    let impostos = 0;
+    if (hhEnabled) {
+      // HH: 19% sobre o total de HH
+      impostos = Number(hhTotal || 0) * 0.19;
+    } else if (rows.some((r) => r.itens?.tipo === "produto")) {
+      // Tem material: 21% sobre material
+      impostos = materiais * 0.21;
+    } else {
+      // Serviço normal: 19% sobre total (material + mão de obra)
+      impostos = (materiais + maoObra) * 0.19;
+    }
+
+    // Total:
+    // - Se HH habilitado: total de HH (que já inclui mão de obra HH)
+    // - Senão: Material + Mão de obra + Impostos
+    const total = hhEnabled ? Number(hhTotal || 0) : materiais + maoObra + impostos;
+
+    return { materiais, maoObra, impostos, total };
   })();
 
   const orcado = toNum(os?.orcado);
@@ -1022,8 +1040,12 @@ export default function OsDetailPage() {
                   - Mao de obra:{" "}
                   <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.maoObra)}`}</span>
                 </span>
+                <span>
+                  - Impostos:{" "}
+                  <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.impostos)}`}</span>
+                </span>
                 <span className="text-base md:text-lg font-semibold text-zinc-100">
-                  - Total (HH):{" "}
+                  - Total:{" "}
                   {hideTotais ? (
                     <span className="text-zinc-200 tabular-nums">—</span>
                   ) : (
@@ -1849,8 +1871,17 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {hhEnabled && (
-        <RelatorioHHSection osId={osId} osDetail={{ cliente_id: os?.cliente_id ?? null }} enabled={hhEnabled} />
+      {clienteHabilitaHH && (
+        <RelatorioHHSection
+          osId={osId}
+          osDetail={{ cliente_id: os?.cliente_id ?? null }}
+          osStatus={os?.status ?? null}
+          usaRelatorioHh={os?.usa_relatorio_hh ?? null}
+          enabled={hhEnabled}
+          clienteHabilitaHH={clienteHabilitaHH}
+          effectiveTenantId={effectiveTenantId}
+          effectiveEmpresaId={effectiveEmpresaId}
+        />
       )}
     </div>
   );

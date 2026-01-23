@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa, useIsAdminTenant } from "@/lib/auth/hooks";
 import type { Capabilities, CapabilityKey } from "@/lib/auth/capabilities";
 import AdminDebugPanel from "./AdminDebugPanel";
+import SessionKeepAlive from "@/components/auth/SessionKeepAlive";
 
 const isDev = process.env.NODE_ENV !== "production";
 const logError = (...args: unknown[]) => {
@@ -140,30 +142,23 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     return false;
   };
 
-  const canAccessOs = can("os.read");
+  const sessionUserId = te ? te.sessionUserId : undefined;
+  const tenantIdVal = te ? te.tenantId : undefined;
+
+  const canAccessOs = can("os.read") || can("os.write");
   const canExecuteOs = can("os_rpcs.execute");
-  const canAccessApontamentos = can("apontamentos.read");
-  const canAccessEstoque = canStrict("estoque.read") || canStrict("estoque.write");
-  const canAccessCadastroItens = canStrict("cad_itens.write") || canStrict("estoque.read") || canStrict("os.read");
-  const canImportXml = can("xml_import.execute");
-  const canAccessFinanceiro = can("financeiro.read");
-  const canAdminManageUsers = can("admin.manage_users");
-  const shouldShowAdmin = isAdminTenant && canAdminManageUsers;
-  const adminReason = useMemo(() => {
-    if (shouldShowAdmin) return "ok";
-    const reasons: string[] = [];
-    if (te.sessionUserId === undefined) reasons.push("sessionUserId=undefined");
-    if (te.sessionUserId === null) reasons.push("not authenticated");
-    if (!te.tenantId) reasons.push("tenantId missing");
-    if (adminLoading) reasons.push("adminLoading");
-    if (!isAdminTenant) reasons.push("isAdminTenant=false");
-    if (isAdminTenant && !canAdminManageUsers) reasons.push("can(admin.manage_users)=false");
-    return reasons.join(", ") || "unknown";
-  }, [adminLoading, canAdminManageUsers, isAdminTenant, shouldShowAdmin, te.sessionUserId, te.tenantId]);
+  const canAccessEstoque = can("estoque.read") || can("estoque.write");
+  const canAccessCadastroItens = can("cad_itens.write");
   const canAccessCadastros = can("admin.manage_users") || can("financeiro.read");
   const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read");
   const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read");
+  const canAccessApontamentos = can("apontamentos.read") || can("apontamentos.write");
   const canAccessClientesCad = can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write");
+  const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write");
+  const canImportXml = can("xml_import.execute");
+  const canAdminManageUsers = can("admin.manage_users");
+  const shouldShowAdmin = canAdminManageUsers || isAdminTenant;
+  const adminReason = "";
   const canAccessFornecedoresCad =
     can("admin.manage_users") ||
     can("financeiro.read") ||

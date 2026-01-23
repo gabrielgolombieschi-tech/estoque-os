@@ -1,4 +1,41 @@
 "use client";
+import { calcularHoras, validarHorarios, formatHorasBR } from "@/lib/hh/calculations";
+
+// Helper para resolver o mapping correto de hh_tipo_id
+async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentual: 0|50|100): Promise<number> {
+  const codigoTipo = percentual === 0 ? "NORMAL" : percentual === 50 ? "EXTRA_50" : "EXTRA_100";
+  
+  // 1. Buscar tipos_horas.id (UUID)
+  const { data: tipoHoras, error: tipoHorasErr } = await applyTenant(
+    supabase.from("tipos_horas").select("id").eq("codigo", codigoTipo).eq("ativo", true).maybeSingle(),
+    tenantId
+  );
+  if (tipoHorasErr || !tipoHoras?.id) {
+    throw new Error(`Não foi possível resolver tipos_horas para ${codigoTipo}`);
+  }
+  const tipoHorasId = tipoHoras.id; // UUID
+  
+  // 2. Buscar mapping em hh_tipos_mapping (tipo_hora_id → hh_tipo_id)
+  const { data: mapping, error: mappingErr } = await supabase
+    .from("hh_tipos_mapping")
+    .select("hh_tipo_id")
+    .eq("tipo_hora_id", tipoHorasId)
+    .eq("tenant_id", tenantId)
+    .eq("ativo", true)
+    .maybeSingle();
+  
+  if (mappingErr) {
+    console.error("[resolveHhTipoMappingId] Erro ao buscar mapping:", mappingErr);
+    throw new Error(`Erro ao buscar mapping: ${mappingErr.message}`);
+  }
+  
+  if (mapping && mapping.hh_tipo_id) {
+    return Number(mapping.hh_tipo_id);
+  }
+  
+  // Se não encontrou mapping, retornar erro (não criar automático)
+  throw new Error(`Mapping não encontrado para tipo ${codigoTipo} (percentual ${percentual}%). Configure em hh_tipos_mapping.`);
+}
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RowInput, UserOptions } from "jspdf-autotable";
@@ -7,6 +44,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { syncHhToApontamentos } from "@/lib/hh/syncHhToApontamentos";
+
 
 type EspecialidadeOption = { id: string; descricao: string | null };
 type TabelaAtiva = {
@@ -125,9 +163,44 @@ function addOneDayISO(dateStr: string): string {
   return next.toISOString().slice(0, 10);
 }
 
+function formatCurrencyBRL(value: number): string {
+  const v = Number(value ?? 0);
+  const safe = Number.isFinite(v) ? v : 0;
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(safe);
+}
+
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("reader error"));
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.readAsDataURL(blob);
+    });
+    return dataUrl || null;
+  } catch {
+    return null;
+  }
+}
+
 async function gerarRelatorioPDF(
   hhRows: HhLancamentoViewRow[],
-  osId: number
+  osId: number,
+  header?: {
+    empresaNome?: string;
+    clienteNome?: string;
+    numeroOS?: string;
+    periodoLabel?: string;
+    emissaoLabel?: string;
+  }
 ) {
   try {
     // Importa jsPDF dinamicamente
@@ -140,20 +213,73 @@ async function gerarRelatorioPDF(
       format: "a4",
     });
 
-    const margin = 10;
-    let yPos = margin;
+    const margin = 12;
+    const headerHeight = 28;
+    const topStartY = margin + headerHeight + 4;
 
-    // Título
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Relatório de Horas Lançadas - OS ${osId}`, margin, yPos);
-    yPos += 10;
+    // Paleta e fontes
+    const titleColor: [number, number, number] = [20, 20, 20];
+    const subtitleColor: [number, number, number] = [60, 60, 60];
+    const tableHeadFill: [number, number, number] = [32, 32, 32];
+    const tableHeadText: [number, number, number] = [240, 240, 240];
+    const tableBodyText: [number, number, number] = [40, 40, 40];
+    const zebraFill: [number, number, number] = [248, 248, 248];
 
-    // Data de emissão
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Emissão: ${new Date().toLocaleDateString("pt-BR")}`, margin, yPos);
-    yPos += 6;
+    const empresaNome = header?.empresaNome?.trim() || "—";
+    const clienteNome = header?.clienteNome?.trim() || "—";
+    const numeroOS = header?.numeroOS?.trim() || String(osId);
+    const periodoLabel = header?.periodoLabel?.trim() || "—";
+    const emissaoLabel = header?.emissaoLabel?.trim() || new Date().toLocaleString("pt-BR");
+
+    const logoDataUrl = await fetchImageAsDataUrl("/Segau.png");
+
+    const drawHeader = (pageNumber: number, pageCount: number) => {
+      const pageSize = doc.internal.pageSize;
+      const pageWidth = pageSize.getWidth();
+
+      // Linha superior
+      doc.setDrawColor(17, 24, 39);
+      doc.setLineWidth(0.6);
+      doc.line(margin, margin + headerHeight + 1, pageWidth - margin, margin + headerHeight + 1);
+
+      // Logo (opcional)
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, "PNG", margin, margin, 18, 18);
+        } catch {
+          // ignora se falhar
+        }
+      }
+
+      // Bloco empresa/cliente (esquerda)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+      doc.text(empresaNome, margin + 22, margin + 7);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
+      doc.text(`Cliente: ${clienteNome}`, margin + 22, margin + 13);
+
+      // Título (centro)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+      doc.text("Relatório de Horas Lançadas", pageWidth / 2, margin + 8, { align: "center" });
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
+      doc.text(`OS ${numeroOS}`, pageWidth / 2, margin + 14, { align: "center" });
+
+      // Metas (direita)
+      const rightX = pageWidth - margin;
+      doc.setFontSize(9);
+      doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
+      doc.text(`Emissão: ${emissaoLabel}`, rightX, margin + 7, { align: "right" });
+      doc.text(`Período: ${periodoLabel}`, rightX, margin + 13, { align: "right" });
+      doc.text(`Página ${pageNumber} de ${pageCount}`, rightX, margin + 19, { align: "right" });
+    };
 
     // Dados da tabela
     const headRow: RowInput = [
@@ -193,86 +319,103 @@ async function gerarRelatorioPDF(
       }
 
       const tipo = percentualAplicado === 0 ? "Normal" : `Extra ${percentualAplicado}%`;
-      const valorNormalStr = horasNormais > 0 ? `R$ ${(horasNormais * valorHoraNormal).toFixed(2)}` : "R$ -";
+      const valorNormalStr = horasNormais > 0 ? formatCurrencyBRL(horasNormais * valorHoraNormal) : "—";
       const valorExtrasStr =
         horasExtras > 0
           ? `R$ ${(horasExtras * (percentualAplicado === 50 ? valorHora50 : valorHora100)).toFixed(2)}`
-          : "R$ -";
+          : "—";
       const total = Number(r.valor_total ?? 0);
       totalGeral += total;
 
       bodyRows.push([
         r.colaborador_nome ?? "—",
-        r.especialidade_descricao ?? "—",
-        `R$ ${valorHoraNormal.toFixed(2)}`,
-        valorHora50.toFixed(2),
-        valorHora100.toFixed(2),
+        r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao : "—",
+        formatCurrencyBRL(valorHoraNormal),
+        formatCurrencyBRL(valorHora50),
+        formatCurrencyBRL(valorHora100),
         formatDateBR(r.data),
         formatTimeHHMM(r.entrada_1) || "—",
         formatTimeHHMM(r.saida_1) || "—",
         formatTimeHHMM(r.entrada_2) || "—",
         formatTimeHHMM(r.saida_2) || "—",
-        horas.toFixed(2),
+        formatHoursBR(horas),
         tipo,
         valorNormalStr,
         valorExtrasStr,
-        `R$ ${total.toFixed(2)}`,
+        formatCurrencyBRL(total),
       ]);
     });
 
     // Linha de TOTAL
-    bodyRows.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "TOTAL", `R$ ${totalGeral.toFixed(2)}`]);
+    bodyRows.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "TOTAL", formatCurrencyBRL(totalGeral)]);
 
     // Usa autoTable para desenhar a tabela
     autoTable.default(doc, {
-      startY: yPos,
+      startY: topStartY,
       head: [headRow],
       body: bodyRows,
-      margin: { left: margin, right: margin },
+      margin: { top: topStartY, left: margin, right: margin, bottom: 10 },
+      styles: {
+        cellPadding: 1.6,
+        lineWidth: 0.1,
+        lineColor: [220, 220, 220],
+        overflow: "linebreak",
+      },
       columnStyles: {
-        0: { cellWidth: 18 }, // Funcionário
-        1: { cellWidth: 18 }, // Função
-        2: { cellWidth: 14 }, // V. Hora Normal
-        3: { cellWidth: 12 }, // V. Hora 50%
-        4: { cellWidth: 12 }, // V. Hora 100%
-        5: { cellWidth: 12 }, // Data
-        6: { cellWidth: 11 }, // Entrada 1
-        7: { cellWidth: 11 }, // Saída 1
-        8: { cellWidth: 11 }, // Entrada 2
-        9: { cellWidth: 11 }, // Saída 2
-        10: { cellWidth: 10 }, // Horas
-        11: { cellWidth: 12 }, // Tipo
-        12: { cellWidth: 16 }, // Horas Normais
-        13: { cellWidth: 14 }, // Horas Extras
-        14: { cellWidth: 14, halign: "right" }, // R$ Total
+        // A4 landscape (297mm) com margem (12mm) -> largura útil ~273mm.
+        // Soma das larguras abaixo = 265mm (mantém folga, evita estourar margem).
+        0: { cellWidth: 30 }, // Funcionário
+        1: { cellWidth: 25 }, // Função
+        2: { cellWidth: 18, halign: "right" }, // V. Hora Normal
+        3: { cellWidth: 17, halign: "right" }, // V. Hora 50%
+        4: { cellWidth: 17, halign: "right" }, // V. Hora 100%
+        5: { cellWidth: 15, halign: "center" }, // Data
+        6: { cellWidth: 13, halign: "center" }, // Entrada 1
+        7: { cellWidth: 13, halign: "center" }, // Saída 1
+        8: { cellWidth: 13, halign: "center" }, // Entrada 2
+        9: { cellWidth: 13, halign: "center" }, // Saída 2
+        10: { cellWidth: 13, halign: "right" }, // Horas
+        11: { cellWidth: 15 }, // Tipo
+        12: { cellWidth: 20, halign: "right" }, // Horas Normais (R$)
+        13: { cellWidth: 20, halign: "right" }, // Horas Extras (R$)
+        14: { cellWidth: 23, halign: "right" }, // R$ Total
       },
       headStyles: {
-        fillColor: [40, 40, 40],
-        textColor: [200, 200, 200],
-        fontSize: 8,
+        fillColor: tableHeadFill,
+        textColor: tableHeadText,
+        fontSize: 9,
         fontStyle: "bold",
+        lineWidth: 0.2,
+        lineColor: [220, 220, 220],
+        halign: "center",
       },
       bodyStyles: {
-        fontSize: 7,
-        textColor: [200, 200, 200],
+        fontSize: 8.6,
+        textColor: tableBodyText,
+      },
+      alternateRowStyles: {
+        fillColor: zebraFill,
       },
       footStyles: {
-        fillColor: [50, 50, 50],
-        textColor: [200, 200, 200],
-        fontSize: 8,
+        fillColor: [32, 32, 32],
+        textColor: [240, 240, 240],
+        fontSize: 9,
         fontStyle: "bold",
       },
       didDrawPage: (data: DidDrawPageData) => {
-        // Footer
         const pageCount = (doc as unknown as { internal: { pages: unknown[] } }).internal.pages.length;
-        const pageSize = doc.internal.pageSize;
-        const pageWidth = pageSize.getWidth();
-        const pageHeight = pageSize.getHeight();
-
-        doc.setFontSize(8);
-        doc.text(`Página ${data.pageNumber} de ${pageCount}`, pageWidth / 2, pageHeight - 5, { align: "center" });
+        drawHeader(data.pageNumber, pageCount);
       },
     });
+
+    // Rodapé resumo (última página)
+    const pageSize = doc.internal.pageSize;
+    const pageWidth = pageSize.getWidth();
+    const pageHeight = pageSize.getHeight();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+    doc.text(`Total Geral: ${formatCurrencyBRL(totalGeral)}`, pageWidth - margin, pageHeight - 8, { align: "right" });
 
     // Download
     const dataStr = new Date().toISOString().slice(0, 10);
@@ -283,20 +426,33 @@ async function gerarRelatorioPDF(
   }
 }
 
+
+
 export default function RelatorioHHSection({
   osId,
   osDetail,
+  osStatus = null,
+  usaRelatorioHh = null,
   enabled = true,
+  clienteHabilitaHH = false,
+  effectiveTenantId = null,
+  effectiveEmpresaId = null,
 }: {
   osId: number;
   osDetail?: { cliente_id: number | null } | null;
+  osStatus?: "aberta" | "em_andamento" | "concluida" | "cancelada" | null;
+  usaRelatorioHh?: boolean | null;
   enabled?: boolean;
+  clienteHabilitaHH?: boolean;
+  effectiveTenantId?: string | null;
+  effectiveEmpresaId?: string | null;
 }) {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
     return supabaseBrowser();
   }, []);
-  const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
+  const tenantEmpresa = useTenantEmpresa();
+  const { tenantId, empresaId, loading: tenantLoading } = tenantEmpresa;
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canRead = Boolean(has("os.read"));
   const canWrite = Boolean(has("os.write"));
@@ -304,20 +460,96 @@ export default function RelatorioHHSection({
   
   // Garantir que cliente_id sempre vem do osDetail (requerido para todo fluxo HH)
   const clienteIdContext = osDetail?.cliente_id ?? null;
+  const hhOs = Boolean(usaRelatorioHh);
+  const showHhStatusWarning = hhOs && osStatus !== null && osStatus !== "em_andamento";
+  const canShowNovoLancamento = hhOs && enabled && osStatus === "em_andamento" && canWrite;
 
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
   async function ensureDbContext() {
-    // Tenant/empresa context is owned by TenantEmpresaProvider.
-    // Keep API for existing call sites without extra RPCs/fetch.
-    return { tenant: tenantId, empresa: empresaId } as const;
+    // Prioriza props recebidas
+    const resolvedTenant = effectiveTenantId ?? tenantId ?? null;
+    const resolvedEmpresa = effectiveEmpresaId ?? empresaId ?? null;
+    return { tenant: resolvedTenant, empresa: resolvedEmpresa } as const;
   }
+
+  const [osMeta, setOsMeta] = useState<{ numero_os: string | null; cliente_nome: string | null } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      if (!supabase) return;
+      const { tenant } = await ensureDbContext();
+      if (!tenant) return;
+
+      const { data, error } = await applyTenant(
+        supabase
+          .from("ordens_servico")
+          .select("numero_os, cliente_nome")
+          .eq("id", osId)
+          .maybeSingle(),
+        tenant
+      );
+
+      if (!active) return;
+      if (error) return;
+      setOsMeta({
+        numero_os: data?.numero_os ? String(data.numero_os) : String(osId),
+        cliente_nome: data?.cliente_nome ?? null,
+      });
+    };
+
+    void run();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, osId, tenantId, empresaId, effectiveTenantId, effectiveEmpresaId]);
 
   // Estados para tabela de lançamentos HH (cobrança) desta OS
   const [hhRows, setHhRows] = useState<HhLancamentoViewRow[]>([]);
   const [loadingHh, setLoadingHh] = useState(false);
   const [hhErr, setHhErr] = useState<string | null>(null);
+
+  const printHeader = useMemo(() => {
+    const empresaNome =
+      tenantEmpresa.empresa?.nome_fantasia ?? tenantEmpresa.empresa?.razao_social ?? "";
+
+    const clienteNome = osMeta?.cliente_nome ?? "";
+    const numeroOS = osMeta?.numero_os ?? String(osId);
+    const emissao = new Date();
+
+    const dates = hhRows
+      .map((r) => String(r.data ?? "").trim())
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+    const minDate = dates.length ? dates.reduce((a, b) => (a < b ? a : b)) : null;
+    const maxDate = dates.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+    const periodo =
+      minDate && maxDate
+        ? `${formatDateBR(minDate)} a ${formatDateBR(maxDate)}`
+        : "—";
+
+    const totals = hhRows.reduce(
+      (acc, r) => {
+        acc.horas += Number(r.horas_trabalhadas ?? 0) || 0;
+        acc.valor += Number(r.valor_total ?? 0) || 0;
+        return acc;
+      },
+      { horas: 0, valor: 0 }
+    );
+
+    return {
+      empresaNome: empresaNome.trim() || "—",
+      clienteNome: clienteNome.trim() || "—",
+      numeroOS,
+      emissaoLabel: emissao.toLocaleString("pt-BR"),
+      periodoLabel: periodo,
+      totalHoras: totals.horas,
+      totalValor: totals.valor,
+    };
+  }, [hhRows, osId, osMeta, tenantEmpresa.empresa?.nome_fantasia, tenantEmpresa.empresa?.razao_social]);
 
   // Estados para lançamento/edição de horas
   const [showLancamentoForm, setShowLancamentoForm] = useState(false);
@@ -338,6 +570,7 @@ export default function RelatorioHHSection({
     hh_servico_id: "",
     observacao: "",
   });
+  const [percentualManual, setPercentualManual] = useState<"" | "0" | "50" | "100">("");
   const [lancamentoBusy, setLancamentoBusy] = useState(false);
   const lancamentoDateRef = useRef<HTMLInputElement | null>(null);
   const lancamentoSubmitLockRef = useRef(false);
@@ -372,16 +605,15 @@ export default function RelatorioHHSection({
       console.warn("[loadTabelaAtiva] cliente_id não fornecido");
       return null;
     }
-    
     const ctx = await ensureDbContext();
-    if (!ctx.tenant) {
-      console.warn("[loadTabelaAtiva] tenant não resolvido");
+    if (!ctx.tenant || !ctx.empresa) {
+      console.warn("[loadTabelaAtiva] tenant/empresa não resolvido");
       return null;
     }
-
+    const empresaId = ctx.empresa ?? "";
     try {
       // 1. Tentar tabela vigente (dentro do período)
-      const { data: vigente, error: vigenteErr } = await applyTenant(
+      const { data: vigente, error: vigenteErr } = await applyTenantEmpresa(
         supabase
           .from("cliente_hh_tabelas")
           .select("id,cliente_id,nome,vigencia_inicio,vigencia_fim,ativo")
@@ -392,16 +624,15 @@ export default function RelatorioHHSection({
           .order("vigencia_inicio", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        ctx.tenant
+        ctx.tenant ?? "",
+        empresaId ?? ""
       );
-      
       if (!vigenteErr && vigente) {
         console.log("[loadTabelaAtiva] Tabela vigente encontrada:", vigente.id);
         return vigente as TabelaAtiva;
       }
-
       // 2. Fallback: tabela mais recente (mesmo se fora do período)
-      const { data: recent, error: recentErr } = await applyTenant(
+      const { data: recent, error: recentErr } = await applyTenantEmpresa(
         supabase
           .from("cliente_hh_tabelas")
           .select("id,cliente_id,nome,vigencia_inicio,vigencia_fim,ativo")
@@ -410,14 +641,13 @@ export default function RelatorioHHSection({
           .order("vigencia_inicio", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        ctx.tenant
+        ctx.tenant ?? "",
+        ctx.empresa ?? ""
       );
-      
       if (!recentErr && recent) {
         console.warn("[loadTabelaAtiva] Usando tabela fora do período (fallback):", recent.id);
         return recent as TabelaAtiva;
       }
-      
       if (recentErr) throw recentErr;
       console.warn("[loadTabelaAtiva] Nenhuma tabela HH encontrada para cliente:", clienteId);
       return null;
@@ -445,63 +675,56 @@ export default function RelatorioHHSection({
 
     try {
       console.log("[loadColaboradores] Carregando colaboradores para cliente:", clienteId);
-      
-      // Carregar vínculos colaborador-cliente-função (via cliente_id)
-      const { data: vinculosData, error: vinculosErr } = await applyTenant(
+      // Carregar vínculos colaborador-cliente-função
+      const { data: vinculosData, error: vinculosErr } = await applyTenantEmpresa(
         supabase
-          .from("colaborador_funcao_hh")
-          .select("colaborador_id,servico_hh_id,ativo,cliente_id")
+          .from("colaborador_cliente_funcao")
+          .select("colaborador_id,hh_servico_id,ativo,cliente_id")
           .eq("cliente_id", clienteId)
           .eq("ativo", true)
           .order("colaborador_id", { ascending: true }),
-        ctx.tenant
+        ctx.tenant ?? "",
+        ctx.empresa ?? ""
       );
-      
       if (vinculosErr) throw vinculosErr;
-
       const vinculos = (vinculosData ?? []).filter((v) => v.colaborador_id) as Array<{
         colaborador_id: string;
         hh_servico_id?: string | number | null;
       }>;
-
       if (vinculos.length === 0) {
         console.warn("[loadColaboradores] Nenhum colaborador vinculado ao cliente:", clienteId);
         setColaboradores([]);
         return;
       }
-
       // Mapear vínculos: colaborador_id → [hh_servico_ids]
+      vinculoEspecialidadesRef.current = new Map();
       vinculos.forEach((v) => {
         const colabId = String(v.colaborador_id);
         const servicoId = v.hh_servico_id ?? null;
-        if (!servicoId) return;
+        if (!servicoId || servicoId === "" || servicoId === null) return;
         const list = vinculoEspecialidadesRef.current.get(colabId) ?? [];
         const servicoStr = String(servicoId);
         if (!list.includes(servicoStr)) list.push(servicoStr);
         vinculoEspecialidadesRef.current.set(colabId, list);
       });
-
       const colaboradorIds = Array.from(new Set(vinculos.map((v) => String(v.colaborador_id))));
-
       // Carregar dados dos colaboradores
-      const { data: colaboradoresData, error: colaboradoresErr } = await applyTenant(
+      const { data: colaboradoresData, error: colaboradoresErr } = await applyTenantEmpresa(
         supabase
           .from("colaboradores")
           .select("id,nome,ativo")
           .in("id", colaboradorIds)
           .eq("ativo", true)
           .order("nome", { ascending: true }),
-        ctx.tenant
+        ctx.tenant ?? "",
+        ctx.empresa ?? ""
       );
-
       if (colaboradoresErr) throw colaboradoresErr;
-
       const mapped = (colaboradoresData ?? []).map((c: { id: string; nome: string; ativo: boolean }) => ({
         id: String(c.id),
         nome: String(c.nome ?? ""),
         ativo: Boolean(c.ativo),
       }));
-
       console.log("[loadColaboradores] Carregados", mapped.length, "colaboradores");
       setColaboradores(mapped);
     } catch (e: unknown) {
@@ -540,19 +763,19 @@ export default function RelatorioHHSection({
 
       // 2. Fallback: reconsulta direto se ref não tem (ainda não carregado)
       if (servicoIds.length === 0) {
-        const { data, error } = await applyTenant(
+        const { data, error } = await applyTenantEmpresa(
           supabase
-            .from("colaborador_funcao_hh")
-            .select("servico_hh_id,ativo")
+            .from("colaborador_cliente_funcao")
+            .select("hh_servico_id,ativo")
             .eq("colaborador_id", colaboradorId)
             .eq("cliente_id", clienteId)
             .eq("ativo", true),
-          ctx.tenant
+          ctx.tenant,
+          ctx.empresa
         );
         if (error) throw error;
         const rows = (data ?? []) as Array<{ hh_servico_id?: string | number | null }>;
-        servicoIds = Array.from(new Set(rows.map((r) => String(r.hh_servico_id ?? "")).filter(Boolean)));
-        
+        servicoIds = Array.from(new Set(rows.map((r) => String(r.hh_servico_id ?? "")).filter((v) => v && v !== "" && v !== "null")));
         if (servicoIds.length > 0) {
           console.log("[loadEspecialidadesParaColaborador] Serviços encontrados via fallback:", servicoIds);
         }
@@ -574,7 +797,7 @@ export default function RelatorioHHSection({
         servico_ids: servicoIds,
       });
 
-      const { data, error } = await applyTenant(
+      const { data, error } = await applyTenantEmpresa(
         supabase
           .from("cliente_hh_servicos")
           .select("id,nome,ativo,preco_base,preco_50,preco_100,cliente_id,empresa_id")
@@ -582,14 +805,15 @@ export default function RelatorioHHSection({
           .eq("ativo", true)
           .in("id", servicoIds)
           .order("nome", { ascending: true }),
-        ctx.tenant
+        ctx.tenant ?? "",
+        ctx.empresa ?? ""
       );
       if (error) throw error;
 
-      // Mapear mantendo EXATAMENTE o id (bigint) como number
+      // Mapear mantendo EXATAMENTE o id (bigint) como string
       const mappedOptions: EspecialidadeOption[] = ((data ?? []) as Array<{ id: string | number; nome?: string | null; preco_base?: number; preco_50?: number; preco_100?: number }>).map(
         (o) => ({
-          id: String(Number(o.id)), // Garantir conversão correta: string do number
+          id: String(o.id),
           descricao: o.nome ?? null,
         })
       );
@@ -621,11 +845,61 @@ export default function RelatorioHHSection({
         }
       } else if (mappedOptions.length > 1) {
         setEspecialidadeLocked(false);
-        setLancamentoForm((prev) => {
-          const current = String(prev.hh_servico_id ?? "").trim();
-          const valid = mappedOptions.some((opt) => String(opt.id) === current);
-          return valid ? prev : { ...prev, hh_servico_id: "" };
+        
+        // Auto-selecionar baseado no tipo de dia SOMENTE se não tem serviço selecionado
+        const percentual = percentualManual !== "" 
+          ? Number(percentualManual) as 0 | 50 | 100
+          : getPercentualFromDate(lancamentoForm.data);
+        
+        // Buscar serviço com preço configurado para o percentual
+        // IMPORTANTE: Só buscar entre os serviços que o colaborador tem vínculo (mappedOptions)
+        const servicoRows = (data ?? []) as Array<{
+          id: string | number;
+          preco_base?: number | null;
+          preco_50?: number | null;
+          preco_100?: number | null;
+        }>;
+        
+        // Filtrar apenas serviços que estão em mappedOptions (vínculos válidos)
+        const servicosVinculados = servicoRows.filter((s) => 
+          mappedOptions.some((opt) => String(opt.id) === String(s.id))
+        );
+        
+        console.log("[loadEspecialidadesParaColaborador] DEBUG auto-select:", {
+          percentual,
+          totalServicos: servicoRows.length,
+          servicosVinculados: servicosVinculados.length,
+          idsVinculados: servicosVinculados.map(s => s.id),
+          mappedOptionsIds: mappedOptions.map(o => o.id),
         });
+        
+        let servicoEncontrado: typeof servicoRows[0] | null = null;
+        if (percentual === 0) {
+          servicoEncontrado = servicosVinculados.find((s) => (s.preco_base ?? 0) > 0) ?? null;
+        } else if (percentual === 50) {
+          servicoEncontrado = servicosVinculados.find((s) => (s.preco_50 ?? 0) > 0) ?? null;
+        } else if (percentual === 100) {
+          servicoEncontrado = servicosVinculados.find((s) => (s.preco_100 ?? 0) > 0) ?? null;
+        }
+
+        if (servicoEncontrado) {
+          const servicoId = String(servicoEncontrado.id);
+          console.log("[loadEspecialidadesParaColaborador] Auto-selecionando por percentual:", { percentual, servicoId });
+          setLancamentoForm((prev) => ({ ...prev, hh_servico_id: servicoId }));
+          setPrecoServicoSelecionado({
+            preco_base: Number(servicoEncontrado.preco_base ?? 0),
+            preco_50: Number(servicoEncontrado.preco_50 ?? 0),
+            preco_100: Number(servicoEncontrado.preco_100 ?? 0),
+          });
+        } else {
+          // Se não encontrou, limpa seleção
+          console.warn("[loadEspecialidadesParaColaborador] Nenhum serviço com preço para percentual:", percentual);
+          setLancamentoForm((prev) => {
+            const current = String(prev.hh_servico_id ?? "").trim();
+            const valid = mappedOptions.some((opt) => String(opt.id) === current);
+            return valid ? prev : { ...prev, hh_servico_id: "" };
+          });
+        }
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : JSON.stringify(e);
@@ -688,6 +962,7 @@ export default function RelatorioHHSection({
         valor_hora?: number | null;
         valor_total?: number | null;
         hh_especialidade_id?: string | null;
+        hh_servico_id?: string | null;
       }>;
 
       console.log("[loadHhLancamentos] Carregados", rows.length, "registros da tabela");
@@ -720,32 +995,35 @@ export default function RelatorioHHSection({
         }
       }
 
-      // Carrega especialidades que faltam
-      const especialidadeIds = Array.from(
-        new Set(rows.map((r) => String(r.hh_especialidade_id)).filter((id) => id !== "null" && id !== ""))
+
+
+      // Carrega serviços (especialidades) que faltam via hh_especialidade_id ou hh_servico_id
+      const servicoIds = Array.from(
+        new Set(rows.map((r) => String(r.hh_especialidade_id ?? r.hh_servico_id ?? "")).filter((id) => id !== "null" && id !== ""))
       );
 
-      const especialidadeMap = new Map<string, string>();
-      if (especialidadeIds.length > 0) {
-        console.log("[loadHhLancamentos] Carregando", especialidadeIds.length, "especialidades...");
-        const { data: espData, error: espErr } = await supabase
-          .from("hh_especialidades")
-          .select("id,descricao")
-          .in("id", especialidadeIds);
+      const servicoMap = new Map<string, string>();
+      if (servicoIds.length > 0) {
+        console.log("[loadHhLancamentos] Carregando", servicoIds.length, "serviços...");
+        const { data: svcData, error: svcErr } = await supabase
+          .from("cliente_hh_servicos")
+          .select("id,nome")
+          .in("id", servicoIds);
 
-        if (espErr) {
-          console.warn("[loadHhLancamentos] Erro ao carregar especialidades:", espErr);
-        } else if (espData) {
-          (espData as Array<{ id: string; descricao: string }>).forEach((e) => {
-            especialidadeMap.set(String(e.id), e.descricao);
+        if (svcErr) {
+          console.warn("[loadHhLancamentos] Erro ao carregar serviços:", svcErr);
+        } else if (svcData) {
+          (svcData as Array<{ id: string; nome: string }>).forEach((s) => {
+            servicoMap.set(String(s.id), s.nome);
           });
-          console.log("[loadHhLancamentos] Especialidades carregadas:", especialidadeMap.size);
+          console.log("[loadHhLancamentos] Serviços carregados:", servicoMap.size);
         }
       }
 
       // Mapeia dados para formato HhLancamentoViewRow
       const mapped: HhLancamentoViewRow[] = rows.map((r) => {
         const percentual = Number(r.percentual_aplicado ?? getPercentualFromDate(r.data));
+        const especialidadeId = r.hh_especialidade_id ?? r.hh_servico_id ?? "";
         return {
           ...r,
           entrada_1: r.entrada_1 ?? null,
@@ -761,10 +1039,8 @@ export default function RelatorioHHSection({
           criado_em: r.criado_em ?? null,
           colaborador_nome: colaboradorMap.get(String(r.colaborador_id)) ?? "—",
           hh_tipo_descricao: getTipoHHLabel(percentual),
-          especialidade_descricao: r.hh_especialidade_id
-            ? especialidadeMap.get(String(r.hh_especialidade_id)) ?? "—"
-            : null,
-          hh_servico_id: null, // Não disponível na tabela
+          especialidade_descricao: especialidadeId ? servicoMap.get(String(especialidadeId)) ?? "—" : null,
+          hh_servico_id: especialidadeId,
         };
       });
 
@@ -812,54 +1088,37 @@ export default function RelatorioHHSection({
         return;
       }
 
-      // Busca na tabela base para garantir IDs (colaborador_id, etc.)
-      const selectOldBase = "id,data,colaborador_id,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_servico_id";
-      const selectNewBase = "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_servico_id";
-      const selectOldWithEsp = selectOldBase;
-      const selectNewWithEsp = selectNewBase;
 
-      const first = await supabase.from("hh_lancamentos").select(selectNewWithEsp).eq("id", rowId).maybeSingle();
-
-      const second =
-        first.error && isMissingColumnError(first.error)
-          ? await supabase.from("hh_lancamentos").select(selectOldWithEsp).eq("id", rowId).maybeSingle()
-          : null;
-
-      const third =
-        second?.error && isMissingColumnError(second.error)
-          ? await supabase.from("hh_lancamentos").select(selectOldBase).eq("id", rowId).maybeSingle()
-          : null;
-
-      type HhLancamentoRow = {
-        id: string | number;
-        data: string | null;
-        colaborador_id: string | null;
-        entrada_1?: string | null;
-        saida_1?: string | null;
-        entrada_2?: string | null;
-        saida_2?: string | null;
-        hora_entrada: string | null;
-        hora_saida: string | null;
-        percentual_aplicado: number | null;
-        observacao: string | null;
-        hh_servico_id?: string | number | null;
-      };
-
-      const data = (third?.data ?? second?.data ?? first.data) as unknown as HhLancamentoRow | null;
-      const error = third?.error ?? second?.error ?? first.error;
-
+      // Busca na tabela base para garantir IDs (colaborador_id, etc.) e especialidade
+      const selectBase = "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_especialidade_id,hh_servico_id";
+      let data: any = null;
+      let error: any = null;
+      try {
+        const res = await supabase.from("hh_lancamentos").select(selectBase).eq("id", rowId).maybeSingle();
+        data = res.data;
+        error = res.error;
+      } catch (e) {
+        data = null;
+        error = e;
+      }
+      // Fallback para schema antigo
+      if (error && isMissingColumnError(error)) {
+        const res2 = await supabase.from("hh_lancamentos").select("id,data,colaborador_id,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_servico_id").eq("id", rowId).maybeSingle();
+        data = res2.data;
+        error = res2.error;
+      }
       if (error) throw error;
       if (!data) {
         setErr("Lançamento não encontrado.");
         return;
       }
-
       setLancamentoForm({
         data: String(data.data ?? new Date().toISOString().slice(0, 10)),
         colaborador_id: String(data.colaborador_id ?? ""),
-        hh_servico_id: String(data.hh_servico_id ?? ""),
+        hh_servico_id: String(data.hh_especialidade_id ?? data.hh_servico_id ?? ""),
         observacao: String(data.observacao ?? ""),
       });
+      setPercentualManual(data.percentual_aplicado === null ? "" : String(data.percentual_aplicado) as any);
 
       editingOriginalKeyRef.current = {
         data: String(data.data ?? ""),
@@ -986,27 +1245,32 @@ export default function RelatorioHHSection({
     setErr(null);
     try {
       const descRaw = String(lancamentoForm.observacao ?? "").trim();
-      const hhServicoIdRaw = String(lancamentoForm.hh_servico_id ?? "").trim();
-      const hhServicoId = hhServicoIdRaw ? Number(hhServicoIdRaw) : NaN;
-      
+      const hhServicoId = String(lancamentoForm.hh_servico_id ?? "").trim();
       // DEBUG LOG: Mostrar exatamente o que foi recebido
       console.warn("[salvarLancamento] VALIDAÇÃO DE ENTRADA:", {
         timestamp: new Date().toISOString(),
         colaborador_id: lancamentoForm.colaborador_id,
         data: lancamentoForm.data,
         hh_servico_id_form: lancamentoForm.hh_servico_id,
-        hh_servico_id_string: hhServicoIdRaw,
-        hh_servico_id_number: hhServicoId,
-        isFinite: Number.isFinite(hhServicoId),
+        hh_servico_id_string: hhServicoId,
         especialidadesOptionosCount: especialidadesOptions.length,
         opcoesDisponiveis: especialidadesOptions.map((opt) => ({
           id: opt.id,
           descricao: opt.descricao,
         })),
       });
-      
-      if (!Number.isFinite(hhServicoId)) {
+      // Validação: hh_servico_id pode ser UUID ou número (bigint)
+      if (!hhServicoId) {
         setErr("Especialidade inválida.");
+        return false;
+      }
+      
+      // Aceitar UUID (36 chars com hífen) OU número
+      const isUUID = hhServicoId.length >= 32 && hhServicoId.includes("-");
+      const isNumeric = /^\d+$/.test(hhServicoId);
+      
+      if (!isUUID && !isNumeric) {
+        setErr("Especialidade inválida (formato incorreto).");
         return false;
       }
 
@@ -1034,7 +1298,8 @@ export default function RelatorioHHSection({
         return false;
       }
 
-      if (!hhServicoId || !Number.isFinite(hhServicoId)) {
+      // hhServicoId já foi validado acima (UUID ou numérico), não precisa validar novamente
+      if (!hhServicoId) {
         setErr("Serviço HH inválido ou não selecionado.");
         setLancamentoBusy(false);
         return false;
@@ -1046,6 +1311,34 @@ export default function RelatorioHHSection({
         return false;
       }
 
+      console.warn("[salvarLancamento] PRÉ-VALIDAÇÃO:", {
+        colaborador_id: lancamentoForm.colaborador_id,
+        hh_servico_id_string: hhServicoId,
+        hh_servico_id_number: Number(hhServicoId),
+        cliente_id: clienteIdContext,
+        especialidadesOptions: especialidadesOptions.map(e => ({ id: e.id, descricao: e.descricao })),
+        vinculoEspecialidadesRef: vinculoEspecialidadesRef.current.get(lancamentoForm.colaborador_id),
+      });
+
+      // VALIDAÇÃO EXTRA: Verificar se o serviço selecionado está nos vínculos carregados
+      const servicosVinculados = vinculoEspecialidadesRef.current.get(lancamentoForm.colaborador_id) ?? [];
+      if (servicosVinculados.length === 0) {
+        setErr("Colaborador não possui serviços HH vinculados. Verifique o cadastro de vínculos.");
+        setLancamentoBusy(false);
+        return false;
+      }
+      
+      if (!servicosVinculados.includes(String(hhServicoId))) {
+        console.error("[salvarLancamento] ERRO DE VÍNCULO:", {
+          servicoSelecionado: hhServicoId,
+          servicosVinculados: servicosVinculados,
+          colaborador: lancamentoForm.colaborador_id,
+        });
+        setErr(`Serviço HH ${hhServicoId} não está vinculado ao colaborador. Serviços disponíveis: ${servicosVinculados.join(', ')}`);
+        setLancamentoBusy(false);
+        return false;
+      }
+
       console.warn("[salvarLancamento] VALIDANDO vínculo:", {
         tenant_id: ctx.tenant,
         cliente_id: clienteIdContext,
@@ -1053,17 +1346,17 @@ export default function RelatorioHHSection({
         hh_servico_id: hhServicoId,
       });
 
-      // 1. Verificar se o vínculo existe na tabela colaborador_funcao_hh
-      const { data: vinculoExistente, error: checkVinculoErr } = await applyTenant(
+      // 1. Verificar se o vínculo existe na tabela colaborador_cliente_funcao
+      const { data: vinculoExistente, error: checkVinculoErr } = await applyTenantEmpresa(
         supabase
-          .from("colaborador_funcao_hh")
+          .from("colaborador_cliente_funcao")
           .select("id,ativo")
-          .eq("tenant_id", ctx.tenant)
           .eq("cliente_id", clienteIdContext)
           .eq("colaborador_id", lancamentoForm.colaborador_id)
-          .eq("servico_hh_id", hhServicoId)
+          .eq("hh_servico_id", hhServicoId)
           .maybeSingle(),
-        ctx.tenant
+        ctx.tenant,
+        ctx.empresa
       );
 
       if (checkVinculoErr) {
@@ -1073,55 +1366,19 @@ export default function RelatorioHHSection({
         return false;
       }
 
-      // 2. Se não existe, criar o vínculo
+      // 2. Se não existe, bloquear e exibir erro (NÃO criar automático)
       if (!vinculoExistente) {
-        console.warn("[salvarLancamento] Vínculo não encontrado, criando automaticamente...");
-        const { error: criarVinculoErr } = await applyTenant(
-          supabase.from("colaborador_funcao_hh").insert({
-            tenant_id: ctx.tenant,
-            cliente_id: clienteIdContext,
-            colaborador_id: lancamentoForm.colaborador_id,
-            servico_hh_id: hhServicoId,
-            ativo: true,
-          }),
-          ctx.tenant
-        );
-
-        if (criarVinculoErr) {
-          console.error("[salvarLancamento] Erro ao criar vínculo:", criarVinculoErr);
-          // Pode ser erro de constraint já existindo, tenta continuar
-          if (!criarVinculoErr.message.includes("duplicate") && !criarVinculoErr.message.includes("Conflito")) {
-            setErr(`Erro ao vincular colaborador: ${criarVinculoErr.message}`);
-            setLancamentoBusy(false);
-            return false;
-          }
-        } else {
-          console.log("[salvarLancamento] Vínculo criado com sucesso");
-        }
-      } else if (vinculoExistente && !vinculoExistente.ativo) {
-        // 3. Se existe mas está inativo, ativar
-        console.warn("[salvarLancamento] Vínculo inativo, ativando...");
-        const { error: ativarErr } = await applyTenant(
-          supabase
-            .from("colaborador_funcao_hh")
-            .update({ ativo: true })
-            .eq("tenant_id", ctx.tenant)
-            .eq("cliente_id", clienteIdContext)
-            .eq("colaborador_id", lancamentoForm.colaborador_id)
-            .eq("servico_hh_id", hhServicoId),
-          ctx.tenant
-        );
-
-        if (ativarErr) {
-          console.warn("[salvarLancamento] Erro ao ativar vínculo (ignorando):", ativarErr);
-        } else {
-          console.log("[salvarLancamento] Vínculo ativado com sucesso");
-        }
-      } else {
-        console.log("[salvarLancamento] Vínculo já existe e está ativo ✓");
+        setErr("Colaborador não possui vínculo ativo com este serviço neste cliente. Cadastre o vínculo antes de lançar HH.");
+        setLancamentoBusy(false);
+        return false;
+      }
+      if (vinculoExistente && !vinculoExistente.ativo) {
+        setErr("Vínculo do colaborador com este serviço está inativo. Ative o vínculo antes de lançar HH.");
+        setLancamentoBusy(false);
+        return false;
       }
 
-      const percentual = getPercentualFromDate(lancamentoForm.data) as 0 | 50 | 100;
+      const percentual = (percentualManual ? Number(percentualManual) : getPercentualFromDate(lancamentoForm.data)) as 0 | 50 | 100;
 
       // Carregar os preços diretos de cliente_hh_servicos para usar na gravação
       const { data: svcData, error: svcErr } = await supabase
@@ -1142,95 +1399,60 @@ export default function RelatorioHHSection({
       const preco_100 = Number(svcData.preco_100 ?? 0);
       const valorHoraAplicado = percentual === 0 ? preco_base : (percentual === 50 ? preco_50 : preco_100);
 
-      // hh_tipo_id DEVE SER o ID do serviço HH selecionado, não um tipo de hora genérico
-      // hhServicoId já foi validado acima, é o ID real do cliente_hh_servicos
-      const hhTipoId = hhServicoId;
+      // Resolve mapping correto para hh_tipo_id
+      const hhTipoMappingId = await resolveHhTipoMappingId(supabase, ctx.tenant, percentual);
+      console.warn("[salvarLancamento] mappingId/hh_tipo_id:", hhTipoMappingId, "servicoId:", hhServicoId);
       
-      console.warn("[salvarLancamento] hh_tipo_id resolvido:", {
-        servicoId: hhServicoId,
-        tipoId: hhTipoId,
-        isFinite: Number.isFinite(hhTipoId),
-      });
-
-      // DEBUG: Log completo antes de salvar
-      console.warn("[salvarLancamento] VALORES ANTES DE ENVIAR:", {
-        _contexto: {
-          tenant_id: ctx.tenant,
-          empresa_id: ctx.empresa,
-          cliente_id: clienteIdContext,
-        },
-        _formulario: {
-          colaborador_id: lancamentoForm.colaborador_id,
-          hh_servico_id_form: lancamentoForm.hh_servico_id,
-          data: lancamentoForm.data,
-        },
-        _hh_tipo: {
-          hhTipoId: hhTipoId,
-          percentual_aplicado: percentual,
-        },
-        _horarios: {
-          hora_entrada: horaEntrada1,
-          hora_saida: horaSaida2,
-        },
-        _valores: {
-          valor_hora: valorHoraAplicado,
-          percentual_aplicado: percentual,
-        },
-      });
-
-      // ✅ NOVO: Enviar para campos NOVOS (entrada_1, saida_1, entrada_2, saida_2)
-      // Manter compatibilidade com legado via trigger
-      const basePayload = {
+      // Monta payload (hh_lancamentos tem hh_tipo_id + hh_servico_id)
+      const payloadHH: any = {
         tenant_id: ctx.tenant,
+        empresa_id: ctx.empresa,
         os_id: osId,
         colaborador_id: lancamentoForm.colaborador_id,
-        hh_tipo_id: hhTipoId,
+        hh_tipo_id: hhTipoMappingId,
+        hh_servico_id: Number(hhServicoId), // ID do serviço específico do cliente
         data: lancamentoForm.data,
-        // ✅ NOVOS (principais):
         entrada_1: minutosParaHHMM(entrada1),
         saida_1: minutosParaHHMM(saida1),
         entrada_2: minutosParaHHMM(entrada2),
         saida_2: minutosParaHHMM(saida2),
-        // Legacy (compatibilidade - trigger mantém em sync):
         hora_entrada: minutosParaHHMM(entrada1),
         hora_saida: minutosParaHHMM(saida2),
         percentual_aplicado: percentual,
         observacao: descRaw || null,
         valor_hora: valorHoraAplicado,
+        criado_por: userEmail,
       };
 
-      console.warn("[HH_SAVE_PAYLOAD] Payload final a ser enviado:", {
-        ...basePayload,
-        _debug_horarios: {
-          entrada_1_minutos: entrada1,
-          saida_1_minutos: saida1,
-          entrada_2_minutos: entrada2,
-          saida_2_minutos: saida2,
-          horas_periodo1: ((saida1 - entrada1) / 60).toFixed(2),
-          horas_periodo2: ((saida2 - entrada2) / 60).toFixed(2),
-          horas_total: (((saida1 - entrada1) + (saida2 - entrada2)) / 60).toFixed(2),
-        },
+      console.warn("[HH_SAVE_PAYLOAD] ANTES DE GRAVAR:", {
+        payloadHH,
+        vinculoDeveTerNoClienteId: clienteIdContext,
+        colaboradorId: lancamentoForm.colaborador_id,
+        hhServicoIdEnviado: Number(hhServicoId),
+        especialidadesOpcoesIds: especialidadesOptions.map(e => e.id),
       });
 
+      console.warn("[HH_SAVE_PAYLOAD] Payload a ser enviado:", payloadHH);
+
       if (editingId) {
+        // UPDATE
         const { error } = await supabase
           .from("hh_lancamentos")
-          .update(basePayload)
+          .update(payloadHH)
           .eq("id", editingId)
           .eq("tenant_id", ctx.tenant);
-
         if (error) throw error;
         setOk("Lançamento HH atualizado!");
       } else {
-        const { error } = await supabase.from("hh_lancamentos").insert({
-          ...basePayload,
-          criado_por: userEmail,
-        });
-
+        // INSERT
+        const { error } = await supabase
+          .from("hh_lancamentos")
+          .insert(payloadHH);
         if (error) throw error;
         setOk("Lançamento HH salvo com sucesso!");
       }
 
+      // Sincronizar com apontamentos_horas se habilitado
       if (enabled) {
         try {
           const baseDate = lancamentoForm.data;
@@ -1248,6 +1470,7 @@ export default function RelatorioHHSection({
                 colaboradorId: prevKey.colaborador_id,
                 dataISO: prevKey.data,
                 periodos: [],
+                percentual,
               });
             }
           }
@@ -1264,10 +1487,12 @@ export default function RelatorioHHSection({
               { entrada: minutosParaHHMM(entrada2), saida: minutosParaHHMM(saida2) },
             ],
             descricao: descRaw || "HH lançado na OS",
+            percentual,
           });
         } catch (syncErr: unknown) {
           console.error("[HH] Falha ao sincronizar apontamentos_horas (gerado_por_hh)", syncErr);
-          setErr("Lançamento HH salvo, mas falhou ao sincronizar apontamentos. Tente novamente ou contate o admin.");
+          const msg = syncErr instanceof Error ? syncErr.message : (typeof syncErr === "object" && syncErr && "message" in syncErr ? String((syncErr as any).message) : String(syncErr));
+          setErr(`Lançamento HH salvo, mas falhou ao sincronizar apontamentos: ${msg}`);
         }
       }
 
@@ -1276,6 +1501,7 @@ export default function RelatorioHHSection({
       return true;
     } catch (e: unknown) {
       const errorMsg = e instanceof Error ? e.message : JSON.stringify(e);
+      // Corrigido: não usar colabId fora do escopo try/catch
       console.error("Erro ao salvar lançamento HH:", errorMsg, {
         osId,
         editingId,
@@ -1286,8 +1512,6 @@ export default function RelatorioHHSection({
           hora_saida: horaSaida2,
           entrada_1: horaEntrada1,
           saida_1: horaSaida1,
-          entrada_2: e2Raw,
-          saida_2: s2Raw,
           hh_servico_id: lancamentoForm.hh_servico_id,
         },
       });
@@ -1418,7 +1642,8 @@ export default function RelatorioHHSection({
   if (!canRead) return null;
 
   return (
-    <section className="border border-zinc-800 rounded-xl p-4 bg-zinc-950 space-y-4">
+    <>
+      <section className="border border-zinc-800 rounded-xl p-4 bg-zinc-950 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold">Relatório HH</h2>
@@ -1436,43 +1661,57 @@ export default function RelatorioHHSection({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={loadRelatorios}
+            onClick={() => void loadHhLancamentos()}
             disabled={loadingHh}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
           >
             {loadingHh ? "Atualizando..." : "Atualizar"}
           </button>
-          {canWrite && (
-            <button
-              onClick={() => {
-                // Novo lançamento (não edição)
-                setEditingId(null);
-                setErr(null);
-                setOk(null);
-                const today = new Date().toISOString().slice(0, 10);
-                setLancamentoForm({
-                  data: today,
-                  colaborador_id: "",
-                  hh_servico_id: "",
-                  observacao: "",
-                });
-                setHoraEntrada1("07:30");
-                setHoraSaida1("12:00");
-                setHoraEntrada2("13:00");
-                setHoraSaida2("17:00");
-
-                setShowLancamentoForm(true);
-              }}
-              className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
-            >
-              Lançar Horas
-            </button>
-          )}
         </div>
       </div>
 
       {err && <div className="text-sm text-red-400">{err}</div>}
       {ok && <div className="text-sm text-emerald-300">{ok}</div>}
+
+      {showHhStatusWarning && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+          OS precisa estar EM ANDAMENTO para lançar HH.
+        </div>
+      )}
+
+      {canShowNovoLancamento && !clienteIdContext && (
+        <div className="text-sm text-red-400">Cliente não identificado na OS.</div>
+      )}
+
+      {/* Botão Novo lançamento HH */}
+      {canShowNovoLancamento && clienteIdContext && !showLancamentoForm && (
+        <button
+          type="button"
+          className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+          onClick={() => {
+            setEditingId(null);
+            editingOriginalKeyRef.current = null;
+            setLancamentoForm({
+              data: new Date().toISOString().slice(0, 10),
+              colaborador_id: "",
+              hh_servico_id: "",
+              observacao: "",
+            });
+            setHoraEntrada1("07:30");
+            setHoraSaida1("12:00");
+            setHoraEntrada2("13:00");
+            setHoraSaida2("17:00");
+            setPrecoServicoSelecionado(null);
+            setEspecialidadesOptions([]);
+            setEspecialidadeLocked(false);
+            setShowLancamentoForm(true);
+            setErr(null);
+            setOk(null);
+          }}
+        >
+          Novo lançamento HH
+        </button>
+      )}
 
       {/* Formulário de Lançamento */}
       {showLancamentoForm && (
@@ -1497,9 +1736,18 @@ export default function RelatorioHHSection({
                 aria-label="Selecionar colaborador"
                 className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900"
                 value={lancamentoForm.colaborador_id}
-                onChange={(e) =>
-                  setLancamentoForm((prev) => ({ ...prev, colaborador_id: e.target.value }))
-                }
+                onChange={(e) => {
+                  const colaboradorId = e.target.value;
+                  setLancamentoForm((prev) => ({ ...prev, colaborador_id: colaboradorId }));
+                  
+                  // Auto-carregar especialidades e selecionar baseado no tipo de dia
+                  if (colaboradorId && clienteIdContext) {
+                    void loadEspecialidadesParaColaborador(clienteIdContext, colaboradorId);
+                  } else {
+                    setEspecialidadesOptions([]);
+                    setEspecialidadeLocked(false);
+                  }
+                }}
               >
                 <option value="">Selecione...</option>
                 {colaboradores.map((c) => (
@@ -1511,14 +1759,25 @@ export default function RelatorioHHSection({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-zinc-400">Tipo HH</label>
-              <input
-                aria-label="Tipo HH (automático)"
+              <label className="text-xs text-zinc-400">Tipo HH <span className="text-[10px] text-zinc-500">(editável)</span></label>
+              <select
+                aria-label="Tipo HH"
                 className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-300"
-                value={getTipoHHLabel(getPercentualFromDate(lancamentoForm.data))}
-                readOnly
-                disabled
-              />
+                value={percentualManual}
+                onChange={e => {
+                  setPercentualManual(e.target.value as any);
+                  
+                  // Re-selecionar serviço baseado no novo percentual manual
+                  if (lancamentoForm.colaborador_id && clienteIdContext && especialidadesOptions.length > 1) {
+                    void loadEspecialidadesParaColaborador(clienteIdContext, lancamentoForm.colaborador_id);
+                  }
+                }}
+              >
+                <option value="">Automático ({getTipoHHLabel(getPercentualFromDate(lancamentoForm.data))})</option>
+                <option value="0">Normal (0%)</option>
+                <option value="50">Extra 50%</option>
+                <option value="100">Extra 100%</option>
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -1535,6 +1794,11 @@ export default function RelatorioHHSection({
                     ...prev,
                     data: nextDate,
                   }));
+                  
+                  // Re-selecionar serviço baseado no novo tipo de dia
+                  if (lancamentoForm.colaborador_id && clienteIdContext && especialidadesOptions.length > 1) {
+                    void loadEspecialidadesParaColaborador(clienteIdContext, lancamentoForm.colaborador_id);
+                  }
                 }}
               />
               <div className="text-[11px] text-zinc-500">
@@ -1760,13 +2024,30 @@ export default function RelatorioHHSection({
           <p className="text-xs text-zinc-400 mt-0.5">{hhRows.length} registro(s)</p>
         </div>
         {!loadingHh && !hhErr && hhRows.length > 0 && (
-          <button
-            type="button"
-            onClick={() => void gerarRelatorioPDF(hhRows, osId)}
-            className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-          >
-            Exportar PDF
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 font-medium"
+            >
+              Imprimir
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void gerarRelatorioPDF(hhRows, osId, {
+                  empresaNome: printHeader.empresaNome,
+                  clienteNome: printHeader.clienteNome,
+                  numeroOS: printHeader.numeroOS,
+                  periodoLabel: printHeader.periodoLabel,
+                  emissaoLabel: printHeader.emissaoLabel,
+                })
+              }
+              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+            >
+              Exportar PDF
+            </button>
+          </div>
         )}
       </div>
       
@@ -1812,7 +2093,8 @@ export default function RelatorioHHSection({
 
               {!loadingHh && !hhErr &&
                 hhRows.map((r) => {
-                  const rowLocked = !canWrite;
+                  const canEditRow = canWrite;
+                  const canDeleteRow = canDelete;
                   const idStr = String(r.id);
                   return (
                     <tr key={idStr} className="hover:bg-zinc-900/40">
@@ -1831,7 +2113,7 @@ export default function RelatorioHHSection({
                           <button
                             type="button"
                             onClick={() => void openEditHhLancamento(idStr)}
-                            disabled={rowLocked}
+                            disabled={!canEditRow}
                             className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
                           >
                             Editar
@@ -1839,7 +2121,7 @@ export default function RelatorioHHSection({
                           <button
                             type="button"
                             onClick={() => void excluirHhLancamento(idStr)}
-                            disabled={rowLocked || !canDelete}
+                            disabled={!canDeleteRow}
                             className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
                           >
                             Excluir
@@ -1853,6 +2135,296 @@ export default function RelatorioHHSection({
           </table>
         </div>
       </div>
-    </section>
+      </section>
+
+      {/* Print-only layout: impressão profissional (A4 paisagem) */}
+      <div className="hh-print-only" aria-hidden="true">
+        <div className="hh-print">
+          <div className="hh-print__header">
+            <div className="hh-print__brand">
+              <img className="hh-print__logo" src="/Segau.png" alt="Logo" />
+              <div className="hh-print__brandText">
+                <div className="hh-print__empresa">{printHeader.empresaNome}</div>
+                <div className="hh-print__cliente">Cliente: {printHeader.clienteNome}</div>
+              </div>
+            </div>
+
+            <div className="hh-print__title">
+              <div className="hh-print__titleMain">Relatório de Horas Lançadas</div>
+              <div className="hh-print__titleSub">OS {printHeader.numeroOS}</div>
+            </div>
+
+            <div className="hh-print__meta">
+              <div>
+                <span>Emissão</span>
+                <strong>{printHeader.emissaoLabel}</strong>
+              </div>
+              <div>
+                <span>Período</span>
+                <strong>{printHeader.periodoLabel}</strong>
+              </div>
+              <div>
+                <span>Registros</span>
+                <strong>{hhRows.length}</strong>
+              </div>
+            </div>
+          </div>
+
+          <table className="hh-print__table">
+            <thead>
+              <tr>
+                <th>Funcionário</th>
+                <th>Função</th>
+                <th>Data</th>
+                <th>Ent. 1</th>
+                <th>Saída 1</th>
+                <th>Ent. 2</th>
+                <th>Saída 2</th>
+                <th className="num">Horas</th>
+                <th>Tipo</th>
+                <th className="num">V. Hora</th>
+                <th className="num">V. Hora 50%</th>
+                <th className="num">V. Hora 100%</th>
+                <th className="num">R$ Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hhRows.map((r) => {
+                const valorHoraNormal = Number(r.valor_hora ?? 0);
+                const valorHora50 = valorHoraNormal * 1.5;
+                const valorHora100 = valorHoraNormal * 2.0;
+                const horas = Number(r.horas_trabalhadas ?? 0);
+                const percentualAplicado = Number(r.percentual_aplicado ?? 0);
+                const tipo = getTipoHHLabel(percentualAplicado);
+                const total = Number(r.valor_total ?? 0);
+                return (
+                  <tr key={String(r.id)}>
+                    <td>{r.colaborador_nome ?? "—"}</td>
+                    <td>{r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao : "—"}</td>
+                    <td className="center">{formatDateBR(r.data)}</td>
+                    <td className="center">{formatTimeHHMM(r.entrada_1) || formatTimeHHMM(r.hora_entrada) || "—"}</td>
+                    <td className="center">{formatTimeHHMM(r.saida_1) || formatTimeHHMM(r.hora_saida) || "—"}</td>
+                    <td className="center">{formatTimeHHMM(r.entrada_2) || "—"}</td>
+                    <td className="center">{formatTimeHHMM(r.saida_2) || "—"}</td>
+                    <td className="num">{formatHoursBR(horas)}</td>
+                    <td>{tipo}</td>
+                    <td className="num">{formatCurrencyBRL(valorHoraNormal)}</td>
+                    <td className="num">{formatCurrencyBRL(valorHora50)}</td>
+                    <td className="num">{formatCurrencyBRL(valorHora100)}</td>
+                    <td className="num">{formatCurrencyBRL(total)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="hh-print__totals">
+            <div>
+              <span>Horas totais</span>
+              <strong>{formatHoursBR(printHeader.totalHoras)}</strong>
+            </div>
+            <div>
+              <span>Total geral</span>
+              <strong>{formatCurrencyBRL(printHeader.totalValor)}</strong>
+            </div>
+          </div>
+
+          <div className="hh-print__footer">
+            <div>Sistema Estoque-OS</div>
+            <div>Gerado automaticamente a partir dos lançamentos HH</div>
+          </div>
+        </div>
+      </div>
+
+      <style jsx global>{`
+        .hh-print-only {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .hh-print-only,
+          .hh-print-only * {
+            visibility: visible !important;
+          }
+
+          .hh-print-only {
+            display: block;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+          }
+
+          .hh-print {
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Liberation Sans";
+            color: #111827;
+            padding: 0;
+          }
+
+          .hh-print__header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            align-items: start;
+            padding: 8px 0 10px 0;
+            border-bottom: 2px solid #111827;
+            margin-bottom: 10px;
+          }
+
+          .hh-print__brand {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            min-height: 56px;
+          }
+
+          .hh-print__logo {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+          }
+
+          .hh-print__empresa {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2;
+          }
+
+          .hh-print__cliente {
+            margin-top: 2px;
+            font-size: 11px;
+            color: #374151;
+          }
+
+          .hh-print__title {
+            text-align: center;
+          }
+
+          .hh-print__titleMain {
+            font-size: 16px;
+            font-weight: 800;
+          }
+
+          .hh-print__titleSub {
+            margin-top: 2px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+          }
+
+          .hh-print__meta {
+            display: grid;
+            gap: 6px;
+            justify-items: end;
+            font-size: 11px;
+          }
+
+          .hh-print__meta span {
+            display: block;
+            font-size: 10px;
+            color: #6b7280;
+            line-height: 1.1;
+          }
+
+          .hh-print__meta strong {
+            font-weight: 700;
+            color: #111827;
+          }
+
+          .hh-print__table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+          }
+
+          .hh-print__table thead {
+            display: table-header-group;
+          }
+
+          .hh-print__table th {
+            background: #111827;
+            color: #ffffff;
+            text-align: left;
+            padding: 6px 6px;
+            border: 1px solid #111827;
+            white-space: nowrap;
+          }
+
+          .hh-print__table td {
+            padding: 5px 6px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+          }
+
+          .hh-print__table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .hh-print__table tbody tr:nth-child(even) td {
+            background: #f9fafb;
+          }
+
+          .hh-print__table .num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+          }
+
+          .hh-print__table .center {
+            text-align: center;
+            white-space: nowrap;
+          }
+
+          .hh-print__totals {
+            margin-top: 10px;
+            display: flex;
+            gap: 16px;
+            justify-content: flex-end;
+            border-top: 2px solid #111827;
+            padding-top: 8px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .hh-print__totals span {
+            display: block;
+            font-size: 10px;
+            color: #6b7280;
+          }
+
+          .hh-print__totals strong {
+            display: block;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .hh-print__footer {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #6b7280;
+          }
+        }
+      `}</style>
+    </>
   );
 }

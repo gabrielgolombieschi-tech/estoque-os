@@ -29,11 +29,17 @@ type OS = {
 type OsItemTotalRow = {
   os_id: number;
   valor_total: number | null;
+  itens?: { tipo?: string | null } | { tipo?: string | null }[] | null;
 };
 
 type MaoObraRow = {
   os_id: number;
   custo_mao_obra: number | null;
+};
+
+type HHTotalRow = {
+  os_id: number;
+  total_hh: number | null;
 };
 
 const statusBadge: Record<string, string> = {
@@ -112,8 +118,9 @@ export default function OsListPage() {
   const [status, setStatus] = useState("em_andamento");
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
-  const [itensTotalPorOs, setItensTotalPorOs] = useState<Record<number, number>>({});
   const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
+  const [materiaisPorOs, setMateriaisPorOs] = useState<Record<number, number>>({});
+  const [hhTotalPorOs, setHhTotalPorOs] = useState<Record<number, number>>({});
 
   // criacao
   const [creating, setCreating] = useState(false);
@@ -136,6 +143,14 @@ export default function OsListPage() {
     if (!clienteId) return false;
     return Boolean(clientes.find((c) => c.id === clienteId)?.habilita_hh);
   }, [clienteId, clientes]);
+
+  const clientesById = useMemo(() => {
+    const map: Record<number, Cliente> = {};
+    clientes.forEach((c) => {
+      map[c.id] = c;
+    });
+    return map;
+  }, [clientes]);
 
   const logDebug = (...args: unknown[]) => {
     if (debugEnabled) console.debug(...args);
@@ -183,8 +198,9 @@ export default function OsListPage() {
     const reqId = ++osReqIdRef.current;
     setLoading(true);
     setErr(null);
-    setItensTotalPorOs({});
     setMaoObraPorOs({});
+    setMateriaisPorOs({});
+    setHhTotalPorOs({});
     logDebug("[OS] load:start", {
       tenantId,
       empresaId,
@@ -199,7 +215,9 @@ export default function OsListPage() {
     let q = applyTenantEmpresa(
       supabase
         .from("ordens_servico")
-        .select("id,numero_os,cliente_nome,cliente_id,status,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido")
+        .select(
+          "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido,usa_relatorio_hh"
+        )
         .order("id", { ascending: false }),
       effectiveTenantId,
       effectiveEmpresaId
@@ -226,21 +244,27 @@ export default function OsListPage() {
     const osIds = osList.map((r) => r.id);
     if (osIds.length > 0) {
       const { data: itensData } = await applyTenantEmpresa(
-        supabase.from("os_itens").select("os_id,valor_total").in("os_id", osIds),
+        supabase.from("os_itens").select("os_id,valor_total,itens(tipo)").in("os_id", osIds),
         effectiveTenantId,
         effectiveEmpresaId
       );
       if (reqId !== osReqIdRef.current) return;
 
-      const totals: Record<number, number> = {};
+      const materiaisTotals: Record<number, number> = {};
       const itemRows = (itensData ?? []) as OsItemTotalRow[];
       itemRows.forEach((row) => {
         const osId = Number(row.os_id);
         if (!Number.isFinite(osId)) return;
-        const prev = totals[osId] ?? 0;
-        totals[osId] = prev + Number(row.valor_total ?? 0);
+        const valor = Number(row.valor_total ?? 0);
+        const itensTipo = Array.isArray(row.itens)
+          ? row.itens[0]?.tipo
+          : row.itens?.tipo;
+        if (itensTipo === "produto") {
+          const prevMat = materiaisTotals[osId] ?? 0;
+          materiaisTotals[osId] = prevMat + valor;
+        }
       });
-      setItensTotalPorOs(totals);
+      setMateriaisPorOs(materiaisTotals);
 
       // View sem tenant/empresa; não aplicar scope para evitar erro de coluna inexistente.
       const { data: maoData } = await supabase
@@ -257,6 +281,19 @@ export default function OsListPage() {
         maoTotals[osId] = Number(row.custo_mao_obra ?? 0);
       });
       setMaoObraPorOs(maoTotals);
+
+      // Totais de HH por OS
+      const { data: hhData } = await supabase.from("vw_hh_total_os").select("os_id,total_hh").in("os_id", osIds);
+      if (reqId !== osReqIdRef.current) return;
+
+      const hhTotals: Record<number, number> = {};
+      const hhRows = (hhData ?? []) as HHTotalRow[];
+      hhRows.forEach((row) => {
+        const osId = Number(row.os_id);
+        if (!Number.isFinite(osId)) return;
+        hhTotals[osId] = Number(row.total_hh ?? 0);
+      });
+      setHhTotalPorOs(hhTotals);
     }
     if (reqId === osReqIdRef.current) {
       logDebug("[OS] load:end", { reqId, rowsCount: (data ?? []).length, hasItens: osIds.length > 0 });
@@ -616,17 +653,33 @@ export default function OsListPage() {
                 </td>
 
                 {(() => {
-                  const pedido = hideValorPedido ? 0 : Number(r.orcado ?? 0);
-                  const imposto = hideValorPedido ? 0 : pedido * 0.22; // mesma regra usada no detalhe
-                  const itensTotal = itensTotalPorOs[r.id] ?? 0;
+                  const clienteHabilita = r.cliente_id ? Boolean(clientesById[r.cliente_id]?.habilita_hh) : false;
+                  const hhEnabled = clienteHabilita && Boolean(r.usa_relatorio_hh);
+                  const materiais = materiaisPorOs[r.id] ?? 0;
                   const maoObraExtra = maoObraPorOs[r.id] ?? 0;
-                  const custoBanco = Number(r.custo ?? NaN);
-                  const custoCalculado = itensTotal + maoObraExtra + imposto;
-                  const custo = Number.isFinite(custoBanco) && custoBanco > 0 ? custoBanco : custoCalculado;
-                  const alerta = !hideValorPedido && pedido > 0 && custo >= pedido * 0.9;
-                  const custoClass = alerta
-                    ? "text-red-300 border-red-500/40"
-                    : "text-emerald-300 border-emerald-500/40";
+                  const hhTotal = hhTotalPorOs[r.id] ?? 0;
+
+                  let impostos = 0;
+                  if (hhEnabled) {
+                    impostos = hhTotal * 0.19;
+                  } else if (materiais > 0) {
+                    impostos = materiais * 0.21;
+                  } else {
+                    impostos = (materiais + maoObraExtra) * 0.19;
+                  }
+
+                  const custo = materiais + maoObraExtra + impostos;
+                  const pedidoCadastro = Number(r.orcado ?? 0);
+                  const pedidoCalculado = hhEnabled ? hhTotal : pedidoCadastro;
+                  const pedido = hideValorPedido ? 0 : pedidoCalculado;
+
+                  let custoClass = "text-emerald-300 border-emerald-500/40";
+                  if (!hideValorPedido && custo > 0) {
+                    const perc = (pedido - custo) / custo;
+                    if (perc < 0) custoClass = "text-red-300 border-red-500/40";
+                    else if (perc < 0.15) custoClass = "text-amber-300 border-amber-500/40";
+                    else custoClass = "text-emerald-300 border-emerald-500/40";
+                  }
                   return (
                     <>
                       <td className="px-4 py-3 text-right tabular-nums">

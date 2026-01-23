@@ -351,7 +351,8 @@ type UserPermissionRow = { permission: string | null };
 
 async function loadCapabilitiesFromRpc(
   supabase: ReturnType<typeof getSupabaseBrowser>,
-  tenantId: string
+  tenantId: string,
+  empresaId: string | null = null
 ): Promise<{
   caps: Capabilities;
   count: number;
@@ -360,7 +361,23 @@ async function loadCapabilitiesFromRpc(
   errorMessage?: string;
 }> {
   try {
-    const { data, error } = await supabase.rpc("get_my_permissions", { p_tenant_id: tenantId });
+    // Some environments may have an overloaded `get_my_permissions` RPC:
+    // - get_my_permissions(p_tenant_id uuid)
+    // - get_my_permissions(p_tenant_id uuid, p_empresa_id uuid)
+    // When both exist, calling with only `p_tenant_id` can become ambiguous.
+    // Prefer the 2-arg signature (when available) and fall back to the 1-arg one.
+    const resolvedEmpresaId = empresaId ?? (await rpcCurrentEmpresaId(supabase));
+
+    let { data, error } = await supabase.rpc("get_my_permissions", {
+      p_tenant_id: tenantId,
+      p_empresa_id: resolvedEmpresaId,
+    });
+
+    if (error && isMissingRpc(error, "get_my_permissions")) {
+      const retry = await supabase.rpc("get_my_permissions", { p_tenant_id: tenantId });
+      data = retry.data;
+      error = retry.error;
+    }
     const count = Array.isArray(data) ? data.length : 0;
     const rows = (data ?? []) as unknown as UserPermissionRow[];
     const raw = rows.map((r) => (typeof r?.permission === "string" ? r.permission : null));
@@ -765,7 +782,7 @@ export function TenantEmpresaProvider({
 
     const supabase = supabaseRef.current ?? (supabaseRef.current = getSupabaseBrowser());
     const res = tenantId
-      ? await withTimeout(loadCapabilitiesFromRpc(supabase, tenantId), 5000).catch((e) => ({
+      ? await withTimeout(loadCapabilitiesFromRpc(supabase, tenantId, stateRef.current.empresaId), 5000).catch((e) => ({
           caps: {},
           count: 0,
           raw: [],
@@ -813,10 +830,11 @@ export function TenantEmpresaProvider({
     }));
   }, [state.tenantId]);
 
-  // Capabilities: load via RPC get_my_permissions for the current tenant.
+  // Capabilities: load via RPC get_my_permissions for the current tenant/empresa.
   // Null means "loading"; after that it's always an object (possibly empty).
   const sessionUserId = state.sessionUserId;
   const tenantId = state.tenantId;
+  const empresaId = state.empresaId;
   useEffect(() => {
     if (sessionUserId === null) {
       lastCapsKeyRef.current = null;
@@ -824,9 +842,12 @@ export function TenantEmpresaProvider({
       return;
     }
 
-    if (!sessionUserId || !tenantId) return;
+    // Avoid calling permissions RPC before the empresa context is known.
+    // In DBs where `get_my_permissions` is overloaded (tenant-only + tenant+empresa),
+    // calling before we have an empresa can be ambiguous and poison the cached key.
+    if (!sessionUserId || !tenantId || !empresaId) return;
 
-    const key = `${sessionUserId}:${tenantId}`;
+    const key = `${sessionUserId}:${tenantId}:${empresaId}`;
     if (lastCapsKeyRef.current === key) return;
     lastCapsKeyRef.current = key;
 
@@ -860,7 +881,7 @@ export function TenantEmpresaProvider({
         lastLoadError: null,
       }));
 
-      const res = await withTimeout(loadCapabilitiesFromRpc(supabase, tenantId), 5000).catch((e) => ({
+      const res = await withTimeout(loadCapabilitiesFromRpc(supabase, tenantId, stateRef.current.empresaId), 5000).catch((e) => ({
         caps: {},
         count: 0,
         raw: [],
@@ -912,7 +933,7 @@ export function TenantEmpresaProvider({
     return () => {
       cancelled = true;
     };
-  }, [sessionUserId, tenantId]);
+  }, [sessionUserId, tenantId, empresaId]);
 
   const setEmpresaId = useCallback(
     async (nextEmpresaId: string) => {
