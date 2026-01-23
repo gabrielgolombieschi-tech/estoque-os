@@ -92,7 +92,6 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     const sessionUserId = te.sessionUserId;
     if (sessionUserId === undefined) return;
     const isAuthed = Boolean(sessionUserId);
-    if (!isAuthed && !isPublic) router.replace("/login");
     // Only redirect authed users away from the login page.
     // Password reset links often establish a session; keep user on reset screen.
     if (isAuthed && isLoginPage) router.replace("/");
@@ -220,6 +219,15 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   }
 
   if (isPublic) return <>{children}</>;
+
+  // Anti-flicker: never render menus or protected content before we know auth + tenant/empresa.
+  // AuthGate ensures a Supabase session exists; this ensures tenant/empresa context is ready.
+  const hasSession = typeof te.sessionUserId === "string";
+  const hasTenant = Boolean(te.tenantId);
+  const hasEmpresa = Boolean(te.empresaId) || te.empresas.length === 1;
+  if (!hasSession || !hasTenant || !hasEmpresa) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen">

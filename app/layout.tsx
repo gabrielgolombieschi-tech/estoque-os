@@ -1,6 +1,8 @@
 import "./globals.css";
 import AppShell from "./components/AppShellClient";
 import ClientProviders from "@/components/auth/ClientProviders";
+import AuthGate from "@/components/auth/AuthGate";
+import NoSSR from "@/components/auth/NoSSR";
 import { headers } from "next/headers";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 import { getCapabilities } from "@/lib/auth/capabilities.server";
@@ -47,7 +49,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <ClientProviders initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
-          <AppShell>{children}</AppShell>
+          <NoSSR>
+            <AuthGate>
+              <AppShell>{children}</AppShell>
+            </AuthGate>
+          </NoSSR>
         </ClientProviders>
       </body>
     </html>
