@@ -154,6 +154,11 @@ export default function AdminUsuariosPage() {
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
 
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordValue, setPasswordValue] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordErr, setPasswordErr] = useState<string | null>(null);
+
   const modalRef = useRef<HTMLDivElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -213,7 +218,112 @@ export default function AdminUsuariosPage() {
     setTenantForm({ papel: "GESTOR", ativo: true });
     setEmpresaForm({});
     setEditErr(null);
+    setPasswordOpen(false);
+    setPasswordValue("");
+    setPasswordBusy(false);
+    setPasswordErr(null);
   }, []);
+
+  const resetPasswordByEmail = useCallback(async () => {
+    if (!editRow?.auth_user_id) {
+      setEditErr("Este usuário não possui auth_user_id.");
+      return;
+    }
+
+    const okConfirm = confirm(
+      "Enviar email de recuperação de senha para este usuário? (Ele receberá um link para redefinir a senha.)"
+    );
+    if (!okConfirm) return;
+
+    setPasswordBusy(true);
+    setPasswordErr(null);
+    setOk(null);
+
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data: sess, error: sessErr } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token ?? null;
+      if (sessErr || !token) {
+        setPasswordErr("Sessão não encontrada. Faça login novamente.");
+        setPasswordBusy(false);
+        return;
+      }
+
+      const res = await fetch(`/api/admin/usuarios/${encodeURIComponent(editRow.auth_user_id)}/password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode: "reset_email" }),
+      });
+
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok) {
+        setPasswordErr(payload?.error ?? "Erro ao enviar email de reset.");
+        setPasswordBusy(false);
+        return;
+      }
+
+      setOk("Email de recuperação enviado.");
+      setPasswordBusy(false);
+    } catch (e: unknown) {
+      setPasswordErr(getErrorText(e) || "Erro ao enviar email de reset.");
+      setPasswordBusy(false);
+    }
+  }, [editRow]);
+
+  const setUserPassword = useCallback(async () => {
+    if (!editRow?.auth_user_id) {
+      setPasswordErr("Este usuário não possui auth_user_id.");
+      return;
+    }
+
+    const nextPass = passwordValue;
+    if (nextPass.length < 8) {
+      setPasswordErr("Senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    setPasswordBusy(true);
+    setPasswordErr(null);
+    setOk(null);
+
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data: sess, error: sessErr } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token ?? null;
+      if (sessErr || !token) {
+        setPasswordErr("Sessão não encontrada. Faça login novamente.");
+        setPasswordBusy(false);
+        return;
+      }
+
+      const res = await fetch(`/api/admin/usuarios/${encodeURIComponent(editRow.auth_user_id)}/password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode: "set_password", password: nextPass }),
+      });
+
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok) {
+        setPasswordErr(payload?.error ?? "Erro ao alterar senha.");
+        setPasswordBusy(false);
+        return;
+      }
+
+      setOk("Senha alterada com sucesso.");
+      setPasswordValue("");
+      setPasswordOpen(false);
+      setPasswordBusy(false);
+    } catch (e: unknown) {
+      setPasswordErr(getErrorText(e) || "Erro ao alterar senha.");
+      setPasswordBusy(false);
+    }
+  }, [editRow, passwordValue]);
 
   const closeCreate = useCallback(() => {
     setCreateOpen(false);
@@ -667,6 +777,8 @@ export default function AdminUsuariosPage() {
                   <div className="text-sm font-medium text-zinc-200 mb-2">Tenant</div>
                   <label className="block text-xs text-zinc-400 mb-1">Papel</label>
                   <select
+                    title="Papel (tenant)"
+                    aria-label="Papel (tenant)"
                     value={createTenantPapel}
                     onChange={(e) => setCreateTenantPapel(safeTenantRole(e.target.value))}
                     className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100"
@@ -709,6 +821,8 @@ export default function AdminUsuariosPage() {
                         <div className="mt-2">
                           <label className="block text-xs text-zinc-400 mb-1">Papel</label>
                           <select
+                            title={`Papel empresa ${e.nome_fantasia ?? e.razao_social ?? e.id}`}
+                            aria-label={`Papel empresa ${e.nome_fantasia ?? e.razao_social ?? e.id}`}
                             value={item.papel}
                             onChange={(ev) =>
                               setCreateEmpresaForm((prev) => ({
@@ -792,6 +906,8 @@ export default function AdminUsuariosPage() {
                   <label className="block text-xs text-zinc-400 mb-1">Nome</label>
                   <input
                     ref={firstInputRef}
+                    aria-label="Nome"
+                    title="Nome"
                     value={userForm.nome}
                     onChange={(e) => setUserForm((prev) => ({ ...prev, nome: e.target.value }))}
                     className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100"
@@ -831,9 +947,66 @@ export default function AdminUsuariosPage() {
                 </div>
 
                 <div className="rounded-md border border-zinc-800 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-zinc-200">Senha</div>
+                      <div className="text-xs text-zinc-500">Apenas TENANT OWNER (validado no server).</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPasswordOpen((v) => !v)}
+                      className="px-2 py-1 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs disabled:opacity-60"
+                      disabled={passwordBusy}
+                      title=""
+                    >
+                      {passwordOpen ? "Fechar" : "Ações"}
+                    </button>
+                  </div>
+
+                  {passwordErr && <div className="mt-2 text-sm text-red-400">{passwordErr}</div>}
+
+                  {passwordOpen && (
+                    <div className="mt-3 space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => void resetPasswordByEmail()}
+                        className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm text-zinc-200 disabled:opacity-60"
+                        disabled={passwordBusy || !editRow.auth_user_id}
+                      >
+                        Reset password (enviar email)
+                      </button>
+
+                      <div className="space-y-2">
+                        <div className="text-xs text-zinc-400">Alterar senha (definir manualmente)</div>
+                        <input
+                          type="password"
+                          value={passwordValue}
+                          onChange={(e) => setPasswordValue(e.target.value)}
+                          className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100"
+                          placeholder="Nova senha (mín. 8 caracteres)"
+                          title="Nova senha"
+                          aria-label="Nova senha"
+                          disabled={passwordBusy}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void setUserPassword()}
+                          className="w-full px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
+                          disabled={passwordBusy || passwordValue.length < 8 || !editRow.auth_user_id}
+                        >
+                          {passwordBusy ? "Salvando..." : "Salvar nova senha"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-md border border-zinc-800 p-3">
                   <div className="text-sm font-medium text-zinc-200 mb-2">Tenant</div>
                   <label className="block text-xs text-zinc-400 mb-1">Papel</label>
                   <select
+                    title="Papel (tenant)"
+                    aria-label="Papel (tenant)"
                     value={tenantForm.papel}
                     onChange={(e) => setTenantForm((prev) => ({ ...prev, papel: safeTenantRole(e.target.value) }))}
                     className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100"
@@ -885,6 +1058,8 @@ export default function AdminUsuariosPage() {
                         <div className="mt-2">
                           <label className="block text-xs text-zinc-400 mb-1">Papel</label>
                           <select
+                            title={`Papel empresa ${e.nome_fantasia ?? e.razao_social ?? e.id}`}
+                            aria-label={`Papel empresa ${e.nome_fantasia ?? e.razao_social ?? e.id}`}
                             value={item.papel}
                             onChange={(ev) =>
                               setEmpresaForm((prev) => ({
