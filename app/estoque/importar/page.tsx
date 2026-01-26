@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatDecimalBR, parseDecimalBR } from "../../../lib/decimal";
-import { supabaseBrowser } from "../../../lib/supabase/client";
+import { formatDecimalBR, parseDecimalBR } from "@/lib/decimal";
+import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
+import { useImportMotivos } from "./ImportMotivosProvider";
 
 type ParsedItem = {
   codigo: string;
@@ -83,8 +84,9 @@ type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | 
 type FornecedorRow = {
   id: number;
   nome: string | null;
-  documento_norm?: string | null;
+  cnpj_norm?: string | null;
   finalidade_padrao?: ItemFinalidade | null;
+  motivo_compra_padrao_id?: string | null;
   gerar_contas_pagar_auto?: boolean | null;
 };
 
@@ -164,10 +166,11 @@ function getErrorMessage(err: unknown, fallback: string) {
   return fallback;
 }
 
-function normalizeDocumento(doc: string | null): string | null {
+function normalizeCnpj(doc: string | null): string | null {
   if (!doc) return null;
   const onlyDigits = doc.replace(/\D/g, "");
-  return onlyDigits || null;
+  if (!onlyDigits) return null;
+  return onlyDigits.length === 14 ? onlyDigits : null;
 }
 
 function toDateOnly(value: string | null | undefined): string | null {
@@ -207,9 +210,118 @@ export default function ImportarXmlPage() {
   const [fornecedorCnpjBase, setFornecedorCnpjBase] = useState<string | null>(null);
   const [fornecedorIdBase, setFornecedorIdBase] = useState<number | null>(null);
 
+  // Fonte de verdade durante parsing (evita race/stale setState ao ler múltiplos XMLs)
+  const fornecedorCnpjBaseRef = useRef<string | null>(null);
+  // Evita duplicidade por closure stale durante addJobFromRaw
+  const chavesAddedRef = useRef<Set<string>>(new Set());
+
   const [fornecedorGerarContasAuto, setFornecedorGerarContasAuto] = useState(false);
 
   const [finalidadeLote, setFinalidadeLote] = useState<ItemFinalidade | "">("");
+
+  const { motivos, loading: motivosLoading, error: motivosError } = useImportMotivos();
+  const [motivoCompraId, setMotivoCompraId] = useState<string>("");
+
+  const [defaultsToast, setDefaultsToast] = useState<{ kind: "saved" | "error" | "warn"; message: string } | null>(
+    null
+  );
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fornecedorIdRef = useRef<number | null>(null);
+  const finalidadeRef = useRef<ItemFinalidade | "">("");
+  const motivoCompraIdRef = useRef<string>("");
+  useEffect(() => {
+    fornecedorIdRef.current = fornecedorId;
+    finalidadeRef.current = finalidadeLote;
+    motivoCompraIdRef.current = motivoCompraId;
+  }, [finalidadeLote, fornecedorId, motivoCompraId]);
+
+  const defaultsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDefaultsRef = useRef<{
+    fornecedorId: number;
+    finalidade: ItemFinalidade | null;
+    motivoCompraId: string | null;
+  } | null>(null);
+
+  const clearToastLater = useCallback((ms = 2200) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setDefaultsToast(null), ms);
+  }, []);
+
+  const normalizeFinalidade = (v: ItemFinalidade | "" | null | undefined): ItemFinalidade | null => {
+    if (!v) return null;
+    return v as ItemFinalidade;
+  };
+
+  const normalizeMotivoId = (v: string | null | undefined): string | null => {
+    const s = String(v ?? "").trim();
+    return s ? s : null;
+  };
+
+  const saveFornecedorImportDefaultsNow = useCallback(
+    async (payload: { fornecedorId: number; finalidade: ItemFinalidade | null; motivoCompraId: string | null }) => {
+      try {
+        const { error } = await supabase.rpc("set_fornecedor_import_defaults", {
+          p_fornecedor_id: payload.fornecedorId,
+          p_finalidade: payload.finalidade,
+          p_motivo_compra_id: payload.motivoCompraId,
+        });
+
+        if (error) {
+          setDefaultsToast({ kind: "error", message: "Erro ao salvar padrão do fornecedor." });
+          clearToastLater();
+          return;
+        }
+
+        setDefaultsToast({ kind: "saved", message: "Padrão do fornecedor salvo." });
+        clearToastLater();
+      } catch {
+        setDefaultsToast({ kind: "error", message: "Erro ao salvar padrão do fornecedor." });
+        clearToastLater();
+      }
+    },
+    [clearToastLater, supabase]
+  );
+
+  const scheduleSaveFornecedorDefaults = useCallback(
+    (next: { fornecedorId: number; finalidade: ItemFinalidade | null; motivoCompraId: string | null }) => {
+      pendingDefaultsRef.current = next;
+      if (defaultsDebounceRef.current) clearTimeout(defaultsDebounceRef.current);
+      defaultsDebounceRef.current = setTimeout(() => {
+        const p = pendingDefaultsRef.current;
+        pendingDefaultsRef.current = null;
+        if (!p) return;
+        void saveFornecedorImportDefaultsNow(p);
+      }, 650);
+    },
+    [saveFornecedorImportDefaultsNow]
+  );
+
+  const flushFornecedorDefaults = useCallback(
+    (fornecedorIdToFlush?: number | null) => {
+      const fid = fornecedorIdToFlush ?? fornecedorIdRef.current;
+      if (!fid) return;
+
+      if (defaultsDebounceRef.current) {
+        clearTimeout(defaultsDebounceRef.current);
+        defaultsDebounceRef.current = null;
+      }
+
+      const pending = pendingDefaultsRef.current;
+      pendingDefaultsRef.current = null;
+
+      const payload = pending?.fornecedorId === fid
+        ? pending
+        : {
+            fornecedorId: fid,
+            finalidade: normalizeFinalidade(finalidadeRef.current),
+            motivoCompraId: normalizeMotivoId(motivoCompraIdRef.current),
+          };
+
+      void saveFornecedorImportDefaultsNow(payload);
+    },
+    [saveFornecedorImportDefaultsNow]
+  );
 
   // Vinculo opcional de OS (somente quando finalidade do lote = materia_prima)
   const [osNumero, setOsNumero] = useState("");
@@ -263,7 +375,7 @@ export default function ImportarXmlPage() {
       }
 
       const { data, error } = await applyTenantEmpresa(
-        supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+        supabase.schema("public").from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
         tenantId,
         empresaId
       )
@@ -319,7 +431,7 @@ export default function ImportarXmlPage() {
       }
 
       let query = applyTenantEmpresa(
-        supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+        supabase.schema("public").from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
         tenantId,
         empresaId
       )
@@ -541,11 +653,14 @@ export default function ImportarXmlPage() {
   }
 
   async function checkFornecedor(params: { documento: string | null; nome: string | null }) {
+    // Persist last supplier choices before switching.
+    if (fornecedorIdRef.current) flushFornecedorDefaults(fornecedorIdRef.current);
+
     setFornecedorId(null);
     setFornecedorNome(null);
     applyFornecedorFinanceDefaults(false);
 
-    const cnpjNormalizado = normalizeDocumento(params.documento);
+    const cnpjNormalizado = normalizeCnpj(params.documento);
     if (!cnpjNormalizado) return;
 
     if (!tenantId || !empresaId) {
@@ -555,12 +670,13 @@ export default function ImportarXmlPage() {
 
     const { data, error } = await applyTenantEmpresa(
       supabase
+        .schema("public")
         .from("fornecedores")
-        .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto"),
+        .select("id,nome,cnpj_norm,finalidade_padrao,motivo_compra_padrao_id,gerar_contas_pagar_auto"),
       tenantId,
       empresaId
     )
-      .eq("documento_norm", cnpjNormalizado)
+      .eq("cnpj_norm", cnpjNormalizado)
       .maybeSingle();
 
     if (error) {
@@ -575,10 +691,11 @@ export default function ImportarXmlPage() {
 
       applyFornecedorFinanceDefaults(Boolean(fornecedor.gerar_contas_pagar_auto));
 
-      // Auto-preenche finalidade pelo padrão do fornecedor
-      if (fornecedor.finalidade_padrao && !finalidadeLote) {
+      // Auto-preenche defaults do fornecedor
+      if (fornecedor.finalidade_padrao) {
         setFinalidadeLote(fornecedor.finalidade_padrao);
       }
+      setMotivoCompraId(String(fornecedor.motivo_compra_padrao_id ?? ""));
 
       return;
     }
@@ -590,7 +707,7 @@ export default function ImportarXmlPage() {
     }
 
     const createdId = await criarFornecedor(
-      params.documento ?? cnpjNormalizado,
+      cnpjNormalizado,
       params.nome ?? "Fornecedor NF",
       finalidadeLote ? (finalidadeLote as ItemFinalidade) : null
     );
@@ -608,9 +725,9 @@ export default function ImportarXmlPage() {
       return null;
     }
 
-    const documento = normalizeDocumento(cnpj);
+    const documento = normalizeCnpj(cnpj);
     if (!documento) {
-      setImportErr("Documento do fornecedor invalido.");
+      setImportErr("CNPJ do fornecedor invalido.");
       return null;
     }
 
@@ -622,19 +739,27 @@ export default function ImportarXmlPage() {
     // Regra: fornecedor nasce com finalidade_padrao = finalidade do lote quando houver (senão, null)
     const finalidadeParaSalvar = (finalidadePadrao ?? null) ?? null;
 
+    const nomeUpper = String(nome ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+
     const payload: Record<string, unknown> = {
       tenant_id: tenantId,
       empresa_id: empresaId,
-      nome: nome?.trim() || "Fornecedor NF",
+      nome: nomeUpper || "FORNECEDOR NF",
+      cnpj: documento,
       documento,
       ativo: true,
       finalidade_padrao: finalidadeParaSalvar,
+      motivo_compra_padrao_id: normalizeMotivoId(motivoCompraIdRef.current),
     };
 
     const { data, error } = await supabase
+      .schema("public")
       .from("fornecedores")
       .insert(payload)
-      .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto")
+      .select("id,nome,cnpj_norm,finalidade_padrao,motivo_compra_padrao_id,gerar_contas_pagar_auto")
       .single();
 
     if (error) {
@@ -644,13 +769,14 @@ export default function ImportarXmlPage() {
       if (err?.code === "23505") {
         const { data: updated, error: updateErr } = await applyTenantEmpresa(
           supabase
+            .schema("public")
             .from("fornecedores")
             .update(payload)
-            .select("id,nome,documento_norm,finalidade_padrao,gerar_contas_pagar_auto"),
+            .select("id,nome,cnpj_norm,finalidade_padrao,motivo_compra_padrao_id,gerar_contas_pagar_auto"),
           tenantId,
           empresaId
         )
-          .eq("documento_norm", documento)
+          .eq("cnpj_norm", documento)
           .maybeSingle();
 
         if (updateErr) {
@@ -667,6 +793,9 @@ export default function ImportarXmlPage() {
         setFornecedorId(updatedRow.id);
         setFornecedorNome(updatedRow.nome ?? null);
         applyFornecedorFinanceDefaults(Boolean(updatedRow.gerar_contas_pagar_auto));
+
+        if (updatedRow.finalidade_padrao) setFinalidadeLote(updatedRow.finalidade_padrao);
+        setMotivoCompraId(String(updatedRow.motivo_compra_padrao_id ?? ""));
         return updatedRow.id;
       }
 
@@ -683,9 +812,15 @@ export default function ImportarXmlPage() {
     applyFornecedorFinanceDefaults(Boolean(created.gerar_contas_pagar_auto));
 
     // garante que o padrão fica setado
-    if (created.finalidade_padrao && !finalidadeLote) {
-      setFinalidadeLote(created.finalidade_padrao);
-    }
+    if (created.finalidade_padrao) setFinalidadeLote(created.finalidade_padrao);
+    setMotivoCompraId(String(created.motivo_compra_padrao_id ?? ""));
+
+    // Persist defaults for the newly created supplier.
+    scheduleSaveFornecedorDefaults({
+      fornecedorId: created.id,
+      finalidade: normalizeFinalidade(created.finalidade_padrao ?? finalidadeRef.current),
+      motivoCompraId: normalizeMotivoId(created.motivo_compra_padrao_id ?? motivoCompraIdRef.current),
+    });
 
     return created.id;
   }
@@ -693,7 +828,7 @@ export default function ImportarXmlPage() {
   async function atualizarFinalidadePadraoFornecedor(fornecedorIdToUpdate: number, finalidade: ItemFinalidade) {
     if (!tenantId || !empresaId) return;
     const { error } = await applyTenantEmpresa(
-      supabase.from("fornecedores").update({ finalidade_padrao: finalidade }),
+      supabase.schema("public").from("fornecedores").update({ finalidade_padrao: finalidade }),
       tenantId,
       empresaId
     ).eq("id", fornecedorIdToUpdate);
@@ -701,12 +836,26 @@ export default function ImportarXmlPage() {
     if (error) setImportErr(error.message);
   }
 
+  // If the currently selected motivo becomes invalid for XML_PRODUTO (e.g. it was SERVICO), clear and warn.
+  useEffect(() => {
+    if (motivosLoading) return;
+    if (!motivoCompraId) return;
+    const ok = motivos.some((m) => m.id === motivoCompraId);
+    if (ok) return;
+    setMotivoCompraId("");
+    setDefaultsToast({
+      kind: "warn",
+      message: "Motivo padrao do fornecedor nao se aplica a XML de produtos (SERVICO). Selecione outro.",
+    });
+    clearToastLater(3500);
+  }, [clearToastLater, motivoCompraId, motivos, motivosLoading]);
+
   const carregarItensPorCodigo = useCallback(
     async (codigos: string[], tenantIdLocal: string, empresaIdLocal: string) => {
       if (codigos.length === 0) return new Map<string, number>();
 
       const { data, error } = await applyTenantEmpresa(
-        supabase.from("itens").select("id,codigo_interno"),
+        supabase.schema("public").from("itens").select("id,codigo_interno"),
         tenantIdLocal,
         empresaIdLocal
       ).in("codigo_interno", codigos);
@@ -729,6 +878,7 @@ export default function ImportarXmlPage() {
 
     const { data, error } = await applyTenantEmpresa(
       supabase
+        .schema("public")
         .from("fiscal_itens")
         .select(
           "item_id,ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,credita_pis,credita_cofins,ipi_entra_no_custo"
@@ -788,7 +938,10 @@ export default function ImportarXmlPage() {
       ipi_entra_no_custo: fiscal.ipi_entra_no_custo ?? true,
     };
 
-    const { error } = await supabase.from("fiscal_itens").upsert(payload, { onConflict: "tenant_id,empresa_id,item_id" });
+    const { error } = await supabase
+      .schema("public")
+      .from("fiscal_itens")
+      .upsert(payload, { onConflict: "tenant_id,empresa_id,item_id" });
 
     // Com as policies do SQL, isso deve parar de acontecer
     if (error) {
@@ -810,8 +963,12 @@ export default function ImportarXmlPage() {
     }
 
     const nomeFinal = it.overrideNome?.trim() || it.nome || `Item ${it.codigo}`;
+    const nomeUpper = String(nomeFinal).trim().toUpperCase();
     const dataCompra = dataEmissao || new Date().toISOString();
     const margem = 52;
+
+    const valorUnitRaw = Number(it.valorUnit ?? 0);
+    const valorUnit = Number.isFinite(valorUnitRaw) ? valorUnitRaw : 0;
 
     const aliq = (v?: number | null) => (Number.isFinite(v as number) ? Number(v) : null);
 
@@ -821,18 +978,19 @@ export default function ImportarXmlPage() {
     }
 
     const { data, error } = await supabase
+      .schema("public")
       .from("itens")
       .insert({
         tenant_id: tenantId,
         empresa_id: empresaId,
         codigo_interno: it.codigo,
-        nome: nomeFinal,
+        nome: nomeUpper,
         tipo: "produto",
         controla_estoque: true,
         unidade_medida: "UN",
-        custo_ultima_compra: it.valorUnit,
-        custo_medio: it.valorUnit,
-        preco_unitario: it.valorUnit,
+        custo_ultima_compra: valorUnit,
+        custo_medio: valorUnit,
+        preco_unitario: valorUnit,
         fornecedor_id: fornecedorIdLocal ?? null,
         data_atualizacao_preco: dataCompra,
         data_ultima_compra: dataCompra,
@@ -896,7 +1054,7 @@ export default function ImportarXmlPage() {
   async function addJobFromRaw(xml: string, fileName: string) {
     const parsed = parseXml(xml);
     const cnpjRaw = parsed.nfe.cnpjEmitente ?? null;
-    const cnpj = normalizeDocumento(cnpjRaw);
+    const cnpj = normalizeCnpj(cnpjRaw);
 
     let status: ImportJob["status"] = "ok";
     let error: string | undefined;
@@ -911,7 +1069,7 @@ export default function ImportarXmlPage() {
 
     if (chave && status === "ok" && tenantId && empresaId) {
       const { count: nfExiste } = await applyTenantEmpresa(
-        supabase.from("nf_entrada").select("id", { count: "exact" }),
+        supabase.schema("public").from("nf_entrada").select("id", { count: "exact" }),
         tenantId,
         empresaId
       )
@@ -926,9 +1084,11 @@ export default function ImportarXmlPage() {
     }
 
     // regra do lote: todos devem ser do mesmo fornecedor
-    if (!fornecedorCnpjBase && cnpj && status === "ok") {
-      setFornecedorCnpjBase(cnpj);
-    } else if (fornecedorCnpjBase && cnpj && fornecedorCnpjBase !== cnpj) {
+    const baseRef = fornecedorCnpjBaseRef.current;
+    if (!baseRef && cnpj && status === "ok") {
+      fornecedorCnpjBaseRef.current = cnpj;
+      setFornecedorCnpjBase(cnpj); // state apenas para UI
+    } else if (baseRef && cnpj && baseRef !== cnpj) {
       status = "erro";
       error = "Fornecedor diferente do lote";
       selected = false;
@@ -946,15 +1106,21 @@ export default function ImportarXmlPage() {
       selected,
     };
 
-    const alreadyExists = !!(chave && jobs.some((j) => j.nfeInfo?.chave === chave));
+    const chaveKey = chave ? String(chave) : null;
+    const alreadyExists = Boolean(chaveKey && chavesAddedRef.current.has(chaveKey));
+    if (chaveKey && !alreadyExists) chavesAddedRef.current.add(chaveKey);
+
+    const didAdd = !alreadyExists;
+
     setJobs((prev) => {
       if (alreadyExists) return prev;
+      if (chaveKey && prev.some((j) => j.nfeInfo?.chave === chaveKey)) return prev;
       return [...prev, job];
     });
 
-    if (selected && !alreadyExists) setSelectedJobId(job.id);
+    if (selected && didAdd) setSelectedJobId(job.id);
 
-    if (selected && status === "ok") {
+    if (selected && didAdd && status === "ok") {
       await checkFornecedor({ documento: parsed.nfe.cnpjEmitente, nome: parsed.nfe.emitente });
     }
   }
@@ -991,6 +1157,9 @@ export default function ImportarXmlPage() {
       setFornecedorNome(null);
       setFornecedorIdBase(null);
       setFornecedorCnpjBase(null);
+
+      fornecedorCnpjBaseRef.current = null;
+      chavesAddedRef.current = new Set();
 
       setItemMap(new Map());
       setJobs([]);
@@ -1040,6 +1209,9 @@ export default function ImportarXmlPage() {
     setItemMap(new Map());
     setImportErr(null);
     setImportOk(null);
+
+    fornecedorCnpjBaseRef.current = null;
+    chavesAddedRef.current = new Set();
   }
 
   async function cadastrarFornecedorEItens() {
@@ -1057,18 +1229,19 @@ export default function ImportarXmlPage() {
 
       // resolve fornecedor do lote via CNPJ base
       const baseCnpj =
+        fornecedorCnpjBaseRef.current ??
         fornecedorCnpjBase ??
-        normalizeDocumento(jobsToUse.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null);
+        normalizeCnpj(jobsToUse.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null);
 
       let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
 
       if (!fornecedorFinal && baseCnpj) {
         const { data: found, error: findErr } = await applyTenantEmpresa(
-          supabase.from("fornecedores").select("id"),
+          supabase.schema("public").from("fornecedores").select("id"),
           tenantId,
           empresaId
         )
-          .eq("documento_norm", baseCnpj)
+          .eq("cnpj_norm", baseCnpj)
           .maybeSingle();
 
         if (findErr) throw findErr;
@@ -1083,7 +1256,7 @@ export default function ImportarXmlPage() {
       let gerarContasAuto = false;
       {
         const { data: fornecedorCfg, error: fornecedorCfgErr } = await applyTenantEmpresa(
-          supabase.from("fornecedores").select("nome,gerar_contas_pagar_auto"),
+          supabase.schema("public").from("fornecedores").select("nome,gerar_contas_pagar_auto"),
           tenantId,
           empresaId
         )
@@ -1098,7 +1271,8 @@ export default function ImportarXmlPage() {
       }
 
       // Sempre persiste finalidade padrão do fornecedor (comportamento obrigatório)
-      await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
+      // Persist supplier defaults (finalidade + motivo) before proceeding.
+      flushFornecedorDefaults(fornecedorFinal);
 
       // agora itens
       const todosItens = jobsToUse.flatMap((j) => j.itens);
@@ -1185,6 +1359,18 @@ export default function ImportarXmlPage() {
       if (!canImport) throw new Error("Sem permissao para importar NF.");
       if (!finalidadeLote) throw new Error("Selecione a finalidade antes de importar.");
 
+      if (!motivosLoading && motivos.length === 0) {
+        throw new Error("Nao existe nenhum motivo/classificacao ativo. Contate o admin.");
+      }
+
+      const motivo = motivos.find((m) => m.id === motivoCompraId) ?? null;
+      const motivoCodigo = String(motivo?.codigo ?? "")
+        .trim()
+        .toUpperCase();
+      if (!motivoCompraId || !motivo || !motivoCodigo || motivoCodigo === "NAO_CLASSIFICADO") {
+        throw new Error("Selecione uma classificacao/motivo valido (nao pode ser NAO_CLASSIFICADO).");
+      }
+
       // OS opcional, mas se o usuario preencheu, precisa ser valida.
       if (finalidadeLote === "materia_prima") {
         if (osLoading) throw new Error("Aguarde a validacao da OS.");
@@ -1199,47 +1385,81 @@ export default function ImportarXmlPage() {
       // regra: não importa se tiver itens faltando
       if (loteMissing.length > 0) throw new Error(`Itens nao cadastrados: ${loteMissing.join(", ")}`);
 
-      // resolve fornecedor final (tem que existir)
-      let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
-
-      if (!fornecedorFinal) {
-        const baseCnpj =
-          fornecedorCnpjBase ??
-          normalizeDocumento(jobsToImport.find((j) => j.nfeInfo?.cnpjEmitente)?.nfeInfo?.cnpjEmitente ?? null);
-
-        if (baseCnpj) {
-            const { data: found, error: fornecedorErr } = await applyTenantEmpresa(
-              supabase.from("fornecedores").select("id"),
-              tenantId,
-              empresaId
-            )
-            .eq("documento_norm", baseCnpj)
-            .maybeSingle();
-
-          if (fornecedorErr) throw fornecedorErr;
-          fornecedorFinal = found?.id ?? null;
+      // Best-effort: if fornecedor already resolved in UI, persist defaults (doesn't block import)
+      const fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
+      let gerarContasAuto = fornecedorGerarContasAuto;
+      if (fornecedorFinal) {
+        try {
+          await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
+        } catch {
+          // ignore
         }
+
+        const { data: fornecedorCfg, error: fornecedorCfgErr } = await applyTenantEmpresa(
+          supabase.schema("public").from("fornecedores").select("nome,gerar_contas_pagar_auto"),
+          tenantId,
+          empresaId
+        )
+          .eq("id", fornecedorFinal)
+          .maybeSingle();
+
+        if (fornecedorCfgErr) throw fornecedorCfgErr;
+
+        gerarContasAuto = Boolean(fornecedorCfg?.gerar_contas_pagar_auto);
+        setFornecedorGerarContasAuto(gerarContasAuto);
+        if (fornecedorCfg?.nome) setFornecedorNome(String(fornecedorCfg.nome));
       }
 
-      if (!fornecedorFinal) throw new Error("Fornecedor nao cadastrado.");
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? null;
+      const userEmail = sess.session?.user?.email ?? null;
+      if (!token) throw new Error("Sessao expirada. Faca login novamente.");
 
-      // Sempre persiste finalidade padrão do fornecedor (comportamento obrigatório)
-      await atualizarFinalidadePadraoFornecedor(fornecedorFinal, finalidadeLote as ItemFinalidade);
+      const callImportApi = async (job: ImportJob, payload: { nfJson: unknown; itensJson: unknown; gerar: boolean; parcelas: unknown }) => {
+        const info = job.nfeInfo;
+        const res = await fetch("/api/estoque/importar-xml", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tenantId,
+            empresaId,
+            finalidade: finalidadeLote,
+            osId: finalidadeLote === "materia_prima" ? osId : null,
+            motivoCompraId,
+            fornecedorCnpj: info?.cnpjEmitente ?? null,
+            fornecedorNome: info?.emitente ?? null,
+            nfJson: payload.nfJson,
+            itensJson: payload.itensJson,
+            xmlRaw: job.xmlText,
+            gerarContasPagar: payload.gerar,
+            parcelasJson: payload.gerar ? payload.parcelas : null,
+          }),
+        });
 
-      // Recarrega config do fornecedor (fonte da verdade)
-      const { data: fornecedorCfg, error: fornecedorCfgErr } = await applyTenantEmpresa(
-        supabase.from("fornecedores").select("nome,gerar_contas_pagar_auto"),
-        tenantId,
-        empresaId
-      )
-        .eq("id", fornecedorFinal)
-        .maybeSingle();
+        const jsonUnknown: unknown = await res.json().catch(() => null);
+        const jsonObj =
+          jsonUnknown && typeof jsonUnknown === "object" ? (jsonUnknown as Record<string, unknown>) : null;
+        if (!res.ok) {
+          const msg = typeof jsonObj?.error === "string" ? String(jsonObj.error) : "Erro ao importar.";
+          const err = new Error(msg) as Error & { status?: number };
+          err.status = res.status;
+          throw err;
+        }
 
-      if (fornecedorCfgErr) throw fornecedorCfgErr;
-
-      const gerarContasAuto = Boolean(fornecedorCfg?.gerar_contas_pagar_auto);
-      setFornecedorGerarContasAuto(gerarContasAuto);
-      if (fornecedorCfg?.nome) setFornecedorNome(String(fornecedorCfg.nome));
+        return {
+          status: typeof jsonObj?.status === "string" ? jsonObj.status : undefined,
+          message: typeof jsonObj?.message === "string" ? jsonObj.message : undefined,
+          nf_entrada_id:
+            typeof jsonObj?.nf_entrada_id === "number"
+              ? jsonObj.nf_entrada_id
+              : jsonObj?.nf_entrada_id
+                ? Number(jsonObj.nf_entrada_id) || null
+                : null,
+        };
+      };
 
       const results: string[] = [];
 
@@ -1263,7 +1483,7 @@ export default function ImportarXmlPage() {
 
           // evita duplicidade
           const { count: nfJaExiste } = await applyTenantEmpresa(
-            supabase.from("nf_entrada").select("id", { count: "exact" }),
+            supabase.schema("public").from("nf_entrada").select("id", { count: "exact" }),
             tenantId,
             empresaId
           )
@@ -1287,9 +1507,6 @@ export default function ImportarXmlPage() {
 
           const itemIds = Array.from(map.values());
           const fiscalMap = await carregarFiscalPorItens(itemIds, tenantId, empresaId);
-
-          const { data: sess } = await supabase.auth.getSession();
-          const userEmail = sess.session?.user?.email ?? null;
 
           const itemsToImport = job.itens;
 
@@ -1381,53 +1598,54 @@ export default function ImportarXmlPage() {
           const parcelasFromXml = info.parcelas ?? [];
           const parcelasJson = shouldGenerateFinance && parcelasFromXml.length > 0 ? parcelasFromXml : null;
 
-          const callImport = async (opts: { gerar: boolean; parcelas: unknown }) => {
-            return supabase.rpc("import_nf_entrada", {
-              p_tenant_id: tenantId,
-              p_empresa_id: empresaId,
-              p_fornecedor_id: fornecedorFinal,
-              p_nf_json: nfJson,
-              p_itens_json: itensPayload,
-              p_xml_raw: job.xmlText,
-              p_finalidade_contexto: finalidadeLote,
-              p_gerar_contas_pagar: opts.gerar,
-              p_parcelas_json: opts.gerar ? opts.parcelas : null,
-              p_os_id: finalidadeLote === "materia_prima" ? osId : null,
+          let importRes: { status?: string; message?: string; nf_entrada_id?: number | null };
+          try {
+            importRes = await callImportApi(job, {
+              nfJson,
+              itensJson: itensPayload,
+              gerar: shouldGenerateFinance,
+              parcelas: parcelasJson,
             });
-          };
+          } catch (e: unknown) {
+            if (!shouldGenerateFinance) throw e;
 
-          let { data: importData, error: importErr } = await callImport({
-            gerar: shouldGenerateFinance,
-            parcelas: parcelasJson,
-          });
+            const msg = getErrorMessage(e, "Erro ao gerar contas a pagar.");
+            const msgLower = msg.toLowerCase();
+            const status =
+              typeof e === "object" && e !== null && "status" in e
+                ? (() => {
+                    const raw = (e as { status?: unknown }).status;
+                    return typeof raw === "number" ? raw : raw ? Number(raw) : null;
+                  })()
+                : null;
 
-          // Se falhar a parte financeira, tenta importar a NF sem gerar contas (para não travar a importação)
-          if (importErr && shouldGenerateFinance) {
-            const msgLower = (importErr.message ?? "").toLowerCase();
+            // Don't retry on 422 (validation) — user must fix input.
+            if (status === 422) throw e;
+
             const looksFinance =
-              msgLower.includes("financeiro") || msgLower.includes("parcel") || msgLower.includes("soma das parcelas");
+              msgLower.includes("finance") ||
+              msgLower.includes("parcel") ||
+              msgLower.includes("soma das parcelas") ||
+              msgLower.includes("titulo") ||
+              msgLower.includes("aprovacao") ||
+              msgLower.includes("contas a pagar") ||
+              msgLower.includes("motivo_compra");
 
-            if (looksFinance) {
-              const retry = await callImport({ gerar: false, parcelas: null });
-              if (retry.error) throw importErr;
-              importData = retry.data;
+            if (!looksFinance) throw e;
 
-              results.push(
-                `${job.fileName}: NF importada, mas falhou ao gerar contas a pagar: ${importErr.message}`
-              );
+            // Retry: import NF without finance generation.
+            importRes = await callImportApi(job, {
+              nfJson,
+              itensJson: itensPayload,
+              gerar: false,
+              parcelas: null,
+            });
 
-              // limpa o erro para que o parse de status siga normal (importData agora vem do retry)
-              importErr = null;
-            } else {
-              throw importErr;
-            }
+            results.push(`${job.fileName}: NF importada, mas falhou ao gerar contas a pagar: ${msg}`);
           }
 
-          if (importErr) throw importErr;
-
-          const result = Array.isArray(importData) ? importData[0] : importData;
-          const status = result?.status ?? "ok";
-          const message = result?.message ?? null;
+          const status = String(importRes?.status ?? "ok");
+          const message = importRes?.message ? String(importRes.message) : null;
 
           if (status === "ja_importada") {
             setJobs((prev) =>
@@ -1547,16 +1765,31 @@ export default function ImportarXmlPage() {
   const finalidadeSelecionada = Boolean(finalidadeLote);
   const itensFaltantes = loteMissing.length > 0;
 
+  const motivoSelecionadoRow = motivos.find((m) => m.id === motivoCompraId) ?? null;
+  const motivoSelecionadoCodigo = String(motivoSelecionadoRow?.codigo ?? "")
+    .trim()
+    .toUpperCase();
+  const motivoSelecionadoOk = Boolean(
+    motivoCompraId && motivoSelecionadoRow && motivoSelecionadoCodigo && motivoSelecionadoCodigo !== "NAO_CLASSIFICADO"
+  );
+
   const requisitosChecklist = {
     xml: hasSelectedOkJobs,
     finalidade: finalidadeSelecionada,
+    motivo: motivoSelecionadoOk,
     fornecedor: fornecedorResolvido,
     itens: !itensFaltantes || canCreateItem,
   };
 
   // regra: importar só se tudo estiver ok e itens sem faltantes
   const bloqueiaImportacao =
-    !hasSelectedOkJobs || !finalidadeSelecionada || !fornecedorResolvido || itensFaltantes || !tenantId || !empresaId;
+    !hasSelectedOkJobs ||
+    !finalidadeSelecionada ||
+    !motivoSelecionadoOk ||
+    !fornecedorResolvido ||
+    itensFaltantes ||
+    !tenantId ||
+    !empresaId;
 
   const podeCriarItens = !itensFaltantes || canCreateItem;
 
@@ -1606,9 +1839,14 @@ export default function ImportarXmlPage() {
                   onChange={(e) => {
                     const next = e.target.value as ItemFinalidade | "";
                     setFinalidadeLote(next);
-                    const fornecedorFinal = fornecedorIdBase ?? fornecedorId;
-                    if (next && fornecedorFinal) {
-                      void atualizarFinalidadePadraoFornecedor(fornecedorFinal, next as ItemFinalidade);
+
+                    const fornecedorFinal = fornecedorIdBase ?? fornecedorIdRef.current;
+                    if (fornecedorFinal) {
+                      scheduleSaveFornecedorDefaults({
+                        fornecedorId: fornecedorFinal,
+                        finalidade: next ? (next as ItemFinalidade) : null,
+                        motivoCompraId: normalizeMotivoId(motivoCompraIdRef.current),
+                      });
                     }
                   }}
                   className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
@@ -1620,6 +1858,60 @@ export default function ImportarXmlPage() {
                   <option value="imobilizado">Imobilizado</option>
                   <option value="outros">Outros</option>
                 </select>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-zinc-200">Classificacao / Motivo</span>
+                <select
+                  value={motivoCompraId}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setMotivoCompraId(next);
+
+                    const fornecedorFinal = fornecedorIdBase ?? fornecedorIdRef.current;
+                    if (fornecedorFinal) {
+                      scheduleSaveFornecedorDefaults({
+                        fornecedorId: fornecedorFinal,
+                        finalidade: normalizeFinalidade(finalidadeRef.current),
+                        motivoCompraId: normalizeMotivoId(next),
+                      });
+                    }
+                  }}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                  disabled={motivosLoading}
+                >
+                  <option value="">Selecione...</option>
+                  {motivos.map((m) => {
+                    const codigo = String(m.codigo ?? "")
+                      .trim()
+                      .toUpperCase();
+                    const disabled = codigo === "NAO_CLASSIFICADO";
+                    return (
+                      <option key={m.id} value={m.id} disabled={disabled}>
+                        {m.codigo} — {m.nome}
+                      </option>
+                    );
+                  })}
+                </select>
+                {motivosLoading && <div className="text-xs text-zinc-400">Carregando motivos...</div>}
+                {!motivosLoading && motivosError && <div className="text-xs text-red-400">{motivosError}</div>}
+                {!motivosLoading && !motivosError && !motivoSelecionadoOk && (
+                  <div className="text-xs text-amber-300">Obrigatorio para importar (nao pode ser NAO_CLASSIFICADO).</div>
+                )}
+
+                {defaultsToast && (
+                  <div
+                    className={
+                      defaultsToast.kind === "saved"
+                        ? "text-xs text-emerald-300"
+                        : defaultsToast.kind === "warn"
+                          ? "text-xs text-amber-300"
+                          : "text-xs text-red-300"
+                    }
+                  >
+                    {defaultsToast.message}
+                  </div>
+                )}
               </label>
 
               {osEnabled && (
@@ -1708,6 +2000,9 @@ export default function ImportarXmlPage() {
               </div>
               <div className={requisitosChecklist.finalidade ? "text-emerald-300" : "text-amber-300"}>
                 {requisitosChecklist.finalidade ? "OK" : "Pendente"} - Finalidade selecionada
+              </div>
+              <div className={requisitosChecklist.motivo ? "text-emerald-300" : "text-amber-300"}>
+                {requisitosChecklist.motivo ? "OK" : "Pendente"} - Classificacao/Motivo selecionado
               </div>
               <div className={requisitosChecklist.fornecedor ? "text-emerald-300" : "text-amber-300"}>
                 {requisitosChecklist.fornecedor ? "OK" : "Pendente"} - Fornecedor encontrado/cadastrado

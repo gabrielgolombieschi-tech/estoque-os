@@ -27,6 +27,7 @@ type Item = {
 
   fabricante: string | null;
   finalidade: string | null;
+  motivo_compra_id: string | null;
 
   unidade_medida: string | null;
   controla_estoque: boolean | null;
@@ -62,6 +63,7 @@ type ItemForm = {
 
   fabricante: string;
   finalidade: string; // public.item_finalidade ("" = null)
+  motivo_compra_id: string; // f.motivo_compra ("" = null)
 
   unidade_medida: string;
   controla_estoque: boolean;
@@ -96,6 +98,9 @@ type FiscalItem = {
 };
 
 type ItemBase = Omit<Item, "fiscal_itens">;
+// When the DB schema hasn't been migrated yet, `motivo_compra_id` won't be returned by Supabase.
+// This keeps runtime resilient without using `any`.
+type ItemBaseMaybeMotivo = Omit<ItemBase, "motivo_compra_id"> & { motivo_compra_id?: string | null };
 type ItemPayload = {
   codigo_interno: string;
   codigo_barras: string | null;
@@ -106,6 +111,7 @@ type ItemPayload = {
   subcategoria: string | null;
   fabricante: string | null;
   finalidade: string | null;
+  motivo_compra_id: string | null;
   unidade_medida: string;
   controla_estoque: boolean;
   estoque_minimo: number;
@@ -172,6 +178,7 @@ function emptyForm(): ItemForm {
 
     fabricante: "",
     finalidade: "",
+    motivo_compra_id: "",
 
     unidade_medida: "UN",
     controla_estoque: true,
@@ -225,6 +232,9 @@ export default function ItensPage() {
 
   const [rows, setRows] = useState<Item[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [motivos, setMotivos] = useState<Array<{ id: string; codigo: string; nome: string }>>([]);
+  const [motivosLoading, setMotivosLoading] = useState(false);
+  const [supportsMotivoCompra, setSupportsMotivoCompra] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -289,6 +299,43 @@ export default function ItensPage() {
     if (!error) setFornecedores((data ?? []) as unknown as Fornecedor[]);
   }
 
+  async function loadMotivos() {
+    if (tenantEmpresaLoading) return;
+    if (!tenantId) return;
+    setMotivosLoading(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? null;
+      if (!token) {
+        setMotivos([]);
+        return;
+      }
+
+      const res = await fetch("/api/estoque/motivos-compra", {
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      const jsonUnknown: unknown = await res.json().catch(() => null);
+      const json = jsonUnknown && typeof jsonUnknown === "object" ? (jsonUnknown as Record<string, unknown>) : null;
+      const list = Array.isArray(json?.motivos) ? (json!.motivos as unknown[]) : [];
+      const parsed = list
+        .map((r) => (r && typeof r === "object" ? (r as Record<string, unknown>) : null))
+        .filter(Boolean)
+        .map((r) => ({
+          id: String(r!.id ?? ""),
+          codigo: String(r!.codigo ?? ""),
+          nome: String(r!.nome ?? ""),
+        }))
+        .filter((m) => m.id && m.codigo && m.nome);
+
+      setMotivos(parsed);
+    } catch {
+      setMotivos([]);
+    } finally {
+      setMotivosLoading(false);
+    }
+  }
+
   async function load() {
     setErr(null);
     if (tenantEmpresaLoading) return;
@@ -299,6 +346,14 @@ export default function ItensPage() {
 
     setListLoading(true);
 
+    const isMissingMotivoCompraColumn = (message: string) =>
+      message.toLowerCase().includes("motivo_compra_id") && message.toLowerCase().includes("does not exist");
+
+    const selectBase =
+      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em" as const;
+    const selectWithMotivo =
+      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,motivo_compra_id,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em" as const;
+
     try {
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -307,7 +362,7 @@ export default function ItensPage() {
         supabase
           .from("itens")
           .select(
-            "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em",
+            (supportsMotivoCompra ? selectWithMotivo : selectBase) as string,
             { count: "exact" }
           ),
         tenantId
@@ -340,18 +395,34 @@ export default function ItensPage() {
       if (filterAtivo === "ativos") query = query.eq("ativo", true);
       if (filterAtivo === "inativos") query = query.eq("ativo", false);
 
-      const { data, error, count } = await query.range(from, to);
+      let { data, error, count } = await query.range(from, to);
 
       if (error) {
-        setErr(error.message);
-        setRows([]);
-        setTotalCount(0);
-        return;
+        if (supportsMotivoCompra && isMissingMotivoCompraColumn(error.message ?? "")) {
+          setSupportsMotivoCompra(false);
+          // Retry without motivo_compra_id so the page still loads.
+          const retry = await applyTenant(
+            supabase.from("itens").select(selectBase as string, { count: "exact" }),
+            tenantId
+          )
+            .order("nome", { ascending: true })
+            .range(from, to);
+          data = retry.data;
+          error = retry.error;
+          count = retry.count;
+        }
+
+        if (error) {
+          setErr(error.message);
+          setRows([]);
+          setTotalCount(0);
+          return;
+        }
       }
 
       setTotalCount(count ?? 0);
 
-      const baseRows = (data ?? []) as unknown as ItemBase[];
+      const baseRows = (data ?? []) as unknown as ItemBaseMaybeMotivo[];
       const itemIds = Array.from(new Set(baseRows.map((row) => row.id).filter(Number.isFinite)));
       const fiscalMap = new Map<number, FiscalItem>();
 
@@ -378,6 +449,8 @@ export default function ItensPage() {
 
       const merged = baseRows.map((row) => ({
         ...row,
+        // In environments without the column, Supabase won't return it; normalize to null.
+        motivo_compra_id: supportsMotivoCompra ? row.motivo_compra_id ?? null : null,
         fiscal_itens: fiscalMap.get(row.id) ?? null,
       }));
 
@@ -387,9 +460,51 @@ export default function ItensPage() {
     }
   }
 
+  async function checkMotivoCompraSupport() {
+    if (tenantEmpresaLoading) return;
+    if (!tenantId) return;
+
+    // Lightweight probe: if column exists, this succeeds (even with 0/1 rows).
+    const { error } = await applyTenant(supabase.from("itens").select("id,motivo_compra_id").limit(1), tenantId);
+    if (!error) {
+      if (!supportsMotivoCompra) setSupportsMotivoCompra(true);
+      return;
+    }
+
+    const msg = String(error.message ?? "");
+    if (msg.toLowerCase().includes("motivo_compra_id") && msg.toLowerCase().includes("does not exist")) {
+      if (supportsMotivoCompra) setSupportsMotivoCompra(false);
+    }
+  }
+
   useEffect(() => {
     void loadFornecedores();
+    if (supportsMotivoCompra) void loadMotivos();
   }, [tenantId, tenantEmpresaLoading]);
+
+  // If the page previously fell back due to missing column, keep rechecking periodically.
+  // This lets the UI recover automatically after the migration is applied.
+  useEffect(() => {
+    if (tenantEmpresaLoading) return;
+    if (!tenantId) return;
+    if (supportsMotivoCompra) return;
+
+    const handle = setTimeout(() => {
+      void checkMotivoCompraSupport();
+    }, 1500);
+
+    return () => clearTimeout(handle);
+  }, [supportsMotivoCompra, tenantEmpresaLoading, tenantId]);
+
+  // When support toggles back on, fetch motivos and refresh the list.
+  useEffect(() => {
+    if (!supportsMotivoCompra) return;
+    if (tenantEmpresaLoading) return;
+    if (!tenantId) return;
+    void loadMotivos();
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supportsMotivoCompra]);
 
   useEffect(() => {
     void load();
@@ -454,6 +569,7 @@ export default function ItensPage() {
 
       fabricante: r.fabricante ?? "",
       finalidade: r.finalidade ? String(r.finalidade) : "",
+      motivo_compra_id: r.motivo_compra_id ? String(r.motivo_compra_id) : "",
 
       unidade_medida: r.unidade_medida ?? "UN",
       controla_estoque: !!r.controla_estoque,
@@ -550,6 +666,7 @@ export default function ItensPage() {
 
       fabricante: form.fabricante.trim() || null,
       finalidade: form.finalidade.trim() || null,
+      motivo_compra_id: supportsMotivoCompra ? form.motivo_compra_id.trim() || null : null,
 
       unidade_medida: (form.unidade_medida || "UN").trim().toUpperCase(),
       controla_estoque: controlaEstoque,
@@ -668,6 +785,12 @@ export default function ItensPage() {
   function fornecedorNome(id: number | null) {
     if (!id) return "--";
     return fornecedores.find((f) => f.id === id)?.nome ?? `#${id}`;
+  }
+
+  function motivoCompraLabel(id: string | null) {
+    if (!id) return "—";
+    const m = motivos.find((x) => x.id === id);
+    return m ? `${m.codigo} — ${m.nome}` : id;
   }
 
   if (!ready && permissionsLoading) {
@@ -875,6 +998,9 @@ export default function ItensPage() {
                 <th className="px-4 py-3 text-left min-w-[280px]">Nome</th>
                 <th className="px-4 py-3 text-left">Tipo</th>
                 <th className="px-4 py-3 text-left">Finalidade</th>
+                {supportsMotivoCompra && (
+                  <th className="px-4 py-3 text-left min-w-[220px]">Motivo</th>
+                )}
                 <th className="px-4 py-3 text-left min-w-[200px]">Fornecedor</th>
                 <th className="px-4 py-3 text-center">Ativo</th>
                 <th className="px-4 py-3 text-center">Ações</th>
@@ -899,6 +1025,9 @@ export default function ItensPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="h-4 w-24 bg-zinc-800 rounded" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-4 w-40 bg-zinc-800 rounded" />
                     </td>
                     <td className="px-4 py-3">
                       <div className="h-4 w-32 bg-zinc-800 rounded" />
@@ -931,6 +1060,9 @@ export default function ItensPage() {
                     </td>
                     <td className="px-4 py-3 text-zinc-300 capitalize">{r.tipo}</td>
                     <td className="px-4 py-3 text-zinc-300">{r.finalidade ? String(r.finalidade).replace(/_/g, " ") : "-"}</td>
+                    {supportsMotivoCompra && (
+                      <td className="px-4 py-3 text-zinc-300">{motivoCompraLabel(r.motivo_compra_id)}</td>
+                    )}
                     <td className="px-4 py-3 text-zinc-300">{r.fornecedores?.nome ?? fornecedorNome(r.fornecedor_id)}</td>
                     <td className="px-4 py-3 text-center">
                       <span
@@ -968,7 +1100,7 @@ export default function ItensPage() {
 
               {!listLoading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-zinc-400 text-center">
+                  <td colSpan={supportsMotivoCompra ? 9 : 8} className="px-4 py-10 text-zinc-400 text-center">
                     Nenhum item encontrado.
                   </td>
                 </tr>
@@ -1119,6 +1251,26 @@ export default function ItensPage() {
                         <option value="outros">Outros</option>
                       </select>
                     </div>
+
+                    {supportsMotivoCompra && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-zinc-400">Classificação / Motivo</div>
+                        <select
+                          aria-label="Classificação / Motivo"
+                          className="w-full px-3 py-2"
+                          value={form.motivo_compra_id}
+                          onChange={(e) => setForm((s) => ({ ...s, motivo_compra_id: e.target.value }))}
+                          disabled={motivosLoading}
+                        >
+                          <option value="">(Sem)</option>
+                          {motivos.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.codigo} — {m.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Unidade</div>
