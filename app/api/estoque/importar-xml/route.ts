@@ -23,12 +23,15 @@ function normalizeName(value: string | null | undefined): string {
     .trim();
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type ImportBody = {
   tenantId?: string;
   empresaId?: string;
   finalidade?: string | null;
   osId?: number | null;
   motivoCompraId?: string | null;
+  solicitanteUsuarioId?: string | null;
 
   fornecedorCnpj?: string | null;
   fornecedorNome?: string | null;
@@ -146,7 +149,7 @@ async function resolveFornecedorId(opts: {
       .select("id,cnpj_norm,nome,ativo")
       .eq("tenant_id", tenantId)
       .eq("empresa_id", empresaId)
-      .eq("cnpj_norm", cnpjNorm)
+      .or(`cnpj_norm.eq.${cnpjNorm},documento_norm.eq.${cnpjNorm}`)
       .order("id", { ascending: true })
       .returns<FornecedorRow[]>();
 
@@ -199,7 +202,7 @@ async function resolveFornecedorId(opts: {
         .select("id")
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
-        .eq("cnpj_norm", cnpjNorm)
+        .or(`cnpj_norm.eq.${cnpjNorm},documento_norm.eq.${cnpjNorm}`)
         .order("id", { ascending: true })
         .limit(1)
         .maybeSingle();
@@ -278,9 +281,17 @@ export async function POST(req: NextRequest) {
     // Motivo obrigatório
     const motivoCompraId = String(body.motivoCompraId ?? "").trim();
     if (!motivoCompraId) return jerr(422, "Classificacao/Motivo obrigatorio.");
+    if (!UUID_REGEX.test(motivoCompraId)) return jerr(400, "Motivo invalido.");
+
+    // Solicitante (usuario) obrigatório
+    const solicitanteUsuarioId = String(body.solicitanteUsuarioId ?? "").trim();
+    if (!solicitanteUsuarioId) return jerr(422, "Solicitante (usuario) obrigatorio.");
+    if (!UUID_REGEX.test(solicitanteUsuarioId)) return jerr(400, "Solicitante (usuario) invalido.");
+
+    const admin = supabaseAdmin();
 
     // Ensure motivo exists + active + not NAO_CLASSIFICADO
-    const { data: motivoRow, error: motivoErr } = await supabase
+    const { data: motivoRow, error: motivoErr } = await admin
       .schema("f")
       .from("motivo_compra")
       .select("id,codigo,ativo,deleted_at")
@@ -318,18 +329,21 @@ export async function POST(req: NextRequest) {
     const osId = typeof body.osId === "number" ? body.osId : null;
     const gerar = Boolean(body.gerarContasPagar);
 
-    // Call existing import RPC using the user's auth context
+    // Call import RPC using the user's auth context
     const { data: importData, error: importErr } = await supabase.rpc("import_nf_entrada", {
-      p_tenant_id: tenantId,
       p_empresa_id: empresaId,
       p_fornecedor_id: resolved.fornecedorId,
-      p_nf_json: body.nfJson ?? null,
-      p_itens_json: body.itensJson ?? null,
-      p_xml_raw: body.xmlRaw ?? null,
       p_finalidade_contexto: finalidade,
+      p_itens_json: body.itensJson ?? null,
+      p_nf_json: body.nfJson ?? null,
+      p_tenant_id: tenantId,
+      p_xml_raw: body.xmlRaw ?? null,
       p_gerar_contas_pagar: gerar,
       p_parcelas_json: gerar ? (body.parcelasJson ?? null) : null,
       p_os_id: osId,
+      p_baixar_os: false,
+      p_motivo_compra_id: motivoCompraId,
+      p_solicitante_usuario_id: solicitanteUsuarioId,
     });
 
     if (importErr) return jerr(400, importErr.message ?? "Erro ao importar NF.");
@@ -341,11 +355,11 @@ export async function POST(req: NextRequest) {
     const nfEntradaIdRaw = result?.nf_entrada_id ?? result?.nf_id ?? null;
     const nfEntradaId = nfEntradaIdRaw ? Number(nfEntradaIdRaw) || null : null;
 
+    if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
+
     // Best-effort: if the DB has the newer finance schema (f.*), ensure the AP title gets a motivo.
     if (gerar && nfEntradaId) {
       try {
-        const admin = supabaseAdmin();
-
         // Try to generate AP record (if function exists in this DB)
         try {
           await admin.schema("f").rpc("gerar_ap_pendente_por_nf_entrada", { p_nf_entrada_id: nfEntradaId, p_force: false });

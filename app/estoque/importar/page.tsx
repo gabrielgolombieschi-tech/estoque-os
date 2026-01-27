@@ -126,6 +126,14 @@ type FiscalPayload = {
   ipi_entra_no_custo: boolean;
 };
 
+type UsuarioSolicitante = {
+  id: string;
+  nome: string;
+  email: string;
+};
+
+type UsuariosSolicitantesApiResponse = { usuarios?: UsuarioSolicitante[]; error?: string };
+
 type ImportItemPayload = {
   tenant_id: string;
   item_id: number | null;
@@ -221,6 +229,11 @@ export default function ImportarXmlPage() {
 
   const { motivos, loading: motivosLoading, error: motivosError } = useImportMotivos();
   const [motivoCompraId, setMotivoCompraId] = useState<string>("");
+
+  const [solicitanteUsuarioId, setSolicitanteUsuarioId] = useState<string>("");
+  const [usuariosSolicitantes, setUsuariosSolicitantes] = useState<UsuarioSolicitante[]>([]);
+  const [usuariosSolicitantesLoading, setUsuariosSolicitantesLoading] = useState(false);
+  const [usuariosSolicitantesError, setUsuariosSolicitantesError] = useState<string | null>(null);
 
   const [defaultsToast, setDefaultsToast] = useState<{ kind: "saved" | "error" | "warn"; message: string } | null>(
     null
@@ -349,6 +362,63 @@ export default function ImportarXmlPage() {
   const canAccessPage = canImport || canCreateFornecedor || canCreateItem;
 
   const osEnabled = finalidadeLote === "materia_prima";
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      if (!tenantId || !empresaId) {
+        setUsuariosSolicitantes([]);
+        setUsuariosSolicitantesError(null);
+        setUsuariosSolicitantesLoading(false);
+        setSolicitanteUsuarioId("");
+        return;
+      }
+
+      setUsuariosSolicitantesLoading(true);
+      setUsuariosSolicitantesError(null);
+
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token ?? null;
+        if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+        const res = await fetch(`/api/estoque/usuarios-solicitantes?tenantId=${tenantId}&empresaId=${empresaId}`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
+
+        const json = (await res.json().catch(() => null)) as UsuariosSolicitantesApiResponse | null;
+        if (!active) return;
+
+        if (!res.ok) {
+          const msg = typeof json?.error === "string" ? json.error : "Erro ao carregar usuarios.";
+          setUsuariosSolicitantes([]);
+          setUsuariosSolicitantesError(msg);
+          setUsuariosSolicitantesLoading(false);
+          return;
+        }
+
+        const data = Array.isArray(json?.usuarios) ? json!.usuarios! : [];
+        const next = (data ?? [])
+          .map((r) => ({ id: String(r.id ?? ""), nome: String(r.nome ?? ""), email: String(r.email ?? "") }))
+          .filter((r) => r.id && r.nome && r.email);
+
+        setUsuariosSolicitantes(next);
+        setUsuariosSolicitantesLoading(false);
+        setSolicitanteUsuarioId((prev) => (prev && !next.some((u) => u.id === prev) ? "" : prev));
+      } catch (e: unknown) {
+        if (!active) return;
+        setUsuariosSolicitantes([]);
+        setUsuariosSolicitantesError(getErrorMessage(e, "Erro ao carregar usuarios."));
+        setUsuariosSolicitantesLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [empresaId, supabase, tenantId]);
 
   const resolveOsByNumero = useCallback(
     async (numero: string) => {
@@ -652,7 +722,11 @@ export default function ImportarXmlPage() {
     setFornecedorGerarContasAuto(Boolean(flag));
   }
 
-  async function checkFornecedor(params: { documento: string | null; nome: string | null }) {
+  async function checkFornecedor(
+    params: { documento: string | null; nome: string | null },
+    opts?: { allowCreate?: boolean }
+  ) {
+    const allowCreate = opts?.allowCreate ?? true;
     // Persist last supplier choices before switching.
     if (fornecedorIdRef.current) flushFornecedorDefaults(fornecedorIdRef.current);
 
@@ -676,7 +750,9 @@ export default function ImportarXmlPage() {
       tenantId,
       empresaId
     )
-      .eq("cnpj_norm", cnpjNormalizado)
+      .or(`cnpj_norm.eq.${cnpjNormalizado},documento_norm.eq.${cnpjNormalizado}`)
+      .order("id", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
@@ -699,6 +775,8 @@ export default function ImportarXmlPage() {
 
       return;
     }
+
+    if (!allowCreate) return;
 
     // Não encontrado: cria automaticamente (requisito)
     if (!canCreateFornecedor) {
@@ -767,6 +845,27 @@ export default function ImportarXmlPage() {
 
       // se já existe, tenta update (mantém robusto)
       if (err?.code === "23505") {
+        const { data: existing, error: existingErr } = await applyTenantEmpresa(
+          supabase.schema("public").from("fornecedores").select("id"),
+          tenantId,
+          empresaId
+        )
+          .or(`cnpj_norm.eq.${documento},documento_norm.eq.${documento}`)
+          .order("id", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingErr) {
+          setImportErr(existingErr.message);
+          return null;
+        }
+
+        const existingId = existing?.id ?? null;
+        if (!existingId) {
+          setImportErr("Fornecedor ja cadastrado para este documento.");
+          return null;
+        }
+
         const { data: updated, error: updateErr } = await applyTenantEmpresa(
           supabase
             .schema("public")
@@ -776,7 +875,7 @@ export default function ImportarXmlPage() {
           tenantId,
           empresaId
         )
-          .eq("cnpj_norm", documento)
+          .eq("id", existingId)
           .maybeSingle();
 
         if (updateErr) {
@@ -1085,9 +1184,11 @@ export default function ImportarXmlPage() {
 
     // regra do lote: todos devem ser do mesmo fornecedor
     const baseRef = fornecedorCnpjBaseRef.current;
-    if (!baseRef && cnpj && status === "ok") {
+    let setAsBase = false;
+    if (!baseRef && cnpj && status !== "erro") {
       fornecedorCnpjBaseRef.current = cnpj;
       setFornecedorCnpjBase(cnpj); // state apenas para UI
+      setAsBase = true;
     } else if (baseRef && cnpj && baseRef !== cnpj) {
       status = "erro";
       error = "Fornecedor diferente do lote";
@@ -1120,8 +1221,11 @@ export default function ImportarXmlPage() {
 
     if (selected && didAdd) setSelectedJobId(job.id);
 
-    if (selected && didAdd && status === "ok") {
-      await checkFornecedor({ documento: parsed.nfe.cnpjEmitente, nome: parsed.nfe.emitente });
+    if (didAdd && setAsBase && status !== "erro") {
+      await checkFornecedor(
+        { documento: parsed.nfe.cnpjEmitente, nome: parsed.nfe.emitente },
+        { allowCreate: status === "ok" && selected }
+      );
     }
   }
 
@@ -1235,14 +1339,16 @@ export default function ImportarXmlPage() {
 
       let fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
 
-      if (!fornecedorFinal && baseCnpj) {
-        const { data: found, error: findErr } = await applyTenantEmpresa(
-          supabase.schema("public").from("fornecedores").select("id"),
-          tenantId,
-          empresaId
-        )
-          .eq("cnpj_norm", baseCnpj)
-          .maybeSingle();
+        if (!fornecedorFinal && baseCnpj) {
+          const { data: found, error: findErr } = await applyTenantEmpresa(
+            supabase.schema("public").from("fornecedores").select("id"),
+            tenantId,
+            empresaId
+          )
+            .or(`cnpj_norm.eq.${baseCnpj},documento_norm.eq.${baseCnpj}`)
+            .order("id", { ascending: true })
+            .limit(1)
+            .maybeSingle();
 
         if (findErr) throw findErr;
         fornecedorFinal = found?.id ?? null;
@@ -1357,6 +1463,7 @@ export default function ImportarXmlPage() {
 
     try {
       if (!canImport) throw new Error("Sem permissao para importar NF.");
+      if (!solicitanteUsuarioId) throw new Error("Selecione o solicitante (usuario) antes de importar.");
       if (!finalidadeLote) throw new Error("Selecione a finalidade antes de importar.");
 
       if (!motivosLoading && motivos.length === 0) {
@@ -1429,6 +1536,7 @@ export default function ImportarXmlPage() {
             finalidade: finalidadeLote,
             osId: finalidadeLote === "materia_prima" ? osId : null,
             motivoCompraId,
+            solicitanteUsuarioId: solicitanteUsuarioId,
             fornecedorCnpj: info?.cnpjEmitente ?? null,
             fornecedorNome: info?.emitente ?? null,
             nfJson: payload.nfJson,
@@ -1763,6 +1871,7 @@ export default function ImportarXmlPage() {
 
   const fornecedorResolvido = Boolean(fornecedorIdBase ?? fornecedorId);
   const finalidadeSelecionada = Boolean(finalidadeLote);
+  const solicitanteSelecionado = Boolean(solicitanteUsuarioId);
   const itensFaltantes = loteMissing.length > 0;
 
   const motivoSelecionadoRow = motivos.find((m) => m.id === motivoCompraId) ?? null;
@@ -1777,6 +1886,7 @@ export default function ImportarXmlPage() {
     xml: hasSelectedOkJobs,
     finalidade: finalidadeSelecionada,
     motivo: motivoSelecionadoOk,
+    solicitante: solicitanteSelecionado,
     fornecedor: fornecedorResolvido,
     itens: !itensFaltantes || canCreateItem,
   };
@@ -1786,6 +1896,7 @@ export default function ImportarXmlPage() {
     !hasSelectedOkJobs ||
     !finalidadeSelecionada ||
     !motivoSelecionadoOk ||
+    !solicitanteSelecionado ||
     !fornecedorResolvido ||
     itensFaltantes ||
     !tenantId ||
@@ -1914,6 +2025,30 @@ export default function ImportarXmlPage() {
                 )}
               </label>
 
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-zinc-200">Solicitante (Usuario) (obrigatorio)</span>
+                <select
+                  value={solicitanteUsuarioId}
+                  onChange={(e) => setSolicitanteUsuarioId(e.target.value)}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                  disabled={usuariosSolicitantesLoading || importBusy || isReading}
+                >
+                  <option value="">Selecione...</option>
+                  {usuariosSolicitantes.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nome} — {u.email}
+                    </option>
+                  ))}
+                </select>
+                {usuariosSolicitantesLoading && <div className="text-xs text-zinc-400">Carregando usuarios...</div>}
+                {!usuariosSolicitantesLoading && usuariosSolicitantesError && (
+                  <div className="text-xs text-red-400">{usuariosSolicitantesError}</div>
+                )}
+                {!usuariosSolicitantesLoading && !usuariosSolicitantesError && !solicitanteSelecionado && (
+                  <div className="text-xs text-amber-300">Obrigatorio para importar.</div>
+                )}
+              </label>
+
               {osEnabled && (
                 <label className="flex flex-col gap-1">
                   <span className="text-sm text-zinc-200">
@@ -2003,6 +2138,9 @@ export default function ImportarXmlPage() {
               </div>
               <div className={requisitosChecklist.motivo ? "text-emerald-300" : "text-amber-300"}>
                 {requisitosChecklist.motivo ? "OK" : "Pendente"} - Classificacao/Motivo selecionado
+              </div>
+              <div className={requisitosChecklist.solicitante ? "text-emerald-300" : "text-amber-300"}>
+                {requisitosChecklist.solicitante ? "OK" : "Pendente"} - Solicitante selecionado
               </div>
               <div className={requisitosChecklist.fornecedor ? "text-emerald-300" : "text-amber-300"}>
                 {requisitosChecklist.fornecedor ? "OK" : "Pendente"} - Fornecedor encontrado/cadastrado
