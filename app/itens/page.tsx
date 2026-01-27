@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { parseDecimalBR } from "../../lib/decimal";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
@@ -243,13 +243,26 @@ export default function ItensPage() {
 
   // filtros
   const [listLoading, setListLoading] = useState(false);
+  const filtrosFormRef = useRef<HTMLFormElement | null>(null);
+
+  const [draftFilterId, setDraftFilterId] = useState("");
+  const [draftFilterCodigo, setDraftFilterCodigo] = useState("");
+  const [draftFilterProduto, setDraftFilterProduto] = useState("");
+  const [draftFilterFornecedorId, setDraftFilterFornecedorId] = useState("");
+  const [draftFilterTipo, setDraftFilterTipo] = useState<"" | Item["tipo"]>("");
+  const [draftFilterFinalidade, setDraftFilterFinalidade] = useState<"" | ItemFinalidade>("");
+  const [draftFilterAtivo, setDraftFilterAtivo] = useState<"todos" | "ativos">("todos");
+
   const [filterId, setFilterId] = useState("");
-  const [filterQuery, setFilterQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [filterCodigo, setFilterCodigo] = useState("");
+  const [filterProduto, setFilterProduto] = useState("");
   const [filterFornecedorId, setFilterFornecedorId] = useState("");
   const [filterTipo, setFilterTipo] = useState<"" | Item["tipo"]>("");
   const [filterFinalidade, setFilterFinalidade] = useState<"" | ItemFinalidade>("");
-  const [filterAtivo, setFilterAtivo] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [filterAtivo, setFilterAtivo] = useState<"todos" | "ativos">("todos");
+
+  type SortKey = "id" | "codigo_interno" | "nome" | "tipo" | "finalidade" | "fornecedor" | "ativo";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "desc" | "asc" }>({ key: "nome", dir: "asc" });
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -257,11 +270,6 @@ export default function ItensPage() {
   const [form, setForm] = useState<ItemForm>(emptyForm());
   const [fiscalForm, setFiscalForm] = useState<FiscalForm>(emptyFiscalForm());
   const [editingId, setEditingId] = useState<number | null>(null);
-
-  useEffect(() => {
-    const handle = setTimeout(() => setDebouncedQuery(filterQuery.trim()), 300);
-    return () => clearTimeout(handle);
-  }, [filterQuery]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -272,10 +280,15 @@ export default function ItensPage() {
     const params = new URLSearchParams();
 
     const id = filterId.trim();
-    const q = filterQuery.trim();
+    const codigo = filterCodigo.trim();
+    const produto = filterProduto.trim();
 
     if (id) params.set("id", id);
-    if (q) params.set("q", q);
+    if (codigo) params.set("codigo", codigo);
+    if (produto) params.set("produto", produto);
+
+    const qCompat = [codigo, produto].filter(Boolean).join(" ").trim();
+    if (qCompat) params.set("q", qCompat);
     if (filterFornecedorId) params.set("fornecedor_id", filterFornecedorId);
     if (filterTipo) params.set("tipo", filterTipo);
     if (filterFinalidade) params.set("finalidade", filterFinalidade);
@@ -366,7 +379,7 @@ export default function ItensPage() {
             { count: "exact" }
           ),
         tenantId
-      ).order("nome", { ascending: true });
+      );
 
       const idRaw = filterId.trim();
       if (idRaw) {
@@ -380,9 +393,14 @@ export default function ItensPage() {
         query = query.eq("id", parsed);
       }
 
-      const q = debouncedQuery.trim().replace(/,/g, " ").replace(/\s+/g, " ").trim();
-      if (q) {
-        query = query.or(`codigo_interno.ilike.%${q}%,nome.ilike.%${q}%`);
+      const codigo = filterCodigo.trim().replace(/,/g, " ").replace(/\s+/g, " ").trim();
+      if (codigo) {
+        query = query.or(`codigo_interno.ilike.%${codigo}%,codigo_barras.ilike.%${codigo}%`);
+      }
+
+      const produto = filterProduto.trim();
+      if (produto) {
+        query = query.ilike("nome", `%${produto}%`);
       }
 
       if (filterFornecedorId) {
@@ -393,7 +411,14 @@ export default function ItensPage() {
       if (filterTipo) query = query.eq("tipo", filterTipo);
       if (filterFinalidade) query = query.eq("finalidade", filterFinalidade);
       if (filterAtivo === "ativos") query = query.eq("ativo", true);
-      if (filterAtivo === "inativos") query = query.eq("ativo", false);
+
+      const ascending = sort.dir === "asc";
+      if (sort.key === "fornecedor") {
+        query = query.order("nome", { foreignTable: "fornecedores", ascending });
+      } else {
+        query = query.order(sort.key, { ascending });
+      }
+      if (sort.key !== "id") query = query.order("id", { ascending: false });
 
       let { data, error, count } = await query.range(from, to);
 
@@ -515,22 +540,46 @@ export default function ItensPage() {
     tenantEmpresaLoading,
     page,
     filterId,
-    debouncedQuery,
+    filterCodigo,
+    filterProduto,
     filterFornecedorId,
     filterTipo,
     filterFinalidade,
     filterAtivo,
+    sort,
   ]);
 
   function resetFiltros() {
+    setDraftFilterId("");
+    setDraftFilterCodigo("");
+    setDraftFilterProduto("");
+    setDraftFilterFornecedorId("");
+    setDraftFilterTipo("");
+    setDraftFilterFinalidade("");
+    setDraftFilterAtivo("todos");
+
     setFilterId("");
-    setFilterQuery("");
-    setDebouncedQuery("");
+    setFilterCodigo("");
+    setFilterProduto("");
     setFilterFornecedorId("");
     setFilterTipo("");
     setFilterFinalidade("");
     setFilterAtivo("todos");
+
+    setSort({ key: "nome", dir: "asc" });
     setPage(1);
+  }
+
+  function toggleSort(key: SortKey) {
+    setPage(1);
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }
+    );
+  }
+
+  function sortIcon(key: SortKey) {
+    if (sort.key !== key) return "";
+    return sort.dir === "desc" ? "▼" : "▲";
   }
 
   function startNew() {
@@ -842,8 +891,24 @@ export default function ItensPage() {
         </div>
       </div>
 
-      <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+      <form
+        ref={filtrosFormRef}
+        onSubmit={(e) => {
+          e.preventDefault();
+          setErr(null);
+          setOk(null);
+          setPage(1);
+          setFilterId(draftFilterId);
+          setFilterCodigo(draftFilterCodigo);
+          setFilterProduto(draftFilterProduto);
+          setFilterFornecedorId(draftFilterFornecedorId);
+          setFilterTipo(draftFilterTipo);
+          setFilterFinalidade(draftFilterFinalidade);
+          setFilterAtivo(draftFilterAtivo);
+        }}
+        className="border border-zinc-800 rounded-xl p-4 bg-zinc-950"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-3">
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Id</div>
             <input
@@ -851,26 +916,49 @@ export default function ItensPage() {
               type="number"
               inputMode="numeric"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={filterId}
-              onChange={(e) => {
-                setFilterId(e.target.value);
-                setPage(1);
+              value={draftFilterId}
+              onChange={(e) => setDraftFilterId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
               }}
               placeholder="Ex: 123"
             />
           </div>
 
-          <div className="space-y-1 md:col-span-2">
-            <div className="text-xs text-zinc-400">Código/nome</div>
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Código</div>
             <input
-              aria-label="Filtrar por código interno ou nome"
+              aria-label="Filtrar por código"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={filterQuery}
-              onChange={(e) => {
-                setFilterQuery(e.target.value);
-                setPage(1);
+              value={draftFilterCodigo}
+              onChange={(e) => setDraftFilterCodigo(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
               }}
-              placeholder="Buscar por código interno ou nome..."
+              placeholder="Código interno ou barras"
+            />
+          </div>
+
+          <div className="space-y-1 md:col-span-2">
+            <div className="text-xs text-zinc-400">Produto</div>
+            <input
+              aria-label="Filtrar por produto"
+              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+              value={draftFilterProduto}
+              onChange={(e) => setDraftFilterProduto(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
+              }}
+              placeholder="Nome do produto"
             />
           </div>
 
@@ -879,10 +967,13 @@ export default function ItensPage() {
             <select
               aria-label="Filtrar por fornecedor"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={filterFornecedorId}
-              onChange={(e) => {
-                setFilterFornecedorId(e.target.value);
-                setPage(1);
+              value={draftFilterFornecedorId}
+              onChange={(e) => setDraftFilterFornecedorId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
               }}
             >
               <option value="">Todos</option>
@@ -899,10 +990,13 @@ export default function ItensPage() {
             <select
               aria-label="Filtrar por tipo"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={filterTipo}
-              onChange={(e) => {
-                setFilterTipo(e.target.value as "" | Item["tipo"]);
-                setPage(1);
+              value={draftFilterTipo}
+              onChange={(e) => setDraftFilterTipo(e.target.value as "" | Item["tipo"])}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
               }}
             >
               <option value="">Todos</option>
@@ -917,10 +1011,13 @@ export default function ItensPage() {
             <select
               aria-label="Filtrar por finalidade"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={filterFinalidade}
-              onChange={(e) => {
-                setFilterFinalidade(e.target.value as "" | ItemFinalidade);
-                setPage(1);
+              value={draftFilterFinalidade}
+              onChange={(e) => setDraftFilterFinalidade(e.target.value as "" | ItemFinalidade)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
               }}
             >
               <option value="">Todos</option>
@@ -937,15 +1034,17 @@ export default function ItensPage() {
             <select
               aria-label="Filtrar por ativo"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={filterAtivo}
-              onChange={(e) => {
-                setFilterAtivo(e.target.value as "todos" | "ativos" | "inativos");
-                setPage(1);
+              value={draftFilterAtivo}
+              onChange={(e) => setDraftFilterAtivo(e.target.value as "todos" | "ativos")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  filtrosFormRef.current?.requestSubmit();
+                }
               }}
             >
-              <option value="todos">Todos</option>
-              <option value="ativos">Ativos</option>
-              <option value="inativos">Inativos</option>
+              <option value="ativos">Ativo</option>
+              <option value="todos">Ativo + inativo</option>
             </select>
           </div>
         </div>
@@ -953,18 +1052,27 @@ export default function ItensPage() {
         <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <button
+              type="submit"
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+            >
+              Aplicar filtros
+            </button>
+            <button
+              type="button"
               onClick={() => void load()}
               className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
             >
               Atualizar
             </button>
             <button
+              type="button"
               onClick={openPrint}
               className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
             >
               Imprimir
             </button>
             <button
+              type="button"
               onClick={resetFiltros}
               className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
             >
@@ -980,7 +1088,7 @@ export default function ItensPage() {
 
         {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
         {ok && <div className="text-sm text-emerald-300 mt-3">{ok}</div>}
-      </div>
+      </form>
 
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-900/80">
@@ -993,16 +1101,85 @@ export default function ItensPage() {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-zinc-950/90 backdrop-blur border-b border-zinc-800">
               <tr className="text-zinc-200">
-                <th className="px-4 py-3 text-left w-20">Id</th>
-                <th className="px-4 py-3 text-left min-w-[160px]">Código</th>
-                <th className="px-4 py-3 text-left min-w-[280px]">Nome</th>
-                <th className="px-4 py-3 text-left">Tipo</th>
-                <th className="px-4 py-3 text-left">Finalidade</th>
+                <th className="px-4 py-3 text-left w-20">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("id")}
+                    className="hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Id</span>
+                    {sortIcon("id") ? <span className="text-xs text-zinc-400">{sortIcon("id")}</span> : null}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left min-w-[160px]">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("codigo_interno")}
+                    className="hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Código</span>
+                    {sortIcon("codigo_interno") ? (
+                      <span className="text-xs text-zinc-400">{sortIcon("codigo_interno")}</span>
+                    ) : null}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left min-w-[280px]">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("nome")}
+                    className="hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Nome</span>
+                    {sortIcon("nome") ? <span className="text-xs text-zinc-400">{sortIcon("nome")}</span> : null}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("tipo")}
+                    className="hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Tipo</span>
+                    {sortIcon("tipo") ? <span className="text-xs text-zinc-400">{sortIcon("tipo")}</span> : null}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("finalidade")}
+                    className="hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Finalidade</span>
+                    {sortIcon("finalidade") ? (
+                      <span className="text-xs text-zinc-400">{sortIcon("finalidade")}</span>
+                    ) : null}
+                  </button>
+                </th>
                 {supportsMotivoCompra && (
                   <th className="px-4 py-3 text-left min-w-[220px]">Motivo</th>
                 )}
-                <th className="px-4 py-3 text-left min-w-[200px]">Fornecedor</th>
-                <th className="px-4 py-3 text-center">Ativo</th>
+                <th className="px-4 py-3 text-left min-w-[200px]">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("fornecedor")}
+                    className="hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Fornecedor</span>
+                    {sortIcon("fornecedor") ? (
+                      <span className="text-xs text-zinc-400">{sortIcon("fornecedor")}</span>
+                    ) : null}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("ativo")}
+                    className="hover:underline inline-flex items-center gap-1 justify-center w-full"
+                  >
+                    <span>Ativo</span>
+                    {sortIcon("ativo") ? <span className="text-xs text-zinc-400">{sortIcon("ativo")}</span> : null}
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-center">Ações</th>
               </tr>
             </thead>

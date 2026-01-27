@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDecimalBR, parseDecimalBR } from "../../lib/decimal";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { gerarRelatorioEstoque } from "../../lib/pdf/relatorioEstoque";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 
@@ -32,7 +32,28 @@ type EstoqueRow = {
 };
 
 type EstoqueBaseRow = Omit<EstoqueRow, "itens">;
-type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number };
+type EstoqueJoinRow = EstoqueBaseRow;
+type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number; estoque: EstoqueJoinRow[] };
+
+type Filtros = {
+  id: string;
+  codigo: string;
+  produto: string;
+  fornecedor: string;
+  ativos: "ativos" | "todos";
+  abaixoMinimo: boolean;
+};
+
+function getFiltrosIniciais(): Filtros {
+  return {
+    id: "",
+    codigo: "",
+    produto: "",
+    fornecedor: "",
+    ativos: "ativos",
+    abaixoMinimo: false,
+  };
+}
 
 export default function EstoquePage() {
   const supabase = useMemo(() => {
@@ -49,11 +70,10 @@ export default function EstoquePage() {
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [q, setQ] = useState("");
-  const [soAbaixoMin, setSoAbaixoMin] = useState(false);
-  const [ativos, setAtivos] = useState<"ativos" | "todos">("ativos");
-  const [codigoId, setCodigoId] = useState("");
-  const [fornecedorNome, setFornecedorNome] = useState("");
+  const [draftFiltros, setDraftFiltros] = useState<Filtros>(getFiltrosIniciais);
+  const [filtros, setFiltros] = useState<Filtros>(getFiltrosIniciais);
+  const [abaixoMinCacheKey, setAbaixoMinCacheKey] = useState<string>("");
+  const [abaixoMinCache, setAbaixoMinCache] = useState<EstoqueRow[] | null>(null);
 
   const [ajusteItemId, setAjusteItemId] = useState<number | null>(null);
   const [ajusteQuantidade, setAjusteQuantidade] = useState<number>(0);
@@ -68,7 +88,7 @@ export default function EstoquePage() {
   const pageSize = 250;
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
-  async function load() {
+  /* async function loadOld() {
     setErr(null);
     if (tenantEmpresaLoading) return;
     if (!tenantId || !empresaId) {
@@ -146,7 +166,133 @@ export default function EstoquePage() {
     }
 
     setRows(list);
-  }
+  } */
+
+  const load = useCallback(async () => {
+    setErr(null);
+    if (tenantEmpresaLoading) return;
+    if (!tenantId || !empresaId) {
+      setRows([]);
+      setTotalCount(null);
+      return;
+    }
+
+    const filtrosKey = JSON.stringify(filtros);
+    if (filtros.abaixoMinimo && abaixoMinCache && abaixoMinCacheKey === filtrosKey) {
+      setTotalCount(abaixoMinCache.length);
+      setRows(abaixoMinCache.slice(page * pageSize, page * pageSize + pageSize));
+      return;
+    }
+
+    if (!filtros.abaixoMinimo && abaixoMinCache) {
+      setAbaixoMinCache(null);
+      setAbaixoMinCacheKey("");
+    }
+
+    const idTerm = filtros.id.trim();
+    let idNumber: number | null = null;
+    if (idTerm) {
+      const parsed = Number(idTerm);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        setRows([]);
+        setTotalCount(0);
+        setErr("ID invÃ¡lido. Informe um nÃºmero inteiro.");
+        return;
+      }
+      idNumber = parsed;
+    }
+
+    const select =
+      "id,codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),estoque!estoque_item_id_fkey!inner(id,item_id,quantidade_atual,atualizado_em,localizacao)";
+
+    const buildItensQuery = (withCount: boolean) => {
+      const base = withCount
+        ? supabase.from("itens").select(select, { count: "exact" })
+        : supabase.from("itens").select(select);
+
+      let query = applyTenantEmpresa(base, tenantId, empresaId)
+        .eq("tipo", "produto")
+        .eq("controla_estoque", true)
+        .order("id", { foreignTable: "estoque", ascending: false })
+        .order("id", { ascending: false });
+
+      if (filtros.ativos === "ativos") query = query.eq("ativo", true);
+      if (idNumber !== null) query = query.eq("id", idNumber);
+
+      const codigoTerm = filtros.codigo.trim();
+      if (codigoTerm) {
+        const safe = codigoTerm.replaceAll(",", " ").trim();
+        query = query.or(`codigo_interno.ilike.%${safe}%,codigo_barras.ilike.%${safe}%`);
+      }
+
+      const produtoTerm = filtros.produto.trim();
+      if (produtoTerm) query = query.ilike("nome", `%${produtoTerm}%`);
+
+      const fornTerm = filtros.fornecedor.trim();
+      if (fornTerm) query = query.ilike("fornecedores.nome", `%${fornTerm}%`);
+
+      return query;
+    };
+
+    const mapToEstoqueRow = (item: EstoqueItemRow): EstoqueRow | null => {
+      const estoqueRow = item.estoque?.[0];
+      if (!estoqueRow) return null;
+      const { estoque, ...itens } = item;
+      void estoque;
+      return {
+        id: estoqueRow.id,
+        item_id: item.id,
+        quantidade_atual: Number(estoqueRow.quantidade_atual ?? 0),
+        atualizado_em: estoqueRow.atualizado_em,
+        localizacao: estoqueRow.localizacao ?? null,
+        itens,
+      };
+    };
+
+    if (filtros.abaixoMinimo) {
+      const all: EstoqueItemRow[] = [];
+      const chunkSize = 1000;
+      let offset = 0;
+
+      while (true) {
+        const { data, error } = await buildItensQuery(false).range(offset, offset + chunkSize - 1);
+        if (error) return setErr(error.message);
+        const typed = (data ?? []) as unknown as EstoqueItemRow[];
+        all.push(...typed);
+        if (typed.length < chunkSize) break;
+        offset += chunkSize;
+      }
+
+      const below = all
+        .map(mapToEstoqueRow)
+        .filter(Boolean)
+        .filter((r) => Number(r!.quantidade_atual ?? 0) < Number(r!.itens?.estoque_minimo ?? 0)) as EstoqueRow[];
+
+      setAbaixoMinCacheKey(filtrosKey);
+      setAbaixoMinCache(below);
+      setTotalCount(below.length);
+      setRows(below.slice(page * pageSize, page * pageSize + pageSize));
+      return;
+    }
+
+    const { data, error, count } = await buildItensQuery(true).range(page * pageSize, page * pageSize + pageSize - 1);
+    if (error) return setErr(error.message);
+    setTotalCount(typeof count === "number" ? count : null);
+
+    const typed = (data ?? []) as unknown as EstoqueItemRow[];
+    const list = typed.map(mapToEstoqueRow).filter(Boolean) as EstoqueRow[];
+    setRows(list);
+  }, [
+    abaixoMinCache,
+    abaixoMinCacheKey,
+    empresaId,
+    filtros,
+    page,
+    pageSize,
+    supabase,
+    tenantEmpresaLoading,
+    tenantId,
+  ]);
 
   function startAjuste(item_id: number, atual: number) {
     setOk(null);
@@ -248,13 +394,11 @@ export default function EstoquePage() {
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soAbaixoMin, ativos, page, tenantId, empresaId, tenantEmpresaLoading]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [q, codigoId, fornecedorNome, soAbaixoMin, ativos]);
+    const t = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [load]);
 
   if (tenantEmpresaError) {
     return (
@@ -316,49 +460,80 @@ export default function EstoquePage() {
         </div>
       </div>
 
-            <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setErr(null);
+          setOk(null);
+          setPage(0);
+          setAbaixoMinCache(null);
+          setAbaixoMinCacheKey("");
+          setFiltros(draftFiltros);
+        }}
+        className="border border-zinc-800 rounded-xl p-4 bg-zinc-950"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           <div className="md:col-span-2 space-y-1">
-            <div className="text-xs text-zinc-400">Buscar</div>
-            <input className="w-full px-3 py-2" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Código ou nome" />
+            <div className="text-xs text-zinc-400">ID</div>
+            <input
+              className="w-full px-3 py-2"
+              value={draftFiltros.id}
+              onChange={(e) => setDraftFiltros((prev) => ({ ...prev, id: e.target.value }))}
+              placeholder="item_id"
+            />
           </div>
 
-          <div className="space-y-1">
-            <div className="text-xs text-zinc-400">Código (id)</div>
-            <input className="w-full px-3 py-2" value={codigoId} onChange={(e) => setCodigoId(e.target.value)} placeholder="item_id" />
+          <div className="md:col-span-2 space-y-1">
+            <div className="text-xs text-zinc-400">Código</div>
+            <input
+              className="w-full px-3 py-2"
+              value={draftFiltros.codigo}
+              onChange={(e) => setDraftFiltros((prev) => ({ ...prev, codigo: e.target.value }))}
+              placeholder="código interno ou barras"
+            />
           </div>
 
-          <div className="space-y-1">
+          <div className="md:col-span-3 space-y-1">
+            <div className="text-xs text-zinc-400">Produto</div>
+            <input
+              className="w-full px-3 py-2"
+              value={draftFiltros.produto}
+              onChange={(e) => setDraftFiltros((prev) => ({ ...prev, produto: e.target.value }))}
+              placeholder="Nome do produto"
+            />
+          </div>
+
+          <div className="md:col-span-3 space-y-1">
             <div className="text-xs text-zinc-400">Fornecedor</div>
             <input
               className="w-full px-3 py-2"
-              value={fornecedorNome}
-              onChange={(e) => setFornecedorNome(e.target.value)}
+              value={draftFiltros.fornecedor}
+              onChange={(e) => setDraftFiltros((prev) => ({ ...prev, fornecedor: e.target.value }))}
               placeholder="Nome do fornecedor"
             />
           </div>
 
-          <div className="space-y-1">
-            <div className="text-xs text-zinc-400">Ativos</div>
+          <div className="md:col-span-1 space-y-1">
+            <div className="text-xs text-zinc-400">Ativo</div>
             <select
-            aria-label="Ativos"
+              aria-label="Ativo"
               className="w-full px-3 py-2"
-              value={ativos}
-              onChange={(e) => setAtivos(e.target.value as "ativos" | "todos")}
+              value={draftFiltros.ativos}
+              onChange={(e) => setDraftFiltros((prev) => ({ ...prev, ativos: e.target.value as "ativos" | "todos" }))}
             >
-              <option value="ativos">Somente ativos</option>
+              <option value="ativos">Sim</option>
               <option value="todos">Ativos + inativos</option>
             </select>
           </div>
 
-          <div className="space-y-1">
+          <div className="md:col-span-1 space-y-1">
             <div className="text-xs text-zinc-400">Abaixo do mínimo</div>
-              <select
-                aria-label="Abaixo do mínimo"
-                className="w-full px-3 py-2"
-                value={soAbaixoMin ? "sim" : "nao"}
-                onChange={(e) => setSoAbaixoMin(e.target.value === "sim")}
-              >
+            <select
+              aria-label="Abaixo do mínimo"
+              className="w-full px-3 py-2"
+              value={draftFiltros.abaixoMinimo ? "sim" : "nao"}
+              onChange={(e) => setDraftFiltros((prev) => ({ ...prev, abaixoMinimo: e.target.value === "sim" }))}
+            >
               <option value="nao">Não</option>
               <option value="sim">Sim</option>
             </select>
@@ -366,17 +541,29 @@ export default function EstoquePage() {
         </div>
 
         <div className="flex items-center gap-2 mt-3">
+          <button type="submit" className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+            Aplicar filtros
+          </button>
           <button
-            onClick={load}
+            type="button"
+            onClick={() => {
+              setErr(null);
+              setOk(null);
+              setPage(0);
+              setAbaixoMinCache(null);
+              setAbaixoMinCacheKey("");
+              setDraftFiltros(getFiltrosIniciais());
+              setFiltros(getFiltrosIniciais());
+            }}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
           >
-            Aplicar filtros
+            Limpar
           </button>
         </div>
 
         {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
         {ok && <div className="text-sm text-emerald-300 mt-3">{ok}</div>}
-      </div>
+      </form>
 
       {showAjuste && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -593,12 +780,12 @@ export default function EstoquePage() {
         <button
           onClick={() =>
             gerarRelatorioEstoque(rows, {
-              busca: q,
-              codigoId,
+              busca: [filtros.codigo, filtros.produto].filter(Boolean).join(" | "),
+              codigoId: filtros.id,
               codigoFornecedor: "",
-              fornecedorNome,
-              ativos,
-              abaixoMinimo: soAbaixoMin,
+              fornecedorNome: filtros.fornecedor,
+              ativos: filtros.ativos,
+              abaixoMinimo: filtros.abaixoMinimo,
             })
           }
           className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"

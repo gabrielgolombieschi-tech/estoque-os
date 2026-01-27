@@ -78,6 +78,8 @@ export default function ItensImprimirPage() {
   const sp = useSearchParams();
   const id = sp.get("id");
   const q = sp.get("q");
+  const codigo = sp.get("codigo");
+  const produto = sp.get("produto");
   const fornecedorId = sp.get("fornecedor_id");
   const tipo = sp.get("tipo");
   const finalidade = sp.get("finalidade");
@@ -115,6 +117,8 @@ export default function ItensImprimirPage() {
         const tipoNorm = (String(tipo ?? "").trim() as ItemTipo | "") || "";
         const finalidadeNorm = (String(finalidade ?? "").trim() as ItemFinalidade | "") || "";
         const ativoNorm = parseAtivoParam(ativo);
+        const codigoNorm = normalizeQ(codigo);
+        const produtoNorm = String(produto ?? "").trim();
         const qNorm = normalizeQ(q);
 
         let qb = supabase
@@ -139,7 +143,17 @@ export default function ItensImprimirPage() {
         if (ativoNorm === "ativos") qb = qb.eq("ativo", true);
         else if (ativoNorm === "inativos") qb = qb.eq("ativo", false);
 
-        if (qNorm && qNorm.trim()) {
+        if (codigoNorm && codigoNorm.trim()) {
+          const cc = codigoNorm.trim();
+          qb = qb.or(`codigo_interno.ilike.%${cc}%,codigo_barras.ilike.%${cc}%`);
+        }
+
+        if (produtoNorm && produtoNorm.trim()) {
+          const pp = produtoNorm.trim();
+          qb = qb.ilike("nome", `%${pp}%`);
+        }
+
+        if (!codigoNorm && !produtoNorm && qNorm && qNorm.trim()) {
           const qq = qNorm.trim();
           qb = qb.or(`codigo_interno.ilike.%${qq}%,nome.ilike.%${qq}%`);
         }
@@ -211,7 +225,7 @@ export default function ItensImprimirPage() {
 
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantEmpresaLoading, tenantId, id, q, fornecedorId, tipo, finalidade, ativo]);
+  }, [tenantEmpresaLoading, tenantId, id, q, codigo, produto, fornecedorId, tipo, finalidade, ativo]);
 
   const pages = useMemo(() => {
     if (rows.length === 0) return [[] as PrintItem[]];
@@ -231,11 +245,15 @@ export default function ItensImprimirPage() {
 
   const filtros: Array<{ label: string; value: string }> = [];
   const qNorm = normalizeQ(q);
+  const codigoNorm = normalizeQ(codigo);
+  const produtoNorm = String(produto ?? "").trim();
   const tipoNorm = (String(tipo ?? "").trim() as ItemTipo | "") || "";
   const finalidadeNorm = (String(finalidade ?? "").trim() as ItemFinalidade | "") || "";
   const ativoNorm = parseAtivoParam(ativo);
   if (id) filtros.push({ label: "Id", value: id });
-  if (qNorm) filtros.push({ label: "Código/nome", value: qNorm });
+  if (codigoNorm) filtros.push({ label: "Código", value: codigoNorm });
+  if (produtoNorm) filtros.push({ label: "Produto", value: produtoNorm });
+  if (!codigoNorm && !produtoNorm && qNorm) filtros.push({ label: "Código/nome", value: qNorm });
   if (fornecedorId) filtros.push({ label: "Fornecedor", value: fornecedorFiltroNome ?? `#${fornecedorId}` });
   if (tipoNorm) filtros.push({ label: "Tipo", value: formatTipo(tipoNorm) });
   if (finalidadeNorm) filtros.push({ label: "Finalidade", value: String(finalidadeNorm).replace(/_/g, " ") });
