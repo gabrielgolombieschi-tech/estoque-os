@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { formatDecimalBR } from "@/lib/decimal";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type ContaBancaria = { id: string; codigo: string; nome: string };
 
@@ -89,6 +90,7 @@ export default function ContasPagarPagamentosClient() {
 
   const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [pagamentos, setPagamentos] = useState<PagamentoRow[]>([]);
+  const warnedMissingContextRef = useRef(false);
 
   const [selectedPagamentoId, setSelectedPagamentoId] = useState<string | null>(null);
   const [itensLoading, setItensLoading] = useState(false);
@@ -103,8 +105,20 @@ export default function ContasPagarPagamentosClient() {
 
   useEffect(() => {
     if (typeof te.sessionUserId !== "string") return;
-    if (!te.tenantId) return;
-    if (!te.empresaId && te.empresas.length !== 1) return;
+    const tenantId = te.tenantId ?? null;
+    const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+    if (!tenantId || !empresaId) {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingContextRef.current) {
+        console.debug("[financeiro] Contexto ausente ao carregar pagamentos AP", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
     if (canFinanceiro !== true) return;
 
     let cancelled = false;
@@ -116,24 +130,29 @@ export default function ContasPagarPagamentosClient() {
       const supabase = getSupabaseBrowser();
 
       try {
-        const { data: contasData } = await supabase
-          .schema("f")
-          .from("conta_bancaria")
-          .select("id,codigo,nome")
-          .eq("tenant_id", te.tenantId)
+        const { data: contasData } = await applyTenantEmpresa(
+          supabase.schema("f").from("conta_bancaria").select("id,codigo,nome"),
+          tenantId,
+          empresaId
+        )
+          .eq("empresa_id", empresaId)
           .eq("ativo", true)
           .is("deleted_at", null)
           .order("nome", { ascending: true });
 
         if (cancelled) return;
-        setContas(
-          (contasData ?? []).map((r: any) => ({ id: String(r.id), codigo: String(r.codigo), nome: String(r.nome) }))
-        );
+        const contaRows = (contasData ?? []) as unknown as { id: unknown; codigo: unknown; nome: unknown }[];
+        setContas(contaRows.map((r) => ({ id: String(r.id), codigo: String(r.codigo), nome: String(r.nome) })));
 
-        let query = supabase
-          .schema("f")
-          .from("pagamento")
-          .select("id,data_pagamento,forma_pagamento,valor,observacoes,conciliado_at,conta_bancaria:conta_bancaria_id(id,codigo,nome)")
+        let query = applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("pagamento")
+            .select("id,data_pagamento,forma_pagamento,valor,observacoes,conciliado_at,conta_bancaria:conta_bancaria_id(id,codigo,nome)"),
+          tenantId,
+          empresaId
+        )
+          .eq("empresa_id", empresaId)
           .is("deleted_at", null)
           .order("data_pagamento", { ascending: false })
           .limit(250);
@@ -178,26 +197,45 @@ export default function ContasPagarPagamentosClient() {
     return () => {
       cancelled = true;
     };
-  }, [canFinanceiro, conciliacao, contaId, endDate, forma, q, selectedPagamentoId, startDate, te.empresas.length, te.empresaId, te.sessionUserId, te.tenantId]);
+  }, [canFinanceiro, conciliacao, contaId, endDate, forma, q, selectedPagamentoId, startDate, te.empresas, te.empresaId, te.sessionUserId, te.tenantId]);
 
   useEffect(() => {
     if (!selectedPagamentoId) return;
+    if (typeof te.sessionUserId !== "string") return;
+
+    const tenantId = te.tenantId ?? null;
+    const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+    if (!tenantId || !empresaId) {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingContextRef.current) {
+        console.debug("[financeiro] Contexto ausente ao carregar itens do pagamento", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
 
     let cancelled = false;
     const run = async () => {
       setItensLoading(true);
       try {
         const supabase = getSupabaseBrowser();
-        const { data, error } = await supabase
-          .schema("f")
-          .from("pagamento_item")
-          .select(
-            [
-              "id",
-              "valor",
-              "titulo_parcela:titulo_parcela_id(id,numero,vencimento_date,valor,titulo:titulo_id(id,descricao,competencia_date,fornecedores:fornecedor_id(nome)))",
-            ].join(",")
-          )
+        const { data, error } = await applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("pagamento_item")
+            .select(
+              [
+                "id",
+                "valor",
+                "titulo_parcela:titulo_parcela_id(id,numero,vencimento_date,valor,titulo:titulo_id(id,descricao,competencia_date,fornecedores:fornecedor_id(nome)))",
+              ].join(",")
+            ),
+          tenantId,
+          empresaId
+        )
           .eq("pagamento_id", selectedPagamentoId)
           .is("deleted_at", null)
           .order("created_at", { ascending: true });
@@ -219,7 +257,7 @@ export default function ContasPagarPagamentosClient() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPagamentoId]);
+  }, [selectedPagamentoId, te.empresas, te.empresaId, te.sessionUserId, te.tenantId]);
 
   return (
     <div className="space-y-4">

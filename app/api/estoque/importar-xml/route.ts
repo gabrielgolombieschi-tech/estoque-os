@@ -61,6 +61,20 @@ function readIdString(row: unknown): string | null {
   return String(r.id);
 }
 
+async function getCurrentUsuarioId(opts: { authUserId: string }): Promise<string | null> {
+  const admin = supabaseAdmin();
+  const { data, error } = await admin
+    .schema("a")
+    .from("usuario")
+    .select("id")
+    .eq("auth_user_id", opts.authUserId)
+    .is("deleted_at", null)
+    .maybeSingle<{ id: string }>();
+
+  if (error) return null;
+  return readIdString(data);
+}
+
 async function mergeFornecedoresByIds(opts: {
   tenantId: string;
   empresaId: string;
@@ -289,6 +303,8 @@ export async function POST(req: NextRequest) {
     if (!UUID_REGEX.test(solicitanteUsuarioId)) return jerr(400, "Solicitante (usuario) invalido.");
 
     const admin = supabaseAdmin();
+    const currentUsuarioId = await getCurrentUsuarioId({ authUserId: userData.user.id });
+    const aprovadoPorUsuarioId = currentUsuarioId ?? solicitanteUsuarioId;
 
     // Ensure motivo exists + active + not NAO_CLASSIFICADO
     const { data: motivoRow, error: motivoErr } = await admin
@@ -357,70 +373,102 @@ export async function POST(req: NextRequest) {
 
     if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
 
-    // Best-effort: if the DB has the newer finance schema (f.*), ensure the AP title gets a motivo.
-    if (gerar && nfEntradaId) {
+    // Best-effort: ensure the AP title gets a motivo (if contas a pagar was generated automatically or via flag).
+    if (nfEntradaId) {
       try {
-        // Try to generate AP record (if function exists in this DB)
-        try {
-          await admin.schema("f").rpc("gerar_ap_pendente_por_nf_entrada", { p_nf_entrada_id: nfEntradaId, p_force: false });
-        } catch {
-          // ignore missing function
+        let docId: string | null = null;
+
+        // If the request explicitly asked to generate AP, try to generate it now (if function exists).
+        if (gerar) {
+          try {
+            // Prefer v2 (supports parcelas_json). Fallback to v1 if not available.
+            try {
+              await admin.schema("f").rpc("gerar_ap_pendente_por_nf_entrada_v2", {
+                p_nf_entrada_id: nfEntradaId,
+                p_force: false,
+                p_parcelas_json: body.parcelasJson ?? null,
+              });
+            } catch {
+              const { data: docIdRaw } = await admin
+                .schema("f")
+                .rpc("gerar_ap_pendente_por_nf_entrada", { p_nf_entrada_id: nfEntradaId, p_force: false });
+              if (typeof docIdRaw === "string" && UUID_REGEX.test(docIdRaw)) docId = docIdRaw;
+            }
+          } catch {
+            // ignore missing function
+          }
         }
 
-        // Find the titulo created from this NF and upsert titulo_aprovacao with the selected motivo.
-        const { data: doc } = await admin
-          .schema("f")
-          .from("documento_fiscal")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .eq("empresa_id", empresaId)
-          .eq("source_nf_entrada_id", nfEntradaId)
-          .is("deleted_at", null)
-          .maybeSingle();
+        if (!docId) {
+          const { data: doc } = await admin
+            .schema("f")
+            .from("documento_fiscal")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
+            .eq("source_nf_entrada_id", nfEntradaId)
+            .is("deleted_at", null)
+            .maybeSingle<{ id: string }>();
 
-        const docId = readIdString(doc);
+          docId = readIdString(doc);
+        }
+
         if (docId) {
-          const { data: titulo } = await admin
+          const { data: titulos } = await admin
             .schema("f")
             .from("titulo")
             .select("id")
             .eq("tenant_id", tenantId)
             .eq("empresa_id", empresaId)
             .eq("documento_fiscal_id", docId)
+            .eq("tipo", "AP")
             .is("deleted_at", null)
-            .maybeSingle();
+            .returns<{ id: string }[]>();
 
-          const tituloId = readIdString(titulo);
-          if (tituloId) {
-            const { data: existingTa } = await admin
+          for (const t of titulos ?? []) {
+            const tituloId = readIdString(t);
+            if (!tituloId) continue;
+
+            await admin
+              .schema("f")
+              .from("titulo")
+              .update({ motivo_compra_id: motivoCompraId })
+              .eq("tenant_id", tenantId)
+              .eq("empresa_id", empresaId)
+              .eq("id", tituloId);
+
+            const { data: updatedRows, error: updErr } = await admin
               .schema("f")
               .from("titulo_aprovacao")
-              .select("id")
+              .update({ motivo_compra_id: motivoCompraId, os_id: osId, deleted_at: null })
               .eq("tenant_id", tenantId)
               .eq("titulo_id", tituloId)
-              .is("deleted_at", null)
-              .maybeSingle();
+              .select("id")
+              .returns<{ id: string }[]>();
 
-            const existingTaId = readIdString(existingTa);
-            if (existingTaId) {
-              await admin
-                .schema("f")
-                .from("titulo_aprovacao")
-                .update({ motivo_compra_id: motivoCompraId, os_id: osId })
-                .eq("tenant_id", tenantId)
-                .eq("id", existingTaId);
-            } else {
-              await admin.schema("f").from("titulo_aprovacao").insert({
-                tenant_id: tenantId,
-                titulo_id: tituloId,
-                motivo_compra_id: motivoCompraId,
-                os_id: osId,
-              });
-            }
+            if (updErr) throw updErr;
+            if ((updatedRows?.length ?? 0) > 0) continue;
+
+            const { error: insErr } = await admin.schema("f").from("titulo_aprovacao").insert({
+              tenant_id: tenantId,
+              titulo_id: tituloId,
+              motivo_compra_id: motivoCompraId,
+              os_id: osId,
+              aprovado_por: aprovadoPorUsuarioId,
+            });
+            if (insErr) throw insErr;
           }
         }
-      } catch {
-        // ignore finance side-effects
+      } catch (e: unknown) {
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[XML_IMPORT] Falha ao vincular motivo no Financeiro (AP)", {
+            tenantId,
+            empresaId,
+            nfEntradaId,
+            motivoCompraId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
     }
 

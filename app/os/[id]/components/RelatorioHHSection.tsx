@@ -38,12 +38,26 @@ async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentua
 }
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { RowInput, UserOptions } from "jspdf-autotable";
+import type { RowInput } from "jspdf-autotable";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { syncHhToApontamentos } from "@/lib/hh/syncHhToApontamentos";
+
+function getDbErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string" && err.trim()) return err.trim();
+  if (err && typeof err === "object") {
+    const obj = err as Record<string, unknown>;
+    const message = typeof obj.message === "string" ? obj.message : null;
+    const details = typeof obj.details === "string" ? obj.details : null;
+    const hint = typeof obj.hint === "string" ? obj.hint : null;
+    const parts = [message, details, hint].filter((v): v is string => Boolean(v && v.trim()));
+    if (parts.length > 0) return parts.join(" — ");
+  }
+  return fallback;
+}
 
 
 type EspecialidadeOption = { id: string; descricao: string | null };
@@ -78,8 +92,6 @@ type HhLancamentoViewRow = {
   observacao: string | null;
   criado_em: string | null;
 };
-
-type DidDrawPageData = Parameters<NonNullable<UserOptions["didDrawPage"]>>[0];
 
 type Colaborador = {
   id: string;
@@ -191,6 +203,27 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   }
 }
 
+async function getImageNaturalSize(dataUrl: string): Promise<{ width: number; height: number } | null> {
+  try {
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const width = Number(img.naturalWidth || img.width || 0);
+        const height = Number(img.naturalHeight || img.height || 0);
+        if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+          resolve(null);
+          return;
+        }
+        resolve({ width, height });
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function gerarRelatorioPDF(
   hhRows: HhLancamentoViewRow[],
   osId: number,
@@ -198,6 +231,7 @@ async function gerarRelatorioPDF(
     empresaNome?: string;
     clienteNome?: string;
     numeroOS?: string;
+    osDescricao?: string;
     periodoLabel?: string;
     emissaoLabel?: string;
   }
@@ -228,10 +262,14 @@ async function gerarRelatorioPDF(
     const empresaNome = header?.empresaNome?.trim() || "—";
     const clienteNome = header?.clienteNome?.trim() || "—";
     const numeroOS = header?.numeroOS?.trim() || String(osId);
+    const osDescricao = header?.osDescricao?.trim() || "";
     const periodoLabel = header?.periodoLabel?.trim() || "—";
     const emissaoLabel = header?.emissaoLabel?.trim() || new Date().toLocaleString("pt-BR");
 
-    const logoDataUrl = await fetchImageAsDataUrl("/Segau.png");
+    const osLine = osDescricao ? `OS ${numeroOS} - ${osDescricao}` : `OS ${numeroOS}`;
+    const logoDataUrl = await fetchImageAsDataUrl("/Segau2.png");
+    const logoSize = logoDataUrl ? await getImageNaturalSize(logoDataUrl) : null;
+    const logoBox = { w: 18, h: 18 };
 
     const drawHeader = (pageNumber: number, pageCount: number) => {
       const pageSize = doc.internal.pageSize;
@@ -245,7 +283,20 @@ async function gerarRelatorioPDF(
       // Logo (opcional)
       if (logoDataUrl) {
         try {
-          doc.addImage(logoDataUrl, "PNG", margin, margin, 18, 18);
+          let drawW = logoBox.w;
+          let drawH = logoBox.h;
+          if (logoSize) {
+            const ratio = logoSize.width / logoSize.height;
+            drawW = logoBox.w;
+            drawH = drawW / ratio;
+            if (drawH > logoBox.h) {
+              drawH = logoBox.h;
+              drawW = drawH * ratio;
+            }
+          }
+          const x = margin + (logoBox.w - drawW) / 2;
+          const y = margin + (logoBox.h - drawH) / 2;
+          doc.addImage(logoDataUrl, "PNG", x, y, drawW, drawH);
         } catch {
           // ignora se falhar
         }
@@ -270,7 +321,7 @@ async function gerarRelatorioPDF(
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
-      doc.text(`OS ${numeroOS}`, pageWidth / 2, margin + 14, { align: "center" });
+      doc.text(osLine, pageWidth / 2, margin + 14, { align: "center" });
 
       // Metas (direita)
       const rightX = pageWidth - margin;
@@ -281,14 +332,9 @@ async function gerarRelatorioPDF(
       doc.text(`Página ${pageNumber} de ${pageCount}`, rightX, margin + 19, { align: "right" });
     };
 
-    // Dados da tabela
-    const headRow: RowInput = [
+    // Tabela 1: Lançamentos
+    const headRowLancamentos: RowInput = [
       "Funcionário",
-      "Função",
-      "V. Hora Normal",
-      "V. Hora 50%",
-      "V. Hora 100%",
-      "Data",
       "Entrada 1",
       "Saída 1",
       "Entrada 2",
@@ -300,60 +346,60 @@ async function gerarRelatorioPDF(
       "R$ Total",
     ];
 
-    const bodyRows: RowInput[] = [];
+    const bodyLancamentos: RowInput[] = [];
 
-    // Dados das linhas
     let totalGeral = 0;
+    let totalHoras = 0;
+    let totalHorasNormais = 0;
+    let totalHorasExtras = 0;
+
     hhRows.forEach((r) => {
-      const valorHoraNormal = Number(r.valor_hora ?? 0);
-      const valorHora50 = valorHoraNormal * 1.5;
-      const valorHora100 = valorHoraNormal * 2.0;
       const horas = Number(r.horas_trabalhadas ?? 0);
       const percentualAplicado = Number(r.percentual_aplicado ?? 0);
+      const horasNormais = percentualAplicado === 0 ? horas : 0;
+      const horasExtras = percentualAplicado === 0 ? 0 : horas;
 
-      let horasNormais = horas;
-      let horasExtras = 0;
-      if (percentualAplicado > 0) {
-        horasExtras = horas;
-        horasNormais = 0;
-      }
-
-      const tipo = percentualAplicado === 0 ? "Normal" : `Extra ${percentualAplicado}%`;
-      const valorNormalStr = horasNormais > 0 ? formatCurrencyBRL(horasNormais * valorHoraNormal) : "—";
-      const valorExtrasStr =
-        horasExtras > 0
-          ? `R$ ${(horasExtras * (percentualAplicado === 50 ? valorHora50 : valorHora100)).toFixed(2)}`
-          : "—";
+      const tipo = getTipoHHLabel(percentualAplicado);
       const total = Number(r.valor_total ?? 0);
-      totalGeral += total;
 
-      bodyRows.push([
+      totalGeral += total;
+      totalHoras += horas;
+      totalHorasNormais += horasNormais;
+      totalHorasExtras += horasExtras;
+
+      bodyLancamentos.push([
         r.colaborador_nome ?? "—",
-        r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao : "—",
-        formatCurrencyBRL(valorHoraNormal),
-        formatCurrencyBRL(valorHora50),
-        formatCurrencyBRL(valorHora100),
-        formatDateBR(r.data),
-        formatTimeHHMM(r.entrada_1) || "—",
-        formatTimeHHMM(r.saida_1) || "—",
+        formatTimeHHMM(r.entrada_1) || formatTimeHHMM(r.hora_entrada) || "—",
+        formatTimeHHMM(r.saida_1) || formatTimeHHMM(r.hora_saida) || "—",
         formatTimeHHMM(r.entrada_2) || "—",
         formatTimeHHMM(r.saida_2) || "—",
         formatHoursBR(horas),
         tipo,
-        valorNormalStr,
-        valorExtrasStr,
+        formatHoursBR(horasNormais),
+        formatHoursBR(horasExtras),
         formatCurrencyBRL(total),
       ]);
     });
 
     // Linha de TOTAL
-    bodyRows.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "TOTAL", formatCurrencyBRL(totalGeral)]);
+    bodyLancamentos.push([
+      "",
+      "",
+      "",
+      "",
+      "",
+      formatHoursBR(totalHoras),
+      "TOTAL",
+      formatHoursBR(totalHorasNormais),
+      formatHoursBR(totalHorasExtras),
+      formatCurrencyBRL(totalGeral),
+    ]);
 
-    // Usa autoTable para desenhar a tabela
+    // Tabela 1
     autoTable.default(doc, {
       startY: topStartY,
-      head: [headRow],
-      body: bodyRows,
+      head: [headRowLancamentos],
+      body: bodyLancamentos,
       margin: { top: topStartY, left: margin, right: margin, bottom: 10 },
       styles: {
         cellPadding: 1.6,
@@ -362,23 +408,16 @@ async function gerarRelatorioPDF(
         overflow: "linebreak",
       },
       columnStyles: {
-        // A4 landscape (297mm) com margem (12mm) -> largura útil ~273mm.
-        // Soma das larguras abaixo = 265mm (mantém folga, evita estourar margem).
-        0: { cellWidth: 30 }, // Funcionário
-        1: { cellWidth: 25 }, // Função
-        2: { cellWidth: 18, halign: "right" }, // V. Hora Normal
-        3: { cellWidth: 17, halign: "right" }, // V. Hora 50%
-        4: { cellWidth: 17, halign: "right" }, // V. Hora 100%
-        5: { cellWidth: 15, halign: "center" }, // Data
-        6: { cellWidth: 13, halign: "center" }, // Entrada 1
-        7: { cellWidth: 13, halign: "center" }, // Saída 1
-        8: { cellWidth: 13, halign: "center" }, // Entrada 2
-        9: { cellWidth: 13, halign: "center" }, // Saída 2
-        10: { cellWidth: 13, halign: "right" }, // Horas
-        11: { cellWidth: 15 }, // Tipo
-        12: { cellWidth: 20, halign: "right" }, // Horas Normais (R$)
-        13: { cellWidth: 20, halign: "right" }, // Horas Extras (R$)
-        14: { cellWidth: 23, halign: "right" }, // R$ Total
+        0: { cellWidth: 70 }, // Funcionário
+        1: { cellWidth: 18, halign: "center" }, // Entrada 1
+        2: { cellWidth: 18, halign: "center" }, // Saída 1
+        3: { cellWidth: 18, halign: "center" }, // Entrada 2
+        4: { cellWidth: 18, halign: "center" }, // Saída 2
+        5: { cellWidth: 18, halign: "right" }, // Horas
+        6: { cellWidth: 28 }, // Tipo
+        7: { cellWidth: 20, halign: "right" }, // Horas Normais
+        8: { cellWidth: 20, halign: "right" }, // Horas Extras
+        9: { cellWidth: 25, halign: "right" }, // R$ Total
       },
       headStyles: {
         fillColor: tableHeadFill,
@@ -396,26 +435,79 @@ async function gerarRelatorioPDF(
       alternateRowStyles: {
         fillColor: zebraFill,
       },
-      footStyles: {
-        fillColor: [32, 32, 32],
-        textColor: [240, 240, 240],
-        fontSize: 9,
-        fontStyle: "bold",
-      },
-      didDrawPage: (data: DidDrawPageData) => {
-        const pageCount = (doc as unknown as { internal: { pages: unknown[] } }).internal.pages.length;
-        drawHeader(data.pageNumber, pageCount);
-      },
     });
 
-    // Rodapé resumo (última página)
-    const pageSize = doc.internal.pageSize;
-    const pageWidth = pageSize.getWidth();
-    const pageHeight = pageSize.getHeight();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-    doc.text(`Total Geral: ${formatCurrencyBRL(totalGeral)}`, pageWidth - margin, pageHeight - 8, { align: "right" });
+    // Tabela 2: Valores por funcionário/função
+    const uniqueValores = new Map<string, { funcionario: string; funcao: string; valorHora: number }>();
+    hhRows.forEach((r) => {
+      const funcionario = (r.colaborador_nome ?? "—").trim() || "—";
+      const funcao =
+        r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao.trim() : "—";
+      const valorHora = Number(r.valor_hora ?? 0);
+      const key = `${funcionario}||${funcao}||${valorHora}`;
+      if (!uniqueValores.has(key)) uniqueValores.set(key, { funcionario, funcao, valorHora });
+    });
+
+    const valoresSorted = Array.from(uniqueValores.values()).sort((a, b) => {
+      const byFunc = a.funcionario.localeCompare(b.funcionario, "pt-BR", { sensitivity: "base" });
+      if (byFunc !== 0) return byFunc;
+      return a.funcao.localeCompare(b.funcao, "pt-BR", { sensitivity: "base" });
+    });
+
+    const headRowValores: RowInput = ["Funcionário", "Função", "V. Hora Normal", "V. Hora 50%", "V. Hora 100%"];
+    const bodyValores: RowInput[] = valoresSorted.map((v) => {
+      const v50 = v.valorHora * 1.5;
+      const v100 = v.valorHora * 2.0;
+      return [v.funcionario, v.funcao, formatCurrencyBRL(v.valorHora), formatCurrencyBRL(v50), formatCurrencyBRL(v100)];
+    });
+
+    if (bodyValores.length > 0) {
+      const lastY =
+        (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? topStartY;
+
+      autoTable.default(doc, {
+        startY: lastY + 8,
+        head: [headRowValores],
+        body: bodyValores,
+        margin: { top: topStartY, left: margin, right: margin, bottom: 10 },
+        styles: {
+          cellPadding: 1.6,
+          lineWidth: 0.1,
+          lineColor: [220, 220, 220],
+          overflow: "linebreak",
+        },
+        columnStyles: {
+          0: { cellWidth: 75 }, // Funcionário
+          1: { cellWidth: 75 }, // Função
+          2: { cellWidth: 25, halign: "right" }, // V. Hora Normal
+          3: { cellWidth: 25, halign: "right" }, // V. Hora 50%
+          4: { cellWidth: 25, halign: "right" }, // V. Hora 100%
+        },
+        headStyles: {
+          fillColor: tableHeadFill,
+          textColor: tableHeadText,
+          fontSize: 9,
+          fontStyle: "bold",
+          lineWidth: 0.2,
+          lineColor: [220, 220, 220],
+          halign: "center",
+        },
+        bodyStyles: {
+          fontSize: 8.6,
+          textColor: tableBodyText,
+        },
+        alternateRowStyles: {
+          fillColor: zebraFill,
+        },
+      });
+    }
+
+    // Cabeçalho com paginação correta
+    const pageCount = doc.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page);
+      drawHeader(page, pageCount);
+    }
 
     // Download
     const dataStr = new Date().toISOString().slice(0, 10);
@@ -474,7 +566,7 @@ export default function RelatorioHHSection({
     return { tenant: resolvedTenant, empresa: resolvedEmpresa } as const;
   }
 
-  const [osMeta, setOsMeta] = useState<{ numero_os: string | null; cliente_nome: string | null } | null>(null);
+  const [osMeta, setOsMeta] = useState<{ numero_os: string | null; cliente_nome: string | null; descricao_servico: string | null } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -487,7 +579,7 @@ export default function RelatorioHHSection({
       const { data, error } = await applyTenant(
         supabase
           .from("ordens_servico")
-          .select("numero_os, cliente_nome")
+          .select("numero_os, cliente_nome, descricao_servico")
           .eq("id", osId)
           .maybeSingle(),
         tenant
@@ -498,6 +590,7 @@ export default function RelatorioHHSection({
       setOsMeta({
         numero_os: data?.numero_os ? String(data.numero_os) : String(osId),
         cliente_nome: data?.cliente_nome ?? null,
+        descricao_servico: data?.descricao_servico ?? null,
       });
     };
 
@@ -519,6 +612,7 @@ export default function RelatorioHHSection({
 
     const clienteNome = osMeta?.cliente_nome ?? "";
     const numeroOS = osMeta?.numero_os ?? String(osId);
+    const osDescricao = osMeta?.descricao_servico ?? "";
     const emissao = new Date();
 
     const dates = hhRows
@@ -544,6 +638,7 @@ export default function RelatorioHHSection({
       empresaNome: empresaNome.trim() || "—",
       clienteNome: clienteNome.trim() || "—",
       numeroOS,
+      osDescricao: osDescricao.trim() || "",
       emissaoLabel: emissao.toLocaleString("pt-BR"),
       periodoLabel: periodo,
       totalHoras: totals.horas,
@@ -929,7 +1024,7 @@ export default function RelatorioHHSection({
         supabase
           .from("hh_lancamentos")
           .select(
-            "id,os_id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,criado_em,hh_tipo_id,valor_hora,valor_total,hh_especialidade_id"
+            "id,os_id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,criado_em,hh_tipo_id,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
           )
           .eq("os_id", osId)
           .order("data", { ascending: false })
@@ -980,10 +1075,11 @@ export default function RelatorioHHSection({
       const colaboradorMap = new Map<string, string>();
       if (colaboradorIds.length > 0) {
         console.log("[loadHhLancamentos] Carregando", colaboradorIds.length, "colaboradores...");
-        const { data: colabData, error: colabErr } = await supabase
-          .from("colaboradores")
-          .select("id,nome")
-          .in("id", colaboradorIds);
+        const { data: colabData, error: colabErr } = await applyTenantEmpresa(
+          supabase.from("colaboradores").select("id,nome").in("id", colaboradorIds),
+          ctx.tenant,
+          ctx.empresa
+        );
 
         if (colabErr) {
           console.warn("[loadHhLancamentos] Erro ao carregar colaboradores:", colabErr);
@@ -999,16 +1095,21 @@ export default function RelatorioHHSection({
 
       // Carrega serviços (especialidades) que faltam via hh_especialidade_id ou hh_servico_id
       const servicoIds = Array.from(
-        new Set(rows.map((r) => String(r.hh_especialidade_id ?? r.hh_servico_id ?? "")).filter((id) => id !== "null" && id !== ""))
+        new Set(
+          rows
+            .map((r) => String(r.hh_servico_id ?? r.hh_especialidade_id ?? "").trim())
+            .filter((id) => /^\d+$/.test(id))
+        )
       );
 
       const servicoMap = new Map<string, string>();
       if (servicoIds.length > 0) {
         console.log("[loadHhLancamentos] Carregando", servicoIds.length, "serviços...");
-        const { data: svcData, error: svcErr } = await supabase
-          .from("cliente_hh_servicos")
-          .select("id,nome")
-          .in("id", servicoIds);
+        const { data: svcData, error: svcErr } = await applyTenantEmpresa(
+          supabase.from("cliente_hh_servicos").select("id,nome").in("id", servicoIds),
+          ctx.tenant,
+          ctx.empresa
+        );
 
         if (svcErr) {
           console.warn("[loadHhLancamentos] Erro ao carregar serviços:", svcErr);
@@ -1023,7 +1124,13 @@ export default function RelatorioHHSection({
       // Mapeia dados para formato HhLancamentoViewRow
       const mapped: HhLancamentoViewRow[] = rows.map((r) => {
         const percentual = Number(r.percentual_aplicado ?? getPercentualFromDate(r.data));
-        const especialidadeId = r.hh_especialidade_id ?? r.hh_servico_id ?? "";
+        const preferServicoId = String(r.hh_servico_id ?? "").trim();
+        const preferEspecialidadeId = String(r.hh_especialidade_id ?? "").trim();
+        const servicoId = /^\d+$/.test(preferServicoId)
+          ? preferServicoId
+          : /^\d+$/.test(preferEspecialidadeId)
+            ? preferEspecialidadeId
+            : "";
         return {
           ...r,
           entrada_1: r.entrada_1 ?? null,
@@ -1039,8 +1146,8 @@ export default function RelatorioHHSection({
           criado_em: r.criado_em ?? null,
           colaborador_nome: colaboradorMap.get(String(r.colaborador_id)) ?? "—",
           hh_tipo_descricao: getTipoHHLabel(percentual),
-          especialidade_descricao: especialidadeId ? servicoMap.get(String(especialidadeId)) ?? "—" : null,
-          hh_servico_id: especialidadeId,
+          especialidade_descricao: servicoId ? servicoMap.get(servicoId) ?? "—" : "—",
+          hh_servico_id: servicoId,
         };
       });
 
@@ -1135,10 +1242,11 @@ export default function RelatorioHHSection({
       const oldS = formatTimeHHMM(data.hora_saida) || "";
 
       // Se for schema antigo (apenas hora_entrada/hora_saida), preenche o 1º período e deixa o 2º vazio.
+      const temDoisPeriodos = Boolean(e1 || s1 || e2 || s2);
       setHoraEntrada1(e1 || oldE || "07:30");
       setHoraSaida1(s1 || oldS || "12:00");
-      setHoraEntrada2(e2 || "13:00");
-      setHoraSaida2(s2 || oldS || "17:00");
+      setHoraEntrada2(temDoisPeriodos ? (e2 || "13:00") : "");
+      setHoraSaida2(temDoisPeriodos ? (s2 || "17:00") : "");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Erro ao carregar lançamento para edição.";
       setErr(message);
@@ -1157,17 +1265,36 @@ export default function RelatorioHHSection({
         setErr("Tenant/empresa não carregados.");
         return;
       }
-      const { error } = await supabase.from("hh_lancamentos").delete().eq("id", id);
-      if (error) throw error;
+      const del = await applyTenantEmpresa(
+        supabase
+          .from("hh_lancamentos")
+          .delete()
+          .eq("id", id)
+          .eq("os_id", osId)
+          .eq("empresa_id", ctx.empresa)
+          .select("id"),
+        ctx.tenant,
+        ctx.empresa
+      );
+
+      if (del.error) throw del.error;
+      if (!del.data || del.data.length === 0) {
+        throw new Error("Lançamento não encontrado ou sem permissão para excluir.");
+      }
       setOk("Lançamento excluído.");
       await loadHhLancamentos();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Erro ao excluir lançamento.";
+      const message = getDbErrorMessage(e, "Erro ao excluir lançamento.");
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[excluirHhLancamento] Falha ao excluir", { osId, id, error: e });
+      }
       setErr(message);
     }
   }
 
   async function salvarLancamento(): Promise<boolean> {
+    setOk(null);
+    setErr(null);
     const ctx = await ensureDbContext();
     if (!ctx.tenant || !ctx.empresa || !canWrite) {
       setErr("Sem permissão ou contexto (tenant/empresa) não carregado.");
@@ -1194,35 +1321,37 @@ export default function RelatorioHHSection({
       setErr("Saída 1 inválida (use HH:MM). Ex: 12:00");
       return false;
     }
-    if (!e2Raw) {
-      setErr("Entrada 2 é obrigatória.");
-      return false;
-    }
-    if (!s2Raw) {
-      setErr("Saída 2 é obrigatória.");
-      return false;
-    }
-    if (entrada2 === null) {
-      setErr("Entrada 2 inválida (use HH:MM). Ex: 13:00");
-      return false;
-    }
-    if (saida2 === null) {
-      setErr("Saída 2 inválida (use HH:MM). Ex: 17:00");
-      return false;
-    }
 
     // Validar períodos
     if (entrada1 >= saida1) {
       setErr("Entrada 1 deve ser menor que Saída 1.");
       return false;
     }
-    if (entrada2 >= saida2) {
-      setErr("Entrada 2 deve ser menor que Saída 2.");
+    const usandoSegundoPeriodo = Boolean(e2Raw) || Boolean(s2Raw);
+    const usandoDoisPeriodos = Boolean(e2Raw) && Boolean(s2Raw);
+
+    if (usandoSegundoPeriodo && !usandoDoisPeriodos) {
+      setErr("Preencha Entrada 2 e Saída 2 ou deixe ambos em branco.");
       return false;
     }
-    if (saida1 > entrada2) {
-      setErr("Saída 1 deve ser menor ou igual a Entrada 2 (sem sobreposição).");
-      return false;
+
+    if (usandoDoisPeriodos) {
+      if (entrada2 === null) {
+        setErr("Entrada 2 inválida (use HH:MM). Ex: 13:00");
+        return false;
+      }
+      if (saida2 === null) {
+        setErr("Saída 2 inválida (use HH:MM). Ex: 17:00");
+        return false;
+      }
+      if (entrada2 >= saida2) {
+        setErr("Entrada 2 deve ser menor que Saída 2.");
+        return false;
+      }
+      if (saida1 > entrada2) {
+        setErr("Saída 1 deve ser menor ou igual a Entrada 2 (sem sobreposição).");
+        return false;
+      }
     }
 
     // Converter minutos para HH:MM para payload
@@ -1230,6 +1359,12 @@ export default function RelatorioHHSection({
       const hh = Math.floor(minutos / 60);
       const mm = minutos % 60;
       return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    };
+
+    const calcHorasDecimal = (inicioMin: number, fimMin: number): number => {
+      let diff = fimMin - inicioMin;
+      if (diff < 0) diff = 1440 - inicioMin + fimMin; // virada de dia
+      return Number((diff / 60).toFixed(2));
     };
 
     if (especialidadesOptions.length > 0 && !String(lancamentoForm.hh_servico_id ?? "").trim()) {
@@ -1404,6 +1539,8 @@ export default function RelatorioHHSection({
       console.warn("[salvarLancamento] mappingId/hh_tipo_id:", hhTipoMappingId, "servicoId:", hhServicoId);
       
       // Monta payload (hh_lancamentos tem hh_tipo_id + hh_servico_id)
+      const usaDoisPeriodos = usandoDoisPeriodos && entrada2 !== null && saida2 !== null;
+      const horasManual = usaDoisPeriodos ? null : calcHorasDecimal(entrada1, saida1);
       const payloadHH: any = {
         tenant_id: ctx.tenant,
         empresa_id: ctx.empresa,
@@ -1412,12 +1549,15 @@ export default function RelatorioHHSection({
         hh_tipo_id: hhTipoMappingId,
         hh_servico_id: Number(hhServicoId), // ID do serviço específico do cliente
         data: lancamentoForm.data,
-        entrada_1: minutosParaHHMM(entrada1),
-        saida_1: minutosParaHHMM(saida1),
-        entrada_2: minutosParaHHMM(entrada2),
-        saida_2: minutosParaHHMM(saida2),
+        // IMPORTANTE: o trigger do banco exige ou 2 períodos completos ou nenhum.
+        // Para dias parciais (sem 2º período), salvamos via hora_entrada/hora_saida + horas_trabalhadas.
+        entrada_1: usaDoisPeriodos ? minutosParaHHMM(entrada1) : null,
+        saida_1: usaDoisPeriodos ? minutosParaHHMM(saida1) : null,
+        entrada_2: usaDoisPeriodos ? minutosParaHHMM(entrada2!) : null,
+        saida_2: usaDoisPeriodos ? minutosParaHHMM(saida2!) : null,
         hora_entrada: minutosParaHHMM(entrada1),
-        hora_saida: minutosParaHHMM(saida2),
+        hora_saida: usaDoisPeriodos ? minutosParaHHMM(saida2!) : minutosParaHHMM(saida1),
+        horas_trabalhadas: horasManual,
         percentual_aplicado: percentual,
         observacao: descRaw || null,
         valor_hora: valorHoraAplicado,
@@ -1475,6 +1615,13 @@ export default function RelatorioHHSection({
             }
           }
 
+          const periodosSync: Array<{ entrada: string; saida: string }> = [
+            { entrada: minutosParaHHMM(entrada1), saida: minutosParaHHMM(saida1) },
+          ];
+          if (usaDoisPeriodos) {
+            periodosSync.push({ entrada: minutosParaHHMM(entrada2!), saida: minutosParaHHMM(saida2!) });
+          }
+
           await syncHhToApontamentos({
             supabase,
             tenantId: ctx.tenant,
@@ -1482,10 +1629,7 @@ export default function RelatorioHHSection({
             osId,
             colaboradorId: colabId,
             dataISO: baseDate,
-            periodos: [
-              { entrada: minutosParaHHMM(entrada1), saida: minutosParaHHMM(saida1) },
-              { entrada: minutosParaHHMM(entrada2), saida: minutosParaHHMM(saida2) },
-            ],
+            periodos: periodosSync,
             descricao: descRaw || "HH lançado na OS",
             percentual,
           });
@@ -1961,7 +2105,7 @@ export default function RelatorioHHSection({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-zinc-400">Entrada 2 *</label>
+              <label className="text-xs text-zinc-400">Entrada 2 <span className="text-[10px] text-zinc-500">(opcional)</span></label>
               <input
                 type="time"
                 aria-label="Entrada 2"
@@ -1971,7 +2115,7 @@ export default function RelatorioHHSection({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-zinc-400">Saída 2 *</label>
+              <label className="text-xs text-zinc-400">Saída 2 <span className="text-[10px] text-zinc-500">(opcional)</span></label>
               <input
                 type="time"
                 aria-label="Saída 2"
@@ -2039,6 +2183,7 @@ export default function RelatorioHHSection({
                   empresaNome: printHeader.empresaNome,
                   clienteNome: printHeader.clienteNome,
                   numeroOS: printHeader.numeroOS,
+                  osDescricao: printHeader.osDescricao,
                   periodoLabel: printHeader.periodoLabel,
                   emissaoLabel: printHeader.emissaoLabel,
                 })
@@ -2142,17 +2287,20 @@ export default function RelatorioHHSection({
         <div className="hh-print">
           <div className="hh-print__header">
             <div className="hh-print__brand">
-              <img className="hh-print__logo" src="/Segau.png" alt="Logo" />
+              <img className="hh-print__logo" src="/Segau2.png" alt="Logo" />
               <div className="hh-print__brandText">
                 <div className="hh-print__empresa">{printHeader.empresaNome}</div>
                 <div className="hh-print__cliente">Cliente: {printHeader.clienteNome}</div>
               </div>
             </div>
 
-            <div className="hh-print__title">
-              <div className="hh-print__titleMain">Relatório de Horas Lançadas</div>
-              <div className="hh-print__titleSub">OS {printHeader.numeroOS}</div>
-            </div>
+              <div className="hh-print__title">
+                <div className="hh-print__titleMain">Relatório de Horas Lançadas</div>
+                <div className="hh-print__titleSub">
+                  OS {printHeader.numeroOS}
+                  {printHeader.osDescricao ? ` - ${printHeader.osDescricao}` : ""}
+                </div>
+              </div>
 
             <div className="hh-print__meta">
               <div>

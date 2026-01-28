@@ -50,8 +50,9 @@ export default function ServicosClientePage() {
   }, []);
   const { tenantId, empresaId, loading: tenantLoading } = useTenantEmpresa();
   const { has, loading: permLoading } = usePermissions();
-  const canView = has("apontamentos.read");
-  const canEdit = has("apontamentos.write");
+  const isAdmin = Boolean(has("admin.manage_users")) || Boolean(has("admin.users.manage"));
+  const canView = isAdmin || Boolean(has("financeiro.read")) || Boolean(has("apontamentos.read"));
+  const canEdit = isAdmin || Boolean(has("financeiro.read")) || Boolean(has("apontamentos.write"));
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [servicos, setServicos] = useState<ServicoHH[]>([]);

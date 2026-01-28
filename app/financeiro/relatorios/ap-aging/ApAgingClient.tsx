@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { downloadCsv, formatDateBR, formatMoney, n } from "../relatoriosShared";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type ResumoRow = {
   fornecedor_nome: string | null;
@@ -67,6 +68,7 @@ export default function ApAgingClient() {
   const [loading, setLoading] = useState(true);
   const [detalheLoading, setDetalheLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const warnedMissingContextRef = useRef(false);
 
   const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
@@ -79,14 +81,34 @@ export default function ApAgingClient() {
     if (canFinanceiro === false) router.replace("/forbidden");
   }, [canFinanceiro, router]);
 
+  const tenantId = te.tenantId ?? null;
+  const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+
   const ready =
     typeof te.sessionUserId === "string" &&
-    Boolean(te.tenantId) &&
-    (Boolean(te.empresaId) || te.empresas.length === 1) &&
+    Boolean(tenantId) &&
+    Boolean(empresaId) &&
     canFinanceiro === true;
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready) {
+      if (
+        process.env.NODE_ENV !== "production" &&
+        typeof te.sessionUserId === "string" &&
+        canFinanceiro === true &&
+        (!tenantId || !empresaId) &&
+        !warnedMissingContextRef.current
+      ) {
+        console.debug("[financeiro] Contexto ausente ao carregar aging AP", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
 
     let cancelled = false;
 
@@ -97,12 +119,17 @@ export default function ApAgingClient() {
       try {
         const supabase = getSupabaseBrowser();
 
-        let query = supabase
-          .schema("f")
-          .from("r_ap_aging_resumo")
-          .select(
-            "fornecedor_nome,motivo_codigo,motivo_nome,a_vencer,vencido_0_30,vencido_31_60,vencido_61_90,vencido_90_mais,total_aberto"
-          )
+        let query = applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("r_ap_aging_resumo")
+            .select(
+              "fornecedor_nome,motivo_codigo,motivo_nome,a_vencer,vencido_0_30,vencido_31_60,vencido_61_90,vencido_90_mais,total_aberto"
+            ),
+          tenantId!,
+          empresaId!
+        )
+          .eq("empresa_id", empresaId!)
           .order("total_aberto", { ascending: false })
           .limit(Math.max(5, Math.min(100, limitResumo)));
 
@@ -141,7 +168,7 @@ export default function ApAgingClient() {
     return () => {
       cancelled = true;
     };
-  }, [limitResumo, minTotal, q, ready, selected]);
+  }, [limitResumo, minTotal, q, ready, selected, canFinanceiro, empresaId, te.empresaId, te.empresas.length, te.sessionUserId, tenantId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -156,12 +183,17 @@ export default function ApAgingClient() {
       try {
         const supabase = getSupabaseBrowser();
 
-        let query = supabase
-          .schema("f")
-          .from("r_ap_aging_detalhe")
-          .select(
-            "fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,dias_atraso,valor_parcela,valor_aberto,status,competencia_date"
-          )
+        let query = applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("r_ap_aging_detalhe")
+            .select(
+              "fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,dias_atraso,valor_parcela,valor_aberto,status,competencia_date"
+            ),
+          tenantId!,
+          empresaId!
+        )
+          .eq("empresa_id", empresaId!)
           .order("dias_atraso", { ascending: false })
           .limit(500);
 
@@ -190,7 +222,7 @@ export default function ApAgingClient() {
     return () => {
       cancelled = true;
     };
-  }, [endDue, onlyOverdue, ready, selected, startDue]);
+  }, [endDue, onlyOverdue, ready, selected, startDue, tenantId, empresaId]);
 
   const totals = useMemo(() => {
     const sum = resumo.reduce(

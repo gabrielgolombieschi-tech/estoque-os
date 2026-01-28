@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { formatDecimalBR } from "@/lib/decimal";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type TabKey = "aberto" | "sem_motivo" | "agendamentos";
 
@@ -118,6 +119,7 @@ export default function ContasPagarLancamentosClient() {
 
   const [semMotivoRows, setSemMotivoRows] = useState<SemMotivoRow[]>([]);
   const [agendamentos, setAgendamentos] = useState<AgendamentoRow[]>([]);
+  const warnedMissingContextRef = useRef(false);
 
   useEffect(() => {
     setPage(1);
@@ -125,8 +127,22 @@ export default function ContasPagarLancamentosClient() {
 
   useEffect(() => {
     if (typeof te.sessionUserId !== "string") return;
-    if (!te.tenantId) return;
-    if (!te.empresaId && te.empresas.length !== 1) return;
+
+    const tenantId = te.tenantId ?? null;
+    const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+    if (!tenantId || !empresaId) {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingContextRef.current) {
+        console.debug("[financeiro] Contexto ausente ao carregar lançamentos AP", {
+          tenantId: te.tenantId ?? null,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
+
     if (canFinanceiro !== true) return;
 
     let cancelled = false;
@@ -139,13 +155,17 @@ export default function ContasPagarLancamentosClient() {
 
       try {
         if (tab === "aberto") {
-          let query = supabase
-            .schema("f")
-            .from("r_ap_aging_detalhe")
-            .select(
-              "titulo_id,parcela_id,parcela_numero,fornecedor_id,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,dias_atraso,valor_parcela,valor_aberto,status,emissao_date,competencia_date",
-              { count: "exact" }
-            );
+          let query = applyTenantEmpresa(
+            supabase
+              .schema("f")
+              .from("r_ap_aging_detalhe")
+              .select(
+                "titulo_id,parcela_id,parcela_numero,fornecedor_id,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,dias_atraso,valor_parcela,valor_aberto,status,emissao_date,competencia_date",
+                { count: "exact" }
+              ),
+            tenantId,
+            empresaId
+          ).eq("empresa_id", empresaId);
 
           const term = q.trim();
           if (term) {
@@ -202,10 +222,15 @@ export default function ContasPagarLancamentosClient() {
         }
 
         if (tab === "sem_motivo") {
-          const { data, error: qErr } = await supabase
-            .schema("f")
-            .from("r_titulos_sem_motivo_por_fornecedor")
-            .select("fornecedor_id,fornecedor_nome,qtd_titulos_sem_motivo,total_aberto")
+          const { data, error: qErr } = await applyTenantEmpresa(
+            supabase
+              .schema("f")
+              .from("r_titulos_sem_motivo_por_fornecedor")
+              .select("fornecedor_id,fornecedor_nome,qtd_titulos_sem_motivo,total_aberto"),
+            tenantId,
+            empresaId
+          )
+            .eq("empresa_id", empresaId)
             .order("total_aberto", { ascending: false })
             .limit(50);
 
@@ -228,7 +253,7 @@ export default function ContasPagarLancamentosClient() {
 
         // tab === agendamentos
         // Observação: este trecho usa relações FK para "titulo" e "conta_bancaria".
-        const { data, error: qErr } = await supabase
+        const { data, error: qErr } = await applyTenantEmpresa(supabase
           .schema("f")
           .from("titulo_agendamento")
           .select(
@@ -239,13 +264,13 @@ export default function ContasPagarLancamentosClient() {
               "valor_previsto",
               "observacoes",
               "titulo_id",
-              "titulo:titulo_id(id,status,descricao,competencia_date,emissao_date,fornecedores:fornecedor_id(nome))",
+              "titulo:titulo_id!inner(id,empresa_id,status,descricao,competencia_date,emissao_date,fornecedores:fornecedor_id(nome))",
               "conta_bancaria:conta_bancaria_id(nome,banco_nome)",
             ].join(",")
           )
           .is("deleted_at", null)
           .order("data_prevista", { ascending: true })
-          .limit(80);
+          .limit(80), tenantId, empresaId).eq("titulo.empresa_id", empresaId);
 
         if (cancelled) return;
         if (qErr) {
@@ -282,7 +307,7 @@ export default function ContasPagarLancamentosClient() {
     return () => {
       cancelled = true;
     };
-  }, [canFinanceiro, endDate, onlyOverdue, onlySemMotivo, orderBy, page, q, startDate, status, tab, te.empresas.length, te.empresaId, te.sessionUserId, te.tenantId]);
+  }, [canFinanceiro, endDate, onlyOverdue, onlySemMotivo, orderBy, page, q, startDate, status, tab, te.empresas, te.empresaId, te.sessionUserId, te.tenantId]);
 
   const resumo = useMemo(() => {
     const totalAberto = rows.reduce((acc, r) => acc + n(r.valor_aberto), 0);
@@ -453,7 +478,7 @@ export default function ContasPagarLancamentosClient() {
                 Ordenar
                 <select
                   value={orderBy}
-                  onChange={(e) => setOrderBy(e.target.value as any)}
+                  onChange={(e) => setOrderBy(e.target.value === "atraso" ? "atraso" : "vencimento")}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
                   aria-label="Ordenação"
                 >

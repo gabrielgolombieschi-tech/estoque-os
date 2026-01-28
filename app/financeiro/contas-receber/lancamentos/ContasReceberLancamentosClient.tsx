@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { formatDecimalBR } from "@/lib/decimal";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type ParcelaRow = {
   id: string;
@@ -88,6 +89,7 @@ export default function ContasReceberLancamentosClient() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<ParcelaRow[]>([]);
   const [total, setTotal] = useState<number>(0);
+  const warnedMissingContextRef = useRef(false);
 
   const resumo = useMemo(() => {
     const totalValor = rows.reduce((acc, r) => acc + n(r.valor), 0);
@@ -103,8 +105,20 @@ export default function ContasReceberLancamentosClient() {
 
   useEffect(() => {
     if (typeof te.sessionUserId !== "string") return;
-    if (!te.tenantId) return;
-    if (!te.empresaId && te.empresas.length !== 1) return;
+    const tenantId = te.tenantId ?? null;
+    const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+    if (!tenantId || !empresaId) {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingContextRef.current) {
+        console.debug("[financeiro] Contexto ausente ao carregar lançamentos AR", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
     if (canFinanceiro !== true) return;
 
     let cancelled = false;
@@ -116,25 +130,30 @@ export default function ContasReceberLancamentosClient() {
       try {
         const supabase = getSupabaseBrowser();
 
-        let query = supabase
-          .schema("f")
-          .from("titulo_parcela")
-          .select(
-            [
-              "id",
-              "numero",
-              "vencimento_date",
-              "valor",
-              "valor_aberto",
-              "titulo:titulo_id!inner(id,tipo,status,descricao,emissao_date,competencia_date,cliente_id,clientes:cliente_id(nome))",
-            ].join(","),
-            { count: "exact" }
-          )
+        let query = applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("titulo_parcela")
+            .select(
+              [
+                "id",
+                "numero",
+                "vencimento_date",
+                "valor",
+                "valor_aberto",
+                "titulo:titulo_id!inner(id,empresa_id,tipo,status,descricao,emissao_date,competencia_date,cliente_id,clientes:cliente_id(nome))",
+              ].join(","),
+              { count: "exact" }
+            ),
+          tenantId,
+          empresaId
+        )
           .is("deleted_at", null)
           .order("vencimento_date", { ascending: true });
 
         // filter: only AR
         query = query.eq("titulo.tipo", "AR");
+        query = query.eq("titulo.empresa_id", empresaId);
 
         // tab filter
         if (tab === "aberto") {
@@ -195,7 +214,7 @@ export default function ContasReceberLancamentosClient() {
     return () => {
       cancelled = true;
     };
-  }, [canFinanceiro, endDue, onlyOverdue, page, q, startDue, status, tab, te.empresas.length, te.empresaId, te.sessionUserId, te.tenantId]);
+  }, [canFinanceiro, endDue, onlyOverdue, page, q, startDue, status, tab, te.empresas, te.empresaId, te.sessionUserId, te.tenantId]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 

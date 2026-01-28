@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { formatDecimalBR } from "@/lib/decimal";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type FluxoDiarioRow = {
   data_ref: string;
@@ -168,6 +169,7 @@ export default function FinanceiroDashboardClient() {
   const [agingDetalhe, setAgingDetalhe] = useState<ApAgingDetalheRow[]>([]);
   const [semMotivo, setSemMotivo] = useState<SemMotivoRow[]>([]);
   const [sugestoesConciliacao, setSugestoesConciliacao] = useState<SugestaoConciliacaoApRow[]>([]);
+  const warnedMissingContextRef = useRef(false);
 
   const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
@@ -183,8 +185,22 @@ export default function FinanceiroDashboardClient() {
   useEffect(() => {
     // Wait until auth + tenant + empresa are ready (AppShell already blocks rendering earlier).
     if (typeof te.sessionUserId !== "string") return;
-    if (!te.tenantId) return;
-    if (!te.empresaId && te.empresas.length !== 1) return;
+
+    const tenantId = te.tenantId ?? null;
+    const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+    if (!tenantId || !empresaId) {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingContextRef.current) {
+        console.debug("[financeiro] Contexto ausente ao carregar dashboard", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
+
     if (canFinanceiro !== true) return;
 
     let cancelled = false;
@@ -212,10 +228,12 @@ export default function FinanceiroDashboardClient() {
         const [fluxoRows, saldoRows, resumoRows, detalheRows, semMotivoRows, sugestoesRows] = await Promise.all([
           safe(
             () =>
-              supabase
-                .schema("f")
-                .from("r_fluxo_caixa_diario")
-                .select("data_ref,valor_previsto,valor_realizado")
+              applyTenantEmpresa(
+                supabase.schema("f").from("r_fluxo_caixa_diario").select("data_ref,valor_previsto,valor_realizado"),
+                tenantId,
+                empresaId
+              )
+                .eq("empresa_id", empresaId)
                 .gte("data_ref", range.start)
                 .lte("data_ref", range.end)
                 .order("data_ref", { ascending: true }),
@@ -223,10 +241,12 @@ export default function FinanceiroDashboardClient() {
           ),
           safe(
             () =>
-              supabase
-                .schema("f")
-                .from("r_saldo_projetado_diario_com_saldo_inicial")
-                .select("data_ref,saldo_projetado")
+              applyTenantEmpresa(
+                supabase.schema("f").from("r_saldo_projetado_diario_com_saldo_inicial").select("data_ref,saldo_projetado"),
+                tenantId,
+                empresaId
+              )
+                .eq("empresa_id", empresaId)
                 .gte("data_ref", range.start)
                 .lte("data_ref", range.end)
                 .order("data_ref", { ascending: true }),
@@ -234,46 +254,66 @@ export default function FinanceiroDashboardClient() {
           ),
           safe(
             () =>
-              supabase
-                .schema("f")
-                .from("r_ap_aging_resumo")
-                .select(
-                  "fornecedor_nome,motivo_codigo,motivo_nome,a_vencer,vencido_0_30,vencido_31_60,vencido_61_90,vencido_90_mais,total_aberto"
-                )
+              applyTenantEmpresa(
+                supabase
+                  .schema("f")
+                  .from("r_ap_aging_resumo")
+                  .select(
+                    "fornecedor_nome,motivo_codigo,motivo_nome,a_vencer,vencido_0_30,vencido_31_60,vencido_61_90,vencido_90_mais,total_aberto"
+                  ),
+                tenantId,
+                empresaId
+              )
+                .eq("empresa_id", empresaId)
                 .order("total_aberto", { ascending: false })
                 .limit(12),
             [] as ApAgingResumoRow[]
           ),
           safe(
             () =>
-              supabase
-                .schema("f")
-                .from("r_ap_aging_detalhe")
-                .select(
-                  "fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,dias_atraso,valor_parcela,valor_aberto,status,competencia_date"
-                )
+              applyTenantEmpresa(
+                supabase
+                  .schema("f")
+                  .from("r_ap_aging_detalhe")
+                  .select(
+                    "fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,dias_atraso,valor_parcela,valor_aberto,status,competencia_date"
+                  ),
+                tenantId,
+                empresaId
+              )
+                .eq("empresa_id", empresaId)
                 .order("dias_atraso", { ascending: false })
                 .limit(12),
             [] as ApAgingDetalheRow[]
           ),
           safe(
             () =>
-              supabase
-                .schema("f")
-                .from("r_titulos_sem_motivo_por_fornecedor")
-                .select("fornecedor_nome,qtd_titulos_sem_motivo,total_aberto")
+              applyTenantEmpresa(
+                supabase
+                  .schema("f")
+                  .from("r_titulos_sem_motivo_por_fornecedor")
+                  .select("fornecedor_nome,qtd_titulos_sem_motivo,total_aberto"),
+                tenantId,
+                empresaId
+              )
+                .eq("empresa_id", empresaId)
                 .order("total_aberto", { ascending: false })
                 .limit(8),
             [] as SemMotivoRow[]
           ),
           safe(
             () =>
-              supabase
-                .schema("f")
-                .from("r_sugestoes_conciliacao_ap")
-                .select(
-                  "extrato_linha_id,data_movimento,valor_extrato,descricao,pagamento_id,data_pagamento,forma_pagamento,valor_pagamento,diferenca_valor"
-                )
+              applyTenantEmpresa(
+                supabase
+                  .schema("f")
+                  .from("r_sugestoes_conciliacao_ap")
+                  .select(
+                    "extrato_linha_id,data_movimento,valor_extrato,descricao,pagamento_id,data_pagamento,forma_pagamento,valor_pagamento,diferenca_valor"
+                  ),
+                tenantId,
+                empresaId
+              )
+                .eq("empresa_id", empresaId)
                 .order("diferenca_valor", { ascending: true })
                 .limit(8),
             [] as SugestaoConciliacaoApRow[]
@@ -300,7 +340,7 @@ export default function FinanceiroDashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, [canFinanceiro, range.end, range.start, te.empresas.length, te.empresaId, te.sessionUserId, te.tenantId]);
+  }, [canFinanceiro, range.end, range.start, te.empresas, te.empresaId, te.sessionUserId, te.tenantId]);
 
   const fluxoPorDia = useMemo(() => {
     const map = new Map<string, { previsto: number; realizado: number }>();

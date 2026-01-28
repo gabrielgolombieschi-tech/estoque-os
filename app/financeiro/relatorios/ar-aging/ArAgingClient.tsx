@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
@@ -15,6 +15,7 @@ import {
   n,
   type AgingBuckets,
 } from "../relatoriosShared";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type ParcelaRow = {
   id: string;
@@ -63,6 +64,7 @@ export default function ArAgingClient() {
   const [rows, setRows] = useState<ParcelaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const warnedMissingContextRef = useRef(false);
 
   const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
@@ -75,14 +77,34 @@ export default function ArAgingClient() {
     if (canFinanceiro === false) router.replace("/forbidden");
   }, [canFinanceiro, router]);
 
+  const tenantId = te.tenantId ?? null;
+  const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+
   const ready =
     typeof te.sessionUserId === "string" &&
-    Boolean(te.tenantId) &&
-    (Boolean(te.empresaId) || te.empresas.length === 1) &&
+    Boolean(tenantId) &&
+    Boolean(empresaId) &&
     canFinanceiro === true;
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready) {
+      if (
+        process.env.NODE_ENV !== "production" &&
+        typeof te.sessionUserId === "string" &&
+        canFinanceiro === true &&
+        (!tenantId || !empresaId) &&
+        !warnedMissingContextRef.current
+      ) {
+        console.debug("[financeiro] Contexto ausente ao carregar aging AR", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
 
     let cancelled = false;
 
@@ -93,25 +115,30 @@ export default function ArAgingClient() {
       try {
         const supabase = getSupabaseBrowser();
 
-        let query = supabase
-          .schema("f")
-          .from("titulo_parcela")
-          .select(
-            [
-              "id",
-              "numero",
-              "vencimento_date",
-              "valor",
-              "valor_aberto",
-              "titulo:titulo_id!inner(id,tipo,status,descricao,emissao_date,competencia_date,cliente_id,clientes:cliente_id(nome))",
-            ].join(",")
-          )
+        let query = applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("titulo_parcela")
+            .select(
+              [
+                "id",
+                "numero",
+                "vencimento_date",
+                "valor",
+                "valor_aberto",
+                "titulo:titulo_id!inner(id,empresa_id,tipo,status,descricao,emissao_date,competencia_date,cliente_id,clientes:cliente_id(nome))",
+              ].join(",")
+            ),
+          tenantId!,
+          empresaId!
+        )
           .is("deleted_at", null)
           .order("vencimento_date", { ascending: true })
           .limit(Math.max(200, Math.min(5000, limit)));
 
         // only AR open
         query = query.eq("titulo.tipo", "AR");
+        query = query.eq("titulo.empresa_id", empresaId!);
         query = query.gt("valor_aberto", 0);
         query = query.in("titulo.status", ["PENDENTE", "APROVADO", "AGENDADO"]);
 
@@ -145,7 +172,7 @@ export default function ArAgingClient() {
     return () => {
       cancelled = true;
     };
-  }, [endDue, limit, onlyOverdue, q, ready, startDue]);
+  }, [endDue, limit, onlyOverdue, q, ready, startDue, canFinanceiro, empresaId, te.empresaId, te.empresas.length, te.sessionUserId, tenantId]);
 
   const computed = useMemo(() => {
     const overall = emptyBuckets();

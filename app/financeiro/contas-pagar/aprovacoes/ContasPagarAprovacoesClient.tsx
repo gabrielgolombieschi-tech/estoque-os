@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { formatDecimalBR } from "@/lib/decimal";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type MotivoCompra = {
   id: string;
@@ -13,6 +14,14 @@ type MotivoCompra = {
   nome: string;
   requires_text: boolean;
   requires_os: boolean;
+};
+
+type MotivoCompraSelectRow = {
+  id: string | null;
+  codigo: string | null;
+  nome: string | null;
+  requires_text: boolean | null;
+  requires_os: boolean | null;
 };
 
 type ApprovalQueueRow = {
@@ -89,6 +98,7 @@ export default function ContasPagarAprovacoesClient() {
 
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [motivos, setMotivos] = useState<MotivoCompra[]>([]);
+  const warnedMissingContextRef = useRef(false);
 
   const [selectedTituloId, setSelectedTituloId] = useState<string | null>(null);
   const selected = useMemo(
@@ -123,8 +133,20 @@ export default function ContasPagarAprovacoesClient() {
 
   useEffect(() => {
     if (typeof te.sessionUserId !== "string") return;
-    if (!te.tenantId) return;
-    if (!te.empresaId && te.empresas.length !== 1) return;
+    const tenantId = te.tenantId ?? null;
+    const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
+    if (!tenantId || !empresaId) {
+      if (process.env.NODE_ENV !== "production" && !warnedMissingContextRef.current) {
+        console.debug("[financeiro] Contexto ausente ao carregar aprovações AP", {
+          tenantId,
+          empresaId: te.empresaId ?? null,
+          empresasCount: te.empresas.length,
+        });
+        warnedMissingContextRef.current = true;
+      }
+      return;
+    }
+    warnedMissingContextRef.current = false;
     if (canFinanceiro !== true) return;
 
     let cancelled = false;
@@ -137,11 +159,11 @@ export default function ContasPagarAprovacoesClient() {
 
       try {
         // Load motivos
-        const { data: motivosData, error: motivosErr } = await supabase
-          .schema("f")
-          .from("motivo_compra")
-          .select("id,codigo,nome,requires_text,requires_os")
-          .eq("tenant_id", te.tenantId)
+        const { data: motivosData, error: motivosErr } = await applyTenantEmpresa(
+          supabase.schema("f").from("motivo_compra").select("id,codigo,nome,requires_text,requires_os"),
+          tenantId,
+          empresaId
+        )
           .eq("ativo", true)
           .is("deleted_at", null)
           .order("codigo", { ascending: true });
@@ -150,23 +172,29 @@ export default function ContasPagarAprovacoesClient() {
         if (motivosErr) {
           setMotivos([]);
         } else {
-          const mapped = (motivosData ?? [])
+          const rows = (motivosData ?? []) as unknown as MotivoCompraSelectRow[];
+          const mapped = rows
             .map((r) => ({
-              id: String((r as any).id),
-              codigo: String((r as any).codigo ?? ""),
-              nome: String((r as any).nome ?? ""),
-              requires_text: Boolean((r as any).requires_text),
-              requires_os: Boolean((r as any).requires_os),
+              id: String(r.id ?? ""),
+              codigo: String(r.codigo ?? ""),
+              nome: String(r.nome ?? ""),
+              requires_text: Boolean(r.requires_text),
+              requires_os: Boolean(r.requires_os),
             }))
             .filter((m) => m.id && m.codigo && m.nome);
           setMotivos(mapped);
         }
 
         // Queue: AP em aberto sem motivo (via view)
-        let query = supabase
-          .schema("f")
-          .from("r_ap_aging_detalhe")
-          .select("titulo_id,fornecedor_nome,competencia_date,emissao_date,status,motivo_codigo,vencimento_date,dias_atraso,valor_aberto")
+        let query = applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("r_ap_aging_detalhe")
+            .select("titulo_id,fornecedor_nome,competencia_date,emissao_date,status,motivo_codigo,vencimento_date,dias_atraso,valor_aberto"),
+          tenantId,
+          empresaId
+        )
+          .eq("empresa_id", empresaId)
           .eq("motivo_codigo", "NAO_CLASSIFICADO")
           .in("status", ["PENDENTE", "APROVADO", "AGENDADO"])
           .order("vencimento_date", { ascending: true })
@@ -244,7 +272,7 @@ export default function ContasPagarAprovacoesClient() {
     return () => {
       cancelled = true;
     };
-  }, [canFinanceiro, onlyOverdue, q, selectedTituloId, te.empresas.length, te.empresaId, te.sessionUserId, te.tenantId]);
+  }, [canFinanceiro, onlyOverdue, q, selectedTituloId, te.empresas, te.empresaId, te.sessionUserId, te.tenantId]);
 
   async function aprovar() {
     if (!selected) return;
