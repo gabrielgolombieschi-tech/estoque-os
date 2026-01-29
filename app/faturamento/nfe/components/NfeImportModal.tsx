@@ -51,11 +51,18 @@ export default function NfeImportModal({
   const tenantId = te.tenantId ?? "";
   const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
 
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+
   const canImportXml = useMemo(() => {
     const v = te.has("xml_import.execute");
+    if (isFinanceiroEmpresaRole) return true;
     if (v === undefined) return undefined;
     return Boolean(v);
-  }, [te]);
+  }, [isFinanceiroEmpresaRole, te]);
 
   const [file, setFile] = useState<File | null>(null);
   const [clienteId, setClienteId] = useState<string>("");

@@ -81,6 +81,82 @@ function StatCard({ title, value, subtitle }: { title: string; value: string; su
   );
 }
 
+function KpiCard({
+  title,
+  value,
+  subtitle,
+  valueClassName = "text-zinc-100",
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+      <div className="text-xs text-zinc-400">{title}</div>
+      <div className={`mt-1.5 text-xl font-semibold tabular-nums ${valueClassName}`}>{value}</div>
+      {subtitle ? <div className="mt-1 text-[11px] text-zinc-500">{subtitle}</div> : null}
+    </div>
+  );
+}
+
+type ImpostoKpis = {
+  imposto: string;
+  debitos: number;
+  creditos: number;
+  retencoes: number;
+  resultado: number;
+  qtdDocs: number;
+};
+
+function aggregateByImposto(rows: ApuracaoAggRow[]): ImpostoKpis[] {
+  const by = new Map<string, ImpostoKpis>();
+
+  for (const r of rows ?? []) {
+    const imposto = String(r.imposto ?? "").trim();
+    const natureza = String(r.natureza ?? "").trim().toUpperCase();
+    if (!imposto) continue;
+
+    const cur = by.get(imposto) ?? {
+      imposto,
+      debitos: 0,
+      creditos: 0,
+      retencoes: 0,
+      resultado: 0,
+      qtdDocs: 0,
+    };
+
+    const valor = n(r.valor_total_calculado);
+    const qtd = n(r.qtd_documentos);
+
+    if (natureza === "DEBITO") cur.debitos += valor;
+    else if (natureza === "CREDITO") cur.creditos += valor;
+    else if (natureza === "RETENCAO") cur.retencoes += valor;
+    cur.qtdDocs += qtd;
+
+    by.set(imposto, cur);
+  }
+
+  const list = Array.from(by.values());
+  for (const it of list) {
+    it.resultado = it.debitos - it.creditos - it.retencoes;
+  }
+
+  const rank = (imposto: string) => {
+    const key = String(imposto ?? "").trim().toUpperCase();
+    if (key === "PIS" || key === "PIS/PASEP") return 0;
+    return 1;
+  };
+
+  return list.sort((a, b) => {
+    const ra = rank(a.imposto);
+    const rb = rank(b.imposto);
+    if (ra !== rb) return ra - rb;
+    return a.imposto.localeCompare(b.imposto);
+  });
+}
+
 function normalizeApuracaoRows(rows: ApuracaoRow[]): ApuracaoRow[] {
   return (rows ?? [])
     .map((r) => ({
@@ -254,6 +330,10 @@ export default function ImpostosPageClient() {
 
   const mesTableRows = useMemo(() => aggregateForTable(mesRows), [mesRows]);
   const mesTotals = useMemo(() => sumByNatureza(mesTableRows.map((r) => ({ natureza: r.natureza, valor_total_calculado: r.valor_total_calculado, qtd_documentos: r.qtd_documentos }))), [mesTableRows]);
+  const mesImpostoKpis = useMemo(() => aggregateByImposto(mesTableRows), [mesTableRows]);
+
+  const anoTableRows = useMemo(() => aggregateForTable(anoRows), [anoRows]);
+  const anoImpostoKpis = useMemo(() => aggregateByImposto(anoTableRows), [anoTableRows]);
 
   const anoByCompetencia = useMemo(() => {
     const by = new Map<string, ApuracaoAggRow[]>();
@@ -494,6 +574,21 @@ export default function ImpostosPageClient() {
 
       {tab === "mes" ? (
         <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+            {mesImpostoKpis.length ? (
+              mesImpostoKpis.map((it) => (
+                <div key={it.imposto} className="flex flex-col gap-2">
+                  <KpiCard title={`${it.imposto} Débitos`} value={formatMoneyBR(it.debitos)} valueClassName="text-rose-300" />
+                  <KpiCard title={`${it.imposto} Créditos`} value={formatMoneyBR(it.creditos)} valueClassName="text-emerald-300" />
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
+                {loadingMes ? "Carregando KPIs..." : "Sem KPIs para o período/filtros."}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <StatCard title="Total Débitos" value={formatMoneyBR(mesTotals.debitos)} />
             <StatCard title="Total Créditos" value={formatMoneyBR(mesTotals.creditos)} />
@@ -566,6 +661,21 @@ export default function ImpostosPageClient() {
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+            {anoImpostoKpis.length ? (
+              anoImpostoKpis.map((it) => (
+                <div key={it.imposto} className="flex flex-col gap-2">
+                  <KpiCard title={`${it.imposto} Débitos (ano)`} value={formatMoneyBR(it.debitos)} valueClassName="text-rose-300" />
+                  <KpiCard title={`${it.imposto} Créditos (ano)`} value={formatMoneyBR(it.creditos)} valueClassName="text-emerald-300" />
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
+                {loadingAno ? "Carregando KPIs..." : "Sem KPIs para o ano/filtros."}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <StatCard title="Total Débitos (ano)" value={formatMoneyBR(anoTotals.debitos)} />
             <StatCard title="Total Créditos (ano)" value={formatMoneyBR(anoTotals.creditos)} />

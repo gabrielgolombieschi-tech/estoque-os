@@ -106,6 +106,12 @@ export default function NfeDetail({
   const te = useTenantEmpresa();
   const router = useRouter();
 
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+
   const canAccess = useMemo(() => {
     const requireAny = (caps: CapabilityKey[]) => {
       const values = caps.map((c) => te.has(c));
@@ -119,8 +125,9 @@ export default function NfeDetail({
     }
 
     // Default: financeiro
+    if (isFinanceiroEmpresaRole) return true;
     return requireAny(["financeiro.read", "financeiro.write"]);
-  }, [access, te]);
+  }, [access, isFinanceiroEmpresaRole, te]);
 
   useEffect(() => {
     if (canAccess === false) router.replace("/forbidden");

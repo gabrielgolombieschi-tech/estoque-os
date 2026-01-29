@@ -343,7 +343,15 @@ export default function ImportarXmlPage() {
 
   const [loteMissing, setLoteMissing] = useState<string[]>([]);
 
-  const { tenantId, empresaId } = useTenantEmpresa();
+  const te = useTenantEmpresa();
+  const tenantId = te.tenantId ?? "";
+  const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
+
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
   const { has, loading: permissionsLoading, ready } = usePermissions();
 
   const [recentNfs, setRecentNfs] = useState<NfEntradaResumoRow[]>([]);
@@ -355,7 +363,7 @@ export default function ImportarXmlPage() {
   const canImport = has("xml_import.execute");
   const canCreateFornecedor = has("cad_fornecedores.write");
   const canCreateItem = has("cad_itens.write");
-  const canAccessPage = canImport || canCreateFornecedor || canCreateItem;
+  const canAccessPage = Boolean(canImport || canCreateFornecedor || canCreateItem || isFinanceiroEmpresaRole);
 
   const osEnabled = finalidadeLote === "materia_prima";
 
@@ -2493,7 +2501,7 @@ export default function ImportarXmlPage() {
                       key={nf.id}
                       className={`hover:bg-zinc-900/40 ${canOpen ? "cursor-pointer" : "opacity-60"}`}
                       role="button"
-                      tabIndex={0}
+                      tabIndex={canOpen ? 0 : -1}
                       onClick={() => {
                         if (!canOpen) return;
                         void abrirNotaImportada(nf);
@@ -2505,7 +2513,6 @@ export default function ImportarXmlPage() {
                           void abrirNotaImportada(nf);
                         }
                       }}
-                      aria-disabled={!canOpen}
                     >
                       <td className="px-3 py-2">{formatDateBR(emissao) || "—"}</td>
                       <td className="px-3 py-2">{serieNum}</td>

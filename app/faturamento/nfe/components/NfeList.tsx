@@ -50,12 +50,19 @@ export default function NfeList() {
   const te = useTenantEmpresa();
   const router = useRouter();
 
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+
   const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
     const w = te.has("financeiro.write");
+    if (isFinanceiroEmpresaRole) return true;
     if (r === undefined || w === undefined) return undefined;
     return Boolean(r || w);
-  }, [te]);
+  }, [isFinanceiroEmpresaRole, te]);
 
   useEffect(() => {
     if (canFinanceiro === false) router.replace("/forbidden");
@@ -152,7 +159,7 @@ export default function NfeList() {
     const tenantId = te.tenantId!;
     const empresaId = te.empresaId ?? te.empresas[0]!.id;
 
-    let query = applyTenantEmpresa(
+    const query = applyTenantEmpresa(
       supabase
         .schema("f")
         .from("documento_fiscal")

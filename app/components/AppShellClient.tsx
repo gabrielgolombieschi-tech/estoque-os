@@ -174,8 +174,10 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canAccessApontamentos = can("apontamentos.read") || can("apontamentos.write");
   const canAccessClientesCad =
     can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write") || canAccessCadastrosByEmpresaPapel;
-  const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write");
-  const canImportXml = can("xml_import.execute");
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+
+  const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write") || isFinanceiroEmpresaRole;
+  const canImportXml = can("xml_import.execute") || isFinanceiroEmpresaRole;
   const canAdminManageUsers = can("admin.manage_users");
   const shouldShowAdmin = canAdminManageUsers || isAdminTenant;
   const adminReason = "";

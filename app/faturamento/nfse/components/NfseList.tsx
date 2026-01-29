@@ -61,12 +61,19 @@ export default function NfseList() {
   const te = useTenantEmpresa();
   const router = useRouter();
 
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+
   const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
     const w = te.has("financeiro.write");
+    if (isFinanceiroEmpresaRole) return true;
     if (r === undefined || w === undefined) return undefined;
     return Boolean(r || w);
-  }, [te]);
+  }, [isFinanceiroEmpresaRole, te]);
 
   useEffect(() => {
     if (canFinanceiro === false) router.replace("/forbidden");
@@ -130,7 +137,7 @@ export default function NfseList() {
     const tenantId = te.tenantId!;
     const empresaId = te.empresaId ?? te.empresas[0]!.id;
 
-    let query = applyTenantEmpresa(
+    const query = applyTenantEmpresa(
       supabase
         .schema("f")
         .from("documento_fiscal")
@@ -251,8 +258,11 @@ export default function NfseList() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-zinc-400">Status</label>
+          <label htmlFor="nfse-status" className="block text-xs font-medium text-zinc-400">
+            Status
+          </label>
           <select
+            id="nfse-status"
             value={status}
             onChange={(e) => setStatus(e.target.value as NfseStatusFilter)}
             className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-700"

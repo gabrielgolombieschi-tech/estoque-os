@@ -106,12 +106,19 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
   const te = useTenantEmpresa();
   const router = useRouter();
 
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+
   const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
     const w = te.has("financeiro.write");
+    if (isFinanceiroEmpresaRole) return true;
     if (r === undefined || w === undefined) return undefined;
     return Boolean(r || w);
-  }, [te]);
+  }, [isFinanceiroEmpresaRole, te]);
 
   useEffect(() => {
     if (canFinanceiro === false) router.replace("/forbidden");
@@ -625,8 +632,11 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
           </div>
           <div className="p-4 grid gap-3 md:grid-cols-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Emissão</label>
+              <label htmlFor="nfse-emissao" className="block text-xs font-medium text-zinc-400">
+                Emissão
+              </label>
               <input
+                id="nfse-emissao"
                 type="date"
                 value={emissaoDate}
                 disabled={readOnly}
@@ -635,8 +645,11 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Série</label>
+              <label htmlFor="nfse-serie" className="block text-xs font-medium text-zinc-400">
+                Série
+              </label>
               <input
+                id="nfse-serie"
                 value={serie}
                 disabled={readOnly}
                 onChange={(e) => setSerie(e.target.value)}
@@ -644,8 +657,11 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Número</label>
+              <label htmlFor="nfse-numero" className="block text-xs font-medium text-zinc-400">
+                Número
+              </label>
               <input
+                id="nfse-numero"
                 value={numero}
                 disabled={readOnly}
                 onChange={(e) => setNumero(e.target.value)}
@@ -653,8 +669,11 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Total (serviços)</label>
+              <label htmlFor="nfse-total" className="block text-xs font-medium text-zinc-400">
+                Total (serviços)
+              </label>
               <input
+                id="nfse-total"
                 value={formatMoneyBR(valorTotal)}
                 disabled
                 className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 opacity-70"
