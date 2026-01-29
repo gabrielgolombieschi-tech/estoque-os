@@ -35,6 +35,18 @@ export type ParsedNfe = {
   emitente: string | null;
   dataEmissao: string | null;
   cnpjEmitente: string | null;
+  destinatario: string | null;
+  documentoDestinatario: string | null;
+  inscricaoEstadualDestinatario: string | null;
+  emailDestinatario: string | null;
+  endDestCep: string | null;
+  endDestLogradouro: string | null;
+  endDestNumero: string | null;
+  endDestComplemento: string | null;
+  endDestBairro: string | null;
+  endDestCidade: string | null;
+  endDestUf: string | null;
+  endDestPais: string | null;
   valorProdutos: number;
   valorFrete: number;
   valorSeguro: number;
@@ -75,6 +87,26 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
   const serie = doc.querySelector("ide > serie")?.textContent ?? null;
   const emitente = doc.querySelector("emit > xNome")?.textContent ?? null;
   const cnpjEmitente = doc.querySelector("emit > CNPJ")?.textContent ?? null;
+
+  // Destinatário (cliente da NF-e de saída)
+  const destinatario = doc.querySelector("dest > xNome")?.textContent ?? null;
+  const docDest =
+    doc.querySelector("dest > CNPJ")?.textContent ??
+    doc.querySelector("dest > CPF")?.textContent ??
+    null;
+  const ieDest = doc.querySelector("dest > IE")?.textContent ?? null;
+  const emailDest = doc.querySelector("dest > email")?.textContent ?? null;
+
+  const enderDest = doc.querySelector("dest > enderDest");
+  const endDestCep = enderDest?.querySelector("CEP")?.textContent ?? null;
+  const endDestLogradouro = enderDest?.querySelector("xLgr")?.textContent ?? null;
+  const endDestNumero = enderDest?.querySelector("nro")?.textContent ?? null;
+  const endDestComplemento = enderDest?.querySelector("xCpl")?.textContent ?? null;
+  const endDestBairro = enderDest?.querySelector("xBairro")?.textContent ?? null;
+  const endDestCidade = enderDest?.querySelector("xMun")?.textContent ?? null;
+  const endDestUf = enderDest?.querySelector("UF")?.textContent ?? null;
+  const endDestPais =
+    enderDest?.querySelector("xPais")?.textContent ?? enderDest?.querySelector("cPais")?.textContent ?? null;
   const dataEmissao = doc.querySelector("ide > dhEmi")?.textContent ?? null;
   const dataEmissaoDate = toDateOnly(dataEmissao);
 
@@ -177,6 +209,18 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
       emitente,
       dataEmissao,
       cnpjEmitente,
+      destinatario,
+      documentoDestinatario: docDest,
+      inscricaoEstadualDestinatario: ieDest,
+      emailDestinatario: emailDest,
+      endDestCep,
+      endDestLogradouro,
+      endDestNumero,
+      endDestComplemento,
+      endDestBairro,
+      endDestCidade,
+      endDestUf,
+      endDestPais,
       valorProdutos: valorProdutosNF,
       valorFrete: valorFreteNF,
       valorSeguro: valorSeguroNF,

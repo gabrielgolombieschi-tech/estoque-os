@@ -474,6 +474,36 @@ export async function POST(req: NextRequest) {
     const info = parsed.nfe;
     if (!info.chave) return jerr(422, "Chave não encontrada no XML.");
 
+    // Prevent duplicate imports: if a documento_fiscal with the same chave already exists,
+    // block this request (client can redirect to the existing document).
+    {
+      const chaveDigitsEarly = normalizeDigits(info.chave);
+      if (chaveDigitsEarly.length === 44) {
+        const { data: existingDoc } = await applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("documento_fiscal")
+            .select("id")
+            .eq("chave_acesso", chaveDigitsEarly)
+            .is("deleted_at", null)
+            .limit(1),
+          tenantId,
+          empresaId
+        ).maybeSingle<{ id: string }>();
+
+        if (existingDoc?.id) {
+          return NextResponse.json(
+            {
+              error: "Este XML já foi importado.",
+              documento_fiscal_id: String(existingDoc.id),
+              chave_acesso: chaveDigitsEarly,
+            },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     const fornecedorId = await resolveFornecedorInternoFaturamento({ tenantId, empresaId });
 
     const codes = Array.from(new Set((parsed.itens ?? []).map((it) => it.codigo).filter(Boolean)));
