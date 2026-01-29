@@ -121,7 +121,12 @@ export default function NfeDetail({
 
     if (access === "estoque") {
       // Mesma lógica de acesso do /estoque/importar: importar XML ou cadastrar fornecedor/itens.
-      return requireAny(["xml_import.execute", "cad_fornecedores.write", "cad_itens.write"]);
+      return requireAny([
+        "xml_import.execute",
+        "xml_import_faturamento.execute",
+        "cad_fornecedores.write",
+        "cad_itens.write",
+      ]);
     }
 
     // Default: financeiro

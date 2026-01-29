@@ -150,6 +150,7 @@ async function rpcSetCurrentEmpresa(supabase: ReturnType<typeof getSupabaseBrows
 type EmpresaMembershipJoinedRow = {
   empresa_id: string | null;
   tenant_id: string | null;
+  role?: string | null;
   empresas?:
     | {
         id: string | null;
@@ -169,7 +170,7 @@ async function loadEmpresasForUser(userId: string): Promise<EmpresaInfo[]> {
 
   const { data, error } = await supabase
     .from("empresa_memberships")
-    .select("empresa_id, tenant_id, empresas:empresa_id(id, tenant_id, nome_fantasia, razao_social, ativo)")
+    .select("empresa_id, tenant_id, role, empresas:empresa_id(id, tenant_id, nome_fantasia, razao_social, ativo)")
     .eq("user_id", userId)
     .eq("status", "active");
 
@@ -183,6 +184,7 @@ async function loadEmpresasForUser(userId: string): Promise<EmpresaInfo[]> {
       const tenantId = e?.tenant_id ?? row.tenant_id;
       if (!id || !tenantId) return null;
       if (e?.ativo === false) return null;
+      const papelFromMembership = typeof row.role === "string" ? row.role : null;
       const empresa: EmpresaInfo = {
         id: String(id),
         tenant_id: String(tenantId),
@@ -190,7 +192,7 @@ async function loadEmpresasForUser(userId: string): Promise<EmpresaInfo[]> {
         razao_social: e?.razao_social ?? null,
         cnpj: null,
         ativo: e?.ativo ?? null,
-        papel: null,
+        papel: papelFromMembership,
       };
       return empresa;
     })

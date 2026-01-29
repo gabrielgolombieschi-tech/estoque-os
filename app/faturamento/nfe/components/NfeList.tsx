@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
@@ -49,6 +49,7 @@ function shortKey(key: string): string {
 export default function NfeList() {
   const te = useTenantEmpresa();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const empresaRole = useMemo(() => {
     const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
@@ -79,6 +80,20 @@ export default function NfeList() {
 
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+
+  const canImportXmlFaturamento = useMemo(() => {
+    const can = te.has("xml_import_faturamento.execute");
+    if (can === undefined) return undefined;
+    return Boolean(can);
+  }, [te]);
+
+  useEffect(() => {
+    const wantsImport = searchParams.get("import");
+    if (!wantsImport) return;
+    if (wantsImport !== "1" && wantsImport.toLowerCase() !== "true") return;
+    if (canImportXmlFaturamento !== true) return;
+    setImportOpen(true);
+  }, [canImportXmlFaturamento, searchParams]);
 
   const ready =
     typeof te.sessionUserId === "string" &&
@@ -250,7 +265,7 @@ export default function NfeList() {
     });
   }, [clientesById, docs, fornecedoresById, search]);
 
-  const headerRight = (
+  const headerRight = canImportXmlFaturamento ? (
     <button
       type="button"
       onClick={() => setImportOpen(true)}
@@ -258,11 +273,17 @@ export default function NfeList() {
     >
       Importar XML
     </button>
-  );
+  ) : null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <NfeImportModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <NfeImportModal
+        open={importOpen}
+        onClose={() => {
+          setImportOpen(false);
+          if (searchParams.get("import")) router.replace("/faturamento/nfe");
+        }}
+      />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">NF-e</h1>

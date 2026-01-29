@@ -31,17 +31,6 @@ function normalizeDigits(value: string | null | undefined): string {
   return String(value ?? "").replace(/\D/g, "");
 }
 
-function normalizeCnpj(value: string | null | undefined): string | null {
-  const digits = normalizeDigits(value);
-  return digits.length === 14 ? digits : null;
-}
-
-function normalizeName(value: string | null | undefined): string {
-  return String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function firstText(xml: string, tag: string): string | null {
   const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i");
   const m = re.exec(xml);
@@ -56,6 +45,17 @@ function firstAttr(xml: string, tag: string, attr: string): string | null {
   if (!m) return null;
   const v = String(m[1] ?? "").trim();
   return v ? v : null;
+}
+
+function detectTpNF(xmlRaw: string): "ENTRADA" | "SAIDA" | null {
+  const xml = String(xmlRaw ?? "");
+  if (!xml.trim()) return null;
+  const ideBlockRe = /<ide[^>]*>([\s\S]*?)<\/ide>/i;
+  const ideBlock = ideBlockRe.exec(xml)?.[1] ?? "";
+  const tp = (firstText(ideBlock, "tpNF") ?? firstText(xml, "tpNF") ?? "").trim();
+  if (tp === "0") return "ENTRADA";
+  if (tp === "1") return "SAIDA";
+  return null;
 }
 
 function extractMissingCodigosFromMessage(message: string): string[] {
@@ -342,10 +342,11 @@ async function createPlaceholderItens(opts: {
     .eq("tenant_id", tenantId)
     .eq("empresa_id", empresaId)
     .in("codigo_interno", codigos)
-    .limit(codigos.length);
+    .limit(codigos.length)
+    .returns<Array<{ codigo_interno: string | null }>>();
   if (exErr) throw exErr;
 
-  const existingSet = new Set((existing ?? []).map((r: any) => String(r.codigo_interno ?? "")).filter(Boolean));
+  const existingSet = new Set((existing ?? []).map((r) => String(r.codigo_interno ?? "")).filter(Boolean));
   const toCreate = codigos.filter((c) => !existingSet.has(c));
   if (!toCreate.length) return;
 
@@ -385,7 +386,10 @@ async function createPlaceholderItens(opts: {
 
   const { error: insErr } = await admin
     .from("itens")
-    .upsert(rows as any, { onConflict: "tenant_id,empresa_id,codigo_interno", ignoreDuplicates: true });
+    .upsert(rows as unknown as Record<string, unknown>[], {
+      onConflict: "tenant_id,empresa_id,codigo_interno",
+      ignoreDuplicates: true,
+    });
   if (insErr) throw insErr;
 }
 
@@ -409,6 +413,17 @@ export async function POST(req: NextRequest) {
     const xmlRaw = await (file as File).text();
     if (!xmlRaw.trim()) return jerr(422, "XML vazio.");
 
+
+    // This route is for FATURAMENTO (NF-e de SAÍDA) only.
+    // If the XML is NF-e de ENTRADA (tpNF=0), block here.
+    const tp = detectTpNF(xmlRaw);
+    if (tp === "ENTRADA") {
+      return jerr(403, "Este XML é NF-e de ENTRADA (tpNF=0). Use a importação de ENTRADA/Estoque.");
+    }
+    if (tp === null) {
+      return jerr(422, "Não foi possível identificar tpNF no XML (esperado 0=ENTRADA ou 1=SAÍDA)."
+      );
+    }
     const tenantHint = String(form.get("tenant_id") ?? form.get("tenantId") ?? "").trim();
     const empresaHint = String(form.get("empresa_id") ?? form.get("empresaId") ?? "").trim();
 
@@ -452,10 +467,10 @@ export async function POST(req: NextRequest) {
     if (!empresaId) return jerr(400, "Empresa não carregada.");
 
     const { data: canImport, error: canErr } = await supabase.rpc("can", {
-      p_resource: "xml_import",
+      p_resource: "xml_import_faturamento",
       p_action: "execute",
     });
-    if (canErr || !canImport) return jerr(403, "Sem permissão para importar XML.");
+    if (canErr || !canImport) return jerr(403, "Sem permissão para importar XML de faturamento.");
 
     const allowed = await getAllowedEmpresas(supabase, tenantId);
     if (!allowed.some((e) => e.id === empresaId)) return jerr(403, "Sem acesso a esta empresa.");

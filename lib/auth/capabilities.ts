@@ -13,6 +13,7 @@ export const CAPABILITY_KEYS = [
   "fiscal_nf.delete",
   "fiscal_itens.write",
   "xml_import.execute",
+  "xml_import_faturamento.execute",
   "financeiro.read",
   "financeiro.write",
   "financeiro.delete",
