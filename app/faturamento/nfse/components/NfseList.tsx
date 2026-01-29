@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
+import ImportNfseXmlModal from "./ImportNfseXmlModal";
 
 type DocumentoFiscalRow = {
   id: string;
@@ -60,6 +61,8 @@ function StatusPill({ status }: { status: string | null }) {
 export default function NfseList() {
   const te = useTenantEmpresa();
   const router = useRouter();
+
+  const [openImport, setOpenImport] = useState(false);
 
   const empresaRole = useMemo(() => {
     const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
@@ -228,16 +231,31 @@ export default function NfseList() {
   }, [clientesById, docs, search, status]);
 
   const headerRight = (
-    <Link
-      href="/faturamento/nfse/novo"
-      className="inline-flex items-center rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-700"
-    >
-      Novo
-    </Link>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpenImport(true)}
+        className="inline-flex items-center rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-900 disabled:opacity-50"
+        disabled={!ready}
+      >
+        Importar XML
+      </button>
+      <Link
+        href="/faturamento/nfse/novo"
+        className="inline-flex items-center rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-700"
+      >
+        Novo
+      </Link>
+    </div>
   );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      <ImportNfseXmlModal
+        open={openImport}
+        onClose={() => setOpenImport(false)}
+        onImported={() => void reload()}
+      />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">NFS-e</h1>

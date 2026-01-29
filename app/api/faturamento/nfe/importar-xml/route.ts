@@ -448,11 +448,40 @@ export async function POST(req: NextRequest) {
     }
     if (!empresaId) return jerr(400, "Empresa não carregada.");
 
-    const { data: canImport, error: canErr } = await supabase.rpc("can", {
-      p_resource: "xml_import_faturamento",
-      p_action: "execute",
+    // Permissions source: align with client by using the same full permissions JSON.
+    // Authorize if user has ANY of the required keys.
+    const requiredAny = [
+      "faturamento.nfe.import_xml",
+      "xml_import.execute",
+      "financeiro.write",
+      "faturamento.write",
+    ];
+
+    const { data: fullPerms, error: permsErr } = await supabase.rpc("get_full_permissions", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
     });
-    if (canErr || !canImport) return jerr(403, "Sem permissão para importar XML de faturamento.");
+
+    const permsObj: Record<string, unknown> =
+      fullPerms && typeof fullPerms === "object" ? (fullPerms as Record<string, unknown>) : {};
+
+    const permsTrueKeys = Object.entries(permsObj)
+      .filter(([, v]) => Boolean(v))
+      .map(([k]) => k);
+
+    const hasAny = requiredAny.some((k) => Boolean(permsObj[k]));
+
+    if (permsErr || !hasAny) {
+      console.warn("[FATURAMENTO][NFE_IMPORT] permission denied", {
+        userId: userData.user.id,
+        email: userData.user.email ?? null,
+        tenantId,
+        empresaId,
+        requiredAny,
+        gotKeys: permsTrueKeys,
+      });
+      return jerr(403, "Sem permissão para importar XML de faturamento.");
+    }
 
     const allowed = await getAllowedEmpresas(supabase, tenantId);
     if (!allowed.some((e) => e.id === empresaId)) return jerr(403, "Sem acesso a esta empresa.");
