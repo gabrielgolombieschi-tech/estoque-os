@@ -47,16 +47,6 @@ function firstAttr(xml: string, tag: string, attr: string): string | null {
   return v ? v : null;
 }
 
-function detectTpNF(xmlRaw: string): "ENTRADA" | "SAIDA" | null {
-  const xml = String(xmlRaw ?? "");
-  if (!xml.trim()) return null;
-  const ideBlockRe = /<ide[^>]*>([\s\S]*?)<\/ide>/i;
-  const ideBlock = ideBlockRe.exec(xml)?.[1] ?? "";
-  const tp = (firstText(ideBlock, "tpNF") ?? firstText(xml, "tpNF") ?? "").trim();
-  if (tp === "0") return "ENTRADA";
-  if (tp === "1") return "SAIDA";
-  return null;
-}
 
 function extractMissingCodigosFromMessage(message: string): string[] {
   const msg = String(message ?? "");
@@ -414,16 +404,8 @@ export async function POST(req: NextRequest) {
     if (!xmlRaw.trim()) return jerr(422, "XML vazio.");
 
 
-    // This route is for FATURAMENTO (NF-e de SAÍDA) only.
-    // If the XML is NF-e de ENTRADA (tpNF=0), block here.
-    const tp = detectTpNF(xmlRaw);
-    if (tp === "ENTRADA") {
-      return jerr(403, "Este XML é NF-e de ENTRADA (tpNF=0). Use a importação de ENTRADA/Estoque.");
-    }
-    if (tp === null) {
-      return jerr(422, "Não foi possível identificar tpNF no XML (esperado 0=ENTRADA ou 1=SAÍDA)."
-      );
-    }
+    // This endpoint is used by the Faturamento NF-e flow.
+    // Accept any NF-e XML payload and let the downstream import/parser handle variations.
     const tenantHint = String(form.get("tenant_id") ?? form.get("tenantId") ?? "").trim();
     const empresaHint = String(form.get("empresa_id") ?? form.get("empresaId") ?? "").trim();
 

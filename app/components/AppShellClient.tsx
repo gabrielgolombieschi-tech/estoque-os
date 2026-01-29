@@ -178,7 +178,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
 
   const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write") || isFinanceiroEmpresaRole;
   const canImportXml = can("xml_import.execute");
-  const canImportXmlFaturamento = canStrict("xml_import_faturamento.execute");
+  const canImportXmlFaturamento =
+    canStrict("xml_import_faturamento.execute") ||
+    canStrict("financeiro.read") ||
+    canStrict("financeiro.write") ||
+    isFinanceiroEmpresaRole;
   const canAdminManageUsers = can("admin.manage_users");
   const shouldShowAdmin = canAdminManageUsers || isAdminTenant;
   const adminReason = "";
@@ -558,11 +562,6 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         onMouseEnter={() => openWithHover("faturamento")}
                         onMouseLeave={scheduleClose}
                       >
-                        {canImportXmlFaturamento && (
-                          <Link href="/faturamento/nfe?import=1" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
-                            Importar XML (NF-e)
-                          </Link>
-                        )}
                         <Link href="/faturamento/nfse" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           NFS-e
                         </Link>

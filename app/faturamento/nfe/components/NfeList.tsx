@@ -82,10 +82,9 @@ export default function NfeList() {
   const [importOpen, setImportOpen] = useState(false);
 
   const canImportXmlFaturamento = useMemo(() => {
-    const can = te.has("xml_import_faturamento.execute");
-    if (can === undefined) return undefined;
-    return Boolean(can);
-  }, [te]);
+    if (canFinanceiro === undefined) return undefined;
+    return canFinanceiro === true;
+  }, [canFinanceiro]);
 
   useEffect(() => {
     const wantsImport = searchParams.get("import");

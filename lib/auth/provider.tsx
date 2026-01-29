@@ -13,7 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import { ensureCurrentTenant } from "@/lib/tenant";
 import { ensureEmpresaId, getAllowedEmpresas, setStoredEmpresaId } from "@/lib/auth/empresa";
-import type { Capabilities, CapabilityKey } from "@/lib/auth/capabilities";
+import { buildCanManyPayload, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import type { EmpresaInfo, TenantEmpresaState } from "@/lib/auth/types";
 
@@ -363,12 +363,28 @@ async function loadCapabilitiesFromRpc(
   errorMessage?: string;
 }> {
   try {
+    // Ensure DB context best-effort so can_many()/can() can evaluate permissions.
+    // `public.can` uses current_tenant_id(), so without setting tenant this can return false.
+    const resolvedEmpresaIdForContext = empresaId ?? (await rpcCurrentEmpresaId(supabase));
+    try {
+      await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+    } catch {
+      // ignore
+    }
+    if (resolvedEmpresaIdForContext) {
+      try {
+        await supabase.rpc("set_current_empresa", { p_empresa_id: resolvedEmpresaIdForContext });
+      } catch {
+        // ignore
+      }
+    }
+
     // Some environments may have an overloaded `get_my_permissions` RPC:
     // - get_my_permissions(p_tenant_id uuid)
     // - get_my_permissions(p_tenant_id uuid, p_empresa_id uuid)
     // When both exist, calling with only `p_tenant_id` can become ambiguous.
     // Prefer the 2-arg signature (when available) and fall back to the 1-arg one.
-    const resolvedEmpresaId = empresaId ?? (await rpcCurrentEmpresaId(supabase));
+    const resolvedEmpresaId = resolvedEmpresaIdForContext;
 
     let { data, error } = await supabase.rpc("get_my_permissions", {
       p_tenant_id: tenantId,
@@ -397,6 +413,22 @@ async function loadCapabilitiesFromRpc(
     // Build capabilities strictly from the unique list, then add aliases (never remove keys).
     const caps: Record<string, boolean> = Object.create(null);
     for (const perm of uniq) caps[perm] = true;
+
+    // Some environments now use role_access_rules + public.can/can_many as the source of truth.
+    // `get_my_permissions` may still be legacy and miss newer capability keys.
+    // Merge can_many() results (best-effort) so UI can gate on new keys like xml_import_faturamento.execute.
+    try {
+      const { data: canManyData, error: canManyErr } = await supabase.rpc("can_many", {
+        p_pairs: buildCanManyPayload(),
+      });
+      if (!canManyErr && canManyData && typeof canManyData === "object") {
+        for (const [key, value] of Object.entries(canManyData as Record<string, unknown>)) {
+          caps[key] = Boolean(value);
+        }
+      }
+    } catch {
+      // ignore missing can_many / permission errors
+    }
 
     // Legacy permission codes (role_permissions) -> current UI capability keys (CapabilityKey list).
     // Keep the original permission codes in the map (for debugging), and add derived capability keys.
