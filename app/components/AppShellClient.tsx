@@ -116,15 +116,15 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   }, [effectiveEmpresa, isPainelTv, pathname, router, te.sessionUserId]);
 
   const [openMenu, setOpenMenu] = useState<
-    "os" | "estoque" | "imobilizado" | "financeiro" | "cadastro" | "admin" | null
+    "os" | "estoque" | "imobilizado" | "financeiro" | "faturamento" | "cadastro" | "admin" | null
   >(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const toggleMenu = (key: "os" | "estoque" | "imobilizado" | "financeiro" | "cadastro" | "admin" | null) =>
+  const toggleMenu = (key: "os" | "estoque" | "imobilizado" | "financeiro" | "faturamento" | "cadastro" | "admin" | null) =>
     setOpenMenu((prev) => (prev === key ? null : key));
 
-  const openWithHover = (key: "os" | "estoque" | "imobilizado" | "financeiro" | "cadastro" | "admin") => {
+  const openWithHover = (key: "os" | "estoque" | "imobilizado" | "financeiro" | "faturamento" | "cadastro" | "admin") => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     setOpenMenu(key);
   };
@@ -509,6 +509,10 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                           </div>
                         </div>
 
+                        <Link href="/financeiro/impostos" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Impostos
+                        </Link>
+
                         <Link href="/financeiro/configuracoes" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Configurações
                         </Link>
@@ -526,6 +530,37 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             </Link>
                           </div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {canAccessFinanceiro && (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => openWithHover("faturamento")}
+                    onMouseLeave={scheduleClose}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("faturamento")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
+                    >
+                      Faturamento
+                    </button>
+
+                    {openMenu === "faturamento" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-56 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("faturamento")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        <Link href="/faturamento/nfse" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          NFS-e
+                        </Link>
+                        <Link href="/faturamento/nfe" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          NF-e
+                        </Link>
                       </div>
                     )}
                   </div>

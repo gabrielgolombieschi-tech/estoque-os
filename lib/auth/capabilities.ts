@@ -17,6 +17,7 @@ export const CAPABILITY_KEYS = [
   "financeiro.write",
   "financeiro.delete",
   "financeiro.config",
+  "impostos.view",
   "imobilizado.read",
   "imobilizado.write",
   "apontamentos.read",

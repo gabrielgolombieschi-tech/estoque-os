@@ -1,55 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatDecimalBR, parseDecimalBR } from "@/lib/decimal";
+import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { useImportMotivos } from "./ImportMotivosProvider";
-
-type ParsedItem = {
-  codigo: string;
-  nome: string;
-  quantidade: number;
-  valorUnit: number;
-  valorProd: number;
-  total: number;
-  vIcms: number;
-  vIpi: number;
-  vPis: number;
-  vCofins: number;
-  vSt: number;
-  vFrete: number;
-  vDesc: number;
-  vOutro: number;
-  vSeguro: number;
-  overrideNome?: string;
-  fornecedorId?: number | null;
-  ncm?: string | null;
-  aliquotaIcms?: number | null;
-  aliquotaIpi?: number | null;
-  aliquotaPis?: number | null;
-  aliquotaCofins?: number | null;
-};
-
-type ParsedNfe = {
-  chave: string | null;
-  numero: string | null;
-  serie: string | null;
-  emitente: string | null;
-  dataEmissao: string | null;
-  cnpjEmitente: string | null;
-  valorProdutos: number;
-  valorFrete: number;
-  valorSeguro: number;
-  valorDesconto: number;
-  valorOutros: number;
-  valorTotal: number;
-  parcelas?: Array<{ numero: string; vencimento: string; valor: number }>;
-};
+import { parseNfeXml, type ParsedItem, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
 
 type FiscalPerfil = {
   item_id: number;
@@ -138,8 +99,13 @@ type ImportItemPayload = {
   tenant_id: string;
   item_id: number | null;
   codigo_fornecedor: string;
+  // Compat: o importador do banco (public.import_nf_entrada) espera "codigo" e "nome".
+  // Mantemos também "codigo_fornecedor"/"descricao" porque o app usa esses nomes no client.
+  codigo?: string;
+  nome?: string;
   descricao: string;
   ncm: string | null;
+  cfop?: string | null;
   qtd: number;
   v_unit: number;
   v_prod: number;
@@ -162,6 +128,21 @@ type ImportItemPayload = {
   credito_icms: number;
   credito_pis: number;
   credito_cofins: number;
+};
+
+type NfEntradaResumoRow = {
+  id: number;
+  chave: string;
+  numero: string | null;
+  serie: string | null;
+  emitente_nome: string | null;
+  data_emissao: string | null;
+  valor_total: number | string | null;
+  criado_em: string | null;
+  finalidade_contexto?: string | null;
+  fornecedor_id?: number | null;
+  motivo_compra_id?: string | null;
+  solicitante_usuario_id?: string | null;
 };
 
 function getErrorMessage(err: unknown, fallback: string) {
@@ -189,7 +170,16 @@ function toDateOnly(value: string | null | undefined): string | null {
   return null;
 }
 
+function formatDateBR(iso?: string | null): string {
+  if (!iso) return "";
+  const v = String(iso);
+  const d = new Date(v.includes("T") ? v : `${v}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return v;
+  return d.toLocaleDateString("pt-BR");
+}
+
 export default function ImportarXmlPage() {
+  const router = useRouter();
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
     return supabaseBrowser();
@@ -356,12 +346,131 @@ export default function ImportarXmlPage() {
   const { tenantId, empresaId } = useTenantEmpresa();
   const { has, loading: permissionsLoading, ready } = usePermissions();
 
+  const [recentNfs, setRecentNfs] = useState<NfEntradaResumoRow[]>([]);
+  const [recentNfsLoading, setRecentNfsLoading] = useState(false);
+  const [recentNfsError, setRecentNfsError] = useState<string | null>(null);
+  const [openingNfEntradaId, setOpeningNfEntradaId] = useState<number | null>(null);
+  const [recentReloadTick, setRecentReloadTick] = useState(0);
+
   const canImport = has("xml_import.execute");
   const canCreateFornecedor = has("cad_fornecedores.write");
   const canCreateItem = has("cad_itens.write");
   const canAccessPage = canImport || canCreateFornecedor || canCreateItem;
 
   const osEnabled = finalidadeLote === "materia_prima";
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      if (!tenantId || !empresaId) {
+        if (!active) return;
+        setRecentNfs([]);
+        setRecentNfsError(null);
+        setRecentNfsLoading(false);
+        return;
+      }
+
+      setRecentNfsLoading(true);
+      setRecentNfsError(null);
+
+      try {
+        const { data, error } = await applyTenantEmpresa(
+          supabase
+            .schema("public")
+            .from("nf_entrada")
+            .select(
+              "id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto,fornecedor_id,motivo_compra_id,solicitante_usuario_id"
+            )
+            .eq("empresa_id", empresaId)
+            .eq("finalidade_contexto", "materia_prima")
+            .not("fornecedor_id", "is", null)
+            .not("motivo_compra_id", "is", null)
+            .not("solicitante_usuario_id", "is", null)
+            .order("criado_em", { ascending: false })
+            .limit(10),
+          tenantId,
+          empresaId
+        ).returns<NfEntradaResumoRow[]>();
+
+        if (error) throw error;
+        if (!active) return;
+
+        const rows = (data ?? [])
+          .map((r) => ({
+            id: typeof r.id === "number" ? r.id : Number(r.id),
+            chave: String((r as any).chave ?? ""),
+            numero: (r as any).numero ?? null,
+            serie: (r as any).serie ?? null,
+            emitente_nome: (r as any).emitente_nome ?? null,
+            data_emissao: (r as any).data_emissao ?? null,
+            valor_total: (r as any).valor_total ?? null,
+            criado_em: (r as any).criado_em ?? null,
+          }))
+          .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
+
+        setRecentNfs(rows);
+      } catch (e: unknown) {
+        if (!active) return;
+        setRecentNfs([]);
+        setRecentNfsError(getErrorMessage(e, "Erro ao carregar notas importadas."));
+      } finally {
+        if (active) setRecentNfsLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [empresaId, importOk, recentReloadTick, tenantId]);
+
+  const abrirNotaImportada = useCallback(
+    async (row: NfEntradaResumoRow) => {
+      if (!tenantId || !empresaId) return;
+      if (!row?.id) return;
+
+      setOpeningNfEntradaId(row.id);
+      setRecentNfsError(null);
+
+      try {
+        const { data: foundId, error: findErr } = await supabase.schema("f").rpc("fn_find_documento_fiscal_from_import", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_nf_entrada_id: row.id,
+          p_chave_acesso: row.chave ?? null,
+        });
+
+        let documentoFiscalId = foundId ? String(foundId) : null;
+
+        // Fallback: garante DF a partir da NF de entrada (caso o importador não tenha criado).
+        if (!documentoFiscalId) {
+          const { data: ensuredId, error: ensureErr } = await supabase
+            .schema("f")
+            .rpc("fn_ensure_documento_fiscal_from_nf_entrada", { p_nf_entrada_id: row.id });
+
+          if (ensureErr || !ensuredId) throw ensureErr ?? findErr ?? new Error("Não foi possível localizar o documento fiscal.");
+          documentoFiscalId = String(ensuredId);
+        }
+
+        // Best-effort: garantir impostos gravados para exibição/apuração.
+        try {
+          await supabase
+            .schema("f")
+            .rpc("nfe_gravar_impostos_do_documento", { p_documento_fiscal_id: documentoFiscalId });
+        } catch {
+          // ignore
+        }
+
+        router.push(`/estoque/importar/${documentoFiscalId}`);
+      } catch (e: unknown) {
+        setRecentNfsError(getErrorMessage(e, "Erro ao abrir a nota importada."));
+      } finally {
+        setOpeningNfEntradaId(null);
+      }
+    },
+    [empresaId, router, tenantId]
+  );
 
   useEffect(() => {
     let active = true;
@@ -571,151 +680,7 @@ export default function ImportarXmlPage() {
   }, [osNumero, osEnabled, resolveOsByNumero]);
 
   function parseXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] } {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(raw, "application/xml");
-
-    // se houver erro de parse do XML, o navegador cria uma tag parsererror em alguns engines
-    const parseErr = doc.querySelector("parsererror");
-    if (parseErr) {
-      throw new Error("XML inválido (erro de parse).");
-    }
-
-    const num = (n: string | null | undefined) => {
-      const v = parseDecimalBR(n ?? "0");
-      return Number.isFinite(v) ? v : 0;
-    };
-    const numOrNull = (n: string | null | undefined) => {
-      const v = parseDecimalBR(n ?? "0");
-      return Number.isFinite(v) ? v : null;
-    };
-
-    const inf = doc.querySelector("infNFe");
-    const chaveRaw = inf?.getAttribute("Id") || null;
-    const chave = chaveRaw ? chaveRaw.replace(/^NFe/i, "") : null;
-
-    const numero = doc.querySelector("ide > nNF")?.textContent ?? null;
-    const serie = doc.querySelector("ide > serie")?.textContent ?? null;
-    const emitente = doc.querySelector("emit > xNome")?.textContent ?? null;
-    const cnpjEmitente = doc.querySelector("emit > CNPJ")?.textContent ?? null;
-    const dataEmissao = doc.querySelector("ide > dhEmi")?.textContent ?? null;
-    const dataEmissaoDate = toDateOnly(dataEmissao);
-
-    const totalNode = doc.querySelector("total > ICMSTot");
-    const valorFreteNF = num(totalNode?.querySelector("vFrete")?.textContent);
-    const valorProdutosNF = num(totalNode?.querySelector("vProd")?.textContent);
-    const valorSeguroNF = num(totalNode?.querySelector("vSeg")?.textContent);
-    const valorDescontoNF = num(totalNode?.querySelector("vDesc")?.textContent);
-    const valorOutrosNF = num(totalNode?.querySelector("vOutro")?.textContent);
-    const valorTotalNF = num(totalNode?.querySelector("vNF")?.textContent);
-
-    const itens: ParsedItem[] = [];
-    doc.querySelectorAll("det").forEach((det) => {
-      const prod = det.querySelector("prod");
-      if (!prod) return;
-
-      const codigo = (prod.querySelector("cProd")?.textContent ?? "").trim().replace(/^0+(?=\d)/, "");
-      const nome = prod.querySelector("xProd")?.textContent ?? "";
-      const quantidade = num(prod.querySelector("qCom")?.textContent);
-      const valorUnit = num(prod.querySelector("vUnCom")?.textContent);
-      const vProd = num(prod.querySelector("vProd")?.textContent);
-      const vTotTrib = num(prod.querySelector("vTotTrib")?.textContent);
-
-      const vIPI =
-        num(det.querySelector("IPI > IPITrib > vIPI")?.textContent) ||
-        num(det.querySelector("IPI > IPI > vIPI")?.textContent);
-
-      const vICMS = num(det.querySelector("ICMS > * > vICMS")?.textContent);
-      const vPIS = num(det.querySelector("PIS > * > vPIS")?.textContent);
-      const vCOFINS = num(det.querySelector("COFINS > * > vCOFINS")?.textContent);
-      const vST = num(det.querySelector("ICMS > * > vICMSST")?.textContent);
-
-      const vOutro = num(prod.querySelector("vOutro")?.textContent);
-      const vFrete = num(prod.querySelector("vFrete")?.textContent);
-      const vDesc = num(prod.querySelector("vDesc")?.textContent);
-      const vSeguro = num(prod.querySelector("vSeg")?.textContent);
-
-      const totalBase = vProd + vFrete + vOutro + vIPI + vST + vTotTrib - vDesc;
-      const total = totalBase > 0 ? totalBase : vProd || quantidade * valorUnit;
-
-      const ncm = prod.querySelector("NCM")?.textContent ?? null;
-
-      const icmsNode = det.querySelector("ICMS");
-      let aliquotaIcms: number | null = null;
-      icmsNode?.querySelectorAll("*").forEach((node) => {
-        if (aliquotaIcms !== null) return;
-        const p = numOrNull(node.querySelector("pICMS")?.textContent);
-        if (p !== null) aliquotaIcms = p;
-      });
-
-      const aliquotaIpi =
-        numOrNull(det.querySelector("IPI > IPITrib > pIPI")?.textContent) ??
-        numOrNull(det.querySelector("IPI > IPI > pIPI")?.textContent);
-
-      const aliquotaPis = numOrNull(det.querySelector("PIS > * > pPIS")?.textContent);
-      const aliquotaCofins = numOrNull(det.querySelector("COFINS > * > pCOFINS")?.textContent);
-
-      if (!codigo) return;
-
-      itens.push({
-        codigo,
-        nome,
-        quantidade,
-        valorUnit,
-        valorProd: vProd,
-        total,
-        vIcms: vICMS,
-        vIpi: vIPI,
-        vPis: vPIS,
-        vCofins: vCOFINS,
-        vSt: vST,
-        vFrete,
-        vDesc,
-        vOutro,
-        vSeguro,
-        overrideNome: nome,
-        ncm,
-        aliquotaIcms,
-        aliquotaIpi,
-        aliquotaPis,
-        aliquotaCofins,
-      });
-    });
-
-    // Parcelas (preferência: <cobr><dup>)
-    const parcelasDup: Array<{ numero: string; vencimento: string; valor: number }> = [];
-    const dupNodes = Array.from(doc.querySelectorAll("cobr > dup"));
-    dupNodes.forEach((dup, idx) => {
-      const numeroRaw = (dup.querySelector("nDup")?.textContent ?? "").trim();
-      const vencRaw = (dup.querySelector("dVenc")?.textContent ?? "").trim();
-      const valor = num(dup.querySelector("vDup")?.textContent);
-
-      if (!Number.isFinite(valor) || valor <= 0) return;
-
-      const numero = numeroRaw || String(idx + 1).padStart(3, "0");
-      const vencimento = toDateOnly(vencRaw) ?? dataEmissaoDate ?? toDateOnly(new Date().toISOString());
-      if (!vencimento) return;
-
-      parcelasDup.push({ numero, vencimento, valor });
-    });
-
-    return {
-      nfe: {
-        chave,
-        numero,
-        serie,
-        emitente,
-        dataEmissao,
-        cnpjEmitente,
-        valorProdutos: valorProdutosNF,
-        valorFrete: valorFreteNF,
-        valorSeguro: valorSeguroNF,
-        valorDesconto: valorDescontoNF,
-        valorOutros: valorOutrosNF,
-        valorTotal: valorTotalNF,
-        parcelas: parcelasDup,
-      },
-      itens,
-    };
+    return parseNfeXml(raw);
   }
 
   function applyFornecedorFinanceDefaults(flag: boolean) {
@@ -1659,9 +1624,12 @@ export default function ImportarXmlPage() {
             itensPayload.push({
               tenant_id: tenantId,
               item_id: itemId,
+              codigo: it.codigo,
+              nome: it.overrideNome ?? it.nome,
               codigo_fornecedor: it.codigo,
               descricao: it.overrideNome ?? it.nome,
               ncm: it.ncm ?? null,
+              cfop: it.cfop ?? null,
               qtd: round6(qtd),
               v_unit: round6(Number(it.valorUnit ?? 0)),
               v_prod: round6(baseProd),
@@ -2463,6 +2431,106 @@ export default function ImportarXmlPage() {
           >
             {importBusy ? "Importando..." : "Importar"}
           </button>
+        </div>
+      </div>
+
+      <div className="border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-3">
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-lg font-semibold">Notas importadas</div>
+            <div className="text-sm text-zinc-400">Últimas 10 notas de entrada (material) que geraram Contas a Pagar.</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRecentReloadTick((n) => n + 1)}
+            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+            disabled={!tenantId || !empresaId || recentNfsLoading}
+          >
+            {recentNfsLoading ? "Atualizando..." : "Atualizar"}
+          </button>
+        </div>
+
+        {recentNfsError ? (
+          <div className="rounded-md border border-rose-900/60 bg-rose-950/30 px-3 py-2 text-sm text-rose-200">{recentNfsError}</div>
+        ) : null}
+
+        <div className="border border-zinc-800 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-900/70">
+              <tr className="text-zinc-200">
+                <th className="px-3 py-2 text-left">Emissão</th>
+                <th className="px-3 py-2 text-left">Série/Número</th>
+                <th className="px-3 py-2 text-left">Emitente</th>
+                <th className="px-3 py-2 text-left">Chave</th>
+                <th className="px-3 py-2 text-right">Valor</th>
+                <th className="px-3 py-2 text-center">Ação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {recentNfsLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-zinc-400 text-center">
+                    Carregando...
+                  </td>
+                </tr>
+              ) : recentNfs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-zinc-400 text-center">
+                    Nenhuma nota encontrada.
+                  </td>
+                </tr>
+              ) : (
+                recentNfs.map((nf) => {
+                  const emissao = toDateOnly(nf.data_emissao ?? "") ?? "";
+                  const serieNum = `${nf.serie ?? "—"} / ${nf.numero ?? "—"}`;
+                  const chaveShort =
+                    nf.chave && nf.chave.length > 18 ? `${nf.chave.slice(0, 8)}...${nf.chave.slice(-8)}` : nf.chave;
+                  const isOpening = openingNfEntradaId === nf.id;
+                  const canOpen = Boolean(tenantId && empresaId) && !isOpening;
+
+                  return (
+                    <tr
+                      key={nf.id}
+                      className={`hover:bg-zinc-900/40 ${canOpen ? "cursor-pointer" : "opacity-60"}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (!canOpen) return;
+                        void abrirNotaImportada(nf);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!canOpen) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          void abrirNotaImportada(nf);
+                        }
+                      }}
+                      aria-disabled={!canOpen}
+                    >
+                      <td className="px-3 py-2">{formatDateBR(emissao) || "—"}</td>
+                      <td className="px-3 py-2">{serieNum}</td>
+                      <td className="px-3 py-2">{nf.emitente_nome ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{chaveShort || "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">R$ {formatMoneyBR(Number(nf.valor_total ?? 0))}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void abrirNotaImportada(nf);
+                          }}
+                          disabled={!canOpen}
+                          className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs disabled:opacity-60"
+                        >
+                          {isOpening ? "Abrindo..." : "Abrir"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
