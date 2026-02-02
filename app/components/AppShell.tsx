@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isPublic = pathname === "/login";
-  const isFullWidth = pathname === "/itens";
+  const isFullWidth = pathname === "/itens" || pathname === "/financeiro/contas-pagar/aprovacoes";
   const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
   const tenantId = te.tenantId;

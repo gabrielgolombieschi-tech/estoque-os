@@ -27,6 +27,25 @@ type ApuracaoAggRow = {
   valor_total_calculado: number;
   valor_total_ajustado: number;
   qtd_documentos: number;
+  origem?: "BASE" | "LUCRO_REAL";
+};
+
+type IrpjCsllMensalRow = {
+  tenant_id: string;
+  empresa_id: string;
+  competencia_date: string;
+  base_irpj: number | string | null;
+  irpj_total: number | string | null;
+  base_csll: number | string | null;
+  csll_total: number | string | null;
+};
+
+type IrpjCsllAnualRow = {
+  tenant_id: string;
+  empresa_id: string;
+  competencia_ano: number | string;
+  irpj_total_soma_meses: number | string | null;
+  csll_total_soma_meses: number | string | null;
 };
 
 type DocumentoImpostoRow = {
@@ -71,14 +90,30 @@ function formatDateBR(iso?: string | null): string {
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"] as const;
 
-function StatCard({ title, value, subtitle }: { title: string; value: string; subtitle?: string }) {
+function StatCard({
+  title,
+  value,
+  subtitle,
+  valueClassName = "text-zinc-100",
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+  valueClassName?: string;
+}) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       <div className="text-xs text-zinc-400">{title}</div>
-      <div className="mt-2 text-2xl font-semibold text-zinc-100 tabular-nums">{value}</div>
+      <div className={`mt-2 text-2xl font-semibold tabular-nums ${valueClassName}`}>{value}</div>
       {subtitle ? <div className="mt-1 text-xs text-zinc-500">{subtitle}</div> : null}
     </div>
   );
+}
+
+function amountColorClass(value: number): string {
+  if (value > 0) return "text-rose-300";
+  if (value < 0) return "text-emerald-300";
+  return "text-zinc-100";
 }
 
 function KpiCard({
@@ -143,10 +178,17 @@ function aggregateByImposto(rows: ApuracaoAggRow[]): ImpostoKpis[] {
     it.resultado = it.debitos - it.creditos - it.retencoes;
   }
 
+  // UI ordering: keep the most common impostos in a stable order.
+  // This also keeps ISS next to IPI in the grid.
   const rank = (imposto: string) => {
     const key = String(imposto ?? "").trim().toUpperCase();
     if (key === "PIS" || key === "PIS/PASEP") return 0;
-    return 1;
+    if (key === "COFINS") return 1;
+    if (key === "ICMS") return 2;
+    if (key === "IPI") return 3;
+    if (key === "ISS") return 4;
+    if (key === "INSS") return 5;
+    return 10;
   };
 
   return list.sort((a, b) => {
@@ -183,6 +225,7 @@ function aggregateForTable(rows: ApuracaoRow[]): ApuracaoAggRow[] {
       valor_total_calculado: 0,
       valor_total_ajustado: 0,
       qtd_documentos: 0,
+      origem: "BASE",
     };
     cur.base_total += n(r.base_total);
     cur.valor_total_calculado += n(r.valor_total_calculado);
@@ -253,6 +296,8 @@ export default function ImpostosPageClient() {
 
   const [mesRows, setMesRows] = useState<ApuracaoRow[]>([]);
   const [anoRows, setAnoRows] = useState<ApuracaoRow[]>([]);
+  const [lucroRealMes, setLucroRealMes] = useState<IrpjCsllMensalRow | null>(null);
+  const [lucroRealAno, setLucroRealAno] = useState<IrpjCsllAnualRow | null>(null);
   const [loadingMes, setLoadingMes] = useState(false);
   const [loadingAno, setLoadingAno] = useState(false);
   const [errorMes, setErrorMes] = useState<string | null>(null);
@@ -267,20 +312,42 @@ export default function ImpostosPageClient() {
       setErrorMes(null);
       try {
         const supabase = getSupabaseBrowser();
-        const { data, error } = await supabase.schema("f").rpc("fn_imposto_apuracao_range", {
-          p_tenant_id: tenantId,
-          p_empresa_id: empresaId,
-          p_comp_ini: compIni,
-          p_comp_fim: compFim,
-          p_operacao: operacao || null,
-          p_natureza: natureza || null,
-        });
-        if (error) throw error;
+        const [apuracaoRes, lucroRealRes] = await Promise.all([
+          supabase.schema("f").rpc("fn_imposto_apuracao_range", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_comp_ini: compIni,
+            p_comp_fim: compFim,
+            p_operacao: operacao || null,
+            // IMPORTANT: KPIs/totals should not depend on the Natureza filter.
+            // We fetch all naturezas and filter only the table client-side.
+            p_natureza: null,
+          }),
+          supabase
+            .schema("r")
+            .from("r_apuracao_irpj_csll_mensal_comp2")
+            .select("tenant_id,empresa_id,competencia_date,base_irpj,irpj_total,base_csll,csll_total")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
+            .eq("competencia_date", compIni)
+            .maybeSingle<IrpjCsllMensalRow>(),
+        ]);
+
+        if (apuracaoRes.error) throw apuracaoRes.error;
         if (cancelled) return;
-        setMesRows(normalizeApuracaoRows((data ?? []) as unknown as ApuracaoRow[]));
+
+        setMesRows(normalizeApuracaoRows((apuracaoRes.data ?? []) as unknown as ApuracaoRow[]));
+
+        // Lucro Real (IRPJ/CSLL) é extra: não deve quebrar a tela se falhar.
+        if (!lucroRealRes.error) {
+          setLucroRealMes(lucroRealRes.data ?? null);
+        } else {
+          setLucroRealMes(null);
+        }
       } catch (e: unknown) {
         if (cancelled) return;
         setMesRows([]);
+        setLucroRealMes(null);
         setErrorMes(e instanceof Error ? e.message : "Erro ao carregar apuração do mês.");
       } finally {
         if (!cancelled) setLoadingMes(false);
@@ -291,7 +358,7 @@ export default function ImpostosPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [compFim, compIni, empresaId, natureza, operacao, ready, tenantId]);
+  }, [compFim, compIni, empresaId, operacao, ready, tenantId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -301,21 +368,43 @@ export default function ImpostosPageClient() {
       setLoadingAno(true);
       setErrorAno(null);
       try {
+        const competenciaAno = ano;
         const supabase = getSupabaseBrowser();
-        const { data, error } = await supabase.schema("f").rpc("fn_imposto_apuracao_range", {
-          p_tenant_id: tenantId,
-          p_empresa_id: empresaId,
-          p_comp_ini: anoIni,
-          p_comp_fim: anoFim,
-          p_operacao: operacao || null,
-          p_natureza: natureza || null,
-        });
-        if (error) throw error;
+        const [apuracaoRes, lucroRealRes] = await Promise.all([
+          supabase.schema("f").rpc("fn_imposto_apuracao_range", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_comp_ini: anoIni,
+            p_comp_fim: anoFim,
+            p_operacao: operacao || null,
+            // IMPORTANT: keep annual KPIs/totals stable; filter table client-side.
+            p_natureza: null,
+          }),
+          supabase
+            .schema("r")
+            .from("r_apuracao_irpj_csll_anual_comp2")
+            .select("tenant_id,empresa_id,competencia_ano,irpj_total_soma_meses,csll_total_soma_meses")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
+            .eq("competencia_ano", competenciaAno)
+            .maybeSingle<IrpjCsllAnualRow>(),
+        ]);
+
+        if (apuracaoRes.error) throw apuracaoRes.error;
         if (cancelled) return;
-        setAnoRows(normalizeApuracaoRows((data ?? []) as unknown as ApuracaoRow[]));
+
+        setAnoRows(normalizeApuracaoRows((apuracaoRes.data ?? []) as unknown as ApuracaoRow[]));
+
+        // Lucro Real (IRPJ/CSLL) anual é extra: não deve quebrar a tela se falhar.
+        if (!lucroRealRes.error) {
+          setLucroRealAno(lucroRealRes.data ?? null);
+        } else {
+          setLucroRealAno(null);
+        }
       } catch (e: unknown) {
         if (cancelled) return;
         setAnoRows([]);
+        setLucroRealAno(null);
         setErrorAno(e instanceof Error ? e.message : "Erro ao carregar apuração do ano.");
       } finally {
         if (!cancelled) setLoadingAno(false);
@@ -326,14 +415,82 @@ export default function ImpostosPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [anoFim, anoIni, empresaId, natureza, operacao, ready, tenantId]);
+  }, [ano, anoFim, anoIni, empresaId, operacao, ready, tenantId]);
 
-  const mesTableRows = useMemo(() => aggregateForTable(mesRows), [mesRows]);
-  const mesTotals = useMemo(() => sumByNatureza(mesTableRows.map((r) => ({ natureza: r.natureza, valor_total_calculado: r.valor_total_calculado, qtd_documentos: r.qtd_documentos }))), [mesTableRows]);
-  const mesImpostoKpis = useMemo(() => aggregateByImposto(mesTableRows), [mesTableRows]);
+  // Base rows (impostos indiretos) always include ALL naturezas; the Natureza filter affects only the table.
+  const mesRowsForTable = useMemo(() => {
+    if (!natureza) return mesRows;
+    return mesRows.filter((r) => String(r.natureza ?? "").trim().toUpperCase() === natureza);
+  }, [mesRows, natureza]);
 
-  const anoTableRows = useMemo(() => aggregateForTable(anoRows), [anoRows]);
-  const anoImpostoKpis = useMemo(() => aggregateByImposto(anoTableRows), [anoTableRows]);
+  const mesTableRowsAll = useMemo(() => aggregateForTable(mesRows), [mesRows]);
+  const mesTableRowsFiltered = useMemo(() => aggregateForTable(mesRowsForTable), [mesRowsForTable]);
+
+  // Totais atuais (impostos indiretos) devem ser calculados SOMENTE pelos dados do RPC (sem Lucro Real)
+  // e não devem mudar quando o usuário filtra por Natureza.
+  const mesTotals = useMemo(
+    () =>
+      sumByNatureza(
+        mesTableRowsAll.map((r) => ({
+          natureza: r.natureza,
+          valor_total_calculado: r.valor_total_calculado,
+          qtd_documentos: r.qtd_documentos,
+        }))
+      ),
+    [mesTableRowsAll]
+  );
+
+  const mesImpostoKpis = useMemo(() => aggregateByImposto(mesTableRowsAll), [mesTableRowsAll]);
+
+  const lucroRealMesResultado = useMemo(() => {
+    return n(lucroRealMes?.irpj_total) + n(lucroRealMes?.csll_total);
+  }, [lucroRealMes]);
+
+  const lucroRealMesAgg = useMemo((): ApuracaoAggRow[] => {
+    const showByNatureza = natureza === "" || natureza === "DEBITO";
+    // Operação não se aplica ao Lucro Real (IRPJ/CSLL): ignore o filtro.
+    if (!showByNatureza) return [];
+
+    const lr = lucroRealMes;
+    if (!lr) return [];
+    return [
+      {
+        imposto: "IRPJ",
+        natureza: "DEBITO",
+        base_total: n(lr.base_irpj),
+        valor_total_calculado: n(lr.irpj_total),
+        valor_total_ajustado: 0,
+        qtd_documentos: 0,
+        origem: "LUCRO_REAL",
+      },
+      {
+        imposto: "CSLL",
+        natureza: "DEBITO",
+        base_total: n(lr.base_csll),
+        valor_total_calculado: n(lr.csll_total),
+        valor_total_ajustado: 0,
+        qtd_documentos: 0,
+        origem: "LUCRO_REAL",
+      },
+    ];
+  }, [lucroRealMes, natureza]);
+
+  const mesTableRowsComLucroReal = useMemo(() => {
+    const base = mesTableRowsFiltered;
+    const extras = lucroRealMesAgg;
+    if (!extras.length) return base;
+    return [...base, ...extras].sort((a, b) => {
+      const imp = a.imposto.localeCompare(b.imposto);
+      if (imp !== 0) return imp;
+      return a.natureza.localeCompare(b.natureza);
+    });
+  }, [lucroRealMesAgg, mesTableRowsFiltered]);
+
+  const anoTableRowsAll = useMemo(() => aggregateForTable(anoRows), [anoRows]);
+  const anoImpostoKpis = useMemo(() => aggregateByImposto(anoTableRowsAll), [anoTableRowsAll]);
+
+  const irpjAnoTotal = useMemo(() => n(lucroRealAno?.irpj_total_soma_meses), [lucroRealAno]);
+  const csllAnoTotal = useMemo(() => n(lucroRealAno?.csll_total_soma_meses), [lucroRealAno]);
 
   const anoByCompetencia = useMemo(() => {
     const by = new Map<string, ApuracaoAggRow[]>();
@@ -574,7 +731,21 @@ export default function ImpostosPageClient() {
 
       {tab === "mes" ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2">
+            {natureza === "" || natureza === "DEBITO" ? (
+              <div className="flex flex-col gap-2">
+                <KpiCard
+                  title="IRPJ Débitos"
+                  value={formatMoneyBR(n(lucroRealMes?.irpj_total))}
+                  valueClassName="text-rose-300"
+                />
+                <KpiCard
+                  title="CSLL Débitos"
+                  value={formatMoneyBR(n(lucroRealMes?.csll_total))}
+                  valueClassName="text-rose-300"
+                />
+              </div>
+            ) : null}
             {mesImpostoKpis.length ? (
               mesImpostoKpis.map((it) => (
                 <div key={it.imposto} className="flex flex-col gap-2">
@@ -590,11 +761,33 @@ export default function ImpostosPageClient() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <StatCard title="Total Débitos" value={formatMoneyBR(mesTotals.debitos)} />
-            <StatCard title="Total Créditos" value={formatMoneyBR(mesTotals.creditos)} />
-            <StatCard title="Total Retenções" value={formatMoneyBR(mesTotals.retencoes)} />
-            <StatCard title="Resultado do mês" value={formatMoneyBR(mesTotals.resultado)} subtitle="Débitos - Créditos - Retenções" />
-            <StatCard title="Qtd. docs (aprox.)" value={String(mesTotals.qtdDocs)} subtitle="Soma de qtd_documentos" />
+            <StatCard
+              title="Total Débitos"
+              value={formatMoneyBR(mesTotals.debitos)}
+              valueClassName="text-rose-300"
+            />
+            <StatCard
+              title="Total Créditos"
+              value={formatMoneyBR(mesTotals.creditos)}
+              valueClassName="text-emerald-300"
+            />
+            <StatCard
+              title="Total Retenções"
+              value={formatMoneyBR(mesTotals.retencoes)}
+              valueClassName="text-rose-300"
+            />
+            <StatCard
+              title="Resultado do mês"
+              value={formatMoneyBR(mesTotals.resultado)}
+              subtitle="Débitos - Créditos - Retenções"
+              valueClassName={amountColorClass(mesTotals.resultado)}
+            />
+            <StatCard
+              title="Resultado IRPJ/CSLL"
+              value={formatMoneyBR(lucroRealMesResultado)}
+              subtitle="Lucro Real"
+              valueClassName={amountColorClass(lucroRealMesResultado)}
+            />
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
@@ -627,8 +820,8 @@ export default function ImpostosPageClient() {
                         Carregando...
                       </td>
                     </tr>
-                  ) : mesTableRows.length ? (
-                    mesTableRows.map((r) => (
+                  ) : mesTableRowsComLucroReal.length ? (
+                    mesTableRowsComLucroReal.map((r) => (
                       <tr key={`${r.imposto}-${r.natureza}`} className="border-b border-zinc-900/60 hover:bg-zinc-900/30">
                         <td className="py-2 pr-3">{r.imposto}</td>
                         <td className="py-2 pr-3 text-zinc-300">{r.natureza}</td>
@@ -637,13 +830,17 @@ export default function ImpostosPageClient() {
                         <td className="py-2 pr-3 text-right tabular-nums">{formatMoneyBR(r.valor_total_ajustado)}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{r.qtd_documentos}</td>
                         <td className="py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => openDocs(r.imposto, r.natureza)}
-                            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-800"
-                          >
-                            Ver documentos
-                          </button>
+                          {r.origem === "LUCRO_REAL" ? (
+                            <span className="text-zinc-500 text-xs">—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openDocs(r.imposto, r.natureza)}
+                              className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 hover:bg-zinc-800"
+                            >
+                              Ver documentos
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -661,7 +858,7 @@ export default function ImpostosPageClient() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-2">
             {anoImpostoKpis.length ? (
               anoImpostoKpis.map((it) => (
                 <div key={it.imposto} className="flex flex-col gap-2">
@@ -676,12 +873,21 @@ export default function ImpostosPageClient() {
             )}
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <StatCard title="Total Débitos (ano)" value={formatMoneyBR(anoTotals.debitos)} valueClassName="text-rose-300" />
+            <StatCard title="Total Créditos (ano)" value={formatMoneyBR(anoTotals.creditos)} valueClassName="text-emerald-300" />
+            <StatCard title="Total Retenções (ano)" value={formatMoneyBR(anoTotals.retencoes)} valueClassName="text-rose-300" />
+            <StatCard
+              title="Resultado (ano)"
+              value={formatMoneyBR(anoTotals.resultado)}
+              subtitle="Débitos - Créditos - Retenções"
+              valueClassName={amountColorClass(anoTotals.resultado)}
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <StatCard title="Total Débitos (ano)" value={formatMoneyBR(anoTotals.debitos)} />
-            <StatCard title="Total Créditos (ano)" value={formatMoneyBR(anoTotals.creditos)} />
-            <StatCard title="Total Retenções (ano)" value={formatMoneyBR(anoTotals.retencoes)} />
-            <StatCard title="Resultado (ano)" value={formatMoneyBR(anoTotals.resultado)} subtitle="Débitos - Créditos - Retenções" />
-            <StatCard title="Qtd. docs (aprox.)" value={String(anoTotals.qtdDocs)} subtitle="Soma de qtd_documentos" />
+            <StatCard title="IRPJ (Ano)" value={formatMoneyBR(irpjAnoTotal)} subtitle="Lucro Real" />
+            <StatCard title="CSLL (Ano)" value={formatMoneyBR(csllAnoTotal)} subtitle="Lucro Real" />
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">

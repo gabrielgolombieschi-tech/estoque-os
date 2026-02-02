@@ -502,6 +502,116 @@ async function gerarRelatorioPDF(
       });
     }
 
+    // Tabelas 3+: Resumo por função (Normal / Extra 50% / Extra 100%)
+    type ResumoAgg = { funcao: string; valorHoraBase: number; horas: number; total: number };
+    const resumoNormal = new Map<string, ResumoAgg>();
+    const resumo50 = new Map<string, ResumoAgg>();
+    const resumo100 = new Map<string, ResumoAgg>();
+
+    for (const r of hhRows) {
+      const funcao =
+        r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao.trim() : "—";
+      const valorHoraBase = Number(r.valor_hora ?? 0);
+      const horas = Number(r.horas_trabalhadas ?? 0);
+      const total = Number(r.valor_total ?? 0);
+      const percentualAplicado = Number(r.percentual_aplicado ?? 0);
+
+      const bucket = percentualAplicado === 50 ? resumo50 : percentualAplicado === 100 ? resumo100 : resumoNormal;
+      const key = `${funcao}||${valorHoraBase}`;
+      const cur = bucket.get(key) ?? { funcao, valorHoraBase, horas: 0, total: 0 };
+      cur.horas += Number.isFinite(horas) ? horas : 0;
+      cur.total += Number.isFinite(total) ? total : 0;
+      bucket.set(key, cur);
+    }
+
+    const addResumoTable = (title: string, map: Map<string, ResumoAgg>, multiplier: number) => {
+      const rows = Array.from(map.values()).filter((x) => (Number(x.horas) || 0) !== 0 || (Number(x.total) || 0) !== 0);
+      if (!rows.length) return;
+
+      rows.sort((a, b) => {
+        const byFuncao = a.funcao.localeCompare(b.funcao, "pt-BR", { sensitivity: "base" });
+        if (byFuncao !== 0) return byFuncao;
+        return a.valorHoraBase - b.valorHoraBase;
+      });
+
+      const body: RowInput[] = [];
+      let sumHoras = 0;
+      let sumTotal = 0;
+
+      for (const row of rows) {
+        sumHoras += Number(row.horas ?? 0) || 0;
+        sumTotal += Number(row.total ?? 0) || 0;
+        body.push([
+          row.funcao,
+          formatHoursBR(row.horas),
+          formatCurrencyBRL((Number(row.valorHoraBase ?? 0) || 0) * multiplier),
+          formatCurrencyBRL(row.total),
+        ]);
+      }
+
+      body.push(["TOTAL", formatHoursBR(sumHoras), "", formatCurrencyBRL(sumTotal)]);
+
+      const lastY =
+        (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? topStartY;
+
+      // Title row (keeps title with table across page breaks)
+      const titleRow =
+        [
+          {
+            content: title,
+            colSpan: 4,
+            styles: {
+              fillColor: [255, 255, 255],
+              textColor: titleColor,
+              fontStyle: "bold",
+              halign: "left",
+              fontSize: 10,
+            },
+          },
+        ] as unknown as RowInput;
+
+      const head: RowInput[] = [titleRow, ["Função", "Total horas", "Valor hora", "Total"]];
+
+      autoTable.default(doc, {
+        startY: lastY + 8,
+        head,
+        body,
+        margin: { top: topStartY, left: margin, right: margin, bottom: 10 },
+        styles: {
+          cellPadding: 1.6,
+          lineWidth: 0.1,
+          lineColor: [220, 220, 220],
+          overflow: "linebreak",
+        },
+        columnStyles: {
+          0: { cellWidth: 120 }, // Função
+          1: { cellWidth: 26, halign: "right" }, // Total horas
+          2: { cellWidth: 28, halign: "right" }, // Valor hora
+          3: { cellWidth: 28, halign: "right" }, // Total
+        },
+        headStyles: {
+          fillColor: tableHeadFill,
+          textColor: tableHeadText,
+          fontSize: 9,
+          fontStyle: "bold",
+          lineWidth: 0.2,
+          lineColor: [220, 220, 220],
+          halign: "center",
+        },
+        bodyStyles: {
+          fontSize: 8.6,
+          textColor: tableBodyText,
+        },
+        alternateRowStyles: {
+          fillColor: zebraFill,
+        },
+      });
+    };
+
+    addResumoTable("Resumo por função — Horas Normais", resumoNormal, 1);
+    addResumoTable("Resumo por função — Extras 50%", resumo50, 1.5);
+    addResumoTable("Resumo por função — Extras 100%", resumo100, 2);
+
     // Cabeçalho com paginação correta
     const pageCount = doc.getNumberOfPages();
     for (let page = 1; page <= pageCount; page += 1) {

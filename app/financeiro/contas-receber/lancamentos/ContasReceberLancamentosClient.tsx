@@ -26,6 +26,8 @@ type ParcelaRow = {
   } | null;
 };
 
+type ClienteLookupRow = { id: number; nome: string | null };
+
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
   return Number.isFinite(num) ? num : 0;
@@ -141,7 +143,9 @@ export default function ContasReceberLancamentosClient() {
                 "vencimento_date",
                 "valor",
                 "valor_aberto",
-                "titulo:titulo_id!inner(id,empresa_id,tipo,status,descricao,emissao_date,competencia_date,cliente_id,clientes:cliente_id(nome))",
+                // NOTE: cannot embed public.clientes from the `f` profile via PostgREST.
+                // We load clientes separately after fetching parcelas/titulos.
+                "titulo:titulo_id!inner(id,empresa_id,tipo,status,descricao,emissao_date,competencia_date,cliente_id)",
               ].join(","),
               { count: "exact" }
             ),
@@ -182,7 +186,6 @@ export default function ContasReceberLancamentosClient() {
               `titulo.descricao.ilike.%${term}%`,
               `titulo.id.eq.${term}`,
               `numero.ilike.%${term}%`,
-              `clientes.nome.ilike.%${term}%`,
             ].join(",")
           );
         }
@@ -198,7 +201,56 @@ export default function ContasReceberLancamentosClient() {
           return;
         }
 
-        setRows((data ?? []) as unknown as ParcelaRow[]);
+        const baseRows = (data ?? []) as unknown as ParcelaRow[];
+        const clienteIds = Array.from(
+          new Set(
+            baseRows
+              .map((r) => (typeof r?.titulo?.cliente_id === "number" ? r.titulo.cliente_id : null))
+              .filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+          )
+        );
+
+        if (!clienteIds.length) {
+          setRows(baseRows);
+          setTotal(typeof count === "number" ? count : 0);
+          return;
+        }
+
+        const { data: clientesData, error: cErr } = await applyTenantEmpresa(
+          supabase.from("clientes").select("id,nome").in("id", clienteIds),
+          tenantId,
+          empresaId
+        ).returns<ClienteLookupRow[]>();
+
+        if (cancelled) return;
+        if (cErr) {
+          // Non-fatal: keep rows without cliente name.
+          setRows(baseRows);
+          setTotal(typeof count === "number" ? count : 0);
+          return;
+        }
+
+        const nomeById = new Map<number, string | null>();
+        for (const c of clientesData ?? []) {
+          if (typeof c?.id === "number") nomeById.set(c.id, c?.nome ?? null);
+        }
+
+        const hydrated = baseRows.map((r) => {
+          const t = r.titulo ?? null;
+          const cid = typeof t?.cliente_id === "number" ? t.cliente_id : null;
+          const nome = cid !== null ? nomeById.get(cid) ?? null : null;
+          return {
+            ...r,
+            titulo: t
+              ? {
+                  ...t,
+                  clientes: { nome },
+                }
+              : null,
+          };
+        });
+
+        setRows(hydrated);
         setTotal(typeof count === "number" ? count : 0);
       } catch (e: unknown) {
         if (cancelled) return;

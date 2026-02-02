@@ -28,7 +28,13 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/reset-password/" ||
     pathname === "/auth/reset-password/";
   const isPublic = isLoginPage || isResetPasswordPage;
-  const isFullWidth = pathname === "/itens" || pathname === "/itens/imprimir";
+  const isFullWidth =
+    pathname === "/itens" ||
+    pathname === "/itens/imprimir" ||
+    pathname === "/financeiro/contas-pagar/aprovacoes" ||
+    pathname === "/financeiro/impostos" ||
+    pathname === "/financeiro/contas_pagar_receber" ||
+    pathname?.startsWith("/financeiro/contas_pagar_receber/");
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
   const lastKnownCapsRef = useRef<Capabilities | null>(null);

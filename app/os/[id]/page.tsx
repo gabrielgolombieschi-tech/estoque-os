@@ -441,7 +441,8 @@ export default function OsDetailPage() {
     setClienteNomeLivre(os.cliente_nome ?? "");
     setDescricao(os.descricao_servico ?? "");
     setPedidoCompra(os.pedido_compra ?? "");
-    setTipoPedido(os.tipo_pedido as "servico" | "material");
+    // Avoid React warning: <select value> must not be null.
+    setTipoPedido(os.tipo_pedido === "material" ? "material" : "servico");
     setVendedor(os.vendedor ?? "");
     setOrcadoInput(String(os.orcado ?? ""));
     setUsaRelatorioHH(Boolean(os.usa_relatorio_hh) && hhClientEnabled);
