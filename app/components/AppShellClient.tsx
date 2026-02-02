@@ -59,6 +59,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const hideHeader =
     isPainelTv ||
     pathname === "/itens/imprimir" ||
+    pathname === "/estoque/importar/imprimir" ||
     pathname === "/painel-tv" ||
     pathname?.startsWith("/projetos") ||
     pathname?.startsWith("/execucao");

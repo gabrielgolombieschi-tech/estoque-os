@@ -582,6 +582,69 @@ export default function ContasPagarReceberPage() {
       setTab(row.kind === "AP" ? "APROVAR" : "RECEBER");
 
       try {
+        // Prefill AP approval fields from:
+        // 1) existing approval row (f.titulo_aprovacao)
+        // 2) imported title values (f.titulo.motivo_compra_id and f.documento_fiscal.os_id_import)
+        // 3) default motivo (ESTOQUE)
+        let prefMotivoId: string | null = null;
+        let prefMotivoOutrosText: string | null = null;
+        let prefOsInternalId: number | null = null;
+
+        if (row.kind === "AP") {
+          type AprovacaoRow = { motivo_compra_id: unknown; motivo_outros_text: unknown; os_id: unknown };
+          const { data: aprovacao } = await supabase
+            .schema("f")
+            .from("titulo_aprovacao")
+            .select("motivo_compra_id,motivo_outros_text,os_id")
+            .eq("titulo_id", row.tituloId)
+            .is("deleted_at", null)
+            .maybeSingle<AprovacaoRow>();
+
+          if (aprovacao?.motivo_compra_id) prefMotivoId = String(aprovacao.motivo_compra_id);
+          if (typeof aprovacao?.motivo_outros_text === "string") prefMotivoOutrosText = aprovacao.motivo_outros_text;
+          if (aprovacao?.os_id !== null && aprovacao?.os_id !== undefined && aprovacao.os_id !== "") {
+            const n = Number(aprovacao.os_id);
+            if (Number.isFinite(n)) prefOsInternalId = n;
+          }
+
+          if (!prefMotivoId || prefOsInternalId === null) {
+            type TituloRow = {
+              motivo_compra_id: unknown;
+              documento_fiscal?: { os_id_import?: unknown } | null;
+            };
+            const { data: titulo } = await supabase
+              .schema("f")
+              .from("titulo")
+              .select("motivo_compra_id,documento_fiscal:documento_fiscal_id(os_id_import)")
+              .eq("id", row.tituloId)
+              .is("deleted_at", null)
+              .maybeSingle<TituloRow>();
+
+            if (!prefMotivoId && titulo?.motivo_compra_id) prefMotivoId = String(titulo.motivo_compra_id);
+            if (prefOsInternalId === null) {
+              const osImport = titulo?.documento_fiscal?.os_id_import;
+              const n = osImport === null || osImport === undefined || osImport === "" ? NaN : Number(osImport);
+              if (Number.isFinite(n)) prefOsInternalId = n;
+            }
+          }
+
+          if (prefMotivoId) setMotivoId(prefMotivoId);
+          if (prefMotivoOutrosText) setMotivoOutrosText(prefMotivoOutrosText);
+
+          // Convert internal OS id -> displayed OS number
+          if (prefOsInternalId !== null) {
+            type OsRow = { numero_os: unknown };
+            const { data: osRow } = await supabase
+              .from("ordens_servico")
+              .select("numero_os")
+              .eq("id", prefOsInternalId)
+              .maybeSingle<OsRow>();
+
+            const numero = osRow?.numero_os ? String(osRow.numero_os) : "";
+            if (numero) setOsId(numero);
+          }
+        }
+
         if (row.kind === "AP" && motivos.length === 0) {
           const { data, error } = await supabase
             .schema("f")
@@ -606,8 +669,10 @@ export default function ContasPagarReceberPage() {
               requires_os: Boolean(m.requires_os),
             }));
             setMotivos(mapped);
+
+            // Only default to ESTOQUE when we couldn't prefill from import/approval.
             const estoque = mapped.find((m) => m.codigo === "ESTOQUE") ?? null;
-            if (estoque) setMotivoId(estoque.id);
+            if (!prefMotivoId && estoque) setMotivoId(estoque.id);
           }
         }
 
@@ -689,11 +754,46 @@ export default function ContasPagarReceberPage() {
     setActionBusy(true);
     setActionErr(null);
     try {
-      const os = osId.trim() ? Number(osId.trim()) : null;
+      let os: number | null = null;
+      if (selectedMotivo?.requires_os) {
+        const osNumero = osId.trim();
+        type OsLookupRow = { id: unknown };
+
+        // Prefer lookup by OS number (numero_os), since that's what the UI asks for.
+        const { data: byNumero } = await supabase
+          .from("ordens_servico")
+          .select("id")
+          .eq("numero_os", osNumero)
+          .maybeSingle<OsLookupRow>();
+
+        if (byNumero?.id) {
+          const n = Number(byNumero.id);
+          os = Number.isFinite(n) ? n : null;
+        }
+
+        // Fallback: accept direct internal id if user typed it.
+        if (os === null) {
+          const asId = Number(osNumero);
+          if (Number.isFinite(asId)) {
+            const { data: byId } = await supabase
+              .from("ordens_servico")
+              .select("id")
+              .eq("id", asId)
+              .maybeSingle<OsLookupRow>();
+            if (byId?.id) os = asId;
+          }
+        }
+
+        if (os === null) {
+          setActionErr(`OS não encontrada: ${osNumero}`);
+          setActionBusy(false);
+          return;
+        }
+      }
       const { error } = await supabase.schema("f").rpc("aprovar_titulo_ap", {
         p_titulo_id: selected.tituloId,
         p_motivo_compra_id: motivoId,
-        p_os_id: os && Number.isFinite(os) ? os : null,
+        p_os_id: os,
         p_motivo_outros_text: selectedMotivo?.requires_text ? motivoOutrosText.trim() : null,
         p_change_reason: "UI:contas_pagar_receber",
       });

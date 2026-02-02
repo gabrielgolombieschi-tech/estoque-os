@@ -360,6 +360,9 @@ export default function ImportarXmlPage() {
   const [openingNfEntradaId, setOpeningNfEntradaId] = useState<number | null>(null);
   const [recentReloadTick, setRecentReloadTick] = useState(0);
 
+  const [recentFilterMonth, setRecentFilterMonth] = useState<string>(() => String(new Date().getMonth() + 1));
+  const [recentFilterYear, setRecentFilterYear] = useState<string>(() => String(new Date().getFullYear()));
+
   const canImport = has("xml_import.execute");
   const canCreateFornecedor = has("cad_fornecedores.write");
   const canCreateItem = has("cad_itens.write");
@@ -383,41 +386,58 @@ export default function ImportarXmlPage() {
       setRecentNfsError(null);
 
       try {
-        const { data, error } = await applyTenantEmpresa(
-          supabase
-            .schema("public")
-            .from("nf_entrada")
-            .select(
-              "id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto,fornecedor_id,motivo_compra_id,solicitante_usuario_id"
-            )
-            .eq("empresa_id", empresaId)
-            .eq("finalidade_contexto", "materia_prima")
-            .not("fornecedor_id", "is", null)
-            .not("motivo_compra_id", "is", null)
-            .not("solicitante_usuario_id", "is", null)
-            .order("criado_em", { ascending: false })
-            .limit(10),
-          tenantId,
-          empresaId
-        ).returns<NfEntradaResumoRow[]>();
+        const y = Number(recentFilterYear);
+        const m = Number(recentFilterMonth);
+        const hasMonth = Number.isFinite(y) && Number.isFinite(m) && y > 2000 && m >= 1 && m <= 12;
+        const start = hasMonth ? new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10) : null;
+        const end = hasMonth ? new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10) : null;
 
-        if (error) throw error;
-        if (!active) return;
+        let qb = supabase
+          .schema("public")
+          .from("nf_entrada")
+          .select("id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto", {
+            count: "exact",
+          })
+          .eq("empresa_id", empresaId)
+          .eq("finalidade_contexto", "materia_prima")
+          .not("chave", "is", null)
+          .order("criado_em", { ascending: false })
+          .order("id", { ascending: false });
 
-        const rows = (data ?? [])
-          .map((r) => ({
-            id: typeof r.id === "number" ? r.id : Number(r.id),
-            chave: String((r as any).chave ?? ""),
-            numero: (r as any).numero ?? null,
-            serie: (r as any).serie ?? null,
-            emitente_nome: (r as any).emitente_nome ?? null,
-            data_emissao: (r as any).data_emissao ?? null,
-            valor_total: (r as any).valor_total ?? null,
-            criado_em: (r as any).criado_em ?? null,
-          }))
-          .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
+        if (start && end) {
+          qb = qb.gte("data_emissao", start).lt("data_emissao", end);
+        }
 
-        setRecentNfs(rows);
+        qb = applyTenantEmpresa(qb, tenantId, empresaId);
+
+        const pageSize = 1000;
+        let from = 0;
+        let rowsAll: NfEntradaResumoRow[] = [];
+
+        while (true) {
+          const { data, error } = await qb.range(from, from + pageSize - 1).returns<NfEntradaResumoRow[]>();
+          if (error) throw error;
+          if (!active) return;
+
+          const chunkRows = (data ?? [])
+            .map((r) => ({
+              id: Number(r.id),
+              chave: String(r.chave ?? ""),
+              numero: r.numero ?? null,
+              serie: r.serie ?? null,
+              emitente_nome: r.emitente_nome ?? null,
+              data_emissao: r.data_emissao ?? null,
+              valor_total: r.valor_total ?? null,
+              criado_em: r.criado_em ?? null,
+            }))
+            .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
+
+          rowsAll = rowsAll.concat(chunkRows);
+          if (!data || chunkRows.length < pageSize) break;
+          from += pageSize;
+        }
+
+        setRecentNfs(rowsAll);
       } catch (e: unknown) {
         if (!active) return;
         setRecentNfs([]);
@@ -431,7 +451,7 @@ export default function ImportarXmlPage() {
     return () => {
       active = false;
     };
-  }, [empresaId, importOk, recentReloadTick, tenantId]);
+  }, [empresaId, importOk, recentFilterMonth, recentFilterYear, recentReloadTick, tenantId]);
 
   const abrirNotaImportada = useCallback(
     async (row: NfEntradaResumoRow) => {
@@ -2446,16 +2466,71 @@ export default function ImportarXmlPage() {
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <div className="text-lg font-semibold">Notas importadas</div>
-            <div className="text-sm text-zinc-400">Últimas 10 notas de entrada (material) que geraram Contas a Pagar.</div>
+            <div className="text-sm text-zinc-400">
+              Notas de entrada (material) importadas. Use o filtro por mês para imprimir/consultar um período.
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setRecentReloadTick((n) => n + 1)}
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
-            disabled={!tenantId || !empresaId || recentNfsLoading}
-          >
-            {recentNfsLoading ? "Atualizando..." : "Atualizar"}
-          </button>
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-zinc-400" htmlFor="recent-notas-mes">
+                Mês
+              </label>
+              <select
+                id="recent-notas-mes"
+                className="px-2 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-sm"
+                value={recentFilterMonth}
+                onChange={(e) => setRecentFilterMonth(e.target.value)}
+                disabled={!tenantId || !empresaId || recentNfsLoading}
+                title="Filtrar por mês de emissão"
+              >
+                {Array.from({ length: 12 }).map((_, idx) => {
+                  const m = idx + 1;
+                  return (
+                    <option key={m} value={String(m)}>
+                      {String(m).padStart(2, "0")}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-zinc-400" htmlFor="recent-notas-ano">
+                Ano
+              </label>
+              <input
+                id="recent-notas-ano"
+                className="w-[92px] px-2 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-sm"
+                value={recentFilterYear}
+                onChange={(e) => setRecentFilterYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+                disabled={!tenantId || !empresaId || recentNfsLoading}
+                inputMode="numeric"
+                placeholder="YYYY"
+                title="Filtrar por ano de emissão"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams({ mes: recentFilterMonth, ano: recentFilterYear });
+                window.open(`/estoque/importar/imprimir?${params.toString()}`, "_blank");
+              }}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              disabled={!tenantId || !empresaId || recentNfsLoading}
+            >
+              Imprimir
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRecentReloadTick((n) => n + 1)}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              disabled={!tenantId || !empresaId || recentNfsLoading}
+            >
+              {recentNfsLoading ? "Atualizando..." : "Atualizar"}
+            </button>
+          </div>
         </div>
 
         {recentNfsError ? (

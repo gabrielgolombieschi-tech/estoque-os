@@ -119,6 +119,25 @@ function formatDateBR(isoDate: string | null | undefined) {
   return d.toLocaleDateString("pt-BR");
 }
 
+function formatDateDDMMAA(isoDate: string | null | undefined): string {
+  const raw = String(isoDate ?? "").trim();
+  if (!raw) return "--";
+
+  // Prefer ISO yyyy-mm-dd (avoid timezone issues)
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const yy = m[1].slice(-2);
+    return `${m[3]}/${m[2]}/${yy}`;
+  }
+
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return "--";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
 function getPercentualFromDate(dateISO: string): 0 | 50 | 100 {
   const raw = String(dateISO ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return 0;
@@ -335,6 +354,7 @@ async function gerarRelatorioPDF(
     // Tabela 1: Lançamentos
     const headRowLancamentos: RowInput = [
       "Funcionário",
+      "Data",
       "Entrada 1",
       "Saída 1",
       "Entrada 2",
@@ -369,6 +389,7 @@ async function gerarRelatorioPDF(
 
       bodyLancamentos.push([
         r.colaborador_nome ?? "—",
+        formatDateDDMMAA(r.data),
         formatTimeHHMM(r.entrada_1) || formatTimeHHMM(r.hora_entrada) || "—",
         formatTimeHHMM(r.saida_1) || formatTimeHHMM(r.hora_saida) || "—",
         formatTimeHHMM(r.entrada_2) || "—",
@@ -383,6 +404,7 @@ async function gerarRelatorioPDF(
 
     // Linha de TOTAL
     bodyLancamentos.push([
+      "",
       "",
       "",
       "",
@@ -408,16 +430,17 @@ async function gerarRelatorioPDF(
         overflow: "linebreak",
       },
       columnStyles: {
-        0: { cellWidth: 70 }, // Funcionário
-        1: { cellWidth: 18, halign: "center" }, // Entrada 1
-        2: { cellWidth: 18, halign: "center" }, // Saída 1
-        3: { cellWidth: 18, halign: "center" }, // Entrada 2
-        4: { cellWidth: 18, halign: "center" }, // Saída 2
-        5: { cellWidth: 18, halign: "right" }, // Horas
-        6: { cellWidth: 28 }, // Tipo
-        7: { cellWidth: 20, halign: "right" }, // Horas Normais
-        8: { cellWidth: 20, halign: "right" }, // Horas Extras
-        9: { cellWidth: 25, halign: "right" }, // R$ Total
+        0: { cellWidth: 62 }, // Funcionário
+        1: { cellWidth: 16, halign: "center" }, // Data (ddMMyy)
+        2: { cellWidth: 18, halign: "center" }, // Entrada 1
+        3: { cellWidth: 18, halign: "center" }, // Saída 1
+        4: { cellWidth: 18, halign: "center" }, // Entrada 2
+        5: { cellWidth: 18, halign: "center" }, // Saída 2
+        6: { cellWidth: 18, halign: "right" }, // Horas
+        7: { cellWidth: 28 }, // Tipo
+        8: { cellWidth: 20, halign: "right" }, // Horas Normais
+        9: { cellWidth: 20, halign: "right" }, // Horas Extras
+        10: { cellWidth: 25, halign: "right" }, // R$ Total
       },
       headStyles: {
         fillColor: tableHeadFill,

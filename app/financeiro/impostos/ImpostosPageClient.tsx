@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
@@ -303,6 +303,46 @@ export default function ImpostosPageClient() {
   const [errorMes, setErrorMes] = useState<string | null>(null);
   const [errorAno, setErrorAno] = useState<string | null>(null);
 
+  // Manual/auto refresh: helpful when user launches retroactive invoices
+  // and wants to recompute without changing filters.
+  const [refreshTick, setRefreshTick] = useState(0);
+  const lastRefreshAtRef = useRef<number>(0);
+  const forceRefresh = useCallback((opts?: { reason?: string }) => {
+    void opts;
+    setRefreshTick((t) => t + 1);
+    lastRefreshAtRef.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    const trigger = () => {
+      const now = Date.now();
+      if (now - lastRefreshAtRef.current < 1000) return;
+      lastRefreshAtRef.current = now;
+      setRefreshTick((t) => t + 1);
+    };
+
+    const onFocus = () => trigger();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") trigger();
+    };
+    const onPageShow = () => trigger();
+    const onOnline = () => trigger();
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [ready]);
+
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
@@ -358,7 +398,7 @@ export default function ImpostosPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [compFim, compIni, empresaId, operacao, ready, tenantId]);
+  }, [compFim, compIni, empresaId, operacao, ready, refreshTick, tenantId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -415,7 +455,7 @@ export default function ImpostosPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [ano, anoFim, anoIni, empresaId, operacao, ready, tenantId]);
+  }, [ano, anoFim, anoIni, empresaId, operacao, ready, refreshTick, tenantId]);
 
   // Base rows (impostos indiretos) always include ALL naturezas; the Natureza filter affects only the table.
   const mesRowsForTable = useMemo(() => {
@@ -699,12 +739,26 @@ export default function ImpostosPageClient() {
               {tab === "mes" ? (loadingMes ? "Carregando mês..." : errorMes ? "Erro no mês" : "OK") : null}
               {tab === "ano" ? (loadingAno ? "Carregando ano..." : errorAno ? "Erro no ano" : "OK") : null}
             </div>
+
+            <button
+              type="button"
+              onClick={() => forceRefresh({ reason: "manual" })}
+              disabled={!ready || (tab === "mes" ? loadingMes : loadingAno)}
+              className="mt-2 inline-flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+              title="Recarrega a apuração do período (útil após lançar notas retroativas)."
+            >
+              Atualizar
+            </button>
           </div>
         </div>
 
         <div className="mt-3 text-xs text-zinc-500">
           <span className="text-zinc-400">Permissão:</span> impostos.view (preferencial) ou financeiro.read/write.
           {/* TODO: quando existir regra/role para "impostos.view", tornar obrigatório e remover fallback. */}
+          <div className="mt-1">
+            Dica: se lançou nota retroativa (ex.: Janeiro) e não refletiu, clique em <span className="text-zinc-300">Atualizar</span>.
+            Se ainda faltar, verifique se a nota ficou com <span className="text-zinc-300">competência</span> do mês correto.
+          </div>
         </div>
       </div>
 
