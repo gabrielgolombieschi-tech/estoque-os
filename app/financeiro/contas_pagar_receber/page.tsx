@@ -12,6 +12,7 @@ type UnifiedRow = {
   tituloId: string;
   parcelaId: string;
   parcelaNumero: string | null;
+  emissao: string | null; // yyyy-mm-dd (AP manual / XML)
   vencimento: string; // yyyy-mm-dd
   pessoaNome: string;
   descricao: string | null;
@@ -140,6 +141,13 @@ function todayISO(): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+function formatDateBR(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).split("-");
+  if (!y || !m || !d) return String(iso);
+  return `${d}/${m}/${y}`;
+}
+
 export default function ContasPagarReceberPage() {
   const te = useTenantEmpresa();
   const supabase = useMemo(() => getSupabaseBrowser(), []);
@@ -173,6 +181,7 @@ export default function ContasPagarReceberPage() {
 
   const [newFornecedorId, setNewFornecedorId] = useState<string>("");
   const [newDescricao, setNewDescricao] = useState<string>("");
+  const [newEmissaoDate, setNewEmissaoDate] = useState<string>(todayISO());
   const [newVencimento, setNewVencimento] = useState<string>(todayISO());
   const [newValor, setNewValor] = useState<string>("");
   const [newMotivoId, setNewMotivoId] = useState<string>("");
@@ -185,6 +194,13 @@ export default function ContasPagarReceberPage() {
 
   const [actionBusy, setActionBusy] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
+
+  const [tituloMeta, setTituloMeta] = useState<{ emissaoDate: string | null; documentoFiscalId: string | null } | null>(
+    null
+  );
+  const [editEmissaoDate, setEditEmissaoDate] = useState<string>("");
+  const [emissaoBusy, setEmissaoBusy] = useState(false);
+  const [emissaoErr, setEmissaoErr] = useState<string | null>(null);
 
   // Aprovar
   const [motivoId, setMotivoId] = useState<string>("");
@@ -201,6 +217,10 @@ export default function ContasPagarReceberPage() {
   const resetModalState = useCallback(() => {
     setActionErr(null);
     setActionBusy(false);
+    setEmissaoErr(null);
+    setEmissaoBusy(false);
+    setTituloMeta(null);
+    setEditEmissaoDate("");
     setMotivoId("");
     setMotivoOutrosText("");
     setOsId("");
@@ -265,6 +285,7 @@ export default function ContasPagarReceberPage() {
         tituloId: String(r.titulo_id),
         parcelaId: String(r.parcela_id),
         parcelaNumero: r.parcela_numero ? String(r.parcela_numero) : null,
+        emissao: null,
         vencimento: String(r.vencimento_date),
         pessoaNome: r.fornecedor_nome ? String(r.fornecedor_nome) : "Fornecedor",
         descricao: null,
@@ -278,6 +299,31 @@ export default function ContasPagarReceberPage() {
 
       // Enrich AP rows with approver name from f.titulo_aprovacao.aprovado_por (a.usuario.id)
       const apTituloIds = Array.from(new Set(apRows.map((r) => r.tituloId)));
+
+      // Enrich AP rows with emissao_date from f.titulo (works for manual + XML titles).
+      const emissaoByTituloId = new Map<string, string | null>();
+      if (apTituloIds.length) {
+        try {
+          const { data: titulos, error: titErr } = await supabase
+            .schema("f")
+            .from("titulo")
+            .select("id,emissao_date")
+            .in("id", apTituloIds)
+            .is("deleted_at", null);
+
+          if (!titErr) {
+            const tituloRows = (titulos ?? []) as Array<{ id: unknown; emissao_date: unknown }>;
+            for (const t of tituloRows) {
+              const id = t?.id ? String(t.id) : "";
+              if (!id) continue;
+              emissaoByTituloId.set(id, t?.emissao_date ? String(t.emissao_date) : null);
+            }
+          }
+        } catch {
+          // ignore enrichment failures
+        }
+      }
+
       const aprovadoPorNomeByTituloId = new Map<string, string>();
       if (apTituloIds.length) {
         const { data: aprovacoes, error: aprovErr } = await supabase
@@ -327,6 +373,7 @@ export default function ContasPagarReceberPage() {
 
       const apRowsEnriched: UnifiedRow[] = apRows.map((r) => ({
         ...r,
+        emissao: emissaoByTituloId.get(r.tituloId) ?? null,
         aprovadoPorNome: aprovadoPorNomeByTituloId.get(r.tituloId) ?? null,
       }));
 
@@ -377,6 +424,7 @@ export default function ContasPagarReceberPage() {
           tituloId: String(r.titulo_id),
           parcelaId: String(r.id),
           parcelaNumero: r.numero ? String(r.numero) : null,
+          emissao: null,
           vencimento: String(r.vencimento_date),
           pessoaNome,
           descricao: r?.titulo?.descricao ? String(r.titulo.descricao) : null,
@@ -421,6 +469,10 @@ export default function ContasPagarReceberPage() {
     setCreateErr(null);
     setCreateBusy(false);
     setCreateOpen(true);
+
+    // Defaults/suggestions
+    setNewEmissaoDate(todayISO());
+    setNewVencimento(todayISO());
 
     // Load motivos/fornecedores for manual AP.
     try {
@@ -478,6 +530,7 @@ export default function ContasPagarReceberPage() {
   const doCreateAp = useCallback(async () => {
     setCreateErr(null);
     const desc = newDescricao.trim();
+    const emissao = newEmissaoDate;
     const venc = newVencimento;
     const valorParsed = parseMoneyBR(newValor);
     const fornecedorIdParsed = newFornecedorId.trim() ? Number(newFornecedorId) : null;
@@ -490,6 +543,10 @@ export default function ContasPagarReceberPage() {
       setCreateErr("Informe o vencimento.");
       return;
     }
+    if (!emissao) {
+      setCreateErr("Informe a data da NF (Emissão).");
+      return;
+    }
     if (!Number.isFinite(valorParsed) || valorParsed <= 0) {
       setCreateErr("Informe um valor válido.");
       return;
@@ -497,36 +554,29 @@ export default function ContasPagarReceberPage() {
 
     setCreateBusy(true);
     try {
-      const fullArgs = {
-        p_fornecedor_id: fornecedorIdParsed && Number.isFinite(fornecedorIdParsed) ? fornecedorIdParsed : null,
+      // IMPORTANT: RPC payload is strict. Do not send extra fields.
+      const args = {
         p_descricao: desc,
         p_vencimento_date: venc,
         p_valor: valorParsed,
+        p_fornecedor_id: fornecedorIdParsed && Number.isFinite(fornecedorIdParsed) ? fornecedorIdParsed : null,
         p_motivo_compra_id: newMotivoId || null,
+        p_emissao_date: emissao,
         p_criar_recorrencia: Boolean(newRecorrente),
         p_dia_vencimento: null,
         p_auto_copiar_valor: true,
-        p_change_reason: "UI:contas_pagar_receber:create_ap",
       };
 
-      let { data, error } = await supabase.schema("f").rpc("criar_titulo_ap_manual", fullArgs);
+      const { data, error } = await supabase.schema("f").rpc("criar_titulo_ap_manual_v2", args);
 
-      // Backward-compat: some DBs may still have an older signature without recurrence/change_reason params.
-      // If PostgREST schema cache doesn't know the new signature, retry with the minimal arg set.
-      if (error && isMissingRpc(error, "f.criar_titulo_ap_manual")) {
-        const legacyArgs = {
-          p_fornecedor_id: fullArgs.p_fornecedor_id,
-          p_descricao: fullArgs.p_descricao,
-          p_vencimento_date: fullArgs.p_vencimento_date,
-          p_valor: fullArgs.p_valor,
-          p_motivo_compra_id: fullArgs.p_motivo_compra_id,
-        };
-        const retry = await supabase.schema("f").rpc("criar_titulo_ap_manual", legacyArgs);
-        data = retry.data;
-        error = retry.error;
+      if (error) {
+        if (isMissingRpc(error, "f.criar_titulo_ap_manual_v2")) {
+          throw new Error(
+            "RPC f.criar_titulo_ap_manual_v2 não encontrada no banco. Aplique a migration/SQL do financeiro (AP manual v2)."
+          );
+        }
+        throw error;
       }
-
-      if (error) throw error;
 
       type CriarTituloApManualRes = { titulo_id?: unknown; recorrencia_id?: unknown };
       const row = (Array.isArray(data) ? data[0] : data) as CriarTituloApManualRes | null;
@@ -548,7 +598,38 @@ export default function ContasPagarReceberPage() {
     } finally {
       setCreateBusy(false);
     }
-  }, [closeCreate, load, newDescricao, newFornecedorId, newMotivoId, newRecorrente, newProvisionarMeses, newValor, newVencimento, supabase]);
+  }, [closeCreate, load, newDescricao, newEmissaoDate, newFornecedorId, newMotivoId, newRecorrente, newProvisionarMeses, newValor, newVencimento, supabase]);
+
+  const doUpdateEmissaoDate = useCallback(async () => {
+    if (!selected || selected.kind !== "AP") return;
+    if (!editEmissaoDate) {
+      setEmissaoErr("Informe a data da NF (Emissão).");
+      return;
+    }
+
+    const canEdit = tituloMeta !== null && tituloMeta.documentoFiscalId === null;
+    if (!canEdit) return;
+
+    setEmissaoErr(null);
+    setEmissaoBusy(true);
+    try {
+      const { error } = await supabase.schema("f").rpc("atualizar_titulo_emissao_date", {
+        p_titulo_id: selected.tituloId,
+        p_emissao_date: editEmissaoDate,
+        p_atualizar_competencia: true,
+        p_change_reason: "AJUSTE DATA NF (UI)",
+      });
+      if (error) throw error;
+
+      setTituloMeta((prev) => (prev ? { ...prev, emissaoDate: editEmissaoDate } : prev));
+      setSelected((prev) => (prev ? { ...prev, emissao: editEmissaoDate } : prev));
+      await load();
+    } catch (e: unknown) {
+      setEmissaoErr(getErrorMessage(e, "Erro ao atualizar emissão."));
+    } finally {
+      setEmissaoBusy(false);
+    }
+  }, [editEmissaoDate, load, selected, supabase, tituloMeta?.documentoFiscalId]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -607,25 +688,31 @@ export default function ContasPagarReceberPage() {
             if (Number.isFinite(n)) prefOsInternalId = n;
           }
 
-          if (!prefMotivoId || prefOsInternalId === null) {
-            type TituloRow = {
-              motivo_compra_id: unknown;
-              documento_fiscal?: { os_id_import?: unknown } | null;
-            };
-            const { data: titulo } = await supabase
-              .schema("f")
-              .from("titulo")
-              .select("motivo_compra_id,documento_fiscal:documento_fiscal_id(os_id_import)")
-              .eq("id", row.tituloId)
-              .is("deleted_at", null)
-              .maybeSingle<TituloRow>();
+          // Load title meta (emissao + origin) and also use it to prefill missing approval fields.
+          type TituloRow = {
+            motivo_compra_id: unknown;
+            emissao_date: unknown;
+            documento_fiscal_id: unknown;
+            documento_fiscal?: { os_id_import?: unknown } | null;
+          };
+          const { data: titulo } = await supabase
+            .schema("f")
+            .from("titulo")
+            .select("motivo_compra_id,emissao_date,documento_fiscal_id,documento_fiscal:documento_fiscal_id(os_id_import)")
+            .eq("id", row.tituloId)
+            .is("deleted_at", null)
+            .maybeSingle<TituloRow>();
 
-            if (!prefMotivoId && titulo?.motivo_compra_id) prefMotivoId = String(titulo.motivo_compra_id);
-            if (prefOsInternalId === null) {
-              const osImport = titulo?.documento_fiscal?.os_id_import;
-              const n = osImport === null || osImport === undefined || osImport === "" ? NaN : Number(osImport);
-              if (Number.isFinite(n)) prefOsInternalId = n;
-            }
+          const documentoFiscalId = titulo?.documento_fiscal_id ? String(titulo.documento_fiscal_id) : null;
+          const emissaoDate = titulo?.emissao_date ? String(titulo.emissao_date) : null;
+          setTituloMeta({ documentoFiscalId, emissaoDate });
+          setEditEmissaoDate(emissaoDate ?? row.emissao ?? todayISO());
+
+          if (!prefMotivoId && titulo?.motivo_compra_id) prefMotivoId = String(titulo.motivo_compra_id);
+          if (prefOsInternalId === null) {
+            const osImport = titulo?.documento_fiscal?.os_id_import;
+            const n = osImport === null || osImport === undefined || osImport === "" ? NaN : Number(osImport);
+            if (Number.isFinite(n)) prefOsInternalId = n;
           }
 
           if (prefMotivoId) setMotivoId(prefMotivoId);
@@ -966,6 +1053,7 @@ export default function ContasPagarReceberPage() {
               <th className="px-3 py-2">Motivo</th>
               <th className="px-3 py-2">Aprovado por</th>
               <th className="px-3 py-2">Parcela</th>
+              <th className="px-3 py-2">Emissão</th>
               <th className="px-3 py-2">Vencimento</th>
               <th className="px-3 py-2 text-right">Valor</th>
               <th className="px-3 py-2 text-right">Aberto</th>
@@ -987,6 +1075,7 @@ export default function ContasPagarReceberPage() {
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.motivoNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero)}</td>
+                  <td className="px-3 py-2 text-zinc-200">{r.emissao ? formatDateBR(r.emissao) : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.vencimento}</td>
                   <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valor)}</td>
                   <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valorAberto)}</td>
@@ -1000,7 +1089,7 @@ export default function ContasPagarReceberPage() {
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={10} className="px-3 py-6 text-center text-zinc-400">
                   Nenhum item neste período.
                 </td>
               </tr>
@@ -1020,6 +1109,11 @@ export default function ContasPagarReceberPage() {
                 <div className="text-sm text-zinc-400">
                   {fmtParcela(selected.parcelaNumero)} • Venc: {selected.vencimento} • Aberto: {formatMoneyBR(selected.valorAberto)}
                 </div>
+                {selected.kind === "AP" && (
+                  <div className="text-sm text-zinc-400">
+                    Emissão: {selected.emissao ? formatDateBR(selected.emissao) : tituloMeta?.emissaoDate ? formatDateBR(tituloMeta.emissaoDate) : "-"}
+                  </div>
+                )}
                 {selected.kind === "AP" && (
                   <div className="text-sm text-zinc-400">Motivo: {selected.motivoNome ?? "-"}</div>
                 )}
@@ -1073,6 +1167,46 @@ export default function ContasPagarReceberPage() {
 
             <div className="mt-4 space-y-3">
               <FormError message={actionErr} />
+
+              {selected.kind === "AP" && (
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm text-zinc-300">Data da NF (Emissão)</div>
+                      <input
+                        aria-label="Data da NF (Emissão)"
+                        type="date"
+                        value={editEmissaoDate}
+                        onChange={(e) => setEditEmissaoDate(e.target.value)}
+                        disabled={
+                          emissaoBusy ||
+                          !tituloMeta ||
+                          (tituloMeta.documentoFiscalId !== null && tituloMeta.documentoFiscalId !== "")
+                        }
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100 disabled:opacity-60"
+                      />
+                      <div className="text-xs text-zinc-500 mt-1">Data da nota/serviço, usada para competência.</div>
+                      {(tituloMeta?.documentoFiscalId ?? null) !== null && (
+                        <div className="text-xs text-zinc-500 mt-1">Importado por XML: emissão é somente leitura.</div>
+                      )}
+                      {!tituloMeta && (
+                        <div className="text-xs text-zinc-500 mt-1">Carregando origem do título...</div>
+                      )}
+                      <FormError message={emissaoErr} />
+                    </div>
+                    {tituloMeta && tituloMeta.documentoFiscalId === null && (
+                      <button
+                        type="button"
+                        disabled={emissaoBusy || !editEmissaoDate || editEmissaoDate === (tituloMeta?.emissaoDate ?? selected.emissao ?? "")}
+                        onClick={() => void doUpdateEmissaoDate()}
+                        className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
+                      >
+                        {emissaoBusy ? "Salvando..." : "Salvar emissão"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {tab === "APROVAR" && selected.kind === "AP" && (
                 <div className="space-y-3">
@@ -1310,6 +1444,17 @@ export default function ContasPagarReceberPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
+                  <div className="text-sm text-zinc-300">Data da NF (Emissão)</div>
+                  <input
+                    aria-label="Data da NF (Emissão)"
+                    type="date"
+                    value={newEmissaoDate}
+                    onChange={(e) => setNewEmissaoDate(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                  />
+                  <div className="text-xs text-zinc-500 mt-1">Data da nota/serviço, usada para competência.</div>
+                </div>
+                <div>
                   <div className="text-sm text-zinc-300">Vencimento</div>
                   <input
                     aria-label="Vencimento"
@@ -1319,6 +1464,9 @@ export default function ContasPagarReceberPage() {
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <div className="text-sm text-zinc-300">Valor</div>
                   <input
