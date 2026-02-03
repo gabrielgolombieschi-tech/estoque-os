@@ -10,6 +10,7 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { useImportMotivos } from "./ImportMotivosProvider";
+import MotivoCompraCombobox from "./MotivoCompraCombobox";
 import { parseNfeXml, type ParsedItem, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
 
 type FiscalPerfil = {
@@ -217,7 +218,12 @@ export default function ImportarXmlPage() {
 
   const [finalidadeLote, setFinalidadeLote] = useState<ItemFinalidade | "">("");
 
-  const { motivos, loading: motivosLoading, error: motivosError } = useImportMotivos();
+  const {
+    motivos,
+    loading: motivosLoading,
+    error: motivosError,
+    setFavorito: setMotivoFavorito,
+  } = useImportMotivos();
   const [motivoCompraId, setMotivoCompraId] = useState<string>("");
 
   const [solicitanteUsuarioId, setSolicitanteUsuarioId] = useState<string>("");
@@ -1969,12 +1975,14 @@ export default function ImportarXmlPage() {
 
               <label className="flex flex-col gap-1">
                 <span className="text-sm text-zinc-200">Classificacao / Motivo</span>
-                <select
+                <MotivoCompraCombobox
+                  motivos={motivos}
                   value={motivoCompraId}
-                  onChange={(e) => {
-                    const next = e.target.value;
+                  disabled={motivosLoading}
+                  loading={motivosLoading}
+                  error={motivosError}
+                  onChange={(next) => {
                     setMotivoCompraId(next);
-
                     const fornecedorFinal = fornecedorIdBase ?? fornecedorIdRef.current;
                     if (fornecedorFinal) {
                       scheduleSaveFornecedorDefaults({
@@ -1984,24 +1992,10 @@ export default function ImportarXmlPage() {
                       });
                     }
                   }}
-                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                  disabled={motivosLoading}
-                >
-                  <option value="">Selecione...</option>
-                  {motivos.map((m) => {
-                    const codigo = String(m.codigo ?? "")
-                      .trim()
-                      .toUpperCase();
-                    const disabled = codigo === "NAO_CLASSIFICADO";
-                    return (
-                      <option key={m.id} value={m.id} disabled={disabled}>
-                        {m.codigo} — {m.nome}
-                      </option>
-                    );
-                  })}
-                </select>
-                {motivosLoading && <div className="text-xs text-zinc-400">Carregando motivos...</div>}
-                {!motivosLoading && motivosError && <div className="text-xs text-red-400">{motivosError}</div>}
+                  onToggleFavorito={async (id, next) => {
+                    await setMotivoFavorito(id, next);
+                  }}
+                />
                 {!motivosLoading && !motivosError && !motivoSelecionadoOk && (
                   <div className="text-xs text-amber-300">Obrigatorio para importar (nao pode ser NAO_CLASSIFICADO).</div>
                 )}

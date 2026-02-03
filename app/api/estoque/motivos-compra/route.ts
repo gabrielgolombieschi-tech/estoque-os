@@ -18,8 +18,16 @@ type MotivoRow = {
   requires_text: boolean | null;
   requires_os: boolean | null;
   aplica_em: AplicaEm | null;
+  favorito?: boolean | null;
+  ordem?: number | null;
+  qtd_usos_180d?: number | string | null;
   ativo: boolean | null;
   deleted_at: string | null;
+};
+
+type FavoritoBody = {
+  id?: string;
+  favorito?: boolean;
 };
 
 export async function GET(req: NextRequest) {
@@ -44,15 +52,17 @@ export async function GET(req: NextRequest) {
     }
     if (!tenantId) return jerr(400, "Tenant nao carregado.");
 
-    // Read using the authenticated user + RLS (roles are enforced in DB policy).
+    // Read from ranked view (includes favorite + usage count in last 180d).
+    // IMPORTANT: must be scoped to the current tenant (no global tenant).
     let q = supabase
-      .schema("f")
-      .from("motivo_compra")
-      .select("id,codigo,nome,requires_text,requires_os,aplica_em,ativo,deleted_at")
+      .schema("r")
+      .from("r_motivo_compra_rank")
+      .select("id,codigo,nome,requires_text,requires_os,aplica_em,favorito,ordem,qtd_usos_180d,ativo,deleted_at")
       .eq("tenant_id", tenantId)
-      .eq("ativo", true)
-      .is("deleted_at", null)
-      .order("codigo", { ascending: true });
+      .order("favorito", { ascending: false })
+      .order("qtd_usos_180d", { ascending: false })
+      .order("ordem", { ascending: false })
+      .order("nome", { ascending: true });
 
     if (origem === "XML_PRODUTO") {
       q = q.in("aplica_em", ["PRODUTO", "AMBOS"]);
@@ -91,10 +101,59 @@ export async function GET(req: NextRequest) {
         requires_text: Boolean(r.requires_text),
         requires_os: Boolean(r.requires_os),
         aplica_em: (r.aplica_em ? String(r.aplica_em) : "AMBOS") as AplicaEm,
+        favorito: Boolean((r as MotivoRow).favorito),
+        ordem: Number((r as MotivoRow).ordem ?? 0) || 0,
+        qtd_usos_180d: Number((r as MotivoRow).qtd_usos_180d ?? 0) || 0,
       }))
       .filter((m) => m.id && m.codigo && m.nome);
 
     return NextResponse.json({ motivos });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Erro inesperado.";
+    return jerr(500, message);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const authorization = req.headers.get("authorization");
+    if (!authorization) return jerr(401, "Nao autenticado.");
+
+    const supabase = supabaseFromAuthHeader(req);
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData.user) return jerr(401, "Nao autenticado.");
+
+    // Resolve tenant from DB context.
+    let tenantId: string | null = null;
+    try {
+      const { data: t, error: tErr } = await supabase.rpc("current_tenant_id");
+      if (tErr) return jerr(400, tErr.message ?? "Falha ao resolver tenant.");
+      tenantId = t ? String(t) : null;
+    } catch {
+      tenantId = null;
+    }
+    if (!tenantId) return jerr(400, "Tenant nao carregado.");
+
+    const body = (await req.json().catch(() => null)) as FavoritoBody | null;
+    const id = String(body?.id ?? "").trim();
+    const favorito = Boolean(body?.favorito);
+    if (!id) return jerr(400, "id obrigatorio.");
+
+    const { error } = await supabase
+      .schema("f")
+      .from("motivo_compra")
+      .update({ favorito })
+      .eq("tenant_id", tenantId)
+      .eq("id", id);
+
+    if (error) {
+      const msg = String(error.message ?? "Erro ao atualizar favorito.");
+      if (msg.toLowerCase().includes("permission denied")) return jerr(403, msg);
+      return jerr(400, msg);
+    }
+
+    if (isDev) console.log("[motivos-compra] favorito updated", { tenantId, id, favorito });
+    return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Erro inesperado.";
     return jerr(500, message);
