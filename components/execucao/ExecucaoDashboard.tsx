@@ -242,7 +242,7 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
         </div>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="kpi-row flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
         <KpiCard label="Quantidade" value={kpis.total} icon="list" accent="text-purple-300" />
         <KpiCard label="Concluídas" value={kpis.concluidos} icon="check" accent="text-[color:var(--green-ok)]" />
         <KpiCard label="Em andamento" value={kpis.andamento} icon="play" accent="text-[color:var(--blue-info)]" />
@@ -407,7 +407,7 @@ function KpiCard({
   icon: "list" | "check" | "play" | "alert";
 }) {
   return (
-    <div className="relative rounded-2xl bg-[color:var(--bg-card)] border border-white/10 shadow-[0_14px_34px_rgba(15,23,42,0.55)] p-5 overflow-hidden">
+    <div className="kpi-card relative flex-none min-w-[260px] rounded-2xl bg-[color:var(--bg-card)] border border-white/10 shadow-[0_14px_34px_rgba(15,23,42,0.55)] p-5 overflow-hidden">
       <div className="absolute right-4 top-4 opacity-70">
         <Icon kind={icon} className={`${accent ?? "text-[color:var(--text-muted)]"}`} />
       </div>

@@ -138,6 +138,29 @@
       animation: none;
     }
   }
+
+  /* TV: manter KPIs sempre em 1 linha (sem wrap) */
+  @media (min-width: 1366px) and (min-height: 768px) {
+    .tv-mode .kpi-row {
+      display: flex;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      gap: 1rem;
+    }
+
+    .tv-mode .kpi-card {
+      flex: 0 0 auto;
+      min-width: 260px;
+    }
+  }
+
+  @media (min-width: 1920px) and (min-height: 1080px) {
+    .tv-mode .kpi-card {
+      min-width: 300px;
+    }
+  }
 }
 
 @layer utilities {
