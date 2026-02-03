@@ -67,6 +67,22 @@
     font-size: 115%;
   }
 
+  /* KPI row: never wrap (TV-safe). */
+  .kpi-row {
+    display: flex;
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 1rem;
+    max-width: 100%;
+  }
+
+  .kpi-card {
+    flex: 0 0 auto;
+    min-width: 260px;
+  }
+
   .tv-mode th,
   .tv-mode td {
     padding-top: 1rem;
@@ -142,11 +158,6 @@
   /* TV: manter KPIs sempre em 1 linha (sem wrap) */
   @media (min-width: 1366px) and (min-height: 768px) {
     .tv-mode .kpi-row {
-      display: flex;
-      flex-wrap: nowrap;
-      white-space: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
       gap: 1rem;
     }
 
