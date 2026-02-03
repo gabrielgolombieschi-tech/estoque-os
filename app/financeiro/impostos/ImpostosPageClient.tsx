@@ -6,6 +6,21 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { formatMoneyBR } from "@/lib/decimal";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
+
+type TituloSumRow = {
+  tipo: string | null;
+  valor_total: number | string | null;
+};
+
+type TituloSumRowWithCompetencia = TituloSumRow & {
+  competencia_date?: string | null;
+};
+
+type TitulosResumo = {
+  faturamento: number;
+  custos: number;
+};
 
 type ApuracaoRow = {
   tenant_id: string;
@@ -64,6 +79,45 @@ type DocumentoImpostoRow = {
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function summarizeTitulos(rows: TituloSumRow[]): TitulosResumo {
+  const res: TitulosResumo = { faturamento: 0, custos: 0 };
+  for (const r of rows ?? []) {
+    const tipo = String(r.tipo ?? "").trim().toUpperCase();
+    const v = n(r.valor_total);
+    if (tipo === "AR") res.faturamento += v;
+    else if (tipo === "AP") res.custos += v;
+  }
+  return res;
+}
+
+function summarizeTitulosYear(rows: TituloSumRowWithCompetencia[], year: number): TitulosResumo {
+  // Build 12 buckets (Jan..Dec) and then sum them, to make the "Ano" tab semantics explicit.
+  const byMonth: TitulosResumo[] = Array.from({ length: 12 }).map(() => ({ faturamento: 0, custos: 0 }));
+
+  const yearPrefix = `${year}-`;
+  for (const r of rows ?? []) {
+    const iso = typeof r.competencia_date === "string" ? r.competencia_date.slice(0, 10) : "";
+    if (!iso || !iso.startsWith(yearPrefix) || iso.length < 7) continue;
+    const month = Number(iso.slice(5, 7));
+    if (!Number.isFinite(month) || month < 1 || month > 12) continue;
+
+    const tipo = String(r.tipo ?? "").trim().toUpperCase();
+    const v = n(r.valor_total);
+    const bucket = byMonth[month - 1];
+    if (tipo === "AR") bucket.faturamento += v;
+    else if (tipo === "AP") bucket.custos += v;
+  }
+
+  return byMonth.reduce(
+    (acc, m) => {
+      acc.faturamento += m.faturamento;
+      acc.custos += m.custos;
+      return acc;
+    },
+    { faturamento: 0, custos: 0 } satisfies TitulosResumo
+  );
 }
 
 function toISODate(d: Date): string {
@@ -298,6 +352,8 @@ export default function ImpostosPageClient() {
   const [anoRows, setAnoRows] = useState<ApuracaoRow[]>([]);
   const [lucroRealMes, setLucroRealMes] = useState<IrpjCsllMensalRow | null>(null);
   const [lucroRealAno, setLucroRealAno] = useState<IrpjCsllAnualRow | null>(null);
+  const [titulosMesResumo, setTitulosMesResumo] = useState<TitulosResumo>(() => summarizeTitulos([]));
+  const [titulosAnoResumo, setTitulosAnoResumo] = useState<TitulosResumo>(() => summarizeTitulos([]));
   const [loadingMes, setLoadingMes] = useState(false);
   const [loadingAno, setLoadingAno] = useState(false);
   const [errorMes, setErrorMes] = useState<string | null>(null);
@@ -352,7 +408,7 @@ export default function ImpostosPageClient() {
       setErrorMes(null);
       try {
         const supabase = getSupabaseBrowser();
-        const [apuracaoRes, lucroRealRes] = await Promise.all([
+        const [apuracaoRes, lucroRealRes, titulosRes] = await Promise.all([
           supabase.schema("f").rpc("fn_imposto_apuracao_range", {
             p_tenant_id: tenantId,
             p_empresa_id: empresaId,
@@ -371,6 +427,11 @@ export default function ImpostosPageClient() {
             .eq("empresa_id", empresaId)
             .eq("competencia_date", compIni)
             .maybeSingle<IrpjCsllMensalRow>(),
+          applyTenantEmpresa(supabase.schema("f").from("titulo").select("tipo,valor_total"), tenantId, empresaId)
+            .eq("empresa_id", empresaId)
+            .eq("competencia_date", compIni)
+            .is("deleted_at", null)
+            .neq("status", "CANCELADO"),
         ]);
 
         if (apuracaoRes.error) throw apuracaoRes.error;
@@ -384,10 +445,18 @@ export default function ImpostosPageClient() {
         } else {
           setLucroRealMes(null);
         }
+
+        // KPIs brutos: títulos AP/AR por competência (não dependem de pagamento/caixa).
+        if (!titulosRes.error) {
+          setTitulosMesResumo(summarizeTitulos((titulosRes.data ?? []) as unknown as TituloSumRow[]));
+        } else {
+          setTitulosMesResumo(summarizeTitulos([]));
+        }
       } catch (e: unknown) {
         if (cancelled) return;
         setMesRows([]);
         setLucroRealMes(null);
+        setTitulosMesResumo(summarizeTitulos([]));
         setErrorMes(e instanceof Error ? e.message : "Erro ao carregar apuração do mês.");
       } finally {
         if (!cancelled) setLoadingMes(false);
@@ -410,7 +479,7 @@ export default function ImpostosPageClient() {
       try {
         const competenciaAno = ano;
         const supabase = getSupabaseBrowser();
-        const [apuracaoRes, lucroRealRes] = await Promise.all([
+        const [apuracaoRes, lucroRealRes, titulosRes] = await Promise.all([
           supabase.schema("f").rpc("fn_imposto_apuracao_range", {
             p_tenant_id: tenantId,
             p_empresa_id: empresaId,
@@ -428,6 +497,12 @@ export default function ImpostosPageClient() {
             .eq("empresa_id", empresaId)
             .eq("competencia_ano", competenciaAno)
             .maybeSingle<IrpjCsllAnualRow>(),
+          applyTenantEmpresa(supabase.schema("f").from("titulo").select("tipo,valor_total,competencia_date"), tenantId, empresaId)
+            .eq("empresa_id", empresaId)
+            .gte("competencia_date", anoIni)
+            .lt("competencia_date", anoFim)
+            .is("deleted_at", null)
+            .neq("status", "CANCELADO"),
         ]);
 
         if (apuracaoRes.error) throw apuracaoRes.error;
@@ -441,10 +516,18 @@ export default function ImpostosPageClient() {
         } else {
           setLucroRealAno(null);
         }
+
+        // KPIs brutos: títulos AP/AR por competência (não dependem de pagamento/caixa).
+        if (!titulosRes.error) {
+          setTitulosAnoResumo(summarizeTitulosYear((titulosRes.data ?? []) as unknown as TituloSumRowWithCompetencia[], ano));
+        } else {
+          setTitulosAnoResumo(summarizeTitulos([]));
+        }
       } catch (e: unknown) {
         if (cancelled) return;
         setAnoRows([]);
         setLucroRealAno(null);
+        setTitulosAnoResumo(summarizeTitulos([]));
         setErrorAno(e instanceof Error ? e.message : "Erro ao carregar apuração do ano.");
       } finally {
         if (!cancelled) setLoadingAno(false);
@@ -842,6 +925,18 @@ export default function ImpostosPageClient() {
               subtitle="Lucro Real"
               valueClassName={amountColorClass(lucroRealMesResultado)}
             />
+            <StatCard
+              title="Faturamento no mês"
+              value={formatMoneyBR(titulosMesResumo.faturamento)}
+              subtitle="Títulos AR (valor_total) por competência"
+              valueClassName="text-emerald-300"
+            />
+            <StatCard
+              title="Custos do mês"
+              value={formatMoneyBR(titulosMesResumo.custos)}
+              subtitle="Títulos AP (valor_total) por competência"
+              valueClassName="text-rose-300"
+            />
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
@@ -927,7 +1022,7 @@ export default function ImpostosPageClient() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <StatCard title="Total Débitos (ano)" value={formatMoneyBR(anoTotals.debitos)} valueClassName="text-rose-300" />
             <StatCard title="Total Créditos (ano)" value={formatMoneyBR(anoTotals.creditos)} valueClassName="text-emerald-300" />
             <StatCard title="Total Retenções (ano)" value={formatMoneyBR(anoTotals.retencoes)} valueClassName="text-rose-300" />
@@ -936,6 +1031,18 @@ export default function ImpostosPageClient() {
               value={formatMoneyBR(anoTotals.resultado)}
               subtitle="Débitos - Créditos - Retenções"
               valueClassName={amountColorClass(anoTotals.resultado)}
+            />
+            <StatCard
+              title="Faturamento no ano"
+              value={formatMoneyBR(titulosAnoResumo.faturamento)}
+              subtitle="Soma Jan–Dez (títulos AR por competência)"
+              valueClassName="text-emerald-300"
+            />
+            <StatCard
+              title="Custos do ano"
+              value={formatMoneyBR(titulosAnoResumo.custos)}
+              subtitle="Soma Jan–Dez (títulos AP por competência)"
+              valueClassName="text-rose-300"
             />
           </div>
 

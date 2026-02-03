@@ -31,10 +31,80 @@ type SortDir = "asc" | "desc";
 const formatPercent = (v: number) =>
   `${(Number(v || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
+function firstWord(value: string | null | undefined): string {
+  const s = String(value ?? "").trim();
+  if (!s) return "-";
+  return s.split(/\s+/)[0] ?? "-";
+}
+
 function isOverdue(row: DashRow, today: Date) {
   const progress = Number(row.progresso_percent ?? 0);
   const date = row.data_prevista ? new Date(row.data_prevista) : null;
   return progress < 100 && !!date && date < today;
+}
+
+function clampPercent(v: unknown): number {
+  const n = Number(v ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+function resolveProgressColor(opts: { overdue: boolean; percent: number }) {
+  if (opts.overdue) return "progress-bar--danger";
+  if (opts.percent >= 100) return "progress-bar--ok";
+  if (opts.percent === 0) return "progress-bar--muted";
+  return "progress-bar--info";
+}
+
+function Icon({ kind, className = "" }: { kind: "list" | "check" | "play" | "alert"; className?: string }) {
+  const common = "w-5 h-5";
+  if (kind === "check") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={`${common} ${className}`} aria-hidden="true">
+        <path
+          d="M20 6L9 17l-5-5"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (kind === "play") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={`${common} ${className}`} aria-hidden="true">
+        <path
+          d="M8 5v14l11-7-11-7z"
+          fill="currentColor"
+          opacity="0.9"
+        />
+      </svg>
+    );
+  }
+  if (kind === "alert") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={`${common} ${className}`} aria-hidden="true">
+        <path
+          d="M12 9v4m0 4h.01M10.29 3.86l-8.4 14.53A2 2 0 003.62 21h16.76a2 2 0 001.73-3.01l-8.4-14.53a2 2 0 00-3.42 0z"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={`${common} ${className}`} aria-hidden="true">
+      <path
+        d="M4 6h16M4 12h16M4 18h16"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) {
@@ -169,32 +239,35 @@ export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) 
     setSelected(null);
   };
 
+  const rootClassName = isPainelTv ? "tv-mode" : "";
+  const tableWrapClass = isPainelTv ? "overflow-x-hidden" : "overflow-x-auto";
+
   return (
-    <div className="space-y-5">
-      <header className="bg-blue-700 text-white rounded-xl shadow-md">
+    <div className={`space-y-5 ${rootClassName}`}>
+      <header className="rounded-2xl shadow-[0_12px_30px_rgba(15,23,42,0.55)] bg-[color:var(--bg-banner)] text-[color:var(--text-banner)]">
         <div className="flex items-center justify-between px-6 py-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Projetos {areaLabel[areaAtual]}</h1>
-            <div className="text-xs text-blue-100/80 mt-1">Alternando area a cada 30s</div>
+            <div className="text-xs opacity-70 mt-1">Alternando area a cada 30s</div>
           </div>
-          <div className="relative w-28 h-10">
-            <Image src="/Segau.png" alt="Segau" fill className="object-contain" />
+          <div className="relative w-40 h-14">
+            <Image src="/Segau2.png" alt="Segau" fill className="object-contain" />
           </div>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Quantidade Projetos" value={kpis.total} />
-        <KpiCard label="Projetos Concluidos" value={kpis.concluidos} accent="text-emerald-500" />
-        <KpiCard label="Projetos em Andamento" value={kpis.andamento} accent="text-blue-400" />
-        <KpiCard label="Projetos Atrasados" value={kpis.atrasados} accent="text-red-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="Quantidade Projetos" value={kpis.total} icon="list" accent="text-purple-300" />
+        <KpiCard label="Projetos Concluídos" value={kpis.concluidos} icon="check" accent="text-[color:var(--green-ok)]" />
+        <KpiCard label="Em andamento" value={kpis.andamento} icon="play" accent="text-[color:var(--blue-info)]" />
+        <KpiCard label="Atrasados" value={kpis.atrasados} icon="alert" accent="text-[color:var(--red-danger)]" />
       </div>
 
-      <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950 shadow">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-zinc-900">
-              <tr className="text-left text-zinc-200">
+      <div className="rounded-2xl overflow-hidden bg-[color:var(--bg-card)] border border-white/10 shadow-[0_16px_40px_rgba(15,23,42,0.55)]">
+        <div className={`${tableWrapClass} overflow-y-auto max-h-[calc(100dvh-320px)]`}> 
+          <table className="w-full table-fixed text-base">
+            <thead className="bg-[color:var(--bg-card)]">
+              <tr className="text-left sticky top-0 z-10">
                 <Th>OS</Th>
                 <Th>Cliente</Th>
                 <Th>Descricao</Th>
@@ -208,23 +281,40 @@ export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) 
             <tbody>
               {sortedTable.map((r, idx) => {
                 const overdue = isOverdue(r, today);
-                const dateBg = overdue ? "bg-red-900/70 text-red-100" : "bg-emerald-900/50 text-emerald-100";
+                const dateBg = overdue
+                  ? "bg-[color:var(--red-danger)]/30 text-[color:var(--text-main)]"
+                  : "bg-[color:var(--green-ok)]/12 text-[color:var(--text-main)]";
                 const dateCell =
                   r.data_prevista && !Number.isNaN(new Date(r.data_prevista).getTime())
                     ? new Date(r.data_prevista).toLocaleDateString("pt-BR")
                     : "-";
+                const percent = clampPercent(r.progresso_percent);
+                const barColor = resolveProgressColor({ overdue, percent });
+                const zebra = idx % 2 === 0 ? "bg-[color:var(--bg-card)]" : "";
                 return (
                   <tr
                     key={`${r.os_id}-${r.area}-${r.item_tipo}-${idx}`}
-                    className={`${idx % 2 === 0 ? "bg-zinc-900/40" : ""} ${isPainelTv ? "" : "hover:bg-zinc-900/70 cursor-pointer"}`}
+                    className={`transition-all duration-200 ${overdue ? "overdue-row overdue-blink" : zebra} ${isPainelTv ? "" : "hover:bg-[color:var(--bg-hover)] cursor-pointer"}`}
                     onClick={() => handleRowClick(r)}
                   >
-                    <Td>{r.numero_os}</Td>
-                    <Td>{r.cliente_nome}</Td>
-                    <Td>{r.descricao_servico || "Sem descricao"}</Td>
-                    <Td>{r.responsavel_id || "-"}</Td>
-                    <Td className={`whitespace-nowrap ${r.data_prevista ? dateBg : ""}`}>{dateCell}</Td>
-                    <Td className="text-right pr-4">{formatPercent(Number(r.progresso_percent ?? 0))}</Td>
+                    <Td className="w-[90px] whitespace-nowrap">{r.numero_os}</Td>
+                    <Td className="w-[210px] truncate">{firstWord(r.cliente_nome)}</Td>
+                    <Td className="truncate">{r.descricao_servico || "Sem descricao"}</Td>
+                    <Td className="w-[160px] truncate">{r.responsavel_id || "-"}</Td>
+                    <Td className={`w-[170px] whitespace-nowrap ${r.data_prevista ? dateBg : ""}`}>{dateCell}</Td>
+                    <Td className="w-[240px] pr-4">
+                      <div className="flex items-center justify-end gap-3">
+                        <progress
+                          className={`progress-bar w-[140px] h-3 ${barColor}`}
+                          value={percent}
+                          max={100}
+                          aria-label="Progresso"
+                        />
+                        <div className="text-right tabular-nums text-sm text-[color:var(--text-muted)] min-w-[64px]">
+                          {formatPercent(percent)}
+                        </div>
+                      </div>
+                    </Td>
                   </tr>
                 );
               })}
@@ -319,11 +409,28 @@ export default function ProjetosDashboard({ initialRows, emptyMessage }: Props) 
   );
 }
 
-function KpiCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
+function KpiCard({
+  label,
+  value,
+  accent,
+  icon,
+}: {
+  label: string;
+  value: number;
+  accent?: string;
+  icon: "list" | "check" | "play" | "alert";
+}) {
   return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 shadow-sm">
-      <div className="text-sm font-semibold text-zinc-300">{label}</div>
-      <div className={`text-4xl font-bold mt-2 ${accent ?? "text-purple-400"}`}>{value}</div>
+    <div className="relative rounded-2xl bg-[color:var(--bg-card)] border border-white/10 shadow-[0_14px_34px_rgba(15,23,42,0.55)] p-5 overflow-hidden">
+      <div className="absolute right-4 top-4 opacity-70">
+        <Icon kind={icon} className={`${accent ?? "text-[color:var(--text-muted)]"}`} />
+      </div>
+
+      <div className="text-xs tracking-wide uppercase text-[color:var(--text-muted)]">{label}</div>
+      <div className={`mt-2 text-4xl font-semibold ${accent ?? "text-[color:var(--text-main)]"}`}>{value}</div>
+      <div className="mt-4 h-1 w-full rounded-full bg-slate-900/30 overflow-hidden">
+        <div className={`h-1 w-1/3 ${accent ?? "bg-[color:var(--blue-info)]"} opacity-35`} />
+      </div>
     </div>
   );
 }
@@ -332,7 +439,10 @@ type ThProps = React.ComponentPropsWithoutRef<"th">;
 
 const Th = ({ children, className = "", ...rest }: ThProps) => {
   return (
-    <th {...rest} className={`px-4 py-3 ${className}`}>
+    <th
+      {...rest}
+      className={`px-4 py-4 text-sm font-semibold text-[color:var(--text-main)] bg-[color:var(--bg-card)] ${className}`}
+    >
       {children}
     </th>
   );
@@ -348,7 +458,7 @@ function Td({
   colSpan?: number;
 }) {
   return (
-    <td className={`px-4 py-3 text-zinc-100 ${className ?? ""}`} colSpan={colSpan}>
+    <td className={`px-4 py-4 text-[color:var(--text-main)] ${className ?? ""}`} colSpan={colSpan}>
       {children}
     </td>
   );
