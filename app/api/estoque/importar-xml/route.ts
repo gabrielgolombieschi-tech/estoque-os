@@ -281,6 +281,17 @@ export async function POST(req: NextRequest) {
     if (!tenantId) return jerr(400, "tenantId obrigatorio.");
     if (!empresaId) return jerr(400, "empresaId obrigatorio.");
 
+    const xmlRaw = typeof body.xmlRaw === "string" ? body.xmlRaw : null;
+    if (xmlRaw !== null && xmlRaw.trim().length === 0) {
+      return jerr(422, "XML vazio/whitespace: envie o XML completo (xmlRaw).");
+    }
+    if (xmlRaw === null) {
+      const itens = body.itensJson;
+      if (!Array.isArray(itens) || itens.length === 0) {
+        return jerr(422, "XML ausente: envie o XML completo ou informe itens completos para importar sem XML.");
+      }
+    }
+
     // Permission: xml import execute
     const { data: canImport, error: canErr } = await supabase.rpc("can", {
       p_resource: "xml_import",
@@ -353,7 +364,7 @@ export async function POST(req: NextRequest) {
       p_itens_json: body.itensJson ?? null,
       p_nf_json: body.nfJson ?? null,
       p_tenant_id: tenantId,
-      p_xml_raw: body.xmlRaw ?? null,
+      p_xml_raw: xmlRaw,
       p_gerar_contas_pagar: gerar,
       p_parcelas_json: gerar ? (body.parcelasJson ?? null) : null,
       p_os_id: osId,
