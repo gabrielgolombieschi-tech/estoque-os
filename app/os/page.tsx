@@ -112,6 +112,11 @@ export default function OsListPage() {
   const canReadOs = Boolean(has("os.read"));
   const canWriteOs = Boolean(has("os.write"));
 
+  const isApontamentoRh = useMemo(
+    () => String(empresaPapel ?? "").toUpperCase() === "APONTAMENTO_RH",
+    [empresaPapel]
+  );
+
   const canGestaoWrite = (has("os_gestao.write") ?? true) || 
     (empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(String(empresaPapel).toUpperCase()));
 
@@ -489,7 +494,8 @@ export default function OsListPage() {
     }
 
     const numeroGerado = await gerarNumeroOs(effectiveTenantId, effectiveEmpresaId);
-    const usaRelatorioHHFinal = clienteHabilitaHH ? usaRelatorioHH : false;
+    const podeMarcarHH = clienteHabilitaHH || isApontamentoRh;
+    const usaRelatorioHHFinal = podeMarcarHH ? usaRelatorioHH : false;
 
     const { data, error } = await supabase
       .from("ordens_servico")
@@ -901,8 +907,12 @@ export default function OsListPage() {
                   onChange={(e) => {
                     const nextId = e.target.value ? Number(e.target.value) : null;
                     setClienteId(nextId);
-                    const nextHabilita = nextId ? Boolean(clientes.find((c) => c.id === nextId)?.habilita_hh) : false;
-                    if (!nextHabilita) setUsaRelatorioHH(false);
+                    if (!nextId) {
+                      setUsaRelatorioHH(false);
+                      return;
+                    }
+                    const nextHabilita = Boolean(clientes.find((c) => c.id === nextId)?.habilita_hh);
+                    if (!nextHabilita && !isApontamentoRh) setUsaRelatorioHH(false);
                   }}
                   aria-label="Cliente (cadastro)"
                   title="Cliente (cadastro)"
@@ -928,7 +938,7 @@ export default function OsListPage() {
                 />
               </div>
 
-              {clienteHabilitaHH && (
+              {clienteId && (clienteHabilitaHH || isApontamentoRh) && (
                 <div className="md:col-span-3 border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
                   <label className="flex items-center gap-2 text-sm">
                     <input
