@@ -14,6 +14,11 @@ import { getOsDetailAccess } from "@/lib/auth/osAccess";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 
+type OsClienteRow = {
+  cliente_id: number | null;
+  cliente_nome: string | null;
+};
+
 type OS = {
   id: number;
   numero_os: string;
@@ -140,7 +145,10 @@ export default function OsDetailPage() {
   }, [effectiveEmpresaId, te.empresa, te.empresas]);
 
   const detailAccess = useMemo(() => getOsDetailAccess(empresaPapel), [empresaPapel]);
-  const readOnly = detailAccess.readOnly;
+  const canReadOs = Boolean(has("os.read"));
+  const canWriteOs = Boolean(has("os.write"));
+  const canView = canReadOs || detailAccess.canView;
+  const readOnly = !canWriteOs;
   const hideCustos = detailAccess.hideCustos;
   const hideTotais = detailAccess.hideTotais;
 
@@ -205,8 +213,11 @@ export default function OsDetailPage() {
     return 0;
   };
 
-  const hhClientEnabled = clienteHabilitaHH;
-  const hhEnabled = hhClientEnabled && Boolean(os?.usa_relatorio_hh);
+  const osIsHH = Boolean(os?.usa_relatorio_hh);
+  const hhClientEnabled = clienteHabilitaHH || osIsHH;
+  // IMPORTANTE: a OS já carrega usa_relatorio_hh. Para perfis sem acesso a `clientes` (RLS),
+  // não bloquear a UI de HH baseada em `habilita_hh` do cliente.
+  const hhEnabled = osIsHH;
 
   const editClienteHabilitaHH = useMemo(() => {
     if (!clienteId) return false;
@@ -215,7 +226,7 @@ export default function OsDetailPage() {
     if (clienteId === (os?.cliente_id ?? null)) return hhClientEnabled;
     return false;
   }, [clienteId, clientes, hhClientEnabled, os?.cliente_id]);
-  const canReadOs = Boolean(has("os.read"));
+  // canReadOs já é calculado acima (usado para guard de visualização)
 
   useEffect(() => {
     if (!hhEnabled && activeTab !== "itens") {
@@ -268,14 +279,42 @@ export default function OsDetailPage() {
   };
 
   async function loadClientes() {
-    const { data } = await supabase
-      .from("clientes")
-      .select("id,nome,ativo,habilita_hh")
-      .eq("ativo", true)
-      .order("nome", { ascending: true })
-      .limit(500);
+    const { data, error } = await applyTenant(
+      supabase.from("clientes").select("id,nome,ativo,habilita_hh").eq("ativo", true).order("nome", { ascending: true }).limit(500),
+      effectiveTenantId
+    );
 
-    setClientes((data ?? []) as Cliente[]);
+    if (!error && (data ?? []).length > 0) {
+      setClientes((data ?? []) as Cliente[]);
+      return;
+    }
+
+    // Fallback: alguns papéis (ex.: APONTAMENTO_RH) podem ler OS, mas não conseguem SELECT em clientes (RLS/can()).
+    // Para não deixar o campo vazio, monta a lista pelos clientes já referenciados nas OS visíveis.
+    const { data: osData, error: osErr } = await applyTenant(
+      supabase.from("ordens_servico").select("cliente_id,cliente_nome").order("id", { ascending: false }).limit(1000),
+      effectiveTenantId
+    );
+    if (osErr) {
+      setClientes([]);
+      return;
+    }
+
+    const unique = new Map<number, Cliente>();
+    ((osData ?? []) as unknown as OsClienteRow[]).forEach((r) => {
+      const id = r.cliente_id;
+      if (!id) return;
+      if (unique.has(id)) return;
+      unique.set(id, {
+        id,
+        nome: (r.cliente_nome ?? `Cliente ${id}`).trim(),
+        ativo: true,
+        habilita_hh: false,
+      });
+    });
+
+    const list = Array.from(unique.values()).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    setClientes(list);
   }
 
   async function loadGestaoItens() {
@@ -368,15 +407,20 @@ export default function OsDetailPage() {
     setTemGestao(Boolean(osRow.tem_gestao));
     await loadGestaoItens();
 
-    // Carregar flag habilita_hh do cliente
+    // Carregar flag habilita_hh do cliente (best-effort). Alguns perfis podem não ter SELECT em `clientes`.
+    // Se a OS já é HH, não bloquear a UI de HH.
     if (osRow.cliente_id) {
-      const { data: clienteData } = await applyTenant(
+      const { data: clienteData, error: clienteErr } = await applyTenant(
         supabase.from("clientes").select("habilita_hh").eq("id", osRow.cliente_id).single(),
         effectiveTenantId
       );
-      setClienteHabilitaHH(Boolean(clienteData?.habilita_hh));
+      if (clienteErr) {
+        setClienteHabilitaHH(Boolean(osRow.usa_relatorio_hh));
+      } else {
+        setClienteHabilitaHH(Boolean(clienteData?.habilita_hh) || Boolean(osRow.usa_relatorio_hh));
+      }
     } else {
-      setClienteHabilitaHH(false);
+      setClienteHabilitaHH(Boolean(osRow.usa_relatorio_hh));
     }
 
     const { data: itemsData, error: itemsErr } = await applyTenant(
@@ -419,11 +463,11 @@ export default function OsDetailPage() {
   }
 
   useEffect(() => {
-    if (!detailAccess.canView) return;
+    if (!canView) return;
     void loadClientes();
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailAccess.canView, osId, tenantId, empresaId]);
+  }, [canView, osId, tenantId, empresaId]);
 
   const closeGestaoModal = useCallback(
     (reset = true) => {
@@ -434,7 +478,7 @@ export default function OsDetailPage() {
   );
 
   const openEditModal = useCallback(() => {
-    if (readOnly) return;
+    if (!canWriteOs) return;
     if (!os) return;
     setShowEdit(true);
     setClienteId(os.cliente_id ?? null);
@@ -447,7 +491,7 @@ export default function OsDetailPage() {
     setOrcadoInput(String(os.orcado ?? ""));
     setUsaRelatorioHH(Boolean(os.usa_relatorio_hh) && hhClientEnabled);
     setEditErr(null);
-  }, [hhClientEnabled, os, readOnly]);
+  }, [canWriteOs, hhClientEnabled, os]);
 
   const closeEditModal = useCallback(() => {
     setShowEdit(false);
@@ -455,7 +499,7 @@ export default function OsDetailPage() {
   }, []);
 
   async function saveEdit() {
-    if (readOnly) return;
+    if (!canWriteOs) return;
     if (!os) return;
     if (!clienteId && !clienteNomeLivre.trim()) {
       setEditErr("Selecione um cliente ou informe um nome.");
@@ -993,7 +1037,7 @@ export default function OsDetailPage() {
     return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando...</div>;
   }
 
-  if (!detailAccess.canView) {
+  if (!canView) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300 px-4">
         Sem permissão para visualizar OS.
@@ -1875,14 +1919,14 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {clienteHabilitaHH && (
+      {(osIsHH || clienteHabilitaHH) && (
         <RelatorioHHSection
           osId={osId}
           osDetail={{ cliente_id: os?.cliente_id ?? null }}
           osStatus={os?.status ?? null}
           usaRelatorioHh={os?.usa_relatorio_hh ?? null}
           enabled={hhEnabled}
-          clienteHabilitaHH={clienteHabilitaHH}
+          clienteHabilitaHH={clienteHabilitaHH || osIsHH}
           effectiveTenantId={effectiveTenantId}
           effectiveEmpresaId={effectiveEmpresaId}
         />

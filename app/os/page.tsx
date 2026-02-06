@@ -42,6 +42,11 @@ type HHTotalRow = {
   total_hh: number | null;
 };
 
+type OsClienteRow = {
+  cliente_id: number | null;
+  cliente_nome: string | null;
+};
+
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   em_andamento: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -104,12 +109,15 @@ export default function OsListPage() {
     return null;
   }, [effectiveEmpresaId, te.empresa, te.empresas]);
 
+  const canReadOs = Boolean(has("os.read"));
+  const canWriteOs = Boolean(has("os.write"));
+
   const canGestaoWrite = (has("os_gestao.write") ?? true) || 
     (empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(String(empresaPapel).toUpperCase()));
 
   const osAccess = useMemo(() => getOsListAccess(empresaPapel), [empresaPapel]);
-  const canView = osAccess.canView;
-  const readOnly = osAccess.readOnly;
+  const canView = canReadOs || osAccess.canView;
+  const readOnly = !canWriteOs;
   const hideValorPedido = osAccess.hideValorPedido;
   const debugEnabled = process.env.NODE_ENV !== "production";
   const clientesReqIdRef = useRef(0);
@@ -118,7 +126,9 @@ export default function OsListPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [rows, setRows] = useState<OS[]>([]);
   const [status, setStatus] = useState("em_andamento");
-  const [clienteFiltroId, setClienteFiltroId] = useState<number | null>(null);
+  const [clienteFiltro, setClienteFiltro] = useState<string>("");
+  const [clienteFiltroNomesLivres, setClienteFiltroNomesLivres] = useState<string[]>([]);
+  const [tipoFiltro, setTipoFiltro] = useState<"todas" | "hh" | "servico" | "material">("todas");
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
@@ -170,23 +180,76 @@ export default function OsListPage() {
       sessionReady,
       hasSession: !!session?.access_token,
     });
+
+    const loadFromOs = async () => {
+      const { data: osData, error: osErr } = await applyTenantEmpresa(
+        supabase
+          .from("ordens_servico")
+          .select("cliente_id,cliente_nome")
+          .order("id", { ascending: false })
+          .limit(1000),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+      if (reqId !== clientesReqIdRef.current) return;
+      if (osErr) {
+        logDebug("[OS] loadClientes:fallback:error", { message: osErr.message });
+        return;
+      }
+
+      const unique = new Map<number, Cliente>();
+      const nomesLivres = new Set<string>();
+      ((osData ?? []) as unknown as OsClienteRow[]).forEach((r) => {
+        const id = r.cliente_id;
+        const nome = (r.cliente_nome ?? "").trim();
+        if (!id) {
+          if (nome) nomesLivres.add(nome);
+          return;
+        }
+        if (!unique.has(id)) {
+          unique.set(id, {
+            id,
+            nome: (nome || `Cliente ${id}`).trim(),
+            ativo: true,
+            habilita_hh: false,
+          });
+        }
+      });
+
+      const list = Array.from(unique.values()).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      const nomeList = Array.from(nomesLivres.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      logDebug("[OS] loadClientes:fallback:ok", { count: list.length });
+      setClientes(list);
+      setClienteFiltroNomesLivres(nomeList);
+    };
+
     const { data, error } = await applyTenantEmpresa(
-      supabase
-        .from("clientes")
-        .select("id,nome,ativo,habilita_hh")
-        .eq("ativo", true)
-        .order("nome", { ascending: true })
-        .limit(500),
+      supabase.from("clientes").select("id,nome,ativo,habilita_hh").eq("ativo", true).order("nome", { ascending: true }).limit(500),
       effectiveTenantId,
       effectiveEmpresaId
     );
     if (reqId !== clientesReqIdRef.current) return;
 
     if (error) {
-      setErr(error.message);
+      // Para alguns papéis (ex.: APONTAMENTO_RH), a RLS de clientes pode bloquear via can(),
+      // enquanto ordens_servico usa can__legacy_40734. Nesses casos, não quebrar a tela:
+      // montar a lista a partir das OS visíveis.
+      logDebug("[OS] loadClientes:error (fallback to ordens_servico)", { message: error.message });
+      await loadFromOs();
       return;
     }
-    setClientes((data ?? []) as unknown as Cliente[]);
+
+    const next = (data ?? []) as unknown as Cliente[];
+    if (next.length === 0) {
+      logDebug("[OS] loadClientes:empty (fallback to ordens_servico)");
+      await loadFromOs();
+      return;
+    }
+
+    setClientes(next);
+    // Se o usuário tem acesso a clientes, ainda assim podem existir OS antigas com nome livre.
+    // Não tentamos inferir aqui; o fallback via OS cobre quando necessário.
+    setClienteFiltroNomesLivres([]);
   }
 
   async function load() {
@@ -212,6 +275,8 @@ export default function OsListPage() {
       sessionReady,
       hasSession: !!session?.access_token,
       status,
+      clienteFiltro,
+      tipoFiltro,
       reqId,
     });
 
@@ -227,7 +292,29 @@ export default function OsListPage() {
     );
 
     if (status !== "todas") q = q.eq("status", status);
-    if (clienteFiltroId) q = q.eq("cliente_id", clienteFiltroId);
+    if (tipoFiltro === "hh") q = q.eq("usa_relatorio_hh", true);
+    if (tipoFiltro === "servico") q = q.eq("tipo_pedido", "servico");
+    if (tipoFiltro === "material") q = q.eq("tipo_pedido", "material");
+    if (clienteFiltro) {
+      if (clienteFiltro.startsWith("id:")) {
+        const id = Number(clienteFiltro.slice(3));
+        if (Number.isFinite(id)) {
+          const selectedName = (clientesById[id]?.nome ?? "").trim();
+          if (selectedName) {
+            const quoted = `"${selectedName.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+            q = q.or(`cliente_id.eq.${id},cliente_nome.ilike.${quoted}`);
+          } else {
+            q = q.eq("cliente_id", id);
+          }
+        }
+      } else if (clienteFiltro.startsWith("name:")) {
+        const raw = clienteFiltro.slice(5).trim();
+        if (raw) {
+          const quoted = `"${raw.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+          q = q.ilike("cliente_nome", quoted);
+        }
+      }
+    }
 
     const { data, error } = await q;
     if (reqId !== osReqIdRef.current) {
@@ -336,7 +423,7 @@ export default function OsListPage() {
     void loadClientes();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [canView, tenantId, empresaId, sessionReady, session?.access_token, status, clienteFiltroId]);
+  }, [canView, tenantId, empresaId, sessionReady, session?.access_token, status, clienteFiltro, tipoFiltro]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -359,7 +446,7 @@ export default function OsListPage() {
     setErr(null);
     setOkMsg(null);
 
-    if (readOnly) return setErr("Sem permissão para criar OS.");
+    if (!canWriteOs) return setErr("Sem permissão para criar OS.");
     if (!clienteId && !clienteNomeLivre.trim()) return setErr("Selecione um cliente ou informe um nome.");
 
     const orcadoValor = Number(orcado || 0);
@@ -554,7 +641,7 @@ export default function OsListPage() {
     );
   };
 
-  if (!tenantLoading && !osAccess.canView) {
+  if (!tenantLoading && sessionReady && !canView) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300 px-4">
         Sem permissão para visualizar OS.
@@ -572,11 +659,9 @@ export default function OsListPage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <select
-            value={clienteFiltroId ?? ""}
+            value={clienteFiltro}
             onChange={(e) => {
-              const parsed = e.target.value ? Number(e.target.value) : null;
-              const next = parsed !== null && Number.isFinite(parsed) ? parsed : null;
-              setClienteFiltroId(next);
+              setClienteFiltro(e.target.value);
             }}
             className="px-3 py-2 min-w-[220px]"
             aria-label="Filtrar por cliente"
@@ -584,10 +669,28 @@ export default function OsListPage() {
           >
             <option value="">Todos os clientes</option>
             {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={`id:${c.id}`} value={`id:${c.id}`}>
                 {c.nome}
               </option>
             ))}
+            {clienteFiltroNomesLivres.map((n) => (
+              <option key={`name:${n}`} value={`name:${n}`}>
+                {n}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={tipoFiltro}
+            onChange={(e) => setTipoFiltro(e.target.value as typeof tipoFiltro)}
+            className="px-3 py-2"
+            aria-label="Filtrar por tipo"
+            title="Filtrar por tipo"
+          >
+            <option value="todas">Todos</option>
+            <option value="hh">HH</option>
+            <option value="servico">Serviço</option>
+            <option value="material">Material</option>
           </select>
 
           <select

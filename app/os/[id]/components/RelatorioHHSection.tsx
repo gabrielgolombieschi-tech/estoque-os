@@ -682,6 +682,16 @@ export default function RelatorioHHSection({
   const canRead = Boolean(has("os.read"));
   const canWrite = Boolean(has("os.write"));
   const canDelete = Boolean(has("os.delete"));
+
+  const resolvedEmpresaId = effectiveEmpresaId ?? empresaId ?? null;
+  const empresaPapel = useMemo(() => {
+    if (!resolvedEmpresaId) return null;
+    const byId = (tenantEmpresa.empresas ?? []).find((e) => e.id === resolvedEmpresaId) ?? null;
+    if (byId?.papel) return String(byId.papel);
+    if (tenantEmpresa.empresa?.id === resolvedEmpresaId && tenantEmpresa.empresa?.papel) return String(tenantEmpresa.empresa.papel);
+    return tenantEmpresa.empresa?.papel ? String(tenantEmpresa.empresa.papel) : null;
+  }, [resolvedEmpresaId, tenantEmpresa.empresa, tenantEmpresa.empresas]);
+  const hideEspecialidadeValores = (empresaPapel ?? "").trim().toUpperCase() === "APONTAMENTO_RH";
   
   // Garantir que cliente_id sempre vem do osDetail (requerido para todo fluxo HH)
   const clienteIdContext = osDetail?.cliente_id ?? null;
@@ -2190,7 +2200,7 @@ export default function RelatorioHHSection({
             </div>
           </div>
 
-          {precoServicoSelecionado && (
+          {precoServicoSelecionado && !hideEspecialidadeValores && (
             <div className="bg-zinc-900/60 border border-zinc-700 rounded-lg p-4 space-y-2">
               <div className="text-xs font-semibold text-zinc-300 uppercase">Valores de hora para esta especialidade:</div>
               <div className="grid grid-cols-3 gap-3">
