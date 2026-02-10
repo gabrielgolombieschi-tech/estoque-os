@@ -166,6 +166,7 @@ export default function ContasPagarReceberPage() {
 
   const [q, setQ] = useState("");
   const [only, setOnly] = useState<"ALL" | Kind>("ALL");
+  const [onlyToday, setOnlyToday] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -632,9 +633,11 @@ export default function ContasPagarReceberPage() {
   }, [editEmissaoDate, load, selected, supabase, tituloMeta?.documentoFiscalId]);
 
   const filtered = useMemo(() => {
+    const today = todayISO();
     const query = q.trim().toLowerCase();
     return rows.filter((r) => {
       if (only !== "ALL" && r.kind !== only) return false;
+      if (onlyToday && r.vencimento !== today) return false;
       if (!query) return true;
       return (
         r.pessoaNome.toLowerCase().includes(query) ||
@@ -643,7 +646,7 @@ export default function ContasPagarReceberPage() {
         (r.aprovadoPorNome ?? "").toLowerCase().includes(query)
       );
     });
-  }, [only, q, rows]);
+  }, [only, onlyToday, q, rows]);
 
   const totals = useMemo(() => {
     const sumAP = filtered.filter((r) => r.kind === "AP").reduce((acc, r) => acc + r.valorAberto, 0);
@@ -960,7 +963,10 @@ export default function ContasPagarReceberPage() {
           <select
             aria-label="Ano"
             value={String(year)}
-            onChange={(e) => setYear(Number(e.target.value))}
+            onChange={(e) => {
+              setOnlyToday(false);
+              setYear(Number(e.target.value));
+            }}
             className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
           >
             {years.map((y) => (
@@ -972,7 +978,10 @@ export default function ContasPagarReceberPage() {
           <select
             aria-label="Mês"
             value={String(monthNum)}
-            onChange={(e) => setMonthNum(Number(e.target.value))}
+            onChange={(e) => {
+              setOnlyToday(false);
+              setMonthNum(Number(e.target.value));
+            }}
             className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
           >
             {Array.from({ length: 12 }).map((_, i) => {
@@ -1017,6 +1026,23 @@ export default function ContasPagarReceberPage() {
           className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
         >
           Atualizar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            const d = new Date();
+            setYear(d.getFullYear());
+            setMonthNum(d.getMonth() + 1);
+            setOnlyToday((s) => !s);
+          }}
+          className={
+            onlyToday
+              ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+              : "px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
+          }
+        >
+          Hoje
         </button>
 
         {only !== "AR" && (
