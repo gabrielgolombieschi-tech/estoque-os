@@ -157,6 +157,7 @@ export default function OsDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [printingItens, setPrintingItens] = useState(false);
   const [isConcluding, setIsConcluding] = useState(false);
   const [showGestaoModal, setShowGestaoModal] = useState(false);
   const [temGestao, setTemGestao] = useState(false);
@@ -218,6 +219,82 @@ export default function OsDetailPage() {
   // IMPORTANTE: a OS já carrega usa_relatorio_hh. Para perfis sem acesso a `clientes` (RLS),
   // não bloquear a UI de HH baseada em `habilita_hh` do cliente.
   const hhEnabled = osIsHH;
+
+  async function printOsItens() {
+    if (!os) return;
+    setErr(null);
+
+    if (rows.length === 0) {
+      setErr("Esta OS não tem itens para imprimir.");
+      return;
+    }
+
+    setPrintingItens(true);
+
+    try {
+      const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+      const autoTable = autoTableMod.default;
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const marginX = 40;
+      let y = 42;
+
+      doc.setFontSize(14);
+      doc.text(`Itens da OS ${os.numero_os ?? os.id}`, marginX, y);
+      y += 16;
+
+      doc.setFontSize(10);
+      doc.text(`Cliente: ${os.cliente_nome ?? "-"}`, marginX, y);
+      y += 14;
+
+      doc.text(`Emissão: ${new Date().toLocaleString("pt-BR")}`, marginX, y);
+      y += 10;
+
+      const sorted = [...rows].sort((a, b) => a.id - b.id);
+      const body = sorted.map((r) => {
+        const codigo = r.itens?.codigo_interno ?? "";
+        const nome = r.itens?.nome ?? "";
+        const qtd = formatDecimalBR(Number(r.quantidade ?? 0), 3);
+        const vUnit = formatMoney(Number(r.valor_unitario ?? 0));
+        const total = formatMoney(Number(r.valor_total ?? 0));
+        return [String(r.item_id ?? ""), String(codigo), String(nome), String(qtd), String(vUnit), String(total)];
+      });
+
+      autoTable(doc, {
+        startY: y + 12,
+        head: [["Item ID", "Código", "Nome", "Qtd", "V.Unit", "Total"]],
+        body,
+        styles: { fontSize: 9, cellPadding: 4 },
+        headStyles: { fillColor: [30, 41, 59] },
+        columnStyles: {
+          0: { cellWidth: 56 },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 240 },
+          3: { cellWidth: 50, halign: "right" },
+          4: { cellWidth: 60, halign: "right" },
+          5: { cellWidth: 60, halign: "right" },
+        },
+      });
+
+      const totalItens = sorted.reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
+      const finalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
+      const footerY = typeof finalY === "number" ? finalY + 18 : 760;
+      doc.setFontSize(11);
+      doc.text(`Total itens: R$ ${formatMoney(totalItens)}`, marginX, footerY);
+
+      doc.autoPrint();
+      const url = doc.output("bloburl");
+      const w = window.open(url, "_blank");
+      if (!w) {
+        doc.save(`OS_${os.numero_os ?? os.id}_itens.pdf`);
+      }
+    } catch (e) {
+      console.error(e);
+      setErr("Falha ao gerar impressão dos itens.");
+    } finally {
+      setPrintingItens(false);
+    }
+  }
 
   const editClienteHabilitaHH = useMemo(() => {
     if (!clienteId) return false;
@@ -926,13 +1003,20 @@ export default function OsDetailPage() {
     );
   };
 
-  function openLookupModal() {
+  function openLookupModal(initialNome?: string) {
+    const nome = (initialNome ?? "").trim();
+
     setShowLookup(true);
     setLookupErr(null);
     setLookupRows([]);
-    setLookupNome("");
+    setLookupNome(nome);
     setLookupFornecedor("");
-    handleSearch("", "");
+
+    if (nome) {
+      void handleSearch(nome, "");
+    } else {
+      void handleSearch("", "");
+    }
   }
 
   async function searchItems() {
@@ -942,7 +1026,7 @@ export default function OsDetailPage() {
     const term = q.trim();
     const id = Number(term);
     if (!term || !Number.isFinite(id) || id <= 0) {
-      openLookupModal();
+      openLookupModal(term);
       return;
     }
 
@@ -1192,13 +1276,25 @@ export default function OsDetailPage() {
             </div>
           </div>
 
-          <button
-            onClick={addItem}
-            disabled={busy || locked || !isMateriaPrima}
-            className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-          >
-            {busy ? "Aguarde..." : "Adicionar"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={addItem}
+              disabled={busy || locked || !isMateriaPrima}
+              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+            >
+              {busy ? "Aguarde..." : "Adicionar"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void printOsItens()}
+              disabled={printingItens || rows.length === 0}
+              className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 font-medium"
+              title={rows.length === 0 ? "Sem itens para imprimir" : "Imprimir itens da OS"}
+            >
+              {printingItens ? "Imprimindo..." : "Imprimir itens"}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mt-4">

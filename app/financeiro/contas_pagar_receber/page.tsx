@@ -167,6 +167,8 @@ export default function ContasPagarReceberPage() {
   const [q, setQ] = useState("");
   const [only, setOnly] = useState<"ALL" | Kind>("ALL");
   const [onlyToday, setOnlyToday] = useState(false);
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +197,8 @@ export default function ContasPagarReceberPage() {
 
   const [actionBusy, setActionBusy] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
   const [tituloMeta, setTituloMeta] = useState<{ emissaoDate: string | null; documentoFiscalId: string | null } | null>(
     null
@@ -213,6 +217,9 @@ export default function ContasPagarReceberPage() {
   const [dataPagamento, setDataPagamento] = useState<string>("");
   const [formaPagamento, setFormaPagamento] = useState<string>("PIX");
   const [valorMov, setValorMov] = useState<string>("");
+  const [valorJuros, setValorJuros] = useState<string>("");
+  const [valorMulta, setValorMulta] = useState<string>("");
+  const [valorDesconto, setValorDesconto] = useState<string>("");
   const [observacoes, setObservacoes] = useState<string>("");
 
   const resetModalState = useCallback(() => {
@@ -229,14 +236,84 @@ export default function ContasPagarReceberPage() {
     setDataPagamento("");
     setFormaPagamento("PIX");
     setValorMov("");
+    setValorJuros("");
+    setValorMulta("");
+    setValorDesconto("");
     setObservacoes("");
     setAplicacoes([]);
   }, []);
+
+  const parseMoneyOrZero = useCallback((value: string) => {
+    if (!value.trim()) return 0;
+    const parsed = parseMoneyBR(value);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }, []);
+
+  const toCents = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return NaN;
+    return Math.round(value * 100);
+  }, []);
+
+  const centsToMoneyString = useCallback((cents: number) => {
+    const n = Number.isFinite(cents) ? cents / 100 : NaN;
+    return formatMoneyBR(Number.isFinite(n) ? n : 0);
+  }, []);
+
+  const centsToNumericString = useCallback((cents: number) => {
+    const n = Number.isFinite(cents) ? cents / 100 : NaN;
+    return (Number.isFinite(n) ? n : 0).toFixed(2);
+  }, []);
+
+  const movTotals = useMemo(() => {
+    if (!selected) return null;
+    if (tab !== "PAGAR" && tab !== "RECEBER") return null;
+
+    const principal = parseMoneyOrZero(valorMov);
+    const juros = parseMoneyOrZero(valorJuros);
+    const multa = parseMoneyOrZero(valorMulta);
+    const desconto = parseMoneyOrZero(valorDesconto);
+
+    const principalCents = toCents(principal);
+    const jurosCents = toCents(juros);
+    const multaCents = toCents(multa);
+    const descontoCents = toCents(desconto);
+    const openCents = toCents(Number(selected.valorAberto ?? 0));
+
+    if (
+      !Number.isFinite(principalCents) ||
+      !Number.isFinite(jurosCents) ||
+      !Number.isFinite(multaCents) ||
+      !Number.isFinite(descontoCents) ||
+      !Number.isFinite(openCents)
+    ) {
+      return {
+        principalCents,
+        jurosCents,
+        multaCents,
+        descontoCents,
+        openCents,
+        totalCents: NaN,
+      };
+    }
+
+    const totalCents = principalCents + jurosCents + multaCents - descontoCents;
+    return { principalCents, jurosCents, multaCents, descontoCents, openCents, totalCents };
+  }, [parseMoneyOrZero, selected, tab, toCents, valorDesconto, valorJuros, valorMov, valorMulta]);
 
   const requestIdRef = useRef(0);
   const load = useCallback(async () => {
     if (!canFinanceiro) return;
     if (!te.tenantId || !te.empresaId) return;
+
+    const from = dateFrom.trim();
+    const to = dateTo.trim();
+    if (from && to && from > to) {
+      setError("Data 'De' não pode ser maior que 'Até'.");
+      return;
+    }
+
+    const ini = from || range.ini;
+    const fim = to || range.fim;
 
     const reqId = ++requestIdRef.current;
     setLoading(true);
@@ -250,8 +327,8 @@ export default function ContasPagarReceberPage() {
           .select(
             "titulo_id,parcela_id,parcela_numero,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,valor_parcela,valor_aberto,status"
           )
-          .gte("vencimento_date", range.ini)
-          .lte("vencimento_date", range.fim),
+          .gte("vencimento_date", ini)
+          .lte("vencimento_date", fim),
         supabase
           .schema("f")
           .from("titulo_parcela")
@@ -260,8 +337,8 @@ export default function ContasPagarReceberPage() {
           )
           .eq("titulo.tipo", "AR")
           .gt("valor_aberto", 0)
-          .gte("vencimento_date", range.ini)
-          .lte("vencimento_date", range.fim),
+          .gte("vencimento_date", ini)
+          .lte("vencimento_date", fim),
       ]);
 
       if (requestIdRef.current !== reqId) return;
@@ -454,7 +531,7 @@ export default function ContasPagarReceberPage() {
     } finally {
       if (requestIdRef.current === reqId) setLoading(false);
     }
-  }, [canFinanceiro, range.fim, range.ini, supabase, te.empresaId, te.tenantId]);
+  }, [canFinanceiro, dateFrom, dateTo, range.fim, range.ini, supabase, te.empresaId, te.tenantId]);
 
   useEffect(() => {
     void load();
@@ -635,9 +712,17 @@ export default function ContasPagarReceberPage() {
   const filtered = useMemo(() => {
     const today = todayISO();
     const query = q.trim().toLowerCase();
+    const from = dateFrom.trim();
+    const to = dateTo.trim();
+    const useDateRange = Boolean(from || to);
     return rows.filter((r) => {
       if (only !== "ALL" && r.kind !== only) return false;
-      if (onlyToday && r.vencimento !== today) return false;
+      if (useDateRange) {
+        if (from && r.vencimento < from) return false;
+        if (to && r.vencimento > to) return false;
+      } else {
+        if (onlyToday && r.vencimento !== today) return false;
+      }
       if (!query) return true;
       return (
         r.pessoaNome.toLowerCase().includes(query) ||
@@ -646,7 +731,7 @@ export default function ContasPagarReceberPage() {
         (r.aprovadoPorNome ?? "").toLowerCase().includes(query)
       );
     });
-  }, [only, onlyToday, q, rows]);
+  }, [dateFrom, dateTo, only, onlyToday, q, rows]);
 
   const totals = useMemo(() => {
     const sumAP = filtered.filter((r) => r.kind === "AP").reduce((acc, r) => acc + r.valorAberto, 0);
@@ -809,8 +894,9 @@ export default function ContasPagarReceberPage() {
   // UX: when opening/going to the "PAGAR" tab, prefill value with the current open amount.
   useEffect(() => {
     if (!selected) return;
-    if (tab !== "PAGAR") return;
-    if (selected.kind !== "AP") return;
+    if (tab !== "PAGAR" && tab !== "RECEBER") return;
+    if (tab === "PAGAR" && selected.kind !== "AP") return;
+    if (tab === "RECEBER" && selected.kind !== "AR") return;
     if (valorMov.trim()) return;
     setValorMov(formatMoneyBR(selected.valorAberto));
   }, [selected, tab, valorMov]);
@@ -904,15 +990,62 @@ export default function ContasPagarReceberPage() {
       if (mode === "PAGAR" && selected.kind !== "AP") return;
       if (mode === "RECEBER" && selected.kind !== "AR") return;
 
-      const parsed = parseMoneyBR(valorMov);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        setActionErr("Informe um valor válido.");
+      const principal = parseMoneyOrZero(valorMov);
+      const juros = parseMoneyOrZero(valorJuros);
+      const multa = parseMoneyOrZero(valorMulta);
+      const desconto = parseMoneyOrZero(valorDesconto);
+
+      if (!Number.isFinite(principal) || principal <= 0) {
+        setActionErr("Informe um valor principal válido.");
         return;
       }
-      if (parsed > selected.valorAberto + 1e-9) {
-        setActionErr("Valor maior que o saldo em aberto.");
+      if (!Number.isFinite(juros) || juros < 0) {
+        setActionErr("Juros deve ser >= 0.");
         return;
       }
+      if (!Number.isFinite(multa) || multa < 0) {
+        setActionErr("Multa deve ser >= 0.");
+        return;
+      }
+      if (!Number.isFinite(desconto) || desconto < 0) {
+        setActionErr("Desconto deve ser >= 0.");
+        return;
+      }
+
+      const principalCents = toCents(principal);
+      const jurosCents = toCents(juros);
+      const multaCents = toCents(multa);
+      const descontoCents = toCents(desconto);
+      const openCents = toCents(Number(selected.valorAberto ?? 0));
+
+      if (
+        !Number.isFinite(principalCents) ||
+        !Number.isFinite(jurosCents) ||
+        !Number.isFinite(multaCents) ||
+        !Number.isFinite(descontoCents) ||
+        !Number.isFinite(openCents)
+      ) {
+        setActionErr("Valores inválidos.");
+        return;
+      }
+
+      if (principalCents > openCents) {
+        setActionErr("Valor principal maior que o saldo em aberto.");
+        return;
+      }
+
+      const baseCents = principalCents + jurosCents + multaCents;
+      if (descontoCents > baseCents) {
+        setActionErr("Desconto não pode ser maior que (principal + juros + multa).");
+        return;
+      }
+
+      const totalCents = baseCents - descontoCents;
+      if (totalCents <= 0) {
+        setActionErr("Total a pagar agora deve ser maior que zero.");
+        return;
+      }
+
       if (!contaBancariaId) {
         setActionErr("Selecione a conta bancária.");
         return;
@@ -925,19 +1058,35 @@ export default function ContasPagarReceberPage() {
       setActionBusy(true);
       setActionErr(null);
       try {
-        const rpcName = mode === "PAGAR" ? "registrar_pagamento_ap" : "registrar_recebimento_ar";
+        const rpcName = mode === "PAGAR" ? "registrar_pagamento_ap_v2" : "registrar_recebimento_ar_v2";
         const { error } = await supabase.schema("f").rpc(rpcName, {
           p_titulo_id: selected.tituloId,
           p_conta_bancaria_id: contaBancariaId,
           p_data_pagamento: dataPagamento,
           p_forma_pagamento: formaPagamento,
-          p_valor: parsed,
+          p_valor_principal: centsToNumericString(principalCents),
+          p_valor_juros: centsToNumericString(jurosCents),
+          p_valor_multa: centsToNumericString(multaCents),
+          p_valor_desconto: centsToNumericString(descontoCents),
           p_observacoes: observacoes.trim() ? observacoes.trim() : null,
-          p_change_reason: "UI:contas_pagar_receber",
+          p_change_reason: "UI: popup pagar/receber (juros/multa/desconto)",
         });
         if (error) throw error;
 
         await load();
+
+        const okMsg =
+          `${mode === "PAGAR" ? "Pagamento" : "Recebimento"} registrado: ` +
+          `principal R$ ${centsToMoneyString(principalCents)}` +
+          `, juros R$ ${centsToMoneyString(jurosCents)}` +
+          `, multa R$ ${centsToMoneyString(multaCents)}` +
+          `, desconto R$ ${centsToMoneyString(descontoCents)}` +
+          `, total R$ ${centsToMoneyString(totalCents)}.`;
+
+        setToastMsg(okMsg);
+        if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = window.setTimeout(() => setToastMsg(null), 7000);
+
         close();
       } catch (e: unknown) {
         setActionErr(getErrorMessage(e, mode === "PAGAR" ? "Erro ao pagar." : "Erro ao receber."));
@@ -945,7 +1094,24 @@ export default function ContasPagarReceberPage() {
         setActionBusy(false);
       }
     },
-    [close, contaBancariaId, dataPagamento, formaPagamento, load, observacoes, selected, valorMov, supabase]
+    [
+      centsToMoneyString,
+      centsToNumericString,
+      close,
+      contaBancariaId,
+      dataPagamento,
+      formaPagamento,
+      load,
+      observacoes,
+      parseMoneyOrZero,
+      selected,
+      supabase,
+      toCents,
+      valorDesconto,
+      valorJuros,
+      valorMov,
+      valorMulta,
+    ]
   );
 
   if (!canFinanceiro) {
@@ -993,6 +1159,49 @@ export default function ContasPagarReceberPage() {
               );
             })}
           </select>
+
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date();
+              setYear(d.getFullYear());
+              setMonthNum(d.getMonth() + 1);
+              setDateFrom("");
+              setDateTo("");
+              setOnlyToday((s) => !s);
+            }}
+            className={
+              onlyToday
+                ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                : "px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
+            }
+          >
+            Hoje
+          </button>
+
+          <div className="text-sm text-zinc-300">De</div>
+          <input
+            type="date"
+            aria-label="Data de"
+            value={dateFrom}
+            onChange={(e) => {
+              setOnlyToday(false);
+              setDateFrom(e.target.value);
+            }}
+            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+          />
+
+          <div className="text-sm text-zinc-300">Até</div>
+          <input
+            type="date"
+            aria-label="Data até"
+            value={dateTo}
+            onChange={(e) => {
+              setOnlyToday(false);
+              setDateTo(e.target.value);
+            }}
+            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+          />
         </div>
 
         <div className="flex items-center gap-2">
@@ -1028,23 +1237,6 @@ export default function ContasPagarReceberPage() {
           Atualizar
         </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            const d = new Date();
-            setYear(d.getFullYear());
-            setMonthNum(d.getMonth() + 1);
-            setOnlyToday((s) => !s);
-          }}
-          className={
-            onlyToday
-              ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
-              : "px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
-          }
-        >
-          Hoje
-        </button>
-
         {only !== "AR" && (
           <button
             type="button"
@@ -1068,6 +1260,7 @@ export default function ContasPagarReceberPage() {
       </div>
 
       {error && <div className="text-sm text-red-300">{error}</div>}
+      {toastMsg && <div className="text-sm text-emerald-300">{toastMsg}</div>}
       {loading && <div className="text-sm text-zinc-400">Carregando...</div>}
 
       <div className="w-full overflow-x-auto rounded-md border border-zinc-800">
@@ -1102,7 +1295,7 @@ export default function ContasPagarReceberPage() {
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero)}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.emissao ? formatDateBR(r.emissao) : "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.vencimento}</td>
+                  <td className="px-3 py-2 text-zinc-200">{formatDateBR(r.vencimento)}</td>
                   <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valor)}</td>
                   <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valorAberto)}</td>
                   <td className="px-3 py-2">
@@ -1342,7 +1535,7 @@ export default function ContasPagarReceberPage() {
                     </div>
 
                     <div>
-                      <div className="text-sm text-zinc-300">Valor</div>
+                      <div className="text-sm text-zinc-300">Valor principal</div>
                       <input
                         aria-label="Valor"
                         value={valorMov}
@@ -1351,6 +1544,55 @@ export default function ContasPagarReceberPage() {
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                       />
                       <div className="text-xs text-zinc-500 mt-1">Dica: aceita &quot;1234,56&quot; ou &quot;R$ 1.234,56&quot;</div>
+                    </div>
+                  </div>
+
+                  <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950/40 space-y-3">
+                    <div>
+                      <div className="text-sm font-medium text-zinc-200">Ajustes do pagamento</div>
+                      <div className="text-xs text-zinc-500">Juros, multa e desconto afetam o total pago agora.</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-sm text-zinc-300">Juros (R$)</div>
+                        <input
+                          aria-label="Juros"
+                          value={valorJuros}
+                          onChange={(e) => setValorJuros(e.target.value)}
+                          placeholder="0,00"
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-zinc-300">Multa (R$)</div>
+                        <input
+                          aria-label="Multa"
+                          value={valorMulta}
+                          onChange={(e) => setValorMulta(e.target.value)}
+                          placeholder="0,00"
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-sm text-zinc-300">Desconto (R$)</div>
+                        <input
+                          aria-label="Desconto"
+                          value={valorDesconto}
+                          onChange={(e) => setValorDesconto(e.target.value)}
+                          placeholder="0,00"
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-zinc-300">Total a pagar agora</div>
+                      <div className="text-sm font-semibold text-zinc-100">
+                        R$ {movTotals && Number.isFinite(movTotals.totalCents) ? (movTotals.totalCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0,00"}
+                      </div>
                     </div>
                   </div>
 
