@@ -171,6 +171,49 @@ function parseHHMM(value: string): number | null {
   return hh * 60 + mm;
 }
 
+function calcHorasDecimalFromMinutes(inicioMin: number, fimMin: number): number {
+  let diff = fimMin - inicioMin;
+  if (diff < 0) diff = 1440 - inicioMin + fimMin; // virada de dia
+  return Number((diff / 60).toFixed(2));
+}
+
+function getHorasTrabalhadasEfetivas(row: HhLancamentoViewRow): number {
+  const e1 = formatTimeHHMM(row.entrada_1) || formatTimeHHMM(row.hora_entrada);
+  const s1 = formatTimeHHMM(row.saida_1) || formatTimeHHMM(row.hora_saida);
+  const e2 = formatTimeHHMM(row.entrada_2);
+  const s2 = formatTimeHHMM(row.saida_2);
+
+  // Se houver 2 períodos completos, soma os dois (não conta almoço).
+  if (e1 && s1 && e2 && s2) {
+    const e1Min = parseHHMM(e1);
+    const s1Min = parseHHMM(s1);
+    const e2Min = parseHHMM(e2);
+    const s2Min = parseHHMM(s2);
+    if (e1Min !== null && s1Min !== null && e2Min !== null && s2Min !== null) {
+      return Number((calcHorasDecimalFromMinutes(e1Min, s1Min) + calcHorasDecimalFromMinutes(e2Min, s2Min)).toFixed(2));
+    }
+  }
+
+  // Fallback: 1 período (entrada/saída) 
+  if (e1 && s1) {
+    const e1Min = parseHHMM(e1);
+    const s1Min = parseHHMM(s1);
+    if (e1Min !== null && s1Min !== null) return calcHorasDecimalFromMinutes(e1Min, s1Min);
+  }
+
+  const fallback = Number(row.horas_trabalhadas ?? 0);
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+function getValorTotalEfetivo(row: HhLancamentoViewRow, horasEfetivas: number): number {
+  const valorHora = Number(row.valor_hora ?? 0);
+  if (Number.isFinite(valorHora) && valorHora > 0 && Number.isFinite(horasEfetivas) && horasEfetivas > 0) {
+    return Number((valorHora * horasEfetivas).toFixed(2));
+  }
+  const total = Number(row.valor_total ?? 0);
+  return Number.isFinite(total) ? total : 0;
+}
+
 function isMissingColumnError(err: unknown): boolean {
   const message =
     err && typeof err === "object" && "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
@@ -290,9 +333,42 @@ async function gerarRelatorioPDF(
     const logoSize = logoDataUrl ? await getImageNaturalSize(logoDataUrl) : null;
     const logoBox = { w: 18, h: 18 };
 
+    const truncateToWidth = (text: string, maxWidth: number) => {
+      const clean = String(text ?? "").replace(/\s+/g, " ").trim();
+      if (!clean) return "";
+      if (maxWidth <= 0) return "";
+      if (doc.getTextWidth(clean) <= maxWidth) return clean;
+
+      const ellipsis = "…";
+      if (doc.getTextWidth(ellipsis) > maxWidth) return ellipsis;
+
+      let lo = 0;
+      let hi = clean.length;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        const candidate = clean.slice(0, mid) + ellipsis;
+        if (doc.getTextWidth(candidate) <= maxWidth) lo = mid;
+        else hi = mid - 1;
+      }
+      const finalLen = Math.max(0, lo);
+      return clean.slice(0, finalLen) + ellipsis;
+    };
+
+    const wrapTwoLines = (text: string, maxWidth: number) => {
+      const clean = String(text ?? "").replace(/\s+/g, " ").trim();
+      if (!clean) return [""];
+      const lines = doc.splitTextToSize(clean, Math.max(10, maxWidth)) as string[];
+      if (lines.length <= 1) return [truncateToWidth(lines[0] ?? clean, maxWidth)];
+      if (lines.length === 2) return [truncateToWidth(lines[0], maxWidth), truncateToWidth(lines[1], maxWidth)];
+      return [truncateToWidth(lines[0], maxWidth), truncateToWidth(lines.slice(1).join(" "), maxWidth)];
+    };
+
     const drawHeader = (pageNumber: number, pageCount: number) => {
       const pageSize = doc.internal.pageSize;
       const pageWidth = pageSize.getWidth();
+      const rightX = pageWidth - margin;
+      const leftX = margin + 22;
+      const gap = 6;
 
       // Linha superior
       doc.setDrawColor(17, 24, 39);
@@ -322,33 +398,63 @@ async function gerarRelatorioPDF(
       }
 
       // Bloco empresa/cliente (esquerda)
+      // Primeiro mede o título para reservar espaço e impedir sobreposição
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      const titulo = "Relatório de Horas Lançadas";
+      const tituloWidth = doc.getTextWidth(titulo);
+      const tituloLeftEdge = pageWidth / 2 - tituloWidth / 2;
+      const tituloRightEdge = pageWidth / 2 + tituloWidth / 2;
+
+      // Mede o bloco da direita e limita para não invadir o título
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const rightLines = [`Emissão: ${emissaoLabel}`, `Período: ${periodoLabel}`, `Página ${pageNumber} de ${pageCount}`];
+      const measuredRightWidth = Math.max(...rightLines.map((t) => doc.getTextWidth(t)));
+      const maxRightWidth = Math.max(40, rightX - (tituloRightEdge + gap));
+      const rightColWidth = Math.min(Math.max(55, measuredRightWidth + 2), maxRightWidth);
+      const rightBlockStart = rightX - rightColWidth;
+
+      // Calcula a largura máxima do bloco esquerdo sem invadir o título
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
+      const leftMaxEnd = tituloLeftEdge - gap;
+      const leftMaxWidth = Math.max(20, leftMaxEnd - leftX);
+
       doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-      doc.text(empresaNome, margin + 22, margin + 7);
+      doc.text(truncateToWidth(empresaNome, leftMaxWidth), leftX, margin + 7);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
-      doc.text(`Cliente: ${clienteNome}`, margin + 22, margin + 13);
+      doc.text(truncateToWidth(`Cliente: ${clienteNome}`, leftMaxWidth), leftX, margin + 13);
 
       // Título (centro)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(15);
       doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-      doc.text("Relatório de Horas Lançadas", pageWidth / 2, margin + 8, { align: "center" });
+      doc.text(titulo, pageWidth / 2, margin + 8, { align: "center" });
+
+      // Linha de OS (centro) com quebra/truncamento e respeitando blocos esquerda/direita
+      const centerLeftBound = leftX + leftMaxWidth + gap;
+      const centerRightBound = rightBlockStart - gap;
+      const centerMaxWidth = Math.max(60, centerRightBound - centerLeftBound);
+
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
-      doc.text(osLine, pageWidth / 2, margin + 14, { align: "center" });
+      const osLines = wrapTwoLines(osLine, centerMaxWidth);
+      doc.text(osLines[0] ?? "", pageWidth / 2, margin + 14, { align: "center" });
+      if (osLines.length > 1 && osLines[1]) {
+        doc.text(osLines[1], pageWidth / 2, margin + 18.5, { align: "center" });
+      }
 
       // Metas (direita)
-      const rightX = pageWidth - margin;
       doc.setFontSize(9);
       doc.setTextColor(subtitleColor[0], subtitleColor[1], subtitleColor[2]);
-      doc.text(`Emissão: ${emissaoLabel}`, rightX, margin + 7, { align: "right" });
-      doc.text(`Período: ${periodoLabel}`, rightX, margin + 13, { align: "right" });
-      doc.text(`Página ${pageNumber} de ${pageCount}`, rightX, margin + 19, { align: "right" });
+      doc.text(truncateToWidth(`Emissão: ${emissaoLabel}`, rightColWidth), rightX, margin + 7, { align: "right" });
+      doc.text(truncateToWidth(`Período: ${periodoLabel}`, rightColWidth), rightX, margin + 13, { align: "right" });
+      doc.text(truncateToWidth(`Página ${pageNumber} de ${pageCount}`, rightColWidth), rightX, margin + 19, { align: "right" });
     };
 
     // Tabela 1: Lançamentos
@@ -374,13 +480,13 @@ async function gerarRelatorioPDF(
     let totalHorasExtras = 0;
 
     hhRows.forEach((r) => {
-      const horas = Number(r.horas_trabalhadas ?? 0);
+      const horas = getHorasTrabalhadasEfetivas(r);
       const percentualAplicado = Number(r.percentual_aplicado ?? 0);
       const horasNormais = percentualAplicado === 0 ? horas : 0;
       const horasExtras = percentualAplicado === 0 ? 0 : horas;
 
       const tipo = getTipoHHLabel(percentualAplicado);
-      const total = Number(r.valor_total ?? 0);
+      const total = getValorTotalEfetivo(r, horas);
 
       totalGeral += total;
       totalHoras += horas;
@@ -535,8 +641,8 @@ async function gerarRelatorioPDF(
       const funcao =
         r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao.trim() : "—";
       const valorHoraBase = Number(r.valor_hora ?? 0);
-      const horas = Number(r.horas_trabalhadas ?? 0);
-      const total = Number(r.valor_total ?? 0);
+      const horas = getHorasTrabalhadasEfetivas(r);
+      const total = getValorTotalEfetivo(r, horas);
       const percentualAplicado = Number(r.percentual_aplicado ?? 0);
 
       const bucket = percentualAplicado === 50 ? resumo50 : percentualAplicado === 100 ? resumo100 : resumoNormal;
@@ -770,8 +876,9 @@ export default function RelatorioHHSection({
 
     const totals = hhRows.reduce(
       (acc, r) => {
-        acc.horas += Number(r.horas_trabalhadas ?? 0) || 0;
-        acc.valor += Number(r.valor_total ?? 0) || 0;
+        const horas = getHorasTrabalhadasEfetivas(r);
+        acc.horas += Number.isFinite(horas) ? horas : 0;
+        acc.valor += getValorTotalEfetivo(r, horas);
         return acc;
       },
       { horas: 0, valor: 0 }
@@ -1504,11 +1611,7 @@ export default function RelatorioHHSection({
       return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
     };
 
-    const calcHorasDecimal = (inicioMin: number, fimMin: number): number => {
-      let diff = fimMin - inicioMin;
-      if (diff < 0) diff = 1440 - inicioMin + fimMin; // virada de dia
-      return Number((diff / 60).toFixed(2));
-    };
+    const calcHorasDecimal = (inicioMin: number, fimMin: number): number => calcHorasDecimalFromMinutes(inicioMin, fimMin);
 
     if (especialidadesOptions.length > 0 && !String(lancamentoForm.hh_servico_id ?? "").trim()) {
       setErr("Selecione a especialidade.");
@@ -1683,7 +1786,9 @@ export default function RelatorioHHSection({
       
       // Monta payload (hh_lancamentos tem hh_tipo_id + hh_servico_id)
       const usaDoisPeriodos = usandoDoisPeriodos && entrada2 !== null && saida2 !== null;
-      const horasManual = usaDoisPeriodos ? null : calcHorasDecimal(entrada1, saida1);
+      const horasManual = usaDoisPeriodos
+        ? Number((calcHorasDecimal(entrada1, saida1) + calcHorasDecimal(entrada2!, saida2!)).toFixed(2))
+        : calcHorasDecimal(entrada1, saida1);
       const payloadHH: any = {
         tenant_id: ctx.tenant,
         empresa_id: ctx.empresa,
@@ -2395,7 +2500,7 @@ export default function RelatorioHHSection({
                       <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatTimeHHMM(r.saida_1) || formatTimeHHMM(r.hora_saida) || "—"}</td>
                       <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatTimeHHMM(r.entrada_2) || "—"}</td>
                       <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatTimeHHMM(r.saida_2) || "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-zinc-200">{formatHoursBR(r.horas_trabalhadas)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-200">{formatHoursBR(getHorasTrabalhadasEfetivas(r))}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
                           <button
@@ -2484,10 +2589,10 @@ export default function RelatorioHHSection({
                 const valorHoraNormal = Number(r.valor_hora ?? 0);
                 const valorHora50 = valorHoraNormal * 1.5;
                 const valorHora100 = valorHoraNormal * 2.0;
-                const horas = Number(r.horas_trabalhadas ?? 0);
+                const horas = getHorasTrabalhadasEfetivas(r);
                 const percentualAplicado = Number(r.percentual_aplicado ?? 0);
                 const tipo = getTipoHHLabel(percentualAplicado);
-                const total = Number(r.valor_total ?? 0);
+                const total = getValorTotalEfetivo(r, horas);
                 return (
                   <tr key={String(r.id)}>
                     <td>{r.colaborador_nome ?? "—"}</td>
