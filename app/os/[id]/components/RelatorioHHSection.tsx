@@ -1285,6 +1285,7 @@ export default function RelatorioHHSection({
           .select(
             "id,os_id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,criado_em,hh_tipo_id,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
           )
+          .eq("os_id", osId)
           .order("criado_em", { ascending: false }),
         ctx.tenant,
         ctx.empresa
