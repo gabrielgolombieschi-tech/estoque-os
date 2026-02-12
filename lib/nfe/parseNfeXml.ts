@@ -188,7 +188,16 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
   });
 
   const parcelasDup: Array<{ numero: string; vencimento: string; valor: number }> = [];
-  const dupNodes = Array.from(doc.querySelectorAll("cobr > dup"));
+
+  // XML da NF-e costuma vir com namespace default; em alguns ambientes,
+  // querySelectorAll pode não encontrar certos nós. Tenha fallback.
+  let dupNodes = Array.from(doc.querySelectorAll("cobr > dup"));
+  if (dupNodes.length === 0) {
+    const byTag = Array.from(doc.getElementsByTagName("dup"));
+    const onlyFromCobr = byTag.filter((el) => el.parentElement?.localName === "cobr");
+    dupNodes = onlyFromCobr.length > 0 ? onlyFromCobr : byTag;
+  }
+
   dupNodes.forEach((dup, idx) => {
     const numeroRaw = (dup.querySelector("nDup")?.textContent ?? "").trim();
     const vencRaw = (dup.querySelector("dVenc")?.textContent ?? "").trim();

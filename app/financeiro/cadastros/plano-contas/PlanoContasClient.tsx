@@ -176,7 +176,12 @@ export default function PlanoContasClient() {
       // Maintain selection if possible
       setSelectedId((prev) => {
         if (!prev) return prev;
-        return (data ?? []).some((r: any) => String(r.id) === prev) ? prev : null;
+        return (data ?? []).some((r: unknown) => {
+          const row = r as Record<string, unknown>;
+          return String(row.id ?? "") === prev;
+        })
+          ? prev
+          : null;
       });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao carregar plano de contas.");
@@ -211,8 +216,8 @@ export default function PlanoContasClient() {
     setFormCodigo(r.codigo);
     setFormNome(r.nome);
     setFormParentId(r.parent_id ?? "");
-    setFormNatureza((r.natureza as any) === "CREDITO" ? "CREDITO" : "DEBITO");
-    setFormTipo((r.tipo as any) === "SINTETICA" ? "SINTETICA" : "ANALITICA");
+    setFormNatureza(r.natureza === "CREDITO" ? "CREDITO" : "DEBITO");
+    setFormTipo(r.tipo === "SINTETICA" ? "SINTETICA" : "ANALITICA");
     setFormAtivo(Boolean(r.ativo));
     setOpen(true);
   };
@@ -591,7 +596,7 @@ export default function PlanoContasClient() {
                 Natureza
                 <select
                   value={formNatureza}
-                  onChange={(e) => setFormNatureza(e.target.value as any)}
+                  onChange={(e) => setFormNatureza(e.target.value as "DEBITO" | "CREDITO")}
                   aria-label="Natureza"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                 >
@@ -603,7 +608,7 @@ export default function PlanoContasClient() {
                 Tipo
                 <select
                   value={formTipo}
-                  onChange={(e) => setFormTipo(e.target.value as any)}
+                  onChange={(e) => setFormTipo(e.target.value as "SINTETICA" | "ANALITICA")}
                   aria-label="Tipo"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                 >

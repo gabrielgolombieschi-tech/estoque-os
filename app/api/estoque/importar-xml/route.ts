@@ -389,24 +389,41 @@ export async function POST(req: NextRequest) {
       try {
         let docId: string | null = null;
 
+        const parcelasArray = Array.isArray(body.parcelasJson) ? body.parcelasJson : null;
+        const parcelasCount = parcelasArray?.length ?? 0;
+
         // If the request explicitly asked to generate AP, try to generate it now (if function exists).
         if (gerar) {
-          try {
-            // Prefer v2 (supports parcelas_json). Fallback to v1 if not available.
-            try {
-              await admin.schema("f").rpc("gerar_ap_pendente_por_nf_entrada_v2", {
-                p_nf_entrada_id: nfEntradaId,
-                p_force: false,
-                p_parcelas_json: body.parcelasJson ?? null,
+          // Prefer v2 (supports parcelas_json). Only fall back to v1 when there are no parcelas.
+          const { error: v2Err } = await admin.schema("f").rpc("gerar_ap_pendente_por_nf_entrada_v2", {
+            p_nf_entrada_id: nfEntradaId,
+            p_force: false,
+            p_parcelas_json: parcelasArray,
+          });
+
+          if (v2Err) {
+            // If the client sent parcelas from the XML, failing v2 would lead to wrong finance data.
+            // Do not silently fall back to the legacy single-parcela generator.
+            if (parcelasCount > 0) {
+              console.error("[XML_IMPORT] Falha ao gerar AP via v2", {
+                tenantId,
+                empresaId,
+                nfEntradaId,
+                parcelasCount,
+                message: v2Err.message,
+                code: (v2Err as { code?: unknown } | null)?.code,
               });
-            } catch {
-              const { data: docIdRaw } = await admin
-                .schema("f")
-                .rpc("gerar_ap_pendente_por_nf_entrada", { p_nf_entrada_id: nfEntradaId, p_force: false });
-              if (typeof docIdRaw === "string" && UUID_REGEX.test(docIdRaw)) docId = docIdRaw;
+              return jerr(
+                422,
+                `Falha ao gerar contas a pagar com parcelas do XML. Verifique se a função f.gerar_ap_pendente_por_nf_entrada_v2 está instalada/atualizada no banco. Detalhe: ${v2Err.message}`
+              );
             }
-          } catch {
-            // ignore missing function
+
+            const { data: docIdRaw, error: v1Err } = await admin
+              .schema("f")
+              .rpc("gerar_ap_pendente_por_nf_entrada", { p_nf_entrada_id: nfEntradaId, p_force: false });
+            if (v1Err) throw v1Err;
+            if (typeof docIdRaw === "string" && UUID_REGEX.test(docIdRaw)) docId = docIdRaw;
           }
         }
 

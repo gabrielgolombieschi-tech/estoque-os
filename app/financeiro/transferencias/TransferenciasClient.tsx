@@ -19,7 +19,7 @@ type ExtratoLinhaRow = {
   status: string;
 };
 
-type EventoRow = { id: string; evento: string; created_at: string; payload: any };
+type EventoRow = { id: string; evento: string; created_at: string; payload: unknown };
 
 type TransferPair = {
   key: string;
@@ -156,12 +156,15 @@ export default function TransferenciasClient() {
         .order("nome", { ascending: true });
 
       if (contasErr) throw contasErr;
-      const contasMapped = (contasData ?? []).map((r: any) => ({
-        id: String(r.id),
-        codigo: String(r.codigo),
-        nome: String(r.nome),
-        tipo: r.tipo ? String(r.tipo) : null,
-      })) as ContaBancariaRow[];
+      const contasMapped = (contasData ?? []).map((r: unknown) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          codigo: String(row.codigo ?? ""),
+          nome: String(row.nome ?? ""),
+          tipo: row.tipo ? String(row.tipo) : null,
+        } satisfies ContaBancariaRow;
+      });
       setContas(contasMapped);
 
       // Load last N extrato lines with possible transfer markers.
@@ -407,7 +410,10 @@ export default function TransferenciasClient() {
             Janela (dias)
             <select
               value={dayWindow}
-              onChange={(e) => setDayWindow(Number(e.target.value) as any)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDayWindow(v === "0" ? 0 : v === "1" ? 1 : 2);
+              }}
               aria-label="Janela de dias"
               className="mt-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
             >
@@ -480,7 +486,7 @@ export default function TransferenciasClient() {
                 {!loading && pairs.length === 0 && (
                   <tr>
                     <td className="px-4 py-6 text-zinc-400" colSpan={5}>
-                      Nenhuma transferência detectada. Dica: use o documento "TRANSFERENCIA" ao lançar manualmente.
+                      Nenhuma transferência detectada. Dica: use o documento &quot;TRANSFERENCIA&quot; ao lançar manualmente.
                     </td>
                   </tr>
                 )}
@@ -516,7 +522,9 @@ export default function TransferenciasClient() {
         <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
           <div className="px-4 py-3 border-b border-zinc-800">
             <div className="font-semibold">Auditoria (evento_financeiro)</div>
-            <div className="text-xs text-zinc-500 mt-1">Eventos "TRANSFERENCIA" gerados por esta tela (quando permitido pela RLS).</div>
+            <div className="text-xs text-zinc-500 mt-1">
+              Eventos &quot;TRANSFERENCIA&quot; gerados por esta tela (quando permitido pela RLS).
+            </div>
           </div>
           <div className="overflow-auto">
             <table className="min-w-[860px] w-full text-sm">
@@ -538,14 +546,33 @@ export default function TransferenciasClient() {
                   </tr>
                 )}
                 {events.map((e) => {
-                  const p = e.payload ?? {};
+                  const payload = (e.payload && typeof e.payload === "object" ? (e.payload as Record<string, unknown>) : {}) as Record<
+                    string,
+                    unknown
+                  >;
+                  const origem =
+                    payload.origem && typeof payload.origem === "object" ? (payload.origem as Record<string, unknown>) : null;
+                  const destino =
+                    payload.destino && typeof payload.destino === "object" ? (payload.destino as Record<string, unknown>) : null;
+
+                  const origemCodigo = origem?.codigo ? String(origem.codigo) : "";
+                  const origemNome = origem?.nome ? String(origem.nome) : "";
+                  const origemId = payload.origem_id != null ? String(payload.origem_id) : null;
+
+                  const destinoCodigo = destino?.codigo ? String(destino.codigo) : "";
+                  const destinoNome = destino?.nome ? String(destino.nome) : "";
+                  const destinoId = payload.destino_id != null ? String(payload.destino_id) : null;
+
+                  const valor = payload.valor;
+                  const descricao = payload.descricao != null ? String(payload.descricao) : "-";
+
                   return (
                     <tr key={e.id} className="border-t border-zinc-900 hover:bg-zinc-900/40">
                       <td className="px-4 py-3 whitespace-nowrap">{new Date(e.created_at).toLocaleString("pt-BR")}</td>
-                      <td className="px-4 py-3">{p?.origem?.codigo ? `${p.origem.codigo} — ${p.origem.nome}` : p?.origem_id ?? "-"}</td>
-                      <td className="px-4 py-3">{p?.destino?.codigo ? `${p.destino.codigo} — ${p.destino.nome}` : p?.destino_id ?? "-"}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatDecimalBR(n(p?.valor), 2)}</td>
-                      <td className="px-4 py-3 text-zinc-300">{p?.descricao ?? "-"}</td>
+                      <td className="px-4 py-3">{origemCodigo ? `${origemCodigo} — ${origemNome}` : origemId ?? "-"}</td>
+                      <td className="px-4 py-3">{destinoCodigo ? `${destinoCodigo} — ${destinoNome}` : destinoId ?? "-"}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatDecimalBR(n(valor), 2)}</td>
+                      <td className="px-4 py-3 text-zinc-300">{descricao}</td>
                     </tr>
                   );
                 })}

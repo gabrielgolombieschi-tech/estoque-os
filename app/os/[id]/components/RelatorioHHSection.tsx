@@ -1,8 +1,12 @@
 "use client";
-import { calcularHoras, validarHorarios, formatHorasBR } from "@/lib/hh/calculations";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Helper para resolver o mapping correto de hh_tipo_id
-async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentual: 0|50|100): Promise<number> {
+async function resolveHhTipoMappingId(
+  supabase: SupabaseClient,
+  tenantId: string,
+  percentual: 0 | 50 | 100
+): Promise<number> {
   const codigoTipo = percentual === 0 ? "NORMAL" : percentual === 50 ? "EXTRA_50" : "EXTRA_100";
   
   // 1. Buscar tipos_horas.id (UUID)
@@ -26,7 +30,11 @@ async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentua
   
   if (mappingErr) {
     console.error("[resolveHhTipoMappingId] Erro ao buscar mapping:", mappingErr);
-    throw new Error(`Erro ao buscar mapping: ${mappingErr.message}`);
+    const msg =
+      typeof mappingErr === "object" && mappingErr && "message" in mappingErr
+        ? String((mappingErr as { message?: unknown }).message ?? "")
+        : String(mappingErr);
+    throw new Error(`Erro ao buscar mapping: ${msg}`);
   }
   
   if (mapping && mapping.hh_tipo_id) {
@@ -38,6 +46,7 @@ async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentua
 }
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import NextImage from "next/image";
 import type { RowInput } from "jspdf-autotable";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
@@ -268,7 +277,7 @@ async function fetchImageAsDataUrl(url: string): Promise<string | null> {
 async function getImageNaturalSize(dataUrl: string): Promise<{ width: number; height: number } | null> {
   try {
     return await new Promise((resolve) => {
-      const img = new Image();
+      const img = new globalThis.Image();
       img.onload = () => {
         const width = Number(img.naturalWidth || img.width || 0);
         const height = Number(img.naturalHeight || img.height || 0);
@@ -765,7 +774,7 @@ export default function RelatorioHHSection({
   osStatus = null,
   usaRelatorioHh = null,
   enabled = true,
-  clienteHabilitaHH = false,
+  clienteHabilitaHH: _clienteHabilitaHH = false,
   effectiveTenantId = null,
   effectiveEmpresaId = null,
 }: {
@@ -783,7 +792,7 @@ export default function RelatorioHHSection({
     return supabaseBrowser();
   }, []);
   const tenantEmpresa = useTenantEmpresa();
-  const { tenantId, empresaId, loading: tenantLoading } = tenantEmpresa;
+  const { tenantId, empresaId } = tenantEmpresa;
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canRead = Boolean(has("os.read"));
   const canWrite = Boolean(has("os.write"));
@@ -1276,8 +1285,6 @@ export default function RelatorioHHSection({
           .select(
             "id,os_id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,criado_em,hh_tipo_id,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
           )
-          .eq("os_id", osId)
-          .order("data", { ascending: false })
           .order("criado_em", { ascending: false }),
         ctx.tenant,
         ctx.empresa
@@ -1448,11 +1455,11 @@ export default function RelatorioHHSection({
 
       // Busca na tabela base para garantir IDs (colaborador_id, etc.) e especialidade
       const selectBase = "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_especialidade_id,hh_servico_id";
-      let data: any = null;
-      let error: any = null;
+      let data: Record<string, unknown> | null = null;
+      let error: unknown = null;
       try {
         const res = await supabase.from("hh_lancamentos").select(selectBase).eq("id", rowId).maybeSingle();
-        data = res.data;
+        data = (res.data ?? null) as Record<string, unknown> | null;
         error = res.error;
       } catch (e) {
         data = null;
@@ -1461,7 +1468,7 @@ export default function RelatorioHHSection({
       // Fallback para schema antigo
       if (error && isMissingColumnError(error)) {
         const res2 = await supabase.from("hh_lancamentos").select("id,data,colaborador_id,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_servico_id").eq("id", rowId).maybeSingle();
-        data = res2.data;
+        data = (res2.data ?? null) as Record<string, unknown> | null;
         error = res2.error;
       }
       if (error) throw error;
@@ -1469,27 +1476,35 @@ export default function RelatorioHHSection({
         setErr("Lançamento não encontrado.");
         return;
       }
+
+      const percentualRaw = data.percentual_aplicado;
+      const percentualStr = percentualRaw === null || percentualRaw === undefined ? "" : String(percentualRaw);
+      const percentualSafe: "" | "0" | "50" | "100" =
+        percentualStr === "0" || percentualStr === "50" || percentualStr === "100" ? percentualStr : "";
+
       setLancamentoForm({
         data: String(data.data ?? new Date().toISOString().slice(0, 10)),
         colaborador_id: String(data.colaborador_id ?? ""),
         hh_servico_id: String(data.hh_especialidade_id ?? data.hh_servico_id ?? ""),
         observacao: String(data.observacao ?? ""),
       });
-      setPercentualManual(data.percentual_aplicado === null ? "" : String(data.percentual_aplicado) as any);
+      setPercentualManual(percentualSafe);
 
       editingOriginalKeyRef.current = {
         data: String(data.data ?? ""),
         colaborador_id: String(data.colaborador_id ?? ""),
       };
 
-      const e1 = formatTimeHHMM(data.entrada_1) || "";
-      const s1 = formatTimeHHMM(data.saida_1) || "";
-      const e2 = formatTimeHHMM(data.entrada_2) || "";
-      const s2 = formatTimeHHMM(data.saida_2) || "";
+      const toStringOrNull = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+
+      const e1 = formatTimeHHMM(toStringOrNull(data.entrada_1)) || "";
+      const s1 = formatTimeHHMM(toStringOrNull(data.saida_1)) || "";
+      const e2 = formatTimeHHMM(toStringOrNull(data.entrada_2)) || "";
+      const s2 = formatTimeHHMM(toStringOrNull(data.saida_2)) || "";
 
       // Fallback de schema antigo (hora_entrada/hora_saida) para preencher UI
-      const oldE = formatTimeHHMM(data.hora_entrada) || "";
-      const oldS = formatTimeHHMM(data.hora_saida) || "";
+      const oldE = formatTimeHHMM(toStringOrNull(data.hora_entrada)) || "";
+      const oldS = formatTimeHHMM(toStringOrNull(data.hora_saida)) || "";
 
       // Se for schema antigo (apenas hora_entrada/hora_saida), preenche o 1º período e deixa o 2º vazio.
       const temDoisPeriodos = Boolean(e1 || s1 || e2 || s2);
@@ -1789,7 +1804,7 @@ export default function RelatorioHHSection({
       const horasManual = usaDoisPeriodos
         ? Number((calcHorasDecimal(entrada1, saida1) + calcHorasDecimal(entrada2!, saida2!)).toFixed(2))
         : calcHorasDecimal(entrada1, saida1);
-      const payloadHH: any = {
+      const payloadHH: Record<string, unknown> = {
         tenant_id: ctx.tenant,
         empresa_id: ctx.empresa,
         os_id: osId,
@@ -1883,7 +1898,7 @@ export default function RelatorioHHSection({
           });
         } catch (syncErr: unknown) {
           console.error("[HH] Falha ao sincronizar apontamentos_horas (gerado_por_hh)", syncErr);
-          const msg = syncErr instanceof Error ? syncErr.message : (typeof syncErr === "object" && syncErr && "message" in syncErr ? String((syncErr as any).message) : String(syncErr));
+          const msg = getDbErrorMessage(syncErr, "Erro ao sincronizar apontamentos.");
           setErr(`Lançamento HH salvo, mas falhou ao sincronizar apontamentos: ${msg}`);
         }
       }
@@ -2157,7 +2172,7 @@ export default function RelatorioHHSection({
                 className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-300"
                 value={percentualManual}
                 onChange={e => {
-                  setPercentualManual(e.target.value as any);
+                  setPercentualManual(e.target.value as "" | "0" | "50" | "100");
                   
                   // Re-selecionar serviço baseado no novo percentual manual
                   if (lancamentoForm.colaborador_id && clienteIdContext && especialidadesOptions.length > 1) {
@@ -2535,7 +2550,7 @@ export default function RelatorioHHSection({
         <div className="hh-print">
           <div className="hh-print__header">
             <div className="hh-print__brand">
-              <img className="hh-print__logo" src="/Segau2.png" alt="Logo" />
+              <NextImage className="hh-print__logo" src="/Segau2.png" alt="Logo" width={160} height={64} />
               <div className="hh-print__brandText">
                 <div className="hh-print__empresa">{printHeader.empresaNome}</div>
                 <div className="hh-print__cliente">Cliente: {printHeader.clienteNome}</div>

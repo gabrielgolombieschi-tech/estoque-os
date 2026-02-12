@@ -1,0 +1,111 @@
+export type OrcamentoStatus = "RASCUNHO" | "FINALIZADO" | "CANCELADO";
+
+export type OrcamentoListaRow = {
+  id: string;
+  codigo: string;
+  numero: number;
+  versao: number;
+  status: OrcamentoStatus | string;
+  emissao_date: string;
+  titulo: string;
+  cliente_id: number;
+  cliente_nome: string | null;
+  vendedor_usuario_id: string;
+  vendedor_nome: string | null;
+  condicao_pagamento_id: string | null;
+  condicao_pagamento_nome: string | null;
+  desconto_global_percent: number | string | null;
+  acrescimo_cond_pag_percent: number | string | null;
+  valor_frete: number | string | null;
+  total_produtos: number | string | null;
+  total_servicos: number | string | null;
+  total_bruto: number | string | null;
+  total_desconto_global: number | string | null;
+  total_liquido: number | string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrcamentoRow = {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  numero: number;
+  versao: number;
+  codigo: string;
+  status: OrcamentoStatus | string;
+  emissao_date: string;
+  titulo: string;
+  cliente_id: number;
+  vendedor_usuario_id: string;
+  condicao_pagamento_id: string | null;
+  acrescimo_cond_pag_percent: number | string;
+  desconto_global_percent: number | string;
+  valor_frete: number | string;
+  total_produtos: number | string;
+  total_servicos: number | string;
+  total_bruto: number | string;
+  total_desconto_global: number | string;
+  total_liquido: number | string;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type OrcamentoItemRow = {
+  id: string;
+  orcamento_id: string;
+  seq: number;
+  item_id: number;
+  item_tipo: "PRODUTO" | "SERVICO" | string;
+  item_nome: string;
+  unidade: string;
+  quantidade: number | string;
+  valor_unitario: number | string;
+  desconto_item_percent: number | string;
+  acrescimo_cond_pag_percent: number | string;
+  desconto_global_percent: number | string;
+  valor_total_bruto: number | string;
+  valor_total: number | string;
+  valor_unitario_liquido: number | string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConfigOrcamentoRow = {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  margem_lucro_padrao_percent: number | string;
+  desconto_max_percent: number | string;
+  condicao_pagamento_padrao_id: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type CondicaoPagamentoRow = {
+  id: string;
+  tenant_id: string;
+  empresa_id: string;
+  codigo: string;
+  nome: string;
+  acrescimo_percent: number | string;
+  dias: number | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type ClienteLookupRow = { id: number; nome: string | null };
+export type UsuarioLookupRow = { id: string; nome: string | null };
+export type ItemLookupRow = {
+  id: number;
+  nome: string | null;
+  tipo: string | null;
+  unidade_medida: string | null;
+  preco_unitario: number | string | null;
+  ativo: boolean | null;
+};

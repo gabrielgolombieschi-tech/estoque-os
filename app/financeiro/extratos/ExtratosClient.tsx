@@ -141,12 +141,15 @@ export default function ExtratosClient() {
         .order("nome", { ascending: true });
 
       if (contasErr) throw contasErr;
-      const contasMapped = (contasData ?? []).map((r: any) => ({
-        id: String(r.id),
-        codigo: String(r.codigo),
-        nome: String(r.nome),
-        tipo: r.tipo ? String(r.tipo) : null,
-      })) as ContaBancariaRow[];
+      const contasMapped: ContaBancariaRow[] = (contasData ?? []).map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          id: String(r.id),
+          codigo: String(r.codigo),
+          nome: String(r.nome),
+          tipo: r.tipo ? String(r.tipo) : null,
+        };
+      });
       setContas(contasMapped);
 
       const effectiveContaId = opts?.keepSelected ? contaId : contaId || (contasMapped.length === 1 ? contasMapped[0].id : "");
@@ -449,7 +452,7 @@ export default function ExtratosClient() {
             Status
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
+              onChange={(e) => setStatus(e.target.value as "" | "PENDENTE" | "CONCILIADO" | "IGNORADO")}
               aria-label="Status"
               className="mt-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
             >

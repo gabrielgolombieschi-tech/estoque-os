@@ -215,12 +215,6 @@ export default function AdminEmpresasPage() {
     };
   }, [closeModal, modalOpen]);
 
-  useEffect(() => {
-    if (tenantId && !tenantFilter) {
-      setTenantFilter(tenantId);
-    }
-  }, [tenantId, tenantFilter]);
-
   const loadTenants = useCallback(async () => {
     if (tenantEmpresaLoading) return;
     if (!tenantId || !empresaId) {
@@ -292,10 +286,12 @@ export default function AdminEmpresasPage() {
   }, [debouncedSearch, empresaId, supabase, tenantEmpresaLoading, tenantFilter, tenantId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadTenants();
   }, [loadTenants]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -468,7 +464,7 @@ export default function AdminEmpresasPage() {
             <select
               aria-label="Filtrar por tenant"
               className="w-full px-3 py-2"
-              value={tenantFilter}
+              value={tenantFilter || tenantId || ""}
               onChange={(e) => setTenantFilter(e.target.value)}
               disabled={tenantsLoading}
             >

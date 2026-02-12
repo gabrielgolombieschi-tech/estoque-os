@@ -123,15 +123,19 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   }, [effectiveEmpresa, isPainelTv, pathname, router, te.sessionUserId]);
 
   const [openMenu, setOpenMenu] = useState<
-    "os" | "estoque" | "imobilizado" | "financeiro" | "faturamento" | "cadastro" | "admin" | null
+    "os" | "estoque" | "imobilizado" | "financeiro" | "comercial" | "faturamento" | "cadastro" | "admin" | null
   >(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const toggleMenu = (key: "os" | "estoque" | "imobilizado" | "financeiro" | "faturamento" | "cadastro" | "admin" | null) =>
+  const toggleMenu = (
+    key: "os" | "estoque" | "imobilizado" | "financeiro" | "comercial" | "faturamento" | "cadastro" | "admin" | null
+  ) =>
     setOpenMenu((prev) => (prev === key ? null : key));
 
-  const openWithHover = (key: "os" | "estoque" | "imobilizado" | "financeiro" | "faturamento" | "cadastro" | "admin") => {
+  const openWithHover = (
+    key: "os" | "estoque" | "imobilizado" | "financeiro" | "comercial" | "faturamento" | "cadastro" | "admin"
+  ) => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     setOpenMenu(key);
   };
@@ -184,6 +188,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
 
   const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write") || isFinanceiroEmpresaRole;
+  const canAccessComercial = canAccessFinanceiro || canAccessOs;
   const canImportXml = can("xml_import.execute");
   const canImportXmlFaturamento =
     canStrict("xml_import_faturamento.execute") ||
@@ -548,6 +553,49 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             </Link>
                           </div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {canAccessComercial && (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => openWithHover("comercial")}
+                    onMouseLeave={scheduleClose}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("comercial")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
+                    >
+                      Comercial
+                    </button>
+
+                    {openMenu === "comercial" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-64 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("comercial")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        <Link href="/comercial/orcamentos" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Orçamentos
+                        </Link>
+
+                        <div className="border-t border-zinc-800 my-2" />
+                        <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Configurações</div>
+                        <Link
+                          href="/configuracoes/comercial/orcamentos"
+                          className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                        >
+                          Configuração Orçamentos
+                        </Link>
+                        <Link
+                          href="/configuracoes/comercial/condicoes-pagamento"
+                          className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                        >
+                          Condições de Pagamento
+                        </Link>
                       </div>
                     )}
                   </div>

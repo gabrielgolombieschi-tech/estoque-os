@@ -151,8 +151,8 @@ export default function EmpresaUsuariosPage() {
     const payload = { usuario_id: userId, empresa_id: empresaId, papel: "TECNICO" as EmpresaRole, ativo: true };
 
     const { error } = existing?.id
-      ? await supabase.schema("a").from("usuario_empresa").update(payload as any).eq("id", existing.id).is("deleted_at", null)
-      : await supabase.schema("a").from("usuario_empresa").insert(payload as any);
+      ? await supabase.schema("a").from("usuario_empresa").update(payload).eq("id", existing.id).is("deleted_at", null)
+      : await supabase.schema("a").from("usuario_empresa").insert(payload);
     setBusyUserId(null);
     if (error) {
       setErr(error.message);
@@ -174,7 +174,7 @@ export default function EmpresaUsuariosPage() {
     const { error } = await supabase
       .schema("a")
       .from("usuario_empresa")
-      .update({ ativo: false } as any)
+      .update({ ativo: false })
       .eq("id", existing.id)
       .is("deleted_at", null);
     setBusyUserId(null);
@@ -191,7 +191,7 @@ export default function EmpresaUsuariosPage() {
     const { error } = await supabase
       .schema("a")
       .from("usuario_empresa")
-      .update({ papel: role } as any)
+      .update({ papel: role })
       .eq("id", membershipId)
       .is("deleted_at", null);
     if (error) {

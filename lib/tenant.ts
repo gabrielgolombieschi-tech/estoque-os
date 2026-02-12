@@ -8,7 +8,7 @@ type UsuarioTenantRow = { tenant_id: string; papel: string | null; created_at?: 
 function isMissingRpc(error: unknown, rpcName: string) {
   const message =
     typeof error === "object" && error !== null && "message" in error
-      ? String((error as any).message ?? "")
+      ? String((error as { message?: unknown }).message ?? "")
       : String(error ?? "");
   return message.toLowerCase().includes(`could not find the function public.${rpcName}`);
 }

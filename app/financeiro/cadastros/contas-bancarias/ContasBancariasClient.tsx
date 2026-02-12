@@ -134,7 +134,12 @@ export default function ContasBancariasClient() {
       setRows((data ?? []) as unknown as ContaBancariaRow[]);
       setSelectedId((prev) => {
         if (!prev) return prev;
-        return (data ?? []).some((r: any) => String(r.id) === prev) ? prev : null;
+        return (data ?? []).some((r: unknown) => {
+          const row = r as Record<string, unknown>;
+          return String(row.id ?? "") === prev;
+        })
+          ? prev
+          : null;
       });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao carregar contas bancárias.");
@@ -337,7 +342,7 @@ export default function ContasBancariasClient() {
             Tipo
             <select
               value={tipo}
-              onChange={(e) => setTipo(e.target.value as any)}
+              onChange={(e) => setTipo(e.target.value as "" | "BANCO" | "CAIXA")}
               aria-label="Tipo"
               className="mt-1 w-full sm:w-[180px] rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
             >
@@ -591,7 +596,7 @@ export default function ContasBancariasClient() {
                 Tipo
                 <select
                   value={formTipo}
-                  onChange={(e) => setFormTipo(e.target.value as any)}
+                  onChange={(e) => setFormTipo(e.target.value as "BANCO" | "CAIXA")}
                   aria-label="Tipo"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                 >

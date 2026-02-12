@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 
 /**
  * NoSSR ensures children are never server-rendered.
@@ -8,11 +8,13 @@ import { useEffect, useState, type ReactNode } from "react";
  * before client-side auth verification completes.
  */
 export default function NoSSR({ children }: { children: ReactNode }) {
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  const hydrated = useSyncExternalStore(
+    () => () => {
+      // no-op
+    },
+    () => true,
+    () => false
+  );
 
   if (!hydrated) return null;
 

@@ -121,7 +121,12 @@ export default function MotivosCompraClient() {
       setRows((data ?? []) as unknown as MotivoCompraRow[]);
       setSelectedId((prev) => {
         if (!prev) return prev;
-        return (data ?? []).some((r: any) => String(r.id) === prev) ? prev : null;
+        return (data ?? []).some((r: unknown) => {
+          const row = r as Record<string, unknown>;
+          return String(row.id ?? "") === prev;
+        })
+          ? prev
+          : null;
       });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao carregar motivos de compra.");
@@ -619,7 +624,7 @@ export default function MotivosCompraClient() {
               </label>
 
               <div className="sm:col-span-2 text-xs text-zinc-500">
-                Dica: mantenha códigos estáveis para facilitar dashboards e regras automáticas. Use "Exigir OS" para compras diretamente
+                Dica: mantenha códigos estáveis para facilitar dashboards e regras automáticas. Use &quot;Exigir OS&quot; para compras diretamente
                 ligadas a execução.
               </div>
             </div>

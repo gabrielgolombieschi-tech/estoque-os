@@ -208,7 +208,10 @@ export default function AdminUsuariosPage() {
     if (!tenantId) return;
     if (!isAdminTenant) return;
     if (!canManageUsers) return;
-    void load();
+    const t = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => clearTimeout(t);
   }, [adminLoading, canManageUsers, isAdminTenant, load, te.loading, tenantId]);
 
   const closeEdit = useCallback(() => {

@@ -1,8 +1,25 @@
 
 import { applyTenant } from "@/lib/db/scopes";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+type SupabaseErrorLike = {
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+function toSupabaseErrorLike(err: unknown): SupabaseErrorLike {
+  if (!err || typeof err !== "object") return {};
+  const e = err as Record<string, unknown>;
+  return {
+    message: typeof e.message === "string" ? e.message : undefined,
+    details: typeof e.details === "string" ? e.details : undefined,
+    hint: typeof e.hint === "string" ? e.hint : undefined,
+  };
+}
 
 type SyncArgs = {
-  supabase: any;
+  supabase: SupabaseClient;
   tenantId: string;
   empresaId: string | null;
   osId: number;
@@ -20,18 +37,17 @@ function parseHHMMToMinutes(hhmm: string): number | null {
 }
 
 function isMissingColumnError(err: unknown, col?: string): boolean {
-  const msg = typeof err === "object" && err && "message" in err ? String((err as any).message ?? "").toLowerCase() : "";
+  const msg = String(toSupabaseErrorLike(err).message ?? "").toLowerCase();
   if (col) return msg.includes(`column \"${col.toLowerCase()}\"`) && msg.includes("does not exist");
   return msg.includes("column") && msg.includes("does not exist");
 }
 
-function formatSbError(err: any): string {
+function formatSbError(err: unknown): string {
   if (!err) return "Erro desconhecido do Supabase.";
   if (typeof err === "string") return err;
-  if (typeof err === "object") {
-    const parts = [err.message, err.details, err.hint].filter(Boolean);
-    return parts.join(" | ");
-  }
+  const e = toSupabaseErrorLike(err);
+  const parts = [e.message, e.details, e.hint].filter(Boolean);
+  if (parts.length) return parts.join(" | ");
   return String(err);
 }
 
@@ -58,7 +74,7 @@ export async function syncHhToApontamentos({
   const tipoHoraId = tipoHoras.id;
 
   // 2. Delete apontamentos antigos
-  let deleteError = null;
+  let deleteError: unknown | null = null;
   try {
     await supabase
       .from("apontamentos_horas")
@@ -70,7 +86,7 @@ export async function syncHhToApontamentos({
         data: dataISO,
         gerado_por_hh: true,
       });
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (isMissingColumnError(e, "gerado_por_hh")) {
       // Fallback: remover filtro gerado_por_hh
       try {
@@ -112,8 +128,9 @@ export async function syncHhToApontamentos({
   // 4. Inserir um ÚNICO lançamento em apontamentos_horas com total de horas
   // Campos: os_id, colaborador_id, data, tipo_hora_id, horas, gerado_por_hh=true
   // NÃO incluir entrada/saída - apontamentos_horas é simples (apenas quantidade)
-  let payload: any = {
+  const payload: Record<string, unknown> = {
     tenant_id: tenantId,
+    ...(empresaId ? { empresa_id: empresaId } : {}),
     os_id: osId,
     colaborador_id: colaboradorId,
     data: dataISO,
@@ -122,25 +139,24 @@ export async function syncHhToApontamentos({
     gerado_por_hh: true,
     descricao: descricao ?? null,
   };
-  if (empresaId) payload.empresa_id = empresaId;
 
   // Fallbacks para colunas opcionais
-  let insertError = null;
+  let insertError: unknown | null = null;
   try {
     await supabase.from("apontamentos_horas").insert(payload);
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (isMissingColumnError(e, "empresa_id")) {
-      const { empresa_id, ...p2 } = payload;
+      const { empresa_id: _empresa_id, ...p2 } = payload;
       try {
         await supabase.from("apontamentos_horas").insert(p2);
-      } catch (e2: any) {
+      } catch (e2: unknown) {
         if (isMissingColumnError(e2, "descricao")) {
-          const { descricao, ...p3 } = p2;
+          const { descricao: _descricao, ...p3 } = p2;
           try {
             await supabase.from("apontamentos_horas").insert(p3);
-          } catch (e3: any) {
+          } catch (e3: unknown) {
             if (isMissingColumnError(e3, "gerado_por_hh")) {
-              const { gerado_por_hh, ...p4 } = p3;
+              const { gerado_por_hh: _gerado_por_hh, ...p4 } = p3;
               try {
                 await supabase.from("apontamentos_horas").insert(p4);
               } catch (e4) {
@@ -155,12 +171,12 @@ export async function syncHhToApontamentos({
         }
       }
     } else if (isMissingColumnError(e, "descricao")) {
-      const { descricao, ...p2 } = payload;
+      const { descricao: _descricao, ...p2 } = payload;
       try {
         await supabase.from("apontamentos_horas").insert(p2);
-      } catch (e2: any) {
+      } catch (e2: unknown) {
         if (isMissingColumnError(e2, "gerado_por_hh")) {
-          const { gerado_por_hh, ...p3 } = p2;
+          const { gerado_por_hh: _gerado_por_hh, ...p3 } = p2;
           try {
             await supabase.from("apontamentos_horas").insert(p3);
           } catch (e3) {
@@ -171,7 +187,7 @@ export async function syncHhToApontamentos({
         }
       }
     } else if (isMissingColumnError(e, "gerado_por_hh")) {
-      const { gerado_por_hh, ...p2 } = payload;
+      const { gerado_por_hh: _gerado_por_hh, ...p2 } = payload;
       try {
         await supabase.from("apontamentos_horas").insert(p2);
       } catch (e2) {

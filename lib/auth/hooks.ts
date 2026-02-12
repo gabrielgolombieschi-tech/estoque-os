@@ -16,16 +16,16 @@ type AdminState = {
 
 export function useIsAdminTenant(): AdminState {
   const te = useTenantEmpresaContext();
-  const lastKnownRef = useRef(false);
   const requestIdRef = useRef(0);
   const [state, setState] = useState<AdminState>({ isAdmin: false, loading: true });
 
   // Reset only on real sign-out.
   useEffect(() => {
-    if (te.sessionUserId === null) {
-      lastKnownRef.current = false;
+    if (te.sessionUserId !== null) return;
+    const t = setTimeout(() => {
       setState({ isAdmin: false, loading: false });
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, [te.sessionUserId]);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function useIsAdminTenant(): AdminState {
       const isStale = () => requestIdRef.current !== requestId;
 
       if (te.sessionUserId === undefined) {
-        if (active) setState({ isAdmin: lastKnownRef.current, loading: true });
+        if (active) setState((prev) => ({ ...prev, loading: true }));
         return;
       }
 
@@ -60,11 +60,7 @@ export function useIsAdminTenant(): AdminState {
 
       if (usuarioErr || !usuarioRow?.id) {
         if (active) {
-          setState({
-            isAdmin: lastKnownRef.current,
-            loading: false,
-            error: usuarioErr?.message ?? "Usuario nao encontrado.",
-          });
+          setState((prev) => ({ ...prev, loading: false, error: usuarioErr?.message ?? "Usuario nao encontrado." }));
         }
         return;
       }
@@ -83,12 +79,11 @@ export function useIsAdminTenant(): AdminState {
       if (!active || isStale()) return;
 
       if (utErr) {
-        setState({ isAdmin: lastKnownRef.current, loading: false, error: utErr.message });
+        setState((prev) => ({ ...prev, loading: false, error: utErr.message }));
         return;
       }
 
       const nextIsAdmin = Boolean(utRow);
-      lastKnownRef.current = nextIsAdmin;
       setState({ isAdmin: nextIsAdmin, loading: false });
     };
 
@@ -99,5 +94,5 @@ export function useIsAdminTenant(): AdminState {
     };
   }, [te.sessionUserId, te.tenantId]);
 
-  return state.loading ? { ...state, isAdmin: lastKnownRef.current } : state;
+  return state;
 }

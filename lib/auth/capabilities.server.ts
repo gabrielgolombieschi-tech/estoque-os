@@ -10,7 +10,9 @@ const isDev = process.env.NODE_ENV !== "production";
 function getErrorMessage(error: unknown): string {
   if (!error) return "";
   if (typeof error === "string") return error;
-  if (typeof error === "object" && "message" in (error as any)) return String((error as any).message ?? "");
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message?: unknown }).message ?? "");
+  }
   try {
     return JSON.stringify(error);
   } catch {

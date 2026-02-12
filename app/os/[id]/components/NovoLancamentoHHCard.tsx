@@ -1,28 +1,63 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { syncHhToApontamentos } from "@/lib/hh/syncHhToApontamentos";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+function getSbErrorMessage(err: unknown): string {
+  if (!err || typeof err !== "object") return "";
+  const e = err as Record<string, unknown>;
+  return typeof e.message === "string" ? e.message : "";
+}
+
 // Helper para resolver o mapping correto de hh_tipo_id
-async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentual: 0|50|100): Promise<number> {
+async function resolveHhTipoMappingId(
+  supabase: SupabaseClient,
+  tenantId: string,
+  percentual: 0 | 50 | 100
+): Promise<number> {
   const codigoTipo = percentual === 0 ? "NORMAL" : percentual === 50 ? "EXTRA_50" : "EXTRA_100";
   // 1. Buscar tipo_horas.id
   const { data: tipoHoras, error: tipoHorasErr } = await supabase
-    .from("tipos_horas").select("id").eq("codigo", codigoTipo).eq("ativo", true).maybeSingle();
+    .from("tipos_horas")
+    .select("id")
+    .eq("codigo", codigoTipo)
+    .eq("ativo", true)
+    .maybeSingle<{ id: number }>();
   if (tipoHorasErr || !tipoHoras?.id) throw new Error(`Não foi possível resolver tipo_horas para ${codigoTipo}`);
   const tipoHorasId = tipoHoras.id;
+
   // 2. Buscar mapping em hh_tipos_mapping
-  let mapping;
-  let mappingErr;
+  let mapping: { id?: number } | null = null;
+  let mappingErr: unknown = null;
   try {
-    const { data, error } = await supabase.from("hh_tipos_mapping").select("id").eq("tipo_id", tipoHorasId).eq("tenant_id", tenantId).maybeSingle();
+    const { data, error } = await supabase
+      .from("hh_tipos_mapping")
+      .select("id")
+      .eq("tipo_id", tipoHorasId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle<{ id: number }>();
     mapping = data;
     mappingErr = error;
-  } catch (e) {
+  } catch (e: unknown) {
     mapping = null;
     mappingErr = e;
   }
+
   // Fallback para tipo_hora_id se coluna não existir
-  if (mappingErr && /column.*tipo_id.*does not exist/i.test(String(mappingErr?.message))) {
-    const { data, error } = await supabase.from("hh_tipos_mapping").select("id").eq("tipo_hora_id", tipoHorasId).eq("tenant_id", tenantId).maybeSingle();
+  if (mappingErr && /column.*tipo_id.*does not exist/i.test(getSbErrorMessage(mappingErr))) {
+    const { data, error } = await supabase
+      .from("hh_tipos_mapping")
+      .select("id")
+      .eq("tipo_hora_id", tipoHorasId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle<{ id: number }>();
     mapping = data;
     mappingErr = error;
     if (mapping && mapping.id) return mapping.id;
+
     // upsert com tipo_hora_id
     const { data: inserted, error: insertErr } = await supabase
       .from("hh_tipos_mapping")
@@ -31,11 +66,13 @@ async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentua
         { onConflict: "tenant_id,tipo_hora_id" }
       )
       .select("id")
-      .single();
+      .single<{ id: number }>();
     if (insertErr || !inserted?.id) throw insertErr ?? new Error("Falha ao criar mapping (tipo_hora_id)");
     return inserted.id;
   }
+
   if (mapping && mapping.id) return mapping.id;
+
   // 3. Se não existir, upsert idempotente
   const { data: inserted, error: insertErr } = await supabase
     .from("hh_tipos_mapping")
@@ -44,16 +81,10 @@ async function resolveHhTipoMappingId(supabase: any, tenantId: string, percentua
       { onConflict: "tenant_id,tipo_id" }
     )
     .select("id")
-    .single();
+    .single<{ id: number }>();
   if (insertErr || !inserted?.id) throw insertErr ?? new Error("Falha ao criar mapping");
   return inserted.id;
 }
-"use client";
-
-import { useEffect, useMemo, useRef, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
-import { syncHhToApontamentos } from "@/lib/hh/syncHhToApontamentos";
 
 type Option = { value: string; label: string };
 
@@ -375,15 +406,16 @@ export default function NovoLancamentoHHCard({
       );
       if (svcErr) throw svcErr;
 
-      const precoBase = Number((svcData as any)?.preco_base ?? 0);
-      const preco50 = Number((svcData as any)?.preco_50 ?? 0);
-      const preco100 = Number((svcData as any)?.preco_100 ?? 0);
+      const svc = (svcData ?? {}) as Record<string, unknown>;
+      const precoBase = Number(svc.preco_base ?? 0);
+      const preco50 = Number(svc.preco_50 ?? 0);
+      const preco100 = Number(svc.preco_100 ?? 0);
       const valorHoraAplicado = percentual === 0 ? precoBase : percentual === 50 ? preco50 : preco100;
 
       const { data: sess } = await supabase.auth.getSession();
       const userEmail = sess.session?.user?.email ?? null;
 
-      let basePayload: any = {
+      const basePayload: Record<string, unknown> = {
         tenant_id: tenantId,
         empresa_id: empresaId,
         os_id: osId,
@@ -402,8 +434,8 @@ export default function NovoLancamentoHHCard({
         criado_por: userEmail,
       };
       // Estratégia de fallback de colunas
-      let payloadFinal: any = { ...basePayload, hh_especialidade_id: String(servicoId) };
-      let insertError = null;
+      let payloadFinal: Record<string, unknown> = { ...basePayload, hh_especialidade_id: String(servicoId) };
+      let insertError: unknown | null = null;
       try {
         let { error } = await supabase.from("hh_lancamentos").insert(payloadFinal);
         if (error) {
@@ -412,7 +444,7 @@ export default function NovoLancamentoHHCard({
             ({ error } = await supabase.from("hh_lancamentos").insert(payloadFinal));
             if (error) {
               if (isMissingColumn(error, "empresa_id")) {
-                const { empresa_id, ...payloadNoEmpresa } = payloadFinal;
+                const { empresa_id: _empresa_id, ...payloadNoEmpresa } = payloadFinal;
                 ({ error } = await supabase.from("hh_lancamentos").insert(payloadNoEmpresa));
                 if (error) throw error;
               } else {
@@ -420,7 +452,7 @@ export default function NovoLancamentoHHCard({
               }
             }
           } else if (isMissingColumn(error, "empresa_id")) {
-            const { empresa_id, ...payloadNoEmpresa } = payloadFinal;
+            const { empresa_id: _empresa_id, ...payloadNoEmpresa } = payloadFinal;
             ({ error } = await supabase.from("hh_lancamentos").insert(payloadNoEmpresa));
             if (error) throw error;
           } else {

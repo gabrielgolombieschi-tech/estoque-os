@@ -201,13 +201,13 @@ export default function ConfiguracoesClient() {
     };
   }, [ready, te.tenantId]);
 
-  if (canAccess !== true) return null;
-
   const moneyExample = useMemo(() => {
     const v = parseDecimalBR("1234,56");
     const decimals = prefs.defaultMoneyDecimals;
     return formatDecimalBR(v, decimals);
   }, [prefs.defaultMoneyDecimals]);
+
+  if (canAccess !== true) return null;
 
   return (
     <div className="space-y-6">

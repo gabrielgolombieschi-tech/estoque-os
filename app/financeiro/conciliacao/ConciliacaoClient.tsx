@@ -147,7 +147,10 @@ export default function ConciliacaoClient() {
         .order("nome", { ascending: true });
 
       if (contasErr) throw contasErr;
-      const contasMapped = (contasData ?? []).map((r: any) => ({ id: String(r.id), codigo: String(r.codigo), nome: String(r.nome) }));
+      const contasMapped = (contasData ?? []).map((row) => {
+        const r = row as Record<string, unknown>;
+        return { id: String(r.id), codigo: String(r.codigo), nome: String(r.nome) };
+      });
       setContas(contasMapped);
 
       const effectiveContaId = contaId || (contasMapped.length === 1 ? contasMapped[0].id : "");

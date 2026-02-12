@@ -15,6 +15,14 @@ type Body =
       password: string;
     };
 
+function isBody(value: unknown): value is Body {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  if (v.mode === "reset_email") return true;
+  if (v.mode === "set_password") return typeof v.password === "string";
+  return false;
+}
+
 async function requireAdminManageUsers(req: NextRequest) {
   const authorization = req.headers.get("authorization") ?? "";
   if (!authorization) return { ok: false as const, status: 401 as const, error: "Nao autenticado." };
@@ -128,8 +136,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ authUs
     const targetAuthUserId = String(authUserId ?? "").trim();
     if (!targetAuthUserId) return jerr(400, "Usuario invalido.");
 
-    const body = (await req.json().catch(() => null)) as Body | null;
-    if (!body || (body as any).mode == null) return jerr(400, "Body invalido.");
+    const rawBody = (await req.json().catch(() => null)) as unknown;
+    if (!isBody(rawBody)) return jerr(400, "Body invalido.");
+    const body = rawBody;
 
     const inTenant = await ensureTargetInTenant(ctx.admin, ctx.tenantId, targetAuthUserId);
     if (!inTenant.ok) return jerr(inTenant.status, inTenant.error);

@@ -176,7 +176,12 @@ export default function CentroCustoClient() {
       setRows((data ?? []) as unknown as CentroCustoRow[]);
       setSelectedId((prev) => {
         if (!prev) return prev;
-        return (data ?? []).some((r: any) => String(r.id) === prev) ? prev : null;
+        return (data ?? []).some((row) => {
+          const r = row as Record<string, unknown>;
+          return String(r.id) === prev;
+        })
+          ? prev
+          : null;
       });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao carregar centros de custo.");
