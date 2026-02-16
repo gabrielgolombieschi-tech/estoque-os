@@ -42,6 +42,15 @@ function normalizeQ(v: string | null) {
     .trim();
 }
 
+function normalizeSearchTerm(v: string | null) {
+  return String(v ?? "")
+    .trim()
+    .normalize("NFD")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   if (items.length === 0) return [];
   const out: T[][] = [];
@@ -81,6 +90,7 @@ export default function ItensImprimirPage() {
   const codigo = sp.get("codigo");
   const produto = sp.get("produto");
   const fornecedorId = sp.get("fornecedor_id");
+  const fornecedorTerm = sp.get("fornecedor");
   const tipo = sp.get("tipo");
   const finalidade = sp.get("finalidade");
   const ativo = sp.get("ativo"); // "todos" | "ativos" | "inativos"
@@ -121,6 +131,36 @@ export default function ItensImprimirPage() {
         const produtoNorm = String(produto ?? "").trim();
         const qNorm = normalizeQ(q);
 
+        const fornecedorTermRaw = String(fornecedorTerm ?? "").trim();
+        const fornecedorTermNorm = normalizeSearchTerm(fornecedorTerm);
+        let fornecedorIdsByTerm: number[] | null = null;
+        if (!fornecedorId && fornecedorTermNorm) {
+          const { data: fs, error: fErr } = await applyTenant(
+            supabase.from("fornecedores").select("id,nome"),
+            tenantId
+          )
+            .ilike("nome", `%${fornecedorTermRaw}%`)
+            .order("nome", { ascending: true })
+            .limit(2000);
+
+          if (fErr) {
+            fornecedorIdsByTerm = [];
+          } else {
+            const list = (fs ?? []) as unknown as FornecedorRow[];
+            fornecedorIdsByTerm = list
+              .map((r) => Number(r?.id))
+              .filter((v) => Number.isFinite(v));
+          }
+
+          if (!fornecedorIdsByTerm || fornecedorIdsByTerm.length === 0) {
+            setCount(0);
+            setRows([]);
+            setFornecedoresById({});
+            setFornecedorFiltroNome(fornecedorTermRaw || null);
+            return;
+          }
+        }
+
         let qb = supabase
           .from("itens")
           .select("id,codigo_interno,nome,tipo,finalidade,ativo,fornecedor_id", { count: "exact" });
@@ -136,6 +176,8 @@ export default function ItensImprimirPage() {
           const parsed = Number(fornecedorId);
           if (!Number.isFinite(parsed)) throw new Error("Fornecedor inválido.");
           qb = qb.eq("fornecedor_id", parsed);
+        } else if (fornecedorIdsByTerm && fornecedorIdsByTerm.length > 0) {
+          qb = qb.in("fornecedor_id", fornecedorIdsByTerm);
         }
 
         if (tipoNorm) qb = qb.eq("tipo", tipoNorm);
@@ -208,6 +250,8 @@ export default function ItensImprimirPage() {
             if (fErr) setFornecedorFiltroNome("(não encontrado)");
             else setFornecedorFiltroNome(f?.nome ? String(f.nome) : "(não encontrado)");
           }
+        } else if (fornecedorTermRaw) {
+          setFornecedorFiltroNome(fornecedorTermRaw || null);
         } else {
           setFornecedorFiltroNome(null);
         }

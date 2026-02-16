@@ -110,3 +110,16 @@ CREATE TRIGGER trigger_validate_hh_lancamento
   EXECUTE FUNCTION public.validate_hh_lancamento();
 
 COMMIT;
+
+-- ================================
+-- FIX: Movimentações aplicando estoque em dobro
+-- ================================
+-- Sintoma: ao ajustar saldo (ex.: 30 -> 50) o saldo vira 70
+-- Causa: duas triggers AFTER INSERT em public.movimentacoes atualizando public.estoque
+-- Solução: remover a trigger duplicada (mantém apply_movimentacao_estoque)
+
+BEGIN;
+
+DROP TRIGGER IF EXISTS trg_mov_atualiza_estoque ON public.movimentacoes;
+
+COMMIT;
