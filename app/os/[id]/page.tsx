@@ -11,6 +11,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { getOsDetailAccess } from "@/lib/auth/osAccess";
+import { calcHhPedidoTotal } from "@/lib/hh/hhLancamentosCalc";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 
@@ -167,6 +168,7 @@ export default function OsDetailPage() {
   const [gestaoErr, setGestaoErr] = useState<string | null>(null);
   const [maoObraExtra, setMaoObraExtra] = useState<number>(0);
   const [hhTotal, setHhTotal] = useState<number>(0);
+  const [hhPedido, setHhPedido] = useState<number>(0);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteHabilitaHH, setClienteHabilitaHH] = useState(false);
 
@@ -338,7 +340,7 @@ export default function OsDetailPage() {
     // Total:
     // - Se HH habilitado: total de HH (que já inclui mão de obra HH)
     // - Senão: Material + Mão de obra + Impostos
-    const total = hhEnabled ? Number(hhTotal || 0) : materiais + maoObra + impostos;
+    const total = hhEnabled ? Number(hhPedido || 0) : materiais + maoObra + impostos;
 
     return { materiais, maoObra, impostos, total };
   })();
@@ -536,6 +538,24 @@ export default function OsDetailPage() {
       setHhTotal(0);
     } else {
       setHhTotal(Number((hhData as { total_hh?: number | null } | null)?.total_hh ?? 0));
+    }
+
+    // Valor do pedido HH (para bater com PDF): soma(valor_hora * horas_efetivas)
+    // horas_efetivas segue a mesma regra do PDF (2 períodos ou entrada/saída; fallback horas_trabalhadas).
+    try {
+      const { data: hhCalcData, error: hhCalcErr } = await applyTenant(
+        supabase
+          .from("hh_lancamentos")
+          .select("entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,valor_hora,valor_total")
+          .eq("os_id", osId),
+        effectiveTenantId
+      );
+      if (hhCalcErr) throw hhCalcErr;
+
+      setHhPedido(calcHhPedidoTotal((hhCalcData ?? []) as unknown as any[]));
+    } catch (e) {
+      console.warn("[OS detail] hhPedido: fallback", e);
+      setHhPedido(0);
     }
   }
 

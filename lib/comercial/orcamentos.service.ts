@@ -126,7 +126,13 @@ export async function getOrcamento(
 
   if (iErr) throw iErr;
 
-  const itens = (itensRaw ?? []) as OrcamentoItemRow[];
+  const itensAll = (itensRaw ?? []) as OrcamentoItemRow[];
+  const itens = itensAll.filter((it) => {
+    const rec = it as unknown as Record<string, unknown>;
+    if (!("deleted_at" in rec)) return true;
+    const v = rec["deleted_at"];
+    return v === null || v === undefined || v === "";
+  });
   const itemIds = Array.from(new Set(itens.map((it) => Number(it.item_id)).filter((v) => Number.isFinite(v) && v > 0)));
 
   if (!itemIds.length) return { orcamento: orc as OrcamentoRow, itens };
@@ -415,6 +421,22 @@ export async function searchClientes(
   const { data, error } = await query.returns<ClienteLookupRow[]>();
   if (error) throw error;
   return (data ?? []) as ClienteLookupRow[];
+}
+
+export async function getClienteById(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; clienteId: number }
+): Promise<ClienteLookupRow | null> {
+  const id = Number(params.clienteId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  const { data, error } = await applyTenantEmpresa(
+    supabase.from("clientes").select("id,nome").eq("id", id).maybeSingle<ClienteLookupRow>(),
+    params.tenantId,
+    params.empresaId
+  );
+  if (error) throw error;
+  return data?.id ? (data as ClienteLookupRow) : null;
 }
 
 export async function searchItens(

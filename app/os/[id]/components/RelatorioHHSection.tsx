@@ -533,6 +533,7 @@ async function gerarRelatorioPDF(
     ]);
 
     // Tabela 1
+    const totalRowIndex = bodyLancamentos.length - 1;
     autoTable.default(doc, {
       startY: topStartY,
       head: [headRowLancamentos],
@@ -543,6 +544,32 @@ async function gerarRelatorioPDF(
         lineWidth: 0.1,
         lineColor: [220, 220, 220],
         overflow: "linebreak",
+      },
+      didParseCell: (data: any) => {
+        // Destaque profissional na linha TOTAL
+        if (data?.section !== "body") return;
+        if (data?.row?.index !== totalRowIndex) return;
+        data.cell.styles.fontStyle = "bold";
+        // Cinza bem suave (mais perceptível, porém profissional)
+        data.cell.styles.fillColor = [238, 240, 243];
+        data.cell.styles.textColor = [20, 20, 20];
+        data.cell.styles.lineWidth = 0.2;
+        data.cell.styles.fontSize = 9;
+      },
+      didDrawCell: (data: any) => {
+        // Linha superior mais grossa para separar o TOTAL
+        if (data?.section !== "body") return;
+        if (data?.row?.index !== totalRowIndex) return;
+        if (data?.column?.index !== 0) return;
+
+        const startX = Number(data.table?.startX ?? 0);
+        const width = Number(data.table?.width ?? 0);
+        const y = Number(data.cell?.y ?? 0);
+        if (!Number.isFinite(startX) || !Number.isFinite(width) || !Number.isFinite(y) || width <= 0) return;
+
+        doc.setDrawColor(140, 140, 140);
+        doc.setLineWidth(0.6);
+        doc.line(startX, y, startX + width, y);
       },
       columnStyles: {
         0: { cellWidth: 62 }, // Funcionário

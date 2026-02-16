@@ -8,6 +8,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { useSessionReady } from "@/lib/auth/useSessionReady";
 import { getOsListAccess } from "@/lib/auth/osAccess";
+import { getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh: boolean };
 
@@ -40,6 +41,19 @@ type MaoObraRow = {
 type HHTotalRow = {
   os_id: number;
   total_hh: number | null;
+};
+
+type HhLancamentoTotalRow = {
+  os_id: number;
+  entrada_1: string | null;
+  saida_1: string | null;
+  entrada_2: string | null;
+  saida_2: string | null;
+  hora_entrada: string | null;
+  hora_saida: string | null;
+  horas_trabalhadas: number | null;
+  valor_hora: number | null;
+  valor_total: number | null;
 };
 
 type OsClienteRow = {
@@ -139,6 +153,7 @@ export default function OsListPage() {
   const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
   const [materiaisPorOs, setMateriaisPorOs] = useState<Record<number, number>>({});
   const [hhTotalPorOs, setHhTotalPorOs] = useState<Record<number, number>>({});
+  const [hhPedidoPorOs, setHhPedidoPorOs] = useState<Record<number, number>>({});
 
   // criacao
   const [creating, setCreating] = useState(false);
@@ -272,6 +287,7 @@ export default function OsListPage() {
     setMaoObraPorOs({});
     setMateriaisPorOs({});
     setHhTotalPorOs({});
+    setHhPedidoPorOs({});
     logDebug("[OS] load:start", {
       tenantId,
       empresaId,
@@ -390,6 +406,53 @@ export default function OsListPage() {
         hhTotals[osId] = Number(row.total_hh ?? 0);
       });
       setHhTotalPorOs(hhTotals);
+
+      // Valor do pedido HH calculado (para bater com PDF): soma(valor_hora * horas_efetivas)
+      // horas_efetivas segue a mesma regra do PDF (2 períodos ou entrada/saída; fallback horas_trabalhadas).
+      try {
+        const hhOsIds = osList
+          .filter((r) => Boolean(r.usa_relatorio_hh))
+          .map((r) => Number(r.id))
+          .filter((v) => Number.isFinite(v) && v > 0);
+
+        if (hhOsIds.length === 0) {
+          setHhPedidoPorOs({});
+        } else {
+          const { data: hhCalcData, error: hhCalcErr } = await applyTenantEmpresa(
+            supabase
+              .from("hh_lancamentos")
+              .select(
+                "os_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,valor_hora,valor_total"
+              )
+              .in("os_id", hhOsIds),
+            effectiveTenantId,
+            effectiveEmpresaId
+          );
+          if (reqId !== osReqIdRef.current) return;
+          if (hhCalcErr) throw hhCalcErr;
+
+          const pedidoTotals: Record<number, number> = {};
+          ((hhCalcData ?? []) as HhLancamentoTotalRow[]).forEach((row) => {
+            const osId = Number(row.os_id);
+            if (!Number.isFinite(osId)) return;
+
+            const horasEfetivas = getHorasTrabalhadasEfetivas(row);
+            const total = getValorTotalEfetivo(row, horasEfetivas);
+            pedidoTotals[osId] = (pedidoTotals[osId] ?? 0) + (Number.isFinite(total) ? total : 0);
+          });
+
+          Object.keys(pedidoTotals).forEach((k) => {
+            const osId = Number(k);
+            const v = pedidoTotals[osId] ?? 0;
+            pedidoTotals[osId] = Math.round(v * 100) / 100;
+          });
+
+          setHhPedidoPorOs(pedidoTotals);
+        }
+      } catch (e) {
+        console.warn("[OS] hhPedidoPorOs: fallback", e);
+        setHhPedidoPorOs({});
+      }
     }
     if (reqId === osReqIdRef.current) {
       logDebug("[OS] load:end", { reqId, rowsCount: (data ?? []).length, hasItens: osIds.length > 0 });
@@ -785,15 +848,16 @@ export default function OsListPage() {
                 </td>
 
                 {(() => {
-                  const clienteHabilita = r.cliente_id ? Boolean(clientesById[r.cliente_id]?.habilita_hh) : false;
-                  const hhEnabled = clienteHabilita && Boolean(r.usa_relatorio_hh);
+                  // HH deve depender da flag da OS; alguns perfis podem não ter SELECT em `clientes`.
+                  const hhEnabled = Boolean(r.usa_relatorio_hh);
                   const materiais = materiaisPorOs[r.id] ?? 0;
                   const maoObraExtra = maoObraPorOs[r.id] ?? 0;
-                  const hhTotal = hhTotalPorOs[r.id] ?? 0;
+                  const hhBruto = hhTotalPorOs[r.id] ?? 0;
+                  const hhPedido = hhPedidoPorOs[r.id] ?? hhBruto;
 
                   let impostos = 0;
                   if (hhEnabled) {
-                    impostos = hhTotal * 0.19;
+                    impostos = hhBruto * 0.19;
                   } else if (materiais > 0) {
                     impostos = materiais * 0.21;
                   } else {
@@ -802,7 +866,7 @@ export default function OsListPage() {
 
                   const custo = materiais + maoObraExtra + impostos;
                   const pedidoCadastro = Number(r.orcado ?? 0);
-                  const pedidoCalculado = hhEnabled ? hhTotal : pedidoCadastro;
+                  const pedidoCalculado = hhEnabled ? hhPedido : pedidoCadastro;
                   const pedido = hideValorPedido ? 0 : pedidoCalculado;
 
                   let custoClass = "text-emerald-300 border-emerald-500/40";

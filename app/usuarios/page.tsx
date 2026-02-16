@@ -485,7 +485,7 @@ export default function UsuariosPage() {
 
       {showCreate && (
         <div
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => e.target === e.currentTarget && closeCreate()}
         >
           <div
@@ -591,7 +591,7 @@ export default function UsuariosPage() {
 
       {editing && (
         <div
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => e.target === e.currentTarget && closeEdit()}
         >
           <div
@@ -676,7 +676,7 @@ export default function UsuariosPage() {
 
       {resetting && (
         <div
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => e.target === e.currentTarget && closeReset()}
         >
           <div

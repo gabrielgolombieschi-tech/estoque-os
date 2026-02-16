@@ -224,7 +224,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
 
   return (
     <div
-      className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4"
+      className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="presentation"
     >

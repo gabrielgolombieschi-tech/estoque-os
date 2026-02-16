@@ -1325,7 +1325,7 @@ export default function ItensPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4" onClick={(e) => e.target === e.currentTarget && closeForm()}>
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4" onClick={(e) => e.target === e.currentTarget && closeForm()}>
           <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-[fadeIn_150ms_ease-out]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
               <div>

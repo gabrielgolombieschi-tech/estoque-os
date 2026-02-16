@@ -14,8 +14,8 @@ import {
   addItem,
   cancelarOrcamento,
   createOrcamento,
-  deleteItem,
   finalizarOrcamento,
+  getClienteById,
   getItemById,
   getOrcamento,
   getOrcamentoConfig,
@@ -211,6 +211,21 @@ function closedNewDialog(): NewDialogState {
   return { open: false };
 }
 
+type EditClienteDialogState =
+  | { open: false }
+  | {
+      open: true;
+      busy: boolean;
+      error: string | null;
+      clienteTerm: string;
+      clienteResults: Array<{ id: number; nome: string | null }>;
+      clienteId: number | null;
+    };
+
+function closedEditClienteDialog(): EditClienteDialogState {
+  return { open: false };
+}
+
 export default function OrcamentoPage() {
   const params = useParams();
   const rawId = (params as Record<string, string | string[] | undefined>)?.id;
@@ -240,6 +255,7 @@ export default function OrcamentoPage() {
   const [orc, setOrc] = useState<OrcamentoRow | null>(null);
   const [itens, setItens] = useState<OrcamentoItemRow[]>([]);
   const [form, setForm] = useState<OrcamentoForm | null>(null);
+  const [clienteNome, setClienteNome] = useState<string | null>(null);
 
   const [cfgDescontoMax, setCfgDescontoMax] = useState<number>(0);
   const [cfgCondPadraoId, setCfgCondPadraoId] = useState<string | null>(null);
@@ -249,6 +265,9 @@ export default function OrcamentoPage() {
 
   const [newDialog, setNewDialog] = useState<NewDialogState>(closedNewDialog);
   const newClienteReqRef = useRef(0);
+
+  const [editClienteDialog, setEditClienteDialog] = useState<EditClienteDialogState>(closedEditClienteDialog);
+  const editClienteReqRef = useRef(0);
 
   const [itemDialog, setItemDialog] = useState<ItemDialogState>(closedItemDialog);
   const [inlineItemId, setInlineItemId] = useState<string>("");
@@ -346,6 +365,7 @@ export default function OrcamentoPage() {
       setOrc(null);
       setItens([]);
       setForm(null);
+      setClienteNome(null);
       return;
     }
 
@@ -354,6 +374,7 @@ export default function OrcamentoPage() {
       setOrc(null);
       setItens([]);
       setForm(null);
+      setClienteNome(null);
       return;
     }
 
@@ -363,6 +384,15 @@ export default function OrcamentoPage() {
       setOrc(orcamento);
       setItens(itens);
       setForm(formFromRow(orcamento));
+
+      try {
+        const cli = orcamento?.cliente_id
+          ? await getClienteById(supabase, { tenantId, empresaId, clienteId: orcamento.cliente_id })
+          : null;
+        setClienteNome(cli?.nome ?? null);
+      } catch {
+        setClienteNome(null);
+      }
 
       // Prefer the human-friendly codigo in the URL.
       if (
@@ -377,6 +407,7 @@ export default function OrcamentoPage() {
       setOrc(null);
       setItens([]);
       setForm(null);
+      setClienteNome(null);
     } finally {
       setLoading(false);
     }
@@ -447,6 +478,35 @@ export default function OrcamentoPage() {
 
     return () => clearTimeout(t);
   }, [empresaId, newDialog, supabase, tenantId]);
+
+  // search clientes in edit-cliente dialog
+  useEffect(() => {
+    if (!editClienteDialog.open) return;
+    if (!supabase || !tenantId || !empresaId) return;
+
+    const term = editClienteDialog.clienteTerm.trim();
+    const reqId = ++editClienteReqRef.current;
+    const t = setTimeout(async () => {
+      try {
+        if (!term) {
+          if (reqId === editClienteReqRef.current) {
+            setEditClienteDialog((p) => (p.open ? { ...p, clienteResults: [] } : p));
+          }
+          return;
+        }
+        const res = await searchClientes(supabase, { tenantId, empresaId, term });
+        if (reqId === editClienteReqRef.current) {
+          setEditClienteDialog((p) => (p.open ? { ...p, clienteResults: res } : p));
+        }
+      } catch {
+        if (reqId === editClienteReqRef.current) {
+          setEditClienteDialog((p) => (p.open ? { ...p, clienteResults: [] } : p));
+        }
+      }
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [editClienteDialog, empresaId, supabase, tenantId]);
 
   // inline: buscar item por código (id)
   useEffect(() => {
@@ -866,6 +926,62 @@ export default function OrcamentoPage() {
     }
   }, [empresaId, newDialog, router, supabase, tenantId]);
 
+  const openEditCliente = useCallback(() => {
+    if (!orc?.id || !form) return;
+    if (!supabase || !tenantId || !empresaId) return;
+    if (readOnly || !canWrite) return;
+
+    setEditClienteDialog({
+      open: true,
+      busy: false,
+      error: null,
+      clienteTerm: clienteNome ?? "",
+      clienteResults: [],
+      clienteId: form.cliente_id ?? orc.cliente_id ?? null,
+    });
+  }, [canWrite, clienteNome, empresaId, form, orc?.cliente_id, orc?.id, readOnly, supabase, tenantId]);
+
+  const closeEditCliente = useCallback(() => {
+    setEditClienteDialog(closedEditClienteDialog());
+  }, []);
+
+  const submitEditCliente = useCallback(async () => {
+    if (!editClienteDialog.open) return;
+    if (!orc?.id || !form) return;
+    if (!supabase || !tenantId || !empresaId) return;
+    if (readOnly || !canWrite) return;
+
+    const clienteId = editClienteDialog.clienteId;
+    if (!clienteId) {
+      setEditClienteDialog((p) => (p.open ? { ...p, error: "Selecione um cliente." } : p));
+      return;
+    }
+
+    setEditClienteDialog((p) => (p.open ? { ...p, busy: true, error: null } : p));
+    setErr(null);
+    setOk(null);
+    try {
+      await updateOrcamento(supabase, { tenantId, empresaId, id: orc.id, patch: { cliente_id: clienteId } });
+
+      setOrc((p) => (p ? { ...p, cliente_id: clienteId } : p));
+      setForm((p) => (p ? { ...p, cliente_id: clienteId } : p));
+
+      try {
+        const cli = await getClienteById(supabase, { tenantId, empresaId, clienteId });
+        setClienteNome(cli?.nome ?? null);
+      } catch {
+        // keep previous name if lookup fails
+      }
+
+      setOk("Cliente atualizado.");
+      setEditClienteDialog(closedEditClienteDialog());
+    } catch (e: unknown) {
+      setEditClienteDialog((p) =>
+        p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao atualizar cliente.") } : p
+      );
+    }
+  }, [canWrite, editClienteDialog, empresaId, form, orc?.id, readOnly, supabase, tenantId]);
+
   const saveHeader = useCallback(
     async (e?: FormEvent) => {
       e?.preventDefault();
@@ -1148,7 +1264,13 @@ export default function OrcamentoPage() {
       setErr(null);
       setOk(null);
       try {
-        await deleteItem(supabase, { tenantId, empresaId, id: it.id });
+        const { error } = await supabase
+          .schema("m")
+          .from("orcamento_item")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", it.id);
+
+        if (error) throw error;
         setOk("Item excluído.");
         await reload();
       } catch (e: unknown) {
@@ -1447,6 +1569,19 @@ export default function OrcamentoPage() {
                 <>
                   <span className="font-medium text-zinc-200">{orc.codigo}</span>
                   {orc?.versao ? <span className="text-zinc-500"> v{orc.versao}</span> : null}
+                  {clienteNome ? (
+                    readOnly || !canWrite ? (
+                      <span className="text-zinc-400"> — {clienteNome}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openEditCliente}
+                        className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                      >
+                        {` — ${clienteNome}`}
+                      </button>
+                    )
+                  ) : null}
                 </>
               ) : (
                 <span>Novo</span>
@@ -1956,6 +2091,95 @@ export default function OrcamentoPage() {
                 className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
               >
                 Criar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editClienteDialog.open && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4"
+          onClick={(e) => e.target === e.currentTarget && closeEditCliente()}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Alterar cliente"
+            className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
+              <div className="font-semibold text-zinc-100">Alterar cliente</div>
+              <div className="text-xs text-zinc-400 mt-1">Busque e selecione o novo cliente do orçamento.</div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {editClienteDialog.error && <div className="text-sm text-red-400">{editClienteDialog.error}</div>}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="block text-xs text-zinc-400 md:col-span-2">
+                  Cliente (busca)
+                  <input
+                    value={editClienteDialog.clienteTerm}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) => (p.open ? { ...p, clienteTerm: e.target.value, error: null } : p))
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Digite nome ou ID..."
+                    disabled={editClienteDialog.busy}
+                  />
+                </label>
+
+                <div className="md:col-span-2">
+                  <div className="text-xs text-zinc-400 mb-1">Resultados</div>
+                  <div className="max-h-48 overflow-auto border border-zinc-800 rounded-md">
+                    {editClienteDialog.clienteResults.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-zinc-500">Sem resultados.</div>
+                    ) : (
+                      editClienteDialog.clienteResults.map((c) => (
+                        <button
+                          type="button"
+                          key={c.id}
+                          onClick={() =>
+                            setEditClienteDialog((p) =>
+                              p.open ? { ...p, clienteId: c.id, clienteTerm: c.nome ?? String(c.id), error: null } : p
+                            )
+                          }
+                          disabled={editClienteDialog.busy}
+                          className={
+                            editClienteDialog.clienteId === c.id
+                              ? "w-full text-left px-3 py-2 text-sm bg-zinc-900/60"
+                              : "w-full text-left px-3 py-2 text-sm hover:bg-zinc-900/40"
+                          }
+                        >
+                          <span className="text-zinc-200">{c.nome ?? `#${c.id}`}</span>
+                          <span className="text-zinc-500"> — #{c.id}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-zinc-900/80 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEditCliente}
+                disabled={editClienteDialog.busy}
+                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitEditCliente()}
+                disabled={editClienteDialog.busy}
+                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+              >
+                Alterar
               </button>
             </div>
           </div>
