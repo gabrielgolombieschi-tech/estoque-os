@@ -58,6 +58,7 @@ export type OrcamentoItemRow = {
   orcamento_id: string;
   seq: number;
   item_id: number;
+  item_codigo_interno?: string | null;
   item_tipo: "PRODUTO" | "SERVICO" | string;
   item_nome: string;
   unidade: string;

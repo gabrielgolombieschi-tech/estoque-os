@@ -248,7 +248,7 @@ export default function ItensPage() {
   const [draftFilterId, setDraftFilterId] = useState("");
   const [draftFilterCodigo, setDraftFilterCodigo] = useState("");
   const [draftFilterProduto, setDraftFilterProduto] = useState("");
-  const [draftFilterFornecedorId, setDraftFilterFornecedorId] = useState("");
+  const [draftFilterFornecedor, setDraftFilterFornecedor] = useState("");
   const [draftFilterTipo, setDraftFilterTipo] = useState<"" | Item["tipo"]>("");
   const [draftFilterFinalidade, setDraftFilterFinalidade] = useState<"" | ItemFinalidade>("");
   const [draftFilterAtivo, setDraftFilterAtivo] = useState<"todos" | "ativos">("todos");
@@ -256,7 +256,7 @@ export default function ItensPage() {
   const [filterId, setFilterId] = useState("");
   const [filterCodigo, setFilterCodigo] = useState("");
   const [filterProduto, setFilterProduto] = useState("");
-  const [filterFornecedorId, setFilterFornecedorId] = useState("");
+  const [filterFornecedor, setFilterFornecedor] = useState("");
   const [filterTipo, setFilterTipo] = useState<"" | Item["tipo"]>("");
   const [filterFinalidade, setFilterFinalidade] = useState<"" | ItemFinalidade>("");
   const [filterAtivo, setFilterAtivo] = useState<"todos" | "ativos">("todos");
@@ -289,7 +289,7 @@ export default function ItensPage() {
 
     const qCompat = [codigo, produto].filter(Boolean).join(" ").trim();
     if (qCompat) params.set("q", qCompat);
-    if (filterFornecedorId) params.set("fornecedor_id", filterFornecedorId);
+    if (filterFornecedor.trim()) params.set("fornecedor", filterFornecedor.trim());
     if (filterTipo) params.set("tipo", filterTipo);
     if (filterFinalidade) params.set("finalidade", filterFinalidade);
     if (filterAtivo !== "todos") params.set("ativo", filterAtivo);
@@ -403,9 +403,42 @@ export default function ItensPage() {
         query = query.ilike("nome", `%${produto}%`);
       }
 
-      if (filterFornecedorId) {
-        const fornecedorId = Number.parseInt(filterFornecedorId, 10);
-        if (Number.isFinite(fornecedorId)) query = query.eq("fornecedor_id", fornecedorId);
+      const fornecedorTerm = filterFornecedor.trim();
+      if (fornecedorTerm) {
+        const norm = (s: string) =>
+          s
+            .normalize("NFD")
+            // eslint-disable-next-line no-control-regex
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+
+        // Use the cached fornecedores list when available; otherwise, fetch it to avoid
+        // returning empty results just because the page hasn't loaded fornecedores yet.
+        let baseFornecedores = fornecedores;
+        if (baseFornecedores.length === 0) {
+          const { data } = await applyTenant(
+            supabase.from("fornecedores").select("id,nome,ativo"),
+            tenantId
+          )
+            .eq("ativo", true)
+            .order("nome", { ascending: true })
+            .limit(1000);
+          baseFornecedores = (data ?? []) as unknown as Fornecedor[];
+        }
+
+        const term = norm(fornecedorTerm);
+        const ids = baseFornecedores
+          .filter((f) => norm(String(f.nome ?? "")).includes(term))
+          .map((f) => f.id)
+          .filter((v) => Number.isFinite(v));
+
+        if (ids.length === 0) {
+          setRows([]);
+          setTotalCount(0);
+          return;
+        }
+
+        query = query.in("fornecedor_id", ids);
       }
 
       if (filterTipo) query = query.eq("tipo", filterTipo);
@@ -542,7 +575,7 @@ export default function ItensPage() {
     filterId,
     filterCodigo,
     filterProduto,
-    filterFornecedorId,
+    filterFornecedor,
     filterTipo,
     filterFinalidade,
     filterAtivo,
@@ -553,7 +586,7 @@ export default function ItensPage() {
     setDraftFilterId("");
     setDraftFilterCodigo("");
     setDraftFilterProduto("");
-    setDraftFilterFornecedorId("");
+    setDraftFilterFornecedor("");
     setDraftFilterTipo("");
     setDraftFilterFinalidade("");
     setDraftFilterAtivo("todos");
@@ -561,7 +594,7 @@ export default function ItensPage() {
     setFilterId("");
     setFilterCodigo("");
     setFilterProduto("");
-    setFilterFornecedorId("");
+    setFilterFornecedor("");
     setFilterTipo("");
     setFilterFinalidade("");
     setFilterAtivo("todos");
@@ -901,7 +934,7 @@ export default function ItensPage() {
           setFilterId(draftFilterId);
           setFilterCodigo(draftFilterCodigo);
           setFilterProduto(draftFilterProduto);
-          setFilterFornecedorId(draftFilterFornecedorId);
+          setFilterFornecedor(draftFilterFornecedor);
           setFilterTipo(draftFilterTipo);
           setFilterFinalidade(draftFilterFinalidade);
           setFilterAtivo(draftFilterAtivo);
@@ -964,25 +997,25 @@ export default function ItensPage() {
 
           <div className="space-y-1">
             <div className="text-xs text-zinc-400">Fornecedor</div>
-            <select
-              aria-label="Filtrar por fornecedor"
+            <input
+              aria-label="Filtrar por fornecedor (digite para buscar)"
+              list="fornecedor-options"
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-              value={draftFilterFornecedorId}
-              onChange={(e) => setDraftFilterFornecedorId(e.target.value)}
+              value={draftFilterFornecedor}
+              onChange={(e) => setDraftFilterFornecedor(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   filtrosFormRef.current?.requestSubmit();
                 }
               }}
-            >
-              <option value="">Todos</option>
+              placeholder='Ex: "siemens"'
+            />
+            <datalist id="fornecedor-options">
               {fornecedores.map((f) => (
-                <option key={f.id} value={String(f.id)}>
-                  {f.nome}
-                </option>
+                <option key={f.id} value={String(f.nome ?? "").trim()} />
               ))}
-            </select>
+            </datalist>
           </div>
 
           <div className="space-y-1">

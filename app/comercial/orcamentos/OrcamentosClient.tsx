@@ -419,14 +419,18 @@ export default function OrcamentosClient() {
                 </tr>
               )}
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-zinc-900/60 hover:bg-zinc-900/30">
+                <tr
+                  key={r.id}
+                  className="border-t border-zinc-900/60 hover:bg-zinc-900/30 cursor-pointer"
+                  onClick={() => router.push(`/comercial/orcamentos/${encodeURIComponent(r.codigo ?? r.id)}`)}
+                >
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <Link href={`/comercial/orcamentos/${r.id}`} className="underline hover:text-zinc-100">
+                    <span className="underline decoration-zinc-700/60 underline-offset-2 hover:text-zinc-100">
                       {r.codigo}
-                    </Link>
+                    </span>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{formatDateBR(r.emissao_date)}</td>
-                  <td className="px-3 py-2 min-w-[260px]">{r.titulo}</td>
+                  <td className="px-3 py-2 whitespace-normal break-words">{r.titulo}</td>
                   <td className="px-3 py-2">{r.cliente_nome ?? `#${r.cliente_id}`}</td>
                   <td className="px-3 py-2">{r.vendedor_nome ?? "-"}</td>
                   <td className="px-3 py-2">{r.condicao_pagamento_nome ?? "-"}</td>
@@ -434,15 +438,12 @@ export default function OrcamentosClient() {
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(r.total_liquido))}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <div className="inline-flex items-center gap-2">
-                      <Link
-                        href={`/comercial/orcamentos/${r.id}`}
-                        className="px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900"
-                      >
-                        Editar
-                      </Link>
                       <button
                         type="button"
-                        onClick={() => void doFinalizar(r)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void doFinalizar(r);
+                        }}
                         disabled={!canWrite || busy || String(r.status).toUpperCase() !== "RASCUNHO"}
                         className="px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 disabled:opacity-60"
                       >
@@ -450,7 +451,10 @@ export default function OrcamentosClient() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void doCancelar(r)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void doCancelar(r);
+                        }}
                         disabled={!canWrite || busy || String(r.status).toUpperCase() !== "RASCUNHO"}
                         className="px-3 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 disabled:opacity-60"
                       >
@@ -458,7 +462,10 @@ export default function OrcamentosClient() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void doExcluir(r)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void doExcluir(r);
+                        }}
                         disabled={!canDelete || busy}
                         className="px-3 py-1.5 rounded-md border border-red-900/60 bg-red-950/40 hover:bg-red-950/70 text-red-200 disabled:opacity-60"
                       >

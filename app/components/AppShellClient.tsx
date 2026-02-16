@@ -31,6 +31,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const isFullWidth =
     pathname === "/itens" ||
     pathname === "/itens/imprimir" ||
+    pathname === "/comercial/orcamentos" ||
     pathname === "/financeiro/contas-pagar/aprovacoes" ||
     pathname === "/financeiro/impostos" ||
     pathname === "/financeiro/contas_pagar_receber" ||

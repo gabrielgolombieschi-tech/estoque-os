@@ -7,8 +7,8 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
-import { formatMoneyBR } from "@/lib/decimal";
-import type { ItemLookupRow, OrcamentoItemRow, OrcamentoRow, OrcamentoStatus, UsuarioLookupRow } from "@/lib/comercial/types";
+import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
+import type { OrcamentoItemRow, OrcamentoRow, OrcamentoStatus, UsuarioLookupRow } from "@/lib/comercial/types";
 import { isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
   addItem,
@@ -16,16 +16,43 @@ import {
   createOrcamento,
   deleteItem,
   finalizarOrcamento,
+  getItemById,
   getOrcamento,
   getOrcamentoConfig,
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
   listVendedores,
   searchClientes,
-  searchItens,
   updateItem,
   updateOrcamento,
 } from "@/lib/comercial/orcamentos.service";
+
+import type { ItemByIdRow } from "@/lib/comercial/orcamentos.service";
+
+type ItemLookupBaseRow = {
+  id: number;
+  codigo_interno: string | null;
+  nome: string | null;
+  preco_unitario: number | null;
+  fornecedores?: { nome?: string | null } | null;
+};
+
+type MovRow = { item_id: number; data_movimentacao: string };
+type EstoqueRow = { item_id: number; quantidade_atual: number | null };
+
+type ItemLookupRow = {
+  id: number;
+  codigo_interno: string | null;
+  nome: string | null;
+  fornecedor: string | null;
+  ultima_entrada: string | null;
+  preco_unitario: number | null;
+  estoque_atual: number | null;
+};
+
+type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
+type SortDir = "asc" | "desc";
+type SortValue = string | number | null;
 
 type ConfirmOptions = {
   title: string;
@@ -146,14 +173,11 @@ type ItemDialogState =
     }
   | {
       open: true;
-      mode: "add" | "edit";
-      itemTerm: string;
-      itemResults: ItemLookupRow[];
-      selectedItem: ItemLookupRow | null;
       quantidade: string;
       valorUnitario: string;
       descontoItemPercent: string;
-      editingId: string | null;
+      editingId: string;
+      itemNome: string;
       busy: boolean;
       error: string | null;
     };
@@ -212,22 +236,54 @@ export default function OrcamentoPage() {
 
   const [cfgDescontoMax, setCfgDescontoMax] = useState<number>(0);
   const [cfgCondPadraoId, setCfgCondPadraoId] = useState<string | null>(null);
-  const [condicoes, setCondicoes] = useState<Array<{ id: string; nome: string | null }>>([]);
+  const [cfgMargemLucroPadraoPercent, setCfgMargemLucroPadraoPercent] = useState<number>(0);
+  const [condicoes, setCondicoes] = useState<Array<{ id: string; nome: string | null; acrescimo_percent: number | string | null }>>([]);
   const [vendedores, setVendedores] = useState<UsuarioLookupRow[]>([]);
 
   const [newDialog, setNewDialog] = useState<NewDialogState>(closedNewDialog);
   const newClienteReqRef = useRef(0);
 
   const [itemDialog, setItemDialog] = useState<ItemDialogState>(closedItemDialog);
-  const itemReqRef = useRef(0);
+  const [inlineItemId, setInlineItemId] = useState<string>("");
+  const [inlineItem, setInlineItem] = useState<ItemByIdRow | null>(null);
+  const [inlineQuantidade, setInlineQuantidade] = useState<string>("1");
+  const [inlineValorUnitario, setInlineValorUnitario] = useState<string>("0");
+  const [inlineDesconto, setInlineDesconto] = useState<string>("0");
+  const [inlineBusy, setInlineBusy] = useState<boolean>(false);
+  const [inlineErr, setInlineErr] = useState<string | null>(null);
+  const [inlineEditingItemId, setInlineEditingItemId] = useState<string | null>(null);
+  const [inlineEstoqueAtual, setInlineEstoqueAtual] = useState<number | null>(null);
+  const inlineMode = inlineEditingItemId ? "edit" : "add";
+  const inlineFormRef = useRef<HTMLDivElement | null>(null);
+  const inlineItemReqRef = useRef(0);
+
+  const [estoqueByItemId, setEstoqueByItemId] = useState<Record<number, number>>({});
+
+  const [showLookup, setShowLookup] = useState(false);
+  const [lookupNome, setLookupNome] = useState("");
+  const [lookupFornecedor, setLookupFornecedor] = useState("");
+  const [lookupRows, setLookupRows] = useState<ItemLookupRow[]>([]);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupErr, setLookupErr] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const status = String(orc?.status ?? "").toUpperCase() as OrcamentoStatus | string;
   const readOnly = isOrcamentoReadOnly(status);
 
+  const inlineAcrescimoCondPagPercent = useMemo(() => {
+    const id = form?.condicao_pagamento_id ?? null;
+    if (!id) return 0;
+    const found = condicoes.find((c) => c.id === id);
+    const acresc = n(found?.acrescimo_percent);
+    return Number.isFinite(acresc) ? acresc : 0;
+  }, [condicoes, form?.condicao_pagamento_id]);
+
   const loadLookups = useCallback(async () => {
     if (!supabase || !tenantId || !empresaId) return;
+    if (te.loading || te.refreshing) return;
 
     try {
       const [cfg, cps, vends] = await Promise.all([
@@ -237,22 +293,38 @@ export default function OrcamentoPage() {
       ]);
       setCfgDescontoMax(n(cfg.desconto_max_percent));
       setCfgCondPadraoId(cfg.condicao_pagamento_padrao_id ?? null);
-      setCondicoes(cps.map((c) => ({ id: c.id, nome: c.nome ?? null })));
+      setCfgMargemLucroPadraoPercent(n(cfg.margem_lucro_padrao_percent));
+      setCondicoes(cps.map((c) => ({ id: c.id, nome: c.nome ?? null, acrescimo_percent: c.acrescimo_percent ?? 0 })));
       setVendedores(vends);
     } catch {
       setCfgDescontoMax(0);
       setCfgCondPadraoId(null);
+      setCfgMargemLucroPadraoPercent(0);
       setCondicoes([]);
       setVendedores([]);
     }
-  }, [empresaId, supabase, tenantId]);
+  }, [empresaId, supabase, te.loading, te.refreshing, tenantId]);
+
+  const defaultValorUnitarioFromItem = useCallback(
+    (item: ItemByIdRow | null): string => {
+      if (!item?.id) return "0";
+      const margem = Math.max(0, n(cfgMargemLucroPadraoPercent));
+      const custo = n(item.custo_ultima_compra);
+      const hasCusto = Number.isFinite(custo) && custo > 0;
+      const base = hasCusto ? custo : n(item.preco_unitario);
+      const computed = hasCusto ? base * (1 + margem / 100) : base;
+      if (!Number.isFinite(computed) || computed < 0) return "0";
+      return computed.toFixed(2);
+    },
+    [cfgMargemLucroPadraoPercent]
+  );
 
   const reload = useCallback(async () => {
     setErr(null);
     setOk(null);
 
     if (!supabase) return;
-    if (te.loading) return;
+    if (te.loading || te.refreshing) return;
 
     if (!tenantId || !empresaId) {
       setLoading(false);
@@ -273,10 +345,19 @@ export default function OrcamentoPage() {
 
     setLoading(true);
     try {
-      const { orcamento, itens } = await getOrcamento(supabase, { tenantId, empresaId, id: idParam });
+      const { orcamento, itens } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam });
       setOrc(orcamento);
       setItens(itens);
       setForm(formFromRow(orcamento));
+
+      // Prefer the human-friendly codigo in the URL.
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam) &&
+        orcamento?.codigo &&
+        idParam !== orcamento.codigo
+      ) {
+        router.replace(`/comercial/orcamentos/${orcamento.codigo}`);
+      }
     } catch (e: unknown) {
       setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar orçamento."));
       setOrc(null);
@@ -285,7 +366,7 @@ export default function OrcamentoPage() {
     } finally {
       setLoading(false);
     }
-  }, [empresaId, idParam, supabase, te.loading, tenantId]);
+  }, [empresaId, idParam, router, supabase, te.loading, te.refreshing, tenantId]);
 
   useEffect(() => {
     void loadLookups();
@@ -353,34 +434,270 @@ export default function OrcamentoPage() {
     return () => clearTimeout(t);
   }, [empresaId, newDialog, supabase, tenantId]);
 
-  // search itens
+  // inline: buscar item por código (id)
   useEffect(() => {
-    if (!itemDialog.open) return;
     if (!supabase || !tenantId || !empresaId) return;
 
-    const term = itemDialog.itemTerm.trim();
-    const reqId = ++itemReqRef.current;
+    const raw = String(inlineItemId ?? "").trim();
+    const parsed = Number(raw);
+    const reqId = ++inlineItemReqRef.current;
+
+    if (!raw) {
+      setInlineItem(null);
+      setInlineErr(null);
+      return;
+    }
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setInlineItem(null);
+      setInlineErr("Código inválido.");
+      return;
+    }
+
     const t = setTimeout(async () => {
       try {
-        if (!term) {
-          if (reqId === itemReqRef.current) {
-            setItemDialog((p) => (p.open ? { ...p, itemResults: [] } : p));
-          }
+        const item = await getItemById(supabase, { tenantId, empresaId, id: parsed });
+        if (reqId !== inlineItemReqRef.current) return;
+        if (!item?.id) {
+          setInlineItem(null);
+          setInlineErr("Item não encontrado.");
           return;
         }
-        const res = await searchItens(supabase, { tenantId, empresaId, term });
-        if (reqId === itemReqRef.current) {
-          setItemDialog((p) => (p.open ? { ...p, itemResults: res } : p));
-        }
+        setInlineItem(item);
+        setInlineErr(null);
+        if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
       } catch {
-        if (reqId === itemReqRef.current) {
-          setItemDialog((p) => (p.open ? { ...p, itemResults: [] } : p));
-        }
+        if (reqId !== inlineItemReqRef.current) return;
+        setInlineItem(null);
+        setInlineErr("Erro ao buscar item.");
       }
     }, 250);
 
     return () => clearTimeout(t);
-  }, [empresaId, itemDialog, supabase, tenantId]);
+  }, [defaultValorUnitarioFromItem, empresaId, inlineEditingItemId, inlineItemId, supabase, tenantId]);
+
+  useEffect(() => {
+    if (!supabase || !inlineItem?.id) {
+      setInlineEstoqueAtual(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase.from("estoque").select("quantidade_atual").eq("item_id", inlineItem.id).maybeSingle();
+        if (cancelled) return;
+        setInlineEstoqueAtual(Number(data?.quantidade_atual ?? 0));
+      } catch {
+        if (cancelled) return;
+        setInlineEstoqueAtual(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inlineItem?.id, supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const ids = Array.from(
+      new Set(itens.map((it) => Number(it.item_id)).filter((v) => Number.isFinite(v) && v > 0))
+    );
+
+    if (ids.length === 0) {
+      setEstoqueByItemId({});
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", ids);
+        if (cancelled) return;
+
+        const next: Record<number, number> = {};
+        const rows = (data ?? []) as EstoqueRow[];
+        rows.forEach((row) => {
+          const id = Number(row.item_id);
+          if (!Number.isFinite(id) || id <= 0) return;
+          next[id] = Number(row.quantidade_atual ?? 0);
+        });
+        setEstoqueByItemId(next);
+      } catch {
+        if (cancelled) return;
+        setEstoqueByItemId({});
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [itens, supabase]);
+
+  async function handleLookupSearch(nextNome?: string, nextFornecedor?: string) {
+    if (!supabase) return;
+
+    setLookupErr(null);
+    setLookupBusy(true);
+
+    const nomeTerm = (nextNome ?? lookupNome).trim();
+    const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
+
+    const baseSelect = fornecedorTerm
+      ? "id,codigo_interno,nome,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
+      : "id,codigo_interno,nome,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
+
+    let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
+
+    if (nomeTerm) query = query.ilike("nome", `%${nomeTerm}%`);
+    if (fornecedorTerm) query = query.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
+
+    const { data, error } = await query.order("nome", { ascending: true }).limit(50);
+
+    if (error) {
+      setLookupErr(error.message);
+      setLookupRows([]);
+      setLookupBusy(false);
+      return;
+    }
+
+    const baseRows = (data ?? []) as ItemLookupBaseRow[];
+    const ids = baseRows.map((r) => r.id);
+    const ultimaMap = new Map<number, string>();
+    const stockMap = new Map<number, number>();
+
+    if (ids.length > 0) {
+      const { data: movData, error: movErr } = await supabase
+        .from("movimentacoes")
+        .select("item_id,data_movimentacao")
+        .eq("tipo", "entrada")
+        .in("item_id", ids)
+        .order("data_movimentacao", { ascending: false });
+
+      if (!movErr) {
+        const movRows = (movData ?? []) as MovRow[];
+        movRows.forEach((m) => {
+          if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao);
+        });
+      }
+
+      const { data: estData } = await supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", ids);
+      const estoqueRows = (estData ?? []) as EstoqueRow[];
+      estoqueRows.forEach((e) => {
+        stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
+      });
+    }
+
+    setLookupRows(
+      baseRows.map((r) => ({
+        id: r.id,
+        codigo_interno: r.codigo_interno,
+        nome: r.nome,
+        fornecedor: r.fornecedores?.nome ?? null,
+        ultima_entrada: ultimaMap.get(r.id) ?? null,
+        preco_unitario: r.preco_unitario,
+        estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
+      }))
+    );
+
+    setLookupBusy(false);
+  }
+
+  function sortRows(rows: ItemLookupRow[], key: SortKey, dir: SortDir): ItemLookupRow[] {
+    const factor = dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const val = (row: ItemLookupRow, k: SortKey): SortValue => {
+        switch (k) {
+          case "id":
+            return row.id;
+          case "codigo":
+            return row.codigo_interno?.toLowerCase() ?? "";
+          case "descricao":
+            return row.nome?.toLowerCase() ?? "";
+          case "fornecedor":
+            return row.fornecedor?.toLowerCase() ?? "";
+          case "ultima":
+            return row.ultima_entrada ? new Date(row.ultima_entrada).getTime() : null;
+          case "preco":
+            return typeof row.preco_unitario === "number" ? row.preco_unitario : null;
+          case "estoque":
+            return typeof row.estoque_atual === "number" ? row.estoque_atual : null;
+        }
+      };
+
+      const va = val(a, key);
+      const vb = val(b, key);
+
+      const aNull = va === null || va === undefined || va === "";
+      const bNull = vb === null || vb === undefined || vb === "";
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+
+      if (va < vb) return -1 * factor;
+      if (va > vb) return 1 * factor;
+      return 0;
+    });
+  }
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedLookupRows = useMemo(() => sortRows(lookupRows, sortKey, sortDir), [lookupRows, sortKey, sortDir]);
+
+  function openLookupModal(initialNome?: string) {
+    const nome = (initialNome ?? "").trim();
+    setShowLookup(true);
+    setLookupErr(null);
+    setLookupRows([]);
+    setLookupNome(nome);
+    setLookupFornecedor("");
+    void handleLookupSearch(nome, "");
+  }
+
+  async function handleCodigoEnter(value: string) {
+    if (!supabase || !tenantId || !empresaId) return;
+
+    const raw = String(value ?? "").trim();
+    if (!raw) {
+      openLookupModal("");
+      return;
+    }
+
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      openLookupModal(raw);
+      return;
+    }
+
+    const reqId = ++inlineItemReqRef.current;
+    try {
+      const item = await getItemById(supabase, { tenantId, empresaId, id: parsed });
+      if (reqId !== inlineItemReqRef.current) return;
+      if (!item?.id) {
+        setInlineItem(null);
+        setInlineErr("Item não encontrado.");
+        openLookupModal("");
+        return;
+      }
+      setInlineItem(item);
+      setInlineErr(null);
+      if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+    } catch {
+      if (reqId !== inlineItemReqRef.current) return;
+      setInlineItem(null);
+      setInlineErr("Erro ao buscar item.");
+      openLookupModal("");
+    }
+  }
 
   const closeNewDialog = useCallback(() => {
     setNewDialog(closedNewDialog());
@@ -410,7 +727,7 @@ export default function OrcamentoPage() {
 
     setNewDialog((p) => (p.open ? { ...p, busy: true, error: null } : p));
     try {
-      const id = await createOrcamento(supabase, {
+      const created = await createOrcamento(supabase, {
         tenantId,
         empresaId,
         titulo,
@@ -419,7 +736,7 @@ export default function OrcamentoPage() {
         condicaoPagamentoId: newDialog.condicaoPagamentoId ?? null,
       });
       setNewDialog(closedNewDialog());
-      router.replace(`/comercial/orcamentos/${id}`);
+      router.replace(`/comercial/orcamentos/${created.codigo ?? created.id}`);
     } catch (e: unknown) {
       setNewDialog((p) =>
         p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao criar orçamento.") } : p
@@ -525,50 +842,6 @@ export default function OrcamentoPage() {
     }
   }, [canWrite, confirm, empresaId, orc, readOnly, reload, supabase, tenantId]);
 
-  const openAddItem = useCallback(() => {
-    if (readOnly || !canWrite) return;
-    setItemDialog({
-      open: true,
-      mode: "add",
-      itemTerm: "",
-      itemResults: [],
-      selectedItem: null,
-      quantidade: "1",
-      valorUnitario: "0",
-      descontoItemPercent: "0",
-      editingId: null,
-      busy: false,
-      error: null,
-    });
-  }, [canWrite, readOnly]);
-
-  const openEditItem = useCallback(
-    (it: OrcamentoItemRow) => {
-      if (readOnly || !canWrite) return;
-      setItemDialog({
-        open: true,
-        mode: "edit",
-        itemTerm: "",
-        itemResults: [],
-        selectedItem: {
-          id: it.item_id,
-          nome: it.item_nome,
-          tipo: String(it.item_tipo ?? "").toLowerCase(),
-          unidade_medida: it.unidade,
-          preco_unitario: it.valor_unitario,
-          ativo: true,
-        },
-        quantidade: String(it.quantidade ?? "1"),
-        valorUnitario: String(it.valor_unitario ?? "0"),
-        descontoItemPercent: String(it.desconto_item_percent ?? "0"),
-        editingId: it.id,
-        busy: false,
-        error: null,
-      });
-    },
-    [canWrite, readOnly]
-  );
-
   const closeItemDialog = useCallback(() => setItemDialog(closedItemDialog()), []);
 
   const submitItem = useCallback(async () => {
@@ -586,37 +859,6 @@ export default function OrcamentoPage() {
       return;
     }
 
-    if (itemDialog.mode === "add") {
-      if (!itemDialog.selectedItem?.id) {
-        setItemDialog((p) => (p.open ? { ...p, error: "Selecione um item." } : p));
-        return;
-      }
-
-      setItemDialog((p) => (p.open ? { ...p, busy: true, error: null } : p));
-      try {
-        await addItem(supabase, {
-          tenantId,
-          empresaId,
-          orcamentoId: orc.id,
-          itemId: itemDialog.selectedItem.id,
-          quantidade: qty,
-          valorUnitario: vu,
-          descontoItemPercent: desc,
-        });
-        setItemDialog(closedItemDialog());
-        await reload();
-      } catch (e: unknown) {
-        setItemDialog((p) =>
-          p.open
-            ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao adicionar item.") }
-            : p
-        );
-      }
-      return;
-    }
-
-    // edit
-    if (!itemDialog.editingId) return;
     setItemDialog((p) => (p.open ? { ...p, busy: true, error: null } : p));
     try {
       await updateItem(supabase, {
@@ -637,6 +879,135 @@ export default function OrcamentoPage() {
       );
     }
   }, [canWrite, empresaId, itemDialog, orc?.id, readOnly, reload, supabase, tenantId]);
+
+  const inlineTotal = useMemo(() => {
+    const qty = n(inlineQuantidade);
+    const vu = n(inlineValorUnitario);
+    const desc = n(inlineDesconto);
+    const descGlobal = n(form?.desconto_global_percent);
+    const acrescCond = Math.max(0, n(inlineAcrescimoCondPagPercent));
+    const gross = qty * vu;
+    const net = gross * (1 - desc / 100) * (1 + acrescCond / 100) * (1 - descGlobal / 100);
+    return Number.isFinite(net) ? net : 0;
+  }, [form?.desconto_global_percent, inlineAcrescimoCondPagPercent, inlineDesconto, inlineQuantidade, inlineValorUnitario]);
+
+  const cancelInlineEdit = useCallback(() => {
+    setInlineEditingItemId(null);
+    setInlineItemId("");
+    setInlineItem(null);
+    setInlineQuantidade("1");
+    setInlineValorUnitario("0");
+    setInlineDesconto("0");
+    setInlineErr(null);
+  }, []);
+
+  const submitInlineItem = useCallback(async () => {
+    if (!supabase || !tenantId || !empresaId) return;
+    if (!orc?.id) return;
+    if (readOnly || !canWrite) return;
+    if (!form) return;
+
+    const parsedId = Number(String(inlineItemId ?? "").trim());
+    if (!Number.isFinite(parsedId) || parsedId <= 0) {
+      setInlineErr("Informe o código do item.");
+      return;
+    }
+    if (!inlineItem?.id) {
+      setInlineErr("Item não encontrado.");
+      return;
+    }
+
+    const qty = n(inlineQuantidade);
+    const vu = n(inlineValorUnitario);
+    const desc = n(inlineDesconto);
+
+    if (qty <= 0) {
+      setInlineErr("Quantidade deve ser maior que zero.");
+      return;
+    }
+    if (desc < 0 || desc > 100) {
+      setInlineErr("Desconto deve estar entre 0 e 100.");
+      return;
+    }
+
+    // Garante que a condição de pagamento / desconto global do cabeçalho estejam persistidos
+    // antes de inserir/atualizar itens (triggers do banco dependem disso).
+    const nextCondId = form.condicao_pagamento_id ?? null;
+    const nextDescGlobal = n(form.desconto_global_percent);
+    const curCondId = (orc.condicao_pagamento_id ?? null) as string | null;
+    const curDescGlobal = n(orc.desconto_global_percent);
+
+    if (cfgDescontoMax > 0 && nextDescGlobal > cfgDescontoMax) {
+      setInlineErr(`Desconto global (%) excede o máximo configurado (${cfgDescontoMax}%).`);
+      return;
+    }
+
+    const needHeaderSync = nextCondId !== curCondId || nextDescGlobal !== curDescGlobal;
+
+    setInlineBusy(true);
+    setInlineErr(null);
+    try {
+      if (needHeaderSync) {
+        await updateOrcamento(supabase, {
+          tenantId,
+          empresaId,
+          id: orc.id,
+          patch: {
+            condicao_pagamento_id: nextCondId,
+            desconto_global_percent: nextDescGlobal,
+          },
+        });
+      }
+
+      if (inlineEditingItemId) {
+        await updateItem(supabase, {
+          tenantId,
+          empresaId,
+          id: inlineEditingItemId,
+          patch: {
+            quantidade: qty,
+            valor_unitario: vu,
+            desconto_item_percent: desc,
+          },
+        });
+      } else {
+        await addItem(supabase, {
+          tenantId,
+          empresaId,
+          orcamentoId: orc.id,
+          itemId: inlineItem.id,
+          quantidade: qty,
+          valorUnitario: vu,
+          descontoItemPercent: desc,
+        });
+      }
+
+      cancelInlineEdit();
+      await reload();
+    } catch (e: unknown) {
+      setInlineErr(mapOrcamentoError(toSupabaseErrorLike(e), inlineEditingItemId ? "Erro ao atualizar item." : "Erro ao adicionar item."));
+    } finally {
+      setInlineBusy(false);
+    }
+  }, [canWrite, cancelInlineEdit, cfgDescontoMax, empresaId, form, inlineDesconto, inlineEditingItemId, inlineItem, inlineItemId, inlineQuantidade, inlineValorUnitario, orc, readOnly, reload, supabase, tenantId]);
+
+  const startInlineEdit = useCallback(
+    (it: OrcamentoItemRow) => {
+      if (readOnly || !canWrite) return;
+      setInlineEditingItemId(it.id);
+      setInlineItemId(String(it.item_id));
+      setInlineQuantidade(String(it.quantidade ?? "1"));
+      setInlineValorUnitario(String(it.valor_unitario ?? "0"));
+      setInlineDesconto(String(it.desconto_item_percent ?? "0"));
+      setInlineErr(null);
+
+      // Move focus to the inline form.
+      setTimeout(() => {
+        inlineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    },
+    [canWrite, readOnly]
+  );
 
   const doDeleteItem = useCallback(
     async (it: OrcamentoItemRow) => {
@@ -677,6 +1048,161 @@ export default function OrcamentoPage() {
 
   return (
     <div className="space-y-4">
+      {showLookup && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
+          <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
+            <div className="w-full max-w-7xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold">Localizar item</div>
+                  <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLookup(false)}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Nome</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={lookupNome}
+                    onChange={(e) => setLookupNome(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleLookupSearch(e.currentTarget.value, lookupFornecedor);
+                      }
+                    }}
+                    aria-label="Buscar item por nome"
+                    title="Buscar item por nome"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Fornecedor</div>
+                  <input
+                    className="w-full px-3 py-2"
+                    value={lookupFornecedor}
+                    onChange={(e) => setLookupFornecedor(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleLookupSearch(lookupNome, e.currentTarget.value);
+                      }
+                    }}
+                    aria-label="Buscar item por fornecedor"
+                    title="Buscar item por fornecedor"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleLookupSearch()}
+                  disabled={lookupBusy}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                >
+                  {lookupBusy ? "Buscando..." : "Buscar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLookupNome("");
+                    setLookupFornecedor("");
+                    setLookupRows([]);
+                    setLookupErr(null);
+                    void handleLookupSearch("", "");
+                  }}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Limpar
+                </button>
+              </div>
+
+              {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
+
+              <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-16" />
+                    <col className="w-40" />
+                    <col className="w-[40%]" />
+                    <col className="w-[28%]" />
+                    <col className="w-32" />
+                    <col className="w-28" />
+                    <col className="w-20" />
+                  </colgroup>
+                  <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                    <tr className="text-left text-zinc-200">
+                      <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("id")}>
+                        ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("codigo")}>
+                        Codigo {sortKey === "codigo" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("descricao")}>
+                        Descricao {sortKey === "descricao" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("fornecedor")}>
+                        Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("ultima")}>
+                        Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("preco")}>
+                        Preco {sortKey === "preco" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                      <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
+                        Saldo {sortKey === "estoque" && (sortDir === "asc" ? "▲" : "▼")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800">
+                    {sortedLookupRows.map((it) => (
+                      <tr
+                        key={it.id}
+                        className="hover:bg-zinc-900/40 cursor-pointer"
+                        onClick={() => {
+                          setInlineItemId(String(it.id));
+                          setShowLookup(false);
+                        }}
+                      >
+                        <td className="px-4 py-3 tabular-nums whitespace-nowrap">{it.id}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno}</td>
+                        <td className="px-4 py-3 whitespace-normal break-words">{it.nome}</td>
+                        <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "—"}</td>
+                        <td className="px-4 py-3 text-zinc-300">
+                          {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(Number(it.preco_unitario ?? 0))}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {lookupRows.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
+                          Nenhum resultado ainda. Informe filtros e busque.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">Orçamento</h1>
@@ -707,6 +1233,21 @@ export default function OrcamentoPage() {
           </Link>
           {orc?.id && (
             <>
+              <button
+                type="button"
+                onClick={() => void saveHeader()}
+                disabled={readOnly || !canWrite || busy}
+                className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium text-sm disabled:opacity-60"
+              >
+                Salvar
+              </button>
+              <button
+                type="button"
+                onClick={() => void reload()}
+                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
+              >
+                Recarregar
+              </button>
               <button
                 type="button"
                 onClick={() => void doFinalizar()}
@@ -816,46 +1357,132 @@ export default function OrcamentoPage() {
               </label>
             </div>
 
-            <label className="block text-xs text-zinc-400">
-              Observações
-              <textarea
-                value={form.observacoes}
-                disabled={readOnly || !canWrite}
-                onChange={(e) => setForm((p) => (p ? { ...p, observacoes: e.target.value } : p))}
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm min-h-24 disabled:opacity-60"
-              />
-            </label>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={readOnly || !canWrite || busy}
-                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium text-sm disabled:opacity-60"
-              >
-                Salvar
-              </button>
-              <button
-                type="button"
-                onClick={() => void reload()}
-                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
-              >
-                Recarregar
-              </button>
-              {readOnly && <span className="text-xs text-zinc-500">Edição bloqueada (status {status}).</span>}
-            </div>
+            {readOnly && <div className="text-xs text-zinc-500">Edição bloqueada (status {status}).</div>}
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-2">
               <div className="font-medium">Itens</div>
-              <button
-                type="button"
-                onClick={openAddItem}
-                disabled={readOnly || !canWrite}
-                className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
-              >
-                Adicionar item
-              </button>
+            </div>
+
+            <div ref={inlineFormRef} className="p-4 border-b border-zinc-800">
+              {inlineErr && <div className="text-sm text-red-400 mb-3">{inlineErr}</div>}
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
+                <label className="block text-xs text-zinc-400">
+                  Codigo
+                  <input
+                    value={inlineItemId}
+                    disabled={readOnly || !canWrite || inlineBusy || inlineMode === "edit"}
+                    onChange={(e) => setInlineItemId(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleCodigoEnter(e.currentTarget.value);
+                      }
+                    }}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                    placeholder="Ex.: 109"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Quantidade
+                  <input
+                    value={inlineQuantidade}
+                    disabled={readOnly || !canWrite || inlineBusy}
+                    onChange={(e) => setInlineQuantidade(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Valor unitario
+                  <input
+                    value={inlineValorUnitario}
+                    disabled={readOnly || !canWrite || inlineBusy}
+                    onChange={(e) => setInlineValorUnitario(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Desconto
+                  <input
+                    value={inlineDesconto}
+                    disabled={readOnly || !canWrite || inlineBusy}
+                    onChange={(e) => setInlineDesconto(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Estoque
+                  <input
+                    value={inlineItem?.id ? formatDecimalBR(inlineEstoqueAtual ?? 0) : "-"}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Total
+                  <input
+                    value={formatMoneyBR(inlineTotal)}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Valor Ultima compra
+                  <input
+                    value={inlineItem?.id ? formatMoneyBR(n(inlineItem.custo_ultima_compra)) : "-"}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-6 gap-3">
+                <label className="block text-xs text-zinc-400 md:col-span-2">
+                  Fornecedor
+                  <input
+                    value={inlineItem?.id ? (inlineItem.fornecedores?.nome ?? "-") : "-"}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400 md:col-span-4">
+                  Item
+                  <input
+                    value={inlineItem?.id ? (inlineItem.descricao ?? inlineItem.nome ?? "") : ""}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center justify-end gap-2">
+                {inlineMode === "edit" && (
+                  <button
+                    type="button"
+                    onClick={cancelInlineEdit}
+                    disabled={inlineBusy}
+                    className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void submitInlineItem()}
+                  disabled={readOnly || !canWrite || inlineBusy}
+                  className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
+                >
+                  {inlineMode === "edit" ? "Salvar" : "Adicionar"}
+                </button>
+              </div>
             </div>
 
             <div className="overflow-auto">
@@ -863,47 +1490,59 @@ export default function OrcamentoPage() {
                 <thead className="bg-zinc-900/70">
                   <tr className="text-zinc-200">
                     <th className="px-3 py-3 text-left whitespace-nowrap">Seq</th>
+                    <th className="px-3 py-3 text-left whitespace-nowrap">ID</th>
+                    <th className="px-3 py-3 text-left whitespace-nowrap">Codigo</th>
                     <th className="px-3 py-3 text-left whitespace-nowrap">Item</th>
-                    <th className="px-3 py-3 text-left whitespace-nowrap">Tipo</th>
                     <th className="px-3 py-3 text-left whitespace-nowrap">Unid</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Qtd</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Vlr Unit</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Desc (%)</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Total</th>
+                    <th className="px-3 py-3 text-right whitespace-nowrap">Estoque</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {itens.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-3 py-6 text-zinc-400">
+                      <td colSpan={11} className="px-3 py-6 text-zinc-400">
                         Nenhum item.
                       </td>
                     </tr>
                   )}
                   {itens.map((it) => (
-                    <tr key={it.id} className="border-t border-zinc-900/60 hover:bg-zinc-900/30">
+                    <tr
+                      key={it.id}
+                      onClick={() => {
+                        if (readOnly || !canWrite) return;
+                        startInlineEdit(it);
+                      }}
+                      className={
+                        "border-t border-zinc-900/60 hover:bg-zinc-900/30" + (readOnly || !canWrite ? "" : " cursor-pointer")
+                      }
+                    >
                       <td className="px-3 py-2 whitespace-nowrap">{it.seq}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{it.item_id}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{it.item_codigo_interno ?? "—"}</td>
                       <td className="px-3 py-2 min-w-[280px]">{it.item_nome}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{String(it.item_tipo ?? "").toUpperCase()}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{it.unidade}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{n(it.quantidade)}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(it.valor_unitario))}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{n(it.desconto_item_percent)}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(it.valor_total))}</td>
+                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                        {Number.isFinite(estoqueByItemId[Number(it.item_id)])
+                          ? formatDecimalBR(estoqueByItemId[Number(it.item_id)])
+                          : "—"}
+                      </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => openEditItem(it)}
-                            disabled={readOnly || !canWrite}
-                            className="px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 disabled:opacity-60"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void doDeleteItem(it)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void doDeleteItem(it);
+                            }}
                             disabled={readOnly || !canWrite}
                             className="px-3 py-1.5 rounded-md border border-red-900/60 bg-red-950/40 hover:bg-red-950/70 text-red-200 disabled:opacity-60"
                           >
@@ -945,6 +1584,18 @@ export default function OrcamentoPage() {
                 <span className="tabular-nums font-semibold">{formatMoneyBR(n(orc.total_liquido))}</span>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <label className="block text-xs text-zinc-400">
+              Observações
+              <textarea
+                value={form.observacoes}
+                disabled={readOnly || !canWrite}
+                onChange={(e) => setForm((p) => (p ? { ...p, observacoes: e.target.value } : p))}
+                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm min-h-24 disabled:opacity-60"
+              />
+            </label>
           </div>
         </form>
       )}
@@ -1085,67 +1736,17 @@ export default function OrcamentoPage() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={itemDialog.mode === "add" ? "Adicionar item" : "Editar item"}
+            aria-label="Editar item"
             className="w-full max-w-3xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
-              <div className="font-semibold text-zinc-100">{itemDialog.mode === "add" ? "Adicionar item" : "Editar item"}</div>
-              <div className="text-xs text-zinc-400 mt-1">Produtos e serviços ativos.</div>
+              <div className="font-semibold text-zinc-100">Editar item</div>
+              <div className="text-xs text-zinc-400 mt-1">{itemDialog.itemNome}</div>
             </div>
 
             <div className="p-5 space-y-4">
               {itemDialog.error && <div className="text-sm text-red-400">{itemDialog.error}</div>}
-
-              {itemDialog.mode === "add" && (
-                <>
-                  <label className="block text-xs text-zinc-400">
-                    Item (busca)
-                    <input
-                      value={itemDialog.itemTerm}
-                      onChange={(e) => setItemDialog((p) => (p.open ? { ...p, itemTerm: e.target.value } : p))}
-                      className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
-                      placeholder="Digite nome ou ID..."
-                    />
-                  </label>
-
-                  <div>
-                    <div className="text-xs text-zinc-400 mb-1">Resultados</div>
-                    <div className="max-h-56 overflow-auto border border-zinc-800 rounded-md">
-                      {itemDialog.itemResults.length === 0 ? (
-                        <div className="px-3 py-3 text-sm text-zinc-500">Sem resultados.</div>
-                      ) : (
-                        itemDialog.itemResults.map((it) => (
-                          <button
-                            type="button"
-                            key={it.id}
-                            onClick={() =>
-                              setItemDialog((p) =>
-                                p.open
-                                  ? {
-                                      ...p,
-                                      selectedItem: it,
-                                      valorUnitario: String(it.preco_unitario ?? "0"),
-                                    }
-                                  : p
-                              )
-                            }
-                            className={
-                              itemDialog.selectedItem?.id === it.id
-                                ? "w-full text-left px-3 py-2 text-sm bg-zinc-900/60"
-                                : "w-full text-left px-3 py-2 text-sm hover:bg-zinc-900/40"
-                            }
-                          >
-                            <span className="text-zinc-200">{it.nome ?? `#${it.id}`}</span>
-                            <span className="text-zinc-500"> — #{it.id}</span>
-                            {it.tipo ? <span className="text-zinc-500"> — {String(it.tipo).toUpperCase()}</span> : null}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <label className="block text-xs text-zinc-400">
