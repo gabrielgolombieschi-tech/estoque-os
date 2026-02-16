@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
+import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
@@ -12,6 +12,7 @@ import { Can } from "@/components/auth/Can";
 import { useImportMotivos } from "./ImportMotivosProvider";
 import MotivoCompraCombobox from "./MotivoCompraCombobox";
 import { parseNfeXml, type ParsedItem, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
+import { getImportacaoXmlParams, type ItemFinalidade as ParamItemFinalidade } from "@/src/lib/importacaoXmlParams";
 
 type FiscalPerfil = {
   item_id: number;
@@ -41,7 +42,7 @@ type ImportJob = {
   selected: boolean;
 };
 
-type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
+type ItemFinalidade = ParamItemFinalidade | "revenda";
 
 type FornecedorRow = {
   id: number;
@@ -218,6 +219,18 @@ export default function ImportarXmlPage() {
 
   const [finalidadeLote, setFinalidadeLote] = useState<ItemFinalidade | "">("");
 
+  const [allowedAutoCadastrarFinalidades, setAllowedAutoCadastrarFinalidades] = useState<string[]>(["materia_prima"]);
+  const [allowedVincularFinalidades, setAllowedVincularFinalidades] = useState<string[]>(["materia_prima"]);
+
+  const allowedAutoCadastrarSet = useMemo(
+    () => new Set(allowedAutoCadastrarFinalidades.map((v) => String(v).trim()).filter(Boolean)),
+    [allowedAutoCadastrarFinalidades]
+  );
+  const allowedVincularSet = useMemo(
+    () => new Set(allowedVincularFinalidades.map((v) => String(v).trim()).filter(Boolean)),
+    [allowedVincularFinalidades]
+  );
+
   const {
     motivos,
     loading: motivosLoading,
@@ -352,6 +365,30 @@ export default function ImportarXmlPage() {
   const te = useTenantEmpresa();
   const tenantId = te.tenantId ?? "";
   const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
+
+  const permiteVincularItens = Boolean(finalidadeLote) && allowedVincularSet.has(String(finalidadeLote));
+  const permiteAutoCadastrarItens = Boolean(finalidadeLote) && allowedAutoCadastrarSet.has(String(finalidadeLote));
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      if (!tenantId || !empresaId) return;
+      try {
+        const params = await getImportacaoXmlParams(supabase, tenantId, empresaId);
+        if (!active) return;
+        setAllowedAutoCadastrarFinalidades(Array.from(params.allowedAutoCadastrar));
+        setAllowedVincularFinalidades(Array.from(params.allowedVincular));
+      } catch {
+        // fallback já é o default do state
+      }
+    };
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [supabase, tenantId, empresaId]);
 
   const empresaRole = useMemo(() => {
     const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
@@ -1325,6 +1362,14 @@ export default function ImportarXmlPage() {
     try {
       if (!finalidadeLote) throw new Error("Selecione a finalidade antes de cadastrar/importar.");
 
+      // Se a finalidade do lote não permite auto-cadastro, não cria itens.
+      // (Itens serão importados com item_id=null.)
+      if (!permiteAutoCadastrarItens) {
+        setLoteMissing([]);
+        setImportOk(`Finalidade '${finalidadeLote}' nao permite cadastro automatico de itens. Nenhum item foi cadastrado.`);
+        return;
+      }
+
       const jobsToUse = jobs.filter((j) => j.selected && j.status === "ok" && j.itens.length > 0);
       if (jobsToUse.length === 0) throw new Error("Nenhum XML selecionado.");
 
@@ -1430,6 +1475,11 @@ export default function ImportarXmlPage() {
       return;
     }
 
+    if (!permiteAutoCadastrarItens) {
+      setImportErr(`Finalidade '${finalidadeLote}' nao permite cadastro automatico de itens.`);
+      return;
+    }
+
     const dataCompra = selectedJob?.nfeInfo?.dataEmissao ?? null;
 
     const created = await criarItemRapido(
@@ -1488,8 +1538,10 @@ export default function ImportarXmlPage() {
 
       if (!tenantId || !empresaId) throw new Error("Tenant ou empresa nao carregados.");
 
-      // regra: não importa se tiver itens faltando
-      if (loteMissing.length > 0) throw new Error(`Itens nao cadastrados: ${loteMissing.join(", ")}`);
+      // regra: só exige itens cadastrados se a finalidade permitir vincular item_id
+      if (permiteVincularItens && loteMissing.length > 0) {
+        throw new Error(`Itens nao cadastrados: ${loteMissing.join(", ")}`);
+      }
 
       // Best-effort: if fornecedor already resolved in UI, persist defaults (doesn't block import)
       const fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
@@ -1605,15 +1657,20 @@ export default function ImportarXmlPage() {
 
           // valida itens (tem que existir)
           const codes = Array.from(new Set(job.itens.map((i) => i.codigo)));
-          const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
 
-          const missingCodes = job.itens.filter((it) => !map.get(it.codigo)).map((it) => it.codigo);
-          if (missingCodes.length > 0) {
-            throw new Error(`Itens nao cadastrados: ${missingCodes.join(", ")}`);
+          // Só busca/vincula item_id quando a finalidade do lote permitir.
+          const map = permiteVincularItens ? await carregarItensPorCodigo(codes, tenantId, empresaId) : new Map<string, number>();
+
+          // Se não pode vincular, missing não bloqueia.
+          if (permiteVincularItens) {
+            const missingCodes = job.itens.filter((it) => !map.get(it.codigo)).map((it) => it.codigo);
+            if (missingCodes.length > 0) {
+              throw new Error(`Itens nao cadastrados: ${missingCodes.join(", ")}`);
+            }
           }
 
-          const itemIds = Array.from(map.values());
-          const fiscalMap = await carregarFiscalPorItens(itemIds, tenantId, empresaId);
+          const itemIds = permiteVincularItens ? Array.from(map.values()) : [];
+          const fiscalMap = permiteVincularItens ? await carregarFiscalPorItens(itemIds, tenantId, empresaId) : new Map<number, FiscalPerfil>();
 
           const itemsToImport = job.itens;
 
@@ -1627,7 +1684,7 @@ export default function ImportarXmlPage() {
           const itensPayload: ImportItemPayload[] = [];
 
           for (const it of itemsToImport) {
-            const itemId = map.get(it.codigo) ?? null;
+            const itemId = permiteVincularItens ? (map.get(it.codigo) ?? null) : null;
             const fiscal = itemId ? fiscalMap.get(itemId) : null;
 
             const qtd = Number(it.quantidade ?? 0);
@@ -1813,6 +1870,11 @@ export default function ImportarXmlPage() {
         setImportErr("Tenant ou empresa nao carregados.");
         return;
       }
+
+      if (!permiteVincularItens) {
+        setItemMap(new Map());
+        return;
+      }
       try {
         const codes = Array.from(new Set(selectedJob.itens.map((i) => i.codigo)));
         const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
@@ -1822,7 +1884,7 @@ export default function ImportarXmlPage() {
       }
     };
     void loadMap();
-  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo]);
+  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens]);
 
   useEffect(() => {
     let active = true;
@@ -1831,6 +1893,11 @@ export default function ImportarXmlPage() {
       const clearMissing = () => setLoteMissing((prev) => (prev.length === 0 ? prev : []));
 
       if (!tenantId || !empresaId) {
+        clearMissing();
+        return;
+      }
+
+      if (!permiteVincularItens) {
         clearMissing();
         return;
       }
@@ -1869,7 +1936,7 @@ export default function ImportarXmlPage() {
     return () => {
       active = false;
     };
-  }, [selectedOkJobs, tenantId, empresaId, carregarItensPorCodigo]);
+  }, [selectedOkJobs, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens]);
 
   const fornecedorResolvido = Boolean(fornecedorIdBase ?? fornecedorId);
   const finalidadeSelecionada = Boolean(finalidadeLote);
@@ -1890,7 +1957,7 @@ export default function ImportarXmlPage() {
     motivo: motivoSelecionadoOk,
     solicitante: solicitanteSelecionado,
     fornecedor: fornecedorResolvido,
-    itens: !itensFaltantes || canCreateItem,
+    itens: !permiteVincularItens || !itensFaltantes || canCreateItem,
   };
 
   // regra: importar só se tudo estiver ok e itens sem faltantes
@@ -1900,15 +1967,21 @@ export default function ImportarXmlPage() {
     !motivoSelecionadoOk ||
     !solicitanteSelecionado ||
     !fornecedorResolvido ||
-    itensFaltantes ||
+    (permiteVincularItens && itensFaltantes) ||
     !tenantId ||
     !empresaId;
 
-  const podeCriarItens = !itensFaltantes || canCreateItem;
+  const podeCriarItens = !permiteVincularItens || !itensFaltantes || canCreateItem;
 
   // regra: o botão "Cadastrar itens" só fica habilitado quando o fornecedor já estiver cadastrado
   const bloqueiaCadastroItens =
-    !hasSelectedOkJobs || !finalidadeSelecionada || !fornecedorResolvido || !tenantId || !empresaId || !podeCriarItens;
+    !hasSelectedOkJobs ||
+    !finalidadeSelecionada ||
+    !fornecedorResolvido ||
+    !tenantId ||
+    !empresaId ||
+    !podeCriarItens ||
+    !permiteAutoCadastrarItens;
 
   if (!ready && permissionsLoading) {
     return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissoes...</div>;
@@ -2394,7 +2467,11 @@ export default function ImportarXmlPage() {
                           <td className="px-3 py-2 text-right tabular-nums">R$ {it.valorUnit.toFixed(2)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">R$ {it.total.toFixed(2)}</td>
                           <td className="px-3 py-2 text-center">
-                            {foundId ? (
+                            {!permiteVincularItens ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-md border border-zinc-600/50 text-zinc-300 text-xs">
+                                Nao cadastrado ({finalidadeLote || "sem finalidade"})
+                              </span>
+                            ) : foundId ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 text-xs">
                                 Cadastrado (id {foundId})
                               </span>
@@ -2405,7 +2482,7 @@ export default function ImportarXmlPage() {
                             )}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {!foundId && (
+                            {permiteAutoCadastrarItens && !foundId && (
                               <Can perm="cad_itens.write">
                                 <button
                                   onClick={() => void cadastrarItemManual(it)}
