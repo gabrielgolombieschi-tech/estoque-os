@@ -117,27 +117,9 @@ export async function getOrcamento(
   const { data: itensRaw, error: iErr } = await supabase
     .schema("r")
     .from("r_orcamento_itens")
-    .select(
-      [
-        "id",
-        "orcamento_id",
-        "seq",
-        "item_id",
-        "item_tipo",
-        "item_nome",
-        "unidade",
-        "quantidade",
-        "valor_unitario",
-        "desconto_item_percent",
-        "acrescimo_cond_pag_percent",
-        "desconto_global_percent",
-        "valor_total_bruto",
-        "valor_total",
-        "valor_unitario_liquido",
-        "created_at",
-        "updated_at",
-      ].join(",")
-    )
+    // IMPORTANT: keep this as '*' so future columns (ex.: conjunto_instancia_id / conjunto_nome / conjunto_codigo)
+    // added to the view are not accidentally dropped by the UI.
+    .select("*")
     .eq("orcamento_id", orc.id)
     .order("seq", { ascending: true })
     .returns<OrcamentoItemRow[]>();

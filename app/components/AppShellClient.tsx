@@ -597,6 +597,12 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         >
                           Condições de Pagamento
                         </Link>
+                        <Link
+                          href="/configuracoes/comercial/conjuntos"
+                          className="block px-5 py-2 hover:bg-zinc-900 text-sm"
+                        >
+                          Conjuntos
+                        </Link>
                       </div>
                     )}
                   </div>

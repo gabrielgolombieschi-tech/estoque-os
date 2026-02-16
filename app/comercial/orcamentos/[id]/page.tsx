@@ -7,7 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
-import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
+import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import type { OrcamentoItemRow, OrcamentoRow, OrcamentoStatus, UsuarioLookupRow } from "@/lib/comercial/types";
 import { isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
@@ -48,6 +48,13 @@ type ItemLookupRow = {
   ultima_entrada: string | null;
   preco_unitario: number | null;
   estoque_atual: number | null;
+};
+
+type ConjuntoCatalogoRow = {
+  conjunto_id: string;
+  codigo: string | null;
+  nome: string | null;
+  preco_sugerido: number | null;
 };
 
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
@@ -260,13 +267,20 @@ export default function OrcamentoPage() {
   const [estoqueByItemId, setEstoqueByItemId] = useState<Record<number, number>>({});
 
   const [showLookup, setShowLookup] = useState(false);
+  const [lookupBuscarConjuntos, setLookupBuscarConjuntos] = useState(false);
   const [lookupNome, setLookupNome] = useState("");
   const [lookupFornecedor, setLookupFornecedor] = useState("");
   const [lookupRows, setLookupRows] = useState<ItemLookupRow[]>([]);
+  const [lookupConjuntoRows, setLookupConjuntoRows] = useState<ConjuntoCatalogoRow[]>([]);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupErr, setLookupErr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const [addConjunto, setAddConjunto] = useState<
+    | { open: false }
+    | { open: true; conjunto: ConjuntoCatalogoRow; quantidade: string; busy: boolean; error: string | null }
+  >({ open: false });
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
@@ -545,6 +559,61 @@ export default function OrcamentoPage() {
     const nomeTerm = (nextNome ?? lookupNome).trim();
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
 
+    if (lookupBuscarConjuntos) {
+      try {
+        let q = supabase
+          .schema("r")
+          .from("r_orcamento_catalogo_busca")
+          .select("*")
+          .eq("origem", "CONJUNTO");
+
+        if (nomeTerm) {
+          const like = `%${nomeTerm}%`;
+          q = q.or(`codigo.ilike.${like},nome.ilike.${like}`);
+        }
+
+        const { data, error } = await q.order("nome", { ascending: true }).limit(50);
+        if (error) {
+          setLookupErr(error.message);
+          setLookupConjuntoRows([]);
+          setLookupRows([]);
+          setLookupBusy(false);
+          return;
+        }
+
+        const rows = (data ?? []) as Array<Record<string, unknown>>;
+        setLookupConjuntoRows(
+          rows
+            .map((r) => {
+              const conjuntoId = r.conjunto_id ? String(r.conjunto_id) : "";
+              if (!conjuntoId) return null;
+              const codigo = typeof r.codigo === "string" ? r.codigo : r.codigo ? String(r.codigo) : null;
+              const nome = typeof r.nome === "string" ? r.nome : r.nome ? String(r.nome) : null;
+              const preco = Number(r.preco_sugerido);
+              return {
+                conjunto_id: conjuntoId,
+                codigo,
+                nome,
+                preco_sugerido: Number.isFinite(preco) ? preco : null,
+              } satisfies ConjuntoCatalogoRow;
+            })
+            .filter(Boolean) as ConjuntoCatalogoRow[]
+        );
+
+        setLookupRows([]);
+        setLookupBusy(false);
+        return;
+      } catch (e: unknown) {
+        setLookupErr(e instanceof Error ? e.message : "Erro ao buscar conjuntos.");
+        setLookupConjuntoRows([]);
+        setLookupRows([]);
+        setLookupBusy(false);
+        return;
+      }
+    }
+
+    setLookupConjuntoRows([]);
+
     const baseSelect = fornecedorTerm
       ? "id,codigo_interno,nome,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
       : "id,codigo_interno,nome,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
@@ -605,6 +674,58 @@ export default function OrcamentoPage() {
     setLookupBusy(false);
   }
 
+  async function handleAddConjuntoConfirm() {
+    if (!supabase) return;
+    if (!orc?.id) return;
+    if (!tenantId || !empresaId) return;
+    if (readOnly || !canWrite) return;
+    if (!addConjunto.open) return;
+
+    const qtd = parseDecimalBR(addConjunto.quantidade);
+    if (!Number.isFinite(qtd) || qtd <= 0) {
+      setAddConjunto((p) => (p.open ? { ...p, error: "Quantidade inválida." } : p));
+      return;
+    }
+
+    setAddConjunto((p) => (p.open ? { ...p, busy: true, error: null } : p));
+    try {
+      const { data, error } = await supabase.schema("m").rpc("fn_orcamento_adicionar_conjunto", {
+        p_orcamento_id: orc.id,
+        p_conjunto_id: addConjunto.conjunto.conjunto_id,
+        p_quantidade: qtd,
+      });
+      if (error) throw error;
+
+      const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+      const firstValue = (obj: Record<string, unknown>, keys: string[]): unknown => {
+        for (const k of keys) {
+          const v = obj[k];
+          if (v !== null && v !== undefined) return v;
+        }
+        return 0;
+      };
+
+      const itensInseridos = row ? n(firstValue(row, ["itens_inseridos", "qtd_itens", "itens"])) : 0;
+      const totalEstimado = row ? n(firstValue(row, ["total_estimado", "valor_total", "total"])) : 0;
+
+      setAddConjunto({ open: false });
+      setShowLookup(false);
+      await reload();
+
+      if (itensInseridos > 0 || totalEstimado > 0) {
+        setOk(`Conjunto inserido: ${itensInseridos} itens, total estimado R$ ${formatMoneyBR(totalEstimado)}.`);
+      } else {
+        setOk("Conjunto inserido.");
+      }
+    } catch (e: unknown) {
+      setAddConjunto((p) =>
+        p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao inserir conjunto.") } : p
+      );
+    } finally {
+      setAddConjunto((p) => (p.open ? { ...p, busy: false } : p));
+    }
+  }
+
   function sortRows(rows: ItemLookupRow[], key: SortKey, dir: SortDir): ItemLookupRow[] {
     const factor = dir === "asc" ? 1 : -1;
     return [...rows].sort((a, b) => {
@@ -658,6 +779,7 @@ export default function OrcamentoPage() {
     setShowLookup(true);
     setLookupErr(null);
     setLookupRows([]);
+    setLookupConjuntoRows([]);
     setLookupNome(nome);
     setLookupFornecedor("");
     void handleLookupSearch(nome, "");
@@ -1054,8 +1176,12 @@ export default function OrcamentoPage() {
             <div className="w-full max-w-7xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-lg font-semibold">Localizar item</div>
-                  <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
+                  <div className="text-lg font-semibold">Localizar {lookupBuscarConjuntos ? "conjunto" : "item"}</div>
+                  <div className="text-sm text-zinc-400">
+                    {lookupBuscarConjuntos
+                      ? "Busque conjuntos (kits) para inserir no orçamento."
+                      : "Filtre por nome ou fabricante para localizar o ID."}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -1066,9 +1192,25 @@ export default function OrcamentoPage() {
                 </button>
               </div>
 
+              <label className="flex items-center gap-2 text-sm text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={lookupBuscarConjuntos}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setLookupBuscarConjuntos(next);
+                    setLookupErr(null);
+                    setLookupRows([]);
+                    setLookupConjuntoRows([]);
+                    void handleLookupSearch(lookupNome, lookupFornecedor);
+                  }}
+                />
+                Buscar Conjuntos
+              </label>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Nome</div>
+                  <div className="text-xs text-zinc-400">{lookupBuscarConjuntos ? "Código/Nome" : "Nome"}</div>
                   <input
                     className="w-full px-3 py-2"
                     value={lookupNome}
@@ -1079,27 +1221,29 @@ export default function OrcamentoPage() {
                         void handleLookupSearch(e.currentTarget.value, lookupFornecedor);
                       }
                     }}
-                    aria-label="Buscar item por nome"
-                    title="Buscar item por nome"
+                    aria-label={lookupBuscarConjuntos ? "Buscar conjunto" : "Buscar item por nome"}
+                    title={lookupBuscarConjuntos ? "Buscar conjunto" : "Buscar item por nome"}
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Fornecedor</div>
-                  <input
-                    className="w-full px-3 py-2"
-                    value={lookupFornecedor}
-                    onChange={(e) => setLookupFornecedor(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleLookupSearch(lookupNome, e.currentTarget.value);
-                      }
-                    }}
-                    aria-label="Buscar item por fornecedor"
-                    title="Buscar item por fornecedor"
-                  />
-                </div>
+                {!lookupBuscarConjuntos && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-400">Fornecedor</div>
+                    <input
+                      className="w-full px-3 py-2"
+                      value={lookupFornecedor}
+                      onChange={(e) => setLookupFornecedor(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void handleLookupSearch(lookupNome, e.currentTarget.value);
+                        }
+                      }}
+                      aria-label="Buscar item por fornecedor"
+                      title="Buscar item por fornecedor"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -1117,6 +1261,7 @@ export default function OrcamentoPage() {
                     setLookupNome("");
                     setLookupFornecedor("");
                     setLookupRows([]);
+                    setLookupConjuntoRows([]);
                     setLookupErr(null);
                     void handleLookupSearch("", "");
                   }}
@@ -1129,75 +1274,165 @@ export default function OrcamentoPage() {
               {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
 
               <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
-                <table className="w-full text-sm table-fixed">
-                  <colgroup>
-                    <col className="w-16" />
-                    <col className="w-40" />
-                    <col className="w-[40%]" />
-                    <col className="w-[28%]" />
-                    <col className="w-32" />
-                    <col className="w-28" />
-                    <col className="w-20" />
-                  </colgroup>
-                  <thead className="bg-zinc-900/70 sticky top-0 z-10">
-                    <tr className="text-left text-zinc-200">
-                      <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("id")}>
-                        ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                      <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("codigo")}>
-                        Codigo {sortKey === "codigo" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                      <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("descricao")}>
-                        Descricao {sortKey === "descricao" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                      <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("fornecedor")}>
-                        Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                      <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("ultima")}>
-                        Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                      <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("preco")}>
-                        Preco {sortKey === "preco" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                      <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
-                        Saldo {sortKey === "estoque" && (sortDir === "asc" ? "▲" : "▼")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800">
-                    {sortedLookupRows.map((it) => (
-                      <tr
-                        key={it.id}
-                        className="hover:bg-zinc-900/40 cursor-pointer"
-                        onClick={() => {
-                          setInlineItemId(String(it.id));
-                          setShowLookup(false);
-                        }}
-                      >
-                        <td className="px-4 py-3 tabular-nums whitespace-nowrap">{it.id}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno}</td>
-                        <td className="px-4 py-3 whitespace-normal break-words">{it.nome}</td>
-                        <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "—"}</td>
-                        <td className="px-4 py-3 text-zinc-300">
-                          {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(Number(it.preco_unitario ?? 0))}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
-                        </td>
+                {!lookupBuscarConjuntos ? (
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col className="w-16" />
+                      <col className="w-40" />
+                      <col className="w-[40%]" />
+                      <col className="w-[28%]" />
+                      <col className="w-32" />
+                      <col className="w-28" />
+                      <col className="w-20" />
+                    </colgroup>
+                    <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                      <tr className="text-left text-zinc-200">
+                        <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("id")}>
+                          ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("codigo")}>
+                          Codigo {sortKey === "codigo" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("descricao")}>
+                          Descricao {sortKey === "descricao" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("fornecedor")}>
+                          Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("ultima")}>
+                          Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("preco")}>
+                          Preco {sortKey === "preco" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
+                        <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
+                          Saldo {sortKey === "estoque" && (sortDir === "asc" ? "▲" : "▼")}
+                        </th>
                       </tr>
-                    ))}
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {sortedLookupRows.map((it) => (
+                        <tr
+                          key={it.id}
+                          className="hover:bg-zinc-900/40 cursor-pointer"
+                          onClick={() => {
+                            setInlineItemId(String(it.id));
+                            setShowLookup(false);
+                          }}
+                        >
+                          <td className="px-4 py-3 tabular-nums whitespace-nowrap">{it.id}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno}</td>
+                          <td className="px-4 py-3 whitespace-normal break-words">{it.nome}</td>
+                          <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "—"}</td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(Number(it.preco_unitario ?? 0))}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">
+                            {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
+                          </td>
+                        </tr>
+                      ))}
 
-                    {lookupRows.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
-                          Nenhum resultado ainda. Informe filtros e busque.
-                        </td>
+                      {lookupRows.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
+                            Nenhum resultado ainda. Informe filtros e busque.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col className="w-56" />
+                      <col className="w-[55%]" />
+                      <col className="w-40" />
+                    </colgroup>
+                    <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                      <tr className="text-left text-zinc-200">
+                        <th className="px-4 py-3 whitespace-nowrap">Código</th>
+                        <th className="px-4 py-3">Nome</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">Preço sugerido</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {lookupConjuntoRows.map((c) => (
+                        <tr
+                          key={c.conjunto_id}
+                          className="hover:bg-zinc-900/40 cursor-pointer"
+                          onClick={() => setAddConjunto({ open: true, conjunto: c, quantidade: "1", busy: false, error: null })}
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap">{c.codigo ?? "—"}</td>
+                          <td className="px-4 py-3 whitespace-normal break-words">{c.nome ?? "—"}</td>
+                          <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">R$ {formatMoneyBR(Number(c.preco_sugerido ?? 0))}</td>
+                        </tr>
+                      ))}
+
+                      {lookupConjuntoRows.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-6 text-zinc-400 text-center">
+                            Nenhum resultado ainda. Informe filtros e busque.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
+
+              {addConjunto.open && (
+                <div
+                  className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 md:items-center"
+                  onClick={(e) => e.target === e.currentTarget && setAddConjunto({ open: false })}
+                  role="presentation"
+                >
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Quantidade do conjunto"
+                    className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
+                      <div className="font-semibold text-zinc-100">Adicionar conjunto</div>
+                      <div className="text-xs text-zinc-400 mt-1">
+                        {addConjunto.conjunto.codigo ?? ""} {addConjunto.conjunto.nome ? `— ${addConjunto.conjunto.nome}` : ""}
+                      </div>
+                    </div>
+                    <div className="px-5 py-4 space-y-3">
+                      <label className="block text-xs text-zinc-400">
+                        Quantidade
+                        <input
+                          value={addConjunto.quantidade}
+                          onChange={(e) => setAddConjunto((p) => (p.open ? { ...p, quantidade: e.target.value, error: null } : p))}
+                          className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                        />
+                      </label>
+                      {addConjunto.error && <div className="text-sm text-red-400">{addConjunto.error}</div>}
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAddConjunto({ open: false })}
+                          className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+                          disabled={addConjunto.busy}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleAddConjuntoConfirm()}
+                          className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                          disabled={addConjunto.busy}
+                        >
+                          {addConjunto.busy ? "Inserindo..." : "Inserir"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
