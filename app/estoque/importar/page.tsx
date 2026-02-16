@@ -494,7 +494,7 @@ export default function ImportarXmlPage() {
     return () => {
       active = false;
     };
-  }, [empresaId, importOk, recentFilterMonth, recentFilterYear, recentReloadTick, tenantId]);
+  }, [empresaId, importOk, recentFilterMonth, recentFilterYear, recentReloadTick, supabase, tenantId]);
 
   const abrirNotaImportada = useCallback(
     async (row: NfEntradaResumoRow) => {
@@ -540,7 +540,7 @@ export default function ImportarXmlPage() {
         setOpeningNfEntradaId(null);
       }
     },
-    [empresaId, router, tenantId]
+    [empresaId, router, supabase, tenantId]
   );
 
   useEffect(() => {
