@@ -92,7 +92,7 @@ export async function listOrcamentos(
 export async function getOrcamento(
   supabase: SupabaseClient,
   params: { tenantId: string; empresaId: string; idOrCodigo: string }
-): Promise<{ orcamento: OrcamentoRow; itens: OrcamentoItemRow[] }> {
+): Promise<{ orcamento: OrcamentoRow }> {
   const raw = String(params.idOrCodigo ?? "").trim();
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
 
@@ -114,46 +114,7 @@ export async function getOrcamento(
   if (oErr) throw oErr;
   if (!orc?.id) throw new Error("Orçamento não encontrado.");
 
-  const { data: itensRaw, error: iErr } = await supabase
-    .schema("r")
-    .from("r_orcamento_itens")
-    // IMPORTANT: keep this as '*' so future columns (ex.: conjunto_instancia_id / conjunto_nome / conjunto_codigo)
-    // added to the view are not accidentally dropped by the UI.
-    .select("*")
-    .eq("orcamento_id", orc.id)
-    .order("seq", { ascending: true })
-    .returns<OrcamentoItemRow[]>();
-
-  if (iErr) throw iErr;
-
-  const itensAll = (itensRaw ?? []) as OrcamentoItemRow[];
-  const itens = itensAll.filter((it) => {
-    const rec = it as unknown as Record<string, unknown>;
-    if (!("deleted_at" in rec)) return true;
-    const v = rec["deleted_at"];
-    return v === null || v === undefined || v === "";
-  });
-  const itemIds = Array.from(new Set(itens.map((it) => Number(it.item_id)).filter((v) => Number.isFinite(v) && v > 0)));
-
-  if (!itemIds.length) return { orcamento: orc as OrcamentoRow, itens };
-
-  // Enrich with itens.codigo_interno for UI display.
-  const { data: itensInfo, error: infoErr } = await applyTenantEmpresa(
-    supabase.from("itens").select("id,codigo_interno").in("id", itemIds),
-    params.tenantId,
-    params.empresaId
-  ).returns<Array<{ id: number; codigo_interno: string | null }>>();
-  if (infoErr) throw infoErr;
-
-  const codigoById = new Map<number, string | null>();
-  for (const row of itensInfo ?? []) {
-    const id = Number(row.id);
-    if (!Number.isFinite(id)) continue;
-    codigoById.set(id, row.codigo_interno ?? null);
-  }
-
-  const enriched = itens.map((it) => ({ ...it, item_codigo_interno: codigoById.get(Number(it.item_id)) ?? null }));
-  return { orcamento: orc as OrcamentoRow, itens: enriched };
+  return { orcamento: orc as OrcamentoRow };
 }
 
 export async function createOrcamento(

@@ -359,6 +359,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             Movimentacoes
                           </Link>
                         )}
+                        {can("estoque.read") && (
+                          <Link href="/estoque/relatorios" className="block px-3 py-2 hover:bg-zinc-900">
+                            Relatórios
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>

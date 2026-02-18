@@ -380,9 +380,19 @@ export default function OrcamentoPage() {
 
     setLoading(true);
     try {
-      const { orcamento, itens } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam });
+      const { orcamento } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam });
+
+      const { data: itens, error: itensErr } = await supabase
+        .schema("r")
+        .from("r_orcamento_itens")
+        .select("*")
+        .eq("orcamento_id", orcamento.id)
+        .order("seq", { ascending: true });
+
+      if (itensErr) throw itensErr;
+
       setOrc(orcamento);
-      setItens(itens);
+      setItens((itens ?? []) as OrcamentoItemRow[]);
       setForm(formFromRow(orcamento));
 
       try {

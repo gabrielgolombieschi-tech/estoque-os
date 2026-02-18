@@ -5,6 +5,7 @@ import { formatDecimalBR, parseDecimalBR } from "../../lib/decimal";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { gerarRelatorioEstoque } from "../../lib/pdf/relatorioEstoque";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { useIsAdminTenant } from "@/lib/auth/useIsAdminTenant";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
@@ -33,7 +34,7 @@ type EstoqueRow = {
 
 type EstoqueBaseRow = Omit<EstoqueRow, "itens">;
 type EstoqueJoinRow = EstoqueBaseRow;
-type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number; estoque: EstoqueJoinRow[] };
+type EstoqueItemRow = NonNullable<EstoqueRow["itens"]> & { id: number; estoque?: EstoqueJoinRow[] | null };
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -50,7 +51,6 @@ function normalizeSearchTerm(s: unknown) {
   return String(s ?? "")
     .trim()
     .normalize("NFD")
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
@@ -72,6 +72,7 @@ export default function EstoquePage() {
     return supabaseBrowser();
   }, []);
   const { tenantId, empresaId, loading: tenantEmpresaLoading, error: tenantEmpresaError } = useTenantEmpresa();
+  const { isAdmin: isAdminTenant, loading: adminTenantLoading } = useIsAdminTenant();
   const { has, loading: permissionsLoading, ready } = usePermissions();
   const canView = has("estoque.read");
   const canAdjust = has("estoque.write");
@@ -83,21 +84,28 @@ export default function EstoquePage() {
   const [busy, setBusy] = useState(false);
 
   const filtrosFormRef = useRef<HTMLFormElement | null>(null);
+  const codigoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [draftFiltros, setDraftFiltros] = useState<Filtros>(getFiltrosIniciais);
   const [filtros, setFiltros] = useState<Filtros>(getFiltrosIniciais);
   const [abaixoMinCacheKey, setAbaixoMinCacheKey] = useState<string>("");
   const [abaixoMinCache, setAbaixoMinCache] = useState<EstoqueRow[] | null>(null);
 
-  const [ajusteItemId, setAjusteItemId] = useState<number | null>(null);
-  const [ajusteQuantidade, setAjusteQuantidade] = useState<number>(0);
-  const [ajusteMotivo, setAjusteMotivo] = useState<string>("Ajuste manual");
   const [showAjuste, setShowAjuste] = useState(false);
-  const [estoqueMinimo, setEstoqueMinimo] = useState<number>(0);
-  const [estoqueIdeal, setEstoqueIdeal] = useState<number>(0);
-  const [estoqueMaximo, setEstoqueMaximo] = useState<number>(0);
-  const [limiteBusy, setLimiteBusy] = useState(false);
-  const [limiteMsg, setLimiteMsg] = useState<string | null>(null);
+  const [ajusteItemIdText, setAjusteItemIdText] = useState<string>("");
+  const [ajusteSaldoText, setAjusteSaldoText] = useState<string>("");
+  const [ajusteMinText, setAjusteMinText] = useState<string>("");
+  const [ajusteMaxText, setAjusteMaxText] = useState<string>("");
+  const [ajusteDescricao, setAjusteDescricao] = useState<string>("");
+
+  const ajusteItemIdRef = useRef<HTMLInputElement | null>(null);
+  const ajusteSaldoRef = useRef<HTMLInputElement | null>(null);
+  const ajusteMinRef = useRef<HTMLInputElement | null>(null);
+  const ajusteMaxRef = useRef<HTMLInputElement | null>(null);
+
+  const [showZeraEstoque, setShowZeraEstoque] = useState(false);
+  const [zeraFornecedorId, setZeraFornecedorId] = useState<string>("");
+  const zeraFornecedorRef = useRef<HTMLSelectElement | null>(null);
   const [page, setPage] = useState(0);
   const pageSize = 250;
   const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -106,6 +114,39 @@ export default function EstoquePage() {
     const a = Number.isFinite(min) ? Number(min) : 0;
     const b = Number.isFinite(max) ? Number(max) : 0;
     return Math.floor((a + b) / 2);
+  }, []);
+
+  const itensSelect = useMemo(
+    () =>
+      "id,codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),estoque!estoque_item_id_fkey(id,item_id,quantidade_atual,atualizado_em,localizacao)",
+    []
+  );
+
+  const mapItemToEstoqueRow = useCallback((item: EstoqueItemRow): EstoqueRow | null => {
+    const estoqueRows = Array.isArray(item.estoque) ? item.estoque : [];
+    const { estoque, ...itens } = item;
+    void estoque;
+
+    const quantidadeTotal = estoqueRows.reduce(
+      (acc, r) => acc + Number((r as unknown as { quantidade_atual?: unknown })?.quantidade_atual ?? 0),
+      0
+    );
+
+    const atualizadoEm = estoqueRows
+      .map((r) => String((r as unknown as { atualizado_em?: unknown })?.atualizado_em ?? ""))
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+
+    return {
+      // Use item id as stable row id (estoque may have multiple rows per item).
+      id: item.id,
+      item_id: item.id,
+      quantidade_atual: Number(quantidadeTotal ?? 0),
+      atualizado_em: atualizadoEm || new Date(0).toISOString(),
+      localizacao: null,
+      itens,
+    };
   }, []);
 
   const loadFornecedores = useCallback(async () => {
@@ -218,6 +259,245 @@ export default function EstoquePage() {
       ).eq("id", itemId);
       if (error) return setErr(error.message);
       setOk("Limites atualizados.");
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function resetAjuste() {
+    setAjusteItemIdText("");
+    setAjusteSaldoText("");
+    setAjusteMinText("");
+    setAjusteMaxText("");
+    setAjusteDescricao("");
+  }
+
+  function closeAjusteAndFocusCodigo() {
+    setShowAjuste(false);
+    resetAjuste();
+    setTimeout(() => {
+      codigoInputRef.current?.focus();
+      codigoInputRef.current?.select?.();
+    }, 0);
+  }
+
+  function focusCodigo() {
+    setTimeout(() => {
+      codigoInputRef.current?.focus();
+      codigoInputRef.current?.select?.();
+    }, 0);
+  }
+
+  function focusAjusteId() {
+    setTimeout(() => {
+      ajusteItemIdRef.current?.focus();
+      ajusteItemIdRef.current?.select?.();
+    }, 0);
+  }
+
+  function closeZeraEstoqueAndFocusCodigo() {
+    setShowZeraEstoque(false);
+    setZeraFornecedorId("");
+    setTimeout(() => {
+      codigoInputRef.current?.focus();
+      codigoInputRef.current?.select?.();
+    }, 0);
+  }
+
+  async function zerarEstoqueFornecedorSelecionado() {
+    setOk(null);
+    setErr(null);
+
+    if (!canAdjust) return setErr("Sem permissao para ajustar estoque.");
+    if (adminTenantLoading) return;
+    if (!isAdminTenant) return setErr("Apenas admin pode zerar estoque.");
+
+    const fornecedorId = Number(String(zeraFornecedorId ?? "").trim());
+    if (!Number.isInteger(fornecedorId) || fornecedorId <= 0) return setErr("Selecione um fornecedor valido.");
+    if (tenantEmpresaLoading) return;
+    if (!tenantId || !empresaId) return setErr("Tenant ou empresa nao carregados.");
+
+    setBusy(true);
+    try {
+      const fornecedorNome = fornecedorNomeById(fornecedorId) ?? `#${fornecedorId}`;
+      const { data: sess } = await supabase.auth.getSession();
+      const userEmail = sess.session?.user?.email ?? null;
+
+      const all: EstoqueItemRow[] = [];
+      const chunkSize = 1000;
+      let offset = 0;
+      while (true) {
+        const qb = applyTenantEmpresa(supabase.from("itens").select(itensSelect), tenantId, empresaId)
+          .eq("tipo", "produto")
+          .eq("controla_estoque", true)
+          .eq("fornecedor_id", fornecedorId)
+          .order("id", { ascending: false })
+          .range(offset, offset + chunkSize - 1);
+
+        const { data, error } = await qb;
+        if (error) return setErr(error.message);
+
+        const typed = (data ?? []) as unknown as EstoqueItemRow[];
+        all.push(...typed);
+        if (typed.length < chunkSize) break;
+        offset += chunkSize;
+      }
+
+      const estoqueRows = all.map(mapItemToEstoqueRow).filter(Boolean) as EstoqueRow[];
+
+      const movimentos = estoqueRows
+        .map((r) => {
+          const saldoAtual = Number(r.quantidade_atual ?? 0);
+          if (!Number.isFinite(saldoAtual)) return null;
+          if (Math.abs(saldoAtual) < 1e-12) return null;
+          const tipo = saldoAtual > 0 ? "saida" : "entrada";
+          return {
+            tenant_id: tenantId,
+            item_id: r.item_id,
+            tipo,
+            quantidade: Math.abs(saldoAtual),
+            motivo: `Zera estoque (fornecedor ${fornecedorNome})`,
+            realizado_por: userEmail,
+            data_movimentacao: new Date().toISOString(),
+          };
+        })
+        .filter(Boolean) as Array<Record<string, unknown>>;
+
+      if (movimentos.length === 0) {
+        setOk(`Nenhum item com saldo para zerar (${fornecedorNome}).`);
+        closeZeraEstoqueAndFocusCodigo();
+        return;
+      }
+
+      const insertChunkSize = 500;
+      for (let i = 0; i < movimentos.length; i += insertChunkSize) {
+        const chunk = movimentos.slice(i, i + insertChunkSize);
+        const { error } = await supabase.from("movimentacoes").insert(chunk);
+        if (error) return setErr(error.message);
+      }
+
+      setOk(`Estoque zerado para ${fornecedorNome}. Itens ajustados: ${movimentos.length}.`);
+      closeZeraEstoqueAndFocusCodigo();
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erro ao zerar estoque.";
+      setErr(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fetchAjusteContext(itemId: number) {
+    if (tenantEmpresaLoading) return null;
+    if (!tenantId || !empresaId) {
+      setErr("Tenant ou empresa nao carregados.");
+      return null;
+    }
+
+    const { data, error } = await applyTenantEmpresa(supabase.from("itens").select(itensSelect), tenantId, empresaId)
+      .eq("tipo", "produto")
+      .eq("controla_estoque", true)
+      .eq("id", itemId)
+      .maybeSingle();
+
+    if (error) {
+      setErr(error.message);
+      return null;
+    }
+    if (!data) {
+      setErr("Item nao encontrado no estoque.");
+      return null;
+    }
+
+    const row = mapItemToEstoqueRow(data as unknown as EstoqueItemRow);
+    if (!row) {
+      setErr("Item sem estoque vinculado.");
+      return null;
+    }
+
+    return {
+      saldoAtual: Number(row.quantidade_atual ?? 0),
+      min: Number(row.itens?.estoque_minimo ?? 0),
+      max: Number(row.itens?.estoque_maximo ?? 0),
+      descricao: String(row.itens?.nome ?? "").trim(),
+    };
+  }
+
+  async function preencherAjustePorId(itemId: number) {
+    setErr(null);
+    setOk(null);
+    const ctx = await fetchAjusteContext(itemId);
+    if (!ctx) return false;
+    setAjusteDescricao(ctx.descricao || "Sem descricao");
+    setAjusteSaldoText(formatDecimalBR(ctx.saldoAtual, 3));
+    setAjusteMinText(formatDecimalBR(ctx.min, 3));
+    setAjusteMaxText(formatDecimalBR(ctx.max, 3));
+    return true;
+  }
+
+  async function salvarAjusteRapido() {
+    setOk(null);
+    setErr(null);
+    if (!canAdjust) return setErr("Sem permissao para ajustar estoque.");
+
+    const idParsed = Number(String(ajusteItemIdText ?? "").trim());
+    if (!Number.isInteger(idParsed) || idParsed <= 0) return setErr("Informe um ID de item valido.");
+
+    const saldoParsed = parseDecimalBR(ajusteSaldoText);
+    const minParsed = parseDecimalBR(ajusteMinText);
+    const maxParsed = parseDecimalBR(ajusteMaxText);
+    if (saldoParsed == null || !Number.isFinite(saldoParsed)) return setErr("Saldo invalido.");
+    if (minParsed == null || !Number.isFinite(minParsed)) return setErr("Minimo invalido.");
+    if (maxParsed == null || !Number.isFinite(maxParsed)) return setErr("Maximo invalido.");
+
+    const novoSaldo = Number(saldoParsed);
+    const novoMin = Number(minParsed);
+    const novoMax = Number(maxParsed);
+
+    if (tenantEmpresaLoading) return;
+    if (!tenantId || !empresaId) return setErr("Tenant ou empresa nao carregados.");
+
+    setBusy(true);
+    try {
+      const ctx = await fetchAjusteContext(idParsed);
+      if (!ctx) return;
+
+      const diff = novoSaldo - ctx.saldoAtual;
+      if (diff !== 0) {
+        const { data: sess } = await supabase.auth.getSession();
+        const userEmail = sess.session?.user?.email ?? null;
+
+        const tipoMov = diff > 0 ? "entrada" : "saida";
+        const qtdMov = Math.abs(diff);
+
+        const { error } = await supabase.from("movimentacoes").insert({
+          tenant_id: tenantId,
+          item_id: idParsed,
+          tipo: tipoMov,
+          quantidade: qtdMov,
+          motivo: `Ajuste estoque (ajuste para ${novoSaldo})`,
+          realizado_por: userEmail,
+          data_movimentacao: new Date().toISOString(),
+        });
+        if (error) return setErr(error.message);
+      }
+
+      const ideal = calcIdeal(novoMin, novoMax);
+      const { error: limErr } = await applyTenantEmpresa(
+        supabase.from("itens").update({
+          estoque_minimo: novoMin,
+          estoque_maximo: novoMax,
+          estoque_ideal: ideal,
+        }),
+        tenantId,
+        empresaId
+      ).eq("id", idParsed);
+      if (limErr) return setErr(limErr.message);
+
+      setOk(`Ajuste salvo. Saldo: ${ctx.saldoAtual} -> ${novoSaldo}`);
+      // Não fecha o popup após salvar; volta o foco para o ID para facilitar o próximo ajuste.
+      focusAjusteId();
       await load();
     } finally {
       setBusy(false);
@@ -396,9 +676,6 @@ export default function EstoquePage() {
       idNumber = parsed;
     }
 
-    const select =
-      "id,codigo_interno,codigo_barras,nome,tipo,unidade_medida,controla_estoque,estoque_minimo,estoque_ideal,estoque_maximo,ativo,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),estoque!estoque_item_id_fkey!inner(id,item_id,quantidade_atual,atualizado_em,localizacao)";
-
     const fornTerm = filtros.fornecedor.trim();
     const fornIds = fornTerm ? await resolveFornecedorIdsByTerm(fornTerm) : null;
     if (fornTerm && (!fornIds || fornIds.length === 0)) {
@@ -409,8 +686,8 @@ export default function EstoquePage() {
 
     const buildItensQuery = (withCount: boolean) => {
       const base = withCount
-        ? supabase.from("itens").select(select, { count: "exact" })
-        : supabase.from("itens").select(select);
+        ? supabase.from("itens").select(itensSelect, { count: "exact" })
+        : supabase.from("itens").select(itensSelect);
 
       let query = applyTenantEmpresa(base, tenantId, empresaId)
         .eq("tipo", "produto")
@@ -435,34 +712,6 @@ export default function EstoquePage() {
       return query;
     };
 
-    const mapToEstoqueRow = (item: EstoqueItemRow): EstoqueRow | null => {
-      const estoqueRows = Array.isArray(item.estoque) ? item.estoque : [];
-      if (estoqueRows.length === 0) return null;
-      const { estoque, ...itens } = item;
-      void estoque;
-
-      const quantidadeTotal = estoqueRows.reduce(
-        (acc, r) => acc + Number((r as unknown as { quantidade_atual?: unknown })?.quantidade_atual ?? 0),
-        0
-      );
-
-      const atualizadoEm = estoqueRows
-        .map((r) => String((r as unknown as { atualizado_em?: unknown })?.atualizado_em ?? ""))
-        .filter(Boolean)
-        .sort()
-        .at(-1);
-
-      return {
-        // Use item id as stable row id (estoque may have multiple rows per item).
-        id: item.id,
-        item_id: item.id,
-        quantidade_atual: Number(quantidadeTotal ?? 0),
-        atualizado_em: atualizadoEm || new Date(0).toISOString(),
-        localizacao: null,
-        itens,
-      };
-    };
-
     if (filtros.abaixoMinimo) {
       const all: EstoqueItemRow[] = [];
       const chunkSize = 1000;
@@ -479,7 +728,7 @@ export default function EstoquePage() {
       }
 
       const below = all
-        .map(mapToEstoqueRow)
+        .map(mapItemToEstoqueRow)
         .filter(Boolean)
         .filter((r) => Number(r!.quantidade_atual ?? 0) < Number(r!.itens?.estoque_minimo ?? 0)) as EstoqueRow[];
 
@@ -496,7 +745,7 @@ export default function EstoquePage() {
     setTotalCount(typeof count === "number" ? count : null);
 
     const typed = (data ?? []) as unknown as EstoqueItemRow[];
-    const list = typed.map(mapToEstoqueRow).filter(Boolean) as EstoqueRow[];
+    const list = typed.map(mapItemToEstoqueRow).filter(Boolean) as EstoqueRow[];
     setRows(list);
   }, [
     abaixoMinCache,
@@ -505,116 +754,42 @@ export default function EstoquePage() {
     filtros,
     page,
     pageSize,
+    resolveFornecedorIdsByTerm,
     supabase,
     tenantEmpresaLoading,
     tenantId,
+    itensSelect,
+    mapItemToEstoqueRow,
   ]);
 
-  function startAjuste(item_id: number, atual: number) {
+  function startAjuste(item_id: number) {
     setOk(null);
     setErr(null);
-    setAjusteItemId(item_id);
-    setAjusteQuantidade(atual);
-    setAjusteMotivo("Ajuste manual");
-    const row = rows.find((r) => r.item_id === item_id);
-    const min = Number(row?.itens?.estoque_minimo ?? 0);
-    const max = Number(row?.itens?.estoque_maximo ?? 0);
-    setEstoqueMinimo(min);
-    setEstoqueMaximo(max);
-    setEstoqueIdeal(calcIdeal(min, max));
-    setLimiteMsg(null);
+    setAjusteItemIdText(String(item_id));
     setShowAjuste(true);
+    void preencherAjustePorId(item_id);
+    setTimeout(() => {
+      ajusteSaldoRef.current?.focus();
+      ajusteSaldoRef.current?.select?.();
+    }, 0);
   }
 
   useEffect(() => {
-    setEstoqueIdeal(calcIdeal(estoqueMinimo, estoqueMaximo));
-  }, [estoqueMinimo, estoqueMaximo, calcIdeal]);
+    if (!showAjuste) return;
+    const t = setTimeout(() => {
+      ajusteItemIdRef.current?.focus();
+      ajusteItemIdRef.current?.select?.();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [showAjuste]);
 
-  async function aplicarAjuste() {
-    setOk(null);
-    setErr(null);
-    if (!canAdjust) return setErr("Sem permissao para ajustar estoque.");
-
-    if (!ajusteItemId) return setErr("Selecione um item para ajustar.");
-    if (!Number.isFinite(ajusteQuantidade)) return setErr("Quantidade inválida.");
-    const novoSaldo = Number(ajusteQuantidade);
-
-    setBusy(true);
-
-    const atualRow = rows.find((r) => r.item_id === ajusteItemId);
-    const saldoAtual = Number(atualRow?.quantidade_atual ?? 0);
-    const diff = novoSaldo - saldoAtual;
-
-    if (diff === 0) {
-      setBusy(false);
-      return setErr("Nada a ajustar (novo saldo igual ao atual).");
-    }
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userEmail = sess.session?.user?.email ?? null;
-
-    const tipoMov = diff > 0 ? "entrada" : "saida";
-    const qtdMov = Math.abs(diff);
-
-    if (!tenantId || !empresaId) {
-      setBusy(false);
-      return setErr("Tenant ou empresa nao carregados.");
-    }
-
-    const { error } = await supabase.from("movimentacoes").insert({
-      tenant_id: tenantId,
-      item_id: ajusteItemId,
-      tipo: tipoMov,
-      quantidade: qtdMov,
-      motivo: `${ajusteMotivo} (ajuste para ${novoSaldo})`,
-      realizado_por: userEmail,
-      data_movimentacao: new Date().toISOString(),
-    });
-
-    setBusy(false);
-    if (error) return setErr(error.message);
-
-    setOk(`Ajuste aplicado. Saldo: ${saldoAtual} -> ${novoSaldo}`);
-    setAjusteItemId(null);
-    setAjusteQuantidade(0);
-    setShowAjuste(false);
-    await load();
-  }
-
-  async function salvarLimites() {
-    if (!ajusteItemId) return;
-    if (!canAdjust) {
-      setLimiteMsg("Sem permissao para ajustar estoque.");
-      return;
-    }
-    setLimiteBusy(true);
-    setLimiteMsg(null);
-    if (!tenantId || !empresaId) {
-      setLimiteBusy(false);
-      setLimiteMsg("Tenant ou empresa nao carregados.");
-      return;
-    }
-    const ideal = calcIdeal(estoqueMinimo, estoqueMaximo);
-    const { error } = await applyTenantEmpresa(supabase.from("itens").update({
-      estoque_minimo: estoqueMinimo,
-      estoque_ideal: ideal,
-      estoque_maximo: estoqueMaximo,
-    }), tenantId, empresaId).eq("id", ajusteItemId);
-    setLimiteBusy(false);
-    setLimiteMsg(error ? `Erro ao salvar limites: ${error.message}` : "Limites salvos.");
-    if (!error) await load();
-  }
-
-  function fecharAjuste() {
-    setShowAjuste(false);
-    setAjusteItemId(null);
-    setAjusteQuantidade(0);
-    setAjusteMotivo("Ajuste manual");
-    setEstoqueMinimo(0);
-    setEstoqueIdeal(0);
-    setEstoqueMaximo(0);
-    setLimiteMsg(null);
-  }
+  useEffect(() => {
+    if (!showZeraEstoque) return;
+    const t = setTimeout(() => {
+      zeraFornecedorRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [showZeraEstoque]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -678,6 +853,36 @@ export default function EstoquePage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Can perm="estoque.write">
+            <button
+              onClick={() => {
+                setErr(null);
+                setOk(null);
+                resetAjuste();
+                setShowAjuste(true);
+              }}
+              disabled={!canAdjust}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
+            >
+              Ajuste estoque
+            </button>
+          </Can>
+          <Can perm="estoque.write">
+            {isAdminTenant && !adminTenantLoading && (
+              <button
+                onClick={() => {
+                  setErr(null);
+                  setOk(null);
+                  setZeraFornecedorId("");
+                  setShowZeraEstoque(true);
+                }}
+                disabled={!canAdjust || busy}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
+              >
+                Zera estoque
+              </button>
+            )}
+          </Can>
           <button
             onClick={load}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
@@ -722,6 +927,7 @@ export default function EstoquePage() {
             <div className="text-xs text-zinc-400">Código</div>
             <input
               aria-label="Filtrar por código"
+              ref={codigoInputRef}
               className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
               value={draftFiltros.codigo}
               onChange={(e) => setDraftFiltros((prev) => ({ ...prev, codigo: e.target.value }))}
@@ -832,11 +1038,167 @@ export default function EstoquePage() {
           <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl">
             <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
               <div>
-                <div className="text-lg font-semibold">Ajustar estoque</div>
-                <div className="text-sm text-zinc-400">Defina o novo saldo para o item selecionado.</div>
+                <div className="text-lg font-semibold">Ajuste estoque</div>
+                <div className="text-sm text-zinc-400">ID → saldo → mín → máx (Enter salva)</div>
               </div>
               <button
-                onClick={fecharAjuste}
+                onClick={closeAjusteAndFocusCodigo}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">ID</div>
+                  <input
+                    ref={ajusteItemIdRef}
+                    aria-label="ID do item"
+                    inputMode="numeric"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+                    value={ajusteItemIdText}
+                    onChange={(e) => setAjusteItemIdText(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        closeAjusteAndFocusCodigo();
+                        return;
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const parsed = Number(String(ajusteItemIdText ?? "").trim());
+                        if (!Number.isInteger(parsed) || parsed <= 0) {
+                          setErr("Informe um ID de item valido.");
+                          return;
+                        }
+                        void (async () => {
+                          const ok = await preencherAjustePorId(parsed);
+                          if (!ok) return;
+                          ajusteSaldoRef.current?.focus();
+                          ajusteSaldoRef.current?.select?.();
+                        })();
+                      }
+                    }}
+                    placeholder="id"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Saldo</div>
+                  <input
+                    ref={ajusteSaldoRef}
+                    aria-label="Saldo"
+                    inputMode="decimal"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+                    value={ajusteSaldoText}
+                    onChange={(e) => setAjusteSaldoText(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        closeAjusteAndFocusCodigo();
+                        return;
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        ajusteMinRef.current?.focus();
+                        ajusteMinRef.current?.select?.();
+                      }
+                    }}
+                    placeholder="saldo"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Mín</div>
+                  <input
+                    ref={ajusteMinRef}
+                    aria-label="Min"
+                    inputMode="decimal"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+                    value={ajusteMinText}
+                    onChange={(e) => setAjusteMinText(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        closeAjusteAndFocusCodigo();
+                        return;
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        ajusteMaxRef.current?.focus();
+                        ajusteMaxRef.current?.select?.();
+                      }
+                    }}
+                    placeholder="min"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Máx</div>
+                  <input
+                    ref={ajusteMaxRef}
+                    aria-label="Max"
+                    inputMode="decimal"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+                    value={ajusteMaxText}
+                    onChange={(e) => setAjusteMaxText(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        closeAjusteAndFocusCodigo();
+                        return;
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void salvarAjusteRapido();
+                      }
+                    }}
+                    placeholder="max"
+                  />
+                </div>
+              </div>
+
+              <div className="text-xs text-zinc-400">{ajusteDescricao || "Descricao do item"}</div>
+
+              {err && <div className="text-sm text-red-400">{err}</div>}
+              {ok && <div className="text-sm text-emerald-300">{ok}</div>}
+            </div>
+
+            <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
+              <button
+                onClick={closeAjusteAndFocusCodigo}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={salvarAjusteRapido}
+                disabled={busy || !canAdjust}
+                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+              >
+                {busy ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showZeraEstoque && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl">
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold">Zera estoque</div>
+                <div className="text-sm text-zinc-400">Selecione o fornecedor para zerar o saldo.</div>
+              </div>
+              <button
+                onClick={closeZeraEstoqueAndFocusCodigo}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
               >
                 Fechar
@@ -845,101 +1207,49 @@ export default function EstoquePage() {
 
             <div className="px-5 py-4 space-y-3">
               <div className="space-y-1">
-                <div className="text-xs text-zinc-400">Item selecionado</div>
-                <input
-                aria-label="Item selecionado"
-                  className="w-full px-3 py-2"
-                  value={ajusteItemId ? `item_id=${ajusteItemId}` : ""}
-                  disabled
-                  placeholder="Nenhum item selecionado"
-                />
-                <div className="text-xs text-zinc-400">
-                  {rows.find((r) => r.item_id === ajusteItemId)?.itens?.nome ?? "Sem descrição"}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Novo saldo desejado</div>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                      aria-label="Novo saldo desejado"
-                    step="0.001"
-                    className="w-full px-3 py-2"
-                    value={ajusteQuantidade}
-                    onChange={(e) => setAjusteQuantidade(parseDecimalBR(e.target.value) || 0)}
-                    disabled={!ajusteItemId}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Motivo</div>
-                    <input aria-label="Motivo" className="w-full px-3 py-2" value={ajusteMotivo} disabled />
-                </div>
-              </div>
-
-              {err && <div className="text-sm text-red-400">{err}</div>}
-              {ok && <div className="text-sm text-emerald-300">{ok}</div>}
-            </div>
-
-            <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
-              <button
-                onClick={fecharAjuste}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={aplicarAjuste}
-                disabled={busy || !ajusteItemId || !canAdjust}
-                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-              >
-                {busy ? "Aplicando..." : "Aplicar ajuste"}
-              </button>
-            </div>
-
-            <div className="px-5 py-4 border-t border-zinc-800 bg-zinc-950 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Estoque mínimo</div>
-                  <input
-                      aria-label="Estoque mínimo"
-                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-                    value={estoqueMinimo}
-                    onChange={(e) => setEstoqueMinimo(parseDecimalBR(e.target.value) || 0)}
-                    disabled={!ajusteItemId || limiteBusy}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Estoque ideal</div>
-                  <input
-                      aria-label="Estoque ideal"
-                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-                    value={estoqueIdeal}
-                    disabled
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">Estoque máximo</div>
-                  <input
-                      aria-label="Estoque máximo"
-                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
-                    value={estoqueMaximo}
-                    onChange={(e) => setEstoqueMaximo(parseDecimalBR(e.target.value) || 0)}
-                    disabled={!ajusteItemId || limiteBusy}
-                  />
-                </div>
-              </div>
-
-              {limiteMsg && <div className="text-sm text-emerald-300">{limiteMsg}</div>}
-              <div className="flex justify-end">
-                <button
-                  onClick={salvarLimites}
-                  disabled={!ajusteItemId || limiteBusy || !canAdjust}
-                  className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
+                <div className="text-xs text-zinc-400">Fornecedor</div>
+                <select
+                  ref={zeraFornecedorRef}
+                  aria-label="Fornecedor"
+                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900/40"
+                  value={zeraFornecedorId}
+                  onChange={(e) => setZeraFornecedorId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      closeZeraEstoqueAndFocusCodigo();
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void zerarEstoqueFornecedorSelecionado();
+                    }
+                  }}
                 >
-                  {limiteBusy ? "Salvando..." : "Salvar limites"}
+                  <option value="">Selecione...</option>
+                  {fornecedores
+                    .filter((f) => f.ativo)
+                    .map((f) => (
+                      <option key={f.id} value={String(f.id)}>
+                        {String(f.nome ?? "").trim() || `#${f.id}`}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  onClick={closeZeraEstoqueAndFocusCodigo}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => void zerarEstoqueFornecedorSelecionado()}
+                  disabled={busy || !canAdjust || !isAdminTenant || adminTenantLoading || !zeraFornecedorId}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                >
+                  {busy ? "Zerando..." : "Zerar estoque"}
                 </button>
               </div>
             </div>
@@ -1015,7 +1325,7 @@ export default function EstoquePage() {
                   <td className="px-4 py-3 text-center">
                     <Can perm="estoque.write">
                       <button
-                        onClick={() => startAjuste(r.item_id, saldo)}
+                        onClick={() => startAjuste(r.item_id)}
                         className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                       >
                         Ajustar

@@ -750,8 +750,24 @@ export default function ImportarXmlPage() {
     return () => clearTimeout(t);
   }, [osNumero, osEnabled, resolveOsByNumero]);
 
+  function normalizeItemCodigo(code: unknown): string {
+    const raw = String(code ?? "").trim();
+    if (!raw) return "";
+    // Alguns fornecedores enviam cProd com vários zeros à esquerda.
+    // Para evitar duplicidade e facilitar a busca, removemos zeros apenas quando for numérico.
+    if (/^\d+$/.test(raw)) return raw.replace(/^0+(?!$)/, "");
+    return raw;
+  }
+
   function parseXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] } {
-    return parseNfeXml(raw);
+    const parsed = parseNfeXml(raw);
+    return {
+      nfe: parsed.nfe,
+      itens: (parsed.itens ?? []).map((it) => ({
+        ...it,
+        codigo: normalizeItemCodigo((it as unknown as { codigo?: unknown })?.codigo),
+      })),
+    };
   }
 
   function applyFornecedorFinanceDefaults(flag: boolean) {
@@ -989,11 +1005,25 @@ export default function ImportarXmlPage() {
     async (codigos: string[], tenantIdLocal: string, empresaIdLocal: string) => {
       if (codigos.length === 0) return new Map<string, number>();
 
+      // Consulta e mapeia usando o código normalizado (sem zeros à esquerda),
+      // mas mantém compat com bancos que ainda possam ter código com zeros.
+      const expanded = Array.from(
+        new Set(
+          codigos
+            .map((c) => String(c ?? "").trim())
+            .filter(Boolean)
+            .flatMap((c) => {
+              const n = normalizeItemCodigo(c);
+              return n && n !== c ? [c, n] : [c];
+            })
+        )
+      );
+
       const { data, error } = await applyTenantEmpresa(
         supabase.schema("public").from("itens").select("id,codigo_interno"),
         tenantIdLocal,
         empresaIdLocal
-      ).in("codigo_interno", codigos);
+      ).in("codigo_interno", expanded);
 
       if (error) {
         setImportErr(error.message);
@@ -1002,7 +1032,10 @@ export default function ImportarXmlPage() {
 
       const map = new Map<string, number>();
       const rows = (data ?? []) as ItemCodigoRow[];
-      rows.forEach((r) => map.set(r.codigo_interno, r.id));
+      rows.forEach((r) => {
+        map.set(r.codigo_interno, r.id);
+        map.set(normalizeItemCodigo(r.codigo_interno), r.id);
+      });
       return map;
     },
     [supabase]
@@ -1118,7 +1151,7 @@ export default function ImportarXmlPage() {
       .insert({
         tenant_id: tenantId,
         empresa_id: empresaId,
-        codigo_interno: it.codigo,
+        codigo_interno: normalizeItemCodigo(it.codigo),
         nome: nomeUpper,
         tipo: "produto",
         controla_estoque: true,

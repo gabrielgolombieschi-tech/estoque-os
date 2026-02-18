@@ -78,6 +78,18 @@ type EstoqueRow = {
   quantidade_atual: number | null;
 };
 
+type HhLancamentoCalcRow = {
+  entrada_1: string | null;
+  saida_1: string | null;
+  entrada_2: string | null;
+  saida_2: string | null;
+  hora_entrada: string | null;
+  hora_saida: string | null;
+  horas_trabalhadas: number | null;
+  valor_hora: number | null;
+  valor_total: number | null;
+};
+
 type SortValue = string | number | null;
 
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
@@ -158,6 +170,12 @@ export default function OsDetailPage() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showEditItem, setShowEditItem] = useState(false);
+  const [editItem, setEditItem] = useState<OsItemRow | null>(null);
+  const [editItemQty, setEditItemQty] = useState<string>("1");
+  const [editItemVunit, setEditItemVunit] = useState<number>(0);
+  const [editItemSaving, setEditItemSaving] = useState(false);
+  const [editItemErr, setEditItemErr] = useState<string | null>(null);
   const [printingItens, setPrintingItens] = useState(false);
   const [isConcluding, setIsConcluding] = useState(false);
   const [showGestaoModal, setShowGestaoModal] = useState(false);
@@ -552,7 +570,8 @@ export default function OsDetailPage() {
       );
       if (hhCalcErr) throw hhCalcErr;
 
-      setHhPedido(calcHhPedidoTotal((hhCalcData ?? []) as unknown as any[]));
+      const hhRows = Array.isArray(hhCalcData) ? (hhCalcData as unknown as HhLancamentoCalcRow[]) : [];
+      setHhPedido(calcHhPedidoTotal(hhRows));
     } catch (e) {
       console.warn("[OS detail] hhPedido: fallback", e);
       setHhPedido(0);
@@ -673,6 +692,75 @@ export default function OsDetailPage() {
 
     if (error) return setErr(error.message);
 
+    await load();
+  }
+
+  function openEditItemModal(row: OsItemRow) {
+    if (locked) return;
+    setEditItemErr(null);
+    setEditItem(row);
+    setEditItemQty(formatDecimalBR(Number(row.quantidade ?? 0), 3));
+    setEditItemVunit(Number(row.valor_unitario ?? 0));
+    setShowEditItem(true);
+  }
+
+  function closeEditItemModal() {
+    setShowEditItem(false);
+    setEditItem(null);
+    setEditItemErr(null);
+    setEditItemQty("1");
+    setEditItemVunit(0);
+  }
+
+  async function saveEditItem() {
+    if (!editItem) return;
+
+    const qtyNumber = parseDecimalBR(editItemQty);
+    if (!Number.isFinite(qtyNumber) || qtyNumber <= 0) return setEditItemErr("Quantidade inválida.");
+    if (!Number.isFinite(editItemVunit) || editItemVunit < 0) return setEditItemErr("Valor unitário inválido.");
+
+    // Para manter a consistência do estoque (baixa imediata), editamos como:
+    // remove (reverte estoque) + add (baixa novamente com os novos valores).
+    setEditItemSaving(true);
+    setEditItemErr(null);
+    setErr(null);
+    setOkMsg(null);
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userEmail = sess.session?.user?.email ?? null;
+
+    const { error: rmErr } = await supabase.rpc("remove_os_item_reverte_estoque", {
+      p_os_item_id: editItem.id,
+      p_realizado_por: userEmail,
+      p_motivo: "Edição pelo app (recriação do item)",
+      p_empresa_id: effectiveEmpresaId,
+    });
+
+    if (rmErr) {
+      setEditItemSaving(false);
+      setEditItemErr(rmErr.message);
+      return;
+    }
+
+    const { error: addErr } = await supabase.rpc("add_os_item_baixa_imediata", {
+      p_os_id: osId,
+      p_item_id: editItem.item_id,
+      p_quantidade: qtyNumber,
+      p_valor_unitario: Number(editItemVunit),
+      p_baixa_estoque: Boolean(editItem.baixa_estoque),
+      p_realizado_por: userEmail,
+      p_motivo: "Edição pela tela da OS (baixa imediata)",
+      p_empresa_id: effectiveEmpresaId,
+    });
+
+    setEditItemSaving(false);
+    if (addErr) {
+      setEditItemErr(addErr.message);
+      return;
+    }
+
+    closeEditItemModal();
+    setOkMsg("Item atualizado.");
     await load();
   }
 
@@ -1825,7 +1913,14 @@ export default function OsDetailPage() {
 
               <tbody className="divide-y divide-zinc-800">
                 {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-zinc-900/40">
+              <tr
+                key={r.id}
+                className={[
+                  "hover:bg-zinc-900/40",
+                  locked ? "" : "cursor-pointer",
+                ].join(" ")}
+                onClick={() => openEditItemModal(r)}
+              >
                 <td className="px-4 py-3 tabular-nums">{r.item_id}</td>
                 <td className="px-4 py-3">
                   {r.itens ? (
@@ -1856,7 +1951,10 @@ export default function OsDetailPage() {
 
                 <td className="px-4 py-3 text-center">
                   <button
-                    onClick={() => removeItem(r.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void removeItem(r.id);
+                    }}
                     disabled={busy || locked}
                     className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                   >
@@ -1876,6 +1974,85 @@ export default function OsDetailPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal de edição do item */}
+      {showEditItem && editItem && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl my-4">
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <div className="text-lg font-semibold">Editar item</div>
+                <div className="text-sm text-zinc-400">
+                  {editItem.itens ? (
+                    <>
+                      [{editItem.itens.codigo_interno}] {editItem.itens.nome}
+                    </>
+                  ) : (
+                    <>Item {editItem.item_id}</>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={closeEditItemModal}
+                  disabled={editItemSaving}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => void saveEditItem()}
+                  disabled={editItemSaving || locked}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                >
+                  {editItemSaving ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {editItemErr && <div className="text-sm text-red-400">{editItemErr}</div>}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Qtd</div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="w-full px-3 py-2"
+                    value={editItemQty}
+                    onChange={(e) => setEditItemQty(e.target.value)}
+                    disabled={locked}
+                    aria-label="Quantidade"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">V.Unit</div>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2"
+                    value={editItemVunit}
+                    onChange={(e) => setEditItemVunit(Number(e.target.value))}
+                    disabled={locked}
+                    aria-label="Valor unitário"
+                  />
+                </div>
+              </div>
+
+              <div className="text-sm text-zinc-300">
+                Total: <b>R$ {formatMoney((parseDecimalBR(editItemQty) || 0) * (Number(editItemVunit) || 0))}</b>
+                <span className="text-zinc-500"> · Baixa: {editItem.baixa_estoque ? "Sim" : "Não"}</span>
+              </div>
+
+              <div className="text-xs text-zinc-500">
+                Observação: quando Baixa é Sim, a edição recria o item para ajustar estoque corretamente.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
         </>
       )}
 
