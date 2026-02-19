@@ -909,7 +909,9 @@ export default function OsDetailPage() {
 
     let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 
-    if (nomeTerm) query = query.ilike("nome", `%${nomeTerm}%`);
+    if (nomeTerm) {
+      query = query.or(`nome.ilike.%${nomeTerm}%,codigo_interno.ilike.%${nomeTerm}%`);
+    }
     if (fornecedorTerm) query = query.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
 
     const { data, error } = await query.order("nome", { ascending: true }).limit(50);
@@ -1760,7 +1762,7 @@ export default function OsDetailPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-lg font-semibold">Localizar item</div>
-                      <div className="text-sm text-zinc-400">Filtre por nome ou fabricante para localizar o ID.</div>
+                  <div className="text-sm text-zinc-400">Filtre por nome, codigo ou fabricante para localizar o ID.</div>
                     </div>
                     <button
                       onClick={() => setShowLookup(false)}

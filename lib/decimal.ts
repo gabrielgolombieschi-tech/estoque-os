@@ -22,9 +22,9 @@ export function parseMoneyBR(value: string | number | null | undefined): number 
   if (!trimmed) return NaN;
 
   const normalized = trimmed
-    .replace(/^R\\$\\s*/i, "")
-    .replace(/\\./g, "")
-    .replace(/\\s+/g, "")
+    .replace(/^R\$\s*/i, "")
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
     .replace(",", ".");
 
   const n = Number(normalized);

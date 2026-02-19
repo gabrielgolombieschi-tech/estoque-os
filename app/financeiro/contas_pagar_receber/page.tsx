@@ -9,6 +9,7 @@ type Kind = "AP" | "AR";
 
 type UnifiedRow = {
   kind: Kind;
+  nfNumero: string | null;
   tituloId: string;
   parcelaId: string;
   parcelaNumero: string | null;
@@ -103,6 +104,13 @@ function isOverdue(vencimentoISO: string): boolean {
 }
 
 function statusBadge(row: UnifiedRow): { label: string; className: string } {
+  if (row.valorAberto <= 0) {
+    if (row.kind === "AP") {
+      return { label: "Pago", className: "bg-blue-500/15 text-blue-300 border border-blue-500/30" };
+    }
+    return { label: "Recebido", className: "bg-blue-500/15 text-blue-300 border border-blue-500/30" };
+  }
+
   const overdue = isOverdue(row.vencimento) && row.valorAberto > 0;
   if (overdue) {
     return { label: "Atrasado", className: "bg-red-500/15 text-red-300 border border-red-500/30" };
@@ -165,7 +173,9 @@ export default function ContasPagarReceberPage() {
   }, [month, monthNum, year]);
 
   const [q, setQ] = useState("");
+  const [nfQuery, setNfQuery] = useState("");
   const [only, setOnly] = useState<"ALL" | Kind>("ALL");
+  const [onlyPendentes, setOnlyPendentes] = useState(false);
   const [onlyToday, setOnlyToday] = useState(false);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
@@ -175,7 +185,7 @@ export default function ContasPagarReceberPage() {
   const [rows, setRows] = useState<UnifiedRow[]>([]);
 
   const [selected, setSelected] = useState<UnifiedRow | null>(null);
-  const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "RECEBER">("APROVAR");
+  const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "VENCIMENTO" | "RECEBER">("APROVAR");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
@@ -204,6 +214,7 @@ export default function ContasPagarReceberPage() {
     null
   );
   const [editEmissaoDate, setEditEmissaoDate] = useState<string>("");
+  const [editVencimentoDate, setEditVencimentoDate] = useState<string>("");
   const [emissaoBusy, setEmissaoBusy] = useState(false);
   const [emissaoErr, setEmissaoErr] = useState<string | null>(null);
 
@@ -221,6 +232,8 @@ export default function ContasPagarReceberPage() {
   const [valorMulta, setValorMulta] = useState<string>("");
   const [valorDesconto, setValorDesconto] = useState<string>("");
   const [observacoes, setObservacoes] = useState<string>("");
+  const [splitRecebimento, setSplitRecebimento] = useState(false);
+  const [splitVencimentoDate, setSplitVencimentoDate] = useState<string>("");
 
   const resetModalState = useCallback(() => {
     setActionErr(null);
@@ -229,6 +242,7 @@ export default function ContasPagarReceberPage() {
     setEmissaoBusy(false);
     setTituloMeta(null);
     setEditEmissaoDate("");
+    setEditVencimentoDate("");
     setMotivoId("");
     setMotivoOutrosText("");
     setOsId("");
@@ -240,6 +254,8 @@ export default function ContasPagarReceberPage() {
     setValorMulta("");
     setValorDesconto("");
     setObservacoes("");
+    setSplitRecebimento(false);
+    setSplitVencimentoDate("");
     setAplicacoes([]);
   }, []);
 
@@ -320,7 +336,7 @@ export default function ContasPagarReceberPage() {
     setError(null);
 
     try {
-      const [{ data: apData, error: apErr }, { data: arData, error: arErr }] = await Promise.all([
+      const [{ data: apData, error: apErr }, { data: apPaidData, error: apPaidErr }, { data: arData, error: arErr }] = await Promise.all([
         supabase
           .schema("f")
           .from("r_ap_aging_detalhe")
@@ -333,16 +349,26 @@ export default function ContasPagarReceberPage() {
           .schema("f")
           .from("titulo_parcela")
           .select(
+            "id,titulo_id,numero,vencimento_date,valor,valor_aberto,titulo:titulo_id!inner(id,tipo,status,fornecedor_id,motivo_compra_id)"
+          )
+          .eq("titulo.tipo", "AP")
+          .eq("valor_aberto", 0)
+          .gte("vencimento_date", ini)
+          .lte("vencimento_date", fim),
+        supabase
+          .schema("f")
+          .from("titulo_parcela")
+          .select(
             "id,titulo_id,numero,vencimento_date,valor,valor_aberto,titulo:titulo_id!inner(id,tipo,status,cliente_id,descricao)"
           )
           .eq("titulo.tipo", "AR")
-          .gt("valor_aberto", 0)
           .gte("vencimento_date", ini)
           .lte("vencimento_date", fim),
       ]);
 
       if (requestIdRef.current !== reqId) return;
       if (apErr) throw apErr;
+      if (apPaidErr) throw apPaidErr;
       if (arErr) throw arErr;
 
       type ApAgingDetalheRow = {
@@ -360,6 +386,7 @@ export default function ContasPagarReceberPage() {
 
       const apRows: UnifiedRow[] = ((apData ?? []) as ApAgingDetalheRow[]).map((r) => ({
         kind: "AP",
+        nfNumero: null,
         tituloId: String(r.titulo_id),
         parcelaId: String(r.parcela_id),
         parcelaNumero: r.parcela_numero ? String(r.parcela_numero) : null,
@@ -375,26 +402,129 @@ export default function ContasPagarReceberPage() {
         tituloStatus: String(r.status ?? ""),
       }));
 
+      type ApParcelaPaidRow = {
+        id: unknown;
+        titulo_id: unknown;
+        numero: unknown;
+        vencimento_date: unknown;
+        valor: unknown;
+        valor_aberto: unknown;
+        titulo?: {
+          fornecedor_id?: unknown;
+          motivo_compra_id?: unknown;
+          status?: unknown;
+        } | null;
+      };
+
+      const apPaidRaw = (apPaidData ?? []) as ApParcelaPaidRow[];
+      const fornecedorIds = Array.from(
+        new Set(
+          apPaidRaw
+            .map((r) => (r?.titulo?.fornecedor_id ? Number(r.titulo.fornecedor_id) : null))
+            .filter((v): v is number => Number.isFinite(v))
+        )
+      );
+      const motivoIds = Array.from(
+        new Set(
+          apPaidRaw
+            .map((r) => (r?.titulo?.motivo_compra_id ? String(r.titulo.motivo_compra_id) : null))
+            .filter((v): v is string => Boolean(v))
+        )
+      );
+
+      const fornecedorNomeById = new Map<number, string>();
+      if (fornecedorIds.length) {
+        const { data: fornecedores, error: fornErr } = await supabase
+          .from("fornecedores")
+          .select("id,nome")
+          .in("id", fornecedorIds);
+        if (!fornErr) {
+          type FornecedorRow = { id: unknown; nome: unknown };
+          for (const f of (fornecedores ?? []) as FornecedorRow[]) {
+            const id = Number(f.id);
+            if (!Number.isFinite(id)) continue;
+            fornecedorNomeById.set(id, f?.nome ? String(f.nome) : `Fornecedor ${id}`);
+          }
+        }
+      }
+
+      const motivoById = new Map<string, { codigo: string; nome: string }>();
+      if (motivoIds.length) {
+        const { data: motivosData, error: motErr } = await supabase
+          .schema("f")
+          .from("motivo_compra")
+          .select("id,codigo,nome")
+          .in("id", motivoIds)
+          .is("deleted_at", null);
+        if (!motErr) {
+          type MotivoRow = { id: unknown; codigo: unknown; nome: unknown };
+          for (const m of (motivosData ?? []) as MotivoRow[]) {
+            const id = m?.id ? String(m.id) : "";
+            if (!id) continue;
+            motivoById.set(id, {
+              codigo: m?.codigo ? String(m.codigo) : "",
+              nome: m?.nome ? String(m.nome) : "",
+            });
+          }
+        }
+      }
+
+      const apPaidRows: UnifiedRow[] = apPaidRaw.map((r) => {
+        const fornecedorId = r?.titulo?.fornecedor_id ? Number(r.titulo.fornecedor_id) : NaN;
+        const motivoId = r?.titulo?.motivo_compra_id ? String(r.titulo.motivo_compra_id) : "";
+        const motivo = motivoById.get(motivoId);
+        return {
+          kind: "AP",
+          nfNumero: null,
+          tituloId: String(r.titulo_id),
+          parcelaId: String(r.id),
+          parcelaNumero: r.numero ? String(r.numero) : null,
+          emissao: null,
+          vencimento: String(r.vencimento_date),
+          pessoaNome: Number.isFinite(fornecedorId)
+            ? fornecedorNomeById.get(fornecedorId) ?? `Fornecedor ${fornecedorId}`
+            : "Fornecedor",
+          descricao: null,
+          motivoCodigo: motivo?.codigo || null,
+          motivoNome: motivo?.nome || null,
+          aprovadoPorNome: null,
+          valor: Number(r.valor ?? 0),
+          valorAberto: Number(r.valor_aberto ?? 0),
+          tituloStatus: String(r?.titulo?.status ?? ""),
+        };
+      });
+
+      const apAllRows = [...apRows, ...apPaidRows];
+      const apRowByParcelaId = new Map<string, UnifiedRow>();
+      for (const r of apAllRows) apRowByParcelaId.set(r.parcelaId, r);
+      const apRowsUnique = Array.from(apRowByParcelaId.values());
+
       // Enrich AP rows with approver name from f.titulo_aprovacao.aprovado_por (a.usuario.id)
-      const apTituloIds = Array.from(new Set(apRows.map((r) => r.tituloId)));
+      const apTituloIds = Array.from(new Set(apRowsUnique.map((r) => r.tituloId)));
 
       // Enrich AP rows with emissao_date from f.titulo (works for manual + XML titles).
       const emissaoByTituloId = new Map<string, string | null>();
+      const nfByTituloId = new Map<string, string | null>();
       if (apTituloIds.length) {
         try {
           const { data: titulos, error: titErr } = await supabase
             .schema("f")
             .from("titulo")
-            .select("id,emissao_date")
+            .select("id,emissao_date,documento_fiscal:documento_fiscal_id(numero)")
             .in("id", apTituloIds)
             .is("deleted_at", null);
 
           if (!titErr) {
-            const tituloRows = (titulos ?? []) as Array<{ id: unknown; emissao_date: unknown }>;
+            const tituloRows = (titulos ?? []) as Array<{
+              id: unknown;
+              emissao_date: unknown;
+              documento_fiscal?: { numero?: unknown } | null;
+            }>;
             for (const t of tituloRows) {
               const id = t?.id ? String(t.id) : "";
               if (!id) continue;
               emissaoByTituloId.set(id, t?.emissao_date ? String(t.emissao_date) : null);
+              nfByTituloId.set(id, t?.documento_fiscal?.numero ? String(t.documento_fiscal.numero) : null);
             }
           }
         } catch {
@@ -449,9 +579,10 @@ export default function ContasPagarReceberPage() {
         }
       }
 
-      const apRowsEnriched: UnifiedRow[] = apRows.map((r) => ({
+      const apRowsEnriched: UnifiedRow[] = apRowsUnique.map((r) => ({
         ...r,
         emissao: emissaoByTituloId.get(r.tituloId) ?? null,
+        nfNumero: nfByTituloId.get(r.tituloId) ?? null,
         aprovadoPorNome: aprovadoPorNomeByTituloId.get(r.tituloId) ?? null,
       }));
 
@@ -499,6 +630,7 @@ export default function ContasPagarReceberPage() {
         const pessoaNome = clienteId ? clienteNomeById.get(clienteId) ?? `Cliente ${clienteId}` : "Cliente";
         return {
           kind: "AR",
+          nfNumero: null,
           tituloId: String(r.titulo_id),
           parcelaId: String(r.id),
           parcelaNumero: r.numero ? String(r.numero) : null,
@@ -515,9 +647,30 @@ export default function ContasPagarReceberPage() {
         };
       });
 
-      const merged = [...apRowsEnriched, ...arRows]
-        .filter((r) => r.valorAberto > 0)
-        .sort((a, b) => {
+      const arTituloIds = Array.from(new Set(arRows.map((r) => r.tituloId)));
+      if (arTituloIds.length) {
+        const { data: arTitulos, error: arTitErr } = await supabase
+          .schema("f")
+          .from("titulo")
+          .select("id,documento_fiscal:documento_fiscal_id(numero)")
+          .in("id", arTituloIds)
+          .is("deleted_at", null);
+        if (!arTitErr) {
+          const arTituloRows = (arTitulos ?? []) as Array<{ id: unknown; documento_fiscal?: { numero?: unknown } | null }>;
+          for (const t of arTituloRows) {
+            const id = t?.id ? String(t.id) : "";
+            if (!id) continue;
+            nfByTituloId.set(id, t?.documento_fiscal?.numero ? String(t.documento_fiscal.numero) : null);
+          }
+        }
+      }
+
+      const arRowsEnriched: UnifiedRow[] = arRows.map((r) => ({
+        ...r,
+        nfNumero: nfByTituloId.get(r.tituloId) ?? null,
+      }));
+
+      const merged = [...apRowsEnriched, ...arRowsEnriched].sort((a, b) => {
           const av = a.vencimento.localeCompare(b.vencimento);
           if (av !== 0) return av;
           if (a.kind !== b.kind) return a.kind === "AP" ? -1 : 1;
@@ -709,34 +862,95 @@ export default function ContasPagarReceberPage() {
     }
   }, [editEmissaoDate, load, selected, supabase, tituloMeta?.documentoFiscalId]);
 
+  const doUpdateVencimentoDate = useCallback(async () => {
+    if (!selected || (selected.kind !== "AP" && selected.kind !== "AR")) return;
+    if (!editVencimentoDate) {
+      setActionErr("Informe o vencimento.");
+      return;
+    }
+    if (editVencimentoDate === selected.vencimento) {
+      setActionErr("O novo vencimento precisa ser diferente do atual.");
+      return;
+    }
+
+    setActionErr(null);
+    setActionBusy(true);
+    try {
+      const { error } = await supabase.schema("f").rpc("atualizar_titulo_parcela_vencimento_date", {
+        p_parcela_id: selected.parcelaId,
+        p_vencimento_date: editVencimentoDate,
+        p_change_reason: "UI: alterar vencimento parcela",
+      });
+      if (error) throw error;
+
+      setSelected((prev) => (prev ? { ...prev, vencimento: editVencimentoDate } : prev));
+      await load();
+      resetModalState();
+      setSelected(null);
+    } catch (e: unknown) {
+      setActionErr(getErrorMessage(e, "Erro ao atualizar vencimento."));
+    } finally {
+      setActionBusy(false);
+    }
+  }, [editVencimentoDate, load, resetModalState, selected, supabase]);
+
   const filtered = useMemo(() => {
     const today = todayISO();
     const query = q.trim().toLowerCase();
+    const nfTerm = nfQuery.trim().toLowerCase();
     const from = dateFrom.trim();
     const to = dateTo.trim();
     const useDateRange = Boolean(from || to);
     return rows.filter((r) => {
       if (only !== "ALL" && r.kind !== only) return false;
+      if (onlyPendentes && r.valorAberto <= 0) return false;
       if (useDateRange) {
         if (from && r.vencimento < from) return false;
         if (to && r.vencimento > to) return false;
       } else {
         if (onlyToday && r.vencimento !== today) return false;
       }
-      if (!query) return true;
-      return (
+      const matchText = !query || (
         r.pessoaNome.toLowerCase().includes(query) ||
         (r.descricao ?? "").toLowerCase().includes(query) ||
         (r.motivoNome ?? "").toLowerCase().includes(query) ||
         (r.aprovadoPorNome ?? "").toLowerCase().includes(query)
       );
+      const matchNf = !nfTerm || (r.nfNumero ?? "").toLowerCase().includes(nfTerm);
+      return matchText && matchNf;
     });
-  }, [dateFrom, dateTo, only, onlyToday, q, rows]);
+  }, [dateFrom, dateTo, nfQuery, only, onlyPendentes, onlyToday, q, rows]);
 
-  const totals = useMemo(() => {
-    const sumAP = filtered.filter((r) => r.kind === "AP").reduce((acc, r) => acc + r.valorAberto, 0);
-    const sumAR = filtered.filter((r) => r.kind === "AR").reduce((acc, r) => acc + r.valorAberto, 0);
+  const totalsOpen = useMemo(() => {
+    const sumAP = filtered.filter((r) => r.kind === "AP" && r.valorAberto > 0).reduce((acc, r) => acc + r.valorAberto, 0);
+    const sumAR = filtered.filter((r) => r.kind === "AR" && r.valorAberto > 0).reduce((acc, r) => acc + r.valorAberto, 0);
     return { sumAP, sumAR };
+  }, [filtered]);
+
+  const resumo = useMemo(() => {
+    const previstoReceitas = filtered.filter((r) => r.kind === "AR").reduce((acc, r) => acc + Number(r.valor || 0), 0);
+    const previstoDespesas = filtered.filter((r) => r.kind === "AP").reduce((acc, r) => acc + Number(r.valor || 0), 0);
+    const realizadoReceitas = filtered
+      .filter((r) => r.kind === "AR")
+      .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
+    const realizadoDespesas = filtered
+      .filter((r) => r.kind === "AP")
+      .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
+
+    return {
+      previsto: {
+        saldoInicial: 0,
+        receitas: previstoReceitas,
+        despesas: previstoDespesas,
+        saldoFinal: previstoReceitas - previstoDespesas,
+      },
+      realizado: {
+        saldoInicial: 0,
+        receitas: realizadoReceitas,
+        despesas: realizadoDespesas,
+        saldoFinal: realizadoReceitas - realizadoDespesas,
+      },
+    };
   }, [filtered]);
 
   const selectedMotivo = useMemo(() => {
@@ -749,6 +963,9 @@ export default function ContasPagarReceberPage() {
       resetModalState();
       setSelected(row);
       setTab(row.kind === "AP" ? "APROVAR" : "RECEBER");
+      setEditVencimentoDate(row.vencimento);
+      setSplitRecebimento(false);
+      setSplitVencimentoDate(row.vencimento);
 
       try {
         // Prefill AP approval fields from:
@@ -1046,6 +1263,17 @@ export default function ContasPagarReceberPage() {
         return;
       }
 
+      if (mode === "RECEBER" && splitRecebimento) {
+        if (principalCents >= openCents) {
+          setActionErr("Para desdobrar, o valor recebido deve ser menor que o saldo em aberto.");
+          return;
+        }
+        if (!splitVencimentoDate) {
+          setActionErr("Informe o vencimento da parcela remanescente.");
+          return;
+        }
+      }
+
       if (!contaBancariaId) {
         setActionErr("Selecione a conta bancária.");
         return;
@@ -1058,6 +1286,16 @@ export default function ContasPagarReceberPage() {
       setActionBusy(true);
       setActionErr(null);
       try {
+        if (mode === "RECEBER" && splitRecebimento) {
+          const { error: splitErr } = await supabase.schema("f").rpc("desdobrar_parcela_ar_para_recebimento", {
+            p_parcela_id: selected.parcelaId,
+            p_valor_receber: centsToNumericString(principalCents),
+            p_novo_vencimento_date: splitVencimentoDate,
+            p_change_reason: "UI: desdobrar AR para recebimento parcial",
+          });
+          if (splitErr) throw splitErr;
+        }
+
         const rpcName = mode === "PAGAR" ? "registrar_pagamento_ap_v2" : "registrar_recebimento_ar_v2";
         const { error } = await supabase.schema("f").rpc(rpcName, {
           p_titulo_id: selected.tituloId,
@@ -1105,6 +1343,8 @@ export default function ContasPagarReceberPage() {
       observacoes,
       parseMoneyOrZero,
       selected,
+      splitRecebimento,
+      splitVencimentoDate,
       supabase,
       toCents,
       valorDesconto,
@@ -1123,139 +1363,200 @@ export default function ContasPagarReceberPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-4">
-        <div className="flex items-center gap-2">
-          <div className="text-sm text-zinc-300">Vencimento</div>
-          <select
-            aria-label="Ano"
-            value={String(year)}
-            onChange={(e) => {
-              setOnlyToday(false);
-              setYear(Number(e.target.value));
-            }}
-            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-          >
-            {years.map((y) => (
-              <option key={y} value={String(y)}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Mês"
-            value={String(monthNum)}
-            onChange={(e) => {
-              setOnlyToday(false);
-              setMonthNum(Number(e.target.value));
-            }}
-            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-          >
-            {Array.from({ length: 12 }).map((_, i) => {
-              const m = i + 1;
-              return (
-                <option key={m} value={String(m)}>
-                  {pad2(m)}
-                </option>
-              );
-            })}
-          </select>
+      <div className="border border-zinc-800 rounded-md bg-zinc-950/60 p-3 space-y-3">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Previsto</div>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Saldo Inicial:</span>
+                  <span>{formatMoneyBR(resumo.previsto.saldoInicial)}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Receitas (+):</span>
+                  <span className="text-emerald-300">{formatMoneyBR(resumo.previsto.receitas)}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Despesas (-):</span>
+                  <span className="text-red-300">{formatMoneyBR(resumo.previsto.despesas)}</span>
+                </div>
+                <div className="border-t border-zinc-800 pt-1 mt-1 flex items-center justify-between font-medium text-zinc-100">
+                  <span>Saldo Final:</span>
+                  <span>{formatMoneyBR(resumo.previsto.saldoFinal)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Realizado</div>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Saldo Inicial:</span>
+                  <span>{formatMoneyBR(resumo.realizado.saldoInicial)}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Receitas (+):</span>
+                  <span className="text-emerald-300">{formatMoneyBR(resumo.realizado.receitas)}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Despesas (-):</span>
+                  <span className="text-red-300">{formatMoneyBR(resumo.realizado.despesas)}</span>
+                </div>
+                <div className="border-t border-zinc-800 pt-1 mt-1 flex items-center justify-between font-medium text-zinc-100">
+                  <span>Saldo Final:</span>
+                  <span>{formatMoneyBR(resumo.realizado.saldoFinal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              const d = new Date();
-              setYear(d.getFullYear());
-              setMonthNum(d.getMonth() + 1);
-              setDateFrom("");
-              setDateTo("");
-              setOnlyToday((s) => !s);
-            }}
-            className={
-              onlyToday
-                ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
-                : "px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
-            }
-          >
-            Hoje
-          </button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center content-start gap-2">
+              <div className="text-sm text-zinc-300 self-center">Vencimento</div>
+              <select
+                aria-label="Ano"
+                value={String(year)}
+                onChange={(e) => {
+                  setOnlyToday(false);
+                  setYear(Number(e.target.value));
+                }}
+                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+              >
+                {years.map((y) => (
+                  <option key={y} value={String(y)}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Mes"
+                value={String(monthNum)}
+                onChange={(e) => {
+                  setOnlyToday(false);
+                  setMonthNum(Number(e.target.value));
+                }}
+                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+              >
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const m = i + 1;
+                  return (
+                    <option key={m} value={String(m)}>
+                      {pad2(m)}
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  setYear(d.getFullYear());
+                  setMonthNum(d.getMonth() + 1);
+                  setDateFrom("");
+                  setDateTo("");
+                  setOnlyToday((s) => !s);
+                }}
+                className={
+                  onlyToday
+                    ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                    : "px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
+                }
+              >
+                Hoje
+              </button>
+              <div className="text-sm text-zinc-300 self-center">De</div>
+              <input
+                type="date"
+                aria-label="Data de"
+                value={dateFrom}
+                onChange={(e) => {
+                  setOnlyToday(false);
+                  setDateFrom(e.target.value);
+                }}
+                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+              />
+              <div className="text-sm text-zinc-300 self-center">Ate</div>
+              <input
+                type="date"
+                aria-label="Data ate"
+                value={dateTo}
+                onChange={(e) => {
+                  setOnlyToday(false);
+                  setDateTo(e.target.value);
+                }}
+                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+              />
+              <label className="ml-auto flex items-center gap-2 text-sm text-zinc-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={onlyPendentes}
+                  onChange={(e) => setOnlyPendentes(e.target.checked)}
+                />
+                Pendetes
+              </label>
+            </div>
 
-          <div className="text-sm text-zinc-300">De</div>
-          <input
-            type="date"
-            aria-label="Data de"
-            value={dateFrom}
-            onChange={(e) => {
-              setOnlyToday(false);
-              setDateFrom(e.target.value);
-            }}
-            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-          />
+            <div className="grid grid-cols-1 xl:grid-cols-10 gap-2">
+              <div className="xl:col-span-2">
+                <div className="text-sm text-zinc-300">Tipo</div>
+                <select
+                  aria-label="Tipo"
+                  value={only}
+                  onChange={(e) => setOnly(e.target.value as "ALL" | Kind)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                >
+                  <option value="ALL">AP + AR</option>
+                  <option value="AP">AP (pagar)</option>
+                  <option value="AR">AR (receber)</option>
+                </select>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => load()}
+                    className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                  >
+                    Atualizar
+                  </button>
+                  {only !== "AR" && (
+                    <button
+                      type="button"
+                      onClick={() => void openCreate()}
+                      className="px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
+                    >
+                      Novo AP
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          <div className="text-sm text-zinc-300">Até</div>
-          <input
-            type="date"
-            aria-label="Data até"
-            value={dateTo}
-            onChange={(e) => {
-              setOnlyToday(false);
-              setDateTo(e.target.value);
-            }}
-            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-          />
+              <div className="xl:col-span-6">
+                <div className="text-sm text-zinc-300">Buscar</div>
+                <input
+                  aria-label="Buscar"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Fornecedor/Cliente, motivo, descricao..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                />
+              </div>
+
+              <div className="xl:col-span-2">
+                <div className="text-sm text-zinc-300">NF</div>
+                <input
+                  aria-label="NF"
+                  value={nfQuery}
+                  onChange={(e) => setNfQuery(e.target.value)}
+                  placeholder="Numero da NF"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="text-sm text-zinc-300">Tipo</div>
-          <select
-            aria-label="Tipo"
-            value={only}
-            onChange={(e) => setOnly(e.target.value as "ALL" | Kind)}
-            className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-          >
-            <option value="ALL">AP + AR</option>
-            <option value="AP">AP (pagar)</option>
-            <option value="AR">AR (receber)</option>
-          </select>
-        </div>
-
-        <div className="flex-1">
-          <div className="text-sm text-zinc-300">Buscar</div>
-          <input
-            aria-label="Buscar"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Fornecedor/Cliente, motivo, descrição..."
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => load()}
-          className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
-        >
-          Atualizar
-        </button>
-
-        {only !== "AR" && (
-          <button
-            type="button"
-            onClick={() => void openCreate()}
-            className="px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
-          >
-            Novo AP (manual)
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-3 text-sm text-zinc-300">
-        <div className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950/60">
-          <div className="text-xs text-zinc-400">AP em aberto</div>
-          <div className="font-medium text-zinc-100">{formatMoneyBR(totals.sumAP)}</div>
-        </div>
-        <div className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950/60">
-          <div className="text-xs text-zinc-400">AR em aberto</div>
-          <div className="font-medium text-zinc-100">{formatMoneyBR(totals.sumAR)}</div>
+        <div className="flex items-center gap-4 text-xs text-zinc-400">
+          <span>AP em aberto: {formatMoneyBR(totalsOpen.sumAP)}</span>
+          <span>AR em aberto: {formatMoneyBR(totalsOpen.sumAR)}</span>
         </div>
       </div>
 
@@ -1268,6 +1569,7 @@ export default function ContasPagarReceberPage() {
           <thead className="bg-zinc-950/80">
             <tr className="text-left text-zinc-300">
               <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2">NF</th>
               <th className="px-3 py-2">Pessoa</th>
               <th className="px-3 py-2">Motivo</th>
               <th className="px-3 py-2">Aprovado por</th>
@@ -1290,6 +1592,7 @@ export default function ContasPagarReceberPage() {
                   onClick={() => open(r)}
                 >
                   <td className="px-3 py-2 font-medium text-zinc-100">{r.kind}</td>
+                  <td className="px-3 py-2 text-zinc-200">{r.nfNumero ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.pessoaNome}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.motivoNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
@@ -1308,7 +1611,7 @@ export default function ContasPagarReceberPage() {
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={11} className="px-3 py-6 text-center text-zinc-400">
                   Nenhum item neste período.
                 </td>
               </tr>
@@ -1370,17 +1673,37 @@ export default function ContasPagarReceberPage() {
                   >
                     Pagar
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("VENCIMENTO")}
+                    className={`px-3 py-1.5 rounded-md text-sm border ${
+                      tab === "VENCIMENTO" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
+                    }`}
+                  >
+                    Vencimento
+                  </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setTab("RECEBER")}
-                  className={`px-3 py-1.5 rounded-md text-sm border ${
-                    tab === "RECEBER" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
-                  }`}
-                >
-                  Receber
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setTab("RECEBER")}
+                    className={`px-3 py-1.5 rounded-md text-sm border ${
+                      tab === "RECEBER" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
+                    }`}
+                  >
+                    Receber
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("VENCIMENTO")}
+                    className={`px-3 py-1.5 rounded-md text-sm border ${
+                      tab === "VENCIMENTO" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
+                    }`}
+                  >
+                    Vencimento
+                  </button>
+                </>
               )}
             </div>
 
@@ -1479,6 +1802,43 @@ export default function ContasPagarReceberPage() {
                       className="px-3 py-2 rounded-md bg-emerald-500 text-zinc-950 hover:bg-emerald-400 text-sm font-medium disabled:opacity-60"
                     >
                       {actionBusy ? "Aprovando..." : "Confirmar aprovação"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {tab === "VENCIMENTO" && (selected.kind === "AP" || selected.kind === "AR") && (
+                <div className="space-y-3">
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
+                    <div className="text-sm text-zinc-300 mb-2">Alterar vencimento da parcela</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-zinc-500">Vencimento atual</div>
+                        <div className="text-sm text-zinc-200 mt-1">{formatDateBR(selected.vencimento)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-zinc-300">Novo vencimento</div>
+                        <input
+                          aria-label="Novo vencimento"
+                          type="date"
+                          value={editVencimentoDate}
+                          onChange={(e) => setEditVencimentoDate(e.target.value)}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-2">
+                      Altera somente a data de vencimento desta parcela ({selected.kind}).
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={actionBusy || !editVencimentoDate || editVencimentoDate === selected.vencimento}
+                      onClick={() => void doUpdateVencimentoDate()}
+                      className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
+                    >
+                      {actionBusy ? "Salvando..." : "Salvar vencimento"}
                     </button>
                   </div>
                 </div>
@@ -1605,6 +1965,42 @@ export default function ContasPagarReceberPage() {
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                     />
                   </div>
+
+                  {tab === "RECEBER" && selected.kind === "AR" && (
+                    <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950/40 space-y-3">
+                      <label className="flex items-center gap-2 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={splitRecebimento}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setSplitRecebimento(checked);
+                            if (checked && !splitVencimentoDate) {
+                              setSplitVencimentoDate(selected.vencimento);
+                            }
+                          }}
+                        />
+                        Desdobrar saldo remanescente em nova parcela
+                      </label>
+                      {splitRecebimento && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-sm text-zinc-300">Vencimento da nova parcela</div>
+                            <input
+                              aria-label="Vencimento da nova parcela"
+                              type="date"
+                              value={splitVencimentoDate}
+                              onChange={(e) => setSplitVencimentoDate(e.target.value)}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                            />
+                          </div>
+                          <div className="text-xs text-zinc-500 flex items-end">
+                            O saldo restante ficara pendente em uma nova parcela.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex justify-end">
                     {tab === "PAGAR" && (

@@ -265,6 +265,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <Link href="/financeiro" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Dashboard
                         </Link>
+                        <Link href="/financeiro/contas_pagar_receber" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Fluxo Caixa
+                        </Link>
 
                         <div className="border-t border-zinc-800 my-2" />
 
@@ -387,20 +390,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                           Configurações
                         </Link>
 
-                        <div className="border-t border-zinc-800 my-2" />
-
-                        <div className="relative group/fin">
-                          <div className="px-3 py-2 hover:bg-zinc-900 text-sm flex items-center justify-between cursor-default select-none">
-                            <span>Legado</span>
-                            <span className="text-zinc-500">{">"}</span>
-                          </div>
-
-                          <div className="hidden group-hover/fin:block absolute left-full top-0 ml-1 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-30">
-                            <Link href="/financeiro/contas_pagar_receber" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
-                              Contas a pagar/Receber (antigo)
-                            </Link>
-                          </div>
-                        </div>
                       </div>
                     )}
                   </div>
