@@ -384,119 +384,59 @@ export async function POST(req: NextRequest) {
 
     if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
 
-    // Best-effort: ensure the AP title gets a motivo (if contas a pagar was generated automatically or via flag).
-    if (nfEntradaId) {
-      try {
-        let docId: string | null = null;
+    // Mandatory post-condition: import must end with AP title + parcelas consistent.
+    const parcelasArray = Array.isArray(body.parcelasJson) ? body.parcelasJson : null;
 
-        const parcelasArray = Array.isArray(body.parcelasJson) ? body.parcelasJson : null;
-        const parcelasCount = parcelasArray?.length ?? 0;
+    const { data: tituloIdRaw, error: ensureErr } = await admin.rpc("fn_ensure_titulo_ap_from_nf_entrada", {
+      p_nf_entrada_id: nfEntradaId,
+      p_force_regen_parcelas: false,
+      p_parcelas_json: parcelasArray,
+    });
+    if (ensureErr) {
+      return jerr(
+        422,
+        `NF importada, mas falhou ao garantir Contas a Pagar. nf_entrada_id=${nfEntradaId}. Detalhe: ${ensureErr.message}`
+      );
+    }
 
-        // If the request explicitly asked to generate AP, try to generate it now (if function exists).
-        if (gerar) {
-          // Prefer v2 (supports parcelas_json). Only fall back to v1 when there are no parcelas.
-          const { error: v2Err } = await admin.schema("f").rpc("gerar_ap_pendente_por_nf_entrada_v2", {
-            p_nf_entrada_id: nfEntradaId,
-            p_force: false,
-            p_parcelas_json: parcelasArray,
-          });
+    const tituloId = typeof tituloIdRaw === "string" && UUID_REGEX.test(tituloIdRaw) ? tituloIdRaw : null;
+    if (!tituloId) {
+      return jerr(422, `NF importada, mas não foi possível localizar/gerar título AP. nf_entrada_id=${nfEntradaId}`);
+    }
 
-          if (v2Err) {
-            // If the client sent parcelas from the XML, failing v2 would lead to wrong finance data.
-            // Do not silently fall back to the legacy single-parcela generator.
-            if (parcelasCount > 0) {
-              console.error("[XML_IMPORT] Falha ao gerar AP via v2", {
-                tenantId,
-                empresaId,
-                nfEntradaId,
-                parcelasCount,
-                message: v2Err.message,
-                code: (v2Err as { code?: unknown } | null)?.code,
-              });
-              return jerr(
-                422,
-                `Falha ao gerar contas a pagar com parcelas do XML. Verifique se a função f.gerar_ap_pendente_por_nf_entrada_v2 está instalada/atualizada no banco. Detalhe: ${v2Err.message}`
-              );
-            }
+    const { error: updTituloErr } = await admin
+      .schema("f")
+      .from("titulo")
+      .update({ motivo_compra_id: motivoCompraId })
+      .eq("tenant_id", tenantId)
+      .eq("empresa_id", empresaId)
+      .eq("id", tituloId);
+    if (updTituloErr) {
+      return jerr(422, `Falha ao atualizar classificação do título AP (${tituloId}). Detalhe: ${updTituloErr.message}`);
+    }
 
-            const { data: docIdRaw, error: v1Err } = await admin
-              .schema("f")
-              .rpc("gerar_ap_pendente_por_nf_entrada", { p_nf_entrada_id: nfEntradaId, p_force: false });
-            if (v1Err) throw v1Err;
-            if (typeof docIdRaw === "string" && UUID_REGEX.test(docIdRaw)) docId = docIdRaw;
-          }
-        }
+    const { data: updatedRows, error: updErr } = await admin
+      .schema("f")
+      .from("titulo_aprovacao")
+      .update({ motivo_compra_id: motivoCompraId, os_id: osId, deleted_at: null })
+      .eq("tenant_id", tenantId)
+      .eq("titulo_id", tituloId)
+      .select("id")
+      .returns<{ id: string }[]>();
+    if (updErr) {
+      return jerr(422, `Falha ao atualizar aprovação do título AP (${tituloId}). Detalhe: ${updErr.message}`);
+    }
 
-        if (!docId) {
-          const { data: doc } = await admin
-            .schema("f")
-            .from("documento_fiscal")
-            .select("id")
-            .eq("tenant_id", tenantId)
-            .eq("empresa_id", empresaId)
-            .eq("source_nf_entrada_id", nfEntradaId)
-            .is("deleted_at", null)
-            .maybeSingle<{ id: string }>();
-
-          docId = readIdString(doc);
-        }
-
-        if (docId) {
-          const { data: titulos } = await admin
-            .schema("f")
-            .from("titulo")
-            .select("id")
-            .eq("tenant_id", tenantId)
-            .eq("empresa_id", empresaId)
-            .eq("documento_fiscal_id", docId)
-            .eq("tipo", "AP")
-            .is("deleted_at", null)
-            .returns<{ id: string }[]>();
-
-          for (const t of titulos ?? []) {
-            const tituloId = readIdString(t);
-            if (!tituloId) continue;
-
-            await admin
-              .schema("f")
-              .from("titulo")
-              .update({ motivo_compra_id: motivoCompraId })
-              .eq("tenant_id", tenantId)
-              .eq("empresa_id", empresaId)
-              .eq("id", tituloId);
-
-            const { data: updatedRows, error: updErr } = await admin
-              .schema("f")
-              .from("titulo_aprovacao")
-              .update({ motivo_compra_id: motivoCompraId, os_id: osId, deleted_at: null })
-              .eq("tenant_id", tenantId)
-              .eq("titulo_id", tituloId)
-              .select("id")
-              .returns<{ id: string }[]>();
-
-            if (updErr) throw updErr;
-            if ((updatedRows?.length ?? 0) > 0) continue;
-
-            const { error: insErr } = await admin.schema("f").from("titulo_aprovacao").insert({
-              tenant_id: tenantId,
-              titulo_id: tituloId,
-              motivo_compra_id: motivoCompraId,
-              os_id: osId,
-              aprovado_por: aprovadoPorUsuarioId,
-            });
-            if (insErr) throw insErr;
-          }
-        }
-      } catch (e: unknown) {
-        if (process.env.NODE_ENV !== "production") {
-          console.debug("[XML_IMPORT] Falha ao vincular motivo no Financeiro (AP)", {
-            tenantId,
-            empresaId,
-            nfEntradaId,
-            motivoCompraId,
-            error: e instanceof Error ? e.message : String(e),
-          });
-        }
+    if ((updatedRows?.length ?? 0) === 0) {
+      const { error: insErr } = await admin.schema("f").from("titulo_aprovacao").insert({
+        tenant_id: tenantId,
+        titulo_id: tituloId,
+        motivo_compra_id: motivoCompraId,
+        os_id: osId,
+        aprovado_por: aprovadoPorUsuarioId,
+      });
+      if (insErr) {
+        return jerr(422, `Falha ao inserir aprovação do título AP (${tituloId}). Detalhe: ${insErr.message}`);
       }
     }
 

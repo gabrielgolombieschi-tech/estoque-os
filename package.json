@@ -10,7 +10,8 @@
     "db:backup": "node scripts/db-backup.js",
     "db:restore:dev": "node scripts/db-restore.js",
     "db:migrate": "node scripts/db-migrate.js",
-    "db:test:xml-import": "node scripts/db-test-xml-import.js"
+    "db:test:xml-import": "node scripts/db-test-xml-import.js",
+    "audit:ap-nf-entrada": "node scripts/audit-ap-nf-entrada.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

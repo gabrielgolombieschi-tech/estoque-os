@@ -326,7 +326,11 @@ export default function ClientesPage() {
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-zinc-900/40">
+                <tr
+                  key={r.id}
+                  className={`hover:bg-zinc-900/40 cursor-pointer ${editingId === r.id ? "bg-zinc-900/50" : ""}`}
+                  onClick={() => editar(r)}
+                >
                   <td className="px-4 py-3 font-medium">{r.nome}</td>
                   <td className="px-4 py-3 text-zinc-300">{r.documento ?? "—"}</td>
                   <td className="px-4 py-3 text-zinc-300">
@@ -351,11 +355,23 @@ export default function ClientesPage() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => editar(r)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editar(r);
+                        }}
+                        className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                      >
                         Editar
                       </button>
                       {canDelete && (
-                        <button onClick={() => toggleAtivo(r.id, !r.ativo)} className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleAtivo(r.id, !r.ativo);
+                          }}
+                          className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                        >
                           {r.ativo ? "Desativar" : "Ativar"}
                         </button>
                       )}
@@ -366,7 +382,7 @@ export default function ClientesPage() {
 
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-zinc-400">
+                  <td colSpan={6} className="px-4 py-6 text-zinc-400">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>

@@ -1798,51 +1798,12 @@ export default function ImportarXmlPage() {
           const parcelasFromXml = info.parcelas ?? [];
           const parcelasJson = shouldGenerateFinance && parcelasFromXml.length > 0 ? parcelasFromXml : null;
 
-          let importRes: { status?: string; message?: string; nf_entrada_id?: number | null };
-          try {
-            importRes = await callImportApi(job, {
-              nfJson,
-              itensJson: itensPayload,
-              gerar: shouldGenerateFinance,
-              parcelas: parcelasJson,
-            });
-          } catch (e: unknown) {
-            if (!shouldGenerateFinance) throw e;
-
-            const msg = getErrorMessage(e, "Erro ao gerar contas a pagar.");
-            const msgLower = msg.toLowerCase();
-            const status =
-              typeof e === "object" && e !== null && "status" in e
-                ? (() => {
-                    const raw = (e as { status?: unknown }).status;
-                    return typeof raw === "number" ? raw : raw ? Number(raw) : null;
-                  })()
-                : null;
-
-            // Don't retry on 422 (validation) — user must fix input.
-            if (status === 422) throw e;
-
-            const looksFinance =
-              msgLower.includes("finance") ||
-              msgLower.includes("parcel") ||
-              msgLower.includes("soma das parcelas") ||
-              msgLower.includes("titulo") ||
-              msgLower.includes("aprovacao") ||
-              msgLower.includes("contas a pagar") ||
-              msgLower.includes("motivo_compra");
-
-            if (!looksFinance) throw e;
-
-            // Retry: import NF without finance generation.
-            importRes = await callImportApi(job, {
-              nfJson,
-              itensJson: itensPayload,
-              gerar: false,
-              parcelas: null,
-            });
-
-            results.push(`${job.fileName}: NF importada, mas falhou ao gerar contas a pagar: ${msg}`);
-          }
+          const importRes = await callImportApi(job, {
+            nfJson,
+            itensJson: itensPayload,
+            gerar: shouldGenerateFinance,
+            parcelas: parcelasJson,
+          });
 
           const status = String(importRes?.status ?? "ok");
           const message = importRes?.message ? String(importRes.message) : null;

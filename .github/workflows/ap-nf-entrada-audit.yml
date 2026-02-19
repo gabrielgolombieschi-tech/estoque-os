@@ -1,0 +1,32 @@
+name: AP NF Entrada Audit
+
+on:
+  schedule:
+    - cron: "15 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run AP audit
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AP_AUDIT_TARGETS: ${{ secrets.AP_AUDIT_TARGETS }}
+          AP_AUDIT_TENANT_ID: ${{ secrets.AP_AUDIT_TENANT_ID }}
+          AP_AUDIT_EMPRESA_ID: ${{ secrets.AP_AUDIT_EMPRESA_ID }}
+          AP_AUDIT_DAYS_BACK: "120"
+        run: npm run audit:ap-nf-entrada
