@@ -17,6 +17,7 @@ export default function EntradasNoPeriodoFiltersPanel({ fornecedores, applied, o
   const [buscaItem, setBuscaItem] = useState(applied.buscaItem);
   const [osMode, setOsMode] = useState<EntradasToggleOs>(applied.osMode);
   const [comNf, setComNf] = useState(applied.comNf);
+  const [destacarSaldoAlto, setDestacarSaldoAlto] = useState(applied.destacarSaldoAlto);
 
   useEffect(() => {
     setDataIni(applied.dataIni);
@@ -25,6 +26,7 @@ export default function EntradasNoPeriodoFiltersPanel({ fornecedores, applied, o
     setBuscaItem(applied.buscaItem);
     setOsMode(applied.osMode);
     setComNf(applied.comNf);
+    setDestacarSaldoAlto(applied.destacarSaldoAlto);
   }, [applied]);
 
   const previewMatches = useMemo(() => {
@@ -55,6 +57,7 @@ export default function EntradasNoPeriodoFiltersPanel({ fornecedores, applied, o
       buscaItem,
       osMode,
       comNf,
+      destacarSaldoAlto,
     });
   };
 
@@ -149,6 +152,14 @@ export default function EntradasNoPeriodoFiltersPanel({ fornecedores, applied, o
           <label className="flex items-center gap-2 text-sm text-zinc-300 select-none mt-3">
             <input type="checkbox" checked={comNf} onChange={(e) => setComNf(e.target.checked)} />
             Com NF
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300 select-none mt-2">
+            <input
+              type="checkbox"
+              checked={destacarSaldoAlto}
+              onChange={(e) => setDestacarSaldoAlto(e.target.checked)}
+            />
+            Destacar saldo alto
           </label>
         </div>
       </div>

@@ -44,6 +44,8 @@ type OsItemRow = {
   valor_unitario: number;
   valor_total: number;
   baixa_estoque: boolean;
+  desconto_percentual?: number | null;
+  desconto_valor?: number | null;
   itens: { nome: string; codigo_interno: string; tipo: string } | null;
 };
 
@@ -212,6 +214,7 @@ export default function OsDetailPage() {
   const [qty, setQty] = useState<string>("1");
   const [vunit, setVunit] = useState<number>(0);
   const [estoqueAtual, setEstoqueAtual] = useState<number | null>(null);
+  const [baixaDireta, setBaixaDireta] = useState(false);
   const qtyRef = useRef<HTMLInputElement | null>(null);
   const [showLookup, setShowLookup] = useState(false);
   const [lookupNome, setLookupNome] = useState("");
@@ -523,7 +526,9 @@ export default function OsDetailPage() {
     const { data: itemsData, error: itemsErr } = await applyTenant(
       supabase
         .from("os_itens")
-        .select("id,item_id,quantidade,valor_unitario,valor_total,baixa_estoque,itens(nome,codigo_interno,tipo)"),
+        .select(
+          "id,item_id,quantidade,valor_unitario,valor_total,desconto_percentual,desconto_valor,baixa_estoque,itens(nome,codigo_interno,tipo)"
+        ),
       effectiveTenantId
     )
       .eq("os_id", osId)
@@ -584,6 +589,20 @@ export default function OsDetailPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canView, osId, tenantId, empresaId]);
+
+  useEffect(() => {
+    setBaixaDireta(false);
+  }, [osId]);
+
+  async function getItemSaldoAtual(itemId: number): Promise<number> {
+    const { data, error } = await supabase
+      .from("estoque")
+      .select("quantidade_atual")
+      .eq("item_id", itemId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return Number(data?.quantidade_atual ?? 0);
+  }
 
   const closeGestaoModal = useCallback(
     (reset = true) => {
@@ -747,6 +766,8 @@ export default function OsDetailPage() {
       p_item_id: editItem.item_id,
       p_quantidade: qtyNumber,
       p_valor_unitario: Number(editItemVunit),
+      p_desconto_percentual: Number(editItem.desconto_percentual ?? 0),
+      p_desconto_valor: Number(editItem.desconto_valor ?? 0),
       p_baixa_estoque: Boolean(editItem.baixa_estoque),
       p_realizado_por: userEmail,
       p_motivo: "Edição pela tela da OS (baixa imediata)",
@@ -1193,6 +1214,25 @@ export default function OsDetailPage() {
     const qtyNumber = parseDecimalBR(qty);
     if (!Number.isFinite(qtyNumber) || qtyNumber <= 0) return setErr("Quantidade invalida.");
     if (vunit < 0) return setErr("Valor unitario invalido.");
+    const baixaNaInclusao = baixaDireta && Boolean(pick.controla_estoque);
+
+    if (baixaNaInclusao) {
+      let saldo = typeof estoqueAtual === "number" ? Number(estoqueAtual ?? 0) : null;
+      if (saldo === null) {
+        try {
+          saldo = await getItemSaldoAtual(pick.id);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Erro ao consultar saldo em estoque.";
+          return setErr(msg);
+        }
+      }
+      if (!Number.isFinite(saldo) || Number(saldo) <= 0) {
+        return setErr("Sem saldo em estoque para baixar este item.");
+      }
+      if (qtyNumber > Number(saldo)) {
+        return setErr(`Quantidade maior que o saldo em estoque. Saldo atual: ${formatDecimalBR(Number(saldo), 3)}.`);
+      }
+    }
 
     setBusy(true);
     setErr(null);
@@ -1206,9 +1246,9 @@ export default function OsDetailPage() {
       p_item_id: pick.id,
       p_quantidade: qtyNumber,
       p_valor_unitario: Number(vunit),
-      p_baixa_estoque: Boolean(pick.controla_estoque),
+      p_baixa_estoque: baixaNaInclusao,
       p_realizado_por: userEmail,
-      p_motivo: "Adicao pela tela da OS (baixa imediata)",
+      p_motivo: baixaNaInclusao ? "Adicao pela tela da OS (baixa imediata)" : "Adicao pela tela da OS (sem baixa)",
       p_empresa_id: empresaId,
     });
 
@@ -1224,6 +1264,71 @@ export default function OsDetailPage() {
     setVunit(0);
     setEstoqueAtual(null);
 
+    await load();
+  }
+
+  async function toggleItemBaixa(row: OsItemRow) {
+    if (!empresaId) return setErr("Selecione uma empresa antes de atualizar baixa de estoque.");
+
+    const nextBaixa = !Boolean(row.baixa_estoque);
+    const qtyNumber = Number(row.quantidade ?? 0);
+    if (!Number.isFinite(qtyNumber) || qtyNumber <= 0) {
+      return setErr("Quantidade invalida para atualizar baixa.");
+    }
+
+    if (nextBaixa) {
+      let saldoAtual = 0;
+      try {
+        saldoAtual = await getItemSaldoAtual(row.item_id);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Erro ao consultar saldo em estoque.";
+        return setErr(msg);
+      }
+      if (!Number.isFinite(saldoAtual) || saldoAtual <= 0) {
+        return setErr("Sem saldo em estoque para baixar este item.");
+      }
+      if (qtyNumber > saldoAtual) {
+        return setErr(
+          `Quantidade maior que o saldo em estoque. Saldo atual: ${formatDecimalBR(Number(saldoAtual), 3)}.`
+        );
+      }
+    }
+
+    setBusy(true);
+    setErr(null);
+    setOkMsg(null);
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userEmail = sess.session?.user?.email ?? null;
+
+    const { error: rmErr } = await supabase.rpc("remove_os_item_reverte_estoque", {
+      p_os_item_id: row.id,
+      p_realizado_por: userEmail,
+      p_motivo: nextBaixa ? "Baixa de estoque pela coluna Baixa" : "Devolucao para estoque pela coluna Baixa",
+      p_empresa_id: effectiveEmpresaId,
+    });
+    if (rmErr) {
+      setBusy(false);
+      return setErr(rmErr.message);
+    }
+
+    const { error: addErr } = await supabase.rpc("add_os_item_baixa_imediata", {
+      p_os_id: osId,
+      p_item_id: row.item_id,
+      p_quantidade: qtyNumber,
+      p_valor_unitario: Number(row.valor_unitario ?? 0),
+      p_desconto_percentual: Number(row.desconto_percentual ?? 0),
+      p_desconto_valor: Number(row.desconto_valor ?? 0),
+      p_baixa_estoque: nextBaixa,
+      p_realizado_por: userEmail,
+      p_motivo: nextBaixa ? "Baixa de estoque pela tela da OS" : "Item mantido sem baixa pela tela da OS",
+      p_empresa_id: effectiveEmpresaId,
+    });
+
+    setBusy(false);
+    if (addErr) return setErr(addErr.message);
+
+    setOkMsg(nextBaixa ? "Item baixado do estoque." : "Baixa removida e estoque devolvido.");
     await load();
   }
 
@@ -1382,11 +1487,20 @@ export default function OsDetailPage() {
           <div>
             <div className="font-medium">Adicionar item</div>
             <div className="text-sm text-zinc-400 mt-1">
-              Produto/servico/despesa. Baixa de estoque segue o cadastro do item.
+              Inclusao sem baixa por padrao. Marque &quot;Baixa direta&quot; para baixar no ato quando houver saldo.
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <label className="inline-flex items-center gap-2 text-sm text-zinc-200 select-none">
+              <input
+                type="checkbox"
+                checked={baixaDireta}
+                onChange={(e) => setBaixaDireta(e.target.checked)}
+                disabled={locked}
+              />
+              Baixa direta
+            </label>
             <button
               onClick={addItem}
               disabled={busy || locked || !isMateriaPrima}
@@ -1949,7 +2063,26 @@ export default function OsDetailPage() {
                   R$ {formatMoney(Number(r.valor_total))}
                 </td>
 
-                <td className="px-4 py-3 text-center">{r.baixa_estoque ? "✅" : "—"}</td>
+                <td className="px-4 py-3 text-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (busy || locked) return;
+                      void toggleItemBaixa(r);
+                    }}
+                    disabled={busy || locked}
+                    title={r.baixa_estoque ? "Clique para devolver ao estoque" : "Clique para baixar do estoque"}
+                    className={[
+                      "inline-flex items-center justify-center w-7 h-7 rounded border",
+                      r.baixa_estoque
+                        ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                        : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:bg-zinc-800",
+                    ].join(" ")}
+                  >
+                    {r.baixa_estoque ? "OK" : "—"}
+                  </button>
+                </td>
 
                 <td className="px-4 py-3 text-center">
                   <button

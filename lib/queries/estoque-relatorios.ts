@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+﻿import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 export type SortDir = "asc" | "desc";
@@ -19,6 +19,7 @@ export type SaldoEmEstoqueFilters = {
   busca: string;
   finalidade: SaldoFinalidade; // "todas" = sem filtro
   abaixoMinimo: boolean;
+  separarPorFornecedor: boolean;
   localizacao: string;
 };
 
@@ -103,8 +104,7 @@ async function resolveFornecedorIdsByPrefix(
 }
 
 // TAB A
-// Preferimos ler da view vw_estoque_saldo (se existir) para suportar abaixo_minimo server-side.
-// Fallback: consulta direta em estoque + itens e aplica abaixo_minimo no client.
+// Fonte oficial: public.estoque + join public.itens + left join public.fornecedores.
 export async function listSaldoEmEstoque(
   supabase: SupabaseClient,
   ctx: { tenantId: string; empresaId: string },
@@ -123,8 +123,6 @@ export async function listSaldoEmEstoque(
   const { tenantId, empresaId } = ctx;
   const { filters } = args;
 
-  const viewName = "vw_estoque_saldo";
-
   const resolvedFornecedorIds =
     filters.fornecedorIds.length > 0
       ? filters.fornecedorIds
@@ -136,184 +134,96 @@ export async function listSaldoEmEstoque(
     return { rows: [], count: 0 };
   }
 
-  const runView = async (): Promise<PagedResult<SaldoEmEstoqueRow>> => {
-    let qb = supabase
-      .from(viewName)
+  let qb = applyTenantEmpresa(
+    supabase
+      .from("estoque")
       .select(
         [
           "item_id",
-          "codigo_interno",
-          "item_nome",
-          "unidade_medida",
           "quantidade_atual",
-          "custo_medio",
-          "valor_estoque",
-          "fornecedor_id",
-          "fornecedor_nome",
-          "estoque_minimo",
-          "estoque_ideal",
           "localizacao",
-          "finalidade",
-          "controla_estoque",
-          "abaixo_minimo",
-          "tenant_id",
           "empresa_id",
+          "itens:itens!estoque_item_id_fkey(id,codigo_interno,nome,unidade_medida,custo_medio,estoque_minimo,fornecedor_id,finalidade,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome))",
         ].join(","),
         { count: "exact" }
       )
-      .eq("tenant_id", tenantId)
       .eq("empresa_id", empresaId)
-      .gt("quantidade_atual", 0);
+      .gt("quantidade_atual", 0),
+    tenantId,
+    empresaId
+  );
 
-    if (filters.finalidade && filters.finalidade !== "todas") qb = qb.eq("finalidade", filters.finalidade);
+  qb = qb.eq("itens.controla_estoque", true);
 
-    if (filters.localizacao.trim()) qb = qb.ilike("localizacao", `%${filters.localizacao.trim()}%`);
+  if (filters.finalidade && filters.finalidade !== "todas") qb = qb.eq("itens.finalidade", filters.finalidade);
 
-    const busca = filters.busca.trim();
-    if (busca) {
-      qb = qb.or([`item_nome.ilike.%${busca}%`, `codigo_interno.ilike.%${busca}%`].join(","));
-    }
+  if (filters.localizacao.trim()) qb = qb.ilike("localizacao", `%${filters.localizacao.trim()}%`);
 
-    if (resolvedFornecedorIds.length && filters.semFornecedor) {
-      qb = qb.or(
-        [`fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "fornecedor_id.is.null"].join(",")
-      );
-    } else if (resolvedFornecedorIds.length) {
-      qb = qb.in("fornecedor_id", resolvedFornecedorIds);
-    } else if (filters.semFornecedor) {
-      qb = qb.is("fornecedor_id", null);
-    }
-
-    if (filters.abaixoMinimo) qb = qb.eq("abaixo_minimo", true);
-
-    const sortCol = args.sort.key === "codigo" ? "codigo_interno" : "item_nome";
-    qb = qb.order(sortCol, { ascending: args.sort.dir === "asc" });
-
-    const { data, error, count } = await qb.range(from, to);
-    if (error) throw error;
-
-    const rows = (data ?? []) as unknown as SaldoEmEstoqueRow[];
-    return { rows, count: Number(count ?? 0) };
-  };
-
-  const runFallback = async (): Promise<PagedResult<SaldoEmEstoqueRow>> => {
-    // Fallback sem view: consulta base estoque + itens + fornecedores.
-    // Observação: abaixoMinimo passa a ser filtrado no client (contagem/paginação pode divergir).
-    let qb = applyTenantEmpresa(
-      supabase
-        .from("estoque")
-        .select(
-          [
-            "item_id",
-            "quantidade_atual",
-            "localizacao",
-            "empresa_id",
-            "itens:itens!estoque_item_id_fkey(codigo_interno,nome,unidade_medida,custo_medio,estoque_minimo,estoque_ideal,fornecedor_id,finalidade,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome))",
-          ].join(","),
-          { count: "exact" }
-        )
-        .eq("empresa_id", empresaId)
-        .gt("quantidade_atual", 0),
-      tenantId,
-      empresaId
-    );
-
-    // Apenas itens que controlam estoque
-    qb = qb.eq("itens.controla_estoque", true);
-
-    if (filters.finalidade && filters.finalidade !== "todas") qb = qb.eq("itens.finalidade", filters.finalidade);
-
-    if (filters.localizacao.trim()) qb = qb.ilike("localizacao", `%${filters.localizacao.trim()}%`);
-
-    const busca = filters.busca.trim();
-    if (busca) {
-      qb = qb.or([`itens.nome.ilike.%${busca}%`, `itens.codigo_interno.ilike.%${busca}%`].join(","));
-    }
-
-    if (resolvedFornecedorIds.length && filters.semFornecedor) {
-      qb = qb.or(
-        [`itens.fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "itens.fornecedor_id.is.null"].join(",")
-      );
-    } else if (resolvedFornecedorIds.length) {
-      qb = qb.in("itens.fornecedor_id", resolvedFornecedorIds);
-    } else if (filters.semFornecedor) {
-      qb = qb.is("itens.fornecedor_id", null);
-    }
-
-    if (args.sort.key === "codigo") {
-      qb = qb.order("itens(codigo_interno)", { ascending: args.sort.dir === "asc" });
-    } else {
-      qb = qb.order("itens(nome)", { ascending: args.sort.dir === "asc" });
-    }
-
-    const { data, error, count } = await qb.range(from, to);
-    if (error) throw error;
-
-    const mapped: SaldoEmEstoqueRow[] = (data ?? []).map((r: unknown) => {
-      const row = r as {
-        item_id?: unknown;
-        quantidade_atual?: unknown;
-        localizacao?: unknown;
-        itens?: unknown;
-      };
-
-      const itensRaw = row.itens ?? null;
-      const itens = Array.isArray(itensRaw) ? itensRaw[0] ?? null : itensRaw;
-
-      const fornRaw = itens?.fornecedores ?? null;
-      const forn = Array.isArray(fornRaw) ? fornRaw[0] ?? null : fornRaw;
-      const fornecedorNome = forn?.nome ?? null;
-      const custo = itens?.custo_medio ?? null;
-      const saldo = safeNumber(row.quantidade_atual);
-      const valor = saldo * safeNumber(custo);
-      const estoqueMin = itens?.estoque_minimo ?? null;
-      const abaixoMin = saldo < safeNumber(estoqueMin);
-
-      const localizacao = typeof row.localizacao === "string" ? row.localizacao : null;
-
-      return {
-        item_id: safeNumber(row.item_id),
-        codigo_interno: String(itens?.codigo_interno ?? ""),
-        item_nome: String(itens?.nome ?? ""),
-        unidade_medida: itens?.unidade_medida ?? null,
-        quantidade_atual: saldo,
-        custo_medio: custo,
-        valor_estoque: valor,
-        fornecedor_id: itens?.fornecedor_id ?? null,
-        fornecedor_nome: fornecedorNome ? String(fornecedorNome) : null,
-        estoque_minimo: itens?.estoque_minimo ?? null,
-        estoque_ideal: itens?.estoque_ideal ?? null,
-        localizacao,
-        finalidade: itens?.finalidade ?? null,
-        controla_estoque: itens?.controla_estoque ?? null,
-        abaixo_minimo: abaixoMin,
-      };
-    });
-
-    const filtered = filters.abaixoMinimo ? mapped.filter((x) => x.abaixo_minimo) : mapped;
-
-    return { rows: filtered, count: Number(count ?? 0) };
-  };
-
-  try {
-    return await runView();
-  } catch (e: unknown) {
-    const msg =
-      e && typeof e === "object" && "message" in e
-        ? String((e as { message?: unknown }).message ?? "")
-        : "";
-    // Se a view não existe (migração não aplicada), faz fallback.
-    const m = msg.toLowerCase();
-    if (
-      m.includes(viewName.toLowerCase()) &&
-      (m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find the table"))
-    ) {
-      return await runFallback();
-    }
-    throw e;
+  const busca = filters.busca.trim();
+  if (busca) {
+    qb = qb.or([`itens.nome.ilike.%${busca}%`, `itens.codigo_interno.ilike.%${busca}%`].join(","));
   }
-}
 
+  if (resolvedFornecedorIds.length && filters.semFornecedor) {
+    qb = qb.or([`itens.fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "itens.fornecedor_id.is.null"].join(","));
+  } else if (resolvedFornecedorIds.length) {
+    qb = qb.in("itens.fornecedor_id", resolvedFornecedorIds);
+  } else if (filters.semFornecedor) {
+    qb = qb.is("itens.fornecedor_id", null);
+  }
+
+  if (args.sort.key === "codigo") {
+    qb = qb.order("itens(codigo_interno)", { ascending: args.sort.dir === "asc" });
+  } else {
+    qb = qb.order("itens(nome)", { ascending: args.sort.dir === "asc" });
+  }
+
+  const { data, error, count } = await qb.range(from, to);
+  if (error) throw error;
+
+  const mapped: SaldoEmEstoqueRow[] = (data ?? []).map((r: unknown) => {
+    const row = r as {
+      item_id?: unknown;
+      quantidade_atual?: unknown;
+      localizacao?: unknown;
+      itens?: unknown;
+    };
+
+    const itensRaw = row.itens ?? null;
+    const itens = Array.isArray(itensRaw) ? itensRaw[0] ?? null : itensRaw;
+
+    const fornRaw = itens?.fornecedores ?? null;
+    const forn = Array.isArray(fornRaw) ? fornRaw[0] ?? null : fornRaw;
+
+    const saldo = safeNumber(row.quantidade_atual);
+    const custo = itens?.custo_medio ?? null;
+    const valor = saldo * safeNumber(custo);
+    const estoqueMin = itens?.estoque_minimo ?? null;
+    const abaixoMin = saldo < safeNumber(estoqueMin);
+
+    return {
+      item_id: safeNumber(itens?.id ?? row.item_id),
+      codigo_interno: String(itens?.codigo_interno ?? ""),
+      item_nome: String(itens?.nome ?? ""),
+      unidade_medida: itens?.unidade_medida ?? null,
+      quantidade_atual: saldo,
+      custo_medio: custo,
+      valor_estoque: valor,
+      fornecedor_id: itens?.fornecedor_id ?? null,
+      fornecedor_nome: forn?.nome ? String(forn.nome) : null,
+      estoque_minimo: itens?.estoque_minimo ?? null,
+      estoque_ideal: null,
+      localizacao: typeof row.localizacao === "string" ? row.localizacao : null,
+      finalidade: itens?.finalidade ?? null,
+      controla_estoque: itens?.controla_estoque ?? null,
+      abaixo_minimo: abaixoMin,
+    };
+  });
+
+  const filtered = filters.abaixoMinimo ? mapped.filter((x) => x.abaixo_minimo) : mapped;
+
+  return { rows: filtered, count: Number(count ?? 0) };
+}
 // TAB B
 export type EntradasToggleOs = "todos" | "com_os" | "sem_os";
 
@@ -325,39 +235,49 @@ export type EntradasNoPeriodoFilters = {
   buscaItem: string;
   osMode: EntradasToggleOs;
   comNf: boolean;
+  destacarSaldoAlto: boolean;
 };
 
-export type EntradasNoPeriodoSortKey = "data" | "item";
+export type EntradasNoPeriodoSortKey = "item" | "qtd_comprada" | "saldo_atual";
 
-export type EntradaMovRow = {
-  id: number;
+export type EntradaConsolidadaRow = {
   item_id: number;
-  quantidade: number;
-  data_movimentacao: string;
-  origem_nf_entrada_id: number | null;
-  origem_os_id: number | null;
-  itens: { id?: number; codigo_interno: string; nome: string; unidade_medida: string | null } | null;
-  nf: {
-    id: number;
-    modelo: string | null;
-    serie: string | number | null;
-    numero: string | number | null;
-    chave: string | null;
-    data_emissao: string | null;
-    fornecedor_id: number | null;
-    os_id: number | null;
-    fornecedores?: { id?: number; nome: string | null } | null;
-  } | null;
+  fornecedor_id: number | null;
+  codigo_interno: string;
+  item_nome: string;
+  fornecedor_nome: string;
+  motivo: string;
+  unidade_medida: string | null;
+  qtd_comprada: number;
+  qtd_para_os: number;
+  qtd_para_estoque: number;
+  percentual_os: number;
+  destino_os: string;
+  saldo_atual: number;
+  saldo_ajustado: number;
+  estoque_ideal: number;
+  situacao: "OK" | "ALERTA";
 };
 
-export type OsInfo = { id: number; numero_os: string | number | null; cliente_nome: string | null; status: string | null };
+export type EntradaDetalheRow = {
+  movimentacao_id: number;
+  data_movimentacao: string;
+  nf: string;
+  quantidade: number;
+  os_id: number | null;
+  realizado_por: string | null;
+  tipo: "DIRETO OS" | "ENTRADA ESTOQUE";
+};
 
-export type EstoqueSaldoLookup = { item_id: number; quantidade_atual: number };
-
-export type EntradaEnrichedRow = {
-  mov: EntradaMovRow;
-  os: OsInfo | null;
-  saldoAtual: number | null;
+export type EntradaExclusaoRow = {
+  tenant_id: string;
+  empresa_id: string;
+  item_id: number;
+  codigo_interno: string;
+  item_nome: string;
+  motivo: string | null;
+  created_at: string;
+  created_by: string | null;
 };
 
 export async function listEntradasNoPeriodo(
@@ -369,165 +289,206 @@ export async function listEntradasNoPeriodo(
     sort: { key: EntradasNoPeriodoSortKey; dir: SortDir };
     filters: EntradasNoPeriodoFilters;
   }
-): Promise<PagedResult<EntradaEnrichedRow>> {
+): Promise<PagedResult<EntradaConsolidadaRow>> {
   const page = Math.max(1, Math.floor(args.page || 1));
-  const pageSize = Math.max(10, Math.min(200, Math.floor(args.pageSize || 50)));
+  const pageSize = Math.max(10, Math.min(300, Math.floor(args.pageSize || 50)));
   const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const to = from + pageSize;
 
   const { tenantId, empresaId } = ctx;
   const { filters } = args;
 
-  const resolvedFornecedorIds =
-    filters.fornecedorIds.length > 0
-      ? filters.fornecedorIds
-      : filters.fornecedorPrefix.trim()
-        ? await resolveFornecedorIdsByPrefix(supabase, ctx, filters.fornecedorPrefix)
-        : [];
-
-  if (filters.fornecedorPrefix.trim() && resolvedFornecedorIds.length === 0) {
-    return { rows: [], count: 0 };
-  }
-
-  // Interpretar como timestamp local do DB: evitar sufixo Z.
-  const startTs = `${filters.dataIni}T00:00:00`;
-  const endTs = `${filters.dataFim}T23:59:59`;
-
-  // Para que filtros em colunas da NF (ex.: fornecedor_id) realmente filtrem a tabela raiz
-  // (movimentacoes), precisamos usar join INNER no relacionamento embutido.
-  // Caso contrário, o PostgREST pode apenas filtrar o objeto embutido e manter a linha raiz.
-  const needsNfInnerJoin = Boolean(filters.comNf) || resolvedFornecedorIds.length > 0;
-  const nfSelect = needsNfInnerJoin
-    ? "nf:nf_entrada!inner!movimentacoes_origem_nf_entrada_id_fkey(id,modelo,serie,numero,chave,data_emissao,fornecedor_id,os_id,fornecedores(id,nome))"
-    : "nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(id,modelo,serie,numero,chave,data_emissao,fornecedor_id,os_id,fornecedores(id,nome))";
-
-  let qb = applyTenantEmpresa(
-    supabase
-      .from("movimentacoes")
-      .select(
-        [
-          "id",
-          "item_id",
-          "tipo",
-          "quantidade",
-          "data_movimentacao",
-          "origem_nf_entrada_id",
-          "origem_os_id",
-          "empresa_id",
-          "itens:itens!movimentacoes_item_id_fkey(id,codigo_interno,nome,unidade_medida)",
-          nfSelect,
-        ].join(","),
-        { count: "exact" }
-      )
-      .eq("empresa_id", empresaId)
-      .eq("tipo", "entrada")
-      .gte("data_movimentacao", startTs)
-      .lte("data_movimentacao", endTs),
-    tenantId,
-    empresaId
-  );
-
-  // NF: opcionalmente exigir NF
-  if (filters.comNf) {
-    qb = qb.not("origem_nf_entrada_id", "is", null);
-  }
-
-  if (resolvedFornecedorIds.length) {
-    qb = qb.in("nf.fornecedor_id", resolvedFornecedorIds);
-  }
-
-  const term = filters.buscaItem.trim();
-  if (term) {
-    qb = qb.or([`itens.nome.ilike.%${term}%`, `itens.codigo_interno.ilike.%${term}%`].join(","));
-  }
-
-  if (filters.osMode === "com_os") qb = qb.not("origem_os_id", "is", null);
-  if (filters.osMode === "sem_os") qb = qb.is("origem_os_id", null);
-
-  if (args.sort.key === "item") {
-    qb = qb.order("itens(nome)", { ascending: args.sort.dir === "asc" });
-  } else {
-    qb = qb.order("data_movimentacao", { ascending: args.sort.dir === "asc" });
-  }
-  qb = qb.order("id", { ascending: false });
-
-  const { data, error, count } = await qb.range(from, to);
+  const { data, error } = await supabase.rpc("rel_entradas_periodo_consolidado", {
+    p_tenant_id: tenantId,
+    p_empresa_id: empresaId,
+    p_data_ini: filters.dataIni,
+    p_data_fim: filters.dataFim,
+    p_fornecedor_prefix: filters.fornecedorPrefix.trim() || null,
+    p_busca_item: filters.buscaItem.trim() || null,
+    p_os_mode: filters.osMode,
+    p_com_nf: filters.comNf,
+    p_destacar_saldo_alto: filters.destacarSaldoAlto,
+  });
   if (error) throw error;
 
-  const movs = (data ?? []) as unknown as EntradaMovRow[];
-
-  const osIds = Array.from(
-    new Set(movs.map((m) => safeNumber(m.origem_os_id)).filter((n) => Number.isFinite(n) && n > 0))
-  );
-
-  const itemIds = Array.from(new Set(movs.map((m) => safeNumber(m.item_id)).filter((n) => n > 0)));
-
-  const [osMap, saldoMap] = await Promise.all([
-    (async () => {
-      if (!osIds.length) return new Map<number, OsInfo>();
-      const { data: osData, error: osErr } = await applyTenantEmpresa(
-        supabase
-          .from("ordens_servico")
-          .select("id,numero_os,cliente_nome,status,empresa_id")
-          .eq("empresa_id", empresaId)
-          .in("id", osIds),
-        tenantId,
-        empresaId
-      );
-      if (osErr) throw osErr;
-      const map = new Map<number, OsInfo>();
-      const rows = (osData ?? []) as Array<{ id?: unknown; numero_os?: unknown; cliente_nome?: unknown; status?: unknown }>;
-      for (const r of rows) {
-        const id = safeNumber(r.id);
-        if (!id) continue;
-
-        const numeroOs =
-          typeof r.numero_os === "string" || typeof r.numero_os === "number" ? r.numero_os : null;
-        const clienteNome = typeof r.cliente_nome === "string" ? r.cliente_nome : null;
-        const status = typeof r.status === "string" ? r.status : null;
-
-        map.set(id, {
-          id,
-          numero_os: numeroOs,
-          cliente_nome: clienteNome,
-          status,
-        });
-      }
-      return map;
+  const rowsMapped: EntradaConsolidadaRow[] = (Array.isArray(data) ? data : []).map((r) => ({
+    item_id: safeNumber((r as Record<string, unknown>).item_id),
+    fornecedor_id: (() => {
+      const raw = (r as Record<string, unknown>).fornecedor_id;
+      if (raw === null || raw === undefined) return null;
+      const n = safeNumber(raw);
+      return Number.isFinite(n) ? n : null;
     })(),
-    (async () => {
-      if (!itemIds.length) return new Map<number, number>();
-      const { data: estData, error: estErr } = await applyTenantEmpresa(
-        supabase
-          .from("estoque")
-          .select("item_id,quantidade_atual,empresa_id")
-          .eq("empresa_id", empresaId)
-          .in("item_id", itemIds),
-        tenantId,
-        empresaId
-      );
-      if (estErr) throw estErr;
-      const map = new Map<number, number>();
-      const rows = (estData ?? []) as Array<{ item_id?: unknown; quantidade_atual?: unknown }>;
-      for (const r of rows) {
-        const id = safeNumber(r.item_id);
-        if (!id) continue;
-        map.set(id, safeNumber(r.quantidade_atual));
-      }
-      return map;
-    })(),
-  ]);
+    codigo_interno: String((r as Record<string, unknown>).codigo_interno ?? ""),
+    item_nome: String((r as Record<string, unknown>).item_nome ?? ""),
+    fornecedor_nome: String((r as Record<string, unknown>).fornecedor_nome ?? "SEM FORNECEDOR"),
+    motivo: String((r as Record<string, unknown>).motivo ?? "MOV. MANUAL"),
+    unidade_medida: ((r as Record<string, unknown>).unidade_medida as string | null) ?? null,
+    qtd_comprada: safeNumber((r as Record<string, unknown>).qtd_comprada),
+    qtd_para_os: safeNumber((r as Record<string, unknown>).qtd_para_os),
+    qtd_para_estoque: safeNumber((r as Record<string, unknown>).qtd_para_estoque),
+    percentual_os: safeNumber((r as Record<string, unknown>).percentual_os),
+    destino_os: String((r as Record<string, unknown>).destino_os ?? "-"),
+    saldo_atual: safeNumber((r as Record<string, unknown>).saldo_atual),
+    saldo_ajustado: safeNumber((r as Record<string, unknown>).saldo_ajustado),
+    estoque_ideal: safeNumber((r as Record<string, unknown>).estoque_ideal),
+    situacao:
+      String((r as Record<string, unknown>).situacao ?? "OK").toUpperCase() === "ALERTA"
+        ? "ALERTA"
+        : "OK",
+  }));
 
-  const enriched: EntradaEnrichedRow[] = movs.map((mov) => {
-    const osId = safeNumber(mov.origem_os_id);
-    return {
-      mov,
-      os: osId ? osMap.get(osId) ?? null : null,
-      saldoAtual: saldoMap.has(safeNumber(mov.item_id)) ? (saldoMap.get(safeNumber(mov.item_id)) as number) : null,
-    };
+  const sorted = [...rowsMapped].sort((a, b) => {
+    if (args.sort.key === "qtd_comprada") {
+      return args.sort.dir === "asc" ? a.qtd_comprada - b.qtd_comprada : b.qtd_comprada - a.qtd_comprada;
+    }
+    if (args.sort.key === "saldo_atual") {
+      return args.sort.dir === "asc" ? a.saldo_atual - b.saldo_atual : b.saldo_atual - a.saldo_atual;
+    }
+    const cmp = a.item_nome.localeCompare(b.item_nome, "pt-BR", { sensitivity: "base" });
+    return args.sort.dir === "asc" ? cmp : -cmp;
   });
 
-  return { rows: enriched, count: Number(count ?? 0) };
+  return { rows: sorted.slice(from, to), count: sorted.length };
+}
+
+export async function listEntradasNoPeriodoDetalhes(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string },
+  args: {
+    filters: EntradasNoPeriodoFilters;
+    itemId: number;
+    fornecedorId: number | null;
+  }
+): Promise<EntradaDetalheRow[]> {
+  const { data, error } = await supabase.rpc("rel_entradas_periodo_detalhes", {
+    p_tenant_id: ctx.tenantId,
+    p_empresa_id: ctx.empresaId,
+    p_data_ini: args.filters.dataIni,
+    p_data_fim: args.filters.dataFim,
+    p_item_id: args.itemId,
+    p_fornecedor_id: args.fornecedorId,
+    p_os_mode: args.filters.osMode,
+    p_com_nf: args.filters.comNf,
+  });
+
+  if (error) throw error;
+
+  return (Array.isArray(data) ? data : []).map((r) => ({
+    movimentacao_id: safeNumber((r as Record<string, unknown>).movimentacao_id),
+    data_movimentacao: String((r as Record<string, unknown>).data_movimentacao ?? ""),
+    nf: String((r as Record<string, unknown>).nf ?? "-"),
+    quantidade: safeNumber((r as Record<string, unknown>).quantidade),
+    os_id: (() => {
+      const raw = (r as Record<string, unknown>).os_id;
+      if (raw === null || raw === undefined) return null;
+      const n = safeNumber(raw);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    })(),
+    realizado_por: (() => {
+      const raw = (r as Record<string, unknown>).realizado_por;
+      if (raw === null || raw === undefined) return null;
+      const s = String(raw).trim();
+      return s || null;
+    })(),
+    tipo:
+      String((r as Record<string, unknown>).tipo ?? "ENTRADA ESTOQUE").toUpperCase() === "DIRETO OS"
+        ? "DIRETO OS"
+        : "ENTRADA ESTOQUE",
+  }));
+}
+
+export async function listEntradasExclusoes(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string }
+): Promise<EntradaExclusaoRow[]> {
+  const { data, error } = await applyTenantEmpresa(
+    supabase
+      .from("relatorio_operacional_exclusoes")
+      .select("tenant_id,empresa_id,item_id,motivo,created_at,created_by")
+      .order("created_at", { ascending: false })
+      .limit(2000),
+    ctx.tenantId,
+    ctx.empresaId
+  );
+  if (error) throw error;
+
+  const base = Array.isArray(data)
+    ? (data as Array<Record<string, unknown>>).map((r) => ({
+        tenant_id: String(r.tenant_id ?? ""),
+        empresa_id: String(r.empresa_id ?? ""),
+        item_id: safeNumber(r.item_id),
+        motivo: typeof r.motivo === "string" ? r.motivo : null,
+        created_at: String(r.created_at ?? ""),
+        created_by: typeof r.created_by === "string" ? r.created_by : null,
+      }))
+    : [];
+
+  const itemIds = Array.from(new Set(base.map((r) => r.item_id).filter((n) => Number.isFinite(n) && n > 0)));
+  const itemMap = new Map<number, { codigo_interno: string; nome: string }>();
+
+  if (itemIds.length) {
+    const { data: itensData, error: itensErr } = await applyTenantEmpresa(
+      supabase.from("itens").select("id,codigo_interno,nome").in("id", itemIds),
+      ctx.tenantId,
+      ctx.empresaId
+    );
+    if (itensErr) throw itensErr;
+    for (const raw of Array.isArray(itensData) ? (itensData as Array<Record<string, unknown>>) : []) {
+      const id = safeNumber(raw.id);
+      if (!Number.isFinite(id) || id <= 0) continue;
+      itemMap.set(id, {
+        codigo_interno: String(raw.codigo_interno ?? ""),
+        nome: String(raw.nome ?? ""),
+      });
+    }
+  }
+
+  return base
+    .map((r) => ({
+      tenant_id: r.tenant_id,
+      empresa_id: r.empresa_id,
+      item_id: r.item_id,
+      codigo_interno: itemMap.get(r.item_id)?.codigo_interno ?? "",
+      item_nome: itemMap.get(r.item_id)?.nome ?? "",
+      motivo: r.motivo,
+      created_at: r.created_at,
+      created_by: r.created_by,
+    }))
+    .sort((a, b) => a.item_nome.localeCompare(b.item_nome, "pt-BR", { sensitivity: "base" }));
+}
+
+export async function addEntradasExclusao(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string },
+  args: { itemId: number; motivo?: string | null; createdBy?: string | null }
+): Promise<void> {
+  const payload = {
+    tenant_id: ctx.tenantId,
+    empresa_id: ctx.empresaId,
+    item_id: args.itemId,
+    motivo: args.motivo?.trim() ? args.motivo.trim() : null,
+    created_by: args.createdBy ?? null,
+  };
+  const { error } = await applyTenantEmpresa(
+    supabase.from("relatorio_operacional_exclusoes").upsert(payload, { onConflict: "tenant_id,empresa_id,item_id" }),
+    ctx.tenantId,
+    ctx.empresaId
+  );
+  if (error) throw error;
+}
+
+export async function removeEntradasExclusao(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string },
+  itemId: number
+): Promise<void> {
+  const { error } = await applyTenantEmpresa(
+    supabase.from("relatorio_operacional_exclusoes").delete().eq("item_id", itemId),
+    ctx.tenantId,
+    ctx.empresaId
+  );
+  if (error) throw error;
 }
 
 export function parseCsvIds(value: string | null): number[] {

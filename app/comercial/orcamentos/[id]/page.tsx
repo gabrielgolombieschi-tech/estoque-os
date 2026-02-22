@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -16,6 +16,7 @@ import {
   createOrcamento,
   finalizarOrcamento,
   getClienteById,
+  getItemByCodigo,
   getItemById,
   getOrcamento,
   getOrcamentoConfig,
@@ -275,11 +276,17 @@ export default function OrcamentoPage() {
   const [inlineQuantidade, setInlineQuantidade] = useState<string>("1");
   const [inlineValorUnitario, setInlineValorUnitario] = useState<string>("0");
   const [inlineDesconto, setInlineDesconto] = useState<string>("0");
+  const [inlineDescricaoLivre, setInlineDescricaoLivre] = useState<string>("");
   const [inlineBusy, setInlineBusy] = useState<boolean>(false);
   const [inlineErr, setInlineErr] = useState<string | null>(null);
   const [inlineEditingItemId, setInlineEditingItemId] = useState<string | null>(null);
   const [inlineEstoqueAtual, setInlineEstoqueAtual] = useState<number | null>(null);
   const inlineMode = inlineEditingItemId ? "edit" : "add";
+  const inlineIsCodigoGenerico = useMemo(
+    () => String(inlineItem?.codigo_interno ?? "").trim().toUpperCase() === "9999",
+    [inlineItem?.codigo_interno]
+  );
+  const isInlineTokenGenerico = useCallback((value: string) => /^[#@$]/.test(String(value ?? "").trim()), []);
   const inlineFormRef = useRef<HTMLDivElement | null>(null);
   const inlineItemReqRef = useRef(0);
 
@@ -361,7 +368,7 @@ export default function OrcamentoPage() {
 
     if (!tenantId || !empresaId) {
       setLoading(false);
-      setErr("Contexto (tenant/empresa) não carregado.");
+      setErr("Contexto (tenant/empresa) nao carregado.");
       setOrc(null);
       setItens([]);
       setForm(null);
@@ -413,7 +420,7 @@ export default function OrcamentoPage() {
         router.replace(`/comercial/orcamentos/${orcamento.codigo}`);
       }
     } catch (e: unknown) {
-      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar orçamento."));
+      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar orcamento."));
       setOrc(null);
       setItens([]);
       setForm(null);
@@ -518,12 +525,26 @@ export default function OrcamentoPage() {
     return () => clearTimeout(t);
   }, [editClienteDialog, empresaId, supabase, tenantId]);
 
-  // inline: buscar item por código (id)
+  const resolveItemByCodigoOrId = useCallback(
+    async (rawValue: string) => {
+      const raw = String(rawValue ?? "").trim();
+      if (!supabase || !tenantId || !empresaId || !raw) return null;
+
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        const byId = await getItemById(supabase, { tenantId, empresaId, id: parsed });
+        if (byId?.id) return byId;
+      }
+      return getItemByCodigo(supabase, { tenantId, empresaId, codigo: raw });
+    },
+    [empresaId, supabase, tenantId]
+  );
+
+  // inline: buscar item por codigo (id ou codigo interno)
   useEffect(() => {
     if (!supabase || !tenantId || !empresaId) return;
 
     const raw = String(inlineItemId ?? "").trim();
-    const parsed = Number(raw);
     const reqId = ++inlineItemReqRef.current;
 
     if (!raw) {
@@ -532,23 +553,27 @@ export default function OrcamentoPage() {
       return;
     }
 
-    if (!Number.isFinite(parsed) || parsed <= 0) {
+    if (isInlineTokenGenerico(raw)) {
       setInlineItem(null);
-      setInlineErr("Código inválido.");
+      setInlineErr(null);
       return;
     }
 
     const t = setTimeout(async () => {
       try {
-        const item = await getItemById(supabase, { tenantId, empresaId, id: parsed });
+        const item = await resolveItemByCodigoOrId(raw);
         if (reqId !== inlineItemReqRef.current) return;
         if (!item?.id) {
           setInlineItem(null);
-          setInlineErr("Item não encontrado.");
+          setInlineErr("Item nao encontrado.");
           return;
         }
         setInlineItem(item);
         setInlineErr(null);
+        if (!inlineEditingItemId) {
+          const isGenerico = String(item.codigo_interno ?? "").trim().toUpperCase() === "9999";
+          setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
+        }
         if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
       } catch {
         if (reqId !== inlineItemReqRef.current) return;
@@ -558,7 +583,16 @@ export default function OrcamentoPage() {
     }, 250);
 
     return () => clearTimeout(t);
-  }, [defaultValorUnitarioFromItem, empresaId, inlineEditingItemId, inlineItemId, supabase, tenantId]);
+  }, [
+    defaultValorUnitarioFromItem,
+    empresaId,
+    inlineEditingItemId,
+    inlineItemId,
+    isInlineTokenGenerico,
+    resolveItemByCodigoOrId,
+    supabase,
+    tenantId,
+  ]);
 
   useEffect(() => {
     if (!supabase || !inlineItem?.id) {
@@ -753,7 +787,7 @@ export default function OrcamentoPage() {
 
     const qtd = parseDecimalBR(addConjunto.quantidade);
     if (!Number.isFinite(qtd) || qtd <= 0) {
-      setAddConjunto((p) => (p.open ? { ...p, error: "Quantidade inválida." } : p));
+      setAddConjunto((p) => (p.open ? { ...p, error: "Quantidade invalida." } : p));
       return;
     }
 
@@ -864,33 +898,57 @@ export default function OrcamentoPage() {
       return;
     }
 
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      openLookupModal(raw);
+    const triggerGenerico = isInlineTokenGenerico(raw);
+    if (triggerGenerico) {
+      const textoLivre = raw.slice(1).trim();
+      const reqId = ++inlineItemReqRef.current;
+      try {
+        const item = await resolveItemByCodigoOrId("9999");
+        if (reqId !== inlineItemReqRef.current) return;
+        if (!item?.id) {
+          setInlineItem(null);
+          setInlineErr("Nao foi possivel resolver o item generico 9999.");
+          return;
+        }
+        setInlineItemId("9999");
+        setInlineItem(item);
+        setInlineErr(null);
+        setInlineDescricaoLivre(textoLivre);
+        if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+      } catch (e: unknown) {
+        if (reqId !== inlineItemReqRef.current) return;
+        setInlineItem(null);
+        const msg = toSupabaseErrorLike(e)?.message ?? "Erro ao buscar item generico.";
+        setInlineErr(msg);
+      }
       return;
     }
 
     const reqId = ++inlineItemReqRef.current;
     try {
-      const item = await getItemById(supabase, { tenantId, empresaId, id: parsed });
+      const item = await resolveItemByCodigoOrId(raw);
       if (reqId !== inlineItemReqRef.current) return;
       if (!item?.id) {
         setInlineItem(null);
-        setInlineErr("Item não encontrado.");
-        openLookupModal("");
+        setInlineErr("Item nao encontrado.");
+        if (raw !== "9999") openLookupModal(raw);
         return;
       }
       setInlineItem(item);
       setInlineErr(null);
+      if (!inlineEditingItemId) {
+        const isGenerico = String(item.codigo_interno ?? "").trim().toUpperCase() === "9999";
+        setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
+      }
       if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
-    } catch {
+    } catch (e: unknown) {
       if (reqId !== inlineItemReqRef.current) return;
       setInlineItem(null);
-      setInlineErr("Erro ao buscar item.");
-      openLookupModal("");
+      const msg = toSupabaseErrorLike(e)?.message ?? "Erro ao buscar item.";
+      setInlineErr(msg);
+      if (raw !== "9999") openLookupModal(raw);
     }
   }
-
   const closeNewDialog = useCallback(() => {
     setNewDialog(closedNewDialog());
     router.push("/comercial/orcamentos");
@@ -909,7 +967,7 @@ export default function OrcamentoPage() {
       return;
     }
     if (!titulo) {
-      setNewDialog((p) => (p.open ? { ...p, error: "Informe o título." } : p));
+      setNewDialog((p) => (p.open ? { ...p, error: "Informe o titulo." } : p));
       return;
     }
     if (!vendedorUsuarioId) {
@@ -931,7 +989,7 @@ export default function OrcamentoPage() {
       router.replace(`/comercial/orcamentos/${created.codigo ?? created.id}`);
     } catch (e: unknown) {
       setNewDialog((p) =>
-        p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao criar orçamento.") } : p
+        p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao criar orcamento.") } : p
       );
     }
   }, [empresaId, newDialog, router, supabase, tenantId]);
@@ -1001,7 +1059,7 @@ export default function OrcamentoPage() {
 
       const desconto = n(form.desconto_global_percent);
       if (cfgDescontoMax > 0 && desconto > cfgDescontoMax) {
-        setErr(`Desconto global (%) excede o máximo configurado (${cfgDescontoMax}%).`);
+        setErr(`Desconto global (%) excede o maximo configurado (${cfgDescontoMax}%).`);
         return;
       }
 
@@ -1026,7 +1084,7 @@ export default function OrcamentoPage() {
           id: orc.id,
           patch,
         });
-        setOk("Orçamento atualizado.");
+        setOk("Orcamento atualizado.");
         await reload();
       } catch (e2: unknown) {
         setErr(mapOrcamentoError(toSupabaseErrorLike(e2), "Erro ao salvar."));
@@ -1043,8 +1101,8 @@ export default function OrcamentoPage() {
     if (!canWrite || readOnly) return;
 
     const ok = await confirm({
-      title: `Finalizar orçamento ${orc.codigo}?`,
-      description: "Após finalizar, a edição fica bloqueada.",
+      title: `Finalizar orcamento ${orc.codigo}?`,
+      description: "Apos finalizar, a edicao fica bloqueada.",
       confirmText: "Finalizar",
     });
     if (!ok) return;
@@ -1054,7 +1112,7 @@ export default function OrcamentoPage() {
     setOk(null);
     try {
       await finalizarOrcamento(supabase, { tenantId, empresaId, id: orc.id });
-      setOk("Orçamento finalizado.");
+      setOk("Orcamento finalizado.");
       await reload();
     } catch (e: unknown) {
       setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao finalizar."));
@@ -1069,8 +1127,8 @@ export default function OrcamentoPage() {
     if (!canWrite || readOnly) return;
 
     const ok = await confirm({
-      title: `Cancelar orçamento ${orc.codigo}?`,
-      description: "A edição ficará bloqueada.",
+      title: `Cancelar orcamento ${orc.codigo}?`,
+      description: "A edicao ficara bloqueada.",
       confirmText: "Cancelar",
       destructive: true,
     });
@@ -1081,7 +1139,7 @@ export default function OrcamentoPage() {
     setOk(null);
     try {
       await cancelarOrcamento(supabase, { tenantId, empresaId, id: orc.id });
-      setOk("Orçamento cancelado.");
+      setOk("Orcamento cancelado.");
       await reload();
     } catch (e: unknown) {
       setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao cancelar."));
@@ -1146,6 +1204,7 @@ export default function OrcamentoPage() {
     setInlineQuantidade("1");
     setInlineValorUnitario("0");
     setInlineDesconto("0");
+    setInlineDescricaoLivre("");
     setInlineErr(null);
   }, []);
 
@@ -1155,13 +1214,13 @@ export default function OrcamentoPage() {
     if (readOnly || !canWrite) return;
     if (!form) return;
 
-    const parsedId = Number(String(inlineItemId ?? "").trim());
-    if (!Number.isFinite(parsedId) || parsedId <= 0) {
-      setInlineErr("Informe o código do item.");
+    if (!inlineItem?.id) {
+      setInlineErr("Item nao encontrado.");
       return;
     }
-    if (!inlineItem?.id) {
-      setInlineErr("Item não encontrado.");
+    const descricaoLivre = String(inlineDescricaoLivre ?? "").trim();
+    if (inlineIsCodigoGenerico && !descricaoLivre) {
+      setInlineErr("Informe a descricao livre para o codigo 9999.");
       return;
     }
 
@@ -1178,7 +1237,7 @@ export default function OrcamentoPage() {
       return;
     }
 
-    // Garante que a condição de pagamento / desconto global do cabeçalho estejam persistidos
+    // Garante que a condicao de pagamento / desconto global do cabecalho estejam persistidos
     // antes de inserir/atualizar itens (triggers do banco dependem disso).
     const nextCondId = form.condicao_pagamento_id ?? null;
     const nextDescGlobal = n(form.desconto_global_percent);
@@ -1186,7 +1245,7 @@ export default function OrcamentoPage() {
     const curDescGlobal = n(orc.desconto_global_percent);
 
     if (cfgDescontoMax > 0 && nextDescGlobal > cfgDescontoMax) {
-      setInlineErr(`Desconto global (%) excede o máximo configurado (${cfgDescontoMax}%).`);
+      setInlineErr(`Desconto global (%) excede o maximo configurado (${cfgDescontoMax}%).`);
       return;
     }
 
@@ -1216,6 +1275,7 @@ export default function OrcamentoPage() {
             quantidade: qty,
             valor_unitario: vu,
             desconto_item_percent: desc,
+            observacoes: inlineIsCodigoGenerico ? descricaoLivre : null,
           },
         });
       } else {
@@ -1227,6 +1287,7 @@ export default function OrcamentoPage() {
           quantidade: qty,
           valorUnitario: vu,
           descontoItemPercent: desc,
+          observacoes: inlineIsCodigoGenerico ? descricaoLivre : null,
         });
       }
 
@@ -1237,7 +1298,7 @@ export default function OrcamentoPage() {
     } finally {
       setInlineBusy(false);
     }
-  }, [canWrite, cancelInlineEdit, cfgDescontoMax, empresaId, form, inlineDesconto, inlineEditingItemId, inlineItem, inlineItemId, inlineQuantidade, inlineValorUnitario, orc, readOnly, reload, supabase, tenantId]);
+  }, [canWrite, cancelInlineEdit, cfgDescontoMax, empresaId, form, inlineDesconto, inlineDescricaoLivre, inlineEditingItemId, inlineIsCodigoGenerico, inlineItem, inlineQuantidade, inlineValorUnitario, orc, readOnly, reload, supabase, tenantId]);
 
   const startInlineEdit = useCallback(
     (it: OrcamentoItemRow) => {
@@ -1247,6 +1308,7 @@ export default function OrcamentoPage() {
       setInlineQuantidade(String(it.quantidade ?? "1"));
       setInlineValorUnitario(String(it.valor_unitario ?? "0"));
       setInlineDesconto(String(it.desconto_item_percent ?? "0"));
+      setInlineDescricaoLivre(String(it.observacoes ?? it.item_nome ?? ""));
       setInlineErr(null);
 
       // Move focus to the inline form.
@@ -1264,7 +1326,7 @@ export default function OrcamentoPage() {
 
       const ok = await confirm({
         title: `Excluir item ${it.item_nome}?`,
-        description: "Exclusão é arquivamento (soft delete).",
+        description: "Exclusao e arquivamento (soft delete).",
         confirmText: "Excluir",
         destructive: true,
       });
@@ -1281,7 +1343,7 @@ export default function OrcamentoPage() {
           .eq("id", it.id);
 
         if (error) throw error;
-        setOk("Item excluído.");
+        setOk("Item excluido.");
         await reload();
       } catch (e: unknown) {
         setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao excluir item."));
@@ -1293,7 +1355,7 @@ export default function OrcamentoPage() {
   );
 
   if (!ready && permissionsLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissões...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissoes...</div>;
   }
 
   if (!canView) {
@@ -1311,7 +1373,7 @@ export default function OrcamentoPage() {
                   <div className="text-lg font-semibold">Localizar {lookupBuscarConjuntos ? "conjunto" : "item"}</div>
                   <div className="text-sm text-zinc-400">
                     {lookupBuscarConjuntos
-                      ? "Busque conjuntos (kits) para inserir no orçamento."
+                      ? "Busque conjuntos (kits) para inserir no orcamento."
                       : "Filtre por nome ou fabricante para localizar o ID."}
                   </div>
                 </div>
@@ -1342,7 +1404,7 @@ export default function OrcamentoPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">{lookupBuscarConjuntos ? "Código/Nome" : "Nome"}</div>
+                  <div className="text-xs text-zinc-400">{lookupBuscarConjuntos ? "Codigo/Nome" : "Nome"}</div>
                   <input
                     className="w-full px-3 py-2"
                     value={lookupNome}
@@ -1420,25 +1482,25 @@ export default function OrcamentoPage() {
                     <thead className="bg-zinc-900/70 sticky top-0 z-10">
                       <tr className="text-left text-zinc-200">
                         <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("id")}>
-                          ID {sortKey === "id" && (sortDir === "asc" ? "▲" : "▼")}
+                          ID {sortKey === "id" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("codigo")}>
-                          Codigo {sortKey === "codigo" && (sortDir === "asc" ? "▲" : "▼")}
+                          Codigo {sortKey === "codigo" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("descricao")}>
-                          Descricao {sortKey === "descricao" && (sortDir === "asc" ? "▲" : "▼")}
+                          Descricao {sortKey === "descricao" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort("fornecedor")}>
-                          Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "▲" : "▼")}
+                          Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("ultima")}>
-                          Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "▲" : "▼")}
+                          Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("preco")}>
-                          Preco {sortKey === "preco" && (sortDir === "asc" ? "▲" : "▼")}
+                          Preco {sortKey === "preco" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
-                          Saldo {sortKey === "estoque" && (sortDir === "asc" ? "▲" : "▼")}
+                          Saldo {sortKey === "estoque" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                       </tr>
                     </thead>
@@ -1455,13 +1517,13 @@ export default function OrcamentoPage() {
                           <td className="px-4 py-3 tabular-nums whitespace-nowrap">{it.id}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno}</td>
                           <td className="px-4 py-3 whitespace-normal break-words">{it.nome}</td>
-                          <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "—"}</td>
+                          <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "-"}</td>
                           <td className="px-4 py-3 text-zinc-300">
-                            {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "—"}
+                            {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "-"}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(Number(it.preco_unitario ?? 0))}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
-                            {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "—"}
+                            {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "-"}
                           </td>
                         </tr>
                       ))}
@@ -1484,9 +1546,9 @@ export default function OrcamentoPage() {
                     </colgroup>
                     <thead className="bg-zinc-900/70 sticky top-0 z-10">
                       <tr className="text-left text-zinc-200">
-                        <th className="px-4 py-3 whitespace-nowrap">Código</th>
+                        <th className="px-4 py-3 whitespace-nowrap">Codigo</th>
                         <th className="px-4 py-3">Nome</th>
-                        <th className="px-4 py-3 text-right whitespace-nowrap">Preço sugerido</th>
+                        <th className="px-4 py-3 text-right whitespace-nowrap">Preco sugerido</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
@@ -1496,8 +1558,8 @@ export default function OrcamentoPage() {
                           className="hover:bg-zinc-900/40 cursor-pointer"
                           onClick={() => setAddConjunto({ open: true, conjunto: c, quantidade: "1", busy: false, error: null })}
                         >
-                          <td className="px-4 py-3 whitespace-nowrap">{c.codigo ?? "—"}</td>
-                          <td className="px-4 py-3 whitespace-normal break-words">{c.nome ?? "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{c.codigo ?? "-"}</td>
+                          <td className="px-4 py-3 whitespace-normal break-words">{c.nome ?? "-"}</td>
                           <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">R$ {formatMoneyBR(Number(c.preco_sugerido ?? 0))}</td>
                         </tr>
                       ))}
@@ -1530,7 +1592,7 @@ export default function OrcamentoPage() {
                     <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
                       <div className="font-semibold text-zinc-100">Adicionar conjunto</div>
                       <div className="text-xs text-zinc-400 mt-1">
-                        {addConjunto.conjunto.codigo ?? ""} {addConjunto.conjunto.nome ? `— ${addConjunto.conjunto.nome}` : ""}
+                        {addConjunto.conjunto.codigo ?? ""} {addConjunto.conjunto.nome ? `- ${addConjunto.conjunto.nome}` : ""}
                       </div>
                     </div>
                     <div className="px-5 py-4 space-y-3">
@@ -1572,7 +1634,7 @@ export default function OrcamentoPage() {
 
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Orçamento</h1>
+          <h1 className="text-2xl font-semibold">Orcamento</h1>
           <div className="text-sm text-zinc-400 mt-1 flex items-center gap-2 flex-wrap">
             <span>
               {orc?.codigo ? (
@@ -1581,14 +1643,14 @@ export default function OrcamentoPage() {
                   {orc?.versao ? <span className="text-zinc-500"> v{orc.versao}</span> : null}
                   {clienteNome ? (
                     readOnly || !canWrite ? (
-                      <span className="text-zinc-400"> — {clienteNome}</span>
+                      <span className="text-zinc-400"> - {clienteNome}</span>
                     ) : (
                       <button
                         type="button"
                         onClick={openEditCliente}
                         className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
                       >
-                        {` — ${clienteNome}`}
+                        {` - ${clienteNome}`}
                       </button>
                     )
                   ) : null}
@@ -1600,7 +1662,7 @@ export default function OrcamentoPage() {
             {orc?.status && (
               <span className={`px-2 py-0.5 rounded-full border text-xs ${statusBadgeClass(status)}`}>{status}</span>
             )}
-            {orc?.emissao_date ? <span>Emissão: {formatDateBR(orc.emissao_date)}</span> : null}
+            {orc?.emissao_date ? <span>Emissao: {formatDateBR(orc.emissao_date)}</span> : null}
           </div>
         </div>
 
@@ -1659,7 +1721,7 @@ export default function OrcamentoPage() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="block text-xs text-zinc-400">
-                Título
+                Titulo
                 <input
                   value={form.titulo}
                   disabled={readOnly || !canWrite}
@@ -1669,7 +1731,7 @@ export default function OrcamentoPage() {
               </label>
 
               <label className="block text-xs text-zinc-400">
-                Emissão
+                Emissao
                 <input
                   type="date"
                   value={form.emissao_date}
@@ -1697,7 +1759,7 @@ export default function OrcamentoPage() {
               </label>
 
               <label className="block text-xs text-zinc-400">
-                Condição de Pagamento
+                Condicao de Pagamento
                 <select
                   value={form.condicao_pagamento_id ?? ""}
                   disabled={readOnly || !canWrite}
@@ -1706,7 +1768,7 @@ export default function OrcamentoPage() {
                   }
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
                 >
-                  <option value="">(Sem condição)</option>
+                  <option value="">(Sem condicao)</option>
                   {condicoes.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome ?? c.id}
@@ -1722,7 +1784,7 @@ export default function OrcamentoPage() {
                   disabled={readOnly || !canWrite}
                   onChange={(e) => setForm((p) => (p ? { ...p, desconto_global_percent: e.target.value } : p))}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
-                  placeholder={cfgDescontoMax ? `Máx. ${cfgDescontoMax}%` : undefined}
+                  placeholder={cfgDescontoMax ? `Max. ${cfgDescontoMax}%` : undefined}
                 />
               </label>
 
@@ -1737,7 +1799,7 @@ export default function OrcamentoPage() {
               </label>
             </div>
 
-            {readOnly && <div className="text-xs text-zinc-500">Edição bloqueada (status {status}).</div>}
+            {readOnly && <div className="text-xs text-zinc-500">Edicao bloqueada (status {status}).</div>}
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
@@ -1761,7 +1823,7 @@ export default function OrcamentoPage() {
                       }
                     }}
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
-                    placeholder="Ex.: 109"
+                    placeholder="Ex.: 109 ou #texto livre"
                   />
                 </label>
 
@@ -1836,9 +1898,17 @@ export default function OrcamentoPage() {
                 <label className="block text-xs text-zinc-400 md:col-span-4">
                   Item
                   <input
-                    value={inlineItem?.id ? (inlineItem.descricao ?? inlineItem.nome ?? "") : ""}
-                    disabled
+                    value={
+                      inlineIsCodigoGenerico
+                        ? inlineDescricaoLivre
+                        : inlineItem?.id
+                          ? (inlineItem.descricao ?? inlineItem.nome ?? "")
+                          : ""
+                    }
+                    onChange={(e) => setInlineDescricaoLivre(e.target.value)}
+                    disabled={!inlineIsCodigoGenerico || readOnly || !canWrite || inlineBusy}
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                    placeholder={inlineIsCodigoGenerico ? "Descricao livre do item para o orcamento" : ""}
                   />
                 </label>
               </div>
@@ -1879,7 +1949,7 @@ export default function OrcamentoPage() {
                     <th className="px-3 py-3 text-right whitespace-nowrap">Desc (%)</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Total</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Estoque</th>
-                    <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
+                    <th className="px-3 py-3 text-right whitespace-nowrap">Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1903,7 +1973,7 @@ export default function OrcamentoPage() {
                     >
                       <td className="px-3 py-2 whitespace-nowrap">{it.seq}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{it.item_id}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{it.item_codigo_interno ?? "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{it.item_codigo_interno ?? "-"}</td>
                       <td className="px-3 py-2 min-w-[280px]">{it.item_nome}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{it.unidade}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{n(it.quantidade)}</td>
@@ -1913,7 +1983,7 @@ export default function OrcamentoPage() {
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                         {Number.isFinite(estoqueByItemId[Number(it.item_id)])
                           ? formatDecimalBR(estoqueByItemId[Number(it.item_id)])
-                          : "—"}
+                          : "-"}
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
@@ -1944,7 +2014,7 @@ export default function OrcamentoPage() {
                 <span className="tabular-nums">{formatMoneyBR(n(orc.total_produtos))}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-zinc-400">Total serviços</span>
+                <span className="text-zinc-400">Total servicos</span>
                 <span className="tabular-nums">{formatMoneyBR(n(orc.total_servicos))}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -1960,7 +2030,7 @@ export default function OrcamentoPage() {
                 <span className="tabular-nums">{formatMoneyBR(n(orc.valor_frete))}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-zinc-400 font-medium">Total líquido</span>
+                <span className="text-zinc-400 font-medium">Total liquido</span>
                 <span className="tabular-nums font-semibold">{formatMoneyBR(n(orc.total_liquido))}</span>
               </div>
             </div>
@@ -1968,7 +2038,7 @@ export default function OrcamentoPage() {
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
             <label className="block text-xs text-zinc-400">
-              Observações
+              Observacoes
               <textarea
                 value={form.observacoes}
                 disabled={readOnly || !canWrite}
@@ -1989,13 +2059,13 @@ export default function OrcamentoPage() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Novo orçamento"
+            aria-label="Novo orcamento"
             className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
-              <div className="font-semibold text-zinc-100">Novo orçamento</div>
-              <div className="text-xs text-zinc-400 mt-1">Informe cliente e título para criar o rascunho.</div>
+              <div className="font-semibold text-zinc-100">Novo orcamento</div>
+              <div className="text-xs text-zinc-400 mt-1">Informe cliente e titulo para criar o rascunho.</div>
             </div>
 
             <div className="p-5 space-y-4">
@@ -2032,7 +2102,7 @@ export default function OrcamentoPage() {
                           }
                         >
                           <span className="text-zinc-200">{c.nome ?? `#${c.id}`}</span>
-                          <span className="text-zinc-500"> — #{c.id}</span>
+                          <span className="text-zinc-500"> - #{c.id}</span>
                         </button>
                       ))
                     )}
@@ -2040,12 +2110,12 @@ export default function OrcamentoPage() {
                 </div>
 
                 <label className="block text-xs text-zinc-400 md:col-span-2">
-                  Título
+                  Titulo
                   <input
                     value={newDialog.titulo}
                     onChange={(e) => setNewDialog((p) => (p.open ? { ...p, titulo: e.target.value } : p))}
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
-                    placeholder="Ex.: Proposta de manutenção"
+                    placeholder="Ex.: Proposta de manutencao"
                   />
                 </label>
 
@@ -2066,7 +2136,7 @@ export default function OrcamentoPage() {
                 </label>
 
                 <label className="block text-xs text-zinc-400">
-                  Condição de Pagamento
+                  Condicao de Pagamento
                   <select
                     value={newDialog.condicaoPagamentoId ?? ""}
                     onChange={(e) =>
@@ -2074,7 +2144,7 @@ export default function OrcamentoPage() {
                     }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
                   >
-                    <option value="">(Sem condição)</option>
+                    <option value="">(Sem condicao)</option>
                     {condicoes.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nome ?? c.id}
@@ -2122,7 +2192,7 @@ export default function OrcamentoPage() {
           >
             <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
               <div className="font-semibold text-zinc-100">Alterar cliente</div>
-              <div className="text-xs text-zinc-400 mt-1">Busque e selecione o novo cliente do orçamento.</div>
+              <div className="text-xs text-zinc-400 mt-1">Busque e selecione o novo cliente do orcamento.</div>
             </div>
 
             <div className="p-5 space-y-4">
@@ -2165,7 +2235,7 @@ export default function OrcamentoPage() {
                           }
                         >
                           <span className="text-zinc-200">{c.nome ?? `#${c.id}`}</span>
-                          <span className="text-zinc-500"> — #{c.id}</span>
+                          <span className="text-zinc-500"> - #{c.id}</span>
                         </button>
                       ))
                     )}
@@ -2227,7 +2297,7 @@ export default function OrcamentoPage() {
                   />
                 </label>
                 <label className="block text-xs text-zinc-400">
-                  Valor unitário (R$)
+                  Valor unitario (R$)
                   <input
                     value={itemDialog.valorUnitario}
                     onChange={(e) => setItemDialog((p) => (p.open ? { ...p, valorUnitario: e.target.value } : p))}
@@ -2271,3 +2341,5 @@ export default function OrcamentoPage() {
     </div>
   );
 }
+
+

@@ -1,0 +1,10 @@
+{
+  "total_pendentes_inicial": 149,
+  "processados_ok": 149,
+  "processados_erro": 0,
+  "reposicoes_estoque": 86,
+  "saidas_criadas": 149,
+  "somente_marcado_sem_nova_saida": 0,
+  "pendentes_restantes": 0,
+  "errors": []
+}

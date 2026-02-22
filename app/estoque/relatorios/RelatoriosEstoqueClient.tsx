@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
@@ -10,15 +10,16 @@ import { requireAny } from "@/lib/auth/capabilities";
 import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
 import {
   listEntradasNoPeriodo,
+  listEntradasNoPeriodoDetalhes,
   listFornecedores,
   listSaldoEmEstoque,
   type EntradasNoPeriodoFilters,
   type EntradasNoPeriodoSortKey,
-  type EntradaEnrichedRow,
+  type EntradaConsolidadaRow,
+  type EntradaDetalheRow,
   type FornecedorOption,
-  type SaldoFinalidade,
-  type SaldoEmEstoqueFilters,
   type SaldoEmEstoqueRow,
+  type SaldoEmEstoqueFilters,
   type SaldoEmEstoqueSortKey,
   type SortDir,
 } from "@/lib/queries/estoque-relatorios";
@@ -26,18 +27,7 @@ import SaldoEmEstoqueFiltersPanel from "./components/SaldoEmEstoqueFilters";
 import EntradasNoPeriodoFiltersPanel from "./components/EntradasNoPeriodoFilters";
 
 type TabKey = "saldo" | "entradas";
-
 const PAGE_SIZE = 50;
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysAgoISO(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
 
 function getErrorMessage(e: unknown, fallback: string) {
   if (!e) return fallback;
@@ -49,19 +39,26 @@ function getErrorMessage(e: unknown, fallback: string) {
   return fallback;
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysAgoISO(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 function downloadCsv(filename: string, header: string[], rows: string[][]) {
   const lines = [header, ...rows]
     .map((cols) => cols.map((c) => JSON.stringify(String(c ?? ""))).join(","))
     .join("\n");
-
   const blob = new Blob(["\uFEFF", lines], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
-
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -70,7 +67,7 @@ function Pagination({ page, totalCount, onPage }: { page: number; totalCount: nu
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="text-sm text-zinc-400">
-        Página <span className="text-zinc-200 tabular-nums">{page}</span> de{" "}
+        Pagina <span className="text-zinc-200 tabular-nums">{page}</span> de{" "}
         <span className="text-zinc-200 tabular-nums">{totalPages}</span> •{" "}
         <span className="text-zinc-200 tabular-nums">{totalCount}</span> registros
       </div>
@@ -89,31 +86,16 @@ function Pagination({ page, totalCount, onPage }: { page: number; totalCount: nu
           disabled={page >= totalPages}
           className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 disabled:opacity-50"
         >
-          Próxima
+          Proxima
         </button>
       </div>
     </div>
   );
 }
 
-function ThSort({
-  label,
-  active,
-  dir,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-}) {
+function ThSort({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-left w-full ${active ? "text-zinc-100" : "text-zinc-300 hover:text-zinc-100"}`}
-      title="Ordenar"
-    >
+    <button type="button" onClick={onClick} className={`text-left w-full ${active ? "text-zinc-100" : "text-zinc-300 hover:text-zinc-100"}`}>
       <span className="inline-flex items-center gap-1">
         {label}
         {active ? <span className="text-zinc-500">{dir === "asc" ? "▲" : "▼"}</span> : null}
@@ -123,56 +105,38 @@ function ThSort({
 }
 
 function formatDateTimeBR(iso: string | null | undefined) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(String(iso));
   if (!Number.isFinite(d.getTime())) return String(iso);
   return d.toLocaleString("pt-BR");
-}
-
-function nfLabel(nf: EntradaEnrichedRow["mov"]["nf"]) {
-  if (!nf) return "—";
-  const modelo = String(nf.modelo ?? "").trim();
-  const serie = nf.serie ?? "";
-  const numero = nf.numero ?? "";
-  const parts = [modelo, serie ? `S${serie}` : "", numero ? `N${numero}` : ""].filter(Boolean);
-  return parts.length ? parts.join("/") : nf.chave ? String(nf.chave) : `#${nf.id}`;
 }
 
 export default function RelatoriosEstoqueClient() {
   const te = useTenantEmpresa();
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const { loading: permissionsLoading, ready: permissionsReady, capabilities } = usePermissions();
   const canView = requireAny(capabilities, ["estoque.read", "estoque.write"]);
 
   const tenantId = te.tenantId ?? null;
   const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id : null);
-
-  const contextReady =
-    typeof te.sessionUserId === "string" &&
-    Boolean(tenantId) &&
-    Boolean(empresaId) &&
-    te.loading === false &&
-    permissionsReady === true;
-
+  const contextReady = typeof te.sessionUserId === "string" && Boolean(tenantId) && Boolean(empresaId) && !te.loading && permissionsReady;
   const activeTab: TabKey = (String(searchParams.get("tab") ?? "").trim() as TabKey) || "saldo";
   const tab: TabKey = activeTab === "entradas" ? "entradas" : "saldo";
 
-  // fornecedores
   const [fornecedores, setFornecedores] = useState<FornecedorOption[]>([]);
   const [fornLoading, setFornLoading] = useState(false);
+  const warnedMissingContextRef = useRef(false);
 
-  // TAB A state
   const appliedA = useMemo<SaldoEmEstoqueFilters>(() => {
-    const finalidadeParam = String(searchParams.get("a_finalidade") ?? "materia_prima").trim() || "materia_prima";
     return {
       fornecedorPrefix: String(searchParams.get("a_forn_pref") ?? ""),
       fornecedorIds: [],
       semFornecedor: searchParams.get("a_sem_forn") === "1",
       busca: String(searchParams.get("a_busca") ?? ""),
-      finalidade: finalidadeParam as SaldoFinalidade,
+      finalidade: String(searchParams.get("a_finalidade") ?? "materia_prima"),
       abaixoMinimo: searchParams.get("a_abaixo_minimo") === "1",
+      separarPorFornecedor: searchParams.get("a_sep_forn") === "1",
       localizacao: "",
     };
   }, [searchParams]);
@@ -181,16 +145,9 @@ export default function RelatoriosEstoqueClient() {
   const aSortKey = ((searchParams.get("a_sort") ?? "nome") as SaldoEmEstoqueSortKey) || "nome";
   const aSortDir: SortDir = (searchParams.get("a_dir") === "desc" ? "desc" : "asc") as SortDir;
 
-  const [rowsA, setRowsA] = useState<SaldoEmEstoqueRow[]>([]);
-  const [countA, setCountA] = useState(0);
-  const [loadingA, setLoadingA] = useState(true);
-  const [errorA, setErrorA] = useState<string | null>(null);
-
-  // TAB B state
   const appliedB = useMemo<EntradasNoPeriodoFilters>(() => {
     const osParam = String(searchParams.get("b_os") ?? "todos").trim();
-    const osMode: EntradasNoPeriodoFilters["osMode"] =
-      osParam === "com_os" || osParam === "sem_os" ? osParam : "todos";
+    const osMode: EntradasNoPeriodoFilters["osMode"] = osParam === "com_os" || osParam === "sem_os" ? osParam : "todos";
     return {
       dataIni: String(searchParams.get("b_ini") ?? daysAgoISO(30)),
       dataFim: String(searchParams.get("b_fim") ?? todayISO()),
@@ -199,33 +156,33 @@ export default function RelatoriosEstoqueClient() {
       buscaItem: String(searchParams.get("b_busca") ?? ""),
       osMode,
       comNf: searchParams.get("b_com_nf") === "1",
+      destacarSaldoAlto: searchParams.get("b_saldo_alto") === "1",
     };
   }, [searchParams]);
-
   const bPage = Math.max(1, Number(searchParams.get("b_page") ?? "1") || 1);
-  const bSortKey = ((searchParams.get("b_sort") ?? "data") as EntradasNoPeriodoSortKey) || "data";
+  const bSortKey = ((searchParams.get("b_sort") ?? "item") as EntradasNoPeriodoSortKey) || "item";
   const bSortDir: SortDir = (searchParams.get("b_dir") === "asc" ? "asc" : "desc") as SortDir;
 
-  const [rowsB, setRowsB] = useState<EntradaEnrichedRow[]>([]);
+  const [rowsA, setRowsA] = useState<SaldoEmEstoqueRow[]>([]);
+  const [countA, setCountA] = useState(0);
+  const [loadingA, setLoadingA] = useState(true);
+  const [errorA, setErrorA] = useState<string | null>(null);
+  const [rowsB, setRowsB] = useState<EntradaConsolidadaRow[]>([]);
   const [countB, setCountB] = useState(0);
   const [loadingB, setLoadingB] = useState(true);
   const [errorB, setErrorB] = useState<string | null>(null);
-
-  const warnedMissingContextRef = useRef(false);
+  const [expandedRowsB, setExpandedRowsB] = useState<Record<string, boolean>>({});
+  const [detalhesRowsB, setDetalhesRowsB] = useState<Record<string, EntradaDetalheRow[]>>({});
+  const [detalhesLoadingB, setDetalhesLoadingB] = useState<Record<string, boolean>>({});
 
   const setParam = useCallback(
     (updates: Record<string, string | null>, opts?: { keepTab?: boolean }) => {
       const next = new URLSearchParams(searchParams.toString());
-
       for (const [k, v] of Object.entries(updates)) {
         if (v === null || v === "") next.delete(k);
         else next.set(k, v);
       }
-
-      if (!opts?.keepTab) {
-        next.set("tab", tab);
-      }
-
+      if (!opts?.keepTab) next.set("tab", tab);
       const qs = next.toString();
       router.replace(qs ? `/estoque/relatorios?${qs}` : "/estoque/relatorios");
     },
@@ -235,9 +192,7 @@ export default function RelatoriosEstoqueClient() {
   const clearTabParams = useCallback(
     (prefix: "a_" | "b_") => {
       const next = new URLSearchParams(searchParams.toString());
-      for (const k of Array.from(next.keys())) {
-        if (k.startsWith(prefix)) next.delete(k);
-      }
+      for (const k of Array.from(next.keys())) if (k.startsWith(prefix)) next.delete(k);
       next.set("tab", tab);
       const qs = next.toString();
       router.replace(qs ? `/estoque/relatorios?${qs}` : "/estoque/relatorios");
@@ -247,26 +202,13 @@ export default function RelatoriosEstoqueClient() {
 
   useEffect(() => {
     if (!contextReady) {
-      if (
-        process.env.NODE_ENV !== "production" &&
-        typeof te.sessionUserId === "string" &&
-        permissionsReady === true &&
-        (!tenantId || !empresaId) &&
-        !warnedMissingContextRef.current
-      ) {
-        console.debug("[estoque/relatorios] Contexto ausente", {
-          tenantId,
-          empresaId: empresaId ?? null,
-          empresasCount: te.empresas.length,
-        });
+      if (process.env.NODE_ENV !== "production" && typeof te.sessionUserId === "string" && !warnedMissingContextRef.current) {
         warnedMissingContextRef.current = true;
       }
       return;
     }
     warnedMissingContextRef.current = false;
-
     let cancelled = false;
-
     const run = async () => {
       setFornLoading(true);
       try {
@@ -279,37 +221,23 @@ export default function RelatoriosEstoqueClient() {
         if (!cancelled) setFornLoading(false);
       }
     };
-
     void run();
     return () => {
       cancelled = true;
     };
-  }, [contextReady, empresaId, permissionsReady, te.empresas.length, te.sessionUserId, tenantId]);
+  }, [contextReady, te.sessionUserId, tenantId]);
 
-  // TAB A load
   useEffect(() => {
-    if (!contextReady) return;
-
+    if (!contextReady || tab !== "saldo") return;
     let cancelled = false;
-
     const run = async () => {
       setLoadingA(true);
       setErrorA(null);
-
       try {
         const supabase = getSupabaseBrowser();
-        const res = await listSaldoEmEstoque(
-          supabase,
-          { tenantId: tenantId!, empresaId: empresaId! },
-          {
-            page: aPage,
-            pageSize: PAGE_SIZE,
-            sort: { key: aSortKey, dir: aSortDir },
-            filters: appliedA,
-          }
-        );
+        const res = await listSaldoEmEstoque(supabase, { tenantId: tenantId!, empresaId: empresaId! }, { page: aPage, pageSize: PAGE_SIZE, sort: { key: aSortKey, dir: aSortDir }, filters: appliedA });
         if (cancelled) return;
-        setRowsA(res.rows);
+        setRowsA(res.rows as SaldoEmEstoqueRow[]);
         setCountA(res.count);
       } catch (e) {
         if (cancelled) return;
@@ -320,109 +248,96 @@ export default function RelatoriosEstoqueClient() {
         if (!cancelled) setLoadingA(false);
       }
     };
-
-    if (tab === "saldo") void run();
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [aPage, aSortDir, aSortKey, appliedA, contextReady, empresaId, tab, tenantId]);
+  }, [contextReady, tab, tenantId, empresaId, aPage, aSortKey, aSortDir, appliedA]);
 
-  // TAB B load
   useEffect(() => {
-    if (!contextReady) return;
-
+    if (!contextReady || tab !== "entradas") return;
     let cancelled = false;
-
     const run = async () => {
       setLoadingB(true);
       setErrorB(null);
-
       try {
         const supabase = getSupabaseBrowser();
-        const res = await listEntradasNoPeriodo(
-          supabase,
-          { tenantId: tenantId!, empresaId: empresaId! },
-          {
-            page: bPage,
-            pageSize: PAGE_SIZE,
-            sort: { key: bSortKey, dir: bSortDir },
-            filters: appliedB,
-          }
-        );
+        const res = await listEntradasNoPeriodo(supabase, { tenantId: tenantId!, empresaId: empresaId! }, { page: bPage, pageSize: PAGE_SIZE, sort: { key: bSortKey, dir: bSortDir }, filters: appliedB });
         if (cancelled) return;
         setRowsB(res.rows);
         setCountB(res.count);
+        setExpandedRowsB({});
+        setDetalhesRowsB({});
+        setDetalhesLoadingB({});
       } catch (e) {
         if (cancelled) return;
         setRowsB([]);
         setCountB(0);
-        setErrorB(getErrorMessage(e, "Erro ao carregar entradas no período."));
+        setErrorB(getErrorMessage(e, "Erro ao carregar entradas no periodo."));
       } finally {
         if (!cancelled) setLoadingB(false);
       }
     };
-
-    if (tab === "entradas") void run();
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [appliedB, bPage, bSortDir, bSortKey, contextReady, empresaId, tab, tenantId]);
+  }, [contextReady, tab, tenantId, empresaId, bPage, bSortKey, bSortDir, appliedB]);
 
-  const setTab = (next: TabKey) => {
-    setParam({ tab: next }, { keepTab: true });
-  };
+  const saldoRows = useMemo(() => {
+    const mapped = rowsA.map((r) => {
+      const fornecedorLabel = String(r.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR";
+      const saldoNumero = Number(r.quantidade_atual ?? 0);
+      const valorUnitario = Number(r.custo_medio ?? 0);
+      return { ...r, fornecedorLabel, saldoNumero, valorUnitario, valorTotal: saldoNumero * valorUnitario };
+    });
+    if (!appliedA.separarPorFornecedor) return mapped;
+    return mapped.sort((a, b) => {
+      const f = a.fornecedorLabel.localeCompare(b.fornecedorLabel, "pt-BR", { sensitivity: "base" });
+      if (f !== 0) return f;
+      return String(a.item_nome ?? "").localeCompare(String(b.item_nome ?? ""), "pt-BR", { sensitivity: "base" });
+    });
+  }, [rowsA, appliedA.separarPorFornecedor]);
 
-  const exportSaldoCsv = () => {
-    const header = [
-      "id",
-      "codigo",
-      "item",
-      "unidade",
-      "saldo",
-      "custo_medio",
-      "valor_estoque",
-      "fornecedor",
-      "minimo",
-      "max",
-    ];
+  const saldoGroups = useMemo(() => {
+    if (!appliedA.separarPorFornecedor) return [] as Array<{ fornecedorNome: string; rows: typeof saldoRows; total: number; itens: number }>;
+    const groups: Array<{ fornecedorNome: string; rows: typeof saldoRows; total: number; itens: number }> = [];
+    for (const row of saldoRows) {
+      const g = groups[groups.length - 1];
+      if (!g || g.fornecedorNome !== row.fornecedorLabel) groups.push({ fornecedorNome: row.fornecedorLabel, rows: [row], total: row.valorTotal, itens: 1 });
+      else {
+        g.rows.push(row);
+        g.total += row.valorTotal;
+        g.itens += 1;
+      }
+    }
+    return groups;
+  }, [saldoRows, appliedA.separarPorFornecedor]);
 
-    const rows = rowsA.map((r) => [
-      String(r.item_id ?? ""),
-      r.codigo_interno,
-      r.item_nome,
-      r.unidade_medida ?? "",
-      String(r.quantidade_atual ?? 0),
-      String(r.custo_medio ?? ""),
-      String(r.valor_estoque ?? ""),
-      r.fornecedor_nome ?? "",
-      String(r.estoque_minimo ?? ""),
-      String(r.estoque_ideal ?? ""),
-    ]);
-
-    downloadCsv(`saldo_estoque_p${aPage}.csv`, header, rows);
-  };
-
+  const saldoTotalItens = saldoRows.length;
+  const saldoTotalEstoque = useMemo(() => saldoRows.reduce((acc, r) => acc + Number(r.valorTotal || 0), 0), [saldoRows]);
   const [printingSaldoPdf, setPrintingSaldoPdf] = useState(false);
 
+  const exportSaldoCsv = () => {
+    const header = ["id", "codigo", "item", "fornecedor", "und", "saldo", "val_uni", "valor_total"];
+    const rows = saldoRows.map((r) => [String(r.item_id ?? ""), String(r.codigo_interno ?? ""), String(r.item_nome ?? ""), String(r.fornecedorLabel), String(r.unidade_medida ?? ""), String(r.saldoNumero), String(r.valorUnitario), String(r.valorTotal)]);
+    downloadCsv(`saldo_estoque_p${aPage}.csv`, header, rows);
+  };
   const printSaldoPdf = async () => {
-    if (!contextReady) return;
-    if (printingSaldoPdf) return;
-
+    if (!contextReady || printingSaldoPdf) return;
     setPrintingSaldoPdf(true);
-    setErrorA(null);
-
     try {
       const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
       const autoTable = autoTableMod.default;
-
-      // Buscar todas as linhas filtradas (para o PDF não ficar com contagem/linhas divergentes)
       const supabase = getSupabaseBrowser();
-      const all: SaldoEmEstoqueRow[] = [];
+
       const pageSizePdf = 500;
       let page = 1;
-      let total = 0;
+      let totalBase = 0;
+      let totalPages = 1;
+      const allRows: SaldoEmEstoqueRow[] = [];
 
-      while (true) {
+      while (page <= totalPages) {
         const res = await listSaldoEmEstoque(
           supabase,
           { tenantId: tenantId!, empresaId: empresaId! },
@@ -433,485 +348,488 @@ export default function RelatoriosEstoqueClient() {
             filters: appliedA,
           }
         );
-
-        if (page === 1) total = Number(res.count ?? 0);
-        if (!res.rows.length) break;
-        all.push(...res.rows);
-        if (total > 0 && all.length >= total) break;
+        if (page === 1) {
+          totalBase = Number(res.count ?? 0);
+          totalPages = Math.max(1, Math.ceil(totalBase / pageSizePdf));
+        }
+        allRows.push(...res.rows);
         page += 1;
-        if (page > 200) break;
       }
 
-      if (all.length === 0) return;
+      if (!allRows.length) return;
+
+      const mapped = allRows.map((r) => {
+        const fornecedorLabel = String(r.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR";
+        const saldoNumero = Number(r.quantidade_atual ?? 0);
+        const valorUnitario = Number(r.custo_medio ?? 0);
+        return { ...r, fornecedorLabel, saldoNumero, valorUnitario, valorTotal: saldoNumero * valorUnitario };
+      });
+
+      const finalRows = appliedA.separarPorFornecedor
+        ? [...mapped].sort((a, b) => {
+            const f = a.fornecedorLabel.localeCompare(b.fornecedorLabel, "pt-BR", { sensitivity: "base" });
+            if (f !== 0) return f;
+            return String(a.item_nome ?? "").localeCompare(String(b.item_nome ?? ""), "pt-BR", { sensitivity: "base" });
+          })
+        : mapped;
+
+      const totalItens = finalRows.length;
+      const totalValor = finalRows.reduce((acc, r) => acc + Number(r.valorTotal || 0), 0);
+      const filtrosTexto = [
+        appliedA.fornecedorPrefix.trim() ? `Fornecedor: ${appliedA.fornecedorPrefix.trim()}*` : null,
+        appliedA.semFornecedor ? "Sem fornecedor: sim" : null,
+        appliedA.busca.trim() ? `Busca: ${appliedA.busca.trim()}` : null,
+        appliedA.finalidade && appliedA.finalidade !== "todas" ? `Finalidade: ${String(appliedA.finalidade)}` : null,
+        appliedA.abaixoMinimo ? "Abaixo do minimo: sim" : null,
+        appliedA.separarPorFornecedor ? "Separado por fornecedor: sim" : "Separado por fornecedor: nao",
+      ]
+        .filter(Boolean)
+        .join(" | ");
 
       const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-      const marginX = 40;
-      let y = 42;
+      const margin = 36;
+      const pageWidth = doc.internal.pageSize.getWidth();
 
-      doc.setFontSize(14);
-      doc.text("Relatórios de Estoque — Saldo em estoque", marginX, y);
-      y += 16;
+      const header = () => {
+        doc.setFontSize(14);
+        doc.setTextColor(20);
+        doc.text("Relatorio de Estoque - Saldo em estoque", margin, 34);
+        doc.setFontSize(9);
+        doc.setTextColor(70);
+        doc.text(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, margin, 50);
+        doc.text(
+          doc.splitTextToSize(`Filtros: ${filtrosTexto || "Nenhum"}`, pageWidth - margin * 2),
+          margin,
+          64
+        );
+        doc.text(`Itens: ${totalItens} | Total em estoque: ${formatMoneyBR(totalValor)}`, margin, 86);
+      };
 
-      doc.setFontSize(10);
-      doc.text(`Emissão: ${new Date().toLocaleString("pt-BR")}`, marginX, y);
-      y += 12;
-
-      const filtros: string[] = [];
-      if (appliedA.fornecedorPrefix?.trim()) filtros.push(`Fornecedor: ${appliedA.fornecedorPrefix.trim()}*`);
-      if (appliedA.semFornecedor) filtros.push("SEM FORNECEDOR");
-      if (appliedA.busca?.trim()) filtros.push(`Busca: ${appliedA.busca.trim()}`);
-      if (appliedA.finalidade && appliedA.finalidade !== "todas") filtros.push(`Finalidade: ${String(appliedA.finalidade)}`);
-      if (appliedA.abaixoMinimo) filtros.push("Abaixo do mínimo");
-
-      doc.text(`Filtros: ${filtros.length ? filtros.join(" • ") : "—"}`, marginX, y);
-      y += 14;
-
-      doc.text(`Itens filtrados: ${total || all.length}`, marginX, y);
-      y += 14;
-
-      const head = [["ID", "Código", "Item", "Und", "Saldo", "Custo Médio", "Valor em Estoque", "Mínimo", "Max"]];
-
-      const body = all.map((r) => {
-        const saldo = formatDecimalBR(r.quantidade_atual ?? 0, 3);
-        const custo = formatMoneyBR(Number(r.custo_medio ?? 0));
-        const valor = formatMoneyBR(Number(r.valor_estoque ?? 0));
-        const minimo = formatDecimalBR(Number(r.estoque_minimo ?? 0), 3);
-        const max = formatDecimalBR(Number(r.estoque_ideal ?? 0), 3);
-
-        return [
-          String(r.item_id ?? ""),
-          String(r.codigo_interno ?? ""),
-          String(r.item_nome ?? ""),
-          String(r.unidade_medida ?? ""),
-          saldo,
-          custo,
-          valor,
-          minimo,
-          max,
-        ];
-      });
+      const body: string[][] = [];
+      if (appliedA.separarPorFornecedor) {
+        let fornecedorAtual = "";
+        let subtotal = 0;
+        for (let i = 0; i < finalRows.length; i += 1) {
+          const r = finalRows[i];
+          if (r.fornecedorLabel !== fornecedorAtual) {
+            if (fornecedorAtual) {
+              body.push(["", "", `Subtotal ${fornecedorAtual}`, "", "", "", formatMoneyBR(subtotal)]);
+            }
+            fornecedorAtual = r.fornecedorLabel;
+            subtotal = 0;
+            body.push(["", "", `Fornecedor: ${fornecedorAtual}`, "", "", "", ""]);
+          }
+          subtotal += r.valorTotal;
+          body.push([
+            String(r.item_id ?? ""),
+            String(r.codigo_interno ?? ""),
+            String(r.item_nome ?? ""),
+            String(r.unidade_medida ?? "-"),
+            formatDecimalBR(r.saldoNumero, 3),
+            formatMoneyBR(r.valorUnitario),
+            formatMoneyBR(r.valorTotal),
+          ]);
+          if (i === finalRows.length - 1) {
+            body.push(["", "", `Subtotal ${fornecedorAtual}`, "", "", "", formatMoneyBR(subtotal)]);
+          }
+        }
+      } else {
+        for (const r of finalRows) {
+          body.push([
+            String(r.item_id ?? ""),
+            String(r.codigo_interno ?? ""),
+            String(r.item_nome ?? ""),
+            String(r.unidade_medida ?? "-"),
+            formatDecimalBR(r.saldoNumero, 3),
+            formatMoneyBR(r.valorUnitario),
+            formatMoneyBR(r.valorTotal),
+          ]);
+        }
+      }
 
       autoTable(doc, {
-        startY: y + 6,
-        head,
+        startY: 98,
+        head: [["ID", "Codigo", "Item", "Und", "Saldo", "Val. uni.", "Valor total"]],
         body,
-        margin: { left: marginX, right: marginX, top: 30, bottom: 30 },
-        styles: {
-          fontSize: 8,
-          cellPadding: 3,
-          overflow: "linebreak",
-          lineWidth: 0.1,
-          lineColor: [220, 220, 220],
-        },
-        headStyles: {
-          fillColor: [245, 245, 245],
-          textColor: [30, 30, 30],
-          fontStyle: "bold",
-        },
+        // Reserva a mesma altura do cabecalho em todas as paginas.
+        margin: { left: margin, right: margin, top: 98, bottom: 28 },
+        styles: { fontSize: 8.5, cellPadding: 4, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.1 },
+        headStyles: { fillColor: [28, 28, 30], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
         columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 90 },
-          2: { cellWidth: 280 },
-          3: { cellWidth: 40 },
-          4: { cellWidth: 55, halign: "right" },
-          5: { cellWidth: 70, halign: "right" },
-          6: { cellWidth: 80, halign: "right" },
-          7: { cellWidth: 55, halign: "right" },
-          8: { cellWidth: 55, halign: "right" },
+          0: { cellWidth: 42 },
+          1: { cellWidth: 92 },
+          2: { cellWidth: 310 },
+          3: { cellWidth: 42 },
+          4: { cellWidth: 70, halign: "right" },
+          5: { cellWidth: 80, halign: "right" },
+          6: { cellWidth: 90, halign: "right" },
+        },
+        didDrawPage: () => {
+          header();
         },
       });
+
+      const pages = doc.getNumberOfPages();
+      for (let i = 1; i <= pages; i += 1) {
+        doc.setPage(i);
+        doc.setFontSize(9);
+        doc.setTextColor(90);
+        doc.text(`Pagina ${i} de ${pages}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 14, {
+          align: "right",
+        });
+      }
 
       doc.autoPrint();
       const url = doc.output("bloburl");
       const w = window.open(url, "_blank");
       if (!w) {
-        const dataStr = new Date().toISOString().slice(0, 10);
-        doc.save(`saldo-estoque-${dataStr}.pdf`);
+        doc.save(`saldo-estoque-${new Date().toISOString().slice(0, 10)}.pdf`);
       }
     } catch (e) {
       console.error(e);
-      setErrorA("Falha ao gerar PDF.");
+      setErrorA("Falha ao gerar PDF do saldo.");
     } finally {
       setPrintingSaldoPdf(false);
     }
   };
 
+  const getEntradaRowKey = useCallback((row: EntradaConsolidadaRow) => `${row.item_id}-${row.fornecedor_id ?? "sem"}`, []);
+
+  const toggleEntradaExpand = useCallback(
+    async (row: EntradaConsolidadaRow) => {
+      const key = getEntradaRowKey(row);
+      const isOpen = Boolean(expandedRowsB[key]);
+      if (isOpen) {
+        setExpandedRowsB((prev) => ({ ...prev, [key]: false }));
+        return;
+      }
+
+      setExpandedRowsB((prev) => ({ ...prev, [key]: true }));
+      if (detalhesRowsB[key] || detalhesLoadingB[key]) return;
+
+      setDetalhesLoadingB((prev) => ({ ...prev, [key]: true }));
+      try {
+        const supabase = getSupabaseBrowser();
+        const details = await listEntradasNoPeriodoDetalhes(
+          supabase,
+          { tenantId: tenantId!, empresaId: empresaId! },
+          {
+            filters: appliedB,
+            itemId: row.item_id,
+            fornecedorId: row.fornecedor_id,
+          }
+        );
+        setDetalhesRowsB((prev) => ({ ...prev, [key]: details }));
+      } catch {
+        setDetalhesRowsB((prev) => ({ ...prev, [key]: [] }));
+      } finally {
+        setDetalhesLoadingB((prev) => ({ ...prev, [key]: false }));
+      }
+    },
+    [appliedB, detalhesLoadingB, detalhesRowsB, empresaId, expandedRowsB, getEntradaRowKey, tenantId]
+  );
+
   const exportEntradasCsv = () => {
     const header = [
-      "data_entrada",
-      "nf",
-      "fornecedor",
+      "id",
+      "codigo",
       "item",
-      "qtd",
-      "destino",
-      "os",
-      "saldo_atual_item",
+      "fornecedor",
+      "motivo",
+      "qtd_comprada",
+      "qtd_para_os",
+      "qtd_para_estoque",
+      "percentual_os",
+      "destino_os",
+      "saldo_atual",
+      "saldo_ajustado",
+      "estoque_ideal",
+      "situacao",
     ];
 
-    const rows = rowsB.map((r) => {
-      const forn = r.mov.nf?.fornecedores?.nome ?? "";
-      const item = `${r.mov.itens?.codigo_interno ?? ""} ${r.mov.itens?.nome ?? ""}`.trim();
-      const destino = r.mov.origem_os_id ? "OS" : "Estoque";
-      const os = r.os
-        ? `OS ${r.os.numero_os ?? r.os.id} - ${r.os.cliente_nome ?? ""} (${r.os.status ?? ""})`.trim()
-        : "";
+    const rows: string[][] = [];
+    for (const r of rowsB) {
+      rows.push([
+        String(r.item_id ?? ""),
+        r.codigo_interno ?? "",
+        r.item_nome ?? "",
+        r.fornecedor_nome ?? "SEM FORNECEDOR",
+        r.motivo ?? "",
+        String(r.qtd_comprada),
+        String(r.qtd_para_os),
+        String(r.qtd_para_estoque),
+        `${r.percentual_os.toFixed(1)}%`,
+        r.destino_os ?? "-",
+        String(r.saldo_atual),
+        String(r.saldo_ajustado),
+        String(r.estoque_ideal),
+        r.situacao,
+      ]);
 
-      return [
-        formatDateTimeBR(r.mov.data_movimentacao),
-        nfLabel(r.mov.nf),
-        forn,
-        item,
-        String(r.mov.quantidade ?? 0),
-        destino,
-        os,
-        r.saldoAtual === null ? "" : String(r.saldoAtual),
-      ];
-    });
+      const key = getEntradaRowKey(r);
+      if (expandedRowsB[key] && detalhesRowsB[key]?.length) {
+        for (const d of detalhesRowsB[key]) {
+          rows.push([
+            "",
+            "DETALHE",
+            "",
+            "",
+            "",
+            String(d.quantidade),
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            `${formatDateTimeBR(d.data_movimentacao)} | NF ${d.nf} | OS ${d.os_id ?? "-"} | ${d.tipo} | Usuario ${d.realizado_por ?? "-"}`,
+          ]);
+        }
+      }
+    }
 
     downloadCsv(`entradas_periodo_p${bPage}.csv`, header, rows);
   };
 
-  if (!permissionsReady && permissionsLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-300">
-        Carregando permissões...
-      </div>
-    );
-  }
-
-  if (!canView) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-300">
-        Acesso negado.
-      </div>
-    );
-  }
+  if (!permissionsReady && permissionsLoading) return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissoes...</div>;
+  if (!canView) return <div className="min-h-screen flex items-center justify-center text-zinc-300">Acesso negado.</div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold">Relatórios de Estoque</h1>
-          <p className="text-sm text-zinc-400 mt-1">Saldo atual e entradas no período, com filtros compartilháveis por URL.</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setTab("saldo")}
-          className={`px-3 py-1.5 rounded-md text-sm ${tab === "saldo" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
-        >
-          Saldo em estoque
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("entradas")}
-          className={`px-3 py-1.5 rounded-md text-sm ${tab === "entradas" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}
-        >
-          Entradas no período
-        </button>
+      <div className="no-print flex items-center gap-2">
+        <button type="button" onClick={() => setParam({ tab: "saldo" }, { keepTab: true })} className={`px-3 py-1.5 rounded-md text-sm ${tab === "saldo" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}>Saldo em estoque</button>
+        <button type="button" onClick={() => setParam({ tab: "entradas" }, { keepTab: true })} className={`px-3 py-1.5 rounded-md text-sm ${tab === "entradas" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-100"}`}>Entradas no periodo</button>
       </div>
 
       {tab === "saldo" ? (
         <>
-          <SaldoEmEstoqueFiltersPanel
-            fornecedores={fornecedores}
-            applied={appliedA}
-            onApply={(next) => {
-              setParam({
-                a_forn_pref: next.fornecedorPrefix?.trim() ? next.fornecedorPrefix.trim() : null,
-                a_sem_forn: next.semFornecedor ? "1" : null,
-                a_busca: next.busca.trim() ? next.busca.trim() : null,
-                a_finalidade: next.finalidade && next.finalidade !== "todas" ? String(next.finalidade) : "todas",
-                a_abaixo_minimo: next.abaixoMinimo ? "1" : null,
-                a_page: "1",
-              });
-            }}
-            onClear={() => {
-              clearTabParams("a_");
-              setParam({ tab: "saldo" }, { keepTab: true });
-            }}
-          />
+          <div className="no-print">
+            <SaldoEmEstoqueFiltersPanel
+              fornecedores={fornecedores}
+              applied={appliedA}
+              onApply={(next) => setParam({ a_forn_pref: next.fornecedorPrefix?.trim() ? next.fornecedorPrefix.trim() : null, a_sem_forn: next.semFornecedor ? "1" : null, a_busca: next.busca.trim() ? next.busca.trim() : null, a_finalidade: next.finalidade && next.finalidade !== "todas" ? String(next.finalidade) : "todas", a_abaixo_minimo: next.abaixoMinimo ? "1" : null, a_sep_forn: next.separarPorFornecedor ? "1" : null, a_page: "1" })}
+              onClear={() => { clearTabParams("a_"); setParam({ tab: "saldo" }, { keepTab: true }); }}
+            />
+          </div>
 
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-sm text-zinc-400">
-              {loadingA ? (
-                "Carregando…"
-              ) : (
-                <>
-                  <span className="text-zinc-200 tabular-nums">{countA}</span> {countA === 1 ? "item" : "itens"}
-                </>
-              )}
-              {fornLoading ? <span className="ml-3 text-zinc-500">Carregando fornecedores…</span> : null}
-            </div>
+          <div className="no-print flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm text-zinc-400">{loadingA ? "Carregando..." : <><span className="text-zinc-200 tabular-nums">{countA}</span> {countA === 1 ? "item" : "itens"}</>}{fornLoading ? <span className="ml-3 text-zinc-500">Carregando fornecedores...</span> : null}</div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={printSaldoPdf}
-                disabled={loadingA || rowsA.length === 0 || printingSaldoPdf}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
-              >
-                {printingSaldoPdf ? "Gerando PDF…" : "Imprimir PDF"}
-              </button>
-              <button
-                type="button"
-                onClick={exportSaldoCsv}
-                disabled={loadingA || rowsA.length === 0}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
-              >
-                Exportar CSV
-              </button>
+              <button type="button" onClick={() => void printSaldoPdf()} disabled={loadingA || saldoRows.length === 0 || printingSaldoPdf} className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50">{printingSaldoPdf ? "Gerando PDF..." : "Imprimir PDF"}</button>
+              <button type="button" onClick={exportSaldoCsv} disabled={loadingA || saldoRows.length === 0} className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50">Exportar CSV</button>
             </div>
           </div>
 
-          {errorA ? (
-            <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4 text-red-200">{errorA}</div>
-          ) : null}
+          {errorA ? <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4 text-red-200">{errorA}</div> : null}
 
-          <div className="border border-zinc-800 rounded-xl bg-zinc-950 overflow-x-auto">
-            <table className="w-full text-sm min-w-[1050px]">
-              <thead className="text-zinc-400">
+          <div className="print-report border border-zinc-800 rounded-xl bg-zinc-950 overflow-x-auto">
+            <table className="w-full text-sm min-w-[1150px]">
+              <thead className="text-zinc-300">
                 <tr className="border-b border-zinc-800">
-                  <th className="px-3 py-2 w-[90px]">ID</th>
-                  <th className="px-3 py-2 w-[120px]">
-                    <ThSort
-                      label="Código"
-                      active={aSortKey === "codigo"}
-                      dir={aSortDir}
-                      onClick={() => {
-                        const nextDir: SortDir = aSortKey === "codigo" ? (aSortDir === "asc" ? "desc" : "asc") : "asc";
-                        setParam({ a_sort: "codigo", a_dir: nextDir, a_page: "1" });
-                      }}
-                    />
-                  </th>
-                  <th className="px-3 py-2">
-                    <ThSort
-                      label="Item"
-                      active={aSortKey === "nome"}
-                      dir={aSortDir}
-                      onClick={() => {
-                        const nextDir: SortDir = aSortKey === "nome" ? (aSortDir === "asc" ? "desc" : "asc") : "asc";
-                        setParam({ a_sort: "nome", a_dir: nextDir, a_page: "1" });
-                      }}
-                    />
-                  </th>
-                  <th className="px-3 py-2 w-[70px]">Und</th>
-                  <th className="px-3 py-2 w-[90px] text-right">Saldo</th>
-                  <th className="px-3 py-2 w-[120px] text-right">Custo Médio</th>
-                  <th className="px-3 py-2 w-[140px] text-right">Valor em Estoque</th>
-                  <th className="px-3 py-2 w-[180px]">Fornecedor</th>
-                  <th className="px-3 py-2 w-[90px] text-right">Mínimo</th>
-                  <th className="px-3 py-2 w-[95px] text-right">Max</th>
+                  <th className="px-3 py-2 text-left">ID</th>
+                  <th className="px-3 py-2 text-left"><ThSort label="Codigo" active={aSortKey === "codigo"} dir={aSortDir} onClick={() => setParam({ a_sort: "codigo", a_dir: aSortKey === "codigo" && aSortDir === "asc" ? "desc" : "asc", a_page: "1" })} /></th>
+                  <th className="px-3 py-2 text-left"><ThSort label="Item" active={aSortKey === "nome"} dir={aSortDir} onClick={() => setParam({ a_sort: "nome", a_dir: aSortKey === "nome" && aSortDir === "asc" ? "desc" : "asc", a_page: "1" })} /></th>
+                  <th className="px-3 py-2 text-left">Fornecedor</th>
+                  <th className="px-3 py-2 text-left">Und</th>
+                  <th className="px-3 py-2 text-right">Saldo</th>
+                  <th className="px-3 py-2 text-right">Val. uni.</th>
+                  <th className="px-3 py-2 text-right">Valor total</th>
                 </tr>
               </thead>
-              <tbody>
-                {loadingA ? (
-                  <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-zinc-300">
-                      <div className="animate-pulse">Carregando…</div>
-                    </td>
-                  </tr>
-                ) : rowsA.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-3 py-10 text-center text-zinc-400">
-                      Nenhum resultado. Dica: ajuste os filtros (fornecedor/finalidade/busca).
-                    </td>
-                  </tr>
-                ) : (
-                  rowsA.map((r) => {
-                    const abaixo = Boolean(r.abaixo_minimo);
-                    const valorEst = Number(r.valor_estoque ?? 0);
-                    return (
-                      <tr key={`${r.item_id}`} className="border-b border-zinc-900 hover:bg-zinc-900/30">
-                        <td className="px-3 py-2 text-zinc-300 tabular-nums">{r.item_id}</td>
-                        <td className="px-3 py-2 text-zinc-200 tabular-nums">{r.codigo_interno || "—"}</td>
-                        <td className="px-3 py-2">
-                          <div className="text-zinc-100">{r.item_nome || "—"}</div>
-                          {abaixo ? <div className="text-xs text-amber-300">Abaixo do mínimo</div> : null}
-                        </td>
-                        <td className="px-3 py-2 text-zinc-300">{r.unidade_medida ?? "—"}</td>
-                        <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">
-                          {formatDecimalBR(r.quantidade_atual ?? 0, 3)}
-                        </td>
-                        <td className="px-3 py-2 text-right text-zinc-300 tabular-nums">{formatMoneyBR(Number(r.custo_medio ?? 0))}</td>
-                        <td className="px-3 py-2 text-right text-zinc-300 tabular-nums">{formatMoneyBR(valorEst)}</td>
-                        <td className="px-3 py-2 text-zinc-300">{r.fornecedor_nome ?? "—"}</td>
-                        <td className="px-3 py-2 text-right text-zinc-300 tabular-nums">{formatDecimalBR(Number(r.estoque_minimo ?? 0), 3)}</td>
-                        <td className="px-3 py-2 text-right text-zinc-300 tabular-nums">{formatDecimalBR(Number(r.estoque_ideal ?? 0), 3)}</td>
+              {loadingA ? (
+                <tbody><tr><td colSpan={8} className="px-3 py-8 text-center text-zinc-300">Carregando...</td></tr></tbody>
+              ) : saldoRows.length === 0 ? (
+                <tbody><tr><td colSpan={8} className="px-3 py-10 text-center text-zinc-400">Nenhum resultado.</td></tr></tbody>
+              ) : appliedA.separarPorFornecedor ? (
+                <>
+                  {saldoGroups.map((g, idx) => (
+                    <tbody key={`g-${g.fornecedorNome}-${idx}`}>
+                      <tr className={idx > 0 ? "print-group bg-zinc-900/60 border-y border-zinc-700" : "bg-zinc-900/60 border-y border-zinc-700"}>
+                        <td colSpan={8} className="px-3 py-2 text-zinc-100 font-medium">{g.fornecedorNome} - Itens: {g.itens} - Total do fornecedor: {formatMoneyBR(g.total)}</td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
+                      {g.rows.map((r) => (
+                        <tr key={`${r.fornecedorLabel}-${r.item_id}`} className="border-b border-zinc-900">
+                          <td className="px-3 py-2 text-left tabular-nums">{r.item_id}</td>
+                          <td className="px-3 py-2 text-left tabular-nums">{r.codigo_interno || "-"}</td>
+                          <td className="px-3 py-2 text-left">{r.item_nome || "-"}</td>
+                          <td className="px-3 py-2 text-left">{r.fornecedorLabel}</td>
+                          <td className="px-3 py-2 text-left">{r.unidade_medida ?? "-"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.saldoNumero, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorUnitario)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorTotal)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-b border-zinc-700 bg-zinc-900/40"><td colSpan={7} className="px-3 py-2 text-right">Subtotal do fornecedor</td><td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(g.total)}</td></tr>
+                    </tbody>
+                  ))}
+                </>
+              ) : (
+                <tbody>
+                  {saldoRows.map((r) => (
+                    <tr key={`${r.item_id}`} className="border-b border-zinc-900">
+                      <td className="px-3 py-2 text-left tabular-nums">{r.item_id}</td>
+                      <td className="px-3 py-2 text-left tabular-nums">{r.codigo_interno || "-"}</td>
+                      <td className="px-3 py-2 text-left">{r.item_nome || "-"}</td>
+                      <td className="px-3 py-2 text-left">{r.fornecedorLabel}</td>
+                      <td className="px-3 py-2 text-left">{r.unidade_medida ?? "-"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.saldoNumero, 3)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorUnitario)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
+              {!loadingA && saldoRows.length > 0 ? (
+                <tfoot><tr className="border-t border-zinc-700 bg-zinc-900/50"><td colSpan={6} className="px-3 py-2">Total de itens: {saldoTotalItens}</td><td className="px-3 py-2 text-right">Total em estoque</td><td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(saldoTotalEstoque)}</td></tr></tfoot>
+              ) : null}
             </table>
           </div>
 
-          <Pagination
-            page={aPage}
-            totalCount={countA}
-            onPage={(p) => setParam({ a_page: String(p) })}
-          />
-
-          <div className="text-xs text-zinc-500">
-            Obs.: se a view <span className="text-zinc-300">vw_estoque_saldo</span> não estiver instalada no banco, o filtro “Abaixo do mínimo” pode ter paginação/contagem aproximadas.
-          </div>
+          <div className="no-print"><Pagination page={aPage} totalCount={countA} onPage={(p) => setParam({ a_page: String(p) })} /></div>
         </>
       ) : (
         <>
-          <EntradasNoPeriodoFiltersPanel
-            fornecedores={fornecedores}
-            applied={appliedB}
-            onApply={(next) => {
-              setParam({
-                b_ini: next.dataIni,
-                b_fim: next.dataFim,
-                b_forn_pref: next.fornecedorPrefix?.trim() ? next.fornecedorPrefix.trim() : null,
-                b_busca: next.buscaItem.trim() ? next.buscaItem.trim() : null,
-                b_os: next.osMode !== "todos" ? next.osMode : null,
-                b_com_nf: next.comNf ? "1" : null,
-                b_page: "1",
-              });
-            }}
-            onClear={() => {
-              clearTabParams("b_");
-              setParam({ tab: "entradas" }, { keepTab: true });
-            }}
-          />
-
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div />
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={exportEntradasCsv}
-                disabled={loadingB || rowsB.length === 0}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
-              >
-                Exportar CSV
-              </button>
-            </div>
-          </div>
-
-          {errorB ? (
-            <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4 text-red-200">{errorB}</div>
-          ) : null}
-
+          <EntradasNoPeriodoFiltersPanel fornecedores={fornecedores} applied={appliedB} onApply={(next) => setParam({ b_ini: next.dataIni, b_fim: next.dataFim, b_forn_pref: next.fornecedorPrefix?.trim() ? next.fornecedorPrefix.trim() : null, b_busca: next.buscaItem.trim() ? next.buscaItem.trim() : null, b_os: next.osMode !== "todos" ? next.osMode : null, b_com_nf: next.comNf ? "1" : null, b_saldo_alto: next.destacarSaldoAlto ? "1" : null, b_page: "1" })} onClear={() => { clearTabParams("b_"); setParam({ tab: "entradas" }, { keepTab: true }); }} />
+          <div className="flex justify-end"><button type="button" onClick={exportEntradasCsv} disabled={loadingB || rowsB.length === 0} className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50">Exportar CSV</button></div>
+          {errorB ? <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4 text-red-200">{errorB}</div> : null}
           <div className="border border-zinc-800 rounded-xl bg-zinc-950 overflow-x-auto">
-            <table className="w-full text-sm min-w-[1200px]">
+            <table className="w-full text-sm min-w-[1760px]">
               <thead className="text-zinc-400">
                 <tr className="border-b border-zinc-800">
-                  <th className="px-3 py-2 w-[190px]">
-                    <ThSort
-                      label="Data Entrada"
-                      active={bSortKey === "data"}
-                      dir={bSortDir}
-                      onClick={() => {
-                        const nextDir: SortDir = bSortKey === "data" ? (bSortDir === "asc" ? "desc" : "asc") : "desc";
-                        setParam({ b_sort: "data", b_dir: nextDir, b_page: "1" });
-                      }}
-                    />
-                  </th>
-                  <th className="px-3 py-2 w-[180px]">NF</th>
-                  <th className="px-3 py-2 w-[200px]">Fornecedor</th>
-                  <th className="px-3 py-2">
-                    <ThSort
-                      label="Item"
-                      active={bSortKey === "item"}
-                      dir={bSortDir}
-                      onClick={() => {
-                        const nextDir: SortDir = bSortKey === "item" ? (bSortDir === "asc" ? "desc" : "asc") : "asc";
-                        setParam({ b_sort: "item", b_dir: nextDir, b_page: "1" });
-                      }}
-                    />
-                  </th>
-                  <th className="px-3 py-2 w-[90px] text-right">Qtd</th>
-                  <th className="px-3 py-2 w-[120px]">Destino</th>
-                  <th className="px-3 py-2 w-[280px]">OS</th>
-                  <th className="px-3 py-2 w-[120px] text-right">Saldo Atual</th>
-                  <th className="px-3 py-2 w-[210px]">Ações</th>
+                  <th className="px-3 py-2 w-[70px] text-left">ID</th>
+                  <th className="px-3 py-2 w-[100px] text-left">Codigo</th>
+                  <th className="px-3 py-2 text-left">Item</th>
+                  <th className="px-3 py-2 w-[240px] text-left">Fornecedor</th>
+                  <th className="px-3 py-2 w-[220px] text-left">Motivo</th>
+                  <th className="px-3 py-2 w-[120px] text-right">Qtd Comprada</th>
+                  <th className="px-3 py-2 w-[110px] text-right">Qtd p/ OS</th>
+                  <th className="px-3 py-2 w-[130px] text-right">Qtd p/ Estoque</th>
+                  <th className="px-3 py-2 w-[90px] text-right">% p/ OS</th>
+                  <th className="px-3 py-2 w-[150px] text-left">OS destino</th>
+                  <th className="px-3 py-2 w-[110px] text-right">Saldo Atual</th>
+                  <th className="px-3 py-2 w-[130px] text-right">Saldo Ajustado</th>
+                  <th className="px-3 py-2 w-[110px] text-right">Estoque Ideal</th>
+                  <th className="px-3 py-2 w-[100px] text-center">Situacao</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingB ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-zinc-300">
-                      <div className="animate-pulse">Carregando…</div>
+                    <td colSpan={14} className="px-3 py-8 text-center text-zinc-300">
+                      Carregando...
                     </td>
                   </tr>
                 ) : rowsB.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-10 text-center text-zinc-400">
-                      Nenhum resultado. Dica: ajuste o período e os filtros.
+                    <td colSpan={14} className="px-3 py-10 text-center text-zinc-400">
+                      Nenhum resultado.
                     </td>
                   </tr>
                 ) : (
                   rowsB.map((r) => {
-                    const forn = r.mov.nf?.fornecedores?.nome ?? "—";
-                    const itemLabel = `${r.mov.itens?.codigo_interno ?? ""} ${r.mov.itens?.nome ?? ""}`.trim() || "—";
-                    const destino = r.mov.origem_os_id ? "OS" : "Estoque";
-                    const osLabel = r.os
-                      ? `OS ${r.os.numero_os ?? r.os.id} • ${r.os.cliente_nome ?? ""} • ${r.os.status ?? ""}`.trim()
-                      : "—";
-
-                    const osHref = r.mov.origem_os_id ? `/os/${r.mov.origem_os_id}` : null;
+                    const key = getEntradaRowKey(r);
+                    const isOpen = Boolean(expandedRowsB[key]);
+                    const details = detalhesRowsB[key] ?? [];
+                    const loadingDetails = Boolean(detalhesLoadingB[key]);
 
                     return (
-                      <tr key={`${r.mov.id}`} className="border-b border-zinc-900 hover:bg-zinc-900/30">
-                        <td className="px-3 py-2 text-zinc-200 tabular-nums">{formatDateTimeBR(r.mov.data_movimentacao)}</td>
-                        <td className="px-3 py-2 text-zinc-300">{nfLabel(r.mov.nf)}</td>
-                        <td className="px-3 py-2 text-zinc-300">{forn}</td>
-                        <td className="px-3 py-2 text-zinc-100">{itemLabel}</td>
-                        <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">{formatDecimalBR(r.mov.quantidade ?? 0, 3)}</td>
-                        <td className="px-3 py-2 text-zinc-300">{destino}</td>
-                        <td className="px-3 py-2 text-zinc-300">
-                          {osHref ? (
-                            <Link href={osHref} className="underline text-zinc-200 hover:text-zinc-100">
-                              {osLabel}
-                            </Link>
-                          ) : (
-                            osLabel
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right text-zinc-300 tabular-nums">
-                          {r.saldoAtual === null ? "—" : formatDecimalBR(r.saldoAtual, 3)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-wrap gap-2">
-                            <Link
-                              href="/estoque/importar"
-                              className="inline-flex px-2 py-1 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
-                              title="Abrir módulo de importação de NF"
+                      <Fragment key={`grp-${key}`}>
+                        <tr
+                          key={`sum-${key}`}
+                          className="border-b border-zinc-900 hover:bg-zinc-900/40 cursor-pointer"
+                          onClick={() => void toggleEntradaExpand(r)}
+                        >
+                          <td className="px-3 py-2 text-left tabular-nums">{r.item_id}</td>
+                          <td className="px-3 py-2 text-left tabular-nums">{r.codigo_interno || "-"}</td>
+                          <td className="px-3 py-2 text-left">{r.item_nome || "-"}</td>
+                          <td className="px-3 py-2 text-left">{r.fornecedor_nome || "SEM FORNECEDOR"}</td>
+                          <td className="px-3 py-2 text-left">{r.motivo || "-"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.qtd_comprada, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.qtd_para_os, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.qtd_para_estoque, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{r.percentual_os.toFixed(1)}%</td>
+                          <td className="px-3 py-2 text-left">{r.destino_os || "-"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.saldo_atual, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.saldo_ajustado, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.estoque_ideal, 3)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span
+                              className={
+                                r.situacao === "ALERTA"
+                                  ? "inline-flex rounded px-2 py-0.5 text-xs bg-red-900/50 text-red-100 border border-red-700"
+                                  : "inline-flex rounded px-2 py-0.5 text-xs bg-emerald-900/50 text-emerald-100 border border-emerald-700"
+                              }
                             >
-                              Abrir NF
-                            </Link>
-                            {osHref ? (
-                              <Link
-                                href={osHref}
-                                className="inline-flex px-2 py-1 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
-                              >
-                                Abrir OS
-                              </Link>
-                            ) : null}
-                            <Link
-                              href="/itens"
-                              className="inline-flex px-2 py-1 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
-                            >
-                              Abrir Item
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
+                              {r.situacao}
+                            </span>
+                          </td>
+                        </tr>
+                        {isOpen ? (
+                          <tr key={`det-${key}`} className="border-b border-zinc-800 bg-zinc-900/30">
+                            <td colSpan={14} className="px-3 py-3">
+                              {loadingDetails ? (
+                                <div className="text-zinc-400">Carregando detalhes...</div>
+                              ) : details.length === 0 ? (
+                                <div className="text-zinc-500">Sem entradas detalhadas para este item/filtro.</div>
+                              ) : (
+                                <table className="w-full text-xs">
+                                  <thead className="text-zinc-400">
+                                    <tr className="border-b border-zinc-800">
+                                      <th className="py-1 text-left">Data</th>
+                                      <th className="py-1 text-left">NF</th>
+                                      <th className="py-1 text-right">Qtd</th>
+                                      <th className="py-1 text-left">OS</th>
+                                      <th className="py-1 text-left">Tipo</th>
+                                      <th className="py-1 text-left">Usuario</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {details.map((d) => (
+                                      <tr key={`row-det-${d.movimentacao_id}`} className="border-b border-zinc-800/60">
+                                        <td className="py-1 text-left">{formatDateTimeBR(d.data_movimentacao)}</td>
+                                        <td className="py-1 text-left">{d.nf || "-"}</td>
+                                        <td className="py-1 text-right tabular-nums">{formatDecimalBR(d.quantidade, 3)}</td>
+                                        <td className="py-1 text-left">
+                                          {d.os_id ? (
+                                            <Link href={`/os/${d.os_id}`} className="underline text-zinc-200 hover:text-zinc-100">
+                                              OS {d.os_id}
+                                            </Link>
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </td>
+                                        <td className="py-1 text-left">{d.tipo}</td>
+                                        <td className="py-1 text-left">{d.realizado_por ?? "-"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     );
                   })
                 )}
               </tbody>
             </table>
           </div>
-
           <Pagination page={bPage} totalCount={countB} onPage={(p) => setParam({ b_page: String(p) })} />
         </>
       )}
+
+      <style jsx global>{`
+        @media print {
+          .no-print { display: none !important; }
+          .print-report { border: 0 !important; border-radius: 0 !important; overflow: visible !important; background: #fff !important; }
+          .print-report table { min-width: 0 !important; width: 100% !important; font-size: 11px !important; }
+          .print-report th, .print-report td { color: #000 !important; border-color: #d4d4d8 !important; }
+          .print-group { break-before: page; page-break-before: always; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -31,6 +31,8 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const isFullWidth =
     pathname === "/itens" ||
     pathname === "/itens/imprimir" ||
+    pathname === "/compras/pedidos" ||
+    pathname === "/estoque/relatorios" ||
     pathname === "/comercial/orcamentos" ||
     pathname === "/financeiro/contas-pagar/aprovacoes" ||
     pathname === "/financeiro/impostos" ||
@@ -124,18 +126,18 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   }, [effectiveEmpresa, isPainelTv, pathname, router, te.sessionUserId]);
 
   const [openMenu, setOpenMenu] = useState<
-    "os" | "estoque" | "imobilizado" | "financeiro" | "comercial" | "faturamento" | "cadastro" | "admin" | null
+    "os" | "estoque" | "imobilizado" | "financeiro" | "compras" | "comercial" | "faturamento" | "cadastro" | "admin" | null
   >(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggleMenu = (
-    key: "os" | "estoque" | "imobilizado" | "financeiro" | "comercial" | "faturamento" | "cadastro" | "admin" | null
+    key: "os" | "estoque" | "imobilizado" | "financeiro" | "compras" | "comercial" | "faturamento" | "cadastro" | "admin" | null
   ) =>
     setOpenMenu((prev) => (prev === key ? null : key));
 
   const openWithHover = (
-    key: "os" | "estoque" | "imobilizado" | "financeiro" | "comercial" | "faturamento" | "cadastro" | "admin"
+    key: "os" | "estoque" | "imobilizado" | "financeiro" | "compras" | "comercial" | "faturamento" | "cadastro" | "admin"
   ) => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     setOpenMenu(key);
@@ -189,6 +191,12 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
 
   const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write") || isFinanceiroEmpresaRole;
+  const canAccessCompras =
+    can("compras.read") ||
+    can("compras.write") ||
+    can("compras.approve") ||
+    can("compras.receive") ||
+    Boolean(empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole));
   const canAccessComercial = canAccessFinanceiro || canAccessOs;
   const canImportXml = can("xml_import.execute");
   const canImportXmlFaturamento =
@@ -557,6 +565,34 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                           Configurações
                         </Link>
 
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {canAccessCompras && (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => openWithHover("compras")}
+                    onMouseLeave={scheduleClose}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMenu("compras")}
+                      className="px-3 py-1 rounded-md hover:bg-zinc-900 flex items-center gap-2"
+                    >
+                      Compras
+                    </button>
+
+                    {openMenu === "compras" && (
+                      <div
+                        className="absolute left-0 top-full mt-1 w-56 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-20"
+                        onMouseEnter={() => openWithHover("compras")}
+                        onMouseLeave={scheduleClose}
+                      >
+                        <Link href="/compras/pedidos" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Pedidos
+                        </Link>
                       </div>
                     )}
                   </div>

@@ -1,0 +1,899 @@
+{
+  "resumo": {
+    "movimentos_total": 2953,
+    "estoque_rows": 1298,
+    "os_itens_rows": 221,
+    "tipos_invalidos": 0,
+    "divergencias_saldo": 0,
+    "estoque_negativo": 300,
+    "saida_sem_origem_os_com_motivo_os": 150,
+    "entradas_direto_os_xml": 135
+  },
+  "top_divergencias_saldo": [],
+  "top_estoque_negativo": [
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1462,
+      "saldo": -520.555
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1223,
+      "saldo": -318
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1224,
+      "saldo": -264
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1059,
+      "saldo": -261
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1070,
+      "saldo": -238
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1074,
+      "saldo": -216
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1058,
+      "saldo": -200
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 911,
+      "saldo": -200
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1071,
+      "saldo": -187
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 250,
+      "saldo": -142
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 971,
+      "saldo": -130
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1073,
+      "saldo": -120
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 208,
+      "saldo": -109
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1057,
+      "saldo": -107
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1064,
+      "saldo": -103
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1533,
+      "saldo": -100
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 209,
+      "saldo": -97
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1221,
+      "saldo": -95
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1067,
+      "saldo": -89
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1461,
+      "saldo": -80
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 735,
+      "saldo": -80
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 736,
+      "saldo": -74
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 801,
+      "saldo": -66
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1068,
+      "saldo": -65
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1574,
+      "saldo": -65
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 207,
+      "saldo": -63
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 181,
+      "saldo": -61
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1225,
+      "saldo": -60
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1464,
+      "saldo": -58.258
+    },
+    {
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 259,
+      "saldo": -56
+    }
+  ],
+  "top_saida_sem_origem_os": [
+    {
+      "id": 1019,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 100,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1023,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 160,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 927,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 101,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 928,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 102,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 929,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 120,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 933,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 101,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 990,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 679,
+      "quantidade": 50,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 266,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 5,
+      "motivo": "Baixa manual pela tela Baixa OS Cel"
+    },
+    {
+      "id": 2518,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 678,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2519,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 677,
+      "quantidade": 12,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2520,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 676,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2521,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 675,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2522,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 674,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2523,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 673,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2524,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 672,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 1951,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 3,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1952,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 143,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1953,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 142,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1954,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1114,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1955,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 755,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1956,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 747,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1957,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 401,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1958,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 208,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1959,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 593,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1960,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 596,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1961,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 726,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1962,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 591,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1963,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 187,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1964,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 187,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1966,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 871,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1968,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1122,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1971,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1435,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2806,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 949,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2807,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 970,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2808,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 972,
+      "quantidade": 4,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2809,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 974,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2811,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 970,
+      "quantidade": 1,
+      "motivo": "Edição pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2812,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1398,
+      "quantidade": 5,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2813,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1526,
+      "quantidade": 6,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2814,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 369,
+      "quantidade": 100,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2815,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 115,
+      "quantidade": 110,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2817,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 115,
+      "quantidade": 10,
+      "motivo": "Edição pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2818,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 114,
+      "quantidade": 10,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2819,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 179,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2820,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 190,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2821,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 189,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2822,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 188,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2823,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 192,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2824,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 166,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2825,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 736,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    }
+  ],
+  "amostra_entradas_direto_os_xml": [
+    {
+      "id": 1917,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1322,
+      "origem_os_id": 49,
+      "qtd": 2,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-20T11:59:15"
+    },
+    {
+      "id": 1918,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1333,
+      "origem_os_id": 10,
+      "qtd": 1,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1919,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1334,
+      "origem_os_id": 10,
+      "qtd": 1,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1382,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 898,
+      "origem_os_id": 10,
+      "qtd": 2,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "dt": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1383,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 902,
+      "origem_os_id": 10,
+      "qtd": 2,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "dt": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1384,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 899,
+      "origem_os_id": 10,
+      "qtd": 1,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "dt": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1385,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 900,
+      "origem_os_id": 10,
+      "qtd": 2,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "dt": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1386,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 901,
+      "origem_os_id": 10,
+      "qtd": 1,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "dt": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1920,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1335,
+      "origem_os_id": 10,
+      "qtd": 1,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1921,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1336,
+      "origem_os_id": 10,
+      "qtd": 1,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1922,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1337,
+      "origem_os_id": 10,
+      "qtd": 2,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1923,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1338,
+      "origem_os_id": 10,
+      "qtd": 2,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1924,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1339,
+      "origem_os_id": 10,
+      "qtd": 2,
+      "motivo": "NF_ENTRADA",
+      "dt": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1431,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 981,
+      "origem_os_id": 45,
+      "qtd": 4,
+      "motivo": "NF 72124/1 chave 35260172876030000177550010000721241001128233 emitente ROLL CENTER ROL. E EQUIP. LTDA",
+      "dt": "2026-01-28T16:39:06.462597"
+    },
+    {
+      "id": 1432,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 982,
+      "origem_os_id": 45,
+      "qtd": 2,
+      "motivo": "NF 632569/2 chave 42260147674429000551550020006325691353561596 emitente ANDRA SA ELECTRIC SOLUTIONS",
+      "dt": "2026-01-28T16:40:52.819593"
+    },
+    {
+      "id": 1444,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 991,
+      "origem_os_id": 84,
+      "qtd": 2,
+      "motivo": "NF 135703/2 chave 35260148600538000163550020001357031696019390 emitente COPAR E-COMMERCE BRASIL LTDA",
+      "dt": "2026-01-28T20:15:53.518991"
+    },
+    {
+      "id": 1447,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 994,
+      "origem_os_id": 18,
+      "qtd": 2,
+      "motivo": "NF 124/1 chave 42260148516783000197550010000001241583051840 emitente NOVA FASE MATERIAIS ELETRICOS E AUTOMACAO INDUSTRIAL LTDA",
+      "dt": "2026-01-28T20:19:55.361858"
+    },
+    {
+      "id": 1448,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 995,
+      "origem_os_id": 18,
+      "qtd": 2,
+      "motivo": "NF 124/1 chave 42260148516783000197550010000001241583051840 emitente NOVA FASE MATERIAIS ELETRICOS E AUTOMACAO INDUSTRIAL LTDA",
+      "dt": "2026-01-28T20:19:55.361858"
+    },
+    {
+      "id": 1449,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 996,
+      "origem_os_id": 18,
+      "qtd": 20,
+      "motivo": "NF 124/1 chave 42260148516783000197550010000001241583051840 emitente NOVA FASE MATERIAIS ELETRICOS E AUTOMACAO INDUSTRIAL LTDA",
+      "dt": "2026-01-28T20:19:55.361858"
+    },
+    {
+      "id": 1450,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 997,
+      "origem_os_id": 44,
+      "qtd": 4,
+      "motivo": "NF 41861/1 chave 42260103246792000762550010000418611610951409 emitente A T I BRASIL ARTIGOS TECNICOS INDUSTRIAIS LTDA",
+      "dt": "2026-01-28T20:21:15.569003"
+    },
+    {
+      "id": 1461,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 982,
+      "origem_os_id": 45,
+      "qtd": 2,
+      "motivo": "NF 632975/2 chave 42260147674429000551550020006329751266319850 emitente ANDRA SA ELECTRIC SOLUTIONS",
+      "dt": "2026-01-29T00:15:27.309222"
+    },
+    {
+      "id": 1467,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1016,
+      "origem_os_id": 82,
+      "qtd": 200,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "dt": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1468,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 343,
+      "origem_os_id": 82,
+      "qtd": 1,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "dt": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1469,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1014,
+      "origem_os_id": 82,
+      "qtd": 1,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "dt": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1470,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1015,
+      "origem_os_id": 82,
+      "qtd": 1,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "dt": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1471,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1017,
+      "origem_os_id": 83,
+      "qtd": 100,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "dt": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1472,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1022,
+      "origem_os_id": 83,
+      "qtd": 2,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "dt": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1473,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1018,
+      "origem_os_id": 83,
+      "qtd": 1,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "dt": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1474,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1023,
+      "origem_os_id": 83,
+      "qtd": 1,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "dt": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1475,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1019,
+      "origem_os_id": 83,
+      "qtd": 1,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "dt": "2026-01-29T14:40:42.622863"
+    }
+  ]
+}

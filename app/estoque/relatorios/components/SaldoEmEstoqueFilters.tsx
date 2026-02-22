@@ -11,7 +11,7 @@ type Props = {
 };
 
 const FINALIDADES: Array<{ value: SaldoFinalidade; label: string }> = [
-  { value: "materia_prima", label: "Matéria-prima" },
+  { value: "materia_prima", label: "Materia-prima" },
   { value: "consumo", label: "Consumo" },
   { value: "revenda", label: "Revenda" },
   { value: "imobilizado", label: "Imobilizado" },
@@ -23,6 +23,7 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
   const [busca, setBusca] = useState(applied.busca);
   const [finalidade, setFinalidade] = useState<SaldoFinalidade>(applied.finalidade);
   const [abaixoMinimo, setAbaixoMinimo] = useState(applied.abaixoMinimo);
+  const [separarPorFornecedor, setSepararPorFornecedor] = useState(applied.separarPorFornecedor);
   const [semFornecedor, setSemFornecedor] = useState(applied.semFornecedor);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
     setBusca(applied.busca);
     setFinalidade(applied.finalidade);
     setAbaixoMinimo(applied.abaixoMinimo);
+    setSepararPorFornecedor(applied.separarPorFornecedor);
     setSemFornecedor(applied.semFornecedor);
   }, [applied]);
 
@@ -60,6 +62,7 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
       busca,
       finalidade,
       abaixoMinimo,
+      separarPorFornecedor,
       localizacao: "",
     });
   };
@@ -73,7 +76,7 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
             className="w-full px-3 py-2"
             value={fornecedorPrefix}
             onChange={(e) => setFornecedorPrefix(e.target.value)}
-            placeholder="Digite o início do nome (ex.: Siem)"
+            placeholder="Digite o inicio do nome (ex.: Siem)"
             aria-label="Filtrar fornecedor por prefixo"
           />
           <label className="flex items-center gap-2 text-sm text-zinc-300 select-none mt-2">
@@ -87,9 +90,9 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
           <div className="text-[11px] text-zinc-500">
             {fornecedorPrefix.trim()
               ? previewMatches.length
-                ? `Ex.: ${previewMatches.join(", ")}${previewMatches.length >= 5 ? "…" : ""}`
-                : "Nenhum fornecedor começa com esse texto."
-              : "Digite para filtrar por nome começando com o texto."}
+                ? `Ex.: ${previewMatches.join(", ")}${previewMatches.length >= 5 ? "..." : ""}`
+                : "Nenhum fornecedor comeca com esse texto."
+              : "Digite para filtrar por nome comecando com o texto."}
           </div>
         </div>
 
@@ -99,7 +102,7 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
             className="w-full px-3 py-2"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Código ou nome do item"
+            placeholder="Codigo ou nome do item"
             aria-label="Buscar item"
           />
         </div>
@@ -126,7 +129,16 @@ export default function SaldoEmEstoqueFiltersPanel({ fornecedores, applied, onAp
               checked={abaixoMinimo}
               onChange={(e) => setAbaixoMinimo(e.target.checked)}
             />
-            Abaixo do mínimo
+            Abaixo do minimo
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-zinc-300 select-none mt-2">
+            <input
+              type="checkbox"
+              checked={separarPorFornecedor}
+              onChange={(e) => setSepararPorFornecedor(e.target.checked)}
+            />
+            Separar por fornecedor
           </label>
         </div>
 

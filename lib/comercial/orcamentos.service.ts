@@ -191,6 +191,7 @@ export async function addItem(
     quantidade: number;
     valorUnitario: number;
     descontoItemPercent: number;
+    observacoes?: string | null;
   }
 ): Promise<string> {
   const payload: {
@@ -201,6 +202,7 @@ export async function addItem(
     quantidade: number;
     valor_unitario: number;
     desconto_item_percent: number;
+    observacoes: string | null;
   } = {
     tenant_id: params.tenantId,
     empresa_id: params.empresaId,
@@ -209,6 +211,7 @@ export async function addItem(
     quantidade: params.quantidade,
     valor_unitario: params.valorUnitario,
     desconto_item_percent: params.descontoItemPercent,
+    observacoes: params.observacoes ?? null,
   };
 
   const { data, error } = await applyTenantEmpresa(
@@ -228,7 +231,7 @@ export async function updateItem(
     tenantId: string;
     empresaId: string;
     id: string;
-    patch: Partial<Pick<OrcamentoItemRow, "quantidade" | "valor_unitario" | "desconto_item_percent">>;
+    patch: Partial<Pick<OrcamentoItemRow, "quantidade" | "valor_unitario" | "desconto_item_percent" | "observacoes">>;
   }
 ) {
   const patch: Partial<OrcamentoItemRow> & { updated_at: string } = {
@@ -462,4 +465,62 @@ export async function getItemById(
   );
   if (error) throw error;
   return data?.id ? (data as ItemByIdRow) : null;
+}
+
+export async function getItemByCodigo(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; codigo: string }
+): Promise<ItemByIdRow | null> {
+  const codigo = String(params.codigo ?? "").trim();
+  if (!codigo) return null;
+
+  try {
+    const { data: resolvedId, error: resolveErr } = await supabase.rpc("itens_resolver_por_codigo", {
+      p_tenant_id: params.tenantId,
+      p_empresa_id: params.empresaId,
+      p_codigo: codigo,
+    });
+    if (!resolveErr) {
+      const id = Number(resolvedId ?? 0);
+      if (Number.isFinite(id) && id > 0) {
+        return getItemById(supabase, { tenantId: params.tenantId, empresaId: params.empresaId, id });
+      }
+    }
+  } catch {
+    // fallback below
+  }
+
+  // Fallback: codigo generico para orcamentos sem cadastro previo.
+  if (codigo === "9999") {
+    const { data: ensuredId, error: ensureErr } = await supabase.rpc("ensure_orcamento_item_generico", {
+      p_tenant_id: params.tenantId,
+      p_empresa_id: params.empresaId,
+      p_codigo: codigo,
+    });
+    if (ensureErr) throw ensureErr;
+    const genId = Number(ensuredId ?? 0);
+    if (Number.isFinite(genId) && genId > 0) {
+      return getItemById(supabase, { tenantId: params.tenantId, empresaId: params.empresaId, id: genId });
+    }
+  }
+
+  // Fallback final: tenta buscar diretamente por codigo_interno.
+  const { data: byCodigo, error: byCodigoErr } = await applyTenantEmpresa(
+    supabase
+      .from("itens")
+      .select(
+        "id,codigo_interno,nome,descricao,tipo,unidade_medida,preco_unitario,custo_ultima_compra,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo"
+      )
+      .eq("codigo_interno", codigo)
+      .eq("ativo", true)
+      .is("mesclado_em_item_id", null)
+      .order("id", { ascending: false })
+      .maybeSingle<ItemByIdRow>(),
+    params.tenantId,
+    params.empresaId
+  );
+  if (byCodigoErr) throw byCodigoErr;
+  if (byCodigo?.id) return byCodigo as ItemByIdRow;
+
+  return null;
 }

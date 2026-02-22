@@ -1,0 +1,1688 @@
+{
+  "resumo": {
+    "movimentos_total": 3615,
+    "estoque_rows": 1298,
+    "divergencias_saldo": 0,
+    "estoque_negativo": 0,
+    "saida_sem_origem_os_com_motivo_os": 150,
+    "saida_sem_origem_os_ja_reclassificadas": 104,
+    "saida_sem_origem_os_pendentes_reais": 46,
+    "entradas_direto_os_xml": 135
+  },
+  "top_divergencias_saldo": [],
+  "top_estoque_negativo": [],
+  "top_saida_sem_origem_os": [
+    {
+      "id": 1019,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 100,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1023,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 160,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 927,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 101,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 928,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 102,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 929,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 120,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 933,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 101,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 990,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 679,
+      "quantidade": 50,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 266,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 5,
+      "motivo": "Baixa manual pela tela Baixa OS Cel"
+    },
+    {
+      "id": 2518,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 678,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2519,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 677,
+      "quantidade": 12,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2520,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 676,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2521,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 675,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2522,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 674,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2523,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 673,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2524,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 672,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 1951,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 116,
+      "quantidade": 3,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1952,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 143,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1953,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 142,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1954,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1114,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1955,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 755,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1956,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 747,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1957,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 401,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1958,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 208,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1959,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 593,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1960,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 596,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1961,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 726,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1962,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 591,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1963,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 187,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1964,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 187,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1966,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 871,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1968,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1122,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 1971,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1435,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2806,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 949,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2807,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 970,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2808,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 972,
+      "quantidade": 4,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2809,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 974,
+      "quantidade": 2,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2811,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 970,
+      "quantidade": 1,
+      "motivo": "Edição pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2812,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1398,
+      "quantidade": 5,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2813,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1526,
+      "quantidade": 6,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2814,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 369,
+      "quantidade": 100,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2815,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 115,
+      "quantidade": 110,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2817,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 115,
+      "quantidade": 10,
+      "motivo": "Edição pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2818,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 114,
+      "quantidade": 10,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2819,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 179,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2820,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 190,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2821,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 189,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2822,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 188,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2823,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 192,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2824,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 166,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2825,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 736,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2826,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1114,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2827,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 825,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2828,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 747,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2829,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 401,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2830,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 208,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2831,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 112,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2882,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1435,
+      "quantidade": 1,
+      "motivo": "Adicao pela tela da OS (baixa imediata)"
+    },
+    {
+      "id": 2883,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1508,
+      "quantidade": 8,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2884,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1507,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2885,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1506,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2886,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1505,
+      "quantidade": 12,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2887,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 539,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2888,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 538,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2889,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 537,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2890,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 536,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2891,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 535,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2892,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 534,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2893,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 533,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2894,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 532,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2895,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 531,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2896,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 530,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2897,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 529,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2898,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 528,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2899,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 527,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2900,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 526,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2901,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 525,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2902,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 524,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2903,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 523,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2904,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 522,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2905,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 521,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2906,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 520,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2907,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 519,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2908,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 518,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2909,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 517,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2910,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 516,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2911,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 515,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2912,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 514,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2913,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 513,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2914,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 512,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2915,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 511,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2916,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 510,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2917,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 509,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2918,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 508,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2919,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 507,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2920,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 506,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2921,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 505,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2922,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 504,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2923,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 503,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2924,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 502,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2925,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 501,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    }
+  ],
+  "top_saida_sem_origem_os_pendentes_reais": [
+    {
+      "id": 2518,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 678,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2519,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 677,
+      "quantidade": 12,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2520,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 676,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2521,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 675,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2522,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 674,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2523,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 673,
+      "quantidade": 4,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2524,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 672,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor WEG EQUIPAMENTOS ELETRICOS S/A)"
+    },
+    {
+      "id": 2887,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 539,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2888,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 538,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2889,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 537,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2890,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 536,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2891,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 535,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2892,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 534,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2893,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 533,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2894,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 532,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2895,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 531,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2896,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 530,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2897,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 529,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2898,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 528,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2899,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 527,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2900,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 526,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2901,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 525,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2902,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 524,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2903,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 523,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2904,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 522,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2905,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 521,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2906,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 520,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2907,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 519,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2908,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 518,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2909,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 517,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2910,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 516,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2911,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 515,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2912,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 514,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2913,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 513,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2914,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 512,
+      "quantidade": 2,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2915,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 511,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2916,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 510,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2917,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 509,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2918,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 508,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2919,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 507,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2920,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 506,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2921,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 505,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2922,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 504,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2923,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 503,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2924,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 502,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    },
+    {
+      "id": 2925,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 501,
+      "quantidade": 1,
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)"
+    }
+  ],
+  "amostra_entradas_direto_os_xml": [
+    {
+      "id": 1917,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1322,
+      "origem_os_id": 49,
+      "quantidade": 2,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-20T11:59:15"
+    },
+    {
+      "id": 1918,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1333,
+      "origem_os_id": 10,
+      "quantidade": 1,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1919,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1334,
+      "origem_os_id": 10,
+      "quantidade": 1,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1382,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 898,
+      "origem_os_id": 10,
+      "quantidade": 2,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1383,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 902,
+      "origem_os_id": 10,
+      "quantidade": 2,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1384,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 899,
+      "origem_os_id": 10,
+      "quantidade": 1,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1385,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 900,
+      "origem_os_id": 10,
+      "quantidade": 2,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1386,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 901,
+      "origem_os_id": 10,
+      "quantidade": 1,
+      "motivo": "NF 174320/1 chave 41260178370335000199550010001743201998256722 emitente STOCO FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-28T00:16:12.853451"
+    },
+    {
+      "id": 1920,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1335,
+      "origem_os_id": 10,
+      "quantidade": 1,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1921,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1336,
+      "origem_os_id": 10,
+      "quantidade": 1,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1922,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1337,
+      "origem_os_id": 10,
+      "quantidade": 2,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1923,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1338,
+      "origem_os_id": 10,
+      "quantidade": 2,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1924,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1339,
+      "origem_os_id": 10,
+      "quantidade": 2,
+      "motivo": "NF_ENTRADA",
+      "data_movimentacao": "2026-01-23T15:38:26"
+    },
+    {
+      "id": 1431,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 981,
+      "origem_os_id": 45,
+      "quantidade": 4,
+      "motivo": "NF 72124/1 chave 35260172876030000177550010000721241001128233 emitente ROLL CENTER ROL. E EQUIP. LTDA",
+      "data_movimentacao": "2026-01-28T16:39:06.462597"
+    },
+    {
+      "id": 1432,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 982,
+      "origem_os_id": 45,
+      "quantidade": 2,
+      "motivo": "NF 632569/2 chave 42260147674429000551550020006325691353561596 emitente ANDRA SA ELECTRIC SOLUTIONS",
+      "data_movimentacao": "2026-01-28T16:40:52.819593"
+    },
+    {
+      "id": 1444,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 991,
+      "origem_os_id": 84,
+      "quantidade": 2,
+      "motivo": "NF 135703/2 chave 35260148600538000163550020001357031696019390 emitente COPAR E-COMMERCE BRASIL LTDA",
+      "data_movimentacao": "2026-01-28T20:15:53.518991"
+    },
+    {
+      "id": 1447,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 994,
+      "origem_os_id": 18,
+      "quantidade": 2,
+      "motivo": "NF 124/1 chave 42260148516783000197550010000001241583051840 emitente NOVA FASE MATERIAIS ELETRICOS E AUTOMACAO INDUSTRIAL LTDA",
+      "data_movimentacao": "2026-01-28T20:19:55.361858"
+    },
+    {
+      "id": 1448,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 995,
+      "origem_os_id": 18,
+      "quantidade": 2,
+      "motivo": "NF 124/1 chave 42260148516783000197550010000001241583051840 emitente NOVA FASE MATERIAIS ELETRICOS E AUTOMACAO INDUSTRIAL LTDA",
+      "data_movimentacao": "2026-01-28T20:19:55.361858"
+    },
+    {
+      "id": 1449,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 996,
+      "origem_os_id": 18,
+      "quantidade": 20,
+      "motivo": "NF 124/1 chave 42260148516783000197550010000001241583051840 emitente NOVA FASE MATERIAIS ELETRICOS E AUTOMACAO INDUSTRIAL LTDA",
+      "data_movimentacao": "2026-01-28T20:19:55.361858"
+    },
+    {
+      "id": 1450,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 997,
+      "origem_os_id": 44,
+      "quantidade": 4,
+      "motivo": "NF 41861/1 chave 42260103246792000762550010000418611610951409 emitente A T I BRASIL ARTIGOS TECNICOS INDUSTRIAIS LTDA",
+      "data_movimentacao": "2026-01-28T20:21:15.569003"
+    },
+    {
+      "id": 1461,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 982,
+      "origem_os_id": 45,
+      "quantidade": 2,
+      "motivo": "NF 632975/2 chave 42260147674429000551550020006329751266319850 emitente ANDRA SA ELECTRIC SOLUTIONS",
+      "data_movimentacao": "2026-01-29T00:15:27.309222"
+    },
+    {
+      "id": 1467,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1016,
+      "origem_os_id": 82,
+      "quantidade": 200,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "data_movimentacao": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1468,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 343,
+      "origem_os_id": 82,
+      "quantidade": 1,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "data_movimentacao": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1469,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1014,
+      "origem_os_id": 82,
+      "quantidade": 1,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "data_movimentacao": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1470,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1015,
+      "origem_os_id": 82,
+      "quantidade": 1,
+      "motivo": "NF 684368/1 chave 42260180443120000100550010006843681669796585 emitente PAFER COMERCIAL LTDA",
+      "data_movimentacao": "2026-01-29T14:31:17.560293"
+    },
+    {
+      "id": 1471,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1017,
+      "origem_os_id": 83,
+      "quantidade": 100,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1472,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1022,
+      "origem_os_id": 83,
+      "quantidade": 2,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1473,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1018,
+      "origem_os_id": 83,
+      "quantidade": 1,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1474,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1023,
+      "origem_os_id": 83,
+      "quantidade": 1,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1475,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1019,
+      "origem_os_id": 83,
+      "quantidade": 1,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1476,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1020,
+      "origem_os_id": 83,
+      "quantidade": 50,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1477,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1021,
+      "origem_os_id": 83,
+      "quantidade": 50,
+      "motivo": "NF 5707/1 chave 42260105806857000206550010000057071877213181 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:40:42.622863"
+    },
+    {
+      "id": 1478,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1024,
+      "origem_os_id": 82,
+      "quantidade": 15,
+      "motivo": "NF 5738/1 chave 42260105806857000206550010000057381763425100 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:43:26.947851"
+    },
+    {
+      "id": 1479,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1025,
+      "origem_os_id": 82,
+      "quantidade": 28,
+      "motivo": "NF 5738/1 chave 42260105806857000206550010000057381763425100 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:43:26.947851"
+    },
+    {
+      "id": 1480,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1026,
+      "origem_os_id": 82,
+      "quantidade": 2,
+      "motivo": "NF 5738/1 chave 42260105806857000206550010000057381763425100 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:43:26.947851"
+    },
+    {
+      "id": 1481,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1029,
+      "origem_os_id": 82,
+      "quantidade": 6,
+      "motivo": "NF 5738/1 chave 42260105806857000206550010000057381763425100 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:43:26.947851"
+    },
+    {
+      "id": 1482,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1027,
+      "origem_os_id": 82,
+      "quantidade": 2,
+      "motivo": "NF 5738/1 chave 42260105806857000206550010000057381763425100 emitente SUL FERRAGENS LTDA",
+      "data_movimentacao": "2026-01-29T14:43:26.947851"
+    },
+    {
+      "id": 1524,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1081,
+      "origem_os_id": 83,
+      "quantidade": 8,
+      "motivo": "NF 1150818/4 chave 31260134775186000172550040011508181136782174 emitente COMPRA SEGURA COMERCIO ELETRONICO LTDA",
+      "data_movimentacao": "2026-01-29T18:27:49.81089"
+    },
+    {
+      "id": 1525,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1081,
+      "origem_os_id": 83,
+      "quantidade": 2,
+      "motivo": "NF 1150818/4 chave 31260134775186000172550040011508181136782174 emitente COMPRA SEGURA COMERCIO ELETRONICO LTDA",
+      "data_movimentacao": "2026-01-29T18:27:49.81089"
+    },
+    {
+      "id": 1532,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1103,
+      "origem_os_id": 90,
+      "quantidade": 22,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1533,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1104,
+      "origem_os_id": 90,
+      "quantidade": 15,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1534,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1105,
+      "origem_os_id": 90,
+      "quantidade": 5,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1535,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1106,
+      "origem_os_id": 90,
+      "quantidade": 10,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1536,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1100,
+      "origem_os_id": 90,
+      "quantidade": 1,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1537,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1101,
+      "origem_os_id": 90,
+      "quantidade": 1,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1538,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1102,
+      "origem_os_id": 90,
+      "quantidade": 1,
+      "motivo": "NF 4219706/1 chave 42260114309992000148550010042197061853599511 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T14:04:59.468468"
+    },
+    {
+      "id": 1539,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1107,
+      "origem_os_id": 90,
+      "quantidade": 10,
+      "motivo": "NF 4223390/1 chave 42260114309992000148550010042233901295775676 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T15:39:57.052867"
+    },
+    {
+      "id": 1540,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1108,
+      "origem_os_id": 90,
+      "quantidade": 38,
+      "motivo": "NF 4223001/1 chave 42260114309992000148550010042230011138037981 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T16:08:33.799556"
+    },
+    {
+      "id": 1542,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1110,
+      "origem_os_id": 45,
+      "quantidade": 2,
+      "motivo": "NF 4221578/1 chave 42260114309992000148550010042215781338952385 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T16:16:24.396404"
+    },
+    {
+      "id": 1543,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1112,
+      "origem_os_id": 45,
+      "quantidade": 4,
+      "motivo": "NF 4221578/1 chave 42260114309992000148550010042215781338952385 emitente WEG DRIVES & CONTROLS - AUTOMAÇAO L",
+      "data_movimentacao": "2026-02-02T16:16:24.396404"
+    }
+  ]
+}

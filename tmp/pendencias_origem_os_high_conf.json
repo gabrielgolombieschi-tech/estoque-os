@@ -1,0 +1,328 @@
+{
+  "total": 17,
+  "rows": [
+    {
+      "mov_id": 1952,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 143,
+      "codigo": "3030417",
+      "item": "TAMPA P/ CONECTOR ELETRICO - D-ST 2,5",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T13:55:06.790539",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1955,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 755,
+      "codigo": "5SL13207MB",
+      "item": "DISJ 3P C 20A 5SL1 320-7MB",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:07:59.850421",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1959,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 593,
+      "codigo": "XB5AS8444",
+      "item": "BOTAO 22MM PLASTICO. EMERGENCIA. COGUMELO 40MM. VERMELHO. 2NF;",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:16:35.151549",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1960,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 596,
+      "codigo": "XB5AW36B5",
+      "item": "BOTAO LUMINOSO 22MM PLASTICO. RETORNO POR MOLA. AZUL. NA+NF. 24VCA/CC;",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:16:48.346758",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1961,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 726,
+      "codigo": "5SL13107MB",
+      "item": "DISJ 3P C 10A 5SL1 310-7MB",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:17:19.083442",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1962,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 591,
+      "codigo": "ZB5AW7A3741",
+      "item": "CABECOTE P/ BOTAO DUPLO LUM 22MM PLAST.. RET. MOLA. VD I. VM O. SINALIZ BR;",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:17:38.147494",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1966,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 871,
+      "codigo": "GA50U4004ABA",
+      "item": "CONVERSOR FREQ TRIF GA500, 400V, 4,1/3,4A, IP20",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:23:13.885534",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 1968,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1122,
+      "codigo": "1045000",
+      "item": "ARMARIO COMPACTO AX 400X500X210MM RAL 7035",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-11T14:29:43.463855",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 111,
+          "freq": 3
+        }
+      ],
+      "choose_os": 111,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2807,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 970,
+      "codigo": "14256843",
+      "item": "DISJUNTOR EM CAIXA MOLDADA DWP400 400A 3 POLOS",
+      "quantidade": 2,
+      "data_movimentacao": "2026-02-18T16:14:49.319413",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 90,
+          "freq": 3
+        }
+      ],
+      "choose_os": 90,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2815,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 115,
+      "codigo": "3032198",
+      "item": "JUMPER P/ CONECTOR ELETRICO - FBS 10-6 BU Pedido de Compra: estoque",
+      "quantidade": 110,
+      "data_movimentacao": "2026-02-18T16:27:23.614058",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 118,
+          "freq": 3
+        }
+      ],
+      "choose_os": 118,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2819,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 179,
+      "codigo": "6SL55101BE125AF0",
+      "item": "S200 380-480V 3AC 2,5KW 7,8A PN",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-18T16:34:34.200707",
+      "motivo": "Adicao pela tela da OS (baixa imediata)",
+      "sugestoes_os": [
+        {
+          "os_id": 119,
+          "freq": 3
+        }
+      ],
+      "choose_os": 119,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2883,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1508,
+      "codigo": "PA000728359",
+      "item": "SEGAU - 00014_TUBO_MENOR_1 - DUAS PARTES | 1006-20 CFQ # 2.00 142.00X1981.20 (L C X )",
+      "quantidade": 8,
+      "data_movimentacao": "2026-02-19T12:23:55.086",
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)",
+      "sugestoes_os": [
+        {
+          "os_id": 105,
+          "freq": 1
+        }
+      ],
+      "choose_os": 105,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2884,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1507,
+      "codigo": "PA000728358",
+      "item": "SEGAU - 00013_FLANGE_TUBO_2 | A36BQ # 8.00 1359.95X1359.95 (L X )",
+      "quantidade": 4,
+      "data_movimentacao": "2026-02-19T12:23:55.086",
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)",
+      "sugestoes_os": [
+        {
+          "os_id": 105,
+          "freq": 1
+        }
+      ],
+      "choose_os": 105,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2885,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1506,
+      "codigo": "PA000728357",
+      "item": "SEGAU - 00012_FLANGE_TUBO_1 | 1006-20 CFF # 1.90 1460.00X1460.00 (L X )",
+      "quantidade": 4,
+      "data_movimentacao": "2026-02-19T12:23:55.086",
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)",
+      "sugestoes_os": [
+        {
+          "os_id": 105,
+          "freq": 1
+        }
+      ],
+      "choose_os": 105,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 2886,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1505,
+      "codigo": "PA000728356",
+      "item": "SEGAU - 00011_TUBO - DUAS PARTES | 1006-20 CFF # 1.90 1233.30X2289.08 (L C X )",
+      "quantidade": 12,
+      "data_movimentacao": "2026-02-19T12:23:55.086",
+      "motivo": "Zera estoque (fornecedor BAUMANN INDUSTRIA E COMERCIO DE ACOS LTDA)",
+      "sugestoes_os": [
+        {
+          "os_id": 105,
+          "freq": 1
+        }
+      ],
+      "choose_os": 105,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 3139,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1595,
+      "codigo": "7.60.50.3000",
+      "item": "LUMINARIA LED 5W 400LM 240VAC-COM SENSOR",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-20T16:32:05.309981",
+      "motivo": "Baixa de estoque pela tela da OS",
+      "sugestoes_os": [
+        {
+          "os_id": 119,
+          "freq": 1
+        }
+      ],
+      "choose_os": 119,
+      "confidence": "item_historico_unico"
+    },
+    {
+      "mov_id": 3240,
+      "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+      "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+      "item_id": 1424,
+      "codigo": "4100.186",
+      "item": "AUTOTRANSFORMADOR TRIFASICO - ATV - 15KVA - E.: 380V - S.: 200/220/480V - 60HZ - IP-23",
+      "quantidade": 1,
+      "data_movimentacao": "2026-02-22T13:32:26.620846",
+      "motivo": "Baixa de estoque pela tela da OS",
+      "sugestoes_os": [
+        {
+          "os_id": 53,
+          "freq": 2
+        }
+      ],
+      "choose_os": 53,
+      "confidence": "item_historico_unico"
+    }
+  ]
+}

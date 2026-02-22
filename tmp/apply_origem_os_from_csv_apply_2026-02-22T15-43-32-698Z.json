@@ -1,0 +1,9 @@
+{
+  "csv": "tmp/pendencias_origem_os_para_aprovacao_prefill_2026-02-22T15-42-06-135Z.csv",
+  "apply": true,
+  "rows_total_csv": 56,
+  "rows_com_os_manual": 10,
+  "reclassificacoes_ok": 10,
+  "reclassificacoes_erro": 0,
+  "errors": []
+}

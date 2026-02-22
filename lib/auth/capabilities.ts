@@ -28,6 +28,10 @@ export const CAPABILITY_KEYS = [
   "cad_clientes.write",
   "cad_fornecedores.write",
   "cad_itens.write",
+  "compras.read",
+  "compras.write",
+  "compras.approve",
+  "compras.receive",
   "admin.manage_users",
   "admin.users.manage",
 ] as const;
