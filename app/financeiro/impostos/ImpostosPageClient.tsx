@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +11,8 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 type TituloSumRow = {
   tipo: string | null;
   valor_total: number | string | null;
+  origem?: string | null;
+  descricao?: string | null;
 };
 
 type TituloSumRowWithCompetencia = TituloSumRow & {
@@ -102,9 +104,22 @@ function n(value: unknown): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+function shouldIncludeTituloInResumo(row: TituloSumRow): boolean {
+  const tipo = String(row.tipo ?? "").trim().toUpperCase();
+  if (tipo !== "AP") return true;
+
+  const origem = String(row.origem ?? "").trim().toUpperCase();
+  const descricao = String(row.descricao ?? "").trim().toUpperCase();
+
+  if (origem === "ARRENDAMENTO" || origem === "APURACAO_IRPJ_CSLL") return false;
+  if (descricao.includes("ARRENDAMENTO") || descricao.includes("LEASING")) return false;
+  return true;
+}
+
 function summarizeTitulos(rows: TituloSumRow[]): TitulosResumo {
   const res: TitulosResumo = { faturamento: 0, custos: 0 };
   for (const r of rows ?? []) {
+    if (!shouldIncludeTituloInResumo(r)) continue;
     const tipo = String(r.tipo ?? "").trim().toUpperCase();
     const v = n(r.valor_total);
     if (tipo === "AR") res.faturamento += v;
@@ -119,6 +134,7 @@ function summarizeTitulosYear(rows: TituloSumRowWithCompetencia[], year: number)
 
   const yearPrefix = `${year}-`;
   for (const r of rows ?? []) {
+    if (!shouldIncludeTituloInResumo(r)) continue;
     const iso = typeof r.competencia_date === "string" ? r.competencia_date.slice(0, 10) : "";
     if (!iso || !iso.startsWith(yearPrefix) || iso.length < 7) continue;
     const month = Number(iso.slice(5, 7));
@@ -381,7 +397,7 @@ export default function ImpostosPageClient() {
     const byState = te.empresa?.nome_fantasia ?? te.empresa?.razao_social ?? null;
     if (byState && String(byState).trim()) return String(byState).trim();
     const found = te.empresas.find((e) => e.id === empresaId) ?? te.empresas[0] ?? null;
-    return String(found?.nome_fantasia ?? found?.razao_social ?? "â€”");
+    return String(found?.nome_fantasia ?? found?.razao_social ?? "—");
   }, [empresaId, te.empresa?.nome_fantasia, te.empresa?.razao_social, te.empresas]);
 
   const now = useMemo(() => new Date(), []);
@@ -477,9 +493,10 @@ export default function ImpostosPageClient() {
             .eq("empresa_id", empresaId)
             .eq("competencia_date", compIni)
             .maybeSingle<IrpjCsllMensalRow>(),
-          applyTenantEmpresa(supabase.schema("f").from("titulo").select("tipo,valor_total"), tenantId, empresaId)
+          applyTenantEmpresa(supabase.schema("f").from("titulo").select("tipo,valor_total,origem,descricao"), tenantId, empresaId)
             .eq("empresa_id", empresaId)
-            .eq("competencia_date", compIni)
+            .gte("competencia_date", compIni)
+            .lt("competencia_date", compFim)
             .is("deleted_at", null)
             .neq("status", "CANCELADO"),
           supabase.schema("f").rpc("fn_imposto_credito_conferencia_range", {
@@ -510,14 +527,14 @@ export default function ImpostosPageClient() {
           setCreditoMesRows([]);
         }
 
-        // Lucro Real (IRPJ/CSLL) Ã© extra: nÃ£o deve quebrar a tela se falhar.
+        // Lucro Real (IRPJ/CSLL) é extra: não deve quebrar a tela se falhar.
         if (!lucroRealRes.error) {
           setLucroRealMes(lucroRealRes.data ?? null);
         } else {
           setLucroRealMes(null);
         }
 
-        // KPIs brutos: tÃ­tulos AP/AR por competÃªncia (nÃ£o dependem de pagamento/caixa).
+        // KPIs brutos: títulos AP/AR por competência (não dependem de pagamento/caixa).
         if (!titulosRes.error) {
           setTitulosMesResumo(summarizeTitulos((titulosRes.data ?? []) as unknown as TituloSumRow[]));
         } else {
@@ -529,7 +546,7 @@ export default function ImpostosPageClient() {
         setCreditoMesRows([]);
         setLucroRealMes(null);
         setTitulosMesResumo(summarizeTitulos([]));
-        setErrorMes(e instanceof Error ? e.message : "Erro ao carregar apuraÃ§Ã£o do mÃªs.");
+        setErrorMes(e instanceof Error ? e.message : "Erro ao carregar apuração do mês.");
       } finally {
         if (!cancelled) setLoadingMes(false);
       }
@@ -569,7 +586,11 @@ export default function ImpostosPageClient() {
             .eq("empresa_id", empresaId)
             .eq("competencia_ano", competenciaAno)
             .maybeSingle<IrpjCsllAnualRow>(),
-          applyTenantEmpresa(supabase.schema("f").from("titulo").select("tipo,valor_total,competencia_date"), tenantId, empresaId)
+          applyTenantEmpresa(
+            supabase.schema("f").from("titulo").select("tipo,valor_total,origem,descricao,competencia_date"),
+            tenantId,
+            empresaId
+          )
             .eq("empresa_id", empresaId)
             .gte("competencia_date", anoIni)
             .lt("competencia_date", anoFim)
@@ -603,14 +624,14 @@ export default function ImpostosPageClient() {
           setCreditoAnoRows([]);
         }
 
-        // Lucro Real (IRPJ/CSLL) anual Ã© extra: nÃ£o deve quebrar a tela se falhar.
+        // Lucro Real (IRPJ/CSLL) anual é extra: não deve quebrar a tela se falhar.
         if (!lucroRealRes.error) {
           setLucroRealAno(lucroRealRes.data ?? null);
         } else {
           setLucroRealAno(null);
         }
 
-        // KPIs brutos: tÃ­tulos AP/AR por competÃªncia (nÃ£o dependem de pagamento/caixa).
+        // KPIs brutos: títulos AP/AR por competência (não dependem de pagamento/caixa).
         if (!titulosRes.error) {
           setTitulosAnoResumo(summarizeTitulosYear((titulosRes.data ?? []) as unknown as TituloSumRowWithCompetencia[], ano));
         } else {
@@ -622,7 +643,7 @@ export default function ImpostosPageClient() {
         setCreditoAnoRows([]);
         setLucroRealAno(null);
         setTitulosAnoResumo(summarizeTitulos([]));
-        setErrorAno(e instanceof Error ? e.message : "Erro ao carregar apuraÃ§Ã£o do ano.");
+        setErrorAno(e instanceof Error ? e.message : "Erro ao carregar apuração do ano.");
       } finally {
         if (!cancelled) setLoadingAno(false);
       }
@@ -644,7 +665,7 @@ export default function ImpostosPageClient() {
   const mesTableRowsFiltered = useMemo(() => aggregateForTable(mesRowsForTable), [mesRowsForTable]);
 
   // Totais atuais (impostos indiretos) devem ser calculados SOMENTE pelos dados do RPC (sem Lucro Real)
-  // e nÃ£o devem mudar quando o usuÃ¡rio filtra por Natureza.
+  // e não devem mudar quando o usuário filtra por Natureza.
   const mesTotals = useMemo(
     () =>
       sumByNatureza(
@@ -666,7 +687,7 @@ export default function ImpostosPageClient() {
 
   const lucroRealMesAgg = useMemo((): ApuracaoAggRow[] => {
     const showByNatureza = natureza === "" || natureza === "DEBITO";
-    // OperaÃ§Ã£o nÃ£o se aplica ao Lucro Real (IRPJ/CSLL): ignore o filtro.
+    // Operação não se aplica ao Lucro Real (IRPJ/CSLL): ignore o filtro.
     if (!showByNatureza) return [];
 
     const lr = lucroRealMes;
@@ -714,7 +735,8 @@ export default function ImpostosPageClient() {
   const anoByCompetencia = useMemo(() => {
     const by = new Map<string, ApuracaoAggRow[]>();
     for (const r of anoRows) {
-      const key = String(r.competencia_date ?? "").slice(0, 10);
+      const raw = String(r.competencia_date ?? "").slice(0, 10);
+      const key = raw.length >= 7 ? `${raw.slice(0, 7)}-01` : "";
       if (!key) continue;
       const arr = by.get(key) ?? [];
       arr.push({
@@ -832,7 +854,7 @@ export default function ImpostosPageClient() {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">Impostos</h1>
-          <p className="text-sm text-zinc-400 mt-1">ApuraÃ§Ã£o mensal e visÃ£o anual.</p>
+          <p className="text-sm text-zinc-400 mt-1">Apuração mensal e visão anual.</p>
           <p className="text-xs text-zinc-500 mt-1">Empresa: {empresaNome}</p>
         </div>
       </div>
@@ -860,7 +882,7 @@ export default function ImpostosPageClient() {
 
           <div>
             <label className="text-xs text-zinc-400" htmlFor="imp-mes">
-              MÃªs
+              Mês
             </label>
             <select
               id="imp-mes"
@@ -879,7 +901,7 @@ export default function ImpostosPageClient() {
 
           <div>
             <label className="text-xs text-zinc-400" htmlFor="imp-op">
-              OperaÃ§Ã£o
+              Operação
             </label>
             <select
               id="imp-op"
@@ -890,7 +912,7 @@ export default function ImpostosPageClient() {
             >
               <option value="">Todos</option>
               <option value="ENTRADA">ENTRADA</option>
-              <option value="SAIDA">SAÃDA</option>
+              <option value="SAIDA">SAÍDA</option>
             </select>
           </div>
 
@@ -906,16 +928,16 @@ export default function ImpostosPageClient() {
               disabled={!ready}
             >
               <option value="">Todos</option>
-              <option value="DEBITO">DÃ‰BITO</option>
-              <option value="CREDITO">CRÃ‰DITO</option>
-              <option value="RETENCAO">RETENÃ‡ÃƒO</option>
+              <option value="DEBITO">DÉBITO</option>
+              <option value="CREDITO">CRÉDITO</option>
+              <option value="RETENCAO">RETENÇÃO</option>
             </select>
           </div>
 
           <div className="text-xs text-zinc-500">
-            <div>CompetÃªncia (mÃªs): {formatDateBR(compIni)}</div>
+            <div>Competência (mês): {formatDateBR(compIni)}</div>
             <div className="mt-1">
-              {tab === "mes" ? (loadingMes ? "Carregando mÃªs..." : errorMes ? "Erro no mÃªs" : "OK") : null}
+              {tab === "mes" ? (loadingMes ? "Carregando mês..." : errorMes ? "Erro no mês" : "OK") : null}
               {tab === "ano" ? (loadingAno ? "Carregando ano..." : errorAno ? "Erro no ano" : "OK") : null}
             </div>
 
@@ -924,7 +946,7 @@ export default function ImpostosPageClient() {
               onClick={() => forceRefresh({ reason: "manual" })}
               disabled={!ready || (tab === "mes" ? loadingMes : loadingAno)}
               className="mt-2 inline-flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
-              title="Recarrega a apuraÃ§Ã£o do perÃ­odo (Ãºtil apÃ³s lanÃ§ar notas retroativas)."
+              title="Recarrega a apuração do período (útil após lançar notas retroativas)."
             >
               Atualizar
             </button>
@@ -932,11 +954,11 @@ export default function ImpostosPageClient() {
         </div>
 
         <div className="mt-3 text-xs text-zinc-500">
-          <span className="text-zinc-400">PermissÃ£o:</span> impostos.view (preferencial) ou financeiro.read/write.
-          {/* TODO: quando existir regra/role para "impostos.view", tornar obrigatÃ³rio e remover fallback. */}
+          <span className="text-zinc-400">Permissão:</span> impostos.view (preferencial) ou financeiro.read/write.
+          {/* TODO: quando existir regra/role para "impostos.view", tornar obrigatório e remover fallback. */}
           <div className="mt-1">
-            Dica: se lanÃ§ou nota retroativa (ex.: Janeiro) e nÃ£o refletiu, clique em <span className="text-zinc-300">Atualizar</span>.
-            Se ainda faltar, verifique se a nota ficou com <span className="text-zinc-300">competÃªncia</span> do mÃªs correto.
+            Dica: se lançou nota retroativa (ex.: Janeiro) e não refletiu, clique em <span className="text-zinc-300">Atualizar</span>.
+            Se ainda faltar, verifique se a nota ficou com <span className="text-zinc-300">competência</span> do mês correto.
           </div>
         </div>
       </div>
@@ -949,7 +971,7 @@ export default function ImpostosPageClient() {
             tab === "mes" ? "bg-zinc-900 border-zinc-700 text-zinc-100" : "bg-zinc-950 border-zinc-800 text-zinc-300 hover:bg-zinc-900"
           }`}
         >
-          MÃªs
+          Mês
         </button>
         <button
           type="button"
@@ -968,12 +990,12 @@ export default function ImpostosPageClient() {
             {natureza === "" || natureza === "DEBITO" ? (
               <div className="flex flex-col gap-2">
                 <KpiCard
-                  title="IRPJ DÃ©bitos"
+                  title="IRPJ Débitos"
                   value={formatMoneyBR(n(lucroRealMes?.irpj_total))}
                   valueClassName="text-rose-300"
                 />
                 <KpiCard
-                  title="CSLL DÃ©bitos"
+                  title="CSLL Débitos"
                   value={formatMoneyBR(n(lucroRealMes?.csll_total))}
                   valueClassName="text-rose-300"
                 />
@@ -982,37 +1004,37 @@ export default function ImpostosPageClient() {
             {mesImpostoKpis.length ? (
               mesImpostoKpis.map((it) => (
                 <div key={it.imposto} className="flex flex-col gap-2">
-                  <KpiCard title={`${it.imposto} DÃ©bitos`} value={formatMoneyBR(it.debitos)} valueClassName="text-rose-300" />
-                  <KpiCard title={`${it.imposto} CrÃ©ditos`} value={formatMoneyBR(it.creditos)} valueClassName="text-emerald-300" />
+                  <KpiCard title={`${it.imposto} Débitos`} value={formatMoneyBR(it.debitos)} valueClassName="text-rose-300" />
+                  <KpiCard title={`${it.imposto} Créditos`} value={formatMoneyBR(it.creditos)} valueClassName="text-emerald-300" />
                 </div>
               ))
             ) : (
               <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
-                {loadingMes ? "Carregando KPIs..." : "Sem KPIs para o perÃ­odo/filtros."}
+                {loadingMes ? "Carregando KPIs..." : "Sem KPIs para o período/filtros."}
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <StatCard
-              title="Total DÃ©bitos"
+              title="Total Débitos"
               value={formatMoneyBR(mesTotals.debitos)}
               valueClassName="text-rose-300"
             />
             <StatCard
-              title="Total CrÃ©ditos"
+              title="Total Créditos"
               value={formatMoneyBR(mesTotals.creditos)}
               valueClassName="text-emerald-300"
             />
             <StatCard
-              title="Total RetenÃ§Ãµes"
+              title="Total Retenções"
               value={formatMoneyBR(mesTotals.retencoes)}
               valueClassName="text-rose-300"
             />
             <StatCard
-              title="Resultado do mÃªs"
+              title="Resultado do mês"
               value={formatMoneyBR(mesTotals.resultado)}
-              subtitle="DÃ©bitos - CrÃ©ditos - RetenÃ§Ãµes"
+              subtitle="Débitos - Créditos - Retenções"
               valueClassName={amountColorClass(mesTotals.resultado)}
             />
             <StatCard
@@ -1022,22 +1044,22 @@ export default function ImpostosPageClient() {
               valueClassName={amountColorClass(lucroRealMesResultado)}
             />
             <StatCard
-              title="Faturamento no mÃªs"
+              title="Faturamento no mês"
               value={formatMoneyBR(titulosMesResumo.faturamento)}
-              subtitle="TÃ­tulos AR (valor_total) por competÃªncia"
+              subtitle="Títulos AR (valor_total) por competência"
               valueClassName="text-emerald-300"
             />
             <StatCard
-              title="Custos do mÃªs"
+              title="Custos do mês"
               value={formatMoneyBR(titulosMesResumo.custos)}
-              subtitle="TÃ­tulos AP (valor_total) por competÃªncia"
+              subtitle="Títulos AP operacionais por competência (sem leasing/apuração IRPJ-CSLL)"
               valueClassName="text-rose-300"
             />
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="text-sm font-medium text-zinc-100">Conferencia de creditos (Fase 1)</div>
-            <div className="mt-1 text-xs text-zinc-500">Provisionado (elegivel), efetivo e pendente de revisao fiscal.</div>
+            <div className="text-sm font-medium text-zinc-100">Conferência de créditos (Fase 1)</div>
+            <div className="mt-1 text-xs text-zinc-500">Provisionado (elegivel), efetivo e pendente de revisão fiscal.</div>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-zinc-400">
@@ -1045,8 +1067,8 @@ export default function ImpostosPageClient() {
                     <th className="text-left py-2 pr-3 font-medium">Imposto</th>
                     <th className="text-right py-2 pr-3 font-medium">Provisionado</th>
                     <th className="text-right py-2 pr-3 font-medium">Efetivo</th>
-                    <th className="text-right py-2 pr-3 font-medium">Pendente revisao</th>
-                    <th className="text-right py-2 pr-3 font-medium">Nao creditavel</th>
+                    <th className="text-right py-2 pr-3 font-medium">Pendente revisão</th>
+                    <th className="text-right py-2 pr-3 font-medium">Não creditavel</th>
                     <th className="text-right py-2 pr-3 font-medium">Itens pendentes</th>
                     <th className="text-right py-2 font-medium">NFs</th>
                   </tr>
@@ -1078,8 +1100,8 @@ export default function ImpostosPageClient() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-end justify-between gap-3 flex-wrap">
               <div>
-                <div className="text-sm font-medium text-zinc-100">ApuraÃ§Ã£o por imposto</div>
-                <div className="text-xs text-zinc-500 mt-1">Agrupado por imposto + natureza (competÃªncia {formatDateBR(compIni)}).</div>
+                <div className="text-sm font-medium text-zinc-100">Apuração por imposto</div>
+                <div className="text-xs text-zinc-500 mt-1">Agrupado por imposto + natureza (competência {formatDateBR(compIni)}).</div>
               </div>
             </div>
 
@@ -1095,7 +1117,7 @@ export default function ImpostosPageClient() {
                     <th className="text-right py-2 pr-3 font-medium">Valor</th>
                     <th className="text-right py-2 pr-3 font-medium">Ajuste</th>
                     <th className="text-right py-2 pr-3 font-medium">Qtd</th>
-                    <th className="text-right py-2 font-medium">AÃ§Ãµes</th>
+                    <th className="text-right py-2 font-medium">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="text-zinc-100">
@@ -1116,7 +1138,7 @@ export default function ImpostosPageClient() {
                         <td className="py-2 pr-3 text-right tabular-nums">{r.qtd_documentos}</td>
                         <td className="py-2 text-right">
                           {r.origem === "LUCRO_REAL" ? (
-                            <span className="text-zinc-500 text-xs">â€”</span>
+                            <span className="text-zinc-500 text-xs">—</span>
                           ) : (
                             <button
                               type="button"
@@ -1132,7 +1154,7 @@ export default function ImpostosPageClient() {
                   ) : (
                     <tr>
                       <td className="py-3 text-zinc-400" colSpan={7}>
-                        Nenhum dado para o perÃ­odo/filtros.
+                        Nenhum dado para o período/filtros.
                       </td>
                     </tr>
                   )}
@@ -1147,8 +1169,8 @@ export default function ImpostosPageClient() {
             {anoImpostoKpis.length ? (
               anoImpostoKpis.map((it) => (
                 <div key={it.imposto} className="flex flex-col gap-2">
-                  <KpiCard title={`${it.imposto} DÃ©bitos (ano)`} value={formatMoneyBR(it.debitos)} valueClassName="text-rose-300" />
-                  <KpiCard title={`${it.imposto} CrÃ©ditos (ano)`} value={formatMoneyBR(it.creditos)} valueClassName="text-emerald-300" />
+                  <KpiCard title={`${it.imposto} Débitos (ano)`} value={formatMoneyBR(it.debitos)} valueClassName="text-rose-300" />
+                  <KpiCard title={`${it.imposto} Créditos (ano)`} value={formatMoneyBR(it.creditos)} valueClassName="text-emerald-300" />
                 </div>
               ))
             ) : (
@@ -1159,25 +1181,25 @@ export default function ImpostosPageClient() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-            <StatCard title="Total DÃ©bitos (ano)" value={formatMoneyBR(anoTotals.debitos)} valueClassName="text-rose-300" />
-            <StatCard title="Total CrÃ©ditos (ano)" value={formatMoneyBR(anoTotals.creditos)} valueClassName="text-emerald-300" />
-            <StatCard title="Total RetenÃ§Ãµes (ano)" value={formatMoneyBR(anoTotals.retencoes)} valueClassName="text-rose-300" />
+            <StatCard title="Total Débitos (ano)" value={formatMoneyBR(anoTotals.debitos)} valueClassName="text-rose-300" />
+            <StatCard title="Total Créditos (ano)" value={formatMoneyBR(anoTotals.creditos)} valueClassName="text-emerald-300" />
+            <StatCard title="Total Retenções (ano)" value={formatMoneyBR(anoTotals.retencoes)} valueClassName="text-rose-300" />
             <StatCard
               title="Resultado (ano)"
               value={formatMoneyBR(anoTotals.resultado)}
-              subtitle="DÃ©bitos - CrÃ©ditos - RetenÃ§Ãµes"
+              subtitle="Débitos - Créditos - Retenções"
               valueClassName={amountColorClass(anoTotals.resultado)}
             />
             <StatCard
               title="Faturamento no ano"
               value={formatMoneyBR(titulosAnoResumo.faturamento)}
-              subtitle="Soma Janâ€“Dez (tÃ­tulos AR por competÃªncia)"
+              subtitle="Soma Jan-Dez (títulos AR por competência)"
               valueClassName="text-emerald-300"
             />
             <StatCard
               title="Custos do ano"
               value={formatMoneyBR(titulosAnoResumo.custos)}
-              subtitle="Soma Janâ€“Dez (tÃ­tulos AP por competÃªncia)"
+              subtitle="Soma Jan-Dez (títulos AP operacionais por competência)"
               valueClassName="text-rose-300"
             />
           </div>
@@ -1188,8 +1210,8 @@ export default function ImpostosPageClient() {
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-            <div className="text-sm font-medium text-zinc-100">Conferencia de creditos (Fase 1)</div>
-            <div className="mt-1 text-xs text-zinc-500">Acumulado anual de provisionado, efetivo e pendencias de revisao.</div>
+            <div className="text-sm font-medium text-zinc-100">Conferência de créditos (Fase 1)</div>
+            <div className="mt-1 text-xs text-zinc-500">Acumulado anual de provisionado, efetivo e pendências de revisão.</div>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-zinc-400">
@@ -1197,8 +1219,8 @@ export default function ImpostosPageClient() {
                     <th className="text-left py-2 pr-3 font-medium">Imposto</th>
                     <th className="text-right py-2 pr-3 font-medium">Provisionado</th>
                     <th className="text-right py-2 pr-3 font-medium">Efetivo</th>
-                    <th className="text-right py-2 pr-3 font-medium">Pendente revisao</th>
-                    <th className="text-right py-2 pr-3 font-medium">Nao creditavel</th>
+                    <th className="text-right py-2 pr-3 font-medium">Pendente revisão</th>
+                    <th className="text-right py-2 pr-3 font-medium">Não creditavel</th>
                     <th className="text-right py-2 pr-3 font-medium">Itens pendentes</th>
                     <th className="text-right py-2 font-medium">NFs</th>
                   </tr>
@@ -1230,8 +1252,8 @@ export default function ImpostosPageClient() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-end justify-between gap-3 flex-wrap">
               <div>
-                <div className="text-sm font-medium text-zinc-100">VisÃ£o anual</div>
-                <div className="text-xs text-zinc-500 mt-1">Clique em um mÃªs para abrir a aba â€œMÃªsâ€.</div>
+                <div className="text-sm font-medium text-zinc-100">Visão anual</div>
+                <div className="text-xs text-zinc-500 mt-1">Clique em um mês para abrir a aba &quot;Mês&quot;.</div>
               </div>
             </div>
 
@@ -1241,10 +1263,10 @@ export default function ImpostosPageClient() {
               <table className="w-full text-sm">
                 <thead className="text-zinc-400">
                   <tr className="border-b border-zinc-800">
-                    <th className="text-left py-2 pr-3 font-medium">MÃªs</th>
-                    <th className="text-right py-2 pr-3 font-medium">DÃ©bitos</th>
-                    <th className="text-right py-2 pr-3 font-medium">CrÃ©ditos</th>
-                    <th className="text-right py-2 pr-3 font-medium">RetenÃ§Ãµes</th>
+                    <th className="text-left py-2 pr-3 font-medium">Mês</th>
+                    <th className="text-right py-2 pr-3 font-medium">Débitos</th>
+                    <th className="text-right py-2 pr-3 font-medium">Créditos</th>
+                    <th className="text-right py-2 pr-3 font-medium">Retenções</th>
                     <th className="text-right py-2 pr-3 font-medium">Resultado</th>
                     <th className="text-right py-2 font-medium">Qtd</th>
                   </tr>
@@ -1292,10 +1314,10 @@ export default function ImpostosPageClient() {
             <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
               <div>
                 <div className="text-sm font-medium text-zinc-100">
-                  Documentos â€” {docsKey?.imposto} / {docsKey?.natureza}
+                  Documentos - {docsKey?.imposto} / {docsKey?.natureza}
                 </div>
                 <div className="text-xs text-zinc-500">
-                  CompetÃªncia: {formatDateBR(compIni)} {operacao ? `â€¢ OperaÃ§Ã£o: ${operacao}` : ""}
+                  Competência: {formatDateBR(compIni)} {operacao ? `• Operação: ${operacao}` : ""}
                 </div>
               </div>
               <button type="button" onClick={closeDocs} className="text-sm text-zinc-300 hover:text-zinc-100">
@@ -1310,9 +1332,9 @@ export default function ImpostosPageClient() {
                 <table className="w-full text-sm">
                   <thead className="text-zinc-400">
                     <tr className="border-b border-zinc-800">
-                      <th className="text-left py-2 pr-3 font-medium">EmissÃ£o</th>
+                      <th className="text-left py-2 pr-3 font-medium">Emissão</th>
                       <th className="text-left py-2 pr-3 font-medium">Documento</th>
-                      <th className="text-left py-2 pr-3 font-medium">OperaÃ§Ã£o</th>
+                      <th className="text-left py-2 pr-3 font-medium">Operação</th>
                       <th className="text-right py-2 pr-3 font-medium">Valor doc</th>
                       <th className="text-right py-2 font-medium">Valor imposto</th>
                     </tr>

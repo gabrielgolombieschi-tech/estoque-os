@@ -1,69 +1,34 @@
 drop trigger if exists "trg_nf_entrada_itens__classificar_credito_fiscal" on "public"."nf_entrada_itens";
-
 drop policy "credito_fiscal_politica_all" on "f"."credito_fiscal_politica";
-
 revoke delete on table "f"."credito_fiscal_politica" from "authenticated";
-
 revoke insert on table "f"."credito_fiscal_politica" from "authenticated";
-
 revoke select on table "f"."credito_fiscal_politica" from "authenticated";
-
 revoke update on table "f"."credito_fiscal_politica" from "authenticated";
-
 revoke select on table "f"."credito_fiscal_politica" from "service_role";
-
 alter table "f"."credito_fiscal_politica" drop constraint "credito_fiscal_politica_cfop_like_ck";
-
 alter table "f"."credito_fiscal_politica" drop constraint "credito_fiscal_politica_cst_like_ck";
-
 alter table "f"."credito_fiscal_politica" drop constraint "credito_fiscal_politica_imposto_ck";
-
 alter table "f"."credito_fiscal_politica" drop constraint "credito_fiscal_politica_modo_ck";
-
 alter table "f"."credito_fiscal_politica" drop constraint "credito_fiscal_politica_prioridade_ck";
-
 alter table "public"."nf_entrada_itens" drop constraint "nf_entrada_itens_cofins_credito_modo_ck";
-
 alter table "public"."nf_entrada_itens" drop constraint "nf_entrada_itens_icms_credito_modo_ck";
-
 alter table "public"."nf_entrada_itens" drop constraint "nf_entrada_itens_pis_credito_modo_ck";
-
 drop function if exists "f"."fn_imposto_credito_conferencia_range"(p_tenant_id uuid, p_empresa_id uuid, p_comp_ini date, p_comp_fim date);
-
 drop function if exists "f"."fn_pick_credito_fiscal_politica"(p_tenant_id uuid, p_empresa_id uuid, p_imposto text, p_finalidade public.item_finalidade, p_motivo_compra_id uuid, p_cfop text, p_cst text, p_credit_flag boolean, p_valor numeric);
-
 drop function if exists "f"."list_credito_fiscal_politica"(p_tenant_id uuid, p_empresa_id uuid, p_imposto text);
-
 drop function if exists "f"."upsert_credito_fiscal_politica"(p_id uuid, p_tenant_id uuid, p_empresa_id uuid, p_imposto text, p_modo text, p_prioridade integer, p_ativo boolean, p_finalidade public.item_finalidade, p_motivo_compra_id uuid, p_cfop_like text, p_cst_like text, p_requer_credit_flag boolean, p_observacao text);
-
 drop function if exists "public"."fn_classificar_credito_fiscal_nf_entrada"(p_nf_entrada_id bigint, p_fonte text);
-
 drop function if exists "public"."trg_nf_entrada_itens__classificar_credito_fiscal"();
-
 alter table "f"."credito_fiscal_politica" drop constraint "credito_fiscal_politica_pkey";
-
 drop index if exists "f"."credito_fiscal_politica_pkey";
-
 drop index if exists "f"."idx_credito_fiscal_politica_motivo";
-
 drop index if exists "f"."idx_credito_fiscal_politica_tenant_empresa";
-
 drop table "f"."credito_fiscal_politica";
-
 alter table "public"."nf_entrada_itens" drop column "cofins_credito_modo";
-
 alter table "public"."nf_entrada_itens" drop column "cofins_credito_valor_elegivel";
-
 alter table "public"."nf_entrada_itens" drop column "credito_classificacao_fonte";
-
 alter table "public"."nf_entrada_itens" drop column "credito_classificado_em";
-
 alter table "public"."nf_entrada_itens" drop column "icms_credito_modo";
-
 alter table "public"."nf_entrada_itens" drop column "icms_credito_valor_elegivel";
-
 alter table "public"."nf_entrada_itens" drop column "pis_credito_modo";
-
 alter table "public"."nf_entrada_itens" drop column "pis_credito_valor_elegivel";
-
-

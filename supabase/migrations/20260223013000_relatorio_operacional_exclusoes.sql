@@ -9,34 +9,28 @@ create table if not exists public.relatorio_operacional_exclusoes (
   created_by text null,
   constraint relatorio_operacional_exclusoes_pkey primary key (tenant_id, empresa_id, item_id)
 );
-
 alter table public.relatorio_operacional_exclusoes enable row level security;
-
 drop policy if exists relatorio_operacional_exclusoes_select on public.relatorio_operacional_exclusoes;
 create policy relatorio_operacional_exclusoes_select
 on public.relatorio_operacional_exclusoes
 for select
 using (empresa_id is not null and public.can__legacy_40734('estoque','read'));
-
 drop policy if exists relatorio_operacional_exclusoes_insert on public.relatorio_operacional_exclusoes;
 create policy relatorio_operacional_exclusoes_insert
 on public.relatorio_operacional_exclusoes
 for insert
 with check (empresa_id is not null and public.can__legacy_40734('estoque','write'));
-
 drop policy if exists relatorio_operacional_exclusoes_update on public.relatorio_operacional_exclusoes;
 create policy relatorio_operacional_exclusoes_update
 on public.relatorio_operacional_exclusoes
 for update
 using (empresa_id is not null and public.can__legacy_40734('estoque','write'))
 with check (empresa_id is not null and public.can__legacy_40734('estoque','write'));
-
 drop policy if exists relatorio_operacional_exclusoes_delete on public.relatorio_operacional_exclusoes;
 create policy relatorio_operacional_exclusoes_delete
 on public.relatorio_operacional_exclusoes
 for delete
 using (empresa_id is not null and public.can__legacy_40734('estoque','write'));
-
 drop function if exists public.rel_entradas_periodo_consolidado(
   uuid,
   uuid,
@@ -48,7 +42,6 @@ drop function if exists public.rel_entradas_periodo_consolidado(
   boolean,
   boolean
 );
-
 create or replace function public.rel_entradas_periodo_consolidado(
   p_tenant_id uuid,
   p_empresa_id uuid,

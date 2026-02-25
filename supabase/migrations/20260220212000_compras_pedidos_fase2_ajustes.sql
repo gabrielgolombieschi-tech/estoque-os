@@ -86,7 +86,6 @@ begin
   return new;
 end;
 $$;
-
 drop view if exists r.r_compra_pendencias_agrupadas_item;
 create or replace view r.r_compra_pendencias_agrupadas_item as
 with pend as (
@@ -143,9 +142,7 @@ left join public.itens i on i.tenant_id=p.tenant_id and i.empresa_id=p.empresa_i
 left join public.estoque e on e.tenant_id=p.tenant_id and e.empresa_id=p.empresa_id and e.item_id=p.item_id
 left join em_compra ec on ec.tenant_id=p.tenant_id and ec.empresa_id=p.empresa_id and ec.item_id=p.item_id
 group by p.tenant_id,p.empresa_id,p.fornecedor_id,coalesce(f.nome,'SEM FORNECEDOR'),p.item_id,i.codigo_interno,p.item_nome,p.unidade,e.quantidade_atual,ec.qtd_em_compra_aberto,i.estoque_minimo,i.estoque_ideal,i.estoque_maximo;
-
 grant select on r.r_compra_pendencias_agrupadas_item to authenticated, service_role;
-
 create or replace function public.get_full_permissions(p_tenant_id uuid, p_empresa_id uuid)
 returns jsonb
 language plpgsql
@@ -294,5 +291,4 @@ begin
   return coalesce(result_perms, '{}'::jsonb);
 end;
 $$;
-
 grant execute on function public.get_full_permissions(uuid, uuid) to anon, authenticated, service_role;

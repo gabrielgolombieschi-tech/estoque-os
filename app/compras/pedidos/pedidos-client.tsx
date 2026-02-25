@@ -11,6 +11,12 @@ type FornPend = {
   qtd_total_pendente: number;
 };
 
+type FornecedorBase = {
+  id: number;
+  nome: string | null;
+  ativo: boolean | null;
+};
+
 type PendDet = {
   pendencia_id: string;
   item_id?: number | null;
@@ -129,10 +135,14 @@ export default function ComprasPedidosClient() {
   const tenantId = te.tenantId ?? "";
   const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
 
-  const [tab, setTab] = useState<"comprar" | "pedidos">("comprar");
+  const [tab, setTab] = useState<"comprar" | "pedidos" | "avulso">("comprar");
   const [modo, setModo] = useState<"DETALHADO" | "AGRUPADO">("AGRUPADO");
   const [fornecedores, setFornecedores] = useState<FornPend[]>([]);
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
+  const [avulsoFornecedores, setAvulsoFornecedores] = useState<FornecedorBase[]>([]);
+  const [avulsoFornecedorId, setAvulsoFornecedorId] = useState<number | null>(null);
+  const [avulsoOsReferencia, setAvulsoOsReferencia] = useState("");
+  const [avulsoObservacoes, setAvulsoObservacoes] = useState("");
   const [detRows, setDetRows] = useState<PendDet[]>([]);
   const [detQtdDraftById, setDetQtdDraftById] = useState<Record<string, string>>({});
   const [detQtdConfirmById, setDetQtdConfirmById] = useState<Record<string, number>>({});
@@ -172,7 +182,7 @@ export default function ComprasPedidosClient() {
   const empresaRole = useMemo(() => String(effectiveEmpresa?.papel ?? "").trim().toUpperCase(), [effectiveEmpresa?.papel]);
 
   const canReadByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
-  const canWriteByRole = ["ADMIN", "COORDENACAO", "COMPRAS"].includes(empresaRole);
+  const canWriteByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
 
   const canRead =
     te.has("compras.read") || te.has("compras.write") || te.has("compras.approve") || te.has("compras.receive") || canReadByRole;
@@ -247,6 +257,14 @@ export default function ComprasPedidosClient() {
     if (rows.length && fornecedorId == null) setFornecedorId(rows[0].fornecedor_id);
   }, [canRead, ctxQuery, empresaId, fornecedorId, tenantId]);
 
+  const loadFornecedoresAvulso = useCallback(async () => {
+    if (!tenantId || !empresaId || !canRead) return;
+    const json = await authedFetch(`/api/compras/fornecedores?${ctxQuery}`);
+    const rows = ((json.data as FornecedorBase[]) ?? []).filter((f) => Number.isFinite(Number(f.id)));
+    setAvulsoFornecedores(rows);
+    if (avulsoFornecedorId == null && rows.length > 0) setAvulsoFornecedorId(Number(rows[0].id));
+  }, [avulsoFornecedorId, canRead, ctxQuery, empresaId, tenantId]);
+
   const loadPendencias = useCallback(async () => {
     if (!tenantId || !empresaId || !canRead || fornecedorId == null) return;
     const base = `/api/compras/pendencias?${ctxQuery}&modo=${modo}&fornecedorId=${fornecedorId}`;
@@ -316,6 +334,10 @@ export default function ComprasPedidosClient() {
   useEffect(() => {
     void loadFornecedores();
   }, [loadFornecedores]);
+
+  useEffect(() => {
+    void loadFornecedoresAvulso();
+  }, [loadFornecedoresAvulso]);
 
   useEffect(() => {
     if (tab === "comprar") void loadPendencias();
@@ -427,7 +449,6 @@ export default function ComprasPedidosClient() {
     const valorUnit = parseMoneyInput(detNewRow.valor_unitario);
 
     if (!itemNome) return setErr("Informe a descricao do item livre.");
-    if (!osNumero) return setErr("Informe a OS para vincular o item livre.");
     if (qtd == null || qtd <= 0) return setErr("Quantidade invalida.");
     if (valorUnit == null || valorUnit < 0) return setErr("Valor unitario invalido.");
 
@@ -441,14 +462,16 @@ export default function ComprasPedidosClient() {
           tenant_id: tenantId,
           empresa_id: empresaId,
           fornecedor_id: fornecedorId,
-          origem_tipo: "OS",
-          origem_os_numero: osNumero,
+          origem_tipo: osNumero ? "OS" : "OUTROS",
+          origem_os_numero: osNumero || null,
           item_id: null,
           item_nome: itemNome,
           unidade,
           quantidade: qtd,
           prioridade: "MEDIA",
-          observacoes: "ITEM LIVRE (CODIGO GENERICO 9999)",
+          observacoes: osNumero
+            ? "ITEM LIVRE (CODIGO GENERICO 9999) | VINCULADO A OS"
+            : "ITEM LIVRE (CODIGO GENERICO 9999) | SEM VINCULO DE OS",
         }),
       });
 
@@ -462,8 +485,8 @@ export default function ComprasPedidosClient() {
         item_nome: itemNome.toUpperCase(),
         unidade,
         quantidade: qtd,
-        origem_tipo: "OS",
-        numero_os: osNumero,
+        origem_tipo: osNumero ? "OS" : "OUTROS",
+        numero_os: osNumero || null,
         os_num: null,
         status: "PENDENTE",
       };
@@ -475,7 +498,7 @@ export default function ComprasPedidosClient() {
       setDetVlrDraftById((prev) => ({ ...prev, [createdId]: valorUnit.toFixed(2) }));
       setDetVlrConfirmById((prev) => ({ ...prev, [createdId]: valorUnit }));
       setDetNewRow(null);
-      setOk(`Item livre incluido e vinculado a OS ${osNumero}.`);
+      setOk(osNumero ? `Item livre incluido e vinculado a OS ${osNumero}.` : "Item livre incluido sem vinculo de OS.");
       await loadFornecedores();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Erro ao incluir item livre.");
@@ -757,6 +780,55 @@ export default function ComprasPedidosClient() {
     [ctxQuery, loadPedidoItens, loadPedidos, manualPedidoId]
   );
 
+  const criarPedidoAvulso = useCallback(async () => {
+    if (!canWrite) return;
+    if (!avulsoFornecedorId || !Number.isFinite(avulsoFornecedorId)) {
+      setErr("Selecione um fornecedor para criar a compra avulsa.");
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      const json = await authedFetch("/api/compras/pedidos/criar", {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          fornecedorId: avulsoFornecedorId,
+          osReferencia: avulsoOsReferencia.trim() || null,
+          observacoes: avulsoObservacoes.trim() || null,
+        }),
+      });
+
+      const pedidoId = String(json.pedido_id ?? "");
+      if (!pedidoId) throw new Error("Nao foi possivel criar o pedido avulso.");
+
+      setManualPedidoId(pedidoId);
+      setManualNome("");
+      setManualUnidade("UN");
+      setManualQtd("1");
+      setManualValor("0");
+
+      await loadPedidos();
+      setTab("pedidos");
+      setOk("Pedido avulso criado. Agora adicione os itens livremente na aba Pedidos.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Erro ao criar pedido avulso.");
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    avulsoFornecedorId,
+    avulsoObservacoes,
+    avulsoOsReferencia,
+    canWrite,
+    empresaId,
+    loadPedidos,
+    tenantId,
+  ]);
+
   if (!tenantId || !empresaId) return <div className="text-zinc-400">Carregando contexto...</div>;
   if (!canRead) return <div className="text-zinc-400">Sem permissao para Compras.</div>;
 
@@ -764,6 +836,7 @@ export default function ComprasPedidosClient() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <button className={tab === "comprar" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("comprar")}>Comprar por Fornecedor</button>
+        <button className={tab === "avulso" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("avulso")}>Compra Avulsa</button>
         <button className={tab === "pedidos" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("pedidos")}>Pedidos</button>
       </div>
 
@@ -894,7 +967,7 @@ export default function ComprasPedidosClient() {
                       {detNewRow && (
                         <tr className="border-t border-zinc-900">
                           <td className="py-2 text-zinc-500">-</td>
-                          <td>OS</td>
+                          <td>{detNewRow.os_numero.trim() ? "OS" : "OUTROS"}</td>
                           <td>
                             <input
                               className="px-2 py-1 rounded border border-zinc-700 bg-zinc-950 w-full"
@@ -937,7 +1010,7 @@ export default function ComprasPedidosClient() {
                           <td className="px-4">
                             <input
                               className="px-2 py-1 rounded border border-zinc-700 bg-zinc-950 w-28"
-                              placeholder="Numero OS"
+                              placeholder="Numero OS (opcional)"
                               value={detNewRow.os_numero}
                               onChange={(e) => setDetNewRow((prev) => (prev ? { ...prev, os_numero: e.target.value } : prev))}
                               onKeyDown={(e) => {
@@ -1066,6 +1139,68 @@ export default function ComprasPedidosClient() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "avulso" && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 space-y-4">
+          <div>
+            <div className="text-sm font-medium">Compra Avulsa (sem estoque e sem OS obrigatoria)</div>
+            <div className="text-xs text-zinc-400">
+              Crie um pedido em rascunho sem pendencias. O vinculo com OS e opcional e fica registrado nas observacoes.
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label className="text-sm space-y-1">
+              <div className="text-zinc-300">Fornecedor</div>
+              <select
+                className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
+                value={avulsoFornecedorId ?? ""}
+                onChange={(e) => setAvulsoFornecedorId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Selecione...</option>
+                {avulsoFornecedores.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {String(f.nome ?? `Fornecedor #${f.id}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm space-y-1">
+              <div className="text-zinc-300">OS vinculada (opcional)</div>
+              <input
+                className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
+                placeholder="Ex.: 1234"
+                value={avulsoOsReferencia}
+                onChange={(e) => setAvulsoOsReferencia(e.target.value)}
+              />
+            </label>
+
+            <label className="text-sm space-y-1">
+              <div className="text-zinc-300">Observacoes (opcional)</div>
+              <input
+                className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
+                placeholder="Informacoes adicionais"
+                value={avulsoObservacoes}
+                onChange={(e) => setAvulsoObservacoes(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-2 rounded bg-zinc-100 text-zinc-900 disabled:opacity-60"
+              onClick={() => void criarPedidoAvulso()}
+              disabled={busy || !canWrite}
+            >
+              Criar Pedido Avulso
+            </button>
+            <span className="text-xs text-zinc-500">
+              Depois de criar, use a aba Pedidos para incluir, editar e remover itens livres.
+            </span>
           </div>
         </div>
       )}

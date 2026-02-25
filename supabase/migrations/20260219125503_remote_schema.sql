@@ -1,15 +1,9 @@
 alter table "public"."itens" drop constraint "itens_tipo_check";
-
 alter table "public"."ordens_servico" drop constraint "ordens_servico_status_check";
-
 alter table "public"."itens" add constraint "itens_tipo_check" CHECK (((tipo)::text = ANY ((ARRAY['produto'::character varying, 'servico'::character varying, 'despesa'::character varying])::text[]))) not valid;
-
 alter table "public"."itens" validate constraint "itens_tipo_check";
-
 alter table "public"."ordens_servico" add constraint "ordens_servico_status_check" CHECK (((status)::text = ANY ((ARRAY['aberta'::character varying, 'em_andamento'::character varying, 'concluida'::character varying, 'cancelada'::character varying])::text[]))) not valid;
-
 alter table "public"."ordens_servico" validate constraint "ordens_servico_status_check";
-
 create or replace view "r"."r_orcamento_catalogo_busca" as  SELECT 'ITEM'::text AS origem,
     i.tenant_id,
     i.empresa_id,
@@ -47,6 +41,3 @@ UNION ALL
      LEFT JOIN public.itens i ON (((i.id = ci.item_id) AND (i.tenant_id = c.tenant_id) AND (i.empresa_id = c.empresa_id) AND (i.ativo = true))))
   WHERE ((c.deleted_at IS NULL) AND (c.ativo = true))
   GROUP BY c.id;
-
-
-

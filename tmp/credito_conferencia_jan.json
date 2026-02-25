@@ -1,0 +1,32 @@
+[
+  {
+    "competencia_date": "2026-01-01",
+    "imposto": "COFINS",
+    "valor_provisionado": 16930.61,
+    "valor_efetivo": 16930.61,
+    "valor_pendente_revisao": 0,
+    "valor_nao_creditavel": 0,
+    "qtd_itens_pendentes": 0,
+    "qtd_nfs": 119
+  },
+  {
+    "competencia_date": "2026-01-01",
+    "imposto": "ICMS",
+    "valor_provisionado": 26216.15,
+    "valor_efetivo": 26216.15,
+    "valor_pendente_revisao": 0,
+    "valor_nao_creditavel": 0,
+    "qtd_itens_pendentes": 0,
+    "qtd_nfs": 117
+  },
+  {
+    "competencia_date": "2026-01-01",
+    "imposto": "PIS",
+    "valor_provisionado": 3675.39,
+    "valor_efetivo": 3675.39,
+    "valor_pendente_revisao": 0,
+    "valor_nao_creditavel": 0,
+    "qtd_itens_pendentes": 0,
+    "qtd_nfs": 119
+  }
+]

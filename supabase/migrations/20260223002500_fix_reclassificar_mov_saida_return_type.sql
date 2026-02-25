@@ -1,5 +1,4 @@
 drop function if exists public.reclassificar_mov_saida_para_os(bigint, integer, text);
-
 create function public.reclassificar_mov_saida_para_os(
   p_mov_id bigint,
   p_origem_os_id integer,
@@ -119,6 +118,5 @@ begin
   select v_mov.id::integer, v_mov_ajuste_id, v_mov_saida_id;
 end;
 $$;
-
 grant execute on function public.reclassificar_mov_saida_para_os(bigint, integer, text) to authenticated;
 grant execute on function public.reclassificar_mov_saida_para_os(bigint, integer, text) to service_role;

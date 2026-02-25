@@ -27,11 +27,9 @@ create table if not exists f.credito_fiscal_manual_regra (
   constraint credito_fiscal_manual_regra_parcelas_ck check (parcelas_apropriacao between 1 and 240),
   constraint credito_fiscal_manual_regra_prioridade_ck check (prioridade between 1 and 9999)
 );
-
 create index if not exists idx_credito_fiscal_manual_regra_match
   on f.credito_fiscal_manual_regra (tenant_id, empresa_id, imposto, ativo, prioridade)
   where deleted_at is null;
-
 create table if not exists f.credito_fiscal_manual_lancamento (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
@@ -57,7 +55,6 @@ create table if not exists f.credito_fiscal_manual_lancamento (
   constraint credito_fiscal_manual_lancamento_status_ck check (status in ('PROVISIONADO','APROPRIADO','PENDENTE_REVISAO','CANCELADO')),
   constraint credito_fiscal_manual_lancamento_valor_ck check (valor_credito >= 0)
 );
-
 do $$
 begin
   if not exists (
@@ -80,15 +77,12 @@ begin
       foreign key (regra_id) references f.credito_fiscal_manual_regra(id) on delete set null;
   end if;
 end $$;
-
 create unique index if not exists uq_credito_fiscal_manual_lancamento_unique
   on f.credito_fiscal_manual_lancamento (tenant_id, titulo_id, imposto, competencia_date, coalesce(regra_id, '00000000-0000-0000-0000-000000000000'::uuid))
   where deleted_at is null;
-
 create index if not exists idx_credito_fiscal_manual_lancamento_range
   on f.credito_fiscal_manual_lancamento (tenant_id, empresa_id, competencia_date, imposto, status)
   where deleted_at is null;
-
 create or replace function f.fn_pick_credito_fiscal_manual_regra(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -159,7 +153,6 @@ begin
   return next;
 end;
 $$;
-
 create or replace function f.fn_aplicar_credito_fiscal_manual_titulo(
   p_titulo_id uuid,
   p_change_reason text default null
@@ -353,7 +346,6 @@ begin
   return next;
 end;
 $$;
-
 create or replace function f.trg_titulo__aplicar_credito_fiscal_manual()
 returns trigger
 language plpgsql
@@ -371,15 +363,12 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_titulo__aplicar_credito_fiscal_manual on f.titulo;
-
 create trigger trg_titulo__aplicar_credito_fiscal_manual
 after insert or update of tipo, origem, fornecedor_id, motivo_compra_id, descricao, emissao_date, competencia_date, valor_total, documento_fiscal_id, deleted_at
 on f.titulo
 for each row
 execute function f.trg_titulo__aplicar_credito_fiscal_manual();
-
 create or replace function f.fn_imposto_credito_manual_range(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -447,44 +436,35 @@ begin
   order by l.competencia_date asc, upper(l.imposto) asc;
 end;
 $$;
-
 alter table f.credito_fiscal_manual_regra enable row level security;
 alter table f.credito_fiscal_manual_lancamento enable row level security;
-
 drop policy if exists credito_fiscal_manual_regra_all on f.credito_fiscal_manual_regra;
 create policy credito_fiscal_manual_regra_all
   on f.credito_fiscal_manual_regra
   to authenticated
   using (tenant_id = public.current_tenant_id() and f.has_finance_access())
   with check (tenant_id = public.current_tenant_id() and f.has_finance_access());
-
 drop policy if exists credito_fiscal_manual_lancamento_all on f.credito_fiscal_manual_lancamento;
 create policy credito_fiscal_manual_lancamento_all
   on f.credito_fiscal_manual_lancamento
   to authenticated
   using (tenant_id = public.current_tenant_id() and f.has_finance_access())
   with check (tenant_id = public.current_tenant_id() and f.has_finance_access());
-
 revoke all on table f.credito_fiscal_manual_regra from public;
 grant select, insert, update, delete on table f.credito_fiscal_manual_regra to authenticated;
 grant select on table f.credito_fiscal_manual_regra to service_role;
-
 revoke all on table f.credito_fiscal_manual_lancamento from public;
 grant select, insert, update, delete on table f.credito_fiscal_manual_lancamento to authenticated;
 grant select on table f.credito_fiscal_manual_lancamento to service_role;
-
 revoke all on function f.fn_pick_credito_fiscal_manual_regra(uuid, uuid, text, text, text, uuid, integer) from public;
 grant execute on function f.fn_pick_credito_fiscal_manual_regra(uuid, uuid, text, text, text, uuid, integer) to authenticated;
 grant execute on function f.fn_pick_credito_fiscal_manual_regra(uuid, uuid, text, text, text, uuid, integer) to service_role;
-
 revoke all on function f.fn_aplicar_credito_fiscal_manual_titulo(uuid, text) from public;
 grant execute on function f.fn_aplicar_credito_fiscal_manual_titulo(uuid, text) to authenticated;
 grant execute on function f.fn_aplicar_credito_fiscal_manual_titulo(uuid, text) to service_role;
-
 revoke all on function f.fn_imposto_credito_manual_range(uuid, uuid, date, date, text, text) from public;
 grant execute on function f.fn_imposto_credito_manual_range(uuid, uuid, date, date, text, text) to authenticated;
 grant execute on function f.fn_imposto_credito_manual_range(uuid, uuid, date, date, text, text) to service_role;
-
 -- Regras padrao: energia automatica (PIS/COFINS) e leasing em revisao
 insert into f.credito_fiscal_manual_regra(
   tenant_id, empresa_id, imposto, modo, aliquota, parcelas_apropriacao, prioridade, ativo,
@@ -528,7 +508,6 @@ where coalesce(e.ativo,true)=true
       and x.descricao_like=r.descricao_like
       and x.deleted_at is null
   );
-
 -- Reprocessa todos AP manuais ativos
 select rr.status, rr.message, rr.lancamentos_gerados
 from f.titulo t

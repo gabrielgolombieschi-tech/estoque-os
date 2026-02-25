@@ -1,6 +1,3 @@
-
-
-
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -11,119 +8,59 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
-
-
 CREATE SCHEMA IF NOT EXISTS "a";
-
-
 ALTER SCHEMA "a" OWNER TO "postgres";
-
-
 CREATE SCHEMA IF NOT EXISTS "c";
-
-
 ALTER SCHEMA "c" OWNER TO "postgres";
-
-
 CREATE SCHEMA IF NOT EXISTS "f";
-
-
 ALTER SCHEMA "f" OWNER TO "postgres";
-
-
 CREATE SCHEMA IF NOT EXISTS "m";
-
-
 ALTER SCHEMA "m" OWNER TO "postgres";
-
-
 COMMENT ON SCHEMA "public" IS 'standard public schema';
-
-
-
 CREATE SCHEMA IF NOT EXISTS "r";
-
-
 ALTER SCHEMA "r" OWNER TO "postgres";
-
-
 CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
-
-
-
-
-
-
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
-
-
-
-
-
-
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
-
-
-
-
-
-
 CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
-
-
-
-
-
-
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
-
-
-
-
-
-
 CREATE TYPE "public"."capability_pair" AS (
 	"key" "text",
 	"resource" "text",
 	"action" "text"
 );
-
-
 ALTER TYPE "public"."capability_pair" OWNER TO "postgres";
-
-
-CREATE TYPE "public"."item_finalidade" AS ENUM (
-    'consumo',
-    'materia_prima',
-    'revenda',
-    'imobilizado',
-    'outros'
-);
-
-
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+      AND t.typname = 'item_finalidade'
+  ) THEN
+    CREATE TYPE "public"."item_finalidade" AS ENUM (
+      'consumo',
+      'materia_prima',
+      'revenda',
+      'imobilizado',
+      'outros'
+    );
+  END IF;
+END $$;
 ALTER TYPE "public"."item_finalidade" OWNER TO "postgres";
-
-
 CREATE TYPE "public"."os_gestao_area" AS ENUM (
     'eletrico',
     'mecanico',
     'seguranca',
     'software'
 );
-
-
 ALTER TYPE "public"."os_gestao_area" OWNER TO "postgres";
-
-
 CREATE TYPE "public"."os_gestao_tipo" AS ENUM (
     'projeto',
     'execucao'
 );
-
-
 ALTER TYPE "public"."os_gestao_tipo" OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."current_empresa_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a', 'c'
@@ -167,11 +104,7 @@ CREATE OR REPLACE FUNCTION "public"."current_empresa_id"() RETURNS "uuid"
     nullif(current_setting('app.current_empresa_id', true), '')::uuid
   );
 $$;
-
-
 ALTER FUNCTION "public"."current_empresa_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."current_tenant_id"() RETURNS "uuid"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -228,11 +161,7 @@ begin
   return v_tenant;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."current_tenant_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."ensure_config_orcamento"("p_tenant" "uuid" DEFAULT "public"."current_tenant_id"(), "p_empresa" "uuid" DEFAULT "public"."current_empresa_id"()) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'a', 'public'
@@ -269,22 +198,14 @@ begin
   return v_id;
 end;
 $$;
-
-
 ALTER FUNCTION "a"."ensure_config_orcamento"("p_tenant" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_can_manage_empresa"("p_empresa_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'a', 'c', 'public'
     AS $$
   select a.fn_is_tenant_admin(a.fn_empresa_tenant_id(p_empresa_id));
 $$;
-
-
 ALTER FUNCTION "a"."fn_can_manage_empresa"("p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_current_usuario_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'a', 'public'
@@ -296,11 +217,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_current_usuario_id"() RETURNS "uuid"
     and u.deleted_at is null
   limit 1;
 $$;
-
-
 ALTER FUNCTION "a"."fn_current_usuario_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_empresa_tenant_id"("p_empresa_id" "uuid") RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'a', 'c', 'public'
@@ -311,11 +228,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_empresa_tenant_id"("p_empresa_id" "uuid") RET
     and e.deleted_at is null
   limit 1;
 $$;
-
-
 ALTER FUNCTION "a"."fn_empresa_tenant_id"("p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_is_admin_of_same_tenant"("p_other_usuario_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'a', 'c', 'public'
@@ -342,11 +255,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_is_admin_of_same_tenant"("p_other_usuario_id"
       and ut_other.ativo = true
   );
 $$;
-
-
 ALTER FUNCTION "a"."fn_is_admin_of_same_tenant"("p_other_usuario_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_is_tenant_admin"("p_tenant_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'a', 'c', 'public'
@@ -363,11 +272,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_is_tenant_admin"("p_tenant_id" "uuid") RETURN
       and ut.papel in ('OWNER','ADMIN')
   );
 $$;
-
-
 ALTER FUNCTION "a"."fn_is_tenant_admin"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_is_tenant_member"("p_tenant_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'a', 'c', 'public'
@@ -383,11 +288,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_is_tenant_member"("p_tenant_id" "uuid") RETUR
       and ut.tenant_id = p_tenant_id
   );
 $$;
-
-
 ALTER FUNCTION "a"."fn_is_tenant_member"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_map_papel_empresa"("p" "text") RETURNS "text"
     LANGUAGE "sql"
     AS $$
@@ -398,11 +299,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_map_papel_empresa"("p" "text") RETURNS "text"
     else 'ADMIN'
   end;
 $$;
-
-
 ALTER FUNCTION "a"."fn_map_papel_empresa"("p" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_map_papel_empresa_to_role"("papel" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -418,11 +315,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_map_papel_empresa_to_role"("papel" "text") RE
     else 'estoque'
   end
 $$;
-
-
 ALTER FUNCTION "a"."fn_map_papel_empresa_to_role"("papel" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_map_papel_tenant"("p" "text") RETURNS "text"
     LANGUAGE "sql"
     AS $$
@@ -433,11 +326,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_map_papel_tenant"("p" "text") RETURNS "text"
     else 'GESTOR'
   end;
 $$;
-
-
 ALTER FUNCTION "a"."fn_map_papel_tenant"("p" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_map_papel_tenant_to_role"("p_papel" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -450,11 +339,7 @@ CREATE OR REPLACE FUNCTION "a"."fn_map_papel_tenant_to_role"("p_papel" "text") R
     else 'estoque'
   end
 $$;
-
-
 ALTER FUNCTION "a"."fn_map_papel_tenant_to_role"("p_papel" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "a"."fn_set_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -463,11 +348,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "a"."fn_set_updated_at"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."has_comercial_access"("p_tenant" "uuid" DEFAULT "public"."current_tenant_id"(), "p_empresa" "uuid" DEFAULT "public"."current_empresa_id"()) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'c', 'public', 'a'
@@ -511,11 +392,7 @@ CREATE OR REPLACE FUNCTION "c"."has_comercial_access"("p_tenant" "uuid" DEFAULT 
     )
   from me;
 $$;
-
-
 ALTER FUNCTION "c"."has_comercial_access"("p_tenant" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."has_imobilizado_access"("p_tenant" "uuid" DEFAULT "public"."current_tenant_id"(), "p_empresa" "uuid" DEFAULT "public"."current_empresa_id"()) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'c', 'public', 'a'
@@ -549,11 +426,7 @@ CREATE OR REPLACE FUNCTION "c"."has_imobilizado_access"("p_tenant" "uuid" DEFAUL
         and e.tenant_id = p_tenant
     );
 $$;
-
-
 ALTER FUNCTION "c"."has_imobilizado_access"("p_tenant" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."i_ferramenta_gerar_codigo"("p_tenant" "uuid", "p_empresa" "uuid", "p_categoria" "uuid") RETURNS "text"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'c', 'public', 'a'
@@ -594,11 +467,7 @@ begin
 
   return upper(v_prefixo) || '-' || lpad(v_num::text, 6, '0');
 end $$;
-
-
 ALTER FUNCTION "c"."i_ferramenta_gerar_codigo"("p_tenant" "uuid", "p_empresa" "uuid", "p_categoria" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."trg_condicao_pagamento_biu"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -608,11 +477,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "c"."trg_condicao_pagamento_biu"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."trg_conjunto_biu"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'c', 'public', 'a'
@@ -629,11 +494,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "c"."trg_conjunto_biu"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."trg_conjunto_item_biu"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'c', 'public', 'a'
@@ -673,11 +534,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "c"."trg_conjunto_item_biu"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "c"."trg_i_ferramenta_set_codigo"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -691,31 +548,19 @@ begin
 
   return new;
 end $$;
-
-
 ALTER FUNCTION "c"."trg_i_ferramenta_set_codigo"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_month_first"("p_date" "date") RETURNS "date"
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select date_trunc('month', p_date)::date;
 $$;
-
-
 ALTER FUNCTION "f"."_month_first"("p_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_month_last"("p_date" "date") RETURNS "date"
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select (date_trunc('month', p_date) + interval '1 month - 1 day')::date;
 $$;
-
-
 ALTER FUNCTION "f"."_month_last"("p_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_nfe_xpath_num"("p_xml" "xml", "p_path" "text") RETURNS numeric
     LANGUAGE "plpgsql"
     AS $$
@@ -742,11 +587,7 @@ exception when others then
   return null;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."_nfe_xpath_num"("p_xml" "xml", "p_path" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_nfe_xpath_text"("p_xml" "xml", "p_path" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -756,11 +597,7 @@ CREATE OR REPLACE FUNCTION "f"."_nfe_xpath_text"("p_xml" "xml", "p_path" "text")
     array[array['nfe','http://www.portalfiscal.inf.br/nfe']]
   ))[1]::text, '');
 $$;
-
-
 ALTER FUNCTION "f"."_nfe_xpath_text"("p_xml" "xml", "p_path" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_safe_day_in_month"("p_month_first" "date", "p_day" integer) RETURNS "date"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -768,31 +605,19 @@ CREATE OR REPLACE FUNCTION "f"."_safe_day_in_month"("p_month_first" "date", "p_d
     least(greatest(p_day, 1), extract(day from f._month_last(p_month_first))::int)
   );
 $$;
-
-
 ALTER FUNCTION "f"."_safe_day_in_month"("p_month_first" "date", "p_day" integer) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_xpath_first_num_anyns"("p_xml" "xml", "p_xpath" "text") RETURNS numeric
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select coalesce(nullif(replace((xpath(p_xpath, p_xml))[1]::text, ',', '.'), '')::numeric, 0);
 $$;
-
-
 ALTER FUNCTION "f"."_xpath_first_num_anyns"("p_xml" "xml", "p_xpath" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_xpath_first_text_anyns"("p_xml" "xml", "p_xpath" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select nullif(btrim((xpath(p_xpath, p_xml))[1]::text), '');
 $$;
-
-
 ALTER FUNCTION "f"."_xpath_first_text_anyns"("p_xml" "xml", "p_xpath" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_xpath_num_anyns"("p_xml" "xml", "p_xpath" "text") RETURNS numeric
     LANGUAGE "plpgsql" IMMUTABLE
     AS $$
@@ -819,22 +644,14 @@ begin
   end;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."_xpath_num_anyns"("p_xml" "xml", "p_xpath" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."_xpath_sum_num_anyns"("p_xml" "xml", "p_xpath" "text") RETURNS numeric
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select coalesce(sum(nullif(replace(x::text, ',', '.'), '')::numeric), 0)
   from unnest(xpath(p_xpath, p_xml)) as t(x);
 $$;
-
-
 ALTER FUNCTION "f"."_xpath_sum_num_anyns"("p_xml" "xml", "p_xpath" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."agendar_pagamento_ap"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_prevista" "date", "p_forma_pagamento" "text", "p_valor_previsto" numeric, "p_observacoes" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1003,11 +820,7 @@ begin
   );
 end;
 $$;
-
-
 ALTER FUNCTION "f"."agendar_pagamento_ap"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_prevista" "date", "p_forma_pagamento" "text", "p_valor_previsto" numeric, "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."ajustar_valor_parcela_ap"("p_titulo_parcela_id" "uuid", "p_novo_valor" numeric, "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1100,11 +913,7 @@ begin
    where id = v_t.id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."ajustar_valor_parcela_ap"("p_titulo_parcela_id" "uuid", "p_novo_valor" numeric, "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."aprovar_titulo_ap"("p_titulo_id" "uuid", "p_motivo_compra_id" "uuid", "p_os_id" integer DEFAULT NULL::integer, "p_motivo_outros_text" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1328,11 +1137,7 @@ begin
   );
 end;
 $$;
-
-
 ALTER FUNCTION "f"."aprovar_titulo_ap"("p_titulo_id" "uuid", "p_motivo_compra_id" "uuid", "p_os_id" integer, "p_motivo_outros_text" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."atualizar_proximos_ap_recorrencia"("p_recorrencia_id" "uuid", "p_referencia_competencia" "date" DEFAULT NULL::"date", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1457,11 +1262,7 @@ begin
   return coalesce(v_count, 0);
 end;
 $$;
-
-
 ALTER FUNCTION "f"."atualizar_proximos_ap_recorrencia"("p_recorrencia_id" "uuid", "p_referencia_competencia" "date", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."atualizar_titulo_emissao_date"("p_titulo_id" "uuid", "p_emissao_date" "date", "p_atualizar_competencia" boolean DEFAULT true, "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -1512,11 +1313,7 @@ begin
    where id = p_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."atualizar_titulo_emissao_date"("p_titulo_id" "uuid", "p_emissao_date" "date", "p_atualizar_competencia" boolean, "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."cancelar_agendamento_ap"("p_titulo_id" "uuid", "p_motivo" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1618,11 +1415,7 @@ begin
   );
 end;
 $$;
-
-
 ALTER FUNCTION "f"."cancelar_agendamento_ap"("p_titulo_id" "uuid", "p_motivo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."conciliar_pagamento_extrato"("p_extrato_linha_id" "uuid", "p_pagamento_id" "uuid", "p_referencia" "text" DEFAULT NULL::"text", "p_observacoes" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1782,11 +1575,7 @@ begin
   return v_conc_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."conciliar_pagamento_extrato"("p_extrato_linha_id" "uuid", "p_pagamento_id" "uuid", "p_referencia" "text", "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."conciliar_por_sugestao_ap"("p_extrato_linha_id" "uuid", "p_score_min" integer DEFAULT 2, "p_referencia" "text" DEFAULT 'AUTO MATCH'::"text", "p_observacoes" "text" DEFAULT 'CONCILIADO VIA SUGESTAO'::"text", "p_change_reason" "text" DEFAULT 'AUTO-SUGESTAO'::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -1854,11 +1643,7 @@ begin
   );
 end;
 $$;
-
-
 ALTER FUNCTION "f"."conciliar_por_sugestao_ap"("p_extrato_linha_id" "uuid", "p_score_min" integer, "p_referencia" "text", "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."criar_titulo_ap_manual"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer DEFAULT NULL::integer, "p_motivo_compra_id" "uuid" DEFAULT NULL::"uuid", "p_criar_recorrencia" boolean DEFAULT false, "p_dia_vencimento" integer DEFAULT NULL::integer, "p_auto_copiar_valor" boolean DEFAULT true, "p_change_reason" "text" DEFAULT NULL::"text") RETURNS TABLE("titulo_id" "uuid", "recorrencia_id" "uuid")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -2017,11 +1802,7 @@ begin
   return query select v_titulo_id, v_recorrencia_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."criar_titulo_ap_manual"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer, "p_motivo_compra_id" "uuid", "p_criar_recorrencia" boolean, "p_dia_vencimento" integer, "p_auto_copiar_valor" boolean, "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."criar_titulo_ap_manual_v2"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer DEFAULT NULL::integer, "p_motivo_compra_id" "uuid" DEFAULT NULL::"uuid", "p_emissao_date" "date" DEFAULT NULL::"date", "p_criar_recorrencia" boolean DEFAULT false, "p_dia_vencimento" integer DEFAULT NULL::integer, "p_auto_copiar_valor" boolean DEFAULT true, "p_change_reason" "text" DEFAULT NULL::"text") RETURNS TABLE("titulo_id" "uuid", "recorrencia_id" "uuid")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -2196,11 +1977,7 @@ begin
   return query select v_titulo_id, v_recorrencia_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."criar_titulo_ap_manual_v2"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer, "p_motivo_compra_id" "uuid", "p_emissao_date" "date", "p_criar_recorrencia" boolean, "p_dia_vencimento" integer, "p_auto_copiar_valor" boolean, "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."desconciliar_pagamento_extrato"("p_conciliacao_id" "uuid", "p_motivo" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -2293,11 +2070,7 @@ begin
   );
 end;
 $$;
-
-
 ALTER FUNCTION "f"."desconciliar_pagamento_extrato"("p_conciliacao_id" "uuid", "p_motivo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."estornar_pagamento_ap"("p_pagamento_id" "uuid", "p_motivo" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -2464,11 +2237,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."estornar_pagamento_ap"("p_pagamento_id" "uuid", "p_motivo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'a'
@@ -2613,11 +2382,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_arrendamento_gerar_parcelas"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f'
@@ -2679,11 +2444,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_arrendamento_gerar_parcelas"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_backfill_irpj_csll_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_from" "date", "p_to" "date") RETURNS TABLE("competencia_date" "date", "status" "text", "detalhe" "text")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'r'
@@ -2714,11 +2475,7 @@ begin
   end loop;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_backfill_irpj_csll_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_from" "date", "p_to" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_calc_vencimento"("p_tenant_id" "uuid", "p_regra_id" "uuid", "p_competencia_date" "date") RETURNS "date"
     LANGUAGE "plpgsql"
     AS $$
@@ -2764,11 +2521,7 @@ begin
   return v_last_next;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_calc_vencimento"("p_tenant_id" "uuid", "p_regra_id" "uuid", "p_competencia_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_documento_fiscal__sync_xml_pendencia"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -2832,11 +2585,7 @@ begin
 
   return new;
 end $$;
-
-
 ALTER FUNCTION "f"."fn_documento_fiscal__sync_xml_pendencia"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_ensure_documento_fiscal_from_nf_entrada"("p_nf_entrada_id" bigint) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'extensions'
@@ -2963,11 +2712,7 @@ begin
   return v_df_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_ensure_documento_fiscal_from_nf_entrada"("p_nf_entrada_id" bigint) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_find_documento_fiscal_from_import"("p_nf_entrada_id" bigint) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'extensions'
@@ -2976,11 +2721,7 @@ begin
   return f.fn_ensure_documento_fiscal_from_nf_entrada(p_nf_entrada_id);
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_find_documento_fiscal_from_import"("p_nf_entrada_id" bigint) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_find_documento_fiscal_from_import"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nf_entrada_id" bigint, "p_chave_acesso" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -3039,11 +2780,7 @@ begin
   return v_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_find_documento_fiscal_from_import"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nf_entrada_id" bigint, "p_chave_acesso" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_gerar_ap_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date" DEFAULT NULL::"date") RETURNS TABLE("imposto" "text", "competencia_date" "date", "titulo_id" "uuid", "valor" numeric)
     LANGUAGE "plpgsql"
     AS $$
@@ -3249,11 +2986,7 @@ begin
   end loop;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_gerar_ap_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_imposto_apuracao_range"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_comp_ini" "date", "p_comp_fim" "date", "p_operacao" "text" DEFAULT NULL::"text", "p_natureza" "text" DEFAULT NULL::"text") RETURNS TABLE("tenant_id" "uuid", "empresa_id" "uuid", "competencia_date" "date", "operacao" "text", "imposto" "text", "natureza" "text", "base_total" numeric, "valor_total_calculado" numeric, "valor_total_ajustado" numeric, "qtd_documentos" bigint)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -3306,11 +3039,7 @@ begin
   order by v.competencia_date asc, v.imposto asc, v.natureza asc;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_imposto_apuracao_range"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_comp_ini" "date", "p_comp_fim" "date", "p_operacao" "text", "p_natureza" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_imposto_documentos_do_mes"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia" "date", "p_imposto" "text", "p_nat" "text", "p_operacao" "text" DEFAULT NULL::"text") RETURNS TABLE("documento_fiscal_id" "uuid", "chave_acesso" "text", "emissao_date" "date", "competencia_date" "date", "operacao" "text", "modelo" "text", "serie" "text", "numero" "text", "valor_documento" numeric, "valor_imposto" numeric)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -3379,11 +3108,7 @@ begin
   order by df.emissao_date desc nulls last, df.created_at desc;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_imposto_documentos_do_mes"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia" "date", "p_imposto" "text", "p_nat" "text", "p_operacao" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_irpj_csll_ao_fechar_competencia"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f'
@@ -3516,11 +3241,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_irpj_csll_ao_fechar_competencia"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_irpj_csll_gerar_ajustes_auto"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'r'
@@ -3571,11 +3292,7 @@ CREATE OR REPLACE FUNCTION "f"."fn_irpj_csll_gerar_ajustes_auto"("p_tenant_id" "
       and round((coalesce(d.despesa,0) * (rp.percentual/100.0))::numeric, 2) > 0;
   end;
   $$;
-
-
 ALTER FUNCTION "f"."fn_irpj_csll_gerar_ajustes_auto"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_nf_entrada__auto_fix_ap_from_xml"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'a'
@@ -3660,11 +3377,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_nf_entrada__auto_fix_ap_from_xml"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_nf_entrada__resolve_xml_pendencia"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -3687,11 +3400,7 @@ begin
 
   return new;
 end $$;
-
-
 ALTER FUNCTION "f"."fn_nf_entrada__resolve_xml_pendencia"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_pagamentos_aplicados"() RETURNS TABLE("tenant_id" "uuid", "empresa_id" "uuid", "conta_bancaria_id" "uuid", "pagamento_id" "uuid", "data_pagamento" "date", "forma_pagamento" "text", "valor_pagamento" numeric, "titulo_id" "uuid", "titulo_parcela_id" "uuid", "valor_aplicado" numeric)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public'
@@ -3793,11 +3502,7 @@ begin
   return query execute v_sql;
 end;
 $_$;
-
-
 ALTER FUNCTION "f"."fn_pagamentos_aplicados"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_set_updated_by"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -3806,11 +3511,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_set_updated_by"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_sync_apuracao_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") RETURNS TABLE("imposto" "text", "competencia_date" "date", "titulo_id" "uuid", "valor" numeric)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'r'
@@ -3968,11 +3669,7 @@ begin
   end if;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_sync_apuracao_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_sync_rateio_apuracao_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -4024,11 +3721,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_sync_rateio_apuracao_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_upsert_ar_from_documento_fiscal"("p_documento_fiscal_id" "uuid") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -4143,11 +3836,7 @@ begin
   return v_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_upsert_ar_from_documento_fiscal"("p_documento_fiscal_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_upsert_ar_from_documento_fiscal_v2"("p_documento_fiscal_id" "uuid", "p_old_valor_total" numeric DEFAULT NULL::numeric) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -4264,11 +3953,7 @@ begin
   return v_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_upsert_ar_from_documento_fiscal_v2"("p_documento_fiscal_id" "uuid", "p_old_valor_total" numeric) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_upsert_ar_from_nfe_venda"("p_documento_fiscal_id" "uuid", "p_old_valor_total" numeric DEFAULT NULL::numeric) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -4390,11 +4075,7 @@ begin
   return v_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_upsert_ar_from_nfe_venda"("p_documento_fiscal_id" "uuid", "p_old_valor_total" numeric) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."fn_validar_pos_importacao"("p_documento_fiscal_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql"
     AS $$
@@ -4439,11 +4120,7 @@ begin
   end if;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."fn_validar_pos_importacao"("p_documento_fiscal_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."gerar_ap_pendente_por_nf_entrada"("p_nf_entrada_id" bigint, "p_force" boolean DEFAULT false) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c', 'extensions'
@@ -4595,11 +4272,7 @@ begin
   return v_doc_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."gerar_ap_pendente_por_nf_entrada"("p_nf_entrada_id" bigint, "p_force" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."gerar_ap_pendente_por_nf_entrada_v2"("p_nf_entrada_id" bigint, "p_force" boolean DEFAULT false, "p_parcelas_json" "jsonb" DEFAULT NULL::"jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c', 'extensions'
@@ -4982,11 +4655,7 @@ begin
   return v_titulo_id;
 end;
 $_$;
-
-
 ALTER FUNCTION "f"."gerar_ap_pendente_por_nf_entrada_v2"("p_nf_entrada_id" bigint, "p_force" boolean, "p_parcelas_json" "jsonb") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."gerar_ap_por_nf_entrada"("p_nf_entrada_id" bigint, "p_motivo_compra_id" "uuid" DEFAULT NULL::"uuid", "p_parcelas_json" "jsonb" DEFAULT NULL::"jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public'
@@ -5182,11 +4851,7 @@ begin
   return v_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."gerar_ap_por_nf_entrada"("p_nf_entrada_id" bigint, "p_motivo_compra_id" "uuid", "p_parcelas_json" "jsonb") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."gerar_titulo_ar_do_documento"("p_documento_fiscal_id" "uuid", "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid" DEFAULT NULL::"uuid", "p_os_id" integer DEFAULT NULL::integer, "p_descricao" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -5322,11 +4987,7 @@ begin
   return v_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."gerar_titulo_ar_do_documento"("p_documento_fiscal_id" "uuid", "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid", "p_os_id" integer, "p_descricao" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."has_finance_access"("p_tenant" "uuid" DEFAULT "public"."current_tenant_id"(), "p_empresa" "uuid" DEFAULT "public"."current_empresa_id"()) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -5358,11 +5019,7 @@ CREATE OR REPLACE FUNCTION "f"."has_finance_access"("p_tenant" "uuid" DEFAULT "p
         and e.tenant_id = p_tenant
     );
 $$;
-
-
 ALTER FUNCTION "f"."has_finance_access"("p_tenant" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."has_motivo_compra_access"("p_tenant_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a', 'c', 'f'
@@ -5389,11 +5046,7 @@ CREATE OR REPLACE FUNCTION "f"."has_motivo_compra_access"("p_tenant_id" "uuid") 
       )
   );
 $$;
-
-
 ALTER FUNCTION "f"."has_motivo_compra_access"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."ignorar_extrato_linha"("p_extrato_linha_id" "uuid", "p_motivo" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -5475,11 +5128,7 @@ begin
   );
 end;
 $$;
-
-
 ALTER FUNCTION "f"."ignorar_extrato_linha"("p_extrato_linha_id" "uuid", "p_motivo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."nfe_gravar_impostos_da_nf_entrada"("p_nf_entrada_id" bigint, "p_documento_fiscal_id" "uuid", "p_tenant_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -5759,11 +5408,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."nfe_gravar_impostos_da_nf_entrada"("p_nf_entrada_id" bigint, "p_documento_fiscal_id" "uuid", "p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."nfe_gravar_impostos_da_nf_entrada_sem_xml"("p_nf_entrada_id" bigint, "p_documento_fiscal_id" "uuid", "p_tenant_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public'
@@ -5914,11 +5559,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "f"."nfe_gravar_impostos_da_nf_entrada_sem_xml"("p_nf_entrada_id" bigint, "p_documento_fiscal_id" "uuid", "p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."nfe_gravar_impostos_do_documento"("p_documento_fiscal_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -5947,11 +5588,7 @@ begin
   perform f.nfe_gravar_impostos_da_nf_entrada(v_df.source_nf_entrada_id, v_df.id, v_df.tenant_id);
 end;
 $$;
-
-
 ALTER FUNCTION "f"."nfe_gravar_impostos_do_documento"("p_documento_fiscal_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."nfe_gravar_impostos_entrada_do_documento"("p_documento_fiscal_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -6223,11 +5860,7 @@ begin
 
 end;
 $_$;
-
-
 ALTER FUNCTION "f"."nfe_gravar_impostos_entrada_do_documento"("p_documento_fiscal_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."provisionar_ap_recorrencia"("p_recorrencia_id" "uuid", "p_meses_a_frente" integer DEFAULT 12, "p_change_reason" "text" DEFAULT NULL::"text") RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -6390,11 +6023,7 @@ begin
   return v_count;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."provisionar_ap_recorrencia"("p_recorrencia_id" "uuid", "p_meses_a_frente" integer, "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."registrar_pagamento_ap"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor" numeric, "p_observacoes" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -6611,11 +6240,7 @@ begin
   return v_pagamento_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."registrar_pagamento_ap"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor" numeric, "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."registrar_pagamento_ap_v2"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor_principal" numeric, "p_valor_juros" numeric DEFAULT 0, "p_valor_multa" numeric DEFAULT 0, "p_valor_desconto" numeric DEFAULT 0, "p_observacoes" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -6851,11 +6476,7 @@ begin
   return v_pagamento_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."registrar_pagamento_ap_v2"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor_principal" numeric, "p_valor_juros" numeric, "p_valor_multa" numeric, "p_valor_desconto" numeric, "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."registrar_recebimento_ar"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor" numeric, "p_observacoes" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -6980,11 +6601,7 @@ begin
   return v_pagamento_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."registrar_recebimento_ar"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor" numeric, "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."registrar_recebimento_ar_v2"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor_principal" numeric, "p_valor_juros" numeric DEFAULT 0, "p_valor_multa" numeric DEFAULT 0, "p_valor_desconto" numeric DEFAULT 0, "p_observacoes" "text" DEFAULT NULL::"text", "p_change_reason" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -7135,11 +6752,7 @@ begin
   return v_pagamento_id;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."registrar_recebimento_ar_v2"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor_principal" numeric, "p_valor_juros" numeric, "p_valor_multa" numeric, "p_valor_desconto" numeric, "p_observacoes" "text", "p_change_reason" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."seed_financeiro_defaults"("p_tenant" "uuid", "p_empresa" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -7163,11 +6776,7 @@ begin
   on conflict (tenant_id, empresa_id) do nothing;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."seed_financeiro_defaults"("p_tenant" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."trg_documento_fiscal__ar_nfe"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -7181,11 +6790,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."trg_documento_fiscal__ar_nfe"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."trg_documento_fiscal__ar_nfse"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -7200,11 +6805,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."trg_documento_fiscal__ar_nfse"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."trg_documento_fiscal_xml__valida_emitente_saida"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'c', 'a', 'extensions'
@@ -7265,11 +6866,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."trg_documento_fiscal_xml__valida_emitente_saida"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."trg_sync_rateio_apuracao_irpj_csll"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a'
@@ -7293,11 +6890,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."trg_sync_rateio_apuracao_irpj_csll"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."trg_titulo_ap_auto_rateio_por_motivo"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'f', 'public', 'a', 'c'
@@ -7369,11 +6962,7 @@ begin
 
   return new;
 end $$;
-
-
 ALTER FUNCTION "f"."trg_titulo_ap_auto_rateio_por_motivo"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "f"."trg_titulo_require_motivo_compra"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -7386,11 +6975,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "f"."trg_titulo_require_motivo_compra"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."fn_orcamento_adicionar_conjunto"("p_orcamento_id" "uuid", "p_conjunto_id" "uuid", "p_quantidade" numeric DEFAULT 1) RETURNS TABLE("conjunto_instancia_id" "uuid", "itens_inseridos" integer, "total_estimado" numeric)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'c', 'public', 'a'
@@ -7483,11 +7068,7 @@ begin
   return next;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."fn_orcamento_adicionar_conjunto"("p_orcamento_id" "uuid", "p_conjunto_id" "uuid", "p_quantidade" numeric) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."fn_orcamento_item_calcular"("p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_item_percent" numeric, "p_acrescimo_cond_percent" numeric, "p_desconto_global_percent" numeric) RETURNS TABLE("valor_total_bruto" numeric, "valor_total" numeric, "valor_unitario_liquido" numeric)
     LANGUAGE "plpgsql"
     AS $$
@@ -7517,11 +7098,7 @@ begin
   return query select v_bruto, v_total, v_unit_liq;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."fn_orcamento_item_calcular"("p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_item_percent" numeric, "p_acrescimo_cond_percent" numeric, "p_desconto_global_percent" numeric) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."fn_orcamento_recalcular_totais"("p_orcamento_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public'
@@ -7561,11 +7138,7 @@ begin
    where o.id = p_orcamento_id;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."fn_orcamento_recalcular_totais"("p_orcamento_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."fn_orcamento_sync_itens"("p_orcamento_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public', 'c'
@@ -7603,11 +7176,7 @@ begin
   perform m.fn_orcamento_recalcular_totais(p_orcamento_id);
 end;
 $$;
-
-
 ALTER FUNCTION "m"."fn_orcamento_sync_itens"("p_orcamento_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_emissao_date" "date") RETURNS "text"
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'c', 'public'
@@ -7619,11 +7188,7 @@ CREATE OR REPLACE FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "
     lpad(((extract(year from p_emissao_date)::int % 1000))::text, 3, '0')
   );
 $$;
-
-
 ALTER FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_emissao_date" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_versao" integer DEFAULT 1) RETURNS "text"
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'c', 'public'
@@ -7635,11 +7200,7 @@ CREATE OR REPLACE FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "
     lpad(coalesce(p_versao,1)::text, 2, '0')
   );
 $$;
-
-
 ALTER FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_versao" integer) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."orcamento_next_numero"("p_tenant" "uuid", "p_empresa" "uuid") RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public'
@@ -7668,11 +7229,7 @@ begin
   return v_num;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."orcamento_next_numero"("p_tenant" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."trg_orcamento_au"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public'
@@ -7690,11 +7247,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."trg_orcamento_au"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."trg_orcamento_biu"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public', 'c', 'a'
@@ -7772,11 +7325,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."trg_orcamento_biu"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."trg_orcamento_item_aiud"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public'
@@ -7792,11 +7341,7 @@ begin
   end if;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."trg_orcamento_item_aiud"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "m"."trg_orcamento_item_biu"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'm', 'public', 'a'
@@ -7889,11 +7434,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "m"."trg_orcamento_item_biu"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."a_is_empresa_member"("p_empresa_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -7908,22 +7449,14 @@ CREATE OR REPLACE FUNCTION "public"."a_is_empresa_member"("p_empresa_id" "uuid")
       and ue.ativo = true
   );
 $$;
-
-
 ALTER FUNCTION "public"."a_is_empresa_member"("p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."a_is_tenant_admin"("p_tenant_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
     AS $$
   select public.a_is_tenant_role(p_tenant_id, array['admin']);
 $$;
-
-
 ALTER FUNCTION "public"."a_is_tenant_admin"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."a_is_tenant_role"("p_tenant_id" "uuid", "p_roles" "text"[]) RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -7939,15 +7472,9 @@ CREATE OR REPLACE FUNCTION "public"."a_is_tenant_role"("p_tenant_id" "uuid", "p_
       and a.fn_map_papel_tenant_to_role(ut.papel) = any (p_roles)
   );
 $$;
-
-
 ALTER FUNCTION "public"."a_is_tenant_role"("p_tenant_id" "uuid", "p_roles" "text"[]) OWNER TO "postgres";
-
 SET default_tablespace = '';
-
 SET default_table_access_method = "heap";
-
-
 CREATE TABLE IF NOT EXISTS "public"."os_itens" (
     "id" integer NOT NULL,
     "os_id" integer NOT NULL,
@@ -7964,11 +7491,7 @@ CREATE TABLE IF NOT EXISTS "public"."os_itens" (
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
     CONSTRAINT "chk_os_itens_quantidade_pos" CHECK (("quantidade" > (0)::numeric))
 );
-
-
 ALTER TABLE "public"."os_itens" OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric DEFAULT 0, "p_desconto_valor" numeric DEFAULT 0, "p_baixa_estoque" boolean DEFAULT true, "p_realizado_por" "text" DEFAULT NULL::"text", "p_motivo" "text" DEFAULT NULL::"text") RETURNS "public"."os_itens"
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -7986,11 +7509,7 @@ CREATE OR REPLACE FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integ
     null::uuid
   );
 $$;
-
-
 ALTER FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric DEFAULT 0, "p_desconto_valor" numeric DEFAULT 0, "p_baixa_estoque" boolean DEFAULT true, "p_realizado_por" "text" DEFAULT NULL::"text", "p_motivo" "text" DEFAULT NULL::"text", "p_empresa_id" "uuid" DEFAULT NULL::"uuid") RETURNS "public"."os_itens"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -8123,11 +7642,7 @@ begin
   return v_row;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -8152,11 +7667,7 @@ CREATE OR REPLACE FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid
       )
   );
 $$;
-
-
 ALTER FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_finalize_invited_user"("p_tenant_id" "uuid", "p_auth_user_id" "uuid", "p_email" "text", "p_nome" "text", "p_telefone" "text", "p_tenant_papel" "text", "p_empresa_vinculos" "jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -8263,11 +7774,7 @@ begin
   return v_usuario_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."admin_finalize_invited_user"("p_tenant_id" "uuid", "p_auth_user_id" "uuid", "p_email" "text", "p_nome" "text", "p_telefone" "text", "p_tenant_papel" "text", "p_empresa_vinculos" "jsonb") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") RETURNS TABLE("usuario_id" "uuid", "auth_user_id" "uuid", "nome" "text", "email" "text", "telefone" "text", "usuario_ativo" boolean, "tenant_papel" "text", "tenant_ativo" boolean, "tenant_deleted_at" timestamp with time zone, "empresas" "jsonb", "usuario_created_at" timestamp with time zone, "usuario_updated_at" timestamp with time zone)
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -8313,11 +7820,7 @@ CREATE OR REPLACE FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") RET
     and public.admin_can_manage_users(p_tenant_id) = true
   order by coalesce(u.nome, u.email), u.created_at desc;
 $$;
-
-
 ALTER FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_merge_fornecedores"("p_tenant_id" "uuid", "p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint, "p_soft_delete" boolean DEFAULT true) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $_$
@@ -8381,11 +7884,7 @@ begin
   end if;
 end;
 $_$;
-
-
 ALTER FUNCTION "public"."admin_merge_fornecedores"("p_tenant_id" "uuid", "p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint, "p_soft_delete" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_set_user_empresa"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -8445,11 +7944,7 @@ begin
     deleted_at = null;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."admin_set_user_empresa"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_set_user_tenant_role"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -8485,11 +7980,7 @@ begin
     deleted_at = null;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."admin_set_user_tenant_role"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."admin_update_user"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_nome" "text", "p_telefone" "text", "p_ativo" boolean) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -8513,11 +8004,7 @@ begin
   end if;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."admin_update_user"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_nome" "text", "p_telefone" "text", "p_ativo" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."apply_fiscal_regras_em_lote"("p_somente_sem_registro" boolean DEFAULT true) RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -8579,11 +8066,7 @@ begin
   return v_count;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."apply_fiscal_regras_em_lote"("p_somente_sem_registro" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."apply_fiscal_regras_em_lote_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_somente_sem_registro" boolean DEFAULT true) RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -8632,11 +8115,7 @@ begin
   return v_count;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."apply_fiscal_regras_em_lote_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_somente_sem_registro" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."apply_fiscal_to_item"("p_item_id" integer, "p_ncm" "text" DEFAULT NULL::"text", "p_cfop" "text" DEFAULT NULL::"text", "p_cst_icms" "text" DEFAULT NULL::"text", "p_cst_pis" "text" DEFAULT NULL::"text", "p_cst_cofins" "text" DEFAULT NULL::"text", "p_origem" smallint DEFAULT NULL::smallint, "p_tipo_item" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -8731,11 +8210,7 @@ begin
 
 end;
 $$;
-
-
 ALTER FUNCTION "public"."apply_fiscal_to_item"("p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."apply_fiscal_to_item_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_item_id" integer, "p_ncm" "text" DEFAULT NULL::"text", "p_cfop" "text" DEFAULT NULL::"text", "p_cst_icms" "text" DEFAULT NULL::"text", "p_cst_pis" "text" DEFAULT NULL::"text", "p_cst_cofins" "text" DEFAULT NULL::"text", "p_origem" smallint DEFAULT NULL::smallint, "p_tipo_item" "text" DEFAULT NULL::"text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -8796,11 +8271,7 @@ begin
     atualizado_em = now();
 end;
 $$;
-
-
 ALTER FUNCTION "public"."apply_fiscal_to_item_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."apply_movimentacao_estoque"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -8856,11 +8327,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."apply_movimentacao_estoque"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."audit_trigger"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -8923,11 +8390,7 @@ begin
   end if;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."audit_trigger"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."auto_assign_empresa_segau"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9009,11 +8472,7 @@ begin
   return NEW;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."auto_assign_empresa_segau"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."auto_set_context_on_login"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9031,22 +8490,14 @@ begin
   return NEW;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."auto_set_context_on_login"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."block_movimentacoes_mutation"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
 begin
   raise exception 'Movimentações são imutáveis. Use estorno.';
 end $$;
-
-
 ALTER FUNCTION "public"."block_movimentacoes_mutation"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."calculate_hh_lancamento"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -9082,22 +8533,14 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."calculate_hh_lancamento"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can"("p_resource" "text", "p_action" "text") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a', 'c'
     AS $$
   select public.can(p_resource, p_action, public.current_tenant_id());
 $$;
-
-
 ALTER FUNCTION "public"."can"("p_resource" "text", "p_action" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a', 'c'
@@ -9201,11 +8644,7 @@ begin
   return false;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."can"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can__legacy_40734"("p_resource" "text", "p_action" "text") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -9260,11 +8699,7 @@ CREATE OR REPLACE FUNCTION "public"."can__legacy_40734"("p_resource" "text", "p_
         and ar.action = p_action
     );
 $$;
-
-
 ALTER FUNCTION "public"."can__legacy_40734"("p_resource" "text", "p_action" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can__legacy_56548"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid" DEFAULT "public"."current_tenant_id"()) RETURNS boolean
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9308,11 +8743,7 @@ begin
   return coalesce(allowed, false);
 end;
 $$;
-
-
 ALTER FUNCTION "public"."can__legacy_56548"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can_many"("p_pairs" "jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9333,11 +8764,7 @@ begin
   return public.can_many(arr);
 end;
 $$;
-
-
 ALTER FUNCTION "public"."can_many"("p_pairs" "jsonb") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."can_many"("p_pairs" "public"."capability_pair"[]) RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9363,11 +8790,7 @@ begin
   return out;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."can_many"("p_pairs" "public"."capability_pair"[]) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."concluir_os"("os_id_param" integer) RETURNS "void"
     LANGUAGE "plpgsql"
     AS $$
@@ -9394,11 +8817,7 @@ begin
     and coalesce(progresso_percent,0) < 100;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."concluir_os"("os_id_param" integer) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."confirmar_lancamento_contabil"("p_lancamento_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9471,11 +8890,7 @@ begin
    where id = p_lancamento_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."confirmar_lancamento_contabil"("p_lancamento_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."criar_gestao_padrao_os"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -9498,11 +8913,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."criar_gestao_padrao_os"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."current_auth_user_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9513,33 +8924,21 @@ CREATE OR REPLACE FUNCTION "public"."current_auth_user_id"() RETURNS "uuid"
     (nullif(current_setting('request.jwt.claim',  true), '')::jsonb ->> 'sub')
   )::uuid;
 $$;
-
-
 ALTER FUNCTION "public"."current_auth_user_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."current_competencia_key"("p_data" "date" DEFAULT CURRENT_DATE) RETURNS TABLE("ano" integer, "mes" integer)
     LANGUAGE "sql" STABLE
     AS $$
   select extract(year from p_data)::int as ano,
          extract(month from p_data)::int as mes;
 $$;
-
-
 ALTER FUNCTION "public"."current_competencia_key"("p_data" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."current_empresa_id"("p_tenant_id" "uuid") RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a', 'c'
     AS $$
   select public.current_empresa_id();
 $$;
-
-
 ALTER FUNCTION "public"."current_empresa_id"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."current_empresa_id__by_tenant"("p_tenant_id" "uuid" DEFAULT "public"."current_tenant_id"()) RETURNS "uuid"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9588,11 +8987,7 @@ begin
   return e;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."current_empresa_id__by_tenant"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."debug_auth_context"() RETURNS "jsonb"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9606,11 +9001,7 @@ CREATE OR REPLACE FUNCTION "public"."debug_auth_context"() RETURNS "jsonb"
     'current_auth_user_id', public.current_auth_user_id()::text
   );
 $$;
-
-
 ALTER FUNCTION "public"."debug_auth_context"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."debug_jwt"() RETURNS "jsonb"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9622,11 +9013,7 @@ CREATE OR REPLACE FUNCTION "public"."debug_jwt"() RETURNS "jsonb"
     'current_auth_user_id', public.current_auth_user_id()::text
   );
 $$;
-
-
 ALTER FUNCTION "public"."debug_jwt"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."debug_me"() RETURNS json
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9661,11 +9048,7 @@ begin
     'roles', coalesce(v_roles, array[]::text[])
   );
 end $$;
-
-
 ALTER FUNCTION "public"."debug_me"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."debug_membership"() RETURNS TABLE("uid" "uuid", "memberships_active" integer, "tenant_id" "uuid")
     LANGUAGE "sql" STABLE
     AS $$
@@ -9686,11 +9069,7 @@ CREATE OR REPLACE FUNCTION "public"."debug_membership"() RETURNS TABLE("uid" "uu
       limit 1
     ) as tenant_id
 $$;
-
-
 ALTER FUNCTION "public"."debug_membership"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."debug_tenant"() RETURNS "jsonb"
     LANGUAGE "sql" STABLE
     AS $$
@@ -9700,11 +9079,7 @@ CREATE OR REPLACE FUNCTION "public"."debug_tenant"() RETURNS "jsonb"
     'tenant_setting', current_setting('app.tenant_id', true)
   );
 $$;
-
-
 ALTER FUNCTION "public"."debug_tenant"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."default_empresa_id"("p_tenant_id" "uuid") RETURNS "uuid"
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'public'
@@ -9715,11 +9090,7 @@ CREATE OR REPLACE FUNCTION "public"."default_empresa_id"("p_tenant_id" "uuid") R
   order by e.criado_em asc
   limit 1
 $$;
-
-
 ALTER FUNCTION "public"."default_empresa_id"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."ensure_competencia"("p_data" "date" DEFAULT CURRENT_DATE) RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9754,11 +9125,7 @@ begin
   return v_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."ensure_competencia"("p_data" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."ensure_estoque_rows"("p_tenant_id" "uuid", "p_item_ids" integer[]) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9791,11 +9158,7 @@ begin
   on conflict on constraint estoque_tenant_empresa_item_key do nothing;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."ensure_estoque_rows"("p_tenant_id" "uuid", "p_item_ids" integer[]) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."estornar_lancamento_contabil"("p_lancamento_id" "uuid", "p_historico" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9880,11 +9243,7 @@ begin
   return v_new_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."estornar_lancamento_contabil"("p_lancamento_id" "uuid", "p_historico" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."estornar_movimentacao"("p_mov_id" integer, "p_motivo" "text" DEFAULT NULL::"text") RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -9952,11 +9311,7 @@ begin
 
   return v_new_id;
 end $$;
-
-
 ALTER FUNCTION "public"."estornar_movimentacao"("p_mov_id" integer, "p_motivo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fechar_competencia"("p_ano" integer, "p_mes" integer) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -10002,11 +9357,7 @@ begin
   end;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fechar_competencia"("p_ano" integer, "p_mes" integer) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fechar_competencia_admin"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_ano" integer, "p_mes" integer, "p_user_id" "uuid" DEFAULT NULL::"uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -10038,22 +9389,14 @@ begin
   end;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fechar_competencia_admin"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_ano" integer, "p_mes" integer, "p_user_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") RETURNS "void"
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'a'
     AS $_$
   select f.fn_arrendamento_gerar_ap($1,$2,$3);
 $_$;
-
-
 ALTER FUNCTION "public"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_atualiza_estoque_por_mov"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -10100,11 +9443,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_atualiza_estoque_por_mov"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_calc_horas_2_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) RETURNS numeric
     LANGUAGE "plpgsql" IMMUTABLE
     AS $$
@@ -10136,11 +9475,7 @@ BEGIN
 
   RETURN ROUND(v_total_h::numeric, 2);
 END $$;
-
-
 ALTER FUNCTION "public"."fn_calc_horas_2_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_calc_horas_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) RETURNS numeric
     LANGUAGE "plpgsql" IMMUTABLE
     AS $$
@@ -10173,11 +9508,7 @@ BEGIN
   -- arredonda para 2 casas como a coluna "horas" (numeric(6,2))
   RETURN ROUND(v_total_h::numeric, 2);
 END $$;
-
-
 ALTER FUNCTION "public"."fn_calc_horas_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_documento_key"("p_doc" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -10191,11 +9522,7 @@ CREATE OR REPLACE FUNCTION "public"."fn_documento_key"("p_doc" "text") RETURNS "
       end
   end
 $$;
-
-
 ALTER FUNCTION "public"."fn_documento_key"("p_doc" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_ensure_titulo_ap_from_nf_entrada"("p_nf_entrada_id" bigint, "p_force_regen_parcelas" boolean DEFAULT false, "p_parcelas_json" "jsonb" DEFAULT NULL::"jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'a', 'extensions'
@@ -10483,11 +9810,7 @@ begin
   return v_titulo_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_ensure_titulo_ap_from_nf_entrada"("p_nf_entrada_id" bigint, "p_force_regen_parcelas" boolean, "p_parcelas_json" "jsonb") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_fix_nf_entrada_pos_import"("p_nf_entrada_id" bigint) RETURNS TABLE("status" "text", "message" "text", "documento_fiscal_id" "uuid", "titulo_id" "uuid")
     LANGUAGE "plpgsql"
     AS $$
@@ -10700,11 +10023,7 @@ begin
   return next;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_fix_nf_entrada_pos_import"("p_nf_entrada_id" bigint) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_fornecedor_upsert_por_documento"("p_tenant_id" "uuid", "p_nome" "text", "p_documento" "text") RETURNS integer
     LANGUAGE "plpgsql"
     AS $$
@@ -10739,11 +10058,7 @@ begin
 
   return v_id;
 end $$;
-
-
 ALTER FUNCTION "public"."fn_fornecedor_upsert_por_documento"("p_tenant_id" "uuid", "p_nome" "text", "p_documento" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_hh_criar_apontamento"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -10794,11 +10109,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."fn_hh_criar_apontamento"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_hh_delete_apontamento"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -10807,11 +10118,7 @@ begin
   return old;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_hh_delete_apontamento"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_hh_lancamentos_calc"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -10912,11 +10219,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."fn_hh_lancamentos_calc"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_hh_sync_apontamento"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -10975,11 +10278,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."fn_hh_sync_apontamento"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_importacao_xml__itens_auto_cadastrar_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") RETURNS "public"."item_finalidade"[]
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -10995,11 +10294,7 @@ CREATE OR REPLACE FUNCTION "public"."fn_importacao_xml__itens_auto_cadastrar_fin
     array['materia_prima'::public.item_finalidade]
   );
 $$;
-
-
 ALTER FUNCTION "public"."fn_importacao_xml__itens_auto_cadastrar_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_importacao_xml__itens_vincular_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") RETURNS "public"."item_finalidade"[]
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -11015,11 +10310,7 @@ CREATE OR REPLACE FUNCTION "public"."fn_importacao_xml__itens_vincular_finalidad
     array['materia_prima'::public.item_finalidade]
   );
 $$;
-
-
 ALTER FUNCTION "public"."fn_importacao_xml__itens_vincular_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_nf_entrada_sync_estoque_df"("p_nf_entrada_id" bigint) RETURNS TABLE("status" "text", "message" "text", "documento_fiscal_id" "uuid", "movs_criadas" integer, "df_itens_criados" integer, "df_impostos_criados" integer)
     LANGUAGE "plpgsql"
     AS $$
@@ -11253,21 +10544,13 @@ begin
   return next;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_nf_entrada_sync_estoque_df"("p_nf_entrada_id" bigint) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_normalize_documento"("p_doc" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select regexp_replace(coalesce(p_doc, ''), '[^0-9]', '', 'g');
 $$;
-
-
 ALTER FUNCTION "public"."fn_normalize_documento"("p_doc" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_ordens_servico_validate_hh"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -11305,15 +10588,8 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_ordens_servico_validate_hh"() OWNER TO "postgres";
-
-
 COMMENT ON FUNCTION "public"."fn_ordens_servico_validate_hh"() IS 'Bloqueia OS HH (usa_relatorio_hh=true) quando o cliente não tem habilita_hh=true. SECURITY DEFINER com row_security=off para não depender de RLS em clientes.';
-
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_percentual_por_data"("p_data" "date") RETURNS integer
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -11323,11 +10599,7 @@ CREATE OR REPLACE FUNCTION "public"."fn_percentual_por_data"("p_data" "date") RE
     ELSE 0
   END;
 $$;
-
-
 ALTER FUNCTION "public"."fn_percentual_por_data"("p_data" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_regerar_parcelas_titulo_from_xml"("p_nf_entrada_id" bigint, "p_titulo_id" "uuid") RETURNS TABLE("status" "text", "message" "text", "parcelas_criadas" integer, "total_parcelas" numeric)
     LANGUAGE "plpgsql"
     AS $$
@@ -11431,11 +10703,7 @@ begin
   return next;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_regerar_parcelas_titulo_from_xml"("p_nf_entrada_id" bigint, "p_titulo_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_set_fator_aplicado"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -11472,11 +10740,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_set_fator_aplicado"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_set_horas_from_periodos"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -11522,11 +10786,7 @@ BEGIN
 
   RETURN NEW;
 END $$;
-
-
 ALTER FUNCTION "public"."fn_set_horas_from_periodos"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_validar_apontamento_horas"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -11570,11 +10830,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."fn_validar_apontamento_horas"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."fn_xml_strip_default_namespace"("p_xml_raw" "text") RETURNS "xml"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -11585,11 +10841,7 @@ CREATE OR REPLACE FUNCTION "public"."fn_xml_strip_default_namespace"("p_xml_raw"
     )
   );
 $$;
-
-
 ALTER FUNCTION "public"."fn_xml_strip_default_namespace"("p_xml_raw" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."gerar_relatorio_hh_os"("p_os_id" integer, "p_periodo_inicio" "date", "p_periodo_fim" "date") RETURNS TABLE("relatorio_id" bigint, "total" numeric)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -11840,11 +11092,7 @@ BEGIN
   RETURN QUERY SELECT v_relatorio_id, v_total;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."gerar_relatorio_hh_os"("p_os_id" integer, "p_periodo_inicio" "date", "p_periodo_fim" "date") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_default_empresa_id"("p_tenant_id" "uuid") RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -11856,11 +11104,7 @@ CREATE OR REPLACE FUNCTION "public"."get_default_empresa_id"("p_tenant_id" "uuid
   order by e.criado_em asc nulls last
   limit 1;
 $$;
-
-
 ALTER FUNCTION "public"."get_default_empresa_id"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_default_tenant_id"() RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -11913,11 +11157,7 @@ begin
   return tenant_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."get_default_tenant_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_full_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -12057,11 +11297,7 @@ begin
   return coalesce(result_perms, '{}'::jsonb);
 end;
 $$;
-
-
 ALTER FUNCTION "public"."get_full_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_hh_tipo_id_for_tenant"("p_tenant_id" "uuid") RETURNS bigint
     LANGUAGE "plpgsql" STABLE
     AS $$
@@ -12077,26 +11313,15 @@ BEGIN
   RETURN v_hh_tipo_id;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."get_hh_tipo_id_for_tenant"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 COMMENT ON FUNCTION "public"."get_hh_tipo_id_for_tenant"("p_tenant_id" "uuid") IS 'Resolve hh_tipo_id padrÃ£o para um tenant baseado em tipos_horas';
-
-
-
 CREATE OR REPLACE FUNCTION "public"."get_my_active_tenant"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
   select public.current_tenant_id()
 $$;
-
-
 ALTER FUNCTION "public"."get_my_active_tenant"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_my_permissions"() RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -12115,11 +11340,7 @@ begin
   return public.get_full_permissions(v_tenant_id, v_empresa_id);
 end;
 $$;
-
-
 ALTER FUNCTION "public"."get_my_permissions"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid") RETURNS TABLE("permission" "text")
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -12128,11 +11349,7 @@ CREATE OR REPLACE FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid") R
   from jsonb_each(public.get_full_permissions(p_tenant_id, public.current_empresa_id())) e
   where e.value = 'true'::jsonb;
 $$;
-
-
 ALTER FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") RETURNS TABLE("permission" "text")
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public', 'a'
@@ -12141,11 +11358,7 @@ CREATE OR REPLACE FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid", "
   from jsonb_each(public.get_full_permissions(p_tenant_id, p_empresa_id)) e
   where e.value = 'true'::jsonb;
 $$;
-
-
 ALTER FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."get_my_roles"() RETURNS TABLE("role" "text")
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -12159,11 +11372,7 @@ CREATE OR REPLACE FUNCTION "public"."get_my_roles"() RETURNS TABLE("role" "text"
     and tm.tenant_id = public.current_tenant_id()
   order by r.name
 $$;
-
-
 ALTER FUNCTION "public"."get_my_roles"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -12181,11 +11390,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."has_permission"("p_code" "text") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -12198,11 +11403,7 @@ CREATE OR REPLACE FUNCTION "public"."has_permission"("p_code" "text") RETURNS bo
       and v.permission = p_code
   );
 $$;
-
-
 ALTER FUNCTION "public"."has_permission"("p_code" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."import_nf_entrada"("p_empresa_id" "uuid", "p_finalidade_contexto" "public"."item_finalidade", "p_fornecedor_id" bigint, "p_itens_json" "jsonb", "p_nf_json" "jsonb", "p_tenant_id" "uuid", "p_xml_raw" "text", "p_gerar_contas_pagar" boolean DEFAULT false, "p_parcelas_json" "jsonb" DEFAULT NULL::"jsonb", "p_os_id" integer DEFAULT NULL::integer, "p_baixar_os" boolean DEFAULT false, "p_motivo_compra_id" "uuid" DEFAULT NULL::"uuid", "p_solicitante_usuario_id" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("status" "text", "message" "text", "nf_entrada_id" bigint)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -12508,15 +11709,8 @@ begin
   return next;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."import_nf_entrada"("p_empresa_id" "uuid", "p_finalidade_contexto" "public"."item_finalidade", "p_fornecedor_id" bigint, "p_itens_json" "jsonb", "p_nf_json" "jsonb", "p_tenant_id" "uuid", "p_xml_raw" "text", "p_gerar_contas_pagar" boolean, "p_parcelas_json" "jsonb", "p_os_id" integer, "p_baixar_os" boolean, "p_motivo_compra_id" "uuid", "p_solicitante_usuario_id" "uuid") OWNER TO "postgres";
-
-
 COMMENT ON FUNCTION "public"."import_nf_entrada"("p_empresa_id" "uuid", "p_finalidade_contexto" "public"."item_finalidade", "p_fornecedor_id" bigint, "p_itens_json" "jsonb", "p_nf_json" "jsonb", "p_tenant_id" "uuid", "p_xml_raw" "text", "p_gerar_contas_pagar" boolean, "p_parcelas_json" "jsonb", "p_os_id" integer, "p_baixar_os" boolean, "p_motivo_compra_id" "uuid", "p_solicitante_usuario_id" "uuid") IS 'Padrao do ERP: importacao de NF-e ENTRADA SEMPRE gera Contas a Pagar. Parametro p_gerar_contas_pagar mantido apenas por compatibilidade e e ignorado.';
-
-
-
 CREATE OR REPLACE FUNCTION "public"."import_nf_entrada_v2"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_chave_acesso" "text", "p_numero" "text", "p_serie" "text", "p_emissao_date" "date", "p_competencia_date" "date", "p_valor_total" numeric, "p_fornecedor_nome" "text", "p_fornecedor_documento" "text", "p_gerar_titulo" boolean, "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid" DEFAULT NULL::"uuid", "p_os_id" integer DEFAULT NULL::integer, "p_observacoes" "text" DEFAULT NULL::"text") RETURNS "uuid"
     LANGUAGE "plpgsql"
     AS $$
@@ -12653,11 +11847,7 @@ begin
 
   return v_doc_id;
 end $$;
-
-
 ALTER FUNCTION "public"."import_nf_entrada_v2"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_chave_acesso" "text", "p_numero" "text", "p_serie" "text", "p_emissao_date" "date", "p_competencia_date" "date", "p_valor_total" numeric, "p_fornecedor_nome" "text", "p_fornecedor_documento" "text", "p_gerar_titulo" boolean, "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid", "p_os_id" integer, "p_observacoes" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."import_nfse_saida"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nfse_json" "jsonb", "p_xml_raw" "text") RETURNS TABLE("status" "text", "message" "text", "documento_fiscal_id" "uuid")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'f', 'a'
@@ -13303,11 +12493,7 @@ begin
   end;
 end;
 $_$;
-
-
 ALTER FUNCTION "public"."import_nfse_saida"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nfse_json" "jsonb", "p_xml_raw" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."itens_resolver_por_codigo"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_codigo" "text") RETURNS integer
     LANGUAGE "sql" STABLE
     AS $$
@@ -13320,41 +12506,25 @@ CREATE OR REPLACE FUNCTION "public"."itens_resolver_por_codigo"("p_tenant_id" "u
     and i.codigo_interno_sem_zeros = public.strip_zeros_esquerda(p_codigo)
   limit 1;
 $$;
-
-
 ALTER FUNCTION "public"."itens_resolver_por_codigo"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_codigo" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."jwt_claim"("claim" "text") RETURNS "text"
     LANGUAGE "sql" STABLE
     AS $$
   select (current_setting('request.jwt.claims', true)::json ->> claim);
 $$;
-
-
 ALTER FUNCTION "public"."jwt_claim"("claim" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."jwt_empresa_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE
     AS $$
   select nullif(public.jwt_claim('empresa_id'), '')::uuid;
 $$;
-
-
 ALTER FUNCTION "public"."jwt_empresa_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."jwt_tenant_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE
     AS $$
   select nullif(public.jwt_claim('tenant_id'), '')::uuid;
 $$;
-
-
 ALTER FUNCTION "public"."jwt_tenant_id"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."list_user_empresas"("p_tenant_id" "text") RETURNS TABLE("id" bigint, "nome" "text", "nome_fantasia" "text", "razao_social" "text", "ativo" boolean, "criado_em" timestamp with time zone)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13377,11 +12547,7 @@ BEGIN
   ORDER BY e.criado_em ASC;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."list_user_empresas"("p_tenant_id" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."list_user_empresas"("p_tenant_id" "uuid") RETURNS TABLE("id" "uuid", "nome" "text", "ativo" boolean)
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13403,11 +12569,7 @@ CREATE OR REPLACE FUNCTION "public"."list_user_empresas"("p_tenant_id" "uuid") R
     )
   ORDER BY e.criado_em ASC;
 $$;
-
-
 ALTER FUNCTION "public"."list_user_empresas"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."merge_fornecedores"("p_keep_id" integer, "p_kill_id" integer) RETURNS "void"
     LANGUAGE "plpgsql"
     AS $_$
@@ -13437,11 +12599,7 @@ begin
 
 end;
 $_$;
-
-
 ALTER FUNCTION "public"."merge_fornecedores"("p_keep_id" integer, "p_kill_id" integer) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."merge_fornecedores"("p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint) RETURNS "void"
     LANGUAGE "plpgsql"
     AS $$
@@ -13466,31 +12624,19 @@ begin
    where id = p_merge_fornecedor_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."merge_fornecedores"("p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."normalize_cnpj"("p" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select regexp_replace(coalesce(p,''), '\D', '', 'g');
 $$;
-
-
 ALTER FUNCTION "public"."normalize_cnpj"("p" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."normalize_doc"("doc" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
   select nullif(regexp_replace(coalesce(doc,''), '[^0-9]', '', 'g'), '');
 $$;
-
-
 ALTER FUNCTION "public"."normalize_doc"("doc" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."os_sync_itens_from_nf_entrada"("p_nf_entrada_id" bigint) RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13561,11 +12707,7 @@ begin
   return v_inserted;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."os_sync_itens_from_nf_entrada"("p_nf_entrada_id" bigint) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."pick_fiscal_regra"("p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13603,11 +12745,7 @@ CREATE OR REPLACE FUNCTION "public"."pick_fiscal_regra"("p_ncm" "text", "p_cfop"
     r.atualizado_em desc
   limit 1;
 $$;
-
-
 ALTER FUNCTION "public"."pick_fiscal_regra"("p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."pick_fiscal_regra_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13631,11 +12769,7 @@ CREATE OR REPLACE FUNCTION "public"."pick_fiscal_regra_admin"("p_tenant" "uuid",
     r.atualizado_em desc
   limit 1;
 $$;
-
-
 ALTER FUNCTION "public"."pick_fiscal_regra_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."remove_os_item_reverte_estoque"("p_os_item_id" integer, "p_realizado_por" "text" DEFAULT NULL::"text", "p_motivo" "text" DEFAULT NULL::"text", "p_empresa_id" "uuid" DEFAULT NULL::"uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13739,11 +12873,7 @@ begin
     and os.tenant_id = v_tenant;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."remove_os_item_reverte_estoque"("p_os_item_id" integer, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."set_current_empresa"("p_empresa_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13793,11 +12923,7 @@ begin
   perform set_config('app.current_empresa_id', p_empresa_id::text, true);
 end;
 $$;
-
-
 ALTER FUNCTION "public"."set_current_empresa"("p_empresa_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."set_current_tenant"("p_tenant_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -13841,11 +12967,7 @@ begin
         updated_at = now();
 end
 $$;
-
-
 ALTER FUNCTION "public"."set_current_tenant"("p_tenant_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" integer, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'a', 'f'
@@ -13925,11 +13047,7 @@ begin
     and empresa_id = v_empresa;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" integer, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" bigint, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -14018,11 +13136,7 @@ begin
   where f.id = p_fornecedor_id;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" bigint, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -14035,15 +13149,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"() OWNER TO "postgres";
-
-
 COMMENT ON FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"() IS 'Trigger function: preenche automaticamente tenant_id no INSERT de colaborador_cliente_funcao';
-
-
-
 CREATE OR REPLACE FUNCTION "public"."set_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14052,11 +13159,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."set_updated_at"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."strip_zeros_esquerda"("p" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     AS $$
@@ -14065,11 +13168,7 @@ CREATE OR REPLACE FUNCTION "public"."strip_zeros_esquerda"("p" "text") RETURNS "
     else coalesce(nullif(regexp_replace(trim(p), '^0+', ''), ''), '0')
   end;
 $$;
-
-
 ALTER FUNCTION "public"."strip_zeros_esquerda"("p" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."tg_nf_entrada_itens__enforce_item_finalidade_import"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -14106,11 +13205,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."tg_nf_entrada_itens__enforce_item_finalidade_import"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."tg_nf_entrada_itens__fill_descricao"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14135,11 +13230,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."tg_nf_entrada_itens__fill_descricao"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_block_nf_movimentacoes"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -14153,11 +13244,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."trg_block_nf_movimentacoes"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_fornecedores_force_gerar_cp"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14166,11 +13253,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."trg_fornecedores_force_gerar_cp"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_itens_normalizar_codigos"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14186,11 +13269,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."trg_itens_normalizar_codigos"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_itens_sync_timestamps"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14210,11 +13289,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."trg_itens_sync_timestamps"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_nf_entrada_itens_sync_os_stmt"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -14229,11 +13304,7 @@ begin
   return null;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."trg_nf_entrada_itens_sync_os_stmt"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_nf_entrada_sync_os_itens"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -14247,11 +13318,7 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."trg_nf_entrada_sync_os_itens"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."update_cliente_hh_servicos_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14260,11 +13327,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."update_cliente_hh_servicos_updated_at"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."update_colaborador_cliente_funcao_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14273,11 +13336,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."update_colaborador_cliente_funcao_updated_at"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."update_timestamp"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14286,15 +13345,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."update_timestamp"() OWNER TO "postgres";
-
-
 COMMENT ON FUNCTION "public"."update_timestamp"() IS 'Trigger function para atualizar campo atualizado_em automaticamente';
-
-
-
 CREATE OR REPLACE FUNCTION "public"."validate_apontamento_colaborador_contrato"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
@@ -14356,15 +13408,8 @@ begin
   return new;
 end;
 $$;
-
-
 ALTER FUNCTION "public"."validate_apontamento_colaborador_contrato"() OWNER TO "postgres";
-
-
 COMMENT ON FUNCTION "public"."validate_apontamento_colaborador_contrato"() IS 'Valida vínculo do colaborador com o contrato do cliente SOMENTE quando a OS está em HH (usa_relatorio_hh=true).';
-
-
-
 CREATE OR REPLACE FUNCTION "public"."validate_hh_lancamento"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -14444,11 +13489,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
-
 ALTER FUNCTION "public"."validate_hh_lancamento"() OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "a"."config_orcamento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14464,11 +13505,7 @@ CREATE TABLE IF NOT EXISTS "a"."config_orcamento" (
     CONSTRAINT "ck_config_orcamento__descmax_range" CHECK ((("desconto_max_percent" >= (0)::numeric) AND ("desconto_max_percent" <= (100)::numeric))),
     CONSTRAINT "ck_config_orcamento__margem_range" CHECK ((("margem_lucro_padrao_percent" >= (0)::numeric) AND ("margem_lucro_padrao_percent" <= (100)::numeric)))
 );
-
-
 ALTER TABLE "a"."config_orcamento" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "a"."usuario" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "auth_user_id" "uuid" NOT NULL,
@@ -14484,11 +13521,7 @@ CREATE TABLE IF NOT EXISTS "a"."usuario" (
     CONSTRAINT "ck_usuario__email_lower" CHECK (("email" = "lower"("email"))),
     CONSTRAINT "ck_usuario__telefone_digits" CHECK ((("telefone" IS NULL) OR ("telefone" ~ '^[0-9]+$'::"text")))
 );
-
-
 ALTER TABLE "a"."usuario" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "a"."usuario_empresa" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "usuario_id" "uuid" NOT NULL,
@@ -14504,11 +13537,7 @@ CREATE TABLE IF NOT EXISTS "a"."usuario_empresa" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_usuario_empresa__papel" CHECK (("papel" = ANY (ARRAY['ADMIN'::"text", 'FINANCEIRO'::"text", 'COORDENACAO'::"text", 'COMPRAS'::"text", 'ALMOXARIFADO'::"text", 'TECNICO'::"text", 'APONTAMENTO_RH'::"text", 'PAINEL_TV'::"text"])))
 );
-
-
 ALTER TABLE "a"."usuario_empresa" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "a"."usuario_tenant" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "usuario_id" "uuid" NOT NULL,
@@ -14522,11 +13551,7 @@ CREATE TABLE IF NOT EXISTS "a"."usuario_tenant" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_usuario_tenant__papel" CHECK (("papel" = ANY (ARRAY['OWNER'::"text", 'ADMIN'::"text", 'CONTADOR'::"text", 'GESTOR'::"text"])))
 );
-
-
 ALTER TABLE "a"."usuario_tenant" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."condicao_pagamento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14546,11 +13571,7 @@ CREATE TABLE IF NOT EXISTS "c"."condicao_pagamento" (
     CONSTRAINT "ck_condicao_pagamento__dias_range" CHECK ((("dias" IS NULL) OR ("dias" >= 0))),
     CONSTRAINT "ck_condicao_pagamento__nome_not_blank" CHECK (("length"(TRIM(BOTH FROM "nome")) > 0))
 );
-
-
 ALTER TABLE "c"."condicao_pagamento" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."conjunto" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14575,11 +13596,7 @@ CREATE TABLE IF NOT EXISTS "c"."conjunto" (
     CONSTRAINT "ck_conjunto__precificacao" CHECK (("precificacao" = ANY (ARRAY['SOMA_COMPONENTES'::"text", 'PRECO_FIXO'::"text"]))),
     CONSTRAINT "ck_conjunto__preco_fixo_required" CHECK ((("precificacao" <> 'PRECO_FIXO'::"text") OR (("preco_fixo" IS NOT NULL) AND ("preco_fixo" >= (0)::numeric))))
 );
-
-
 ALTER TABLE "c"."conjunto" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."conjunto_item" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14598,11 +13615,7 @@ CREATE TABLE IF NOT EXISTS "c"."conjunto_item" (
     CONSTRAINT "ck_conjunto_item__ordem" CHECK (("ordem" >= 1)),
     CONSTRAINT "ck_conjunto_item__qtd" CHECK (("quantidade" > (0)::numeric))
 );
-
-
 ALTER TABLE "c"."conjunto_item" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."empresa" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14626,11 +13639,7 @@ CREATE TABLE IF NOT EXISTS "c"."empresa" (
     CONSTRAINT "ck_empresa__site_lower" CHECK ((("site" IS NULL) OR ("site" = "lower"("site")))),
     CONSTRAINT "ck_empresa__telefone_digits" CHECK ((("telefone" IS NULL) OR ("telefone" ~ '^[0-9]+$'::"text")))
 );
-
-
 ALTER TABLE "c"."empresa" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."empresa_endereco" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "empresa_id" "uuid" NOT NULL,
@@ -14655,11 +13664,7 @@ CREATE TABLE IF NOT EXISTS "c"."empresa_endereco" (
     CONSTRAINT "ck_empresa_endereco__tipo" CHECK (("tipo" = ANY (ARRAY['FISCAL'::"text", 'COBRANCA'::"text", 'ENTREGA'::"text", 'CORRESPONDENCIA'::"text"]))),
     CONSTRAINT "ck_empresa_endereco__uf" CHECK (("uf" ~ '^[A-Z]{2}$'::"text"))
 );
-
-
 ALTER TABLE "c"."empresa_endereco" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."empresa_fiscal" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "empresa_id" "uuid" NOT NULL,
@@ -14680,11 +13685,7 @@ CREATE TABLE IF NOT EXISTS "c"."empresa_fiscal" (
     CONSTRAINT "ck_empresa_fiscal__ie_isento_regra" CHECK (((("ie_isento" = true) AND ("inscricao_estadual" IS NULL)) OR ("ie_isento" = false))),
     CONSTRAINT "ck_empresa_fiscal__im_digits" CHECK ((("inscricao_municipal" IS NULL) OR ("inscricao_municipal" ~ '^[0-9]+$'::"text")))
 );
-
-
 ALTER TABLE "c"."empresa_fiscal" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_caixa" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14701,11 +13702,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_caixa" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_i_caixa__status" CHECK (("status" = ANY (ARRAY['DISPONIVEL'::"text", 'COM_COLABORADOR'::"text", 'MANUTENCAO'::"text", 'BAIXADA'::"text"])))
 );
-
-
 ALTER TABLE "c"."i_caixa" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_caixa_item" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14719,11 +13716,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_caixa_item" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "c"."i_caixa_item" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_caixa_vinculo" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14739,11 +13732,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_caixa_vinculo" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "c"."i_caixa_vinculo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_ferramenta" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14763,11 +13752,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_ferramenta" (
     "custo_atualizado_em" timestamp with time zone,
     "categoria_id" "uuid"
 );
-
-
 ALTER TABLE "c"."i_ferramenta" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_categoria" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14779,11 +13764,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_categoria" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "c"."i_ferramenta_categoria" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_codigo_seq" (
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
@@ -14791,11 +13772,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_codigo_seq" (
     "proximo_numero" integer DEFAULT 1 NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "c"."i_ferramenta_codigo_seq" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_sugestao_xml" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14821,11 +13798,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_sugestao_xml" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_i_ferr_sug_xml__status" CHECK (("status" = ANY (ARRAY['PENDENTE'::"text", 'VINCULADA'::"text", 'CRIADA'::"text", 'IGNORADA'::"text"])))
 );
-
-
 ALTER TABLE "c"."i_ferramenta_sugestao_xml" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_unidade" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14841,11 +13814,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_unidade" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_i_ferr_unid__status" CHECK (("status" = ANY (ARRAY['DISPONIVEL'::"text", 'COM_COLABORADOR'::"text", 'MANUTENCAO'::"text", 'BAIXADA'::"text"])))
 );
-
-
 ALTER TABLE "c"."i_ferramenta_unidade" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_unidade_vinculo" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -14861,11 +13830,7 @@ CREATE TABLE IF NOT EXISTS "c"."i_ferramenta_unidade_vinculo" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "c"."i_ferramenta_unidade_vinculo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "c"."tenant" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "codigo" "text" NOT NULL,
@@ -14879,11 +13844,7 @@ CREATE TABLE IF NOT EXISTS "c"."tenant" (
     CONSTRAINT "ck_tenant__codigo_not_blank" CHECK (("length"(TRIM(BOTH FROM "codigo")) > 0)),
     CONSTRAINT "ck_tenant__nome_not_blank" CHECK (("length"(TRIM(BOTH FROM "nome")) > 0))
 );
-
-
 ALTER TABLE "c"."tenant" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."anexo" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14896,11 +13857,7 @@ CREATE TABLE IF NOT EXISTS "f"."anexo" (
     "uploaded_by" "uuid" DEFAULT "a"."fn_current_usuario_id"(),
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."anexo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."ap_recorrencia" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14919,11 +13876,7 @@ CREATE TABLE IF NOT EXISTS "f"."ap_recorrencia" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_ap_recorrencia__dia_vencimento" CHECK ((("dia_vencimento" >= 1) AND ("dia_vencimento" <= 31)))
 );
-
-
 ALTER TABLE "f"."ap_recorrencia" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."aprovacao_evento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14937,11 +13890,7 @@ CREATE TABLE IF NOT EXISTS "f"."aprovacao_evento" (
     "created_by" "uuid" DEFAULT "a"."fn_current_usuario_id"(),
     CONSTRAINT "ck_aprovacao_evento__acao" CHECK (("acao" = ANY (ARRAY['APROVOU'::"text", 'REPROVOU'::"text"])))
 );
-
-
 ALTER TABLE "f"."aprovacao_evento" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."arrendamento_contrato" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14967,11 +13916,7 @@ CREATE TABLE IF NOT EXISTS "f"."arrendamento_contrato" (
     CONSTRAINT "ck_arr_contrato__prazo" CHECK ((("prazo_meses" >= 1) AND ("prazo_meses" <= 120))),
     CONSTRAINT "ck_arr_contrato__valor" CHECK (("valor_parcela" >= (0)::numeric))
 );
-
-
 ALTER TABLE "f"."arrendamento_contrato" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."arrendamento_parcela" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -14991,11 +13936,7 @@ CREATE TABLE IF NOT EXISTS "f"."arrendamento_parcela" (
     CONSTRAINT "ck_arr_parcela__numero" CHECK (("numero" >= 1)),
     CONSTRAINT "ck_arr_parcela__valor" CHECK (("valor" >= (0)::numeric))
 );
-
-
 ALTER TABLE "f"."arrendamento_parcela" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."centro_custo" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15010,11 +13951,7 @@ CREATE TABLE IF NOT EXISTS "f"."centro_custo" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."centro_custo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."conciliacao_bancaria" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15037,11 +13974,7 @@ CREATE TABLE IF NOT EXISTS "f"."conciliacao_bancaria" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_conciliacao_bancaria__status" CHECK (("status" = ANY (ARRAY['CONCILIADO'::"text", 'DESCONCILIADO'::"text"])))
 );
-
-
 ALTER TABLE "f"."conciliacao_bancaria" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."conciliacao_lancamento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15055,11 +13988,7 @@ CREATE TABLE IF NOT EXISTS "f"."conciliacao_lancamento" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "created_by" "uuid" DEFAULT "a"."fn_current_usuario_id"()
 );
-
-
 ALTER TABLE "f"."conciliacao_lancamento" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."conta_bancaria" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15079,11 +14008,7 @@ CREATE TABLE IF NOT EXISTS "f"."conta_bancaria" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_conta_bancaria__tipo" CHECK (("tipo" = ANY (ARRAY['BANCO'::"text", 'CAIXA'::"text"])))
 );
-
-
 ALTER TABLE "f"."conta_bancaria" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."documento_fiscal" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15128,11 +14053,7 @@ CREATE TABLE IF NOT EXISTS "f"."documento_fiscal" (
     CONSTRAINT "ck_documento_fiscal__nfse_status" CHECK ((("nfse_status" IS NULL) OR ("nfse_status" = ANY (ARRAY['RASCUNHO'::"text", 'EMITIDA'::"text", 'CANCELADA'::"text", 'SUBSTITUIDA'::"text"])))),
     CONSTRAINT "ck_documento_fiscal__operacao" CHECK (("operacao" = ANY (ARRAY['ENTRADA'::"text", 'SAIDA'::"text"])))
 );
-
-
 ALTER TABLE "f"."documento_fiscal" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_imposto" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15152,11 +14073,7 @@ CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_imposto" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_documento_fiscal_imposto__natureza" CHECK (("natureza" = ANY (ARRAY['DEBITO'::"text", 'CREDITO'::"text", 'RETENCAO'::"text"])))
 );
-
-
 ALTER TABLE "f"."documento_fiscal_imposto" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_item" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15179,11 +14096,7 @@ CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_item" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_documento_fiscal_item__tipo" CHECK (("item_tipo" = ANY (ARRAY['PRODUTO'::"text", 'SERVICO'::"text"])))
 );
-
-
 ALTER TABLE "f"."documento_fiscal_item" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_pendencia" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15195,11 +14108,7 @@ CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_pendencia" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "resolved_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."documento_fiscal_pendencia" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_xml" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15211,11 +14120,7 @@ CREATE TABLE IF NOT EXISTS "f"."documento_fiscal_xml" (
     "created_by" "uuid" DEFAULT "a"."fn_current_usuario_id"(),
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."documento_fiscal_xml" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."evento_financeiro" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15227,11 +14132,7 @@ CREATE TABLE IF NOT EXISTS "f"."evento_financeiro" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "created_by" "uuid" DEFAULT "a"."fn_current_usuario_id"()
 );
-
-
 ALTER TABLE "f"."evento_financeiro" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."extrato_bancario" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15249,11 +14150,7 @@ CREATE TABLE IF NOT EXISTS "f"."extrato_bancario" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_extrato_bancario__fonte" CHECK (("fonte" = ANY (ARRAY['MANUAL'::"text", 'OFX'::"text", 'CSV'::"text", 'API'::"text"])))
 );
-
-
 ALTER TABLE "f"."extrato_bancario" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."extrato_bancario_linha" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15273,11 +14170,7 @@ CREATE TABLE IF NOT EXISTS "f"."extrato_bancario_linha" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_extrato_linha__status" CHECK (("status" = ANY (ARRAY['PENDENTE'::"text", 'CONCILIADO'::"text", 'IGNORADO'::"text"])))
 );
-
-
 ALTER TABLE "f"."extrato_bancario_linha" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."fin_config" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15289,11 +14182,7 @@ CREATE TABLE IF NOT EXISTS "f"."fin_config" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."fin_config" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."importacao_doc_log" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15307,11 +14196,7 @@ CREATE TABLE IF NOT EXISTS "f"."importacao_doc_log" (
     "created_by" "uuid" DEFAULT "a"."fn_current_usuario_id"(),
     CONSTRAINT "ck_importacao_doc_log__status" CHECK (("status" = ANY (ARRAY['SUCESSO'::"text", 'ERRO'::"text"])))
 );
-
-
 ALTER TABLE "f"."importacao_doc_log" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."imposto_retencao" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15329,11 +14214,7 @@ CREATE TABLE IF NOT EXISTS "f"."imposto_retencao" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."imposto_retencao" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."irpj_csll_ajuste" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15354,11 +14235,7 @@ CREATE TABLE IF NOT EXISTS "f"."irpj_csll_ajuste" (
     CONSTRAINT "ck_irpj_csll_ajuste__tipo" CHECK (("tipo" = ANY (ARRAY['ADICAO'::"text", 'EXCLUSAO'::"text"]))),
     CONSTRAINT "ck_irpj_csll_ajuste__valor" CHECK (("valor" >= (0)::numeric))
 );
-
-
 ALTER TABLE "f"."irpj_csll_ajuste" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."irpj_csll_financeiro_config" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15373,11 +14250,7 @@ CREATE TABLE IF NOT EXISTS "f"."irpj_csll_financeiro_config" (
     "irpj_vencimento_regra_id" "uuid",
     "csll_vencimento_regra_id" "uuid"
 );
-
-
 ALTER TABLE "f"."irpj_csll_financeiro_config" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."irpj_csll_regra_plano" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15397,11 +14270,7 @@ CREATE TABLE IF NOT EXISTS "f"."irpj_csll_regra_plano" (
     CONSTRAINT "ck_irpj_csll_regra_plano__percentual" CHECK ((("percentual" >= (0)::numeric) AND ("percentual" <= (100)::numeric))),
     CONSTRAINT "ck_irpj_csll_regra_plano__tipo" CHECK (("tipo" = ANY (ARRAY['ADICAO'::"text", 'EXCLUSAO'::"text"])))
 );
-
-
 ALTER TABLE "f"."irpj_csll_regra_plano" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."irpj_csll_saldo_inicial" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15418,11 +14287,7 @@ CREATE TABLE IF NOT EXISTS "f"."irpj_csll_saldo_inicial" (
     CONSTRAINT "ck_irpj_csll_saldo_inicial__saldo_csll" CHECK (("saldo_base_negativa_csll" >= (0)::numeric)),
     CONSTRAINT "ck_irpj_csll_saldo_inicial__saldo_irpj" CHECK (("saldo_prejuizo_irpj" >= (0)::numeric))
 );
-
-
 ALTER TABLE "f"."irpj_csll_saldo_inicial" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."motivo_compra" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15443,23 +14308,10 @@ CREATE TABLE IF NOT EXISTS "f"."motivo_compra" (
     "visivel_import_nfe" boolean DEFAULT true NOT NULL,
     CONSTRAINT "ck_motivo_compra__aplica_em" CHECK (("aplica_em" = ANY (ARRAY['PRODUTO'::"text", 'SERVICO'::"text", 'AMBOS'::"text"])))
 );
-
-
 ALTER TABLE "f"."motivo_compra" OWNER TO "postgres";
-
-
 COMMENT ON COLUMN "f"."motivo_compra"."favorito" IS 'Mostra no topo da lista de motivos';
-
-
-
 COMMENT ON COLUMN "f"."motivo_compra"."ordem" IS 'Ordenação manual (maior = mais acima)';
-
-
-
 COMMENT ON COLUMN "f"."motivo_compra"."visivel_import_nfe" IS 'Se true, aparece no seletor de motivo na importação de NF-e de entrada';
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."nf_entrada" (
     "id" bigint NOT NULL,
     "chave" character varying(60) NOT NULL,
@@ -15489,11 +14341,7 @@ CREATE TABLE IF NOT EXISTS "public"."nf_entrada" (
     "deleted_at" timestamp with time zone,
     CONSTRAINT "ck_nf_entrada__xml_raw_not_blank" CHECK ((("xml_raw" IS NULL) OR ("btrim"("xml_raw") <> ''::"text")))
 );
-
-
 ALTER TABLE "public"."nf_entrada" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."nf_entrada" AS
  SELECT "id",
     "tenant_id",
@@ -15520,11 +14368,7 @@ CREATE OR REPLACE VIEW "f"."nf_entrada" AS
     "solicitante_usuario_id",
     "baixa_os_automatica"
    FROM "public"."nf_entrada" "n";
-
-
 ALTER VIEW "f"."nf_entrada" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."pagamento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15555,11 +14399,7 @@ CREATE TABLE IF NOT EXISTS "f"."pagamento" (
     CONSTRAINT "ck_pagamento__valor_principal" CHECK (("valor_principal" >= (0)::numeric)),
     CONSTRAINT "ck_pagamento__valor_total_comp" CHECK (("round"("valor", 2) = "round"(((("valor_principal" + "valor_juros") + "valor_multa") - "valor_desconto"), 2)))
 );
-
-
 ALTER TABLE "f"."pagamento" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."pagamento_item" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15575,11 +14415,7 @@ CREATE TABLE IF NOT EXISTS "f"."pagamento_item" (
     "updated_by" "uuid",
     CONSTRAINT "ck_pagamento_item__valor" CHECK (("valor" >= (0)::numeric))
 );
-
-
 ALTER TABLE "f"."pagamento_item" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."parametro_financeiro_empresa" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15593,11 +14429,7 @@ CREATE TABLE IF NOT EXISTS "f"."parametro_financeiro_empresa" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."parametro_financeiro_empresa" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."parametro_irpj_csll_empresa" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15618,11 +14450,7 @@ CREATE TABLE IF NOT EXISTS "f"."parametro_irpj_csll_empresa" (
     CONSTRAINT "ck_param_irpj__aliquota" CHECK ((("irpj_aliquota" >= (0)::numeric) AND ("irpj_aliquota" <= (100)::numeric))),
     CONSTRAINT "ck_param_irpj_csll__regime" CHECK (("regime_apuracao" = ANY (ARRAY['ANUAL_ESTIMATIVA'::"text", 'TRIMESTRAL'::"text"])))
 );
-
-
 ALTER TABLE "f"."parametro_irpj_csll_empresa" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."plano_contas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15640,11 +14468,7 @@ CREATE TABLE IF NOT EXISTS "f"."plano_contas" (
     CONSTRAINT "ck_plano_contas__natureza" CHECK (("natureza" = ANY (ARRAY['DEBITO'::"text", 'CREDITO'::"text"]))),
     CONSTRAINT "ck_plano_contas__tipo" CHECK (("tipo" = ANY (ARRAY['SINTETICA'::"text", 'ANALITICA'::"text"])))
 );
-
-
 ALTER TABLE "f"."plano_contas" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."titulo" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15673,11 +14497,7 @@ CREATE TABLE IF NOT EXISTS "f"."titulo" (
     CONSTRAINT "ck_titulo__status" CHECK (("status" = ANY (ARRAY['PENDENTE'::"text", 'APROVADO'::"text", 'AGENDADO'::"text", 'PAGO'::"text", 'CANCELADO'::"text"]))),
     CONSTRAINT "ck_titulo__tipo" CHECK (("tipo" = ANY (ARRAY['AP'::"text", 'AR'::"text"])))
 );
-
-
 ALTER TABLE "f"."titulo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."titulo_aprovacao" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15694,11 +14514,7 @@ CREATE TABLE IF NOT EXISTS "f"."titulo_aprovacao" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "f"."titulo_aprovacao" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."titulo_parcela" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15715,11 +14531,7 @@ CREATE TABLE IF NOT EXISTS "f"."titulo_parcela" (
     CONSTRAINT "ck_titulo_parcela__valor" CHECK (("valor" >= (0)::numeric)),
     CONSTRAINT "ck_titulo_parcela__valor_aberto" CHECK (("valor_aberto" >= (0)::numeric))
 );
-
-
 ALTER TABLE "f"."titulo_parcela" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."fornecedores" (
     "id" integer NOT NULL,
     "nome" character varying(255) NOT NULL,
@@ -15749,15 +14561,8 @@ END) STORED,
     "motivo_compra_padrao_id" "uuid",
     CONSTRAINT "fornecedores_doc_digits_len" CHECK ((("doc_digits" IS NULL) OR ("length"("doc_digits") = ANY (ARRAY[11, 14]))))
 );
-
-
 ALTER TABLE "public"."fornecedores" OWNER TO "postgres";
-
-
 COMMENT ON COLUMN "public"."fornecedores"."gerar_contas_pagar_auto" IS 'Padrao do ERP: mantido sempre TRUE por trigger (campo legado/compatibilidade).';
-
-
-
 CREATE OR REPLACE VIEW "f"."r_ap_aging_detalhe" AS
  SELECT "t"."tenant_id",
     "t"."empresa_id",
@@ -15781,11 +14586,7 @@ CREATE OR REPLACE VIEW "f"."r_ap_aging_detalhe" AS
      LEFT JOIN "f"."motivo_compra" "mc" ON ((("mc"."id" = COALESCE("ta"."motivo_compra_id", "t"."motivo_compra_id")) AND ("mc"."deleted_at" IS NULL))))
      LEFT JOIN "public"."fornecedores" "forn" ON (("forn"."id" = "t"."fornecedor_id")))
   WHERE (("tp"."deleted_at" IS NULL) AND ("t"."deleted_at" IS NULL) AND ("t"."tipo" = 'AP'::"text") AND ("tp"."valor_aberto" > (0)::numeric));
-
-
 ALTER VIEW "f"."r_ap_aging_detalhe" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_ap_aging_resumo" AS
  WITH "base" AS (
          SELECT "t"."tenant_id",
@@ -15838,11 +14639,7 @@ CREATE OR REPLACE VIEW "f"."r_ap_aging_resumo" AS
     ("sum"("valor_aberto"))::numeric(15,2) AS "total_aberto"
    FROM "base"
   GROUP BY "tenant_id", "empresa_id", "fornecedor_id", "fornecedor_nome", "motivo_codigo", "motivo_nome";
-
-
 ALTER VIEW "f"."r_ap_aging_resumo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."titulo_agendamento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -15863,11 +14660,7 @@ CREATE TABLE IF NOT EXISTS "f"."titulo_agendamento" (
     CONSTRAINT "ck_titulo_agendamento__forma" CHECK (("forma_pagamento" = ANY (ARRAY['PIX'::"text", 'BOLETO'::"text", 'TRANSFERENCIA'::"text", 'DINHEIRO'::"text", 'CARTAO'::"text", 'OUTROS'::"text"]))),
     CONSTRAINT "ck_titulo_agendamento__valor" CHECK (("valor_previsto" > (0)::numeric))
 );
-
-
 ALTER TABLE "f"."titulo_agendamento" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_previsto_diario" AS
  WITH "ag" AS (
          SELECT "t"."tenant_id",
@@ -15913,11 +14706,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_previsto_diario" AS
             "venc"."valor_previsto"
            FROM "venc") "x"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", "data_ref", "origem";
-
-
 ALTER VIEW "f"."r_fluxo_caixa_previsto_diario" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_realizado_diario" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -15935,11 +14724,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_realizado_diario" AS
             WHEN ("conciliado_at" IS NOT NULL) THEN 'CONCILIADO'::"text"
             ELSE 'NAO_CONCILIADO'::"text"
         END;
-
-
 ALTER VIEW "f"."r_fluxo_caixa_realizado_diario" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario" AS
  SELECT COALESCE("pr"."tenant_id", "rr"."tenant_id") AS "tenant_id",
     COALESCE("pr"."empresa_id", "rr"."empresa_id") AS "empresa_id",
@@ -15961,11 +14746,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario" AS
             ("sum"("r_fluxo_caixa_realizado_diario"."valor_realizado"))::numeric(15,2) AS "valor_realizado"
            FROM "f"."r_fluxo_caixa_realizado_diario"
           GROUP BY "r_fluxo_caixa_realizado_diario"."tenant_id", "r_fluxo_caixa_realizado_diario"."empresa_id", "r_fluxo_caixa_realizado_diario"."conta_bancaria_id", "r_fluxo_caixa_realizado_diario"."data_ref") "rr" ON ((("rr"."tenant_id" = "pr"."tenant_id") AND ("rr"."empresa_id" = "pr"."empresa_id") AND (NOT ("rr"."conta_bancaria_id" IS DISTINCT FROM "pr"."conta_bancaria_id")) AND ("rr"."data_ref" = "pr"."data_ref"))));
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_conta_resolvida" AS
  SELECT "d"."tenant_id",
     "d"."empresa_id",
@@ -15975,11 +14756,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_conta_resolvida" AS
     "d"."valor_realizado"
    FROM ("f"."r_fluxo_caixa_diario" "d"
      LEFT JOIN "f"."parametro_financeiro_empresa" "p" ON ((("p"."tenant_id" = "d"."tenant_id") AND ("p"."empresa_id" = "d"."empresa_id") AND ("p"."deleted_at" IS NULL))));
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario_conta_resolvida" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_previsto_diario_dim" AS
  WITH "aprov" AS (
          SELECT "a"."tenant_id",
@@ -16049,11 +14826,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_previsto_diario_dim" AS
             "venc"."valor_previsto"
            FROM "venc") "x"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", "data_ref", "origem", "fornecedor_id", "motivo_compra_id", "os_id";
-
-
 ALTER VIEW "f"."r_fluxo_previsto_diario_dim" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_realizado_diario_dim" AS
  WITH "aprov" AS (
          SELECT "a"."tenant_id",
@@ -16089,11 +14862,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_realizado_diario_dim" AS
     ("sum"("valor_aplicado"))::numeric(15,2) AS "valor_realizado"
    FROM "base"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", "data_ref", "fornecedor_id", "motivo_compra_id", "os_id";
-
-
 ALTER VIEW "f"."r_fluxo_realizado_diario_dim" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_dim" AS
  SELECT COALESCE("p"."tenant_id", "r"."tenant_id") AS "tenant_id",
     COALESCE("p"."empresa_id", "r"."empresa_id") AS "empresa_id",
@@ -16106,11 +14875,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_dim" AS
     (COALESCE("r"."valor_realizado", (0)::numeric))::numeric(15,2) AS "valor_realizado"
    FROM ("f"."r_fluxo_previsto_diario_dim" "p"
      FULL JOIN "f"."r_fluxo_realizado_diario_dim" "r" ON ((("r"."tenant_id" = "p"."tenant_id") AND ("r"."empresa_id" = "p"."empresa_id") AND (NOT ("r"."conta_bancaria_id" IS DISTINCT FROM "p"."conta_bancaria_id")) AND ("r"."data_ref" = "p"."data_ref") AND (NOT ("r"."fornecedor_id" IS DISTINCT FROM "p"."fornecedor_id")) AND (NOT ("r"."motivo_compra_id" IS DISTINCT FROM "p"."motivo_compra_id")) AND (NOT ("r"."os_id" IS DISTINCT FROM "p"."os_id")))));
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario_dim" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_fornecedor" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -16121,11 +14886,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_fornecedor" AS
     ("sum"("valor_realizado"))::numeric(15,2) AS "valor_realizado"
    FROM "f"."r_fluxo_caixa_diario_dim"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", "data_ref", "fornecedor_id";
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario_por_fornecedor" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_motivo" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -16136,11 +14897,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_motivo" AS
     ("sum"("valor_realizado"))::numeric(15,2) AS "valor_realizado"
    FROM "f"."r_fluxo_caixa_diario_dim"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", "data_ref", "motivo_compra_id";
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario_por_motivo" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_motivo_rotulado" AS
  SELECT "x"."tenant_id",
     "x"."empresa_id",
@@ -16153,11 +14910,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_motivo_rotulado" AS
     "x"."valor_realizado"
    FROM ("f"."r_fluxo_caixa_diario_por_motivo" "x"
      LEFT JOIN "f"."motivo_compra" "mc" ON ((("mc"."id" = "x"."motivo_compra_id") AND ("mc"."deleted_at" IS NULL))));
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario_por_motivo_rotulado" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_os" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -16168,11 +14921,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_diario_por_os" AS
     ("sum"("valor_realizado"))::numeric(15,2) AS "valor_realizado"
    FROM "f"."r_fluxo_caixa_diario_dim"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", "data_ref", "os_id";
-
-
 ALTER VIEW "f"."r_fluxo_caixa_diario_por_os" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_mensal" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -16182,11 +14931,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_caixa_mensal" AS
     ("sum"("valor_realizado"))::numeric(15,2) AS "valor_realizado"
    FROM "f"."r_fluxo_caixa_diario"
   GROUP BY "tenant_id", "empresa_id", "conta_bancaria_id", (("date_trunc"('month'::"text", ("data_ref")::timestamp with time zone))::"date");
-
-
 ALTER VIEW "f"."r_fluxo_caixa_mensal" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_fluxo_previsto_diario_ajustado_hoje" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -16202,11 +14947,7 @@ CREATE OR REPLACE VIEW "f"."r_fluxo_previsto_diario_ajustado_hoje" AS
             WHEN ("data_ref" < CURRENT_DATE) THEN CURRENT_DATE
             ELSE "data_ref"
         END;
-
-
 ALTER VIEW "f"."r_fluxo_previsto_diario_ajustado_hoje" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_saldo_projetado_diario" AS
  WITH "base" AS (
          SELECT "r_fluxo_caixa_diario"."tenant_id",
@@ -16228,11 +14969,7 @@ CREATE OR REPLACE VIEW "f"."r_saldo_projetado_diario" AS
     ("sum"("valor_realizado") OVER (PARTITION BY "tenant_id", "empresa_id", "conta_bancaria_id" ORDER BY "data_ref" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW))::numeric(15,2) AS "acumulado_realizado",
     ("sum"(("valor_realizado" - "valor_previsto")) OVER (PARTITION BY "tenant_id", "empresa_id", "conta_bancaria_id" ORDER BY "data_ref" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW))::numeric(15,2) AS "acumulado_delta"
    FROM "base";
-
-
 ALTER VIEW "f"."r_saldo_projetado_diario" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_saldo_projetado_diario_com_saldo_inicial" AS
  WITH "base" AS (
          SELECT "d"."tenant_id",
@@ -16269,11 +15006,7 @@ CREATE OR REPLACE VIEW "f"."r_saldo_projetado_diario_com_saldo_inicial" AS
         END) OVER (PARTITION BY "tenant_id", "empresa_id", "conta_bancaria_id" ORDER BY "data_ref")))::numeric(15,2) AS "saldo_projetado"
    FROM "base"
   WHERE ("data_ref" >= "data_saldo_inicial");
-
-
 ALTER VIEW "f"."r_saldo_projetado_diario_com_saldo_inicial" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_sugestoes_conciliacao_ap" AS
  WITH "extrato" AS (
          SELECT "el"."id" AS "extrato_linha_id",
@@ -16318,11 +15051,7 @@ CREATE OR REPLACE VIEW "f"."r_sugestoes_conciliacao_ap" AS
         END AS "score_data"
    FROM ("extrato" "e"
      JOIN "pag" "p" ON ((("p"."tenant_id" = "e"."tenant_id") AND ("p"."conta_bancaria_id" = "e"."conta_bancaria_id") AND ("p"."valor_pagamento" = "e"."valor_extrato_abs") AND (("e"."data_movimento" >= ("p"."data_pagamento" - 2)) AND ("e"."data_movimento" <= ("p"."data_pagamento" + 2))))));
-
-
 ALTER VIEW "f"."r_sugestoes_conciliacao_ap" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."r_titulos_sem_motivo_por_fornecedor" AS
  SELECT "t"."tenant_id",
     "t"."empresa_id",
@@ -16337,11 +15066,7 @@ CREATE OR REPLACE VIEW "f"."r_titulos_sem_motivo_por_fornecedor" AS
   WHERE (("tp"."deleted_at" IS NULL) AND ("t"."deleted_at" IS NULL) AND ("t"."tipo" = 'AP'::"text") AND ("tp"."valor_aberto" > (0)::numeric) AND ("ta"."id" IS NULL))
   GROUP BY "t"."tenant_id", "t"."empresa_id", "t"."fornecedor_id", COALESCE("f"."nome", 'SEM FORNECEDOR'::character varying)
   ORDER BY (("sum"("tp"."valor_aberto"))::numeric(15,2)) DESC;
-
-
 ALTER VIEW "f"."r_titulos_sem_motivo_por_fornecedor" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."titulo_rateio" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16359,11 +15084,7 @@ CREATE TABLE IF NOT EXISTS "f"."titulo_rateio" (
     CONSTRAINT "ck_titulo_rateio__percentual" CHECK ((("percentual" IS NULL) OR (("percentual" >= (0)::numeric) AND ("percentual" <= (100)::numeric)))),
     CONSTRAINT "ck_titulo_rateio__valor" CHECK ((("valor" IS NULL) OR ("valor" >= (0)::numeric)))
 );
-
-
 ALTER TABLE "f"."titulo_rateio" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "f"."tmp_backfill_impostos_entrada_erros" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid",
@@ -16374,26 +15095,15 @@ CREATE TABLE IF NOT EXISTS "f"."tmp_backfill_impostos_entrada_erros" (
     "erro" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "f"."tmp_backfill_impostos_entrada_erros" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "f"."tmp_backfill_impostos_entrada_erros_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "f"."tmp_backfill_impostos_entrada_erros_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "f"."tmp_backfill_impostos_entrada_erros_id_seq" OWNED BY "f"."tmp_backfill_impostos_entrada_erros"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "f"."vencimento_regra" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16410,11 +15120,7 @@ CREATE TABLE IF NOT EXISTS "f"."vencimento_regra" (
     CONSTRAINT "ck_vencimento_regra_dia" CHECK (((("tipo" = 'M1_ULTIMO_DIA'::"text") AND ("dia" IS NULL)) OR (("tipo" = 'M1_DIA_FIXO'::"text") AND (("dia" >= 1) AND ("dia" <= 31))))),
     CONSTRAINT "ck_vencimento_regra_tipo" CHECK (("tipo" = ANY (ARRAY['M1_ULTIMO_DIA'::"text", 'M1_DIA_FIXO'::"text"])))
 );
-
-
 ALTER TABLE "f"."vencimento_regra" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "f"."vw_imposto_apuracao_mensal" AS
  SELECT "df"."tenant_id",
     "df"."empresa_id",
@@ -16430,11 +15136,7 @@ CREATE OR REPLACE VIEW "f"."vw_imposto_apuracao_mensal" AS
      JOIN "f"."documento_fiscal" "df" ON ((("df"."id" = "dfi"."documento_fiscal_id") AND ("df"."tenant_id" = "dfi"."tenant_id"))))
   WHERE (("df"."deleted_at" IS NULL) AND ("dfi"."deleted_at" IS NULL) AND ("df"."competencia_date" IS NOT NULL))
   GROUP BY "df"."tenant_id", "df"."empresa_id", "df"."competencia_date", "df"."operacao", "dfi"."imposto", "dfi"."natureza";
-
-
 ALTER VIEW "f"."vw_imposto_apuracao_mensal" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "m"."orcamento" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -16469,11 +15171,7 @@ CREATE TABLE IF NOT EXISTS "m"."orcamento" (
     CONSTRAINT "ck_orcamento__status" CHECK (("status" = ANY (ARRAY['RASCUNHO'::"text", 'FINALIZADO'::"text", 'CANCELADO'::"text"]))),
     CONSTRAINT "ck_orcamento__versao" CHECK (("versao" >= 1))
 );
-
-
 ALTER TABLE "m"."orcamento" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "m"."orcamento_item" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -16510,11 +15208,7 @@ CREATE TABLE IF NOT EXISTS "m"."orcamento_item" (
     CONSTRAINT "ck_orcamento_item__tipo" CHECK (("item_tipo" = ANY (ARRAY['PRODUTO'::"text", 'SERVICO'::"text"]))),
     CONSTRAINT "ck_orcamento_item__valor_unit" CHECK (("valor_unitario" >= (0)::numeric))
 );
-
-
 ALTER TABLE "m"."orcamento_item" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "m"."orcamento_seq" (
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
@@ -16522,11 +15216,7 @@ CREATE TABLE IF NOT EXISTS "m"."orcamento_seq" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "ck_orcamento_seq__proximo_numero" CHECK (("proximo_numero" >= 1))
 );
-
-
 ALTER TABLE "m"."orcamento_seq" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."apontamentos_horas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "os_id" integer NOT NULL,
@@ -16550,31 +15240,12 @@ CREATE TABLE IF NOT EXISTS "public"."apontamentos_horas" (
     CONSTRAINT "apontamentos_horas_chk" CHECK ((("horas" > (0)::numeric) AND ("horas" <= (24)::numeric))),
     CONSTRAINT "apontamentos_horas_periodos_ck" CHECK (((("hora_entrada_1" IS NULL) AND ("hora_saida_1" IS NULL) AND ("hora_entrada_2" IS NULL) AND ("hora_saida_2" IS NULL)) OR (("hora_entrada_1" IS NOT NULL) AND ("hora_saida_1" IS NOT NULL) AND ("hora_entrada_2" IS NOT NULL) AND ("hora_saida_2" IS NOT NULL) AND ("hora_saida_1" > "hora_entrada_1") AND ("hora_saida_2" > "hora_entrada_2") AND ("hora_saida_1" <= "hora_entrada_2"))))
 );
-
-
 ALTER TABLE "public"."apontamentos_horas" OWNER TO "postgres";
-
-
 COMMENT ON COLUMN "public"."apontamentos_horas"."hora_entrada_1" IS 'Entrada período 1 (manhã)';
-
-
-
 COMMENT ON COLUMN "public"."apontamentos_horas"."hora_saida_1" IS 'Saída período 1 (manhã)';
-
-
-
 COMMENT ON COLUMN "public"."apontamentos_horas"."hora_entrada_2" IS 'Entrada período 2 (tarde)';
-
-
-
 COMMENT ON COLUMN "public"."apontamentos_horas"."hora_saida_2" IS 'Saída período 2 (tarde)';
-
-
-
 COMMENT ON COLUMN "public"."apontamentos_horas"."gerado_por_hh" IS 'True quando o lançamento foi gerado automaticamente a partir de HH lançado dentro da OS (sem horários, só total)';
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."audit_log" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid",
@@ -16589,26 +15260,15 @@ CREATE TABLE IF NOT EXISTS "public"."audit_log" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "audit_log_action_check" CHECK (("action" = ANY (ARRAY['INSERT'::"text", 'UPDATE'::"text", 'DELETE'::"text"])))
 );
-
-
 ALTER TABLE "public"."audit_log" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."audit_log_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."audit_log_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."audit_log_id_seq" OWNED BY "public"."audit_log"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."centros_custo" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16619,11 +15279,7 @@ CREATE TABLE IF NOT EXISTS "public"."centros_custo" (
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."centros_custo" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."cliente_hh_servicos" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16639,42 +15295,19 @@ CREATE TABLE IF NOT EXISTS "public"."cliente_hh_servicos" (
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     "criado_por" "text"
 );
-
-
 ALTER TABLE "public"."cliente_hh_servicos" OWNER TO "postgres";
-
-
 COMMENT ON TABLE "public"."cliente_hh_servicos" IS 'ServiÃ§os de HH (Hora-Homem) especÃ­ficos por cliente, com preÃ§os em 3 nÃ­veis: base, 50% e 100%';
-
-
-
 COMMENT ON COLUMN "public"."cliente_hh_servicos"."preco_base" IS 'PreÃ§o base do serviÃ§o (ex: R$ 100,00)';
-
-
-
 COMMENT ON COLUMN "public"."cliente_hh_servicos"."preco_50" IS 'PreÃ§o com acrÃ©scimo de 50% (ex: R$ 150,00)';
-
-
-
 COMMENT ON COLUMN "public"."cliente_hh_servicos"."preco_100" IS 'PreÃ§o com acrÃ©scimo de 100% (ex: R$ 200,00)';
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."cliente_hh_servicos_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."cliente_hh_servicos_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."cliente_hh_servicos_id_seq" OWNED BY "public"."cliente_hh_servicos"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."cliente_hh_tabelas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "cliente_id" integer NOT NULL,
@@ -16689,11 +15322,7 @@ CREATE TABLE IF NOT EXISTS "public"."cliente_hh_tabelas" (
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
     CONSTRAINT "cliente_hh_tabelas_vigencia_chk" CHECK (("vigencia_fim" >= "vigencia_inicio"))
 );
-
-
 ALTER TABLE "public"."cliente_hh_tabelas" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."clientes" (
     "id" integer NOT NULL,
     "nome" character varying(255) NOT NULL,
@@ -16728,15 +15357,8 @@ CREATE TABLE IF NOT EXISTS "public"."clientes" (
     "documento_norm" "text" GENERATED ALWAYS AS ("public"."normalize_doc"(("documento")::"text")) STORED,
     "documento_key" "text" GENERATED ALWAYS AS ("public"."fn_documento_key"(("documento")::"text")) STORED
 );
-
-
 ALTER TABLE "public"."clientes" OWNER TO "postgres";
-
-
 COMMENT ON COLUMN "public"."clientes"."habilita_hh" IS 'Indica se o cliente utiliza relatÃ³rios de Hora-Homem (HH)';
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."clientes_id_seq"
     AS integer
     START WITH 1
@@ -16744,15 +15366,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."clientes_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."clientes_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."clientes_id_seq" OWNED BY "public"."clientes"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."colaborador_cliente_funcao" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16765,50 +15380,21 @@ CREATE TABLE IF NOT EXISTS "public"."colaborador_cliente_funcao" (
     "criado_por" "text",
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL
 );
-
-
 ALTER TABLE "public"."colaborador_cliente_funcao" OWNER TO "postgres";
-
-
 COMMENT ON TABLE "public"."colaborador_cliente_funcao" IS 'VÃ­nculos entre colaboradores e funÃ§Ãµes/serviÃ§os HH por cliente';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_cliente_funcao"."tenant_id" IS 'Tenant proprietÃ¡rio do vÃ­nculo';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_cliente_funcao"."cliente_id" IS 'Cliente para o qual o colaborador presta serviÃ§o';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_cliente_funcao"."colaborador_id" IS 'Colaborador vinculado';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_cliente_funcao"."hh_servico_id" IS 'ServiÃ§o/especialidade HH atribuÃ­da ao colaborador neste cliente';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_cliente_funcao"."ativo" IS 'Se false, vÃ­nculo foi desativado (soft delete)';
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."colaborador_cliente_funcao_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."colaborador_cliente_funcao_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."colaborador_cliente_funcao_id_seq" OWNED BY "public"."colaborador_cliente_funcao"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."colaborador_funcao_hh" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16820,31 +15406,12 @@ CREATE TABLE IF NOT EXISTS "public"."colaborador_funcao_hh" (
     "atualizado_em" timestamp with time zone DEFAULT "now"(),
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL
 );
-
-
 ALTER TABLE "public"."colaborador_funcao_hh" OWNER TO "postgres";
-
-
 COMMENT ON TABLE "public"."colaborador_funcao_hh" IS 'VÃ­nculo entre colaboradores e serviÃ§os de HH (funÃ§Ãµes/especialidades) por cliente';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_funcao_hh"."tenant_id" IS 'Tenant (organizaÃ§Ã£o)';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_funcao_hh"."cliente_id" IS 'Cliente relacionado';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_funcao_hh"."colaborador_id" IS 'Colaborador (funcionÃ¡rio)';
-
-
-
 COMMENT ON COLUMN "public"."colaborador_funcao_hh"."servico_hh_id" IS 'ServiÃ§o de HH (funÃ§Ã£o/especialidade) do cliente';
-
-
-
 ALTER TABLE "public"."colaborador_funcao_hh" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME "public"."colaborador_funcao_hh_id_seq"
     START WITH 1
@@ -16853,9 +15420,6 @@ ALTER TABLE "public"."colaborador_funcao_hh" ALTER COLUMN "id" ADD GENERATED ALW
     NO MAXVALUE
     CACHE 1
 );
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."colaborador_taxas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "colaborador_id" "uuid" NOT NULL,
@@ -16867,11 +15431,7 @@ CREATE TABLE IF NOT EXISTS "public"."colaborador_taxas" (
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
     CONSTRAINT "colaborador_taxas_vigencia_chk" CHECK ((("vigencia_fim" IS NULL) OR ("vigencia_fim" >= "vigencia_inicio")))
 );
-
-
 ALTER TABLE "public"."colaborador_taxas" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."colaboradores" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "nome" character varying(150) NOT NULL,
@@ -16882,11 +15442,7 @@ CREATE TABLE IF NOT EXISTS "public"."colaboradores" (
     "hh_especialidade_id" "uuid",
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL
 );
-
-
 ALTER TABLE "public"."colaboradores" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."competencias" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -16902,11 +15458,7 @@ CREATE TABLE IF NOT EXISTS "public"."competencias" (
     CONSTRAINT "competencias_mes_check" CHECK ((("mes" >= 1) AND ("mes" <= 12))),
     CONSTRAINT "competencias_status_check" CHECK (("status" = ANY (ARRAY['aberta'::"text", 'fechada'::"text"])))
 );
-
-
 ALTER TABLE "public"."competencias" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."contas_pagar_titulos" AS
  SELECT "id",
     "tenant_id",
@@ -16929,11 +15481,7 @@ CREATE OR REPLACE VIEW "public"."contas_pagar_titulos" AS
     "deleted_at",
     "motivo_compra_id"
    FROM "f"."titulo" "t";
-
-
 ALTER VIEW "public"."contas_pagar_titulos" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_agendamentos" AS
  SELECT "id",
     "tenant_id",
@@ -16952,11 +15500,7 @@ CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_agendamentos" AS
     "updated_by",
     "deleted_at"
    FROM "f"."titulo_agendamento";
-
-
 ALTER VIEW "public"."contas_pagar_titulos_agendamentos" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_aprovacoes" AS
  SELECT "id",
     "tenant_id",
@@ -16973,11 +15517,7 @@ CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_aprovacoes" AS
     "updated_by",
     "deleted_at"
    FROM "f"."titulo_aprovacao";
-
-
 ALTER VIEW "public"."contas_pagar_titulos_aprovacoes" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_parcelas" AS
  SELECT "id",
     "tenant_id",
@@ -16992,11 +15532,7 @@ CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_parcelas" AS
     "updated_by",
     "deleted_at"
    FROM "f"."titulo_parcela";
-
-
 ALTER VIEW "public"."contas_pagar_titulos_parcelas" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_rateios" AS
  SELECT "id",
     "tenant_id",
@@ -17012,11 +15548,7 @@ CREATE OR REPLACE VIEW "public"."contas_pagar_titulos_rateios" AS
     "updated_by",
     "deleted_at"
    FROM "f"."titulo_rateio";
-
-
 ALTER VIEW "public"."contas_pagar_titulos_rateios" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."empresa_memberships" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17026,26 +15558,15 @@ CREATE TABLE IF NOT EXISTS "public"."empresa_memberships" (
     "status" "text" DEFAULT 'active'::"text" NOT NULL,
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."empresa_memberships" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."empresa_memberships_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."empresa_memberships_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."empresa_memberships_id_seq" OWNED BY "public"."empresa_memberships"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."empresas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17063,11 +15584,7 @@ CREATE TABLE IF NOT EXISTS "public"."empresas" (
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     "habilita_servico_hh" boolean DEFAULT false NOT NULL
 );
-
-
 ALTER TABLE "public"."empresas" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."estoque" (
     "id" integer NOT NULL,
     "item_id" integer NOT NULL,
@@ -17077,11 +15594,7 @@ CREATE TABLE IF NOT EXISTS "public"."estoque" (
     "tenant_id" "uuid" NOT NULL,
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL
 );
-
-
 ALTER TABLE "public"."estoque" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."estoque_id_seq"
     AS integer
     START WITH 1
@@ -17089,26 +15602,15 @@ CREATE SEQUENCE IF NOT EXISTS "public"."estoque_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."estoque_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."estoque_id_seq" OWNED BY "public"."estoque"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."feriados" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "data" "date" NOT NULL,
     "descricao" character varying(120),
     "abrangencia" character varying(20) DEFAULT 'NACIONAL'::character varying NOT NULL
 );
-
-
 ALTER TABLE "public"."feriados" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."fiscal_itens" (
     "id" bigint NOT NULL,
     "item_id" bigint NOT NULL,
@@ -17139,26 +15641,15 @@ CREATE TABLE IF NOT EXISTS "public"."fiscal_itens" (
     CONSTRAINT "fiscal_itens_origem_ck" CHECK ((("origem" IS NULL) OR (("origem" >= 0) AND ("origem" <= 8)))),
     CONSTRAINT "fiscal_itens_pis_credit_ck" CHECK ((("credita_pis" IS NOT TRUE) OR (("cst_pis" IS NOT NULL) AND ("length"(TRIM(BOTH FROM "cst_pis")) > 0))))
 );
-
-
 ALTER TABLE "public"."fiscal_itens" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."fiscal_itens_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."fiscal_itens_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."fiscal_itens_id_seq" OWNED BY "public"."fiscal_itens"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."fiscal_regras" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17182,11 +15673,7 @@ CREATE TABLE IF NOT EXISTS "public"."fiscal_regras" (
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."fiscal_regras" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."fornecedores_id_seq"
     AS integer
     START WITH 1
@@ -17194,15 +15681,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."fornecedores_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."fornecedores_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."fornecedores_id_seq" OWNED BY "public"."fornecedores"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."hh_especialidades" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17211,11 +15691,7 @@ CREATE TABLE IF NOT EXISTS "public"."hh_especialidades" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."hh_especialidades" OWNER TO "postgres";
-
-
 ALTER TABLE "public"."hh_especialidades" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME "public"."hh_especialidades_id_seq"
     START WITH 1
@@ -17224,9 +15700,6 @@ ALTER TABLE "public"."hh_especialidades" ALTER COLUMN "id" ADD GENERATED ALWAYS 
     NO MAXVALUE
     CACHE 1
 );
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."hh_lancamentos" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" DEFAULT "public"."current_tenant_id"() NOT NULL,
@@ -17254,46 +15727,20 @@ CREATE TABLE IF NOT EXISTS "public"."hh_lancamentos" (
     CONSTRAINT "hh_lancamentos_percentual_aplicado_check" CHECK (("percentual_aplicado" = ANY (ARRAY[0, 50, 100]))),
     CONSTRAINT "hh_lancamentos_periodos_ck" CHECK (((("entrada_1" IS NULL) AND ("saida_1" IS NULL) AND ("entrada_2" IS NULL) AND ("saida_2" IS NULL)) OR (("entrada_1" IS NOT NULL) AND ("saida_1" IS NOT NULL) AND ("entrada_2" IS NOT NULL) AND ("saida_2" IS NOT NULL) AND ("saida_1" > "entrada_1") AND ("saida_2" > "entrada_2") AND ("saida_1" <= "entrada_2"))))
 );
-
-
 ALTER TABLE "public"."hh_lancamentos" OWNER TO "postgres";
-
-
 COMMENT ON TABLE "public"."hh_lancamentos" IS 'Lançamentos de HH por OS (entrada/saída) com tabela negociada';
-
-
-
 COMMENT ON COLUMN "public"."hh_lancamentos"."entrada_1" IS 'Entrada período 1 (manhã)';
-
-
-
 COMMENT ON COLUMN "public"."hh_lancamentos"."saida_1" IS 'Saída período 1 (manhã)';
-
-
-
 COMMENT ON COLUMN "public"."hh_lancamentos"."entrada_2" IS 'Entrada período 2 (tarde)';
-
-
-
 COMMENT ON COLUMN "public"."hh_lancamentos"."saida_2" IS 'Saída período 2 (tarde)';
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."hh_lancamentos_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."hh_lancamentos_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."hh_lancamentos_id_seq" OWNED BY "public"."hh_lancamentos"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."hh_tipos_mapping" (
     "id" bigint NOT NULL,
     "tipo_hora_id" "uuid" NOT NULL,
@@ -17302,30 +15749,16 @@ CREATE TABLE IF NOT EXISTS "public"."hh_tipos_mapping" (
     "ativo" boolean DEFAULT true NOT NULL,
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."hh_tipos_mapping" OWNER TO "postgres";
-
-
 COMMENT ON TABLE "public"."hh_tipos_mapping" IS 'Mapeamento entre tipos_horas (UUID) e hh_lancamentos.hh_tipo_id (BIGINT)';
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."hh_tipos_mapping_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."hh_tipos_mapping_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."hh_tipos_mapping_id_seq" OWNED BY "public"."hh_tipos_mapping"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."horas_trabalhadas" (
     "id" integer NOT NULL,
     "os_id" integer NOT NULL,
@@ -17337,11 +15770,7 @@ CREATE TABLE IF NOT EXISTS "public"."horas_trabalhadas" (
     "descricao" "text",
     "criado_em" timestamp without time zone DEFAULT "now"()
 );
-
-
 ALTER TABLE "public"."horas_trabalhadas" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."horas_trabalhadas_id_seq"
     AS integer
     START WITH 1
@@ -17349,15 +15778,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."horas_trabalhadas_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."horas_trabalhadas_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."horas_trabalhadas_id_seq" OWNED BY "public"."horas_trabalhadas"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."itens" (
     "id" integer NOT NULL,
     "codigo_interno" character varying(50) NOT NULL,
@@ -17414,11 +15836,7 @@ CREATE TABLE IF NOT EXISTS "public"."itens" (
     CONSTRAINT "ck_itens__codigo_interno_sem_zero_esquerda" CHECK (((("codigo_interno")::"text" = '0'::"text") OR (("codigo_interno")::"text" !~ '^0'::"text"))),
     CONSTRAINT "itens_tipo_check" CHECK ((("tipo")::"text" = ANY ((ARRAY['produto'::character varying, 'servico'::character varying, 'despesa'::character varying])::"text"[])))
 );
-
-
 ALTER TABLE "public"."itens" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."itens_id_seq"
     AS integer
     START WITH 1
@@ -17426,15 +15844,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."itens_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."itens_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."itens_id_seq" OWNED BY "public"."itens"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."itens_merge_log" (
     "id" bigint NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17447,26 +15858,15 @@ CREATE TABLE IF NOT EXISTS "public"."itens_merge_log" (
     "merged_by" "uuid" DEFAULT "auth"."uid"(),
     "merged_reason" "text"
 );
-
-
 ALTER TABLE "public"."itens_merge_log" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."itens_merge_log_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."itens_merge_log_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."itens_merge_log_id_seq" OWNED BY "public"."itens_merge_log"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."lancamentos_contabeis" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17481,11 +15881,7 @@ CREATE TABLE IF NOT EXISTS "public"."lancamentos_contabeis" (
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "lancamentos_contabeis_status_check" CHECK (("status" = ANY (ARRAY['rascunho'::"text", 'confirmado'::"text", 'estornado'::"text"])))
 );
-
-
 ALTER TABLE "public"."lancamentos_contabeis" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."lancamentos_contabeis_itens" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17500,20 +15896,12 @@ CREATE TABLE IF NOT EXISTS "public"."lancamentos_contabeis_itens" (
     CONSTRAINT "lancamentos_contabeis_itens_tipo_check" CHECK (("tipo" = ANY (ARRAY['debito'::"text", 'credito'::"text"]))),
     CONSTRAINT "lancamentos_contabeis_itens_valor_check" CHECK (("valor" > (0)::numeric))
 );
-
-
 ALTER TABLE "public"."lancamentos_contabeis_itens" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."membership_roles" (
     "membership_id" "uuid" NOT NULL,
     "role_id" "uuid" NOT NULL
 );
-
-
 ALTER TABLE "public"."membership_roles" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."movimentacoes" (
     "id" integer NOT NULL,
     "item_id" integer NOT NULL,
@@ -17541,11 +15929,7 @@ CREATE TABLE IF NOT EXISTS "public"."movimentacoes" (
     CONSTRAINT "movimentacoes_nf_required_ck" CHECK ((("origem_nf_entrada_id" IS NULL) OR (("tenant_id" IS NOT NULL) AND ("data_movimentacao" IS NOT NULL) AND ("tipo" = ANY (ARRAY['entrada'::"text", 'saida'::"text"]))))),
     CONSTRAINT "movimentacoes_tipo_check" CHECK (("tipo" = ANY (ARRAY['entrada'::"text", 'saida'::"text", 'ajuste'::"text"])))
 );
-
-
 ALTER TABLE "public"."movimentacoes" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."movimentacoes_id_seq"
     AS integer
     START WITH 1
@@ -17553,30 +15937,16 @@ CREATE SEQUENCE IF NOT EXISTS "public"."movimentacoes_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."movimentacoes_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."movimentacoes_id_seq" OWNED BY "public"."movimentacoes"."id";
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."nf_entrada_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."nf_entrada_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."nf_entrada_id_seq" OWNED BY "public"."nf_entrada"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."nf_entrada_itens" (
     "id" bigint NOT NULL,
     "nf_entrada_id" bigint NOT NULL,
@@ -17606,26 +15976,15 @@ CREATE TABLE IF NOT EXISTS "public"."nf_entrada_itens" (
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
     CONSTRAINT "ck_nf_entrada_itens__descricao_obrigatoria" CHECK ((("item_id" IS NULL) OR (("descricao" IS NOT NULL) AND ("btrim"("descricao") <> ''::"text"))))
 );
-
-
 ALTER TABLE "public"."nf_entrada_itens" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."nf_entrada_itens_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."nf_entrada_itens_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."nf_entrada_itens_id_seq" OWNED BY "public"."nf_entrada_itens"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."ordens_servico" (
     "id" integer NOT NULL,
     "numero_os" character varying(50) NOT NULL,
@@ -17652,11 +16011,7 @@ CREATE TABLE IF NOT EXISTS "public"."ordens_servico" (
     CONSTRAINT "ordens_servico_status_check" CHECK ((("status")::"text" = ANY ((ARRAY['aberta'::character varying, 'em_andamento'::character varying, 'concluida'::character varying, 'cancelada'::character varying])::"text"[]))),
     CONSTRAINT "ordens_servico_tipo_pedido_check" CHECK (("tipo_pedido" = ANY (ARRAY['servico'::"text", 'material'::"text"])))
 );
-
-
 ALTER TABLE "public"."ordens_servico" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."ordens_servico_id_seq"
     AS integer
     START WITH 1
@@ -17664,15 +16019,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."ordens_servico_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."ordens_servico_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."ordens_servico_id_seq" OWNED BY "public"."ordens_servico"."id";
-
-
-
 ALTER TABLE "public"."ordens_servico" ALTER COLUMN "os_num" ADD GENERATED BY DEFAULT AS IDENTITY (
     SEQUENCE NAME "public"."ordens_servico_os_num_seq"
     START WITH 1
@@ -17681,9 +16029,6 @@ ALTER TABLE "public"."ordens_servico" ALTER COLUMN "os_num" ADD GENERATED BY DEF
     NO MAXVALUE
     CACHE 1
 );
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."os_gestao_itens" (
     "id" bigint NOT NULL,
     "os_id" integer NOT NULL,
@@ -17699,26 +16044,15 @@ CREATE TABLE IF NOT EXISTS "public"."os_gestao_itens" (
     "empresa_id" "uuid" DEFAULT "public"."current_empresa_id"() NOT NULL,
     CONSTRAINT "os_gestao_itens_progresso_percent_check" CHECK ((("progresso_percent" >= 0) AND ("progresso_percent" <= 100)))
 );
-
-
 ALTER TABLE "public"."os_gestao_itens" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."os_gestao_itens_id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."os_gestao_itens_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."os_gestao_itens_id_seq" OWNED BY "public"."os_gestao_itens"."id";
-
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."os_itens_id_seq"
     AS integer
     START WITH 1
@@ -17726,15 +16060,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."os_itens_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."os_itens_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."os_itens_id_seq" OWNED BY "public"."os_itens"."id";
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."parametro_importacao_xml" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17747,25 +16074,14 @@ CREATE TABLE IF NOT EXISTS "public"."parametro_importacao_xml" (
     "updated_by" "uuid",
     "deleted_at" timestamp with time zone
 );
-
-
 ALTER TABLE "public"."parametro_importacao_xml" OWNER TO "postgres";
-
-
 COMMENT ON TABLE "public"."parametro_importacao_xml" IS 'Parâmetros por tenant/empresa para controlar auto-cadastro e vínculo de itens durante importação de XML (NF-e).';
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."permissions" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "code" "text" NOT NULL,
     "description" "text"
 );
-
-
 ALTER TABLE "public"."permissions" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."plano_contas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17782,22 +16098,14 @@ CREATE TABLE IF NOT EXISTS "public"."plano_contas" (
     CONSTRAINT "plano_contas_natureza_check" CHECK (("natureza" = ANY (ARRAY['devedora'::"text", 'credora'::"text"]))),
     CONSTRAINT "plano_contas_tipo_check" CHECK (("tipo" = ANY (ARRAY['ativo'::"text", 'passivo'::"text", 'patrimonio_liquido'::"text", 'receita'::"text", 'despesa'::"text", 'resultado'::"text"])))
 );
-
-
 ALTER TABLE "public"."plano_contas" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL,
     "email" "text",
     "nome" "text",
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."profiles" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."profissionais" (
     "id" integer NOT NULL,
     "nome" character varying(255) NOT NULL,
@@ -17809,11 +16117,7 @@ CREATE TABLE IF NOT EXISTS "public"."profissionais" (
     "criado_em" timestamp without time zone DEFAULT "now"(),
     "atualizado_em" timestamp without time zone DEFAULT "now"()
 );
-
-
 ALTER TABLE "public"."profissionais" OWNER TO "postgres";
-
-
 CREATE SEQUENCE IF NOT EXISTS "public"."profissionais_id_seq"
     AS integer
     START WITH 1
@@ -17821,15 +16125,8 @@ CREATE SEQUENCE IF NOT EXISTS "public"."profissionais_id_seq"
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-
-
 ALTER SEQUENCE "public"."profissionais_id_seq" OWNER TO "postgres";
-
-
 ALTER SEQUENCE "public"."profissionais_id_seq" OWNED BY "public"."profissionais"."id";
-
-
-
 CREATE OR REPLACE VIEW "public"."r_itens_ativos" AS
  SELECT "id",
     "codigo_interno",
@@ -17885,31 +16182,19 @@ CREATE OR REPLACE VIEW "public"."r_itens_ativos" AS
     "mesclado_motivo"
    FROM "public"."itens"
   WHERE (("ativo" = true) AND ("mesclado_em_item_id" IS NULL));
-
-
 ALTER VIEW "public"."r_itens_ativos" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."role_access_rules" (
     "role_id" "uuid" NOT NULL,
     "resource" "text" NOT NULL,
     "action" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."role_access_rules" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."role_permissions" (
     "role" "text" NOT NULL,
     "permission" "text" NOT NULL
 );
-
-
 ALTER TABLE "public"."role_permissions" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."roles" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17917,11 +16202,7 @@ CREATE TABLE IF NOT EXISTS "public"."roles" (
     "description" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."roles" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."tenant_memberships" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "tenant_id" "uuid" NOT NULL,
@@ -17931,22 +16212,14 @@ CREATE TABLE IF NOT EXISTS "public"."tenant_memberships" (
     "role" "text" DEFAULT 'admin'::"text",
     CONSTRAINT "tenant_memberships_role_check" CHECK (("role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text", 'estoque'::"text", 'projetos'::"text", 'financeiro'::"text"])))
 );
-
-
 ALTER TABLE "public"."tenant_memberships" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."tenants" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "nome" "text" NOT NULL,
     "ativo" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."tenants" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."tipos_horas" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "codigo" character varying(30) NOT NULL,
@@ -17955,42 +16228,26 @@ CREATE TABLE IF NOT EXISTS "public"."tipos_horas" (
     "ativo" boolean DEFAULT true NOT NULL,
     "tenant_id" "uuid" NOT NULL
 );
-
-
 ALTER TABLE "public"."tipos_horas" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."user_empresa_context" (
     "user_id" "uuid" NOT NULL,
     "tenant_id" "uuid" NOT NULL,
     "empresa_id" "uuid" NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."user_empresa_context" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."user_profiles" (
     "user_id" "uuid" NOT NULL,
     "nome" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."user_profiles" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."user_tenant_context" (
     "user_id" "uuid" NOT NULL,
     "tenant_id" "uuid" NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "public"."user_tenant_context" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."v_creditos_por_periodo" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -18001,11 +16258,7 @@ CREATE OR REPLACE VIEW "public"."v_creditos_por_periodo" AS
    FROM "public"."movimentacoes" "m"
   WHERE ("tipo" = 'entrada'::"text")
   GROUP BY "tenant_id", "empresa_id", (("date_trunc"('month'::"text", "data_movimentacao"))::"date");
-
-
 ALTER VIEW "public"."v_creditos_por_periodo" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."v_item_ultimo_custo" AS
  SELECT DISTINCT ON ("tenant_id", "item_id") "tenant_id",
     "item_id",
@@ -18021,11 +16274,7 @@ CREATE OR REPLACE VIEW "public"."v_item_ultimo_custo" AS
    FROM "public"."movimentacoes" "m"
   WHERE ("tipo" = 'entrada'::"text")
   ORDER BY "tenant_id", "item_id", "data_movimentacao" DESC, "id" DESC;
-
-
 ALTER VIEW "public"."v_item_ultimo_custo" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."v_estoque_custo_atual" AS
  SELECT "e"."tenant_id",
     "e"."item_id",
@@ -18036,11 +16285,7 @@ CREATE OR REPLACE VIEW "public"."v_estoque_custo_atual" AS
     "u"."origem_nf_entrada_id"
    FROM ("public"."estoque" "e"
      LEFT JOIN "public"."v_item_ultimo_custo" "u" ON ((("u"."tenant_id" = "e"."tenant_id") AND ("u"."item_id" = "e"."item_id"))));
-
-
 ALTER VIEW "public"."v_estoque_custo_atual" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."v_lancamentos_contabeis_balance" AS
  SELECT "l"."id" AS "lancamento_id",
     "l"."tenant_id",
@@ -18070,11 +16315,7 @@ CREATE OR REPLACE VIEW "public"."v_lancamentos_contabeis_balance" AS
    FROM ("public"."lancamentos_contabeis" "l"
      LEFT JOIN "public"."lancamentos_contabeis_itens" "i" ON (("i"."lancamento_id" = "l"."id")))
   GROUP BY "l"."id", "l"."tenant_id", "l"."empresa_id", "l"."status", "l"."data_lancamento", "l"."historico";
-
-
 ALTER VIEW "public"."v_lancamentos_contabeis_balance" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."v_user_permissions" AS
  SELECT DISTINCT "ut"."tenant_id",
     "rp"."permission"
@@ -18090,11 +16331,7 @@ UNION
      JOIN "c"."empresa" "e" ON (("e"."id" = "ue"."empresa_id")))
      JOIN "public"."role_permissions" "rp" ON (("rp"."role" = "a"."fn_map_papel_empresa_to_role"("ue"."papel"))))
   WHERE (("u"."auth_user_id" = "auth"."uid"()) AND ("ue"."deleted_at" IS NULL) AND ("ue"."ativo" = true) AND ("e"."deleted_at" IS NULL));
-
-
 ALTER VIEW "public"."v_user_permissions" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."vw_apontamentos_horas_custo" AS
  SELECT "a"."id" AS "apontamento_id",
     "a"."os_id",
@@ -18131,11 +16368,7 @@ CREATE OR REPLACE VIEW "public"."vw_apontamentos_horas_custo" AS
                     ELSE NULL::"date"
                 END, "t"."criado_em" DESC
          LIMIT 1) "tx" ON (true));
-
-
 ALTER VIEW "public"."vw_apontamentos_horas_custo" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."vw_colaboradores_taxa_atual" AS
  SELECT "c"."id",
     "c"."nome",
@@ -18157,11 +16390,7 @@ CREATE OR REPLACE VIEW "public"."vw_colaboradores_taxa_atual" AS
           WHERE (("t"."colaborador_id" = "c"."id") AND (CURRENT_DATE >= "t"."vigencia_inicio") AND (("t"."vigencia_fim" IS NULL) OR (CURRENT_DATE <= "t"."vigencia_fim")))
           ORDER BY "t"."vigencia_inicio" DESC, "t"."criado_em" DESC
          LIMIT 1) "tx" ON (true));
-
-
 ALTER VIEW "public"."vw_colaboradores_taxa_atual" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."vw_creditos_mensais" AS
  SELECT "date_trunc"('month'::"text", "data_movimentacao") AS "mes",
     "sum"("credito_icms") AS "credito_icms",
@@ -18171,22 +16400,14 @@ CREATE OR REPLACE VIEW "public"."vw_creditos_mensais" AS
   WHERE ("tipo" = 'entrada'::"text")
   GROUP BY ("date_trunc"('month'::"text", "data_movimentacao"))
   ORDER BY ("date_trunc"('month'::"text", "data_movimentacao"));
-
-
 ALTER VIEW "public"."vw_creditos_mensais" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."vw_custo_mao_obra_os" AS
  SELECT "os_id",
     "sum"("horas") AS "total_horas",
     "sum"("custo_lancamento") AS "custo_mao_obra"
    FROM "public"."vw_apontamentos_horas_custo"
   GROUP BY "os_id";
-
-
 ALTER VIEW "public"."vw_custo_mao_obra_os" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."vw_hh_total_os" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -18194,26 +16415,15 @@ CREATE OR REPLACE VIEW "public"."vw_hh_total_os" AS
     (COALESCE("sum"("valor_total"), (0)::numeric))::numeric(12,2) AS "total_hh"
    FROM "public"."hh_lancamentos"
   GROUP BY "tenant_id", "empresa_id", "os_id";
-
-
 ALTER VIEW "public"."vw_hh_total_os" OWNER TO "postgres";
-
-
 COMMENT ON VIEW "public"."vw_hh_total_os" IS 'Total de HH (cobrança) por OS.';
-
-
-
 CREATE TABLE IF NOT EXISTS "r"."dre_plano_excluido" (
     "tenant_id" "uuid" NOT NULL,
     "plano_contas_id" "uuid" NOT NULL,
     "motivo" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
-
-
 ALTER TABLE "r"."dre_plano_excluido" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_impostos_mes" AS
  WITH "impostos" AS (
          SELECT "df"."tenant_id",
@@ -18265,11 +16475,7 @@ UNION ALL
     "pendencias"."valor_total_ajustado",
     "pendencias"."qtd_documentos"
    FROM "pendencias";
-
-
 ALTER VIEW "r"."r_apuracao_impostos_mes" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_dre_mensal_plano" AS
  WITH "base" AS (
          SELECT "t"."tenant_id",
@@ -18313,11 +16519,7 @@ CREATE OR REPLACE VIEW "r"."r_dre_mensal_plano" AS
         END)))::numeric(15,2) AS "resultado"
    FROM "base"
   GROUP BY "tenant_id", "empresa_id", "competencia_date", "plano_contas_id", "plano_codigo", "plano_nome";
-
-
 ALTER VIEW "r"."r_dre_mensal_plano" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_dre_mensal_plano_filtrado" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -18332,11 +16534,7 @@ CREATE OR REPLACE VIEW "r"."r_dre_mensal_plano_filtrado" AS
   WHERE (NOT (EXISTS ( SELECT 1
            FROM "r"."dre_plano_excluido" "e"
           WHERE (("e"."tenant_id" = "d"."tenant_id") AND ("e"."plano_contas_id" = "d"."plano_contas_id")))));
-
-
 ALTER VIEW "r"."r_dre_mensal_plano_filtrado" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_dre_mensal_filtrado" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -18346,11 +16544,7 @@ CREATE OR REPLACE VIEW "r"."r_dre_mensal_filtrado" AS
     ("sum"((COALESCE("receita", (0)::numeric) - COALESCE("despesa", (0)::numeric))))::numeric(15,2) AS "resultado"
    FROM "r"."r_dre_mensal_plano_filtrado" "d"
   GROUP BY "tenant_id", "empresa_id", "competencia_date";
-
-
 ALTER VIEW "r"."r_dre_mensal_filtrado" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_mensal_comp2" AS
  WITH RECURSIVE "dre" AS (
          SELECT "r_dre_mensal_filtrado"."tenant_id",
@@ -18583,11 +16777,7 @@ CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_mensal_comp2" AS
     ("round"((("base_csll_bruta" - "compensacao_base_negativa_csll") * ("csll_aliquota" / 100.0)), 2))::numeric(15,2) AS "csll_total"
    FROM "rec"
   ORDER BY "tenant_id", "empresa_id", "competencia_date" DESC;
-
-
 ALTER VIEW "r"."r_apuracao_irpj_csll_mensal_comp2" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_mensal" AS
  SELECT "tenant_id",
     "empresa_id",
@@ -18610,11 +16800,7 @@ CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_mensal" AS
     "base_negativa_csll_mes" AS "base_negativa_csll",
     "csll_total"
    FROM "r"."r_apuracao_irpj_csll_mensal_comp2";
-
-
 ALTER VIEW "r"."r_apuracao_irpj_csll_mensal" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_anual" AS
  WITH "m" AS (
          SELECT "r_apuracao_irpj_csll_mensal"."tenant_id",
@@ -18662,11 +16848,7 @@ CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_anual" AS
    FROM ("m"
      JOIN "param" "p" ON ((("p"."tenant_id" = "m"."tenant_id") AND ("p"."empresa_id" = "m"."empresa_id"))))
   GROUP BY "m"."tenant_id", "m"."empresa_id", "m"."competencia_ano", "p"."limite_mensal";
-
-
 ALTER VIEW "r"."r_apuracao_irpj_csll_anual" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_anual_comp" AS
  WITH RECURSIVE "mensal" AS (
          SELECT "m"."tenant_id",
@@ -18832,11 +17014,7 @@ CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_anual_comp" AS
     ("round"((("base_csll_bruta_ano" - "compensacao_base_negativa_csll") * ("csll_aliquota" / 100.0)), 2))::numeric(15,2) AS "csll_total_ano"
    FROM "rec"
   ORDER BY "tenant_id", "empresa_id", "competencia_ano" DESC;
-
-
 ALTER VIEW "r"."r_apuracao_irpj_csll_anual_comp" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_anual_comp2" AS
  WITH "m" AS (
          SELECT "r_apuracao_irpj_csll_mensal_comp2"."tenant_id",
@@ -18883,11 +17061,7 @@ CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_anual_comp2" AS
    FROM "w"
   GROUP BY "tenant_id", "empresa_id", "competencia_ano"
   ORDER BY "tenant_id", "empresa_id", "competencia_ano" DESC;
-
-
 ALTER VIEW "r"."r_apuracao_irpj_csll_anual_comp2" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_dre_mensal" AS
  WITH "m" AS (
          SELECT "r_dre_mensal_plano"."tenant_id",
@@ -18914,11 +17088,7 @@ CREATE OR REPLACE VIEW "r"."r_dre_mensal" AS
     ("sum"("resultado") OVER (PARTITION BY "tenant_id", "empresa_id", "competencia_ano" ORDER BY "competencia_date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW))::numeric(15,2) AS "resultado_ytd"
    FROM "m"
   ORDER BY "competencia_date" DESC;
-
-
 ALTER VIEW "r"."r_dre_mensal" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_mensal_comp" AS
  WITH RECURSIVE "dre" AS (
          SELECT "r_dre_mensal"."tenant_id",
@@ -19122,11 +17292,7 @@ CREATE OR REPLACE VIEW "r"."r_apuracao_irpj_csll_mensal_comp" AS
     ("round"((("base_csll_bruta" - "compensacao_base_negativa_csll") * ("csll_aliquota" / 100.0)), 2))::numeric(15,2) AS "csll_total"
    FROM "rec"
   ORDER BY "tenant_id", "empresa_id", "competencia_date" DESC;
-
-
 ALTER VIEW "r"."r_apuracao_irpj_csll_mensal_comp" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_documentos_pendentes_xml" AS
  SELECT "df"."tenant_id",
     "df"."empresa_id",
@@ -19143,11 +17309,7 @@ CREATE OR REPLACE VIEW "r"."r_documentos_pendentes_xml" AS
    FROM ("f"."documento_fiscal_pendencia" "p"
      JOIN "f"."documento_fiscal" "df" ON (("df"."id" = "p"."documento_fiscal_id")))
   WHERE (("p"."resolved_at" IS NULL) AND ("df"."deleted_at" IS NULL));
-
-
 ALTER VIEW "r"."r_documentos_pendentes_xml" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_guardiao_impostos_docs" AS
  WITH "docs" AS (
          SELECT "df"."tenant_id",
@@ -19311,11 +17473,7 @@ UNION ALL
     "div_xml"."diff",
     "div_xml"."detalhe"
    FROM "div_xml";
-
-
 ALTER VIEW "r"."r_guardiao_impostos_docs" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_i_caixa_custo" AS
  SELECT "cx"."tenant_id",
     "cx"."empresa_id",
@@ -19328,11 +17486,7 @@ CREATE OR REPLACE VIEW "r"."r_i_caixa_custo" AS
      LEFT JOIN "c"."i_ferramenta" "f" ON ((("f"."id" = "ci"."ferramenta_id") AND ("f"."deleted_at" IS NULL))))
   WHERE ("cx"."deleted_at" IS NULL)
   GROUP BY "cx"."tenant_id", "cx"."empresa_id", "cx"."id", "cx"."codigo", "cx"."nome";
-
-
 ALTER VIEW "r"."r_i_caixa_custo" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_itens_ativos" AS
  SELECT "id",
     "codigo_interno",
@@ -19388,11 +17542,7 @@ CREATE OR REPLACE VIEW "r"."r_itens_ativos" AS
     "mesclado_motivo"
    FROM "public"."itens"
   WHERE (("ativo" = true) AND ("mesclado_em_item_id" IS NULL));
-
-
 ALTER VIEW "r"."r_itens_ativos" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_motivo_compra_rank" AS
  WITH "uso_titulos" AS (
          SELECT "t"."tenant_id",
@@ -19423,11 +17573,7 @@ CREATE OR REPLACE VIEW "r"."r_motivo_compra_rank" AS
    FROM ("f"."motivo_compra" "mc"
      LEFT JOIN "uso_titulos" "ut" ON ((("ut"."tenant_id" = "mc"."tenant_id") AND ("ut"."motivo_compra_id" = "mc"."id"))))
   WHERE (("mc"."deleted_at" IS NULL) AND ("mc"."ativo" = true) AND ("mc"."visivel_import_nfe" = true));
-
-
 ALTER VIEW "r"."r_motivo_compra_rank" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_nfse_iss_conferencia" AS
  SELECT "df"."tenant_id",
     "df"."empresa_id",
@@ -19453,11 +17599,7 @@ CREATE OR REPLACE VIEW "r"."r_nfse_iss_conferencia" AS
    FROM ("f"."documento_fiscal" "df"
      LEFT JOIN "f"."documento_fiscal_imposto" "imp" ON ((("imp"."documento_fiscal_id" = "df"."id") AND ("imp"."tenant_id" = "df"."tenant_id") AND ("imp"."imposto" = 'ISS'::"text") AND ("imp"."deleted_at" IS NULL))))
   WHERE (("df"."deleted_at" IS NULL) AND ("df"."operacao" = 'SAIDA'::"text") AND ("df"."natureza" = 'SERVICO'::"text"));
-
-
 ALTER VIEW "r"."r_nfse_iss_conferencia" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_orcamento_catalogo_busca" AS
 SELECT
     NULL::"text" AS "origem",
@@ -19471,11 +17613,7 @@ SELECT
     NULL::"text" AS "unidade",
     NULL::"text" AS "tipo",
     NULL::numeric(15,2) AS "preco_sugerido";
-
-
 ALTER VIEW "r"."r_orcamento_catalogo_busca" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_orcamento_itens" AS
  SELECT "id",
     "orcamento_id",
@@ -19498,11 +17636,7 @@ CREATE OR REPLACE VIEW "r"."r_orcamento_itens" AS
     "empresa_id"
    FROM "m"."orcamento_item" "oi"
   WHERE ("deleted_at" IS NULL);
-
-
 ALTER VIEW "r"."r_orcamento_itens" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_orcamento_lista" AS
  SELECT "o"."id",
     "o"."tenant_id",
@@ -19534,11 +17668,7 @@ CREATE OR REPLACE VIEW "r"."r_orcamento_lista" AS
      JOIN "a"."usuario" "u" ON (("u"."id" = "o"."vendedor_usuario_id")))
      LEFT JOIN "c"."condicao_pagamento" "cp" ON (("cp"."id" = "o"."condicao_pagamento_id")))
   WHERE ("o"."deleted_at" IS NULL);
-
-
 ALTER VIEW "r"."r_orcamento_lista" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "r"."r_pendencias_xml_entrada" AS
  SELECT "p"."tenant_id",
     "p"."empresa_id",
@@ -19568,1910 +17698,616 @@ CREATE OR REPLACE VIEW "r"."r_pendencias_xml_entrada" AS
      JOIN "f"."documento_fiscal" "df" ON ((("df"."id" = "p"."documento_fiscal_id") AND ("df"."tenant_id" = "p"."tenant_id"))))
      LEFT JOIN "public"."nf_entrada" "ne" ON ((("ne"."id" = "df"."source_nf_entrada_id") AND ("ne"."tenant_id" = "df"."tenant_id") AND ("ne"."empresa_id" = "df"."empresa_id"))))
   WHERE (("p"."resolved_at" IS NULL) AND ("df"."deleted_at" IS NULL) AND ("df"."operacao" = 'ENTRADA'::"text") AND ("df"."natureza" = 'PRODUTO'::"text"));
-
-
 ALTER VIEW "r"."r_pendencias_xml_entrada" OWNER TO "postgres";
-
-
 ALTER TABLE ONLY "f"."tmp_backfill_impostos_entrada_erros" ALTER COLUMN "id" SET DEFAULT "nextval"('"f"."tmp_backfill_impostos_entrada_erros_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."audit_log" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."audit_log_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_servicos" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."cliente_hh_servicos_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."clientes" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."clientes_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."colaborador_cliente_funcao_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."empresa_memberships" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."empresa_memberships_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."estoque" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."estoque_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."fiscal_itens_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."fornecedores" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."fornecedores_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."hh_lancamentos" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."hh_lancamentos_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."hh_tipos_mapping_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."horas_trabalhadas" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."horas_trabalhadas_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."itens" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."itens_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."itens_merge_log" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."itens_merge_log_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."movimentacoes" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."movimentacoes_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."nf_entrada_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada_itens" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."nf_entrada_itens_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."ordens_servico" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."ordens_servico_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."os_gestao_itens" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."os_gestao_itens_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."os_itens" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."os_itens_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "public"."profissionais" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."profissionais_id_seq"'::"regclass");
-
-
-
 ALTER TABLE ONLY "a"."config_orcamento"
     ADD CONSTRAINT "pk_a_config_orcamento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario"
     ADD CONSTRAINT "pk_a_usuario" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario_empresa"
     ADD CONSTRAINT "pk_a_usuario_empresa" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario_tenant"
     ADD CONSTRAINT "pk_a_usuario_tenant" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "a"."config_orcamento"
     ADD CONSTRAINT "uq_config_orcamento__tenant_empresa" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "a"."usuario"
     ADD CONSTRAINT "uq_usuario__auth_user_id" UNIQUE ("auth_user_id");
-
-
-
 ALTER TABLE ONLY "a"."usuario"
     ADD CONSTRAINT "uq_usuario__email" UNIQUE ("email");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_item"
     ADD CONSTRAINT "i_caixa_item_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa"
     ADD CONSTRAINT "i_caixa_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_vinculo"
     ADD CONSTRAINT "i_caixa_vinculo_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_categoria"
     ADD CONSTRAINT "i_ferramenta_categoria_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta"
     ADD CONSTRAINT "i_ferramenta_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_sugestao_xml"
     ADD CONSTRAINT "i_ferramenta_sugestao_xml_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_unidade"
     ADD CONSTRAINT "i_ferramenta_unidade_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_unidade_vinculo"
     ADD CONSTRAINT "i_ferramenta_unidade_vinculo_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."condicao_pagamento"
     ADD CONSTRAINT "pk_c_condicao_pagamento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."conjunto"
     ADD CONSTRAINT "pk_c_conjunto" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."conjunto_item"
     ADD CONSTRAINT "pk_c_conjunto_item" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."empresa"
     ADD CONSTRAINT "pk_c_empresa" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."empresa_endereco"
     ADD CONSTRAINT "pk_c_empresa_endereco" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."empresa_fiscal"
     ADD CONSTRAINT "pk_c_empresa_fiscal" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."tenant"
     ADD CONSTRAINT "pk_c_tenant" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_codigo_seq"
     ADD CONSTRAINT "pk_i_ferr_codigo_seq" PRIMARY KEY ("tenant_id", "empresa_id", "categoria_id");
-
-
-
 ALTER TABLE ONLY "c"."condicao_pagamento"
     ADD CONSTRAINT "uq_condicao_pagamento__tenant_empresa_codigo" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "c"."condicao_pagamento"
     ADD CONSTRAINT "uq_condicao_pagamento__tenant_empresa_nome" UNIQUE ("tenant_id", "empresa_id", "nome");
-
-
-
 ALTER TABLE ONLY "c"."conjunto"
     ADD CONSTRAINT "uq_conjunto__tenant_empresa_codigo" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "c"."conjunto_item"
     ADD CONSTRAINT "uq_conjunto_item__conjunto_item" UNIQUE ("tenant_id", "empresa_id", "conjunto_id", "item_id");
-
-
-
 ALTER TABLE ONLY "c"."conjunto_item"
     ADD CONSTRAINT "uq_conjunto_item__conjunto_ordem" UNIQUE ("tenant_id", "empresa_id", "conjunto_id", "ordem");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa"
     ADD CONSTRAINT "uq_i_caixa__tenant_empresa_codigo" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_item"
     ADD CONSTRAINT "uq_i_caixa_item__tenant_empresa_caixa_ferr" UNIQUE ("tenant_id", "empresa_id", "caixa_id", "ferramenta_id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_categoria"
     ADD CONSTRAINT "uq_i_ferr_cat__tenant_empresa_nome" UNIQUE ("tenant_id", "empresa_id", "nome");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_categoria"
     ADD CONSTRAINT "uq_i_ferr_cat__tenant_empresa_prefixo" UNIQUE ("tenant_id", "empresa_id", "prefixo");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_unidade"
     ADD CONSTRAINT "uq_i_ferr_unid__tenant_empresa_patrimonio" UNIQUE ("tenant_id", "empresa_id", "patrimonio_codigo");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta"
     ADD CONSTRAINT "uq_i_ferramenta__tenant_empresa_codigo" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "f"."ap_recorrencia"
     ADD CONSTRAINT "ap_recorrencia_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."arrendamento_contrato"
     ADD CONSTRAINT "arrendamento_contrato_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."arrendamento_parcela"
     ADD CONSTRAINT "arrendamento_parcela_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_pendencia"
     ADD CONSTRAINT "documento_fiscal_pendencia_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."irpj_csll_regra_plano"
     ADD CONSTRAINT "irpj_csll_regra_plano_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."anexo"
     ADD CONSTRAINT "pk_f_anexo" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."aprovacao_evento"
     ADD CONSTRAINT "pk_f_aprovacao_evento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."centro_custo"
     ADD CONSTRAINT "pk_f_centro_custo" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_bancaria"
     ADD CONSTRAINT "pk_f_conciliacao_bancaria" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_lancamento"
     ADD CONSTRAINT "pk_f_conciliacao_lancamento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."conta_bancaria"
     ADD CONSTRAINT "pk_f_conta_bancaria" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "pk_f_documento_fiscal" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_imposto"
     ADD CONSTRAINT "pk_f_documento_fiscal_imposto" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_item"
     ADD CONSTRAINT "pk_f_documento_fiscal_item" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_xml"
     ADD CONSTRAINT "pk_f_documento_fiscal_xml" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."evento_financeiro"
     ADD CONSTRAINT "pk_f_evento_financeiro" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."extrato_bancario"
     ADD CONSTRAINT "pk_f_extrato_bancario" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."extrato_bancario_linha"
     ADD CONSTRAINT "pk_f_extrato_bancario_linha" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."fin_config"
     ADD CONSTRAINT "pk_f_fin_config" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."importacao_doc_log"
     ADD CONSTRAINT "pk_f_importacao_doc_log" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."imposto_retencao"
     ADD CONSTRAINT "pk_f_imposto_retencao" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."irpj_csll_ajuste"
     ADD CONSTRAINT "pk_f_irpj_csll_ajuste" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."irpj_csll_financeiro_config"
     ADD CONSTRAINT "pk_f_irpj_csll_financeiro_config" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."irpj_csll_saldo_inicial"
     ADD CONSTRAINT "pk_f_irpj_csll_saldo_inicial" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."motivo_compra"
     ADD CONSTRAINT "pk_f_motivo_compra" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento"
     ADD CONSTRAINT "pk_f_pagamento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento_item"
     ADD CONSTRAINT "pk_f_pagamento_item" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."parametro_financeiro_empresa"
     ADD CONSTRAINT "pk_f_parametro_financeiro_empresa" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."parametro_irpj_csll_empresa"
     ADD CONSTRAINT "pk_f_parametro_irpj_csll_empresa" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."plano_contas"
     ADD CONSTRAINT "pk_f_plano_contas" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "pk_f_titulo" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_agendamento"
     ADD CONSTRAINT "pk_f_titulo_agendamento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_aprovacao"
     ADD CONSTRAINT "pk_f_titulo_aprovacao" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_parcela"
     ADD CONSTRAINT "pk_f_titulo_parcela" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_rateio"
     ADD CONSTRAINT "pk_f_titulo_rateio" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."vencimento_regra"
     ADD CONSTRAINT "pk_f_vencimento_regra" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE "f"."titulo"
     ADD CONSTRAINT "titulo_motivo_compra_obrigatorio_chk" CHECK ((("origem" <> 'XML'::"text") OR ("motivo_compra_id" IS NOT NULL))) NOT VALID;
-
-
-
 ALTER TABLE "f"."titulo_rateio"
     ADD CONSTRAINT "titulo_rateio_plano_contas_obrigatorio" CHECK (("plano_contas_id" IS NOT NULL)) NOT VALID;
-
-
-
 ALTER TABLE ONLY "f"."tmp_backfill_impostos_entrada_erros"
     ADD CONSTRAINT "tmp_backfill_impostos_entrada_erros_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "f"."centro_custo"
     ADD CONSTRAINT "uq_centro_custo__tenant_empresa_codigo" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "f"."conta_bancaria"
     ADD CONSTRAINT "uq_conta_bancaria__tenant_empresa_codigo" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_pendencia"
     ADD CONSTRAINT "uq_doc_pend" UNIQUE ("tenant_id", "documento_fiscal_id", "tipo");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "uq_documento_fiscal__tenant_chave" UNIQUE ("tenant_id", "chave_acesso");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "uq_documento_fiscal__tenant_source_nf" UNIQUE ("tenant_id", "source_nf_entrada_id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_imposto"
     ADD CONSTRAINT "uq_documento_fiscal_imposto__doc_imp_nat" UNIQUE ("tenant_id", "documento_fiscal_id", "imposto", "natureza");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_item"
     ADD CONSTRAINT "uq_documento_fiscal_item__doc_itemn" UNIQUE ("tenant_id", "documento_fiscal_id", "item_n");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_xml"
     ADD CONSTRAINT "uq_documento_fiscal_xml__tenant_doc" UNIQUE ("tenant_id", "documento_fiscal_id");
-
-
-
 ALTER TABLE ONLY "f"."fin_config"
     ADD CONSTRAINT "uq_fin_config__tenant_empresa" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "f"."irpj_csll_financeiro_config"
     ADD CONSTRAINT "uq_irpj_csll_fin_config__tenant_empresa" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "f"."irpj_csll_saldo_inicial"
     ADD CONSTRAINT "uq_irpj_csll_saldo_inicial__tenant_id__empresa_id" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "f"."motivo_compra"
     ADD CONSTRAINT "uq_motivo_compra__tenant_codigo" UNIQUE ("tenant_id", "codigo");
-
-
-
 ALTER TABLE ONLY "f"."motivo_compra"
     ADD CONSTRAINT "uq_motivo_compra__tenant_nome" UNIQUE ("tenant_id", "nome");
-
-
-
 ALTER TABLE ONLY "f"."pagamento_item"
     ADD CONSTRAINT "uq_pagamento_item__tenant_pagamento_parcela" UNIQUE ("tenant_id", "pagamento_id", "titulo_parcela_id");
-
-
-
 ALTER TABLE ONLY "f"."parametro_financeiro_empresa"
     ADD CONSTRAINT "uq_param_fin_emp__tenant_empresa" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "f"."parametro_irpj_csll_empresa"
     ADD CONSTRAINT "uq_parametro_irpj_csll_empresa__tenant_empresa" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "f"."plano_contas"
     ADD CONSTRAINT "uq_plano_contas__tenant_codigo" UNIQUE ("tenant_id", "codigo");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "uq_titulo__recorrencia_competencia" UNIQUE ("tenant_id", "recorrencia_id", "competencia_date");
-
-
-
 ALTER TABLE ONLY "f"."titulo_agendamento"
     ADD CONSTRAINT "uq_titulo_agendamento__tenant_titulo" UNIQUE ("tenant_id", "titulo_id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_aprovacao"
     ADD CONSTRAINT "uq_titulo_aprovacao__tenant_titulo" UNIQUE ("tenant_id", "titulo_id");
-
-
-
 ALTER TABLE ONLY "f"."vencimento_regra"
     ADD CONSTRAINT "uq_vencimento_regra__tenant_codigo" UNIQUE ("tenant_id", "codigo");
-
-
-
 ALTER TABLE ONLY "m"."orcamento"
     ADD CONSTRAINT "pk_m_orcamento" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento_item"
     ADD CONSTRAINT "pk_m_orcamento_item" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento_seq"
     ADD CONSTRAINT "pk_m_orcamento_seq" PRIMARY KEY ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento"
     ADD CONSTRAINT "uq_orcamento__tenant_empresa_codigo_versao" UNIQUE ("tenant_id", "empresa_id", "codigo", "versao");
-
-
-
 ALTER TABLE ONLY "m"."orcamento"
     ADD CONSTRAINT "uq_orcamento__tenant_empresa_num_versao" UNIQUE ("tenant_id", "empresa_id", "numero", "versao");
-
-
-
 ALTER TABLE ONLY "m"."orcamento_item"
     ADD CONSTRAINT "uq_orcamento_item__tenant_empresa_orcamento_seq" UNIQUE ("tenant_id", "empresa_id", "orcamento_id", "seq");
-
-
-
 ALTER TABLE ONLY "public"."apontamentos_horas"
     ADD CONSTRAINT "apontamentos_horas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."audit_log"
     ADD CONSTRAINT "audit_log_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."centros_custo"
     ADD CONSTRAINT "centros_custo_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."centros_custo"
     ADD CONSTRAINT "centros_custo_tenant_empresa_codigo_uk" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_servicos"
     ADD CONSTRAINT "cliente_hh_servicos_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_tabelas"
     ADD CONSTRAINT "cliente_hh_tabelas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_tabelas"
     ADD CONSTRAINT "cliente_hh_tabelas_tenant_cliente_ano_uk" UNIQUE ("tenant_id", "cliente_id", "ano");
-
-
-
 ALTER TABLE ONLY "public"."clientes"
     ADD CONSTRAINT "clientes_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."clientes"
     ADD CONSTRAINT "clientes_tenant_empresa_documento_norm_uk" UNIQUE ("tenant_id", "empresa_id", "documento_norm");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao"
     ADD CONSTRAINT "colaborador_cliente_funcao_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_funcao_hh"
     ADD CONSTRAINT "colaborador_funcao_hh_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_funcao_hh"
     ADD CONSTRAINT "colaborador_funcao_hh_unique" UNIQUE ("tenant_id", "cliente_id", "colaborador_id", "servico_hh_id");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_taxas"
     ADD CONSTRAINT "colaborador_taxas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."colaboradores"
     ADD CONSTRAINT "colaboradores_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."competencias"
     ADD CONSTRAINT "competencias_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."competencias"
     ADD CONSTRAINT "competencias_tenant_empresa_ano_mes_uk" UNIQUE ("tenant_id", "empresa_id", "ano", "mes");
-
-
-
 ALTER TABLE ONLY "public"."empresa_memberships"
     ADD CONSTRAINT "empresa_memberships_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."empresa_memberships"
     ADD CONSTRAINT "empresa_memberships_unique" UNIQUE ("tenant_id", "empresa_id", "user_id");
-
-
-
 ALTER TABLE ONLY "public"."empresas"
     ADD CONSTRAINT "empresas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."estoque"
     ADD CONSTRAINT "estoque_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."estoque"
     ADD CONSTRAINT "estoque_tenant_empresa_item_key" UNIQUE ("tenant_id", "empresa_id", "item_id");
-
-
-
 ALTER TABLE ONLY "public"."feriados"
     ADD CONSTRAINT "feriados_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."feriados"
     ADD CONSTRAINT "feriados_uk" UNIQUE ("data", "abrangencia");
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens"
     ADD CONSTRAINT "fiscal_itens_item_id_key" UNIQUE ("item_id");
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens"
     ADD CONSTRAINT "fiscal_itens_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens"
     ADD CONSTRAINT "fiscal_itens_tenant_empresa_item_uk" UNIQUE ("tenant_id", "empresa_id", "item_id");
-
-
-
 ALTER TABLE ONLY "public"."fiscal_regras"
     ADD CONSTRAINT "fiscal_regras_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE "public"."fornecedores"
     ADD CONSTRAINT "fornecedores_cnpj_digits_len_chk" CHECK ((("cnpj_digits" = ''::"text") OR ("length"("cnpj_digits") = 14))) NOT VALID;
-
-
-
 ALTER TABLE ONLY "public"."fornecedores"
     ADD CONSTRAINT "fornecedores_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."hh_especialidades"
     ADD CONSTRAINT "hh_especialidades_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."hh_lancamentos"
     ADD CONSTRAINT "hh_lancamentos_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping"
     ADD CONSTRAINT "hh_tipos_mapping_hh_tipo_id_key" UNIQUE ("hh_tipo_id");
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping"
     ADD CONSTRAINT "hh_tipos_mapping_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping"
     ADD CONSTRAINT "hh_tipos_mapping_tipo_hora_id_key" UNIQUE ("tipo_hora_id");
-
-
-
 ALTER TABLE ONLY "public"."horas_trabalhadas"
     ADD CONSTRAINT "horas_trabalhadas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."itens_merge_log"
     ADD CONSTRAINT "itens_merge_log_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."itens"
     ADD CONSTRAINT "itens_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."itens"
     ADD CONSTRAINT "itens_tenant_id_id_uk" UNIQUE ("tenant_id", "id");
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis_itens"
     ADD CONSTRAINT "lancamentos_contabeis_itens_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis"
     ADD CONSTRAINT "lancamentos_contabeis_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."membership_roles"
     ADD CONSTRAINT "membership_roles_pkey" PRIMARY KEY ("membership_id", "role_id");
-
-
-
 ALTER TABLE ONLY "public"."movimentacoes"
     ADD CONSTRAINT "movimentacoes_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "nf_entrada_chave_key" UNIQUE ("chave");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada_itens"
     ADD CONSTRAINT "nf_entrada_itens_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "nf_entrada_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "nf_entrada_tenant_id_id_uk" UNIQUE ("tenant_id", "id");
-
-
-
 ALTER TABLE ONLY "public"."ordens_servico"
     ADD CONSTRAINT "ordens_servico_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."ordens_servico"
     ADD CONSTRAINT "ordens_servico_tenant_id_id_uk" UNIQUE ("tenant_id", "id");
-
-
-
 ALTER TABLE ONLY "public"."ordens_servico"
     ADD CONSTRAINT "ordens_servico_tenant_numero_os_uk" UNIQUE ("tenant_id", "numero_os");
-
-
-
 ALTER TABLE ONLY "public"."os_gestao_itens"
     ADD CONSTRAINT "os_gestao_itens_os_id_item_tipo_area_key" UNIQUE ("os_id", "item_tipo", "area");
-
-
-
 ALTER TABLE ONLY "public"."os_gestao_itens"
     ADD CONSTRAINT "os_gestao_itens_os_key" UNIQUE ("os_id", "item_tipo", "area");
-
-
-
 ALTER TABLE ONLY "public"."os_gestao_itens"
     ADD CONSTRAINT "os_gestao_itens_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."os_itens"
     ADD CONSTRAINT "os_itens_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."parametro_importacao_xml"
     ADD CONSTRAINT "parametro_importacao_xml_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."permissions"
     ADD CONSTRAINT "permissions_code_key" UNIQUE ("code");
-
-
-
 ALTER TABLE ONLY "public"."permissions"
     ADD CONSTRAINT "permissions_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."plano_contas"
     ADD CONSTRAINT "plano_contas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."plano_contas"
     ADD CONSTRAINT "plano_contas_tenant_empresa_codigo_uk" UNIQUE ("tenant_id", "empresa_id", "codigo");
-
-
-
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."profissionais"
     ADD CONSTRAINT "profissionais_cpf_key" UNIQUE ("cpf");
-
-
-
 ALTER TABLE ONLY "public"."profissionais"
     ADD CONSTRAINT "profissionais_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."role_access_rules"
     ADD CONSTRAINT "role_access_rules_pkey" PRIMARY KEY ("role_id", "resource", "action");
-
-
-
 ALTER TABLE ONLY "public"."role_permissions"
     ADD CONSTRAINT "role_permissions_pkey" PRIMARY KEY ("role", "permission");
-
-
-
 ALTER TABLE ONLY "public"."roles"
     ADD CONSTRAINT "roles_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."roles"
     ADD CONSTRAINT "roles_tenant_id_name_key" UNIQUE ("tenant_id", "name");
-
-
-
 ALTER TABLE ONLY "public"."tenant_memberships"
     ADD CONSTRAINT "tenant_memberships_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."tenant_memberships"
     ADD CONSTRAINT "tenant_memberships_tenant_id_user_id_key" UNIQUE ("tenant_id", "user_id");
-
-
-
 ALTER TABLE ONLY "public"."tenant_memberships"
     ADD CONSTRAINT "tenant_memberships_unique" UNIQUE ("tenant_id", "user_id");
-
-
-
 ALTER TABLE ONLY "public"."tenants"
     ADD CONSTRAINT "tenants_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping"
     ADD CONSTRAINT "tipos_horas_mapping_uk" UNIQUE ("tenant_id", "tipo_hora_id");
-
-
-
 ALTER TABLE ONLY "public"."tipos_horas"
     ADD CONSTRAINT "tipos_horas_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."tipos_horas"
     ADD CONSTRAINT "tipos_horas_tenant_codigo_uk" UNIQUE ("tenant_id", "codigo");
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_servicos"
     ADD CONSTRAINT "uk_cliente_hh_servicos_nome" UNIQUE ("tenant_id", "empresa_id", "cliente_id", "nome");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao"
     ADD CONSTRAINT "unique_colab_cliente_funcao" UNIQUE ("tenant_id", "cliente_id", "colaborador_id", "hh_servico_id");
-
-
-
 ALTER TABLE ONLY "public"."parametro_importacao_xml"
     ADD CONSTRAINT "uq_parametro_importacao_xml__tenant_empresa" UNIQUE ("tenant_id", "empresa_id");
-
-
-
 ALTER TABLE ONLY "public"."user_empresa_context"
     ADD CONSTRAINT "user_empresa_context_pkey" PRIMARY KEY ("user_id", "tenant_id");
-
-
-
 ALTER TABLE ONLY "public"."user_profiles"
     ADD CONSTRAINT "user_profiles_pkey" PRIMARY KEY ("user_id");
-
-
-
 ALTER TABLE ONLY "public"."user_tenant_context"
     ADD CONSTRAINT "user_tenant_context_pkey" PRIMARY KEY ("user_id");
-
-
-
 ALTER TABLE ONLY "r"."dre_plano_excluido"
     ADD CONSTRAINT "pk_r_dre_plano_excluido" PRIMARY KEY ("tenant_id", "plano_contas_id");
-
-
-
 CREATE INDEX "idx_usuario_empresa__empresa_id" ON "a"."usuario_empresa" USING "btree" ("empresa_id");
-
-
-
 CREATE INDEX "idx_usuario_tenant__tenant_id" ON "a"."usuario_tenant" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "uq_usuario_empresa__usuario_id__empresa_id" ON "a"."usuario_empresa" USING "btree" ("usuario_id", "empresa_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_usuario_empresa__usuario_id__empresa_id__active" ON "a"."usuario_empresa" USING "btree" ("usuario_id", "empresa_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_usuario_tenant__usuario_id__tenant_id" ON "a"."usuario_tenant" USING "btree" ("usuario_id", "tenant_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_usuario_tenant__usuario_id__tenant_id__active" ON "a"."usuario_tenant" USING "btree" ("usuario_id", "tenant_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_condicao_pagamento__tenant_empresa_ativo" ON "c"."condicao_pagamento" USING "btree" ("tenant_id", "empresa_id", "ativo");
-
-
-
 CREATE INDEX "idx_conjunto__tenant_empresa_codigo_norm" ON "c"."conjunto" USING "btree" ("tenant_id", "empresa_id", "codigo_norm");
-
-
-
 CREATE INDEX "idx_conjunto__tenant_empresa_nome_norm" ON "c"."conjunto" USING "btree" ("tenant_id", "empresa_id", "nome_norm");
-
-
-
 CREATE INDEX "idx_conjunto_item__conjunto" ON "c"."conjunto_item" USING "btree" ("tenant_id", "empresa_id", "conjunto_id");
-
-
-
 CREATE INDEX "idx_empresa__tenant_id" ON "c"."empresa" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_empresa_endereco__empresa_id" ON "c"."empresa_endereco" USING "btree" ("empresa_id");
-
-
-
 CREATE INDEX "idx_i_caixa_vinculo__tenant_empresa_caixa_ativo" ON "c"."i_caixa_vinculo" USING "btree" ("tenant_id", "empresa_id", "caixa_id") WHERE (("data_fim" IS NULL) AND ("deleted_at" IS NULL));
-
-
-
 CREATE INDEX "idx_i_ferr_sug_xml__tenant_empresa_status" ON "c"."i_ferramenta_sugestao_xml" USING "btree" ("tenant_id", "empresa_id", "status") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_i_ferr_unid__tenant_empresa_ferr" ON "c"."i_ferramenta_unidade" USING "btree" ("tenant_id", "empresa_id", "ferramenta_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_i_ferr_unid__tenant_empresa_status" ON "c"."i_ferramenta_unidade" USING "btree" ("tenant_id", "empresa_id", "status") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_i_ferr_unid_vinc__tenant_empresa_unidade_ativo" ON "c"."i_ferramenta_unidade_vinculo" USING "btree" ("tenant_id", "empresa_id", "ferramenta_unidade_id") WHERE (("data_fim" IS NULL) AND ("deleted_at" IS NULL));
-
-
-
 CREATE UNIQUE INDEX "uq_empresa__tenant_id__cnpj" ON "c"."empresa" USING "btree" ("tenant_id", "cnpj") WHERE (("deleted_at" IS NULL) AND ("cnpj" IS NOT NULL));
-
-
-
 CREATE UNIQUE INDEX "uq_empresa__tenant_id__codigo" ON "c"."empresa" USING "btree" ("tenant_id", "codigo") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_empresa_endereco__empresa_id__tipo" ON "c"."empresa_endereco" USING "btree" ("empresa_id", "tipo") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_empresa_fiscal__empresa_id" ON "c"."empresa_fiscal" USING "btree" ("empresa_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_tenant__codigo" ON "c"."tenant" USING "btree" ("codigo") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_tenant__nome" ON "c"."tenant" USING "btree" ("nome") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_centro_custo__tenant_empresa_parent" ON "f"."centro_custo" USING "btree" ("tenant_id", "empresa_id", "parent_id");
-
-
-
 CREATE INDEX "idx_conciliacao__tenant_empresa_conta" ON "f"."conciliacao_bancaria" USING "btree" ("tenant_id", "empresa_id", "conta_bancaria_id");
-
-
-
 CREATE INDEX "idx_conta_bancaria__tenant_empresa_ativo" ON "f"."conta_bancaria" USING "btree" ("tenant_id", "empresa_id", "ativo");
-
-
-
 CREATE INDEX "idx_documento_fiscal__tenant_empresa" ON "f"."documento_fiscal" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "idx_documento_fiscal__tenant_empresa_competencia" ON "f"."documento_fiscal" USING "btree" ("tenant_id", "empresa_id", "competencia_date");
-
-
-
 CREATE INDEX "idx_documento_fiscal__tenant_empresa_operacao" ON "f"."documento_fiscal" USING "btree" ("tenant_id", "empresa_id", "operacao");
-
-
-
 CREATE INDEX "idx_documento_fiscal__tenant_fornecedor" ON "f"."documento_fiscal" USING "btree" ("tenant_id", "fornecedor_id");
-
-
-
 CREATE INDEX "idx_documento_fiscal_imposto__tenant_doc" ON "f"."documento_fiscal_imposto" USING "btree" ("tenant_id", "documento_fiscal_id");
-
-
-
 CREATE INDEX "idx_documento_fiscal_item__tenant_doc" ON "f"."documento_fiscal_item" USING "btree" ("tenant_id", "documento_fiscal_id");
-
-
-
 CREATE INDEX "idx_evento_financeiro__tenant_empresa_created" ON "f"."evento_financeiro" USING "btree" ("tenant_id", "empresa_id", "created_at" DESC);
-
-
-
 CREATE INDEX "idx_extrato_bancario__tenant_empresa_conta" ON "f"."extrato_bancario" USING "btree" ("tenant_id", "empresa_id", "conta_bancaria_id");
-
-
-
 CREATE INDEX "idx_extrato_linha__tenant_conta_data" ON "f"."extrato_bancario_linha" USING "btree" ("tenant_id", "conta_bancaria_id", "data_movimento");
-
-
-
 CREATE INDEX "idx_extrato_linha__tenant_extrato" ON "f"."extrato_bancario_linha" USING "btree" ("tenant_id", "extrato_bancario_id");
-
-
-
 CREATE INDEX "idx_irpj_csll_ajuste__tenant_empresa_comp" ON "f"."irpj_csll_ajuste" USING "btree" ("tenant_id", "empresa_id", "competencia_date") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_irpj_csll_ajuste__tenant_empresa_tipo" ON "f"."irpj_csll_ajuste" USING "btree" ("tenant_id", "empresa_id", "escopo", "tipo") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_irpj_csll_saldo_inicial__tenant_empresa" ON "f"."irpj_csll_saldo_inicial" USING "btree" ("tenant_id", "empresa_id", "competencia_inicio") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_motivo_compra__tenant_aplica_em" ON "f"."motivo_compra" USING "btree" ("tenant_id", "aplica_em") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_motivo_compra__tenant_ativo" ON "f"."motivo_compra" USING "btree" ("tenant_id", "ativo");
-
-
-
 CREATE INDEX "idx_motivo_compra__tenant_fav_ord_nome" ON "f"."motivo_compra" USING "btree" ("tenant_id", "favorito" DESC, "ordem" DESC, "nome") WHERE (("deleted_at" IS NULL) AND ("ativo" = true));
-
-
-
 CREATE INDEX "idx_motivo_compra__tenant_plano" ON "f"."motivo_compra" USING "btree" ("tenant_id", "plano_contas_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_param_irpj_csll_empresa__tenant_empresa" ON "f"."parametro_irpj_csll_empresa" USING "btree" ("tenant_id", "empresa_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_plano_contas__tenant_parent" ON "f"."plano_contas" USING "btree" ("tenant_id", "parent_id");
-
-
-
 CREATE INDEX "idx_titulo__arrendamento_contrato" ON "f"."titulo" USING "btree" ("tenant_id", "empresa_id", "arrendamento_contrato_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_titulo__recorrencia_id" ON "f"."titulo" USING "btree" ("recorrencia_id");
-
-
-
 CREATE INDEX "idx_titulo__tenant_empresa_competencia_tipo" ON "f"."titulo" USING "btree" ("tenant_id", "empresa_id", "competencia_date", "tipo") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_titulo__tenant_empresa_status" ON "f"."titulo" USING "btree" ("tenant_id", "empresa_id", "status");
-
-
-
 CREATE INDEX "idx_titulo_agendamento__tenant_titulo" ON "f"."titulo_agendamento" USING "btree" ("tenant_id", "titulo_id");
-
-
-
 CREATE INDEX "idx_titulo_parcela__tenant_titulo" ON "f"."titulo_parcela" USING "btree" ("tenant_id", "titulo_id");
-
-
-
 CREATE INDEX "idx_titulo_rateio__tenant_plano" ON "f"."titulo_rateio" USING "btree" ("tenant_id", "plano_contas_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_titulo_rateio__tenant_titulo" ON "f"."titulo_rateio" USING "btree" ("tenant_id", "titulo_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_arr_contrato__key" ON "f"."arrendamento_contrato" USING "btree" ("tenant_id", "empresa_id", "fornecedor_id", "competencia_inicio", "prazo_meses", "valor_parcela") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_arr_parcela__contrato_comp" ON "f"."arrendamento_parcela" USING "btree" ("tenant_id", "contrato_id", "competencia_date") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_conciliacao__tenant_extrato_linha" ON "f"."conciliacao_bancaria" USING "btree" ("tenant_id", "extrato_linha_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_conciliacao__tenant_pagamento" ON "f"."conciliacao_bancaria" USING "btree" ("tenant_id", "pagamento_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_extrato_linha__tenant_conta_fitid" ON "f"."extrato_bancario_linha" USING "btree" ("tenant_id", "conta_bancaria_id", "fit_id") WHERE (("fit_id" IS NOT NULL) AND ("deleted_at" IS NULL));
-
-
-
 CREATE UNIQUE INDEX "uq_irpj_csll_regra_plano__key" ON "f"."irpj_csll_regra_plano" USING "btree" ("tenant_id", "empresa_id", "plano_contas_id", "escopo", "tipo") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_titulo__apuracao_irpj_csll" ON "f"."titulo" USING "btree" ("tenant_id", "empresa_id", "competencia_date", "descricao") WHERE (("deleted_at" IS NULL) AND ("tipo" = 'AP'::"text") AND ("origem" = 'APURACAO_IRPJ_CSLL'::"text"));
-
-
-
 CREATE UNIQUE INDEX "uq_titulo_parcela__tenant_id_titulo_id_numero__active" ON "f"."titulo_parcela" USING "btree" ("tenant_id", "titulo_id", "numero") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE UNIQUE INDEX "uq_titulo_parcela__tenant_titulo_numero" ON "f"."titulo_parcela" USING "btree" ("tenant_id", "titulo_id", "numero") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_orcamento__tenant_empresa_emissao" ON "m"."orcamento" USING "btree" ("tenant_id", "empresa_id", "emissao_date" DESC);
-
-
-
 CREATE INDEX "idx_orcamento__tenant_empresa_status" ON "m"."orcamento" USING "btree" ("tenant_id", "empresa_id", "status");
-
-
-
 CREATE INDEX "idx_orcamento_item__conjunto_inst" ON "m"."orcamento_item" USING "btree" ("orcamento_id", "conjunto_instancia_id") WHERE ("deleted_at" IS NULL);
-
-
-
 CREATE INDEX "idx_orcamento_item__orcamento" ON "m"."orcamento_item" USING "btree" ("orcamento_id");
-
-
-
 CREATE INDEX "apontamentos_colab_data_idx" ON "public"."apontamentos_horas" USING "btree" ("colaborador_id", "data");
-
-
-
 CREATE INDEX "apontamentos_data_idx" ON "public"."apontamentos_horas" USING "btree" ("data");
-
-
-
 CREATE INDEX "apontamentos_horas_hh_especialidade_id_idx" ON "public"."apontamentos_horas" USING "btree" ("hh_especialidade_id");
-
-
-
 CREATE UNIQUE INDEX "apontamentos_horas_tenant_empresa_id_ux" ON "public"."apontamentos_horas" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "apontamentos_horas_tenant_empresa_idx" ON "public"."apontamentos_horas" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "apontamentos_horas_tenant_id_idx" ON "public"."apontamentos_horas" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "apontamentos_os_data_idx" ON "public"."apontamentos_horas" USING "btree" ("os_id", "data");
-
-
-
 CREATE INDEX "audit_log_table_created_idx" ON "public"."audit_log" USING "btree" ("table_name", "created_at" DESC);
-
-
-
 CREATE INDEX "audit_log_tenant_created_idx" ON "public"."audit_log" USING "btree" ("tenant_id", "created_at" DESC);
-
-
-
 CREATE INDEX "cliente_hh_tabelas_cliente_id_idx" ON "public"."cliente_hh_tabelas" USING "btree" ("cliente_id");
-
-
-
 CREATE INDEX "cliente_hh_tabelas_tenant_empresa_idx" ON "public"."cliente_hh_tabelas" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "cliente_hh_tabelas_tenant_id_idx" ON "public"."cliente_hh_tabelas" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "clientes_tenant_empresa_id_ux" ON "public"."clientes" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "clientes_tenant_empresa_idx" ON "public"."clientes" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "clientes_tenant_id_idx" ON "public"."clientes" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "colaborador_cliente_funcao_tenant_empresa_idx" ON "public"."colaborador_cliente_funcao" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "colaborador_funcao_hh_tenant_empresa_idx" ON "public"."colaborador_funcao_hh" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "colaborador_taxas_lookup_idx" ON "public"."colaborador_taxas" USING "btree" ("colaborador_id", "vigencia_inicio", "vigencia_fim");
-
-
-
 CREATE INDEX "colaborador_taxas_tenant_empresa_idx" ON "public"."colaborador_taxas" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "colaborador_taxas_tenant_id_idx" ON "public"."colaborador_taxas" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "colaboradores_hh_especialidade_id_idx" ON "public"."colaboradores" USING "btree" ("hh_especialidade_id");
-
-
-
 CREATE INDEX "colaboradores_nome_idx" ON "public"."colaboradores" USING "btree" ("nome");
-
-
-
 CREATE INDEX "colaboradores_tenant_empresa_idx" ON "public"."colaboradores" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "colaboradores_tenant_id_idx" ON "public"."colaboradores" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "empresas_tenant_ativo_idx" ON "public"."empresas" USING "btree" ("tenant_id", "ativo");
-
-
-
 CREATE UNIQUE INDEX "empresas_tenant_cnpj_uk" ON "public"."empresas" USING "btree" ("tenant_id", "cnpj");
-
-
-
 CREATE INDEX "feriados_data_idx" ON "public"."feriados" USING "btree" ("data");
-
-
-
 CREATE INDEX "fiscal_itens_tenant_id_idx" ON "public"."fiscal_itens" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "fornecedores_documento_norm_uniq" ON "public"."fornecedores" USING "btree" ("documento_norm") WHERE ("documento_norm" <> ''::"text");
-
-
-
 CREATE UNIQUE INDEX "fornecedores_tenant_documento_key_uidx" ON "public"."fornecedores" USING "btree" ("tenant_id", "documento_key") WHERE ("documento_key" <> ''::"text");
-
-
-
 CREATE UNIQUE INDEX "fornecedores_tenant_documento_norm_uidx" ON "public"."fornecedores" USING "btree" ("tenant_id", "documento_norm") WHERE ("documento_norm" <> ''::"text");
-
-
-
 CREATE UNIQUE INDEX "fornecedores_tenant_documento_norm_uk" ON "public"."fornecedores" USING "btree" ("tenant_id", "documento_norm") WHERE (("documento_norm" IS NOT NULL) AND ("length"(TRIM(BOTH FROM "documento_norm")) > 0));
-
-
-
 CREATE UNIQUE INDEX "fornecedores_tenant_empresa_cnpj_uq" ON "public"."fornecedores" USING "btree" ("tenant_id", "empresa_id", "cnpj_digits") WHERE ("cnpj_digits" <> ''::"text");
-
-
-
 CREATE UNIQUE INDEX "fornecedores_tenant_empresa_id_ux" ON "public"."fornecedores" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "fornecedores_tenant_empresa_idx" ON "public"."fornecedores" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "fornecedores_tenant_finalidade_padrao_idx" ON "public"."fornecedores" USING "btree" ("tenant_id", "finalidade_padrao");
-
-
-
 CREATE INDEX "fornecedores_tenant_id_idx" ON "public"."fornecedores" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "fornecedores_unique_cnpj" ON "public"."fornecedores" USING "btree" ("tenant_id", "empresa_id", "cnpj_norm") WHERE ("cnpj_norm" IS NOT NULL);
-
-
-
 CREATE UNIQUE INDEX "fornecedores_unique_docnorm" ON "public"."fornecedores" USING "btree" ("tenant_id", "empresa_id", "documento_norm") WHERE (("documento_norm" IS NOT NULL) AND ("documento_norm" <> ''::"text"));
-
-
-
 CREATE INDEX "hh_especialidades_tenant_id_idx" ON "public"."hh_especialidades" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "hh_lancamentos_hh_especialidade_id_idx" ON "public"."hh_lancamentos" USING "btree" ("hh_especialidade_id");
-
-
-
 CREATE UNIQUE INDEX "hh_tipos_mapping_tenant_tipo_hora_uidx" ON "public"."hh_tipos_mapping" USING "btree" ("tenant_id", "tipo_hora_id");
-
-
-
 CREATE UNIQUE INDEX "hh_tipos_mapping_tenant_tipo_hora_uq" ON "public"."hh_tipos_mapping" USING "btree" ("tenant_id", "tipo_hora_id");
-
-
-
 CREATE INDEX "idx_apontamentos_horas_hh_lancamento" ON "public"."apontamentos_horas" USING "btree" ("hh_lancamento_id") WHERE ("hh_lancamento_id" IS NOT NULL);
-
-
-
 CREATE INDEX "idx_centros_custo_tenant_empresa" ON "public"."centros_custo" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "idx_cliente_hh_servicos_ativo" ON "public"."cliente_hh_servicos" USING "btree" ("ativo") WHERE ("ativo" = true);
-
-
-
 CREATE INDEX "idx_cliente_hh_servicos_cliente" ON "public"."cliente_hh_servicos" USING "btree" ("cliente_id");
-
-
-
 CREATE INDEX "idx_cliente_hh_servicos_tenant_empresa" ON "public"."cliente_hh_servicos" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "idx_clientes_ativo" ON "public"."clientes" USING "btree" ("ativo");
-
-
-
 CREATE INDEX "idx_clientes_documento_norm" ON "public"."clientes" USING "btree" ("tenant_id", "empresa_id", "documento_norm") WHERE ("documento_norm" IS NOT NULL);
-
-
-
 CREATE INDEX "idx_clientes_habilita_hh" ON "public"."clientes" USING "btree" ("habilita_hh");
-
-
-
 CREATE INDEX "idx_clientes_nome" ON "public"."clientes" USING "btree" ("nome");
-
-
-
 CREATE INDEX "idx_colaborador_cliente_funcao_ativo" ON "public"."colaborador_cliente_funcao" USING "btree" ("ativo") WHERE ("ativo" = true);
-
-
-
 CREATE INDEX "idx_colaborador_cliente_funcao_cliente" ON "public"."colaborador_cliente_funcao" USING "btree" ("tenant_id", "cliente_id");
-
-
-
 CREATE INDEX "idx_colaborador_cliente_funcao_colab" ON "public"."colaborador_cliente_funcao" USING "btree" ("tenant_id", "colaborador_id");
-
-
-
 CREATE INDEX "idx_colaborador_cliente_funcao_colaborador" ON "public"."colaborador_cliente_funcao" USING "btree" ("tenant_id", "colaborador_id");
-
-
-
 CREATE INDEX "idx_colaborador_cliente_funcao_servico" ON "public"."colaborador_cliente_funcao" USING "btree" ("tenant_id", "hh_servico_id");
-
-
-
 CREATE INDEX "idx_colaborador_cliente_funcao_tenant" ON "public"."colaborador_cliente_funcao" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_colaborador_funcao_hh_cliente_id" ON "public"."colaborador_funcao_hh" USING "btree" ("cliente_id");
-
-
-
 CREATE INDEX "idx_colaborador_funcao_hh_colaborador_id" ON "public"."colaborador_funcao_hh" USING "btree" ("colaborador_id");
-
-
-
 CREATE INDEX "idx_colaborador_funcao_hh_servico_hh_id" ON "public"."colaborador_funcao_hh" USING "btree" ("servico_hh_id");
-
-
-
 CREATE INDEX "idx_colaborador_funcao_hh_tenant_id" ON "public"."colaborador_funcao_hh" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_competencias_tenant_empresa" ON "public"."competencias" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "idx_empresa_memberships_empresa_user" ON "public"."empresa_memberships" USING "btree" ("empresa_id", "user_id");
-
-
-
 CREATE INDEX "idx_empresa_memberships_tenant_user" ON "public"."empresa_memberships" USING "btree" ("tenant_id", "user_id");
-
-
-
 CREATE INDEX "idx_estoque_item" ON "public"."estoque" USING "btree" ("item_id");
-
-
-
 CREATE INDEX "idx_fiscal_itens_item" ON "public"."fiscal_itens" USING "btree" ("item_id");
-
-
-
 CREATE INDEX "idx_fiscal_itens_tenant_empresa_item" ON "public"."fiscal_itens" USING "btree" ("tenant_id", "empresa_id", "item_id");
-
-
-
 CREATE INDEX "idx_fiscal_regras_lookup" ON "public"."fiscal_regras" USING "btree" ("tenant_id", "empresa_id", "ativo", "prioridade");
-
-
-
 CREATE INDEX "idx_fiscal_regras_tenant_empresa" ON "public"."fiscal_regras" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "idx_fornecedores__tenant_motivo_compra_padrao" ON "public"."fornecedores" USING "btree" ("tenant_id", "motivo_compra_padrao_id");
-
-
-
 CREATE INDEX "idx_fornecedores_ativo" ON "public"."fornecedores" USING "btree" ("ativo");
-
-
-
 CREATE INDEX "idx_fornecedores_nome" ON "public"."fornecedores" USING "btree" ("nome");
-
-
-
 CREATE INDEX "idx_hh_lancamentos_colaborador" ON "public"."hh_lancamentos" USING "btree" ("colaborador_id");
-
-
-
 CREATE INDEX "idx_hh_lancamentos_data" ON "public"."hh_lancamentos" USING "btree" ("data");
-
-
-
 CREATE INDEX "idx_hh_lancamentos_empresa" ON "public"."hh_lancamentos" USING "btree" ("empresa_id");
-
-
-
 CREATE INDEX "idx_hh_lancamentos_hh_servico_id" ON "public"."hh_lancamentos" USING "btree" ("hh_servico_id");
-
-
-
 CREATE INDEX "idx_hh_lancamentos_os" ON "public"."hh_lancamentos" USING "btree" ("os_id");
-
-
-
 CREATE INDEX "idx_hh_lancamentos_tenant" ON "public"."hh_lancamentos" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_hh_tipos_mapping_tenant" ON "public"."hh_tipos_mapping" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_hh_tipos_mapping_tipo_hora" ON "public"."hh_tipos_mapping" USING "btree" ("tipo_hora_id");
-
-
-
 CREATE INDEX "idx_horas_os" ON "public"."horas_trabalhadas" USING "btree" ("os_id");
-
-
-
 CREATE INDEX "idx_horas_profissional" ON "public"."horas_trabalhadas" USING "btree" ("profissional_id");
-
-
-
 CREATE INDEX "idx_itens__tenant_empresa_codigo_fornecedor_sem_zeros" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "codigo_fornecedor_sem_zeros");
-
-
-
 CREATE INDEX "idx_itens__tenant_empresa_codigo_interno_sem_zeros" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "codigo_interno_sem_zeros");
-
-
-
 CREATE INDEX "idx_itens__tenant_empresa_mesclado_em_item_id" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "mesclado_em_item_id");
-
-
-
 CREATE INDEX "idx_itens_ativo" ON "public"."itens" USING "btree" ("ativo");
-
-
-
 CREATE INDEX "idx_itens_categoria" ON "public"."itens" USING "btree" ("categoria");
-
-
-
 CREATE INDEX "idx_itens_codigo_barras" ON "public"."itens" USING "btree" ("codigo_barras");
-
-
-
 CREATE INDEX "idx_itens_fabricante" ON "public"."itens" USING "btree" ("fabricante");
-
-
-
 CREATE INDEX "idx_itens_fornecedor_id" ON "public"."itens" USING "btree" ("fornecedor_id");
-
-
-
 CREATE INDEX "idx_itens_tipo" ON "public"."itens" USING "btree" ("tipo");
-
-
-
 CREATE INDEX "idx_lanc_cont_itens_conta" ON "public"."lancamentos_contabeis_itens" USING "btree" ("conta_id");
-
-
-
 CREATE INDEX "idx_lanc_cont_itens_lanc" ON "public"."lancamentos_contabeis_itens" USING "btree" ("lancamento_id");
-
-
-
 CREATE INDEX "idx_lanc_cont_tenant_empresa_data" ON "public"."lancamentos_contabeis" USING "btree" ("tenant_id", "empresa_id", "data_lancamento");
-
-
-
 CREATE INDEX "idx_memberships_tenant" ON "public"."tenant_memberships" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_memberships_user" ON "public"."tenant_memberships" USING "btree" ("user_id");
-
-
-
 CREATE INDEX "idx_mov_created_at" ON "public"."movimentacoes" USING "btree" ("created_at");
-
-
-
 CREATE INDEX "idx_mov_data" ON "public"."movimentacoes" USING "btree" ("data_movimentacao");
-
-
-
 CREATE INDEX "idx_mov_nf_data" ON "public"."movimentacoes" USING "btree" ("origem_nf_entrada_id", "data_movimentacao");
-
-
-
 CREATE INDEX "idx_mov_origem_nf" ON "public"."movimentacoes" USING "btree" ("origem_nf_entrada_id");
-
-
-
 CREATE INDEX "idx_mov_origem_os" ON "public"."movimentacoes" USING "btree" ("origem_os_id");
-
-
-
 CREATE INDEX "idx_movimentacoes_item" ON "public"."movimentacoes" USING "btree" ("item_id");
-
-
-
 CREATE INDEX "idx_movimentacoes_tipo" ON "public"."movimentacoes" USING "btree" ("tipo");
-
-
-
 CREATE INDEX "idx_nf_entrada__tenant_empresa_motivo" ON "public"."nf_entrada" USING "btree" ("tenant_id", "empresa_id", "motivo_compra_id");
-
-
-
 CREATE INDEX "idx_nf_entrada__tenant_empresa_solicitante_usuario" ON "public"."nf_entrada" USING "btree" ("tenant_id", "empresa_id", "solicitante_usuario_id");
-
-
-
 CREATE INDEX "idx_nf_entrada__tenant_id__deleted_at" ON "public"."nf_entrada" USING "btree" ("tenant_id", "deleted_at");
-
-
-
 CREATE INDEX "idx_nf_entrada_data_emissao" ON "public"."nf_entrada" USING "btree" ("data_emissao");
-
-
-
 CREATE INDEX "idx_nf_entrada_fornecedor" ON "public"."nf_entrada" USING "btree" ("fornecedor_id");
-
-
-
 CREATE INDEX "idx_nf_entrada_itens_item" ON "public"."nf_entrada_itens" USING "btree" ("item_id");
-
-
-
 CREATE INDEX "idx_nf_itens_item" ON "public"."nf_entrada_itens" USING "btree" ("item_id");
-
-
-
 CREATE INDEX "idx_nf_itens_nf" ON "public"."nf_entrada_itens" USING "btree" ("nf_entrada_id");
-
-
-
 CREATE INDEX "idx_os_cliente" ON "public"."ordens_servico" USING "btree" ("cliente_id");
-
-
-
 CREATE INDEX "idx_os_cliente_id" ON "public"."ordens_servico" USING "btree" ("cliente_id");
-
-
-
 CREATE INDEX "idx_os_gestao_itens_osid" ON "public"."os_gestao_itens" USING "btree" ("os_id");
-
-
-
 CREATE INDEX "idx_os_itens_item" ON "public"."os_itens" USING "btree" ("item_id");
-
-
-
 CREATE INDEX "idx_os_itens_os" ON "public"."os_itens" USING "btree" ("os_id");
-
-
-
 CREATE INDEX "idx_os_numero" ON "public"."ordens_servico" USING "btree" ("numero_os");
-
-
-
 CREATE INDEX "idx_os_status" ON "public"."ordens_servico" USING "btree" ("status");
-
-
-
 CREATE INDEX "idx_plano_contas_parent" ON "public"."plano_contas" USING "btree" ("parent_id");
-
-
-
 CREATE INDEX "idx_plano_contas_tenant_empresa" ON "public"."plano_contas" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "idx_profissionais_ativo" ON "public"."profissionais" USING "btree" ("ativo");
-
-
-
 CREATE INDEX "idx_roles_tenant" ON "public"."roles" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_user_empresa_context_tenant" ON "public"."user_empresa_context" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "idx_user_empresa_context_user" ON "public"."user_empresa_context" USING "btree" ("user_id");
-
-
-
 CREATE UNIQUE INDEX "itens_tenant_codigo_barras_uk" ON "public"."itens" USING "btree" ("tenant_id", "codigo_barras") WHERE (("codigo_barras" IS NOT NULL) AND ("length"(TRIM(BOTH FROM "codigo_barras")) > 0));
-
-
-
 CREATE UNIQUE INDEX "itens_tenant_empresa_id_ux" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "itens_tenant_empresa_idx" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "itens_tenant_empresa_motivo_compra_idx" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "motivo_compra_id");
-
-
-
 CREATE INDEX "itens_tenant_finalidade_idx" ON "public"."itens" USING "btree" ("tenant_id", "finalidade");
-
-
-
 CREATE INDEX "movimentacoes_origem_os_id_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "empresa_id", "origem_os_id") WHERE ("origem_os_id" IS NOT NULL);
-
-
-
 CREATE INDEX "movimentacoes_tenant_data_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "data_movimentacao");
-
-
-
 CREATE INDEX "movimentacoes_tenant_data_movimentacao_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "data_movimentacao");
-
-
-
 CREATE INDEX "movimentacoes_tenant_empresa_data_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "empresa_id", "data_movimentacao");
-
-
-
 CREATE INDEX "movimentacoes_tenant_empresa_nf_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "empresa_id", "origem_nf_entrada_id");
-
-
-
 CREATE INDEX "movimentacoes_tenant_item_data_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "item_id", "data_movimentacao");
-
-
-
 CREATE INDEX "movimentacoes_tenant_item_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "item_id");
-
-
-
 CREATE INDEX "movimentacoes_tenant_nf_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "origem_nf_entrada_id");
-
-
-
 CREATE INDEX "movimentacoes_tenant_tipo_idx" ON "public"."movimentacoes" USING "btree" ("tenant_id", "tipo");
-
-
-
 CREATE UNIQUE INDEX "nf_entrada_itens_tenant_empresa_id_ux" ON "public"."nf_entrada_itens" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "nf_entrada_itens_tenant_empresa_idx" ON "public"."nf_entrada_itens" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "nf_entrada_itens_tenant_id_idx" ON "public"."nf_entrada_itens" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "nf_entrada_os_id_idx" ON "public"."nf_entrada" USING "btree" ("tenant_id", "os_id") WHERE ("os_id" IS NOT NULL);
-
-
-
 CREATE UNIQUE INDEX "nf_entrada_tenant_empresa_id_ux" ON "public"."nf_entrada" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "nf_entrada_tenant_empresa_idx" ON "public"."nf_entrada" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "nf_entrada_tenant_finalidade_contexto_idx" ON "public"."nf_entrada" USING "btree" ("tenant_id", "finalidade_contexto");
-
-
-
 CREATE INDEX "nf_entrada_tenant_id_idx" ON "public"."nf_entrada" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "ordens_servico_numero_os_uniq" ON "public"."ordens_servico" USING "btree" ("numero_os");
-
-
-
 CREATE UNIQUE INDEX "ordens_servico_os_num_uniq" ON "public"."ordens_servico" USING "btree" ("os_num");
-
-
-
 CREATE INDEX "ordens_servico_status_idx" ON "public"."ordens_servico" USING "btree" ("status");
-
-
-
 CREATE UNIQUE INDEX "ordens_servico_tenant_empresa_id_ux" ON "public"."ordens_servico" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "ordens_servico_tenant_empresa_idx" ON "public"."ordens_servico" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "ordens_servico_usa_relatorio_hh_idx" ON "public"."ordens_servico" USING "btree" ("usa_relatorio_hh");
-
-
-
 CREATE INDEX "os_gestao_itens_tenant_empresa_idx" ON "public"."os_gestao_itens" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "os_gestao_itens_tenant_id_idx" ON "public"."os_gestao_itens" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "os_itens_tenant_empresa_id_ux" ON "public"."os_itens" USING "btree" ("tenant_id", "empresa_id", "id");
-
-
-
 CREATE INDEX "os_itens_tenant_empresa_idx" ON "public"."os_itens" USING "btree" ("tenant_id", "empresa_id");
-
-
-
 CREATE INDEX "os_itens_tenant_id_idx" ON "public"."os_itens" USING "btree" ("tenant_id");
-
-
-
 CREATE INDEX "tipos_horas_tenant_id_idx" ON "public"."tipos_horas" USING "btree" ("tenant_id");
-
-
-
 CREATE UNIQUE INDEX "uq_apont_horas__hh__tenant_empresa_os_colab_data" ON "public"."apontamentos_horas" USING "btree" ("tenant_id", "empresa_id", "os_id", "colaborador_id", "data") WHERE ("gerado_por_hh" = true);
-
-
-
 CREATE UNIQUE INDEX "uq_itens__tenant_empresa_codigo_interno" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "codigo_interno");
-
-
-
 CREATE UNIQUE INDEX "uq_itens__tenant_empresa_codigo_interno_sem_zeros__ativos" ON "public"."itens" USING "btree" ("tenant_id", "empresa_id", "codigo_interno_sem_zeros") WHERE (("ativo" = true) AND ("mesclado_em_item_id" IS NULL));
-
-
-
 CREATE UNIQUE INDEX "ux_fornecedores_doc_digits" ON "public"."fornecedores" USING "btree" ("tenant_id", "empresa_id", "doc_digits") WHERE ("doc_digits" IS NOT NULL);
-
-
-
 CREATE UNIQUE INDEX "ux_fornecedores_tenant_documento_norm" ON "public"."fornecedores" USING "btree" ("tenant_id", "documento_norm") WHERE (("documento_norm" IS NOT NULL) AND ("documento_norm" <> ''::"text"));
-
-
-
 CREATE OR REPLACE VIEW "r"."r_orcamento_catalogo_busca" AS
  SELECT 'ITEM'::"text" AS "origem",
     "i"."tenant_id",
@@ -21510,1853 +18346,622 @@ UNION ALL
      LEFT JOIN "public"."itens" "i" ON ((("i"."id" = "ci"."item_id") AND ("i"."tenant_id" = "c"."tenant_id") AND ("i"."empresa_id" = "c"."empresa_id") AND ("i"."ativo" = true))))
   WHERE (("c"."deleted_at" IS NULL) AND ("c"."ativo" = true))
   GROUP BY "c"."id";
-
-
-
 CREATE OR REPLACE TRIGGER "trg_config_orcamento_audit" AFTER INSERT OR DELETE OR UPDATE ON "a"."config_orcamento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_config_orcamento_set_updated_at" BEFORE UPDATE ON "a"."config_orcamento" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_usuario_empresa_set_updated_at" BEFORE UPDATE ON "a"."usuario_empresa" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_usuario_set_updated_at" BEFORE UPDATE ON "a"."usuario" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_usuario_tenant_set_updated_at" BEFORE UPDATE ON "a"."usuario_tenant" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_condicao_pagamento_audit" AFTER INSERT OR DELETE OR UPDATE ON "c"."condicao_pagamento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_condicao_pagamento_biu" BEFORE INSERT OR UPDATE ON "c"."condicao_pagamento" FOR EACH ROW EXECUTE FUNCTION "c"."trg_condicao_pagamento_biu"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_condicao_pagamento_set_updated_at" BEFORE UPDATE ON "c"."condicao_pagamento" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conjunto_audit" AFTER INSERT OR DELETE OR UPDATE ON "c"."conjunto" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conjunto_biu" BEFORE INSERT OR UPDATE ON "c"."conjunto" FOR EACH ROW EXECUTE FUNCTION "c"."trg_conjunto_biu"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conjunto_item_audit" AFTER INSERT OR DELETE OR UPDATE ON "c"."conjunto_item" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conjunto_item_biu" BEFORE INSERT OR UPDATE ON "c"."conjunto_item" FOR EACH ROW EXECUTE FUNCTION "c"."trg_conjunto_item_biu"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conjunto_item_set_updated_at" BEFORE UPDATE ON "c"."conjunto_item" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conjunto_set_updated_at" BEFORE UPDATE ON "c"."conjunto" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_empresa_endereco_set_updated_at" BEFORE UPDATE ON "c"."empresa_endereco" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_empresa_fiscal_set_updated_at" BEFORE UPDATE ON "c"."empresa_fiscal" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_empresa_set_updated_at" BEFORE UPDATE ON "c"."empresa" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_caixa_item_set_updated_at" BEFORE UPDATE ON "c"."i_caixa_item" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_caixa_set_updated_at" BEFORE UPDATE ON "c"."i_caixa" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_caixa_vinculo_set_updated_at" BEFORE UPDATE ON "c"."i_caixa_vinculo" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_ferr_sug_xml_set_updated_at" BEFORE UPDATE ON "c"."i_ferramenta_sugestao_xml" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_ferr_unid_set_updated_at" BEFORE UPDATE ON "c"."i_ferramenta_unidade" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_ferr_unid_vinc_set_updated_at" BEFORE UPDATE ON "c"."i_ferramenta_unidade_vinculo" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_ferramenta_set_codigo" BEFORE INSERT ON "c"."i_ferramenta" FOR EACH ROW EXECUTE FUNCTION "c"."trg_i_ferramenta_set_codigo"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_i_ferramenta_set_updated_at" BEFORE UPDATE ON "c"."i_ferramenta" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_tenant_set_updated_at" BEFORE UPDATE ON "c"."tenant" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "tg_titulo_ap_auto_rateio_por_motivo" AFTER INSERT ON "f"."titulo" FOR EACH ROW EXECUTE FUNCTION "f"."trg_titulo_ap_auto_rateio_por_motivo"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_anexo" AFTER INSERT OR DELETE OR UPDATE ON "f"."anexo" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_aprovacao_evento" AFTER INSERT OR DELETE OR UPDATE ON "f"."aprovacao_evento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_centro_custo" AFTER INSERT OR DELETE OR UPDATE ON "f"."centro_custo" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_conciliacao_bancaria" AFTER INSERT OR DELETE OR UPDATE ON "f"."conciliacao_bancaria" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_conciliacao_lancamento" AFTER INSERT OR DELETE OR UPDATE ON "f"."conciliacao_lancamento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_conta_bancaria" AFTER INSERT OR DELETE OR UPDATE ON "f"."conta_bancaria" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_documento_fiscal" AFTER INSERT OR DELETE OR UPDATE ON "f"."documento_fiscal" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_documento_fiscal_xml" AFTER INSERT OR DELETE OR UPDATE ON "f"."documento_fiscal_xml" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_evento_financeiro" AFTER INSERT OR DELETE OR UPDATE ON "f"."evento_financeiro" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_extrato_bancario" AFTER INSERT OR DELETE OR UPDATE ON "f"."extrato_bancario" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_extrato_linha" AFTER INSERT OR DELETE OR UPDATE ON "f"."extrato_bancario_linha" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_fin_config" AFTER INSERT OR DELETE OR UPDATE ON "f"."fin_config" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_importacao_doc_log" AFTER INSERT OR DELETE OR UPDATE ON "f"."importacao_doc_log" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_imposto_retencao" AFTER INSERT OR DELETE OR UPDATE ON "f"."imposto_retencao" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_motivo_compra" AFTER INSERT OR DELETE OR UPDATE ON "f"."motivo_compra" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_pagamento" AFTER INSERT OR DELETE OR UPDATE ON "f"."pagamento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_pagamento_item" AFTER INSERT OR DELETE OR UPDATE ON "f"."pagamento_item" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_plano_contas" AFTER INSERT OR DELETE OR UPDATE ON "f"."plano_contas" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_titulo" AFTER INSERT OR DELETE OR UPDATE ON "f"."titulo" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_titulo_agendamento" AFTER INSERT OR DELETE OR UPDATE ON "f"."titulo_agendamento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_titulo_aprovacao" AFTER INSERT OR DELETE OR UPDATE ON "f"."titulo_aprovacao" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_titulo_parcela" AFTER INSERT OR DELETE OR UPDATE ON "f"."titulo_parcela" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_titulo_rateio" AFTER INSERT OR DELETE OR UPDATE ON "f"."titulo_rateio" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_centro_custo_set_updated_at" BEFORE UPDATE ON "f"."centro_custo" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_centro_custo_set_updated_by" BEFORE UPDATE ON "f"."centro_custo" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conta_bancaria_set_updated_at" BEFORE UPDATE ON "f"."conta_bancaria" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_conta_bancaria_set_updated_by" BEFORE UPDATE ON "f"."conta_bancaria" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_documento_fiscal__ar_nfe" AFTER INSERT OR UPDATE OF "nfe_status", "cliente_id", "valor_total", "emissao_date", "competencia_date" ON "f"."documento_fiscal" FOR EACH ROW EXECUTE FUNCTION "f"."trg_documento_fiscal__ar_nfe"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_documento_fiscal__ar_nfse" AFTER INSERT OR UPDATE OF "nfse_status", "cliente_id", "valor_total", "emissao_date", "competencia_date" ON "f"."documento_fiscal" FOR EACH ROW EXECUTE FUNCTION "f"."trg_documento_fiscal__ar_nfse"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_documento_fiscal__sync_xml_pendencia" AFTER INSERT OR UPDATE OF "source_nf_entrada_id", "chave_acesso", "natureza", "operacao", "deleted_at" ON "f"."documento_fiscal" FOR EACH ROW EXECUTE FUNCTION "f"."fn_documento_fiscal__sync_xml_pendencia"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_documento_fiscal_set_updated_at" BEFORE UPDATE ON "f"."documento_fiscal" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_documento_fiscal_set_updated_by" BEFORE UPDATE ON "f"."documento_fiscal" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_documento_fiscal_xml__valida_emitente_saida" BEFORE INSERT OR UPDATE OF "xml_raw" ON "f"."documento_fiscal_xml" FOR EACH ROW EXECUTE FUNCTION "f"."trg_documento_fiscal_xml__valida_emitente_saida"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_extrato_bancario_set_updated_at" BEFORE UPDATE ON "f"."extrato_bancario" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_extrato_bancario_set_updated_by" BEFORE UPDATE ON "f"."extrato_bancario" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_extrato_linha_set_updated_at" BEFORE UPDATE ON "f"."extrato_bancario_linha" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_extrato_linha_set_updated_by" BEFORE UPDATE ON "f"."extrato_bancario_linha" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_fin_config_set_updated_at" BEFORE UPDATE ON "f"."fin_config" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_fin_config_set_updated_by" BEFORE UPDATE ON "f"."fin_config" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_imposto_retencao_set_updated_at" BEFORE UPDATE ON "f"."imposto_retencao" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_imposto_retencao_set_updated_by" BEFORE UPDATE ON "f"."imposto_retencao" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_motivo_compra_set_updated_at" BEFORE UPDATE ON "f"."motivo_compra" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_motivo_compra_set_updated_by" BEFORE UPDATE ON "f"."motivo_compra" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_pagamento_set_updated_at" BEFORE UPDATE ON "f"."pagamento" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_pagamento_set_updated_by" BEFORE UPDATE ON "f"."pagamento" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_plano_contas_set_updated_at" BEFORE UPDATE ON "f"."plano_contas" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_plano_contas_set_updated_by" BEFORE UPDATE ON "f"."plano_contas" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_agendamento_set_updated_at" BEFORE UPDATE ON "f"."titulo_agendamento" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_agendamento_set_updated_by" BEFORE UPDATE ON "f"."titulo_agendamento" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_aprovacao_set_updated_at" BEFORE UPDATE ON "f"."titulo_aprovacao" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_aprovacao_set_updated_by" BEFORE UPDATE ON "f"."titulo_aprovacao" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_parcela_set_updated_at" BEFORE UPDATE ON "f"."titulo_parcela" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_parcela_set_updated_by" BEFORE UPDATE ON "f"."titulo_parcela" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_rateio_set_updated_at" BEFORE UPDATE ON "f"."titulo_rateio" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_rateio_set_updated_by" BEFORE UPDATE ON "f"."titulo_rateio" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_require_motivo_compra" BEFORE INSERT OR UPDATE ON "f"."titulo" FOR EACH ROW EXECUTE FUNCTION "f"."trg_titulo_require_motivo_compra"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_set_updated_at" BEFORE UPDATE ON "f"."titulo" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_set_updated_by" BEFORE UPDATE ON "f"."titulo" FOR EACH ROW EXECUTE FUNCTION "f"."fn_set_updated_by"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_titulo_sync_rateio_apuracao_irpj_csll" AFTER INSERT OR UPDATE OF "valor_total" ON "f"."titulo" FOR EACH ROW EXECUTE FUNCTION "f"."trg_sync_rateio_apuracao_irpj_csll"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_au" AFTER UPDATE ON "m"."orcamento" FOR EACH ROW EXECUTE FUNCTION "m"."trg_orcamento_au"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_audit" AFTER INSERT OR DELETE OR UPDATE ON "m"."orcamento" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_biu" BEFORE INSERT OR UPDATE ON "m"."orcamento" FOR EACH ROW EXECUTE FUNCTION "m"."trg_orcamento_biu"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_item_aiud" AFTER INSERT OR DELETE OR UPDATE ON "m"."orcamento_item" FOR EACH ROW EXECUTE FUNCTION "m"."trg_orcamento_item_aiud"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_item_audit" AFTER INSERT OR DELETE OR UPDATE ON "m"."orcamento_item" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_item_biu" BEFORE INSERT OR UPDATE ON "m"."orcamento_item" FOR EACH ROW EXECUTE FUNCTION "m"."trg_orcamento_item_biu"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_item_set_updated_at" BEFORE UPDATE ON "m"."orcamento_item" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_orcamento_set_updated_at" BEFORE UPDATE ON "m"."orcamento" FOR EACH ROW EXECUTE FUNCTION "a"."fn_set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "colaborador_funcao_hh_update_timestamp" BEFORE UPDATE ON "public"."colaborador_funcao_hh" FOR EACH ROW EXECUTE FUNCTION "public"."update_timestamp"();
-
-
-
 CREATE OR REPLACE TRIGGER "hh_lancamentos_calculate" BEFORE INSERT OR UPDATE ON "public"."hh_lancamentos" FOR EACH ROW EXECUTE FUNCTION "public"."calculate_hh_lancamento"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_fiscal_itens" AFTER INSERT OR DELETE OR UPDATE ON "public"."fiscal_itens" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_movimentacoes" AFTER INSERT OR DELETE OR UPDATE ON "public"."movimentacoes" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_nf_entrada" AFTER INSERT OR DELETE OR UPDATE ON "public"."nf_entrada" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_nf_entrada_itens" AFTER INSERT OR DELETE OR UPDATE ON "public"."nf_entrada_itens" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_ordens_servico" AFTER INSERT OR DELETE OR UPDATE ON "public"."ordens_servico" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_audit_parametro_importacao_xml" AFTER INSERT OR DELETE OR UPDATE ON "public"."parametro_importacao_xml" FOR EACH ROW EXECUTE FUNCTION "public"."audit_trigger"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_block_mov_delete" BEFORE DELETE ON "public"."movimentacoes" FOR EACH ROW EXECUTE FUNCTION "public"."block_movimentacoes_mutation"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_block_mov_update" BEFORE UPDATE ON "public"."movimentacoes" FOR EACH ROW EXECUTE FUNCTION "public"."block_movimentacoes_mutation"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_block_nf_mov_delete" BEFORE DELETE ON "public"."movimentacoes" FOR EACH ROW WHEN (("old"."origem_nf_entrada_id" IS NOT NULL)) EXECUTE FUNCTION "public"."trg_block_nf_movimentacoes"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_block_nf_mov_update" BEFORE UPDATE ON "public"."movimentacoes" FOR EACH ROW WHEN ((("old"."origem_nf_entrada_id" IS NOT NULL) OR ("new"."origem_nf_entrada_id" IS NOT NULL))) EXECUTE FUNCTION "public"."trg_block_nf_movimentacoes"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_cliente_hh_servicos_updated_at" BEFORE UPDATE ON "public"."cliente_hh_servicos" FOR EACH ROW EXECUTE FUNCTION "public"."update_cliente_hh_servicos_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_criar_gestao_padrao_os" AFTER INSERT ON "public"."ordens_servico" FOR EACH ROW EXECUTE FUNCTION "public"."criar_gestao_padrao_os"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_fiscal_itens_updated_at" BEFORE UPDATE ON "public"."fiscal_itens" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_fornecedores_force_gerar_cp" BEFORE INSERT OR UPDATE OF "gerar_contas_pagar_auto" ON "public"."fornecedores" FOR EACH ROW EXECUTE FUNCTION "public"."trg_fornecedores_force_gerar_cp"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_hh_criar_apontamento" AFTER INSERT OR UPDATE ON "public"."hh_lancamentos" FOR EACH ROW EXECUTE FUNCTION "public"."fn_hh_criar_apontamento"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_hh_delete_apontamento" BEFORE DELETE ON "public"."hh_lancamentos" FOR EACH ROW EXECUTE FUNCTION "public"."fn_hh_delete_apontamento"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_hh_sync_apontamento" AFTER INSERT OR UPDATE ON "public"."hh_lancamentos" FOR EACH ROW EXECUTE FUNCTION "public"."fn_hh_sync_apontamento"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_itens_normalizar_codigos" BEFORE INSERT OR UPDATE OF "codigo_interno", "codigo_fornecedor" ON "public"."itens" FOR EACH ROW EXECUTE FUNCTION "public"."trg_itens_normalizar_codigos"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_itens_sync_timestamps" BEFORE INSERT OR UPDATE ON "public"."itens" FOR EACH ROW EXECUTE FUNCTION "public"."trg_itens_sync_timestamps"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_movimentacoes_apply_estoque" AFTER INSERT ON "public"."movimentacoes" FOR EACH ROW EXECUTE FUNCTION "public"."apply_movimentacao_estoque"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada__auto_fix_ap_from_xml" AFTER INSERT OR UPDATE OF "xml_raw" ON "public"."nf_entrada" FOR EACH ROW EXECUTE FUNCTION "f"."fn_nf_entrada__auto_fix_ap_from_xml"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada__resolve_xml_pendencia" AFTER INSERT OR UPDATE OF "xml_raw" ON "public"."nf_entrada" FOR EACH ROW EXECUTE FUNCTION "f"."fn_nf_entrada__resolve_xml_pendencia"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada_itens__enforce_item_finalidade_import" BEFORE INSERT OR UPDATE OF "item_id" ON "public"."nf_entrada_itens" FOR EACH ROW EXECUTE FUNCTION "public"."tg_nf_entrada_itens__enforce_item_finalidade_import"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada_itens__fill_descricao" BEFORE INSERT OR UPDATE OF "descricao", "codigo_fornecedor", "item_id" ON "public"."nf_entrada_itens" FOR EACH ROW EXECUTE FUNCTION "public"."tg_nf_entrada_itens__fill_descricao"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada_itens_sync_os_stmt" AFTER INSERT ON "public"."nf_entrada_itens" REFERENCING NEW TABLE AS "new_rows" FOR EACH STATEMENT EXECUTE FUNCTION "public"."trg_nf_entrada_itens_sync_os_stmt"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada_itens_updated_at" BEFORE UPDATE ON "public"."nf_entrada_itens" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada_sync_os_itens" AFTER UPDATE OF "os_id" ON "public"."nf_entrada" FOR EACH ROW EXECUTE FUNCTION "public"."trg_nf_entrada_sync_os_itens"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_nf_entrada_updated_at" BEFORE UPDATE ON "public"."nf_entrada" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_ordens_servico_validate_hh" BEFORE INSERT OR UPDATE OF "cliente_id", "usa_relatorio_hh" ON "public"."ordens_servico" FOR EACH ROW EXECUTE FUNCTION "public"."fn_ordens_servico_validate_hh"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_os_gestao_itens_updated_at" BEFORE UPDATE ON "public"."os_gestao_itens" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_parametro_importacao_xml_updated_at" BEFORE UPDATE ON "public"."parametro_importacao_xml" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_set_fator_aplicado" BEFORE INSERT OR UPDATE OF "tipo_hora_id", "fator_aplicado" ON "public"."apontamentos_horas" FOR EACH ROW EXECUTE FUNCTION "public"."fn_set_fator_aplicado"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_set_horas_from_periodos" BEFORE INSERT OR UPDATE OF "hora_entrada_1", "hora_saida_1", "hora_entrada_2", "hora_saida_2" ON "public"."apontamentos_horas" FOR EACH ROW EXECUTE FUNCTION "public"."fn_set_horas_from_periodos"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_set_tenant_id_colaborador_cliente_funcao" BEFORE INSERT ON "public"."colaborador_cliente_funcao" FOR EACH ROW EXECUTE FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"();
-
-
-
 CREATE OR REPLACE TRIGGER "trg_validar_apontamento_horas" BEFORE INSERT OR UPDATE OF "os_id", "colaborador_id", "data" ON "public"."apontamentos_horas" FOR EACH ROW EXECUTE FUNCTION "public"."fn_validar_apontamento_horas"();
-
-
-
 CREATE OR REPLACE TRIGGER "trigger_update_colaborador_cliente_funcao_updated_at" BEFORE UPDATE ON "public"."colaborador_cliente_funcao" FOR EACH ROW EXECUTE FUNCTION "public"."update_colaborador_cliente_funcao_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "trigger_validate_apontamento_colaborador" BEFORE INSERT OR UPDATE OF "colaborador_id", "os_id" ON "public"."apontamentos_horas" FOR EACH ROW EXECUTE FUNCTION "public"."validate_apontamento_colaborador_contrato"();
-
-
-
 CREATE OR REPLACE TRIGGER "trigger_validate_hh_lancamento" BEFORE INSERT OR UPDATE OF "colaborador_id", "hh_servico_id" ON "public"."hh_lancamentos" FOR EACH ROW EXECUTE FUNCTION "public"."validate_hh_lancamento"();
-
 ALTER TABLE "public"."hh_lancamentos" DISABLE TRIGGER "trigger_validate_hh_lancamento";
-
-
-
 ALTER TABLE ONLY "a"."config_orcamento"
     ADD CONSTRAINT "fk_config_orcamento__condicao_pagamento__ref" FOREIGN KEY ("condicao_pagamento_padrao_id") REFERENCES "c"."condicao_pagamento"("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario"
     ADD CONSTRAINT "fk_usuario__auth_user_id__auth_users" FOREIGN KEY ("auth_user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "a"."usuario_empresa"
     ADD CONSTRAINT "fk_usuario_empresa__empresa_id__c_empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario_empresa"
     ADD CONSTRAINT "fk_usuario_empresa__usuario_id__a_usuario" FOREIGN KEY ("usuario_id") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario_tenant"
     ADD CONSTRAINT "fk_usuario_tenant__tenant_id__c_tenant" FOREIGN KEY ("tenant_id") REFERENCES "c"."tenant"("id");
-
-
-
 ALTER TABLE ONLY "a"."usuario_tenant"
     ADD CONSTRAINT "fk_usuario_tenant__usuario_id__a_usuario" FOREIGN KEY ("usuario_id") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "c"."conjunto_item"
     ADD CONSTRAINT "fk_conjunto_item__conjunto_id__c_conjunto" FOREIGN KEY ("conjunto_id") REFERENCES "c"."conjunto"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "c"."conjunto_item"
     ADD CONSTRAINT "fk_conjunto_item__item_id__public_itens" FOREIGN KEY ("item_id") REFERENCES "public"."itens"("id");
-
-
-
 ALTER TABLE ONLY "c"."empresa"
     ADD CONSTRAINT "fk_empresa__tenant_id__c_tenant" FOREIGN KEY ("tenant_id") REFERENCES "c"."tenant"("id");
-
-
-
 ALTER TABLE ONLY "c"."empresa_endereco"
     ADD CONSTRAINT "fk_empresa_endereco__empresa_id__c_empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "c"."empresa_fiscal"
     ADD CONSTRAINT "fk_empresa_fiscal__empresa_id__c_empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_item"
     ADD CONSTRAINT "fk_i_caixa_item__caixa_id__c_i_caixa" FOREIGN KEY ("caixa_id") REFERENCES "c"."i_caixa"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_item"
     ADD CONSTRAINT "fk_i_caixa_item__ferramenta_id__c_i_ferramenta" FOREIGN KEY ("ferramenta_id") REFERENCES "c"."i_ferramenta"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_vinculo"
     ADD CONSTRAINT "fk_i_caixa_vinculo__caixa_id__c_i_caixa" FOREIGN KEY ("caixa_id") REFERENCES "c"."i_caixa"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_caixa_vinculo"
     ADD CONSTRAINT "fk_i_caixa_vinculo__colaborador_id__public_colaboradores" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_codigo_seq"
     ADD CONSTRAINT "fk_i_ferr_codigo_seq__categoria_id__c_i_ferramenta_categoria" FOREIGN KEY ("categoria_id") REFERENCES "c"."i_ferramenta_categoria"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_sugestao_xml"
     ADD CONSTRAINT "fk_i_ferr_sug_xml__ferramenta_id__c_i_ferramenta" FOREIGN KEY ("ferramenta_id") REFERENCES "c"."i_ferramenta"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_unidade"
     ADD CONSTRAINT "fk_i_ferr_unid__ferramenta_id__c_i_ferramenta" FOREIGN KEY ("ferramenta_id") REFERENCES "c"."i_ferramenta"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_unidade_vinculo"
     ADD CONSTRAINT "fk_i_ferr_unid_vinc__colaborador_id__public_colaboradores" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta_unidade_vinculo"
     ADD CONSTRAINT "fk_i_ferr_unid_vinc__unidade_id__c_i_ferr_unidade" FOREIGN KEY ("ferramenta_unidade_id") REFERENCES "c"."i_ferramenta_unidade"("id");
-
-
-
 ALTER TABLE ONLY "c"."i_ferramenta"
     ADD CONSTRAINT "fk_i_ferramenta__categoria_id__c_i_ferr_cat" FOREIGN KEY ("categoria_id") REFERENCES "c"."i_ferramenta_categoria"("id");
-
-
-
 ALTER TABLE ONLY "f"."anexo"
     ADD CONSTRAINT "fk_anexo__uploaded_by__usuario" FOREIGN KEY ("uploaded_by") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "f"."aprovacao_evento"
     ADD CONSTRAINT "fk_aprovacao_evento__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."arrendamento_contrato"
     ADD CONSTRAINT "fk_arr_contrato__fornecedor" FOREIGN KEY ("fornecedor_id") REFERENCES "public"."fornecedores"("id");
-
-
-
 ALTER TABLE ONLY "f"."arrendamento_contrato"
     ADD CONSTRAINT "fk_arr_contrato__motivo" FOREIGN KEY ("motivo_compra_id") REFERENCES "f"."motivo_compra"("id");
-
-
-
 ALTER TABLE ONLY "f"."arrendamento_parcela"
     ADD CONSTRAINT "fk_arr_parcela__contrato" FOREIGN KEY ("contrato_id") REFERENCES "f"."arrendamento_contrato"("id");
-
-
-
 ALTER TABLE ONLY "f"."arrendamento_parcela"
     ADD CONSTRAINT "fk_arr_parcela__titulo" FOREIGN KEY ("titulo_id") REFERENCES "f"."titulo"("id");
-
-
-
 ALTER TABLE ONLY "f"."centro_custo"
     ADD CONSTRAINT "fk_centro_custo__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."centro_custo"
     ADD CONSTRAINT "fk_centro_custo__parent_id__centro_custo" FOREIGN KEY ("parent_id") REFERENCES "f"."centro_custo"("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_bancaria"
     ADD CONSTRAINT "fk_conciliacao_bancaria__conta_bancaria_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_bancaria"
     ADD CONSTRAINT "fk_conciliacao_bancaria__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_lancamento"
     ADD CONSTRAINT "fk_conciliacao_lancamento__conciliacao_id__conciliacao" FOREIGN KEY ("conciliacao_id") REFERENCES "f"."conciliacao_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_lancamento"
     ADD CONSTRAINT "fk_conciliacao_lancamento__conciliado_por__usuario" FOREIGN KEY ("conciliado_por") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "f"."conciliacao_lancamento"
     ADD CONSTRAINT "fk_conciliacao_lancamento__pagamento_id__pagamento" FOREIGN KEY ("pagamento_id") REFERENCES "f"."pagamento"("id");
-
-
-
 ALTER TABLE ONLY "f"."conta_bancaria"
     ADD CONSTRAINT "fk_conta_bancaria__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_pendencia"
     ADD CONSTRAINT "fk_doc_pend__doc" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "fk_documento_fiscal__cliente_id__clientes" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "fk_documento_fiscal__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "fk_documento_fiscal__fornecedor_id__fornecedores" FOREIGN KEY ("fornecedor_id") REFERENCES "public"."fornecedores"("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "fk_documento_fiscal__os_id_import__ordens_servico" FOREIGN KEY ("os_id_import") REFERENCES "public"."ordens_servico"("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal"
     ADD CONSTRAINT "fk_documento_fiscal__source_nf_entrada_id__nf_entrada" FOREIGN KEY ("source_nf_entrada_id") REFERENCES "public"."nf_entrada"("id");
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_imposto"
     ADD CONSTRAINT "fk_documento_fiscal_imposto__documento_fiscal_id__documento_fis" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_item"
     ADD CONSTRAINT "fk_documento_fiscal_item__documento_fiscal_id__documento_fiscal" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "f"."documento_fiscal_xml"
     ADD CONSTRAINT "fk_documento_fiscal_xml__documento_fiscal_id__documento_fiscal" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id");
-
-
-
 ALTER TABLE ONLY "f"."evento_financeiro"
     ADD CONSTRAINT "fk_evento_financeiro__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."extrato_bancario"
     ADD CONSTRAINT "fk_extrato_bancario__conta_bancaria_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."extrato_bancario"
     ADD CONSTRAINT "fk_extrato_bancario__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."extrato_bancario_linha"
     ADD CONSTRAINT "fk_extrato_linha__conta_bancaria_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."extrato_bancario_linha"
     ADD CONSTRAINT "fk_extrato_linha__extrato_bancario_id__extrato_bancario" FOREIGN KEY ("extrato_bancario_id") REFERENCES "f"."extrato_bancario"("id");
-
-
-
 ALTER TABLE ONLY "f"."fin_config"
     ADD CONSTRAINT "fk_fin_config__conta_bancaria_padrao_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_padrao_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."importacao_doc_log"
     ADD CONSTRAINT "fk_importacao_doc_log__documento_fiscal_id__documento_fiscal" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id");
-
-
-
 ALTER TABLE ONLY "f"."importacao_doc_log"
     ADD CONSTRAINT "fk_importacao_doc_log__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."imposto_retencao"
     ADD CONSTRAINT "fk_imposto_retencao__documento_fiscal_id__documento_fiscal" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id");
-
-
-
 ALTER TABLE ONLY "f"."imposto_retencao"
     ADD CONSTRAINT "fk_imposto_retencao__titulo_id__titulo" FOREIGN KEY ("titulo_id") REFERENCES "f"."titulo"("id");
-
-
-
 ALTER TABLE ONLY "f"."motivo_compra"
     ADD CONSTRAINT "fk_motivo_compra__plano_contas_id__f_plano_contas" FOREIGN KEY ("plano_contas_id") REFERENCES "f"."plano_contas"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento"
     ADD CONSTRAINT "fk_pagamento__conciliado_por__usuario" FOREIGN KEY ("conciliado_por") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento"
     ADD CONSTRAINT "fk_pagamento__conta_bancaria_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento"
     ADD CONSTRAINT "fk_pagamento__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento"
     ADD CONSTRAINT "fk_pagamento__pago_por__usuario" FOREIGN KEY ("pago_por") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento_item"
     ADD CONSTRAINT "fk_pagamento_item__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento_item"
     ADD CONSTRAINT "fk_pagamento_item__pagamento_id__pagamento" FOREIGN KEY ("pagamento_id") REFERENCES "f"."pagamento"("id");
-
-
-
 ALTER TABLE ONLY "f"."pagamento_item"
     ADD CONSTRAINT "fk_pagamento_item__titulo_parcela_id__titulo_parcela" FOREIGN KEY ("titulo_parcela_id") REFERENCES "f"."titulo_parcela"("id");
-
-
-
 ALTER TABLE ONLY "f"."parametro_financeiro_empresa"
     ADD CONSTRAINT "fk_param_fin_emp__conta_bancaria_padrao_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_padrao_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."parametro_financeiro_empresa"
     ADD CONSTRAINT "fk_param_fin_emp__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."plano_contas"
     ADD CONSTRAINT "fk_plano_contas__parent_id__plano_contas" FOREIGN KEY ("parent_id") REFERENCES "f"."plano_contas"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "fk_titulo__arrendamento_contrato" FOREIGN KEY ("arrendamento_contrato_id") REFERENCES "f"."arrendamento_contrato"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "fk_titulo__cliente_id__clientes" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "fk_titulo__documento_fiscal_id__documento_fiscal" FOREIGN KEY ("documento_fiscal_id") REFERENCES "f"."documento_fiscal"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "fk_titulo__empresa_id__empresa" FOREIGN KEY ("empresa_id") REFERENCES "c"."empresa"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "fk_titulo__fornecedor_id__fornecedores" FOREIGN KEY ("fornecedor_id") REFERENCES "public"."fornecedores"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_agendamento"
     ADD CONSTRAINT "fk_titulo_agendamento__agendado_por__usuario" FOREIGN KEY ("agendado_por") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_agendamento"
     ADD CONSTRAINT "fk_titulo_agendamento__conta_bancaria_id__conta_bancaria" FOREIGN KEY ("conta_bancaria_id") REFERENCES "f"."conta_bancaria"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_agendamento"
     ADD CONSTRAINT "fk_titulo_agendamento__titulo_id__titulo" FOREIGN KEY ("titulo_id") REFERENCES "f"."titulo"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_aprovacao"
     ADD CONSTRAINT "fk_titulo_aprovacao__aprovado_por__usuario" FOREIGN KEY ("aprovado_por") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_aprovacao"
     ADD CONSTRAINT "fk_titulo_aprovacao__motivo_compra_id__motivo_compra" FOREIGN KEY ("motivo_compra_id") REFERENCES "f"."motivo_compra"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_aprovacao"
     ADD CONSTRAINT "fk_titulo_aprovacao__os_id__ordens_servico" FOREIGN KEY ("os_id") REFERENCES "public"."ordens_servico"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_aprovacao"
     ADD CONSTRAINT "fk_titulo_aprovacao__titulo_id__titulo" FOREIGN KEY ("titulo_id") REFERENCES "f"."titulo"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_parcela"
     ADD CONSTRAINT "fk_titulo_parcela__titulo_id__titulo" FOREIGN KEY ("titulo_id") REFERENCES "f"."titulo"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_rateio"
     ADD CONSTRAINT "fk_titulo_rateio__centro_custo_id__centro_custo" FOREIGN KEY ("centro_custo_id") REFERENCES "f"."centro_custo"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_rateio"
     ADD CONSTRAINT "fk_titulo_rateio__os_id__ordens_servico" FOREIGN KEY ("os_id") REFERENCES "public"."ordens_servico"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_rateio"
     ADD CONSTRAINT "fk_titulo_rateio__plano_contas_id__plano_contas" FOREIGN KEY ("plano_contas_id") REFERENCES "f"."plano_contas"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo_rateio"
     ADD CONSTRAINT "fk_titulo_rateio__titulo_id__titulo" FOREIGN KEY ("titulo_id") REFERENCES "f"."titulo"("id");
-
-
-
 ALTER TABLE ONLY "f"."titulo"
     ADD CONSTRAINT "titulo_motivo_compra_fk" FOREIGN KEY ("motivo_compra_id") REFERENCES "f"."motivo_compra"("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento"
     ADD CONSTRAINT "fk_orcamento__cliente__ref" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento"
     ADD CONSTRAINT "fk_orcamento__condicao_pagamento__ref" FOREIGN KEY ("condicao_pagamento_id") REFERENCES "c"."condicao_pagamento"("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento"
     ADD CONSTRAINT "fk_orcamento__vendedor_usuario__ref" FOREIGN KEY ("vendedor_usuario_id") REFERENCES "a"."usuario"("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento_item"
     ADD CONSTRAINT "fk_orcamento_item__conjunto__ref" FOREIGN KEY ("conjunto_id") REFERENCES "c"."conjunto"("id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "m"."orcamento_item"
     ADD CONSTRAINT "fk_orcamento_item__item__ref" FOREIGN KEY ("item_id") REFERENCES "public"."itens"("id");
-
-
-
 ALTER TABLE ONLY "m"."orcamento_item"
     ADD CONSTRAINT "fk_orcamento_item__orcamento__ref" FOREIGN KEY ("orcamento_id") REFERENCES "m"."orcamento"("id");
-
-
-
 ALTER TABLE ONLY "public"."apontamentos_horas"
     ADD CONSTRAINT "apontamentos_horas_colaborador_id_fkey" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id");
-
-
-
 ALTER TABLE ONLY "public"."apontamentos_horas"
     ADD CONSTRAINT "apontamentos_horas_hh_lancamento_id_fkey" FOREIGN KEY ("hh_lancamento_id") REFERENCES "public"."hh_lancamentos"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."apontamentos_horas"
     ADD CONSTRAINT "apontamentos_horas_tenant_empresa_os_fk" FOREIGN KEY ("tenant_id", "empresa_id", "os_id") REFERENCES "public"."ordens_servico"("tenant_id", "empresa_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."apontamentos_horas"
     ADD CONSTRAINT "apontamentos_horas_tenant_os_fk" FOREIGN KEY ("tenant_id", "os_id") REFERENCES "public"."ordens_servico"("tenant_id", "id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."apontamentos_horas"
     ADD CONSTRAINT "apontamentos_horas_tipo_hora_id_fkey" FOREIGN KEY ("tipo_hora_id") REFERENCES "public"."tipos_horas"("id");
-
-
-
 ALTER TABLE ONLY "public"."centros_custo"
     ADD CONSTRAINT "centros_custo_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_tabelas"
     ADD CONSTRAINT "cliente_hh_tabelas_cliente_fk" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_funcao_hh"
     ADD CONSTRAINT "colaborador_funcao_hh_cliente_id_fkey" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_funcao_hh"
     ADD CONSTRAINT "colaborador_funcao_hh_colaborador_id_fkey" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_funcao_hh"
     ADD CONSTRAINT "colaborador_funcao_hh_servico_hh_id_fkey" FOREIGN KEY ("servico_hh_id") REFERENCES "public"."cliente_hh_servicos"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_funcao_hh"
     ADD CONSTRAINT "colaborador_funcao_hh_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_taxas"
     ADD CONSTRAINT "colaborador_taxas_colaborador_id_fkey" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."competencias"
     ADD CONSTRAINT "competencias_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."empresa_memberships"
     ADD CONSTRAINT "empresa_memberships_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."empresa_memberships"
     ADD CONSTRAINT "empresa_memberships_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."empresa_memberships"
     ADD CONSTRAINT "empresa_memberships_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."estoque"
     ADD CONSTRAINT "estoque_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."itens"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."estoque"
     ADD CONSTRAINT "estoque_tenant_item_fk" FOREIGN KEY ("tenant_id", "item_id") REFERENCES "public"."itens"("tenant_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens"
     ADD CONSTRAINT "fiscal_itens_empresa_fk" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens"
     ADD CONSTRAINT "fiscal_itens_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."itens"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."fiscal_itens"
     ADD CONSTRAINT "fiscal_itens_tenant_item_fk" FOREIGN KEY ("tenant_id", "item_id") REFERENCES "public"."itens"("tenant_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."fiscal_regras"
     ADD CONSTRAINT "fiscal_regras_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."cliente_hh_servicos"
     ADD CONSTRAINT "fk_cliente_hh_servicos_cliente" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao"
     ADD CONSTRAINT "fk_colaborador_cliente_funcao_cliente" FOREIGN KEY ("cliente_id") REFERENCES "public"."clientes"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao"
     ADD CONSTRAINT "fk_colaborador_cliente_funcao_colaborador" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao"
     ADD CONSTRAINT "fk_colaborador_cliente_funcao_servico" FOREIGN KEY ("hh_servico_id") REFERENCES "public"."cliente_hh_servicos"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."fornecedores"
     ADD CONSTRAINT "fk_fornecedores__motivo_compra_padrao_id__motivo_compra" FOREIGN KEY ("motivo_compra_padrao_id") REFERENCES "f"."motivo_compra"("id");
-
-
-
 ALTER TABLE ONLY "public"."colaborador_cliente_funcao"
     ADD CONSTRAINT "fk_hh_servico" FOREIGN KEY ("hh_servico_id") REFERENCES "public"."cliente_hh_servicos"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."itens"
     ADD CONSTRAINT "fk_itens__mesclado_em_item_id__itens" FOREIGN KEY ("mesclado_em_item_id") REFERENCES "public"."itens"("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "fk_nf_entrada__motivo_compra_id__f_motivo_compra" FOREIGN KEY ("motivo_compra_id") REFERENCES "f"."motivo_compra"("id") ON UPDATE RESTRICT ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "fk_nf_entrada__solicitante_usuario_id__a_usuario" FOREIGN KEY ("solicitante_usuario_id") REFERENCES "a"."usuario"("id") ON UPDATE RESTRICT ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."fornecedores"
     ADD CONSTRAINT "fornecedores_motivo_compra_padrao_fk" FOREIGN KEY ("motivo_compra_padrao_id") REFERENCES "f"."motivo_compra"("id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."hh_lancamentos"
     ADD CONSTRAINT "hh_lancamentos_colaborador_id_fkey" FOREIGN KEY ("colaborador_id") REFERENCES "public"."colaboradores"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."hh_lancamentos"
     ADD CONSTRAINT "hh_lancamentos_hh_servico_id_fkey" FOREIGN KEY ("hh_servico_id") REFERENCES "public"."cliente_hh_servicos"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."hh_lancamentos"
     ADD CONSTRAINT "hh_lancamentos_hh_tipo_id_fkey" FOREIGN KEY ("hh_tipo_id") REFERENCES "public"."cliente_hh_servicos"("id");
-
-
-
 ALTER TABLE ONLY "public"."hh_lancamentos"
     ADD CONSTRAINT "hh_lancamentos_os_id_fkey" FOREIGN KEY ("os_id") REFERENCES "public"."ordens_servico"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping"
     ADD CONSTRAINT "hh_tipos_mapping_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."hh_tipos_mapping"
     ADD CONSTRAINT "hh_tipos_mapping_tipo_hora_id_fkey" FOREIGN KEY ("tipo_hora_id") REFERENCES "public"."tipos_horas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."horas_trabalhadas"
     ADD CONSTRAINT "horas_trabalhadas_os_id_fkey" FOREIGN KEY ("os_id") REFERENCES "public"."ordens_servico"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."horas_trabalhadas"
     ADD CONSTRAINT "horas_trabalhadas_profissional_id_fkey" FOREIGN KEY ("profissional_id") REFERENCES "public"."profissionais"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."itens"
     ADD CONSTRAINT "itens_motivo_compra_fk" FOREIGN KEY ("motivo_compra_id") REFERENCES "f"."motivo_compra"("id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."itens"
     ADD CONSTRAINT "itens_tenant_empresa_fornecedor_fk" FOREIGN KEY ("tenant_id", "empresa_id", "fornecedor_id") REFERENCES "public"."fornecedores"("tenant_id", "empresa_id", "id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis"
     ADD CONSTRAINT "lancamentos_contabeis_competencia_id_fkey" FOREIGN KEY ("competencia_id") REFERENCES "public"."competencias"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis"
     ADD CONSTRAINT "lancamentos_contabeis_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis_itens"
     ADD CONSTRAINT "lancamentos_contabeis_itens_centro_custo_id_fkey" FOREIGN KEY ("centro_custo_id") REFERENCES "public"."centros_custo"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis_itens"
     ADD CONSTRAINT "lancamentos_contabeis_itens_conta_id_fkey" FOREIGN KEY ("conta_id") REFERENCES "public"."plano_contas"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis_itens"
     ADD CONSTRAINT "lancamentos_contabeis_itens_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."lancamentos_contabeis_itens"
     ADD CONSTRAINT "lancamentos_contabeis_itens_lancamento_id_fkey" FOREIGN KEY ("lancamento_id") REFERENCES "public"."lancamentos_contabeis"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."membership_roles"
     ADD CONSTRAINT "membership_roles_membership_id_fkey" FOREIGN KEY ("membership_id") REFERENCES "public"."tenant_memberships"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."membership_roles"
     ADD CONSTRAINT "membership_roles_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."movimentacoes"
     ADD CONSTRAINT "movimentacoes_empresa_fk" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id");
-
-
-
 ALTER TABLE ONLY "public"."movimentacoes"
     ADD CONSTRAINT "movimentacoes_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."itens"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."movimentacoes"
     ADD CONSTRAINT "movimentacoes_origem_nf_entrada_id_fkey" FOREIGN KEY ("origem_nf_entrada_id") REFERENCES "public"."nf_entrada"("id");
-
-
-
 ALTER TABLE ONLY "public"."movimentacoes"
     ADD CONSTRAINT "movimentacoes_tenant_item_fk" FOREIGN KEY ("tenant_id", "item_id") REFERENCES "public"."itens"("tenant_id", "id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "nf_entrada_empresa_fk" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada"
     ADD CONSTRAINT "nf_entrada_fornecedor_id_fkey" FOREIGN KEY ("fornecedor_id") REFERENCES "public"."fornecedores"("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada_itens"
     ADD CONSTRAINT "nf_entrada_itens_item_id_fkey" FOREIGN KEY ("item_id") REFERENCES "public"."itens"("id");
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada_itens"
     ADD CONSTRAINT "nf_entrada_itens_tenant_empresa_nf_fk" FOREIGN KEY ("tenant_id", "empresa_id", "nf_entrada_id") REFERENCES "public"."nf_entrada"("tenant_id", "empresa_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."nf_entrada_itens"
     ADD CONSTRAINT "nf_entrada_itens_tenant_nf_fk" FOREIGN KEY ("tenant_id", "nf_entrada_id") REFERENCES "public"."nf_entrada"("tenant_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."ordens_servico"
     ADD CONSTRAINT "ordens_servico_tenant_empresa_cliente_fk" FOREIGN KEY ("tenant_id", "empresa_id", "cliente_id") REFERENCES "public"."clientes"("tenant_id", "empresa_id", "id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."os_gestao_itens"
     ADD CONSTRAINT "os_gestao_itens_os_id_fkey" FOREIGN KEY ("os_id") REFERENCES "public"."ordens_servico"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."os_gestao_itens"
     ADD CONSTRAINT "os_gestao_itens_tenant_os_fk" FOREIGN KEY ("tenant_id", "os_id") REFERENCES "public"."ordens_servico"("tenant_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."os_itens"
     ADD CONSTRAINT "os_itens_tenant_empresa_item_fk" FOREIGN KEY ("tenant_id", "empresa_id", "item_id") REFERENCES "public"."itens"("tenant_id", "empresa_id", "id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."os_itens"
     ADD CONSTRAINT "os_itens_tenant_empresa_os_fk" FOREIGN KEY ("tenant_id", "empresa_id", "os_id") REFERENCES "public"."ordens_servico"("tenant_id", "empresa_id", "id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."plano_contas"
     ADD CONSTRAINT "plano_contas_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."plano_contas"
     ADD CONSTRAINT "plano_contas_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "public"."plano_contas"("id") ON DELETE RESTRICT;
-
-
-
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."role_access_rules"
     ADD CONSTRAINT "role_access_rules_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."roles"
     ADD CONSTRAINT "roles_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."tenant_memberships"
     ADD CONSTRAINT "tenant_memberships_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."tenant_memberships"
     ADD CONSTRAINT "tenant_memberships_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."user_empresa_context"
     ADD CONSTRAINT "user_empresa_context_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."empresas"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."user_empresa_context"
     ADD CONSTRAINT "user_empresa_context_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."user_empresa_context"
     ADD CONSTRAINT "user_empresa_context_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."user_profiles"
     ADD CONSTRAINT "user_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."user_tenant_context"
     ADD CONSTRAINT "user_tenant_context_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."user_tenant_context"
     ADD CONSTRAINT "user_tenant_context_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE "a"."config_orcamento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "config_orcamento_all" ON "a"."config_orcamento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "a"."usuario" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "a"."usuario_empresa" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "usuario_empresa_insert_admin" ON "a"."usuario_empresa" FOR INSERT TO "authenticated" WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_can_manage_empresa"("empresa_id")));
-
-
-
 CREATE POLICY "usuario_empresa_select_self_or_admin" ON "a"."usuario_empresa" FOR SELECT TO "authenticated" USING ((("deleted_at" IS NULL) AND (("usuario_id" = "a"."fn_current_usuario_id"()) OR "a"."fn_can_manage_empresa"("empresa_id"))));
-
-
-
 CREATE POLICY "usuario_empresa_update_admin" ON "a"."usuario_empresa" FOR UPDATE TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_can_manage_empresa"("empresa_id"))) WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_can_manage_empresa"("empresa_id")));
-
-
-
 CREATE POLICY "usuario_select_self_or_tenant_admin" ON "a"."usuario" FOR SELECT TO "authenticated" USING ((("deleted_at" IS NULL) AND (("id" = "a"."fn_current_usuario_id"()) OR "a"."fn_is_admin_of_same_tenant"("id"))));
-
-
-
 ALTER TABLE "a"."usuario_tenant" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "usuario_tenant_insert_admin" ON "a"."usuario_tenant" FOR INSERT TO "authenticated" WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("tenant_id")));
-
-
-
 CREATE POLICY "usuario_tenant_select_self_or_admin" ON "a"."usuario_tenant" FOR SELECT TO "authenticated" USING ((("deleted_at" IS NULL) AND (("usuario_id" = "a"."fn_current_usuario_id"()) OR "a"."fn_is_tenant_admin"("tenant_id"))));
-
-
-
 CREATE POLICY "usuario_tenant_update_admin" ON "a"."usuario_tenant" FOR UPDATE TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("tenant_id"))) WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("tenant_id")));
-
-
-
 CREATE POLICY "usuario_update_admin_only" ON "a"."usuario" FOR UPDATE TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_is_admin_of_same_tenant"("id"))) WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_is_admin_of_same_tenant"("id")));
-
-
-
 ALTER TABLE "c"."condicao_pagamento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "condicao_pagamento_all" ON "c"."condicao_pagamento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "c"."conjunto" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "conjunto_all" ON "c"."conjunto" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "c"."conjunto_item" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "conjunto_item_all" ON "c"."conjunto_item" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL)));
-
-
-
 CREATE POLICY "conjunto_item_soft_delete" ON "c"."conjunto_item" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"()));
-
-
-
 CREATE POLICY "conjunto_soft_delete" ON "c"."conjunto" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"()));
-
-
-
 ALTER TABLE "c"."empresa" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "empresa_insert_admin" ON "c"."empresa" FOR INSERT TO "authenticated" WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("tenant_id")));
-
-
-
 CREATE POLICY "empresa_select_member" ON "c"."empresa" FOR SELECT TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_member"("tenant_id")));
-
-
-
 CREATE POLICY "empresa_update_admin" ON "c"."empresa" FOR UPDATE TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("tenant_id"))) WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("tenant_id")));
-
-
-
 ALTER TABLE "c"."i_caixa" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "i_caixa_all" ON "c"."i_caixa" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "c"."i_caixa_item" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "i_caixa_item_all" ON "c"."i_caixa_item" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "c"."i_caixa_vinculo" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "i_caixa_vinculo_all" ON "c"."i_caixa_vinculo" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 CREATE POLICY "i_ferr_sug_xml_all" ON "c"."i_ferramenta_sugestao_xml" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 CREATE POLICY "i_ferr_unid_all" ON "c"."i_ferramenta_unidade" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 CREATE POLICY "i_ferr_unid_vinc_all" ON "c"."i_ferramenta_unidade_vinculo" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "c"."i_ferramenta" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "i_ferramenta_all" ON "c"."i_ferramenta" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_imobilizado_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "c"."i_ferramenta_sugestao_xml" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "c"."i_ferramenta_unidade" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "c"."i_ferramenta_unidade_vinculo" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "c"."tenant" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "tenant_select_member" ON "c"."tenant" FOR SELECT TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_member"("id")));
-
-
-
 CREATE POLICY "tenant_update_admin" ON "c"."tenant" FOR UPDATE TO "authenticated" USING ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("id"))) WITH CHECK ((("deleted_at" IS NULL) AND "a"."fn_is_tenant_admin"("id")));
-
-
-
 ALTER TABLE "f"."anexo" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "anexo_all" ON "f"."anexo" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."aprovacao_evento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "aprovacao_evento_all" ON "f"."aprovacao_evento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."arrendamento_contrato" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "arrendamento_contrato_all" ON "f"."arrendamento_contrato" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."arrendamento_parcela" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "arrendamento_parcela_all" ON "f"."arrendamento_parcela" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."centro_custo" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "centro_custo_all" ON "f"."centro_custo" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."conciliacao_bancaria" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "conciliacao_bancaria_all" ON "f"."conciliacao_bancaria" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."conciliacao_lancamento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "conciliacao_lancamento_all" ON "f"."conciliacao_lancamento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."conta_bancaria" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "conta_bancaria_all" ON "f"."conta_bancaria" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."documento_fiscal" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "documento_fiscal_all" ON "f"."documento_fiscal" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."documento_fiscal_imposto" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "documento_fiscal_imposto_all" ON "f"."documento_fiscal_imposto" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"() AND (EXISTS ( SELECT 1
    FROM "f"."documento_fiscal" "df"
   WHERE (("df"."id" = "documento_fiscal_imposto"."documento_fiscal_id") AND ("df"."tenant_id" = "public"."current_tenant_id"()) AND ("df"."empresa_id" = "public"."current_empresa_id"()) AND ("df"."deleted_at" IS NULL)))))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"() AND (EXISTS ( SELECT 1
    FROM "f"."documento_fiscal" "df"
   WHERE (("df"."id" = "documento_fiscal_imposto"."documento_fiscal_id") AND ("df"."tenant_id" = "public"."current_tenant_id"()) AND ("df"."empresa_id" = "public"."current_empresa_id"()) AND ("df"."deleted_at" IS NULL))))));
-
-
-
 ALTER TABLE "f"."documento_fiscal_item" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "documento_fiscal_item_all" ON "f"."documento_fiscal_item" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"() AND (EXISTS ( SELECT 1
    FROM "f"."documento_fiscal" "df"
   WHERE (("df"."id" = "documento_fiscal_item"."documento_fiscal_id") AND ("df"."tenant_id" = "public"."current_tenant_id"()) AND ("df"."empresa_id" = "public"."current_empresa_id"()) AND ("df"."deleted_at" IS NULL)))))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"() AND (EXISTS ( SELECT 1
    FROM "f"."documento_fiscal" "df"
   WHERE (("df"."id" = "documento_fiscal_item"."documento_fiscal_id") AND ("df"."tenant_id" = "public"."current_tenant_id"()) AND ("df"."empresa_id" = "public"."current_empresa_id"()) AND ("df"."deleted_at" IS NULL))))));
-
-
-
 ALTER TABLE "f"."documento_fiscal_xml" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "documento_fiscal_xml_all" ON "f"."documento_fiscal_xml" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."evento_financeiro" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "evento_financeiro_all" ON "f"."evento_financeiro" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."extrato_bancario" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "extrato_bancario_all" ON "f"."extrato_bancario" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."extrato_bancario_linha" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "extrato_bancario_linha_all" ON "f"."extrato_bancario_linha" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."fin_config" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "fin_config_all" ON "f"."fin_config" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."importacao_doc_log" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "importacao_doc_log_all" ON "f"."importacao_doc_log" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."imposto_retencao" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "imposto_retencao_all" ON "f"."imposto_retencao" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."motivo_compra" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "motivo_compra_all" ON "f"."motivo_compra" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 CREATE POLICY "motivo_compra_select_allowed_roles" ON "f"."motivo_compra" FOR SELECT TO "authenticated" USING ((("deleted_at" IS NULL) AND ("ativo" IS TRUE) AND "f"."has_motivo_compra_access"("tenant_id")));
-
-
-
 ALTER TABLE "f"."pagamento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "pagamento_all" ON "f"."pagamento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."pagamento_item" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "pagamento_item_all" ON "f"."pagamento_item" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 CREATE POLICY "param_fin_emp_all" ON "f"."parametro_financeiro_empresa" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."parametro_financeiro_empresa" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "f"."plano_contas" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "plano_contas_all" ON "f"."plano_contas" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."titulo" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "f"."titulo_agendamento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "titulo_agendamento_all" ON "f"."titulo_agendamento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 CREATE POLICY "titulo_all" ON "f"."titulo" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."titulo_aprovacao" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "titulo_aprovacao_all" ON "f"."titulo_aprovacao" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."titulo_parcela" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "titulo_parcela_all" ON "f"."titulo_parcela" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "f"."titulo_rateio" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "titulo_rateio_all" ON "f"."titulo_rateio" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "f"."has_finance_access"()));
-
-
-
 ALTER TABLE "m"."orcamento" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "orcamento_all" ON "m"."orcamento" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"() AND ("deleted_at" IS NULL)));
-
-
-
 ALTER TABLE "m"."orcamento_item" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "orcamento_item_insert" ON "m"."orcamento_item" FOR INSERT TO "authenticated" WITH CHECK (("c"."has_comercial_access"("tenant_id", "empresa_id") AND ("deleted_at" IS NULL)));
-
-
-
 CREATE POLICY "orcamento_item_select" ON "m"."orcamento_item" FOR SELECT TO "authenticated" USING ("c"."has_comercial_access"("tenant_id", "empresa_id"));
-
-
-
 CREATE POLICY "orcamento_item_update" ON "m"."orcamento_item" FOR UPDATE TO "authenticated" USING (("c"."has_comercial_access"("tenant_id", "empresa_id") AND ("deleted_at" IS NULL))) WITH CHECK (true);
-
-
-
 ALTER TABLE "m"."orcamento_seq" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "orcamento_seq_all" ON "m"."orcamento_seq" TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"())) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "c"."has_comercial_access"()));
-
-
-
 CREATE POLICY "Users can view their tenants" ON "public"."tenants" FOR SELECT USING (("id" IN ( SELECT "tenant_memberships"."tenant_id"
    FROM "public"."tenant_memberships"
   WHERE (("tenant_memberships"."user_id" = "auth"."uid"()) AND ("tenant_memberships"."status" = 'active'::"text")))));
-
-
-
 ALTER TABLE "public"."apontamentos_horas" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "apontamentos_horas_delete" ON "public"."apontamentos_horas" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."empresa_memberships" "em"
   WHERE (("em"."user_id" = "auth"."uid"()) AND ("em"."tenant_id" = "em"."tenant_id") AND ("em"."empresa_id" = "em"."empresa_id") AND ("em"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 CREATE POLICY "apontamentos_horas_insert" ON "public"."apontamentos_horas" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."empresa_memberships" "em"
   WHERE (("em"."user_id" = "auth"."uid"()) AND ("em"."tenant_id" = "em"."tenant_id") AND ("em"."empresa_id" = "em"."empresa_id") AND ("em"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 CREATE POLICY "apontamentos_horas_select" ON "public"."apontamentos_horas" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."empresa_memberships" "em"
   WHERE (("em"."user_id" = "auth"."uid"()) AND ("em"."tenant_id" = "em"."tenant_id") AND ("em"."empresa_id" = "em"."empresa_id") AND ("em"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 CREATE POLICY "apontamentos_horas_update" ON "public"."apontamentos_horas" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."empresa_memberships" "em"
   WHERE (("em"."user_id" = "auth"."uid"()) AND ("em"."tenant_id" = "em"."tenant_id") AND ("em"."empresa_id" = "em"."empresa_id") AND ("em"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"])))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."empresa_memberships" "em"
   WHERE (("em"."user_id" = "auth"."uid"()) AND ("em"."tenant_id" = "em"."tenant_id") AND ("em"."empresa_id" = "em"."empresa_id") AND ("em"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 ALTER TABLE "public"."cliente_hh_servicos" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "cliente_hh_servicos_delete" ON "public"."cliente_hh_servicos" FOR DELETE USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text"))));
-
-
-
 CREATE POLICY "cliente_hh_servicos_insert" ON "public"."cliente_hh_servicos" FOR INSERT WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 CREATE POLICY "cliente_hh_servicos_select" ON "public"."cliente_hh_servicos" FOR SELECT USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 CREATE POLICY "cliente_hh_servicos_tenant_empresa_policy" ON "public"."cliente_hh_servicos" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 CREATE POLICY "cliente_hh_servicos_update" ON "public"."cliente_hh_servicos" FOR UPDATE USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text")))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 ALTER TABLE "public"."cliente_hh_tabelas" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "cliente_hh_tabelas_delete" ON "public"."cliente_hh_tabelas" FOR DELETE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'delete'::"text")));
-
-
-
 CREATE POLICY "cliente_hh_tabelas_insert" ON "public"."cliente_hh_tabelas" FOR INSERT TO "authenticated" WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "cliente_hh_tabelas_select" ON "public"."cliente_hh_tabelas" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "cliente_hh_tabelas_update" ON "public"."cliente_hh_tabelas" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'write'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."clientes" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "clientes_delete" ON "public"."clientes" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM ("a"."usuario_empresa" "ue"
      JOIN "public"."empresas" "emp" ON (("emp"."id" = "ue"."empresa_id")))
   WHERE (("ue"."usuario_id" = "a"."fn_current_usuario_id"()) AND ("ue"."deleted_at" IS NULL) AND ("ue"."ativo" = true) AND ("ue"."empresa_id" = "clientes"."empresa_id") AND ("emp"."tenant_id" = "clientes"."tenant_id") AND ("upper"("ue"."papel") = 'ADMIN'::"text")))));
-
-
-
 CREATE POLICY "clientes_insert" ON "public"."clientes" FOR INSERT TO "authenticated" WITH CHECK ((("public"."can"('cad_clientes'::"text", 'write'::"text") OR (EXISTS ( SELECT 1
    FROM ("a"."usuario_empresa" "ue"
      JOIN "public"."empresas" "emp" ON (("emp"."id" = "ue"."empresa_id")))
@@ -23364,16 +18969,10 @@ CREATE POLICY "clientes_insert" ON "public"."clientes" FOR INSERT TO "authentica
    FROM "public"."empresas" "e"
   WHERE ("e"."id" = "clientes"."empresa_id")
  LIMIT 1))));
-
-
-
 CREATE POLICY "clientes_select" ON "public"."clientes" FOR SELECT TO "authenticated" USING (("public"."can"('os'::"text", 'read'::"text") OR "public"."can"('cad_clientes'::"text", 'write'::"text") OR (EXISTS ( SELECT 1
    FROM ("a"."usuario_empresa" "ue"
      JOIN "public"."empresas" "emp" ON (("emp"."id" = "ue"."empresa_id")))
   WHERE (("ue"."usuario_id" = "a"."fn_current_usuario_id"()) AND ("ue"."deleted_at" IS NULL) AND ("ue"."ativo" = true) AND ("ue"."empresa_id" = "clientes"."empresa_id") AND ("emp"."tenant_id" = "clientes"."tenant_id") AND ("upper"("ue"."papel") = ANY (ARRAY['ADMIN'::"text", 'FINANCEIRO'::"text", 'COORDENACAO'::"text", 'COMPRAS'::"text"])))))));
-
-
-
 CREATE POLICY "clientes_update" ON "public"."clientes" FOR UPDATE TO "authenticated" USING (("public"."can"('cad_clientes'::"text", 'write'::"text") OR (EXISTS ( SELECT 1
    FROM ("a"."usuario_empresa" "ue"
      JOIN "public"."empresas" "emp" ON (("emp"."id" = "ue"."empresa_id")))
@@ -23384,2875 +18983,1124 @@ CREATE POLICY "clientes_update" ON "public"."clientes" FOR UPDATE TO "authentica
    FROM "public"."empresas" "e"
   WHERE ("e"."id" = "clientes"."empresa_id")
  LIMIT 1))));
-
-
-
 ALTER TABLE "public"."colaborador_cliente_funcao" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "colaborador_cliente_funcao_delete" ON "public"."colaborador_cliente_funcao" FOR DELETE USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text"))));
-
-
-
 CREATE POLICY "colaborador_cliente_funcao_insert" ON "public"."colaborador_cliente_funcao" FOR INSERT WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 CREATE POLICY "colaborador_cliente_funcao_select" ON "public"."colaborador_cliente_funcao" FOR SELECT USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 CREATE POLICY "colaborador_cliente_funcao_update" ON "public"."colaborador_cliente_funcao" FOR UPDATE USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text")))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text") OR "public"."can__legacy_40734"('financeiro'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))));
-
-
-
 ALTER TABLE "public"."colaborador_funcao_hh" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "colaborador_funcao_hh_delete" ON "public"."colaborador_funcao_hh" FOR DELETE USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "colaborador_funcao_hh_insert" ON "public"."colaborador_funcao_hh" FOR INSERT WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "colaborador_funcao_hh_select" ON "public"."colaborador_funcao_hh" FOR SELECT USING (("tenant_id" = "public"."current_tenant_id"()));
-
-
-
 CREATE POLICY "colaborador_funcao_hh_update" ON "public"."colaborador_funcao_hh" FOR UPDATE USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."colaborador_taxas" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "colaborador_taxas_delete" ON "public"."colaborador_taxas" FOR DELETE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'config'::"text")));
-
-
-
 CREATE POLICY "colaborador_taxas_insert" ON "public"."colaborador_taxas" FOR INSERT TO "authenticated" WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'config'::"text")));
-
-
-
 CREATE POLICY "colaborador_taxas_select" ON "public"."colaborador_taxas" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "colaborador_taxas_update" ON "public"."colaborador_taxas" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'config'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('apontamentos'::"text", 'config'::"text")));
-
-
-
 ALTER TABLE "public"."colaboradores" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "colaboradores_delete" ON "public"."colaboradores" FOR DELETE TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "colaboradores"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 CREATE POLICY "colaboradores_insert" ON "public"."colaboradores" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "colaboradores"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 CREATE POLICY "colaboradores_select" ON "public"."colaboradores" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "colaboradores"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 CREATE POLICY "colaboradores_update" ON "public"."colaboradores" FOR UPDATE TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "colaboradores"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"])))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "colaboradores"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"]))))));
-
-
-
 ALTER TABLE "public"."empresa_memberships" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "empresa_memberships_delete" ON "public"."empresa_memberships" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "empresa_memberships"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "empresa_memberships_insert" ON "public"."empresa_memberships" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "empresa_memberships"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "empresa_memberships_select" ON "public"."empresa_memberships" FOR SELECT USING ((("user_id" = "auth"."uid"()) OR (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "empresa_memberships"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))));
-
-
-
 CREATE POLICY "empresa_memberships_update" ON "public"."empresa_memberships" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "empresa_memberships"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "empresa_memberships"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "empresas_delete" ON "public"."empresas" FOR DELETE USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.manage_users'::"text")));
-
-
-
 CREATE POLICY "empresas_insert" ON "public"."empresas" FOR INSERT WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.manage_users'::"text")));
-
-
-
 CREATE POLICY "empresas_select_a" ON "public"."empresas" FOR SELECT TO "authenticated" USING (("public"."a_is_empresa_member"("id") OR "public"."a_is_tenant_role"("tenant_id", ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text", 'projetos'::"text", 'financeiro'::"text"])));
-
-
-
 CREATE POLICY "empresas_update" ON "public"."empresas" FOR UPDATE USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.manage_users'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.manage_users'::"text")));
-
-
-
 ALTER TABLE "public"."estoque" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "estoque_delete" ON "public"."estoque" FOR DELETE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "estoque_delete_a" ON "public"."estoque" FOR DELETE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."a_is_tenant_role"("tenant_id", ARRAY['admin'::"text"])));
-
-
-
 CREATE POLICY "estoque_insert" ON "public"."estoque" FOR INSERT TO "authenticated" WITH CHECK ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "estoque_insert_a" ON "public"."estoque" FOR INSERT TO "authenticated" WITH CHECK ((("empresa_id" IS NOT NULL) AND "public"."a_is_tenant_role"("tenant_id", ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])));
-
-
-
 CREATE POLICY "estoque_select" ON "public"."estoque" FOR SELECT TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "estoque_select_a" ON "public"."estoque" FOR SELECT TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."a_is_tenant_role"("tenant_id", ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])));
-
-
-
 CREATE POLICY "estoque_update" ON "public"."estoque" FOR UPDATE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text"))) WITH CHECK ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "estoque_update_a" ON "public"."estoque" FOR UPDATE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."a_is_tenant_role"("tenant_id", ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"]))) WITH CHECK ((("empresa_id" IS NOT NULL) AND "public"."a_is_tenant_role"("tenant_id", ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])));
-
-
-
 ALTER TABLE "public"."fiscal_itens" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "fiscal_itens_delete" ON "public"."fiscal_itens" FOR DELETE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_itens'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "fiscal_itens_insert" ON "public"."fiscal_itens" FOR INSERT TO "authenticated" WITH CHECK ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_itens'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "fiscal_itens_select" ON "public"."fiscal_itens" FOR SELECT TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('fiscal_nf'::"text", 'read'::"text") OR "public"."can__legacy_40734"('fiscal_itens'::"text", 'write'::"text"))));
-
-
-
 CREATE POLICY "fiscal_itens_update" ON "public"."fiscal_itens" FOR UPDATE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_itens'::"text", 'write'::"text"))) WITH CHECK ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_itens'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."fornecedores" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "fornecedores_delete" ON "public"."fornecedores" FOR DELETE TO "authenticated" USING (("public"."can__legacy_40734"('cad_fornecedores'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "fornecedores_insert" ON "public"."fornecedores" FOR INSERT TO "authenticated" WITH CHECK (("public"."can__legacy_40734"('cad_fornecedores'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "fornecedores_select" ON "public"."fornecedores" FOR SELECT TO "authenticated" USING (("public"."can__legacy_40734"('estoque'::"text", 'read'::"text") OR "public"."can__legacy_40734"('cad_fornecedores'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "fornecedores_update" ON "public"."fornecedores" FOR UPDATE TO "authenticated" USING (("public"."can__legacy_40734"('cad_fornecedores'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text"))) WITH CHECK (("public"."can__legacy_40734"('cad_fornecedores'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."hh_especialidades" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "hh_especialidades_delete" ON "public"."hh_especialidades" FOR DELETE USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can"('hh'::"text", 'delete'::"text")));
-
-
-
 CREATE POLICY "hh_especialidades_insert" ON "public"."hh_especialidades" FOR INSERT WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can"('hh'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "hh_especialidades_select" ON "public"."hh_especialidades" FOR SELECT USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can"('hh'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "hh_especialidades_update" ON "public"."hh_especialidades" FOR UPDATE USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can"('hh'::"text", 'write'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can"('hh'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."hh_lancamentos" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "hh_lancamentos_delete" ON "public"."hh_lancamentos" FOR DELETE USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'delete'::"text")));
-
-
-
 CREATE POLICY "hh_lancamentos_insert" ON "public"."hh_lancamentos" FOR INSERT WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "hh_lancamentos_select" ON "public"."hh_lancamentos" FOR SELECT USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "hh_lancamentos_tenant_isolation" ON "public"."hh_lancamentos" USING (("tenant_id" = "public"."current_tenant_id"()));
-
-
-
 CREATE POLICY "hh_lancamentos_update" ON "public"."hh_lancamentos" FOR UPDATE USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND "public"."can__legacy_40734"('os'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."itens" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "itens_delete" ON "public"."itens" FOR DELETE TO "authenticated" USING (("public"."can__legacy_40734"('cad_itens'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "itens_insert" ON "public"."itens" FOR INSERT TO "authenticated" WITH CHECK (("public"."can__legacy_40734"('cad_itens'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "itens_select" ON "public"."itens" FOR SELECT TO "authenticated" USING (("public"."can__legacy_40734"('estoque'::"text", 'read'::"text") OR "public"."can__legacy_40734"('os'::"text", 'read'::"text") OR "public"."can__legacy_40734"('cad_itens'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "itens_update" ON "public"."itens" FOR UPDATE TO "authenticated" USING (("public"."can__legacy_40734"('cad_itens'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text"))) WITH CHECK (("public"."can__legacy_40734"('cad_itens'::"text", 'write'::"text") OR "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."membership_roles" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "membership_roles_delete_admin" ON "public"."membership_roles" FOR DELETE TO "authenticated" USING (("public"."has_permission"('admin.users.manage'::"text") AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."id" = "membership_roles"."membership_id") AND ("tm"."tenant_id" = "public"."current_tenant_id"()))))));
-
-
-
 CREATE POLICY "membership_roles_insert_admin" ON "public"."membership_roles" FOR INSERT TO "authenticated" WITH CHECK (("public"."has_permission"('admin.users.manage'::"text") AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."id" = "membership_roles"."membership_id") AND ("tm"."tenant_id" = "public"."current_tenant_id"()))))));
-
-
-
 CREATE POLICY "membership_roles_select_admin" ON "public"."membership_roles" FOR SELECT TO "authenticated" USING (((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."id" = "membership_roles"."membership_id") AND ("tm"."tenant_id" = "public"."current_tenant_id"())))) AND "public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text")));
-
-
-
 CREATE POLICY "membership_roles_select_self" ON "public"."membership_roles" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."id" = "membership_roles"."membership_id") AND ("tm"."user_id" = "auth"."uid"())))));
-
-
-
 CREATE POLICY "memberships_delete_admin" ON "public"."tenant_memberships" FOR DELETE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.users.manage'::"text")));
-
-
-
 CREATE POLICY "memberships_insert_admin" ON "public"."tenant_memberships" FOR INSERT TO "authenticated" WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.users.manage'::"text")));
-
-
-
 CREATE POLICY "memberships_select_admin" ON "public"."tenant_memberships" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.users.manage'::"text")));
-
-
-
 CREATE POLICY "memberships_select_self" ON "public"."tenant_memberships" FOR SELECT TO "authenticated" USING (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "memberships_update_admin" ON "public"."tenant_memberships" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.users.manage'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."has_permission"('admin.users.manage'::"text")));
-
-
-
 ALTER TABLE "public"."movimentacoes" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "movimentacoes_delete" ON "public"."movimentacoes" FOR DELETE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "movimentacoes_insert" ON "public"."movimentacoes" FOR INSERT TO "authenticated" WITH CHECK ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "movimentacoes_select" ON "public"."movimentacoes" FOR SELECT TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "movimentacoes_update" ON "public"."movimentacoes" FOR UPDATE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text"))) WITH CHECK ((("empresa_id" IS NOT NULL) AND "public"."can__legacy_40734"('estoque'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."nf_entrada" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "nf_entrada_delete" ON "public"."nf_entrada" FOR DELETE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'delete'::"text")));
-
-
-
 CREATE POLICY "nf_entrada_insert" ON "public"."nf_entrada" FOR INSERT TO "authenticated" WITH CHECK ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."nf_entrada_itens" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "nf_entrada_itens_delete" ON "public"."nf_entrada_itens" FOR DELETE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'delete'::"text")));
-
-
-
 CREATE POLICY "nf_entrada_itens_insert" ON "public"."nf_entrada_itens" FOR INSERT TO "authenticated" WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "nf_entrada_itens_select" ON "public"."nf_entrada_itens" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "nf_entrada_itens_update" ON "public"."nf_entrada_itens" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'write'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'write'::"text")));
-
-
-
 CREATE POLICY "nf_entrada_select" ON "public"."nf_entrada" FOR SELECT TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'read'::"text")));
-
-
-
 CREATE POLICY "nf_entrada_update" ON "public"."nf_entrada" FOR UPDATE TO "authenticated" USING ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'write'::"text"))) WITH CHECK ((("empresa_id" IS NOT NULL) AND ("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('fiscal_nf'::"text", 'write'::"text")));
-
-
-
 ALTER TABLE "public"."ordens_servico" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "ordens_servico_delete" ON "public"."ordens_servico" FOR DELETE TO "authenticated" USING ("public"."can__legacy_40734"('os'::"text", 'delete'::"text"));
-
-
-
 CREATE POLICY "ordens_servico_insert" ON "public"."ordens_servico" FOR INSERT TO "authenticated" WITH CHECK ("public"."can__legacy_40734"('os'::"text", 'write'::"text"));
-
-
-
 CREATE POLICY "ordens_servico_select" ON "public"."ordens_servico" FOR SELECT TO "authenticated" USING ("public"."can__legacy_40734"('os'::"text", 'read'::"text"));
-
-
-
 CREATE POLICY "ordens_servico_select_painel_tv" ON "public"."ordens_servico" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND (EXISTS ( SELECT 1
    FROM ("a"."usuario" "u"
      JOIN "a"."usuario_empresa" "ue" ON (("ue"."usuario_id" = "u"."id")))
   WHERE (("u"."auth_user_id" = "auth"."uid"()) AND ("u"."deleted_at" IS NULL) AND ("ue"."deleted_at" IS NULL) AND ("ue"."ativo" = true) AND ("ue"."empresa_id" = "public"."current_empresa_id"()) AND ("ue"."papel" = 'PAINEL_TV'::"text"))))));
-
-
-
 CREATE POLICY "ordens_servico_update" ON "public"."ordens_servico" FOR UPDATE TO "authenticated" USING ("public"."can__legacy_40734"('os'::"text", 'write'::"text")) WITH CHECK ("public"."can__legacy_40734"('os'::"text", 'write'::"text"));
-
-
-
 ALTER TABLE "public"."os_gestao_itens" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "os_gestao_itens_delete" ON "public"."os_gestao_itens" FOR DELETE TO "authenticated" USING ("public"."can__legacy_40734"('os_gestao'::"text", 'write'::"text"));
-
-
-
 CREATE POLICY "os_gestao_itens_insert" ON "public"."os_gestao_itens" FOR INSERT TO "authenticated" WITH CHECK ("public"."can__legacy_40734"('os_gestao'::"text", 'write'::"text"));
-
-
-
 CREATE POLICY "os_gestao_itens_select" ON "public"."os_gestao_itens" FOR SELECT TO "authenticated" USING ("public"."can__legacy_40734"('os'::"text", 'read'::"text"));
-
-
-
 CREATE POLICY "os_gestao_itens_select_painel_tv" ON "public"."os_gestao_itens" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("empresa_id" = "public"."current_empresa_id"()) AND (EXISTS ( SELECT 1
    FROM ("a"."usuario" "u"
      JOIN "a"."usuario_empresa" "ue" ON (("ue"."usuario_id" = "u"."id")))
   WHERE (("u"."auth_user_id" = "auth"."uid"()) AND ("u"."deleted_at" IS NULL) AND ("ue"."deleted_at" IS NULL) AND ("ue"."ativo" = true) AND ("ue"."empresa_id" = "public"."current_empresa_id"()) AND ("ue"."papel" = 'PAINEL_TV'::"text"))))));
-
-
-
 CREATE POLICY "os_gestao_itens_update" ON "public"."os_gestao_itens" FOR UPDATE TO "authenticated" USING ("public"."can__legacy_40734"('os_gestao'::"text", 'write'::"text")) WITH CHECK ("public"."can__legacy_40734"('os_gestao'::"text", 'write'::"text"));
-
-
-
 ALTER TABLE "public"."os_itens" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "os_itens_delete" ON "public"."os_itens" FOR DELETE TO "authenticated" USING ("public"."can__legacy_40734"('os_itens'::"text", 'write'::"text"));
-
-
-
 CREATE POLICY "os_itens_insert" ON "public"."os_itens" FOR INSERT TO "authenticated" WITH CHECK ("public"."can__legacy_40734"('os_itens'::"text", 'write'::"text"));
-
-
-
 CREATE POLICY "os_itens_select" ON "public"."os_itens" FOR SELECT TO "authenticated" USING ("public"."can__legacy_40734"('os'::"text", 'read'::"text"));
-
-
-
 CREATE POLICY "os_itens_update" ON "public"."os_itens" FOR UPDATE TO "authenticated" USING ("public"."can__legacy_40734"('os_itens'::"text", 'write'::"text")) WITH CHECK ("public"."can__legacy_40734"('os_itens'::"text", 'write'::"text"));
-
-
-
 ALTER TABLE "public"."parametro_importacao_xml" ENABLE ROW LEVEL SECURITY;
-
-
 ALTER TABLE "public"."permissions" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "permissions_select_all" ON "public"."permissions" FOR SELECT TO "authenticated" USING (true);
-
-
-
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "profiles_select" ON "public"."profiles" FOR SELECT USING ((("id" = "auth"."uid"()) OR (EXISTS ( SELECT 1
    FROM ("public"."tenant_memberships" "tm_me"
      JOIN "public"."tenant_memberships" "tm_target" ON ((("tm_target"."user_id" = "profiles"."id") AND ("tm_target"."tenant_id" = "tm_me"."tenant_id"))))
   WHERE (("tm_me"."user_id" = "auth"."uid"()) AND ("tm_me"."status" = 'active'::"text") AND ("tm_target"."status" = 'active'::"text"))))));
-
-
-
 CREATE POLICY "profiles_update" ON "public"."profiles" FOR UPDATE USING (("id" = "auth"."uid"())) WITH CHECK (("id" = "auth"."uid"()));
-
-
-
 ALTER TABLE "public"."role_access_rules" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "role_access_rules_admin" ON "public"."role_access_rules" TO "authenticated" USING ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text")) WITH CHECK ("public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text"));
-
-
-
 ALTER TABLE "public"."roles" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "roles_select_by_membership" ON "public"."roles" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."status" = 'active'::"text") AND ("tm"."tenant_id" = "roles"."tenant_id")))));
-
-
-
 CREATE POLICY "tenant_delete_fornecedores" ON "public"."fornecedores" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fornecedores"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "tenant_delete_itens" ON "public"."itens" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "tenant_delete_nf_entrada_itens" ON "public"."nf_entrada_itens" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "tenant_empresa_delete_fiscal_itens" ON "public"."fiscal_itens" FOR DELETE USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fiscal_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))));
-
-
-
 CREATE POLICY "tenant_empresa_delete_movimentacoes" ON "public"."movimentacoes" FOR DELETE USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "movimentacoes"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))));
-
-
-
 CREATE POLICY "tenant_empresa_delete_nf_entrada" ON "public"."nf_entrada" FOR DELETE USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))));
-
-
-
 CREATE POLICY "tenant_empresa_insert_fiscal_itens" ON "public"."fiscal_itens" FOR INSERT WITH CHECK ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fiscal_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_insert_movimentacoes" ON "public"."movimentacoes" FOR INSERT WITH CHECK ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "movimentacoes"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_insert_nf_entrada" ON "public"."nf_entrada" FOR INSERT WITH CHECK ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_select_fiscal_itens" ON "public"."fiscal_itens" FOR SELECT USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fiscal_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_select_movimentacoes" ON "public"."movimentacoes" FOR SELECT USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "movimentacoes"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_select_nf_entrada" ON "public"."nf_entrada" FOR SELECT USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_update_fiscal_itens" ON "public"."fiscal_itens" FOR UPDATE USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fiscal_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"]))))))) WITH CHECK ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fiscal_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"])))))));
-
-
-
 CREATE POLICY "tenant_empresa_update_movimentacoes" ON "public"."movimentacoes" FOR UPDATE USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "movimentacoes"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))))) WITH CHECK ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "movimentacoes"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))));
-
-
-
 CREATE POLICY "tenant_empresa_update_nf_entrada" ON "public"."nf_entrada" FOR UPDATE USING ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))))) WITH CHECK ((("empresa_id" IS NOT NULL) AND (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))));
-
-
-
 CREATE POLICY "tenant_insert_fornecedores" ON "public"."fornecedores" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fornecedores"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_insert_itens" ON "public"."itens" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_insert_nf_entrada_itens" ON "public"."nf_entrada_itens" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_insert_parametro_importacao_xml" ON "public"."parametro_importacao_xml" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "parametro_importacao_xml"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"])) AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 ALTER TABLE "public"."tenant_memberships" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "tenant_memberships_delete" ON "public"."tenant_memberships" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "tenant_memberships"."tenant_id") AND ("tm"."role" = 'admin'::"text") AND ("tm"."status" = 'active'::"text")))));
-
-
-
 CREATE POLICY "tenant_memberships_insert" ON "public"."tenant_memberships" FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "tenant_memberships"."tenant_id") AND ("tm"."status" = 'active'::"text")))) OR ("auth"."uid"() = "user_id")));
-
-
-
 CREATE POLICY "tenant_memberships_select" ON "public"."tenant_memberships" FOR SELECT USING (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "tenant_memberships_update" ON "public"."tenant_memberships" FOR UPDATE USING ((("user_id" = "auth"."uid"()) OR (EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "tenant_memberships"."tenant_id") AND ("tm"."role" = 'admin'::"text") AND ("tm"."status" = 'active'::"text"))))));
-
-
-
 CREATE POLICY "tenant_select_fornecedores" ON "public"."fornecedores" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fornecedores"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_select_itens" ON "public"."itens" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_select_nf_entrada_itens" ON "public"."nf_entrada_itens" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_select_parametro_importacao_xml" ON "public"."parametro_importacao_xml" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "parametro_importacao_xml"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"])) AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_update_fornecedores" ON "public"."fornecedores" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fornecedores"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "fornecedores"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_update_itens" ON "public"."itens" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"])))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = ANY (ARRAY['admin'::"text", 'estoque'::"text", 'fiscal'::"text"]))))));
-
-
-
 CREATE POLICY "tenant_update_nf_entrada_itens" ON "public"."nf_entrada_itens" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text"))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "nf_entrada_itens"."tenant_id") AND ("tm"."status" = 'active'::"text") AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 CREATE POLICY "tenant_update_parametro_importacao_xml" ON "public"."parametro_importacao_xml" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "parametro_importacao_xml"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"])) AND ("tm"."role" = 'admin'::"text"))))) WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "auth"."uid"()) AND ("tm"."tenant_id" = "parametro_importacao_xml"."tenant_id") AND ("tm"."status" = ANY (ARRAY['active'::"text", 'ativo'::"text"])) AND ("tm"."role" = 'admin'::"text")))));
-
-
-
 ALTER TABLE "public"."tenants" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "tenants_select_own" ON "public"."tenants" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."tenant_id" = "tenants"."id") AND ("tm"."user_id" = "auth"."uid"()) AND ("tm"."status" = 'active'::"text")))));
-
-
-
 ALTER TABLE "public"."tipos_horas" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "tipos_horas_delete" ON "public"."tipos_horas" FOR DELETE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('tipos_horas'::"text", 'delete'::"text")));
-
-
-
 CREATE POLICY "tipos_horas_insert" ON "public"."tipos_horas" FOR INSERT TO "authenticated" WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('tipos_horas'::"text", 'create'::"text")));
-
-
-
 CREATE POLICY "tipos_horas_select" ON "public"."tipos_horas" FOR SELECT TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND ("public"."can__legacy_40734"('tipos_horas'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'read'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'create'::"text") OR "public"."can__legacy_40734"('apontamentos'::"text", 'update'::"text"))));
-
-
-
 CREATE POLICY "tipos_horas_update" ON "public"."tipos_horas" FOR UPDATE TO "authenticated" USING ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('tipos_horas'::"text", 'update'::"text"))) WITH CHECK ((("tenant_id" = "public"."current_tenant_id"()) AND "public"."can__legacy_40734"('tipos_horas'::"text", 'update'::"text")));
-
-
-
 ALTER TABLE "public"."user_empresa_context" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "user_empresa_context_delete" ON "public"."user_empresa_context" FOR DELETE USING (false);
-
-
-
 CREATE POLICY "user_empresa_context_insert" ON "public"."user_empresa_context" FOR INSERT WITH CHECK (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "user_empresa_context_select" ON "public"."user_empresa_context" FOR SELECT USING (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "user_empresa_context_update" ON "public"."user_empresa_context" FOR UPDATE USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "user_profiles_select_admin" ON "public"."user_profiles" FOR SELECT TO "authenticated" USING (((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "user_profiles"."user_id") AND ("tm"."tenant_id" = "public"."current_tenant_id"())))) AND "public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text")));
-
-
-
 CREATE POLICY "user_profiles_select_own" ON "public"."user_profiles" FOR SELECT TO "authenticated" USING (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "user_profiles_update_admin" ON "public"."user_profiles" FOR UPDATE TO "authenticated" USING (((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "user_profiles"."user_id") AND ("tm"."tenant_id" = "public"."current_tenant_id"())))) AND "public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text"))) WITH CHECK (((EXISTS ( SELECT 1
    FROM "public"."tenant_memberships" "tm"
   WHERE (("tm"."user_id" = "user_profiles"."user_id") AND ("tm"."tenant_id" = "public"."current_tenant_id"())))) AND "public"."can__legacy_40734"('admin'::"text", 'manage_users'::"text")));
-
-
-
 CREATE POLICY "user_profiles_update_own" ON "public"."user_profiles" FOR UPDATE TO "authenticated" USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
-
-
-
 ALTER TABLE "public"."user_tenant_context" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "utc_select_own" ON "public"."user_tenant_context" FOR SELECT USING (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "utc_update_own" ON "public"."user_tenant_context" FOR UPDATE USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
-
-
-
 CREATE POLICY "utc_upsert_own" ON "public"."user_tenant_context" FOR INSERT WITH CHECK (("user_id" = "auth"."uid"()));
-
-
-
-
-
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
-
-
 GRANT USAGE ON SCHEMA "a" TO "authenticated";
 GRANT USAGE ON SCHEMA "a" TO "service_role";
-
-
-
 GRANT USAGE ON SCHEMA "c" TO "authenticated";
 GRANT USAGE ON SCHEMA "c" TO "service_role";
-
-
-
 GRANT USAGE ON SCHEMA "f" TO "authenticated";
 GRANT USAGE ON SCHEMA "f" TO "service_role";
-
-
-
 GRANT USAGE ON SCHEMA "m" TO "authenticated";
 GRANT USAGE ON SCHEMA "m" TO "service_role";
-
-
-
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
-
-
-
 GRANT USAGE ON SCHEMA "r" TO "authenticated";
-
-
-
 REVOKE ALL ON FUNCTION "public"."current_empresa_id"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_empresa_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."current_empresa_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_empresa_id"() TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."current_tenant_id"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_tenant_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."current_tenant_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_tenant_id"() TO "service_role";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 GRANT ALL ON FUNCTION "f"."ajustar_valor_parcela_ap"("p_titulo_parcela_id" "uuid", "p_novo_valor" numeric, "p_change_reason" "text") TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "f"."atualizar_proximos_ap_recorrencia"("p_recorrencia_id" "uuid", "p_referencia_competencia" "date", "p_change_reason" "text") TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "f"."atualizar_titulo_emissao_date"("p_titulo_id" "uuid", "p_emissao_date" "date", "p_atualizar_competencia" boolean, "p_change_reason" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "f"."atualizar_titulo_emissao_date"("p_titulo_id" "uuid", "p_emissao_date" "date", "p_atualizar_competencia" boolean, "p_change_reason" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "f"."criar_titulo_ap_manual"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer, "p_motivo_compra_id" "uuid", "p_criar_recorrencia" boolean, "p_dia_vencimento" integer, "p_auto_copiar_valor" boolean, "p_change_reason" "text") TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "f"."criar_titulo_ap_manual_v2"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer, "p_motivo_compra_id" "uuid", "p_emissao_date" "date", "p_criar_recorrencia" boolean, "p_dia_vencimento" integer, "p_auto_copiar_valor" boolean, "p_change_reason" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "f"."criar_titulo_ap_manual_v2"("p_descricao" "text", "p_vencimento_date" "date", "p_valor" numeric, "p_fornecedor_id" integer, "p_motivo_compra_id" "uuid", "p_emissao_date" "date", "p_criar_recorrencia" boolean, "p_dia_vencimento" integer, "p_auto_copiar_valor" boolean, "p_change_reason" "text") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "f"."fn_imposto_apuracao_range"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_comp_ini" "date", "p_comp_fim" "date", "p_operacao" "text", "p_natureza" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "f"."fn_imposto_apuracao_range"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_comp_ini" "date", "p_comp_fim" "date", "p_operacao" "text", "p_natureza" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "f"."fn_imposto_apuracao_range"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_comp_ini" "date", "p_comp_fim" "date", "p_operacao" "text", "p_natureza" "text") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "f"."fn_imposto_documentos_do_mes"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia" "date", "p_imposto" "text", "p_nat" "text", "p_operacao" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "f"."fn_imposto_documentos_do_mes"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia" "date", "p_imposto" "text", "p_nat" "text", "p_operacao" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "f"."fn_imposto_documentos_do_mes"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia" "date", "p_imposto" "text", "p_nat" "text", "p_operacao" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "f"."fn_sync_apuracao_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") TO "authenticated";
 GRANT ALL ON FUNCTION "f"."fn_sync_apuracao_irpj_csll"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_competencia_date" "date") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "f"."gerar_ap_por_nf_entrada"("p_nf_entrada_id" bigint, "p_motivo_compra_id" "uuid", "p_parcelas_json" "jsonb") TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "f"."has_motivo_compra_access"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "f"."has_motivo_compra_access"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "f"."provisionar_ap_recorrencia"("p_recorrencia_id" "uuid", "p_meses_a_frente" integer, "p_change_reason" "text") TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "f"."registrar_recebimento_ar"("p_titulo_id" "uuid", "p_conta_bancaria_id" "uuid", "p_data_pagamento" "date", "p_forma_pagamento" "text", "p_valor" numeric, "p_observacoes" "text", "p_change_reason" "text") TO "authenticated";
-
-
-
-
-
-
 GRANT ALL ON FUNCTION "m"."fn_orcamento_adicionar_conjunto"("p_orcamento_id" "uuid", "p_conjunto_id" "uuid", "p_quantidade" numeric) TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "m"."fn_orcamento_item_calcular"("p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_item_percent" numeric, "p_acrescimo_cond_percent" numeric, "p_desconto_global_percent" numeric) TO "authenticated";
 GRANT ALL ON FUNCTION "m"."fn_orcamento_item_calcular"("p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_item_percent" numeric, "p_acrescimo_cond_percent" numeric, "p_desconto_global_percent" numeric) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."fn_orcamento_recalcular_totais"("p_orcamento_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "m"."fn_orcamento_recalcular_totais"("p_orcamento_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."fn_orcamento_sync_itens"("p_orcamento_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "m"."fn_orcamento_sync_itens"("p_orcamento_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_emissao_date" "date") TO "authenticated";
-
-
-
 GRANT ALL ON FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_versao" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "m"."orcamento_build_codigo"("p_empresa_id" "uuid", "p_numero" integer, "p_versao" integer) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."orcamento_next_numero"("p_tenant" "uuid", "p_empresa" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "m"."orcamento_next_numero"("p_tenant" "uuid", "p_empresa" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."trg_orcamento_au"() TO "authenticated";
 GRANT ALL ON FUNCTION "m"."trg_orcamento_au"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."trg_orcamento_biu"() TO "authenticated";
 GRANT ALL ON FUNCTION "m"."trg_orcamento_biu"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."trg_orcamento_item_aiud"() TO "authenticated";
 GRANT ALL ON FUNCTION "m"."trg_orcamento_item_aiud"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "m"."trg_orcamento_item_biu"() TO "authenticated";
 GRANT ALL ON FUNCTION "m"."trg_orcamento_item_biu"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."a_is_empresa_member"("p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."a_is_empresa_member"("p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."a_is_empresa_member"("p_empresa_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."a_is_tenant_admin"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."a_is_tenant_admin"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."a_is_tenant_admin"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."a_is_tenant_role"("p_tenant_id" "uuid", "p_roles" "text"[]) TO "anon";
 GRANT ALL ON FUNCTION "public"."a_is_tenant_role"("p_tenant_id" "uuid", "p_roles" "text"[]) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."a_is_tenant_role"("p_tenant_id" "uuid", "p_roles" "text"[]) TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."os_itens" TO "anon";
 GRANT ALL ON TABLE "public"."os_itens" TO "authenticated";
 GRANT ALL ON TABLE "public"."os_itens" TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."add_os_item_baixa_imediata"("p_os_id" integer, "p_item_id" integer, "p_quantidade" numeric, "p_valor_unitario" numeric, "p_desconto_percentual" numeric, "p_desconto_valor" numeric, "p_baixa_estoque" boolean, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_can_manage_users"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."admin_finalize_invited_user"("p_tenant_id" "uuid", "p_auth_user_id" "uuid", "p_email" "text", "p_nome" "text", "p_telefone" "text", "p_tenant_papel" "text", "p_empresa_vinculos" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."admin_finalize_invited_user"("p_tenant_id" "uuid", "p_auth_user_id" "uuid", "p_email" "text", "p_nome" "text", "p_telefone" "text", "p_tenant_papel" "text", "p_empresa_vinculos" "jsonb") TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_finalize_invited_user"("p_tenant_id" "uuid", "p_auth_user_id" "uuid", "p_email" "text", "p_nome" "text", "p_telefone" "text", "p_tenant_papel" "text", "p_empresa_vinculos" "jsonb") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_finalize_invited_user"("p_tenant_id" "uuid", "p_auth_user_id" "uuid", "p_email" "text", "p_nome" "text", "p_telefone" "text", "p_tenant_papel" "text", "p_empresa_vinculos" "jsonb") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_list_users"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."admin_merge_fornecedores"("p_tenant_id" "uuid", "p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint, "p_soft_delete" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_merge_fornecedores"("p_tenant_id" "uuid", "p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint, "p_soft_delete" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_merge_fornecedores"("p_tenant_id" "uuid", "p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint, "p_soft_delete" boolean) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."admin_set_user_empresa"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."admin_set_user_empresa"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_set_user_empresa"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_set_user_empresa"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."admin_set_user_tenant_role"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."admin_set_user_tenant_role"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_set_user_tenant_role"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_set_user_tenant_role"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_papel" "text", "p_ativo" boolean) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."admin_update_user"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_nome" "text", "p_telefone" "text", "p_ativo" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."admin_update_user"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_nome" "text", "p_telefone" "text", "p_ativo" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."admin_update_user"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_nome" "text", "p_telefone" "text", "p_ativo" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."admin_update_user"("p_tenant_id" "uuid", "p_usuario_id" "uuid", "p_nome" "text", "p_telefone" "text", "p_ativo" boolean) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote"("p_somente_sem_registro" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote"("p_somente_sem_registro" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote"("p_somente_sem_registro" boolean) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_somente_sem_registro" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_somente_sem_registro" boolean) TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_somente_sem_registro" boolean) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_regras_em_lote_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_somente_sem_registro" boolean) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."apply_fiscal_to_item"("p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_to_item"("p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_to_item"("p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."apply_fiscal_to_item_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."apply_fiscal_to_item_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_to_item_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_fiscal_to_item_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_item_id" integer, "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."apply_movimentacao_estoque"() TO "anon";
 GRANT ALL ON FUNCTION "public"."apply_movimentacao_estoque"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."apply_movimentacao_estoque"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."audit_trigger"() TO "anon";
 GRANT ALL ON FUNCTION "public"."audit_trigger"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."audit_trigger"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."auto_assign_empresa_segau"() TO "anon";
 GRANT ALL ON FUNCTION "public"."auto_assign_empresa_segau"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."auto_assign_empresa_segau"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."auto_set_context_on_login"() TO "anon";
 GRANT ALL ON FUNCTION "public"."auto_set_context_on_login"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."auto_set_context_on_login"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."block_movimentacoes_mutation"() TO "anon";
 GRANT ALL ON FUNCTION "public"."block_movimentacoes_mutation"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."block_movimentacoes_mutation"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."calculate_hh_lancamento"() TO "anon";
 GRANT ALL ON FUNCTION "public"."calculate_hh_lancamento"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."calculate_hh_lancamento"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."can"("p_resource" "text", "p_action" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."can"("p_resource" "text", "p_action" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can"("p_resource" "text", "p_action" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."can"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."can__legacy_40734"("p_resource" "text", "p_action" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."can__legacy_40734"("p_resource" "text", "p_action" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can__legacy_40734"("p_resource" "text", "p_action" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."can__legacy_56548"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."can__legacy_56548"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can__legacy_56548"("p_resource" "text", "p_action" "text", "p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."can_many"("p_pairs" "jsonb") TO "anon";
 GRANT ALL ON FUNCTION "public"."can_many"("p_pairs" "jsonb") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_many"("p_pairs" "jsonb") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."can_many"("p_pairs" "public"."capability_pair"[]) TO "anon";
 GRANT ALL ON FUNCTION "public"."can_many"("p_pairs" "public"."capability_pair"[]) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."can_many"("p_pairs" "public"."capability_pair"[]) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."concluir_os"("os_id_param" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."concluir_os"("os_id_param" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."concluir_os"("os_id_param" integer) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."confirmar_lancamento_contabil"("p_lancamento_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."confirmar_lancamento_contabil"("p_lancamento_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."confirmar_lancamento_contabil"("p_lancamento_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."criar_gestao_padrao_os"() TO "anon";
 GRANT ALL ON FUNCTION "public"."criar_gestao_padrao_os"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."criar_gestao_padrao_os"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."current_auth_user_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."current_auth_user_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_auth_user_id"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."current_competencia_key"("p_data" "date") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_competencia_key"("p_data" "date") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_competencia_key"("p_data" "date") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."current_empresa_id"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_empresa_id"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_empresa_id"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."current_empresa_id__by_tenant"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."current_empresa_id__by_tenant"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_empresa_id__by_tenant"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."debug_auth_context"() TO "anon";
 GRANT ALL ON FUNCTION "public"."debug_auth_context"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."debug_auth_context"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."debug_jwt"() TO "anon";
 GRANT ALL ON FUNCTION "public"."debug_jwt"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."debug_jwt"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."debug_me"() TO "anon";
 GRANT ALL ON FUNCTION "public"."debug_me"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."debug_me"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."debug_membership"() TO "anon";
 GRANT ALL ON FUNCTION "public"."debug_membership"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."debug_membership"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."debug_tenant"() TO "anon";
 GRANT ALL ON FUNCTION "public"."debug_tenant"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."debug_tenant"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."default_empresa_id"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."default_empresa_id"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."default_empresa_id"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."ensure_competencia"("p_data" "date") TO "anon";
 GRANT ALL ON FUNCTION "public"."ensure_competencia"("p_data" "date") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."ensure_competencia"("p_data" "date") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."ensure_estoque_rows"("p_tenant_id" "uuid", "p_item_ids" integer[]) TO "anon";
 GRANT ALL ON FUNCTION "public"."ensure_estoque_rows"("p_tenant_id" "uuid", "p_item_ids" integer[]) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."ensure_estoque_rows"("p_tenant_id" "uuid", "p_item_ids" integer[]) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."estornar_lancamento_contabil"("p_lancamento_id" "uuid", "p_historico" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."estornar_lancamento_contabil"("p_lancamento_id" "uuid", "p_historico" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."estornar_lancamento_contabil"("p_lancamento_id" "uuid", "p_historico" "text") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."estornar_movimentacao"("p_mov_id" integer, "p_motivo" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."estornar_movimentacao"("p_mov_id" integer, "p_motivo" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."estornar_movimentacao"("p_mov_id" integer, "p_motivo" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."estornar_movimentacao"("p_mov_id" integer, "p_motivo" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fechar_competencia"("p_ano" integer, "p_mes" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."fechar_competencia"("p_ano" integer, "p_mes" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fechar_competencia"("p_ano" integer, "p_mes" integer) TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."fechar_competencia_admin"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_ano" integer, "p_mes" integer, "p_user_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."fechar_competencia_admin"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_ano" integer, "p_mes" integer, "p_user_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."fechar_competencia_admin"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_ano" integer, "p_mes" integer, "p_user_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fechar_competencia_admin"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_ano" integer, "p_mes" integer, "p_user_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_arrendamento_gerar_ap"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_contrato_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_atualiza_estoque_por_mov"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_atualiza_estoque_por_mov"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_atualiza_estoque_por_mov"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_calc_horas_2_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_calc_horas_2_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_calc_horas_2_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_calc_horas_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_calc_horas_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_calc_horas_periodos"("p_e1" time without time zone, "p_s1" time without time zone, "p_e2" time without time zone, "p_s2" time without time zone) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_documento_key"("p_doc" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_documento_key"("p_doc" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_documento_key"("p_doc" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_ensure_titulo_ap_from_nf_entrada"("p_nf_entrada_id" bigint, "p_force_regen_parcelas" boolean, "p_parcelas_json" "jsonb") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_ensure_titulo_ap_from_nf_entrada"("p_nf_entrada_id" bigint, "p_force_regen_parcelas" boolean, "p_parcelas_json" "jsonb") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_ensure_titulo_ap_from_nf_entrada"("p_nf_entrada_id" bigint, "p_force_regen_parcelas" boolean, "p_parcelas_json" "jsonb") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_fix_nf_entrada_pos_import"("p_nf_entrada_id" bigint) TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_fix_nf_entrada_pos_import"("p_nf_entrada_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_fix_nf_entrada_pos_import"("p_nf_entrada_id" bigint) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_fornecedor_upsert_por_documento"("p_tenant_id" "uuid", "p_nome" "text", "p_documento" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_fornecedor_upsert_por_documento"("p_tenant_id" "uuid", "p_nome" "text", "p_documento" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_fornecedor_upsert_por_documento"("p_tenant_id" "uuid", "p_nome" "text", "p_documento" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_hh_criar_apontamento"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_hh_criar_apontamento"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_hh_criar_apontamento"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_hh_delete_apontamento"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_hh_delete_apontamento"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_hh_delete_apontamento"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_hh_lancamentos_calc"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_hh_lancamentos_calc"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_hh_lancamentos_calc"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_hh_sync_apontamento"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_hh_sync_apontamento"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_hh_sync_apontamento"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_importacao_xml__itens_auto_cadastrar_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_importacao_xml__itens_auto_cadastrar_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_importacao_xml__itens_auto_cadastrar_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_importacao_xml__itens_vincular_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_importacao_xml__itens_vincular_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_importacao_xml__itens_vincular_finalidades"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_nf_entrada_sync_estoque_df"("p_nf_entrada_id" bigint) TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_nf_entrada_sync_estoque_df"("p_nf_entrada_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_nf_entrada_sync_estoque_df"("p_nf_entrada_id" bigint) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_normalize_documento"("p_doc" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_normalize_documento"("p_doc" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_normalize_documento"("p_doc" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_ordens_servico_validate_hh"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_ordens_servico_validate_hh"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_ordens_servico_validate_hh"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_percentual_por_data"("p_data" "date") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_percentual_por_data"("p_data" "date") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_percentual_por_data"("p_data" "date") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_regerar_parcelas_titulo_from_xml"("p_nf_entrada_id" bigint, "p_titulo_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_regerar_parcelas_titulo_from_xml"("p_nf_entrada_id" bigint, "p_titulo_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_regerar_parcelas_titulo_from_xml"("p_nf_entrada_id" bigint, "p_titulo_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_set_fator_aplicado"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_set_fator_aplicado"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_set_fator_aplicado"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_set_horas_from_periodos"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_set_horas_from_periodos"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_set_horas_from_periodos"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_validar_apontamento_horas"() TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_validar_apontamento_horas"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_validar_apontamento_horas"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."fn_xml_strip_default_namespace"("p_xml_raw" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."fn_xml_strip_default_namespace"("p_xml_raw" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."fn_xml_strip_default_namespace"("p_xml_raw" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."gerar_relatorio_hh_os"("p_os_id" integer, "p_periodo_inicio" "date", "p_periodo_fim" "date") TO "anon";
 GRANT ALL ON FUNCTION "public"."gerar_relatorio_hh_os"("p_os_id" integer, "p_periodo_inicio" "date", "p_periodo_fim" "date") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."gerar_relatorio_hh_os"("p_os_id" integer, "p_periodo_inicio" "date", "p_periodo_fim" "date") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_default_empresa_id"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_default_empresa_id"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_default_empresa_id"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_default_tenant_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."get_default_tenant_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_default_tenant_id"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_full_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_full_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_full_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_hh_tipo_id_for_tenant"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_hh_tipo_id_for_tenant"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_hh_tipo_id_for_tenant"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_my_active_tenant"() TO "anon";
 GRANT ALL ON FUNCTION "public"."get_my_active_tenant"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_my_active_tenant"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_my_permissions"() TO "anon";
 GRANT ALL ON FUNCTION "public"."get_my_permissions"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_my_permissions"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_my_permissions"("p_tenant_id" "uuid", "p_empresa_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."get_my_roles"() TO "anon";
 GRANT ALL ON FUNCTION "public"."get_my_roles"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_my_roles"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."has_permission"("p_code" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."has_permission"("p_code" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."has_permission"("p_code" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."import_nf_entrada"("p_empresa_id" "uuid", "p_finalidade_contexto" "public"."item_finalidade", "p_fornecedor_id" bigint, "p_itens_json" "jsonb", "p_nf_json" "jsonb", "p_tenant_id" "uuid", "p_xml_raw" "text", "p_gerar_contas_pagar" boolean, "p_parcelas_json" "jsonb", "p_os_id" integer, "p_baixar_os" boolean, "p_motivo_compra_id" "uuid", "p_solicitante_usuario_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."import_nf_entrada"("p_empresa_id" "uuid", "p_finalidade_contexto" "public"."item_finalidade", "p_fornecedor_id" bigint, "p_itens_json" "jsonb", "p_nf_json" "jsonb", "p_tenant_id" "uuid", "p_xml_raw" "text", "p_gerar_contas_pagar" boolean, "p_parcelas_json" "jsonb", "p_os_id" integer, "p_baixar_os" boolean, "p_motivo_compra_id" "uuid", "p_solicitante_usuario_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."import_nf_entrada"("p_empresa_id" "uuid", "p_finalidade_contexto" "public"."item_finalidade", "p_fornecedor_id" bigint, "p_itens_json" "jsonb", "p_nf_json" "jsonb", "p_tenant_id" "uuid", "p_xml_raw" "text", "p_gerar_contas_pagar" boolean, "p_parcelas_json" "jsonb", "p_os_id" integer, "p_baixar_os" boolean, "p_motivo_compra_id" "uuid", "p_solicitante_usuario_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."import_nf_entrada_v2"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_chave_acesso" "text", "p_numero" "text", "p_serie" "text", "p_emissao_date" "date", "p_competencia_date" "date", "p_valor_total" numeric, "p_fornecedor_nome" "text", "p_fornecedor_documento" "text", "p_gerar_titulo" boolean, "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid", "p_os_id" integer, "p_observacoes" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."import_nf_entrada_v2"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_chave_acesso" "text", "p_numero" "text", "p_serie" "text", "p_emissao_date" "date", "p_competencia_date" "date", "p_valor_total" numeric, "p_fornecedor_nome" "text", "p_fornecedor_documento" "text", "p_gerar_titulo" boolean, "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid", "p_os_id" integer, "p_observacoes" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."import_nf_entrada_v2"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_chave_acesso" "text", "p_numero" "text", "p_serie" "text", "p_emissao_date" "date", "p_competencia_date" "date", "p_valor_total" numeric, "p_fornecedor_nome" "text", "p_fornecedor_documento" "text", "p_gerar_titulo" boolean, "p_vencimento_date" "date", "p_plano_contas_id" "uuid", "p_centro_custo_id" "uuid", "p_os_id" integer, "p_observacoes" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."import_nfse_saida"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nfse_json" "jsonb", "p_xml_raw" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."import_nfse_saida"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nfse_json" "jsonb", "p_xml_raw" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."import_nfse_saida"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_nfse_json" "jsonb", "p_xml_raw" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."itens_resolver_por_codigo"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_codigo" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."itens_resolver_por_codigo"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_codigo" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."itens_resolver_por_codigo"("p_tenant_id" "uuid", "p_empresa_id" "uuid", "p_codigo" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."jwt_claim"("claim" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."jwt_claim"("claim" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."jwt_claim"("claim" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."jwt_empresa_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."jwt_empresa_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."jwt_empresa_id"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."jwt_tenant_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."jwt_tenant_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."jwt_tenant_id"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."list_user_empresas"("p_tenant_id" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."list_user_empresas"("p_tenant_id" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."list_user_empresas"("p_tenant_id" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."list_user_empresas"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."list_user_empresas"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."list_user_empresas"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."merge_fornecedores"("p_keep_id" integer, "p_kill_id" integer) TO "anon";
 GRANT ALL ON FUNCTION "public"."merge_fornecedores"("p_keep_id" integer, "p_kill_id" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."merge_fornecedores"("p_keep_id" integer, "p_kill_id" integer) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."merge_fornecedores"("p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint) TO "anon";
 GRANT ALL ON FUNCTION "public"."merge_fornecedores"("p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."merge_fornecedores"("p_keep_fornecedor_id" bigint, "p_merge_fornecedor_id" bigint) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."normalize_cnpj"("p" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."normalize_cnpj"("p" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."normalize_cnpj"("p" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."normalize_doc"("doc" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."normalize_doc"("doc" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."normalize_doc"("doc" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."os_sync_itens_from_nf_entrada"("p_nf_entrada_id" bigint) TO "anon";
 GRANT ALL ON FUNCTION "public"."os_sync_itens_from_nf_entrada"("p_nf_entrada_id" bigint) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."os_sync_itens_from_nf_entrada"("p_nf_entrada_id" bigint) TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."pick_fiscal_regra"("p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."pick_fiscal_regra"("p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."pick_fiscal_regra"("p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."pick_fiscal_regra_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."pick_fiscal_regra_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."pick_fiscal_regra_admin"("p_tenant" "uuid", "p_empresa" "uuid", "p_ncm" "text", "p_cfop" "text", "p_cst_icms" "text", "p_cst_pis" "text", "p_cst_cofins" "text", "p_origem" smallint, "p_tipo_item" "text") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."remove_os_item_reverte_estoque"("p_os_item_id" integer, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."remove_os_item_reverte_estoque"("p_os_item_id" integer, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."remove_os_item_reverte_estoque"("p_os_item_id" integer, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."remove_os_item_reverte_estoque"("p_os_item_id" integer, "p_realizado_por" "text", "p_motivo" "text", "p_empresa_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."set_current_empresa"("p_empresa_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."set_current_empresa"("p_empresa_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_current_empresa"("p_empresa_id" "uuid") TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."set_current_tenant"("p_tenant_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."set_current_tenant"("p_tenant_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."set_current_tenant"("p_tenant_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_current_tenant"("p_tenant_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" integer, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" integer, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" integer, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" bigint, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" bigint, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_fornecedor_import_defaults"("p_fornecedor_id" bigint, "p_finalidade" "public"."item_finalidade", "p_motivo_compra_id" "uuid") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_tenant_id_colaborador_cliente_funcao"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."strip_zeros_esquerda"("p" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."strip_zeros_esquerda"("p" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."strip_zeros_esquerda"("p" "text") TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."tg_nf_entrada_itens__enforce_item_finalidade_import"() TO "anon";
 GRANT ALL ON FUNCTION "public"."tg_nf_entrada_itens__enforce_item_finalidade_import"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."tg_nf_entrada_itens__enforce_item_finalidade_import"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."tg_nf_entrada_itens__fill_descricao"() TO "anon";
 GRANT ALL ON FUNCTION "public"."tg_nf_entrada_itens__fill_descricao"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."tg_nf_entrada_itens__fill_descricao"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."trg_block_nf_movimentacoes"() TO "anon";
 GRANT ALL ON FUNCTION "public"."trg_block_nf_movimentacoes"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trg_block_nf_movimentacoes"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."trg_fornecedores_force_gerar_cp"() TO "anon";
 GRANT ALL ON FUNCTION "public"."trg_fornecedores_force_gerar_cp"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trg_fornecedores_force_gerar_cp"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."trg_itens_normalizar_codigos"() TO "anon";
 GRANT ALL ON FUNCTION "public"."trg_itens_normalizar_codigos"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trg_itens_normalizar_codigos"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."trg_itens_sync_timestamps"() TO "anon";
 GRANT ALL ON FUNCTION "public"."trg_itens_sync_timestamps"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trg_itens_sync_timestamps"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."trg_nf_entrada_itens_sync_os_stmt"() TO "anon";
 GRANT ALL ON FUNCTION "public"."trg_nf_entrada_itens_sync_os_stmt"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trg_nf_entrada_itens_sync_os_stmt"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."trg_nf_entrada_sync_os_itens"() TO "anon";
 GRANT ALL ON FUNCTION "public"."trg_nf_entrada_sync_os_itens"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."trg_nf_entrada_sync_os_itens"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."update_cliente_hh_servicos_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_cliente_hh_servicos_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_cliente_hh_servicos_updated_at"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."update_colaborador_cliente_funcao_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_colaborador_cliente_funcao_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_colaborador_cliente_funcao_updated_at"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."update_timestamp"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_timestamp"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_timestamp"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."validate_apontamento_colaborador_contrato"() TO "anon";
 GRANT ALL ON FUNCTION "public"."validate_apontamento_colaborador_contrato"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."validate_apontamento_colaborador_contrato"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."validate_hh_lancamento"() TO "anon";
 GRANT ALL ON FUNCTION "public"."validate_hh_lancamento"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."validate_hh_lancamento"() TO "service_role";
-
-
-
-
-
-
-
-
-
-
-
-
 GRANT SELECT ON TABLE "a"."config_orcamento" TO "authenticated";
 GRANT SELECT ON TABLE "a"."config_orcamento" TO "service_role";
-
-
-
 GRANT SELECT,UPDATE ON TABLE "a"."usuario" TO "authenticated";
 GRANT SELECT ON TABLE "a"."usuario" TO "service_role";
-
-
-
 GRANT SELECT ON TABLE "a"."usuario_empresa" TO "authenticated";
 GRANT SELECT ON TABLE "a"."usuario_empresa" TO "service_role";
-
-
-
 GRANT SELECT ON TABLE "a"."usuario_tenant" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."condicao_pagamento" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."conjunto" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."conjunto_item" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,UPDATE ON TABLE "c"."empresa" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "c"."empresa_endereco" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "c"."empresa_fiscal" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_caixa" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_caixa_item" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_caixa_vinculo" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_ferramenta" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_ferramenta_categoria" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_ferramenta_codigo_seq" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_ferramenta_sugestao_xml" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_ferramenta_unidade" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "c"."i_ferramenta_unidade_vinculo" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "c"."tenant" TO "authenticated";
-
-
-
-
-
-
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."anexo" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."ap_recorrencia" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."aprovacao_evento" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."arrendamento_contrato" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."arrendamento_parcela" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."centro_custo" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."conciliacao_bancaria" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."conciliacao_lancamento" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."conta_bancaria" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."documento_fiscal" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."documento_fiscal_imposto" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."documento_fiscal_item" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."documento_fiscal_pendencia" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."documento_fiscal_xml" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."evento_financeiro" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."extrato_bancario" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."extrato_bancario_linha" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."fin_config" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."importacao_doc_log" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."imposto_retencao" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."irpj_csll_ajuste" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."irpj_csll_financeiro_config" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."irpj_csll_regra_plano" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."irpj_csll_saldo_inicial" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."motivo_compra" TO "authenticated";
 GRANT SELECT ON TABLE "f"."motivo_compra" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."nf_entrada" TO "anon";
 GRANT ALL ON TABLE "public"."nf_entrada" TO "authenticated";
 GRANT ALL ON TABLE "public"."nf_entrada" TO "service_role";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."nf_entrada" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."pagamento" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."pagamento_item" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."parametro_financeiro_empresa" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."parametro_irpj_csll_empresa" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."plano_contas" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."titulo" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."titulo_aprovacao" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."titulo_parcela" TO "authenticated";
-
-
-
 GRANT ALL ON TABLE "public"."fornecedores" TO "anon";
 GRANT ALL ON TABLE "public"."fornecedores" TO "authenticated";
 GRANT ALL ON TABLE "public"."fornecedores" TO "service_role";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_ap_aging_detalhe" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_ap_aging_resumo" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."titulo_agendamento" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_previsto_diario" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_realizado_diario" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario_conta_resolvida" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_previsto_diario_dim" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_realizado_diario_dim" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario_dim" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario_por_fornecedor" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario_por_motivo" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario_por_motivo_rotulado" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_diario_por_os" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_caixa_mensal" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_fluxo_previsto_diario_ajustado_hoje" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_saldo_projetado_diario" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_saldo_projetado_diario_com_saldo_inicial" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_sugestoes_conciliacao_ap" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."r_titulos_sem_motivo_por_fornecedor" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."titulo_rateio" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."tmp_backfill_impostos_entrada_erros" TO "authenticated";
-
-
-
 GRANT SELECT,USAGE ON SEQUENCE "f"."tmp_backfill_impostos_entrada_erros_id_seq" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."vencimento_regra" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "f"."vw_imposto_apuracao_mensal" TO "authenticated";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "m"."orcamento" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "m"."orcamento" TO "service_role";
-
-
-
 GRANT SELECT,INSERT,UPDATE ON TABLE "m"."orcamento_item" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "m"."orcamento_item" TO "service_role";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "m"."orcamento_seq" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "m"."orcamento_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."apontamentos_horas" TO "anon";
 GRANT ALL ON TABLE "public"."apontamentos_horas" TO "authenticated";
 GRANT ALL ON TABLE "public"."apontamentos_horas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."audit_log" TO "anon";
 GRANT ALL ON TABLE "public"."audit_log" TO "authenticated";
 GRANT ALL ON TABLE "public"."audit_log" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."audit_log_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."audit_log_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."audit_log_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."centros_custo" TO "anon";
 GRANT ALL ON TABLE "public"."centros_custo" TO "authenticated";
 GRANT ALL ON TABLE "public"."centros_custo" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."cliente_hh_servicos" TO "anon";
 GRANT ALL ON TABLE "public"."cliente_hh_servicos" TO "authenticated";
 GRANT ALL ON TABLE "public"."cliente_hh_servicos" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."cliente_hh_servicos_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."cliente_hh_servicos_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."cliente_hh_servicos_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."cliente_hh_tabelas" TO "anon";
 GRANT ALL ON TABLE "public"."cliente_hh_tabelas" TO "authenticated";
 GRANT ALL ON TABLE "public"."cliente_hh_tabelas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."clientes" TO "anon";
 GRANT ALL ON TABLE "public"."clientes" TO "authenticated";
 GRANT ALL ON TABLE "public"."clientes" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."clientes_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."clientes_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."clientes_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."colaborador_cliente_funcao" TO "anon";
 GRANT ALL ON TABLE "public"."colaborador_cliente_funcao" TO "authenticated";
 GRANT ALL ON TABLE "public"."colaborador_cliente_funcao" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."colaborador_cliente_funcao_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."colaborador_cliente_funcao_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."colaborador_cliente_funcao_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."colaborador_funcao_hh" TO "anon";
 GRANT ALL ON TABLE "public"."colaborador_funcao_hh" TO "authenticated";
 GRANT ALL ON TABLE "public"."colaborador_funcao_hh" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."colaborador_funcao_hh_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."colaborador_funcao_hh_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."colaborador_funcao_hh_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."colaborador_taxas" TO "anon";
 GRANT ALL ON TABLE "public"."colaborador_taxas" TO "authenticated";
 GRANT ALL ON TABLE "public"."colaborador_taxas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."colaboradores" TO "anon";
 GRANT ALL ON TABLE "public"."colaboradores" TO "authenticated";
 GRANT ALL ON TABLE "public"."colaboradores" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."competencias" TO "anon";
 GRANT ALL ON TABLE "public"."competencias" TO "authenticated";
 GRANT ALL ON TABLE "public"."competencias" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."contas_pagar_titulos" TO "anon";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos" TO "authenticated";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_agendamentos" TO "anon";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_agendamentos" TO "authenticated";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_agendamentos" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_aprovacoes" TO "anon";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_aprovacoes" TO "authenticated";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_aprovacoes" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_parcelas" TO "anon";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_parcelas" TO "authenticated";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_parcelas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_rateios" TO "anon";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_rateios" TO "authenticated";
 GRANT ALL ON TABLE "public"."contas_pagar_titulos_rateios" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."empresa_memberships" TO "anon";
 GRANT ALL ON TABLE "public"."empresa_memberships" TO "authenticated";
 GRANT ALL ON TABLE "public"."empresa_memberships" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."empresa_memberships_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."empresa_memberships_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."empresa_memberships_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."empresas" TO "anon";
 GRANT ALL ON TABLE "public"."empresas" TO "authenticated";
 GRANT ALL ON TABLE "public"."empresas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."estoque" TO "anon";
 GRANT ALL ON TABLE "public"."estoque" TO "authenticated";
 GRANT ALL ON TABLE "public"."estoque" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."estoque_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."estoque_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."estoque_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."feriados" TO "anon";
 GRANT ALL ON TABLE "public"."feriados" TO "authenticated";
 GRANT ALL ON TABLE "public"."feriados" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."fiscal_itens" TO "anon";
 GRANT ALL ON TABLE "public"."fiscal_itens" TO "authenticated";
 GRANT ALL ON TABLE "public"."fiscal_itens" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."fiscal_itens_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."fiscal_itens_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."fiscal_itens_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."fiscal_regras" TO "anon";
 GRANT ALL ON TABLE "public"."fiscal_regras" TO "authenticated";
 GRANT ALL ON TABLE "public"."fiscal_regras" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."fornecedores_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."fornecedores_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."fornecedores_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."hh_especialidades" TO "anon";
 GRANT ALL ON TABLE "public"."hh_especialidades" TO "authenticated";
 GRANT ALL ON TABLE "public"."hh_especialidades" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."hh_especialidades_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."hh_especialidades_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."hh_especialidades_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."hh_lancamentos" TO "anon";
 GRANT ALL ON TABLE "public"."hh_lancamentos" TO "authenticated";
 GRANT ALL ON TABLE "public"."hh_lancamentos" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."hh_lancamentos_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."hh_lancamentos_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."hh_lancamentos_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."hh_tipos_mapping" TO "anon";
 GRANT ALL ON TABLE "public"."hh_tipos_mapping" TO "authenticated";
 GRANT ALL ON TABLE "public"."hh_tipos_mapping" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."hh_tipos_mapping_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."hh_tipos_mapping_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."hh_tipos_mapping_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."horas_trabalhadas" TO "anon";
 GRANT ALL ON TABLE "public"."horas_trabalhadas" TO "authenticated";
 GRANT ALL ON TABLE "public"."horas_trabalhadas" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."horas_trabalhadas_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."horas_trabalhadas_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."horas_trabalhadas_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."itens" TO "anon";
 GRANT ALL ON TABLE "public"."itens" TO "authenticated";
 GRANT ALL ON TABLE "public"."itens" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."itens_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."itens_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."itens_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."itens_merge_log" TO "anon";
 GRANT ALL ON TABLE "public"."itens_merge_log" TO "authenticated";
 GRANT ALL ON TABLE "public"."itens_merge_log" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."itens_merge_log_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."itens_merge_log_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."itens_merge_log_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."lancamentos_contabeis" TO "anon";
 GRANT ALL ON TABLE "public"."lancamentos_contabeis" TO "authenticated";
 GRANT ALL ON TABLE "public"."lancamentos_contabeis" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."lancamentos_contabeis_itens" TO "anon";
 GRANT ALL ON TABLE "public"."lancamentos_contabeis_itens" TO "authenticated";
 GRANT ALL ON TABLE "public"."lancamentos_contabeis_itens" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."membership_roles" TO "anon";
 GRANT ALL ON TABLE "public"."membership_roles" TO "authenticated";
 GRANT ALL ON TABLE "public"."membership_roles" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."movimentacoes" TO "anon";
 GRANT ALL ON TABLE "public"."movimentacoes" TO "authenticated";
 GRANT ALL ON TABLE "public"."movimentacoes" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."movimentacoes_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."movimentacoes_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."movimentacoes_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."nf_entrada_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."nf_entrada_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."nf_entrada_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."nf_entrada_itens" TO "anon";
 GRANT ALL ON TABLE "public"."nf_entrada_itens" TO "authenticated";
 GRANT ALL ON TABLE "public"."nf_entrada_itens" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."nf_entrada_itens_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."nf_entrada_itens_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."nf_entrada_itens_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."ordens_servico" TO "anon";
 GRANT ALL ON TABLE "public"."ordens_servico" TO "authenticated";
 GRANT ALL ON TABLE "public"."ordens_servico" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."ordens_servico_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."ordens_servico_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."ordens_servico_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."ordens_servico_os_num_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."ordens_servico_os_num_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."ordens_servico_os_num_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."os_gestao_itens" TO "anon";
 GRANT ALL ON TABLE "public"."os_gestao_itens" TO "authenticated";
 GRANT ALL ON TABLE "public"."os_gestao_itens" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."os_gestao_itens_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."os_gestao_itens_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."os_gestao_itens_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."os_itens_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."os_itens_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."os_itens_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."parametro_importacao_xml" TO "anon";
 GRANT ALL ON TABLE "public"."parametro_importacao_xml" TO "authenticated";
 GRANT ALL ON TABLE "public"."parametro_importacao_xml" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."permissions" TO "anon";
 GRANT ALL ON TABLE "public"."permissions" TO "authenticated";
 GRANT ALL ON TABLE "public"."permissions" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."plano_contas" TO "anon";
 GRANT ALL ON TABLE "public"."plano_contas" TO "authenticated";
 GRANT ALL ON TABLE "public"."plano_contas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."profiles" TO "anon";
 GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."profiles" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."profissionais" TO "anon";
 GRANT ALL ON TABLE "public"."profissionais" TO "authenticated";
 GRANT ALL ON TABLE "public"."profissionais" TO "service_role";
-
-
-
 GRANT ALL ON SEQUENCE "public"."profissionais_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."profissionais_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."profissionais_id_seq" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."r_itens_ativos" TO "anon";
 GRANT ALL ON TABLE "public"."r_itens_ativos" TO "authenticated";
 GRANT ALL ON TABLE "public"."r_itens_ativos" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."role_access_rules" TO "anon";
 GRANT ALL ON TABLE "public"."role_access_rules" TO "authenticated";
 GRANT ALL ON TABLE "public"."role_access_rules" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."role_permissions" TO "anon";
 GRANT ALL ON TABLE "public"."role_permissions" TO "authenticated";
 GRANT ALL ON TABLE "public"."role_permissions" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."roles" TO "anon";
 GRANT ALL ON TABLE "public"."roles" TO "authenticated";
 GRANT ALL ON TABLE "public"."roles" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."tenant_memberships" TO "anon";
 GRANT ALL ON TABLE "public"."tenant_memberships" TO "authenticated";
 GRANT ALL ON TABLE "public"."tenant_memberships" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."tenants" TO "anon";
 GRANT ALL ON TABLE "public"."tenants" TO "authenticated";
 GRANT ALL ON TABLE "public"."tenants" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."tipos_horas" TO "anon";
 GRANT ALL ON TABLE "public"."tipos_horas" TO "authenticated";
 GRANT ALL ON TABLE "public"."tipos_horas" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."user_empresa_context" TO "anon";
 GRANT ALL ON TABLE "public"."user_empresa_context" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_empresa_context" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."user_profiles" TO "anon";
 GRANT ALL ON TABLE "public"."user_profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_profiles" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."user_tenant_context" TO "anon";
 GRANT ALL ON TABLE "public"."user_tenant_context" TO "authenticated";
 GRANT ALL ON TABLE "public"."user_tenant_context" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."v_creditos_por_periodo" TO "anon";
 GRANT ALL ON TABLE "public"."v_creditos_por_periodo" TO "authenticated";
 GRANT ALL ON TABLE "public"."v_creditos_por_periodo" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."v_item_ultimo_custo" TO "anon";
 GRANT ALL ON TABLE "public"."v_item_ultimo_custo" TO "authenticated";
 GRANT ALL ON TABLE "public"."v_item_ultimo_custo" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."v_estoque_custo_atual" TO "anon";
 GRANT ALL ON TABLE "public"."v_estoque_custo_atual" TO "authenticated";
 GRANT ALL ON TABLE "public"."v_estoque_custo_atual" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."v_lancamentos_contabeis_balance" TO "anon";
 GRANT ALL ON TABLE "public"."v_lancamentos_contabeis_balance" TO "authenticated";
 GRANT ALL ON TABLE "public"."v_lancamentos_contabeis_balance" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."v_user_permissions" TO "anon";
 GRANT ALL ON TABLE "public"."v_user_permissions" TO "authenticated";
 GRANT ALL ON TABLE "public"."v_user_permissions" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."vw_apontamentos_horas_custo" TO "anon";
 GRANT ALL ON TABLE "public"."vw_apontamentos_horas_custo" TO "authenticated";
 GRANT ALL ON TABLE "public"."vw_apontamentos_horas_custo" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."vw_colaboradores_taxa_atual" TO "anon";
 GRANT ALL ON TABLE "public"."vw_colaboradores_taxa_atual" TO "authenticated";
 GRANT ALL ON TABLE "public"."vw_colaboradores_taxa_atual" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."vw_creditos_mensais" TO "anon";
 GRANT ALL ON TABLE "public"."vw_creditos_mensais" TO "authenticated";
 GRANT ALL ON TABLE "public"."vw_creditos_mensais" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."vw_custo_mao_obra_os" TO "anon";
 GRANT ALL ON TABLE "public"."vw_custo_mao_obra_os" TO "authenticated";
 GRANT ALL ON TABLE "public"."vw_custo_mao_obra_os" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."vw_hh_total_os" TO "anon";
 GRANT ALL ON TABLE "public"."vw_hh_total_os" TO "authenticated";
 GRANT ALL ON TABLE "public"."vw_hh_total_os" TO "service_role";
-
-
-
 GRANT SELECT ON TABLE "r"."dre_plano_excluido" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_impostos_mes" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_dre_mensal_plano" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_dre_mensal_plano_filtrado" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_dre_mensal_filtrado" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_irpj_csll_mensal_comp2" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_irpj_csll_mensal" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_irpj_csll_anual" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_irpj_csll_anual_comp" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_irpj_csll_anual_comp2" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_dre_mensal" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_apuracao_irpj_csll_mensal_comp" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_documentos_pendentes_xml" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_guardiao_impostos_docs" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_i_caixa_custo" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_itens_ativos" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_motivo_compra_rank" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_nfse_iss_conferencia" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_orcamento_catalogo_busca" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_orcamento_itens" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_orcamento_lista" TO "authenticated";
-
-
-
 GRANT SELECT ON TABLE "r"."r_pendencias_xml_entrada" TO "authenticated";
-
-
-
-
-
-
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "a" GRANT SELECT,USAGE ON SEQUENCES TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "a" GRANT SELECT ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "a" GRANT SELECT ON TABLES TO "service_role";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "c" GRANT SELECT,USAGE ON SEQUENCES TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "c" GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "f" GRANT SELECT,USAGE ON SEQUENCES TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "f" GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "m" GRANT ALL ON FUNCTIONS TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "m" GRANT SELECT,INSERT,DELETE,UPDATE ON TABLES TO "authenticated";
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "service_role";
-
-
-
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
-
-
-
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
-
-
-
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "r" GRANT SELECT ON TABLES TO "authenticated";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 drop extension if exists "pg_net";
-
 alter table "public"."itens" drop constraint "itens_tipo_check";
-
 alter table "public"."ordens_servico" drop constraint "ordens_servico_status_check";
-
 alter table "public"."itens" add constraint "itens_tipo_check" CHECK (((tipo)::text = ANY ((ARRAY['produto'::character varying, 'servico'::character varying, 'despesa'::character varying])::text[]))) not valid;
-
 alter table "public"."itens" validate constraint "itens_tipo_check";
-
 alter table "public"."ordens_servico" add constraint "ordens_servico_status_check" CHECK (((status)::text = ANY ((ARRAY['aberta'::character varying, 'em_andamento'::character varying, 'concluida'::character varying, 'cancelada'::character varying])::text[]))) not valid;
-
 alter table "public"."ordens_servico" validate constraint "ordens_servico_status_check";
-
 create or replace view "r"."r_orcamento_catalogo_busca" as  SELECT 'ITEM'::text AS origem,
     i.tenant_id,
     i.empresa_id,
@@ -26290,12 +20138,6 @@ UNION ALL
      LEFT JOIN public.itens i ON (((i.id = ci.item_id) AND (i.tenant_id = c.tenant_id) AND (i.empresa_id = c.empresa_id) AND (i.ativo = true))))
   WHERE ((c.deleted_at IS NULL) AND (c.ativo = true))
   GROUP BY c.id;
-
-
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 CREATE TRIGGER on_auth_user_created_assign_empresa AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.auto_assign_empresa_segau();
-
 CREATE TRIGGER on_auth_user_login_set_context AFTER UPDATE ON auth.users FOR EACH ROW WHEN ((old.last_sign_in_at IS DISTINCT FROM new.last_sign_in_at)) EXECUTE FUNCTION public.auto_set_context_on_login();
-
-

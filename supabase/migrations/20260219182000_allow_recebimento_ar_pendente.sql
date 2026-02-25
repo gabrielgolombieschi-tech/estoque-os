@@ -162,7 +162,6 @@ begin
   return v_pagamento_id;
 end;
 $$;
-
 grant all on function f.registrar_recebimento_ar_v2(
   uuid, uuid, date, text, numeric, numeric, numeric, numeric, text, text
 ) to authenticated;

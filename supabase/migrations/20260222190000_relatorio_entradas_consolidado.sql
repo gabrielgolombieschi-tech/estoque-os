@@ -114,7 +114,6 @@ as $$
     )
   order by coalesce(f.nome, 'SEM FORNECEDOR') asc, a.item_nome asc;
 $$;
-
 create or replace function public.rel_entradas_periodo_detalhes(
   p_tenant_id uuid,
   p_empresa_id uuid,

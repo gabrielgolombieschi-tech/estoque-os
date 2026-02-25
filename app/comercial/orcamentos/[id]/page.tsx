@@ -385,7 +385,7 @@ export default function OrcamentoPage() {
       return;
     }
 
-    setLoading(true);
+      setLoading(true);
     try {
       const { orcamento } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam });
 
@@ -399,7 +399,46 @@ export default function OrcamentoPage() {
       if (itensErr) throw itensErr;
 
       setOrc(orcamento);
-      setItens((itens ?? []) as OrcamentoItemRow[]);
+
+      // r.r_orcamento_itens pode não expor o código interno do item; fazemos um enrich via public.itens
+      // para evitar "Codigo = -" no orçamento e no documento impresso.
+      const itensRows = ((itens ?? []) as OrcamentoItemRow[]).map((it) => ({ ...it }));
+      try {
+        const itemIds = Array.from(
+          new Set(
+            itensRows
+              .map((it) => Number(it.item_id))
+              .filter((v) => Number.isFinite(v) && v > 0)
+          )
+        );
+        if (itemIds.length > 0) {
+          const { data: itensMeta, error: itensMetaErr } = await supabase
+            .from("itens")
+            .select("id,codigo_interno")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
+            .in("id", itemIds);
+          if (!itensMetaErr && itensMeta) {
+            const codigoById = new Map<number, string>();
+            for (const row of itensMeta) {
+              const id = Number((row as { id: unknown }).id);
+              const codigo = String((row as { codigo_interno?: unknown }).codigo_interno ?? "").trim();
+              if (Number.isFinite(id) && id > 0 && codigo) codigoById.set(id, codigo);
+            }
+            for (const it of itensRows) {
+              const existing = String((it as { item_codigo_interno?: unknown }).item_codigo_interno ?? "").trim();
+              if (existing) continue;
+              const id = Number(it.item_id);
+              const codigo = codigoById.get(id);
+              if (codigo) (it as unknown as { item_codigo_interno?: string }).item_codigo_interno = codigo;
+            }
+          }
+        }
+      } catch {
+        // best-effort: se falhar, mantém o comportamento atual.
+      }
+
+      setItens(itensRows);
       setForm(formFromRow(orcamento));
 
       try {
@@ -1363,8 +1402,8 @@ export default function OrcamentoPage() {
   }
 
   return (
-    <div className="space-y-4">
-      {showLookup && (
+      <div className="space-y-4">
+        {showLookup && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
           <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
             <div className="w-full max-w-7xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
@@ -1677,6 +1716,19 @@ export default function OrcamentoPage() {
             <>
               <button
                 type="button"
+                onClick={() => {
+                  if (!orc?.codigo && !orc?.id) return;
+                  const idOrCodigo = encodeURIComponent(String(orc.codigo || orc.id));
+                  const url = `/comercial/orcamentos/${idOrCodigo}/imprimir?auto=1`;
+                  const w = window.open(url, "_blank", "noopener,noreferrer");
+                  if (!w) router.push(url);
+                }}
+                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
+              >
+                Imprimir
+              </button>
+              <button
+                type="button"
                 onClick={() => void saveHeader()}
                 disabled={readOnly || !canWrite || busy}
                 className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium text-sm disabled:opacity-60"
@@ -1797,6 +1849,7 @@ export default function OrcamentoPage() {
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
                 />
               </label>
+
             </div>
 
             {readOnly && <div className="text-xs text-zinc-500">Edicao bloqueada (status {status}).</div>}
@@ -1945,8 +1998,8 @@ export default function OrcamentoPage() {
                     <th className="px-3 py-3 text-left whitespace-nowrap">Item</th>
                     <th className="px-3 py-3 text-left whitespace-nowrap">Unid</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Qtd</th>
-                    <th className="px-3 py-3 text-right whitespace-nowrap">Vlr Unit</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Desc (%)</th>
+                    <th className="px-3 py-3 text-right whitespace-nowrap">Vlr Unit</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Total</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Estoque</th>
                     <th className="px-3 py-3 text-right whitespace-nowrap">Acoes</th>
@@ -1977,8 +2030,8 @@ export default function OrcamentoPage() {
                       <td className="px-3 py-2 min-w-[280px]">{it.item_nome}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{it.unidade}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{n(it.quantidade)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(it.valor_unitario))}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{n(it.desconto_item_percent)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(it.valor_unitario_liquido))}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(it.valor_total))}</td>
                       <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                         {Number.isFinite(estoqueByItemId[Number(it.item_id)])
@@ -2338,7 +2391,7 @@ export default function OrcamentoPage() {
       )}
 
       {confirmDialog}
-    </div>
+      </div>
   );
 }
 

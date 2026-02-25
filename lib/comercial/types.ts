@@ -47,6 +47,9 @@ export type OrcamentoRow = {
   total_bruto: number | string;
   total_desconto_global: number | string;
   total_liquido: number | string;
+  prazo_entrega: string | null;
+  garantia: string | null;
+  validade_proposta: string | null;
   observacoes: string | null;
   created_at: string;
   updated_at: string;

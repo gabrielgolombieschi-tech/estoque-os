@@ -89,7 +89,6 @@ begin
   order by g.competencia_date asc, g.tipo asc, g.imposto asc nulls last, g.documento_fiscal_id asc;
 end;
 $$;
-
 revoke all on function f.fn_imposto_guardiao_range(uuid, uuid, date, date, text, text, text) from public;
 grant execute on function f.fn_imposto_guardiao_range(uuid, uuid, date, date, text, text, text) to authenticated;
 grant execute on function f.fn_imposto_guardiao_range(uuid, uuid, date, date, text, text, text) to service_role;

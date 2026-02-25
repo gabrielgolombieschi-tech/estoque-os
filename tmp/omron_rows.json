@@ -1,0 +1,407 @@
+[
+  {
+    "codigo_interno": "CP2EN14DRD",
+    "nome": "CLP CP2E - 8xDI PNP/NPN - 6xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1967.12,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CJ2MCPU13",
+    "nome": "CLP CJ2M - SERIAL",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1504.22,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1WDA041",
+    "nome": "MÓDULO DE EXPANSÃO CP1W - 4xAO V/A",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1382.2,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "SRT2MD16T",
+    "nome": "CLP SRT2 - 8xDI NPN - 8xDO NPN",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2648.98,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CJ1WETN11",
+    "nome": "REMOTA CJ1W ETH",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1918.34,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CJ1WETN21",
+    "nome": "REMOTA CJ1W ETH",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2351.1,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1WCIF41",
+    "nome": "MÓDULO ETH CP1W",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2094.92,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1LM60DRA",
+    "nome": "CLP CP1L - 36xDI PNP/NPN - 24xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1893.6,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1LL10DT1D",
+    "nome": "CLP CP1L - 6xDI PNP/NPN - 4xDO PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2432.34,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1HEX40DTD",
+    "nome": "CLP CP1H -24xDI PNP/NPN - 16xDO NPN - 1xAI",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1651.4,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CJ1WOD212",
+    "nome": "MÓDULO DE EXPANSÃO CJ1W - 16xDO PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 934.96,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1W20EDT1",
+    "nome": "MÓDULO DE EXPANSÃO CP1W - 12xDI PNP/NPN - 8xDO PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2312.2,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "NXEIC202",
+    "nome": "REMOTA NX ETH",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1788.86,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CJ1WOC211",
+    "nome": "MÓDULO DE EXPANSÃO CJ1W - 16xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 962.58,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CJ2MCPU11",
+    "nome": "CLP CJ2M - SERIAL",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2562.14,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1WMAD44",
+    "nome": "MÓDULO DE EXPANSÃO CP1W - 4xAI V/A - 4xAO V/A",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2182.58,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1EE30DRA",
+    "nome": "CLP CP1E -18xDI - 12xDO",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 3132.04,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1EN30DRA",
+    "nome": "CLP CP1E - 18xDI PNP/NPN - 12xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2003.84,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1EN20DRA",
+    "nome": "CLP CP1E - 12xDI PNP/NPN - 8xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1034.94,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1W40EDR",
+    "nome": "MÓDULO DE EXPANSÃO CP1W - 24xDI - 16xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1842.38,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "NXOD5256",
+    "nome": "MÓDULO DE SAÍDA NX - 16xDO PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2225.34,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "NXPD1000",
+    "nome": "MÓDULO DE ALIMENTAÇÃO NX - 24VDC",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2445.96,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1WCIF12V1",
+    "nome": "MÓDULO SERIAL CP1W - RS-422/485",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 985.64,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "D4NL4EFAB",
+    "nome": "CHAVE DE SEGURANÇA D4NL",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1567.78,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "G2RV1SG",
+    "nome": "RELE DE INTERFACE G2RV",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 110.74,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1WCIF01",
+    "nome": "MÓDULO SERIAL CP1W - RS-232C",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 772.86,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CP1WCIF41",
+    "nome": "MÓDULO ETH CP1W",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1128.1,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "H3CRA",
+    "nome": "TEMPORIZADOR H3CR",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 840.98,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CPM1A20EDT1",
+    "nome": "MÓDULO DE EXPANSÃO CPM1A - 12xDI - 8xDO TRANSISTOR",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1314.5,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "CPM1A20CDRAV1",
+    "nome": "CLP CPM1A - 12xDI - 8xDO RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1621.28,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3SAT36",
+    "nome": "SENSOR FOTOELÉTRICO E3S - BARREIRA - PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1450.3,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3JM10DM4TG",
+    "nome": "SENSOR FOTOELÉTRICO E3JM - BARREIRA - SAÍDA RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1286.24,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3JMDS70M4TG",
+    "nome": "SENSOR FOTOELÉTRICO E3JM - DIFUSO - SAÍDA RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 522.18,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3JMR4M4TG",
+    "nome": "SENSOR FOTOELÉTRICO E3JM - RETRORREFLEXIVO - SAÍDA RELE",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1139.58,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "NB7WTW00B",
+    "nome": "IHM NB7W - 7 POLEGADAS",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 3474.74,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "S8VKC48024",
+    "nome": "FONTE DE ALIMENTAÇÃO S8VK - 480W - 24VDC 20A",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1912.76,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3JM10LG",
+    "nome": "SENSOR FOTOELÉTRICO E3JM - EMISSOR",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 2676.34,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "XS2FLM12PVC4A5M",
+    "nome": "CABO DE CONEXÃO XS2F - M12 4 PINOS - 5M",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 394.44,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3FARP21",
+    "nome": "SENSOR FOTOELÉTRICO E3FA - RETRORREFLEXIVO - PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 1893.76,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "F39LGA",
+    "nome": "SUPORTE DE FIXAÇÃO F39 - BARREIRA DE SEGURANÇA",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 951.22,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E2ELX5E1M1L",
+    "nome": "SENSOR INDUTIVO E2EL - M18 5MM - NPN NA",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 569.06,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3ZT86",
+    "nome": "SENSOR FOTOELÉTRICO E3Z - BARREIRA - PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 152.88,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3FADP23",
+    "nome": "SENSOR FOTOELÉTRICO E3FA - DIFUSO - PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 351.72,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E3FADP22",
+    "nome": "SENSOR FOTOELÉTRICO E3FA - DIFUSO - PNP",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 242.5,
+    "ncm": "85371020"
+  },
+  {
+    "codigo_interno": "E2BM12KN08M1B1",
+    "nome": "SENSOR INDUTIVO E2B - M12 8MM - PNP NA",
+    "tipo_raw": "produto",
+    "finalidade_raw": "Matéria-prima",
+    "fabricante": "OMRON",
+    "custo_ultima_compra": 963.54,
+    "ncm": "85371020"
+  }
+]

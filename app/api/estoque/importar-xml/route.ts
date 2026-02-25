@@ -384,6 +384,19 @@ export async function POST(req: NextRequest) {
 
     if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
 
+    // Idempotent stock backfill for already-imported NFs that may lack movimentacoes.
+    if (status === "ja_importada") {
+      const { error: backfillMovErr } = await admin.rpc("fn_backfill_movimentacoes_nf_entrada", {
+        p_nf_entrada_id: nfEntradaId,
+      });
+      if (backfillMovErr) {
+        return jerr(
+          422,
+          `NF ja importada, mas falhou ao sincronizar movimentacoes de estoque. nf_entrada_id=${nfEntradaId}. Detalhe: ${backfillMovErr.message}`
+        );
+      }
+    }
+
     // Mandatory post-condition: import must end with AP title + parcelas consistent.
     const parcelasArray = Array.isArray(body.parcelasJson) ? body.parcelasJson : null;
 
@@ -404,40 +417,15 @@ export async function POST(req: NextRequest) {
       return jerr(422, `NF importada, mas não foi possível localizar/gerar título AP. nf_entrada_id=${nfEntradaId}`);
     }
 
-    const { error: updTituloErr } = await admin
-      .schema("f")
-      .from("titulo")
-      .update({ motivo_compra_id: motivoCompraId })
-      .eq("tenant_id", tenantId)
-      .eq("empresa_id", empresaId)
-      .eq("id", tituloId);
-    if (updTituloErr) {
-      return jerr(422, `Falha ao atualizar classificação do título AP (${tituloId}). Detalhe: ${updTituloErr.message}`);
-    }
-
-    const { data: updatedRows, error: updErr } = await admin
-      .schema("f")
-      .from("titulo_aprovacao")
-      .update({ motivo_compra_id: motivoCompraId, os_id: osId, deleted_at: null })
-      .eq("tenant_id", tenantId)
-      .eq("titulo_id", tituloId)
-      .select("id")
-      .returns<{ id: string }[]>();
-    if (updErr) {
-      return jerr(422, `Falha ao atualizar aprovação do título AP (${tituloId}). Detalhe: ${updErr.message}`);
-    }
-
-    if ((updatedRows?.length ?? 0) === 0) {
-      const { error: insErr } = await admin.schema("f").from("titulo_aprovacao").insert({
-        tenant_id: tenantId,
-        titulo_id: tituloId,
-        motivo_compra_id: motivoCompraId,
-        os_id: osId,
-        aprovado_por: aprovadoPorUsuarioId,
-      });
-      if (insErr) {
-        return jerr(422, `Falha ao inserir aprovação do título AP (${tituloId}). Detalhe: ${insErr.message}`);
-      }
+    const { error: syncErr } = await admin.rpc("fn_sync_titulo_aprovacao_from_nf_entrada", {
+      p_nf_entrada_id: nfEntradaId,
+      p_titulo_id: tituloId,
+      p_motivo_compra_id: motivoCompraId,
+      p_os_id: osId,
+      p_aprovado_por: aprovadoPorUsuarioId,
+    });
+    if (syncErr) {
+      return jerr(422, `Falha ao sincronizar classificacao/aprovacao do titulo AP (${tituloId}). Detalhe: ${syncErr.message}`);
     }
 
     return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });

@@ -1,0 +1,364 @@
+{
+  "insertedCount": 44,
+  "duplicateRowsInFile": [
+    {
+      "linha_planilha": 28,
+      "codigo_interno": "CP1WCIF41",
+      "nome": "MÓDULO ETH CP1W"
+    }
+  ],
+  "inserted": [
+    {
+      "id": 1761,
+      "codigo_interno": "CP2EN14DRD",
+      "nome": "CLP CP2E - 8xDI PNP/NPN - 6xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1967.12
+    },
+    {
+      "id": 1762,
+      "codigo_interno": "CJ2MCPU13",
+      "nome": "CLP CJ2M - SERIAL",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1504.22
+    },
+    {
+      "id": 1763,
+      "codigo_interno": "CP1WDA041",
+      "nome": "MÓDULO DE EXPANSÃO CP1W - 4xAO V/A",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1382.2
+    },
+    {
+      "id": 1764,
+      "codigo_interno": "SRT2MD16T",
+      "nome": "CLP SRT2 - 8xDI NPN - 8xDO NPN",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2648.98
+    },
+    {
+      "id": 1765,
+      "codigo_interno": "CJ1WETN11",
+      "nome": "REMOTA CJ1W ETH",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1918.34
+    },
+    {
+      "id": 1766,
+      "codigo_interno": "CJ1WETN21",
+      "nome": "REMOTA CJ1W ETH",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2351.1
+    },
+    {
+      "id": 1767,
+      "codigo_interno": "CP1WCIF41",
+      "nome": "MÓDULO ETH CP1W",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2094.92
+    },
+    {
+      "id": 1768,
+      "codigo_interno": "CP1LM60DRA",
+      "nome": "CLP CP1L - 36xDI PNP/NPN - 24xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1893.6
+    },
+    {
+      "id": 1769,
+      "codigo_interno": "CP1LL10DT1D",
+      "nome": "CLP CP1L - 6xDI PNP/NPN - 4xDO PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2432.34
+    },
+    {
+      "id": 1770,
+      "codigo_interno": "CP1HEX40DTD",
+      "nome": "CLP CP1H -24xDI PNP/NPN - 16xDO NPN - 1xAI",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1651.4
+    },
+    {
+      "id": 1771,
+      "codigo_interno": "CJ1WOD212",
+      "nome": "MÓDULO DE EXPANSÃO CJ1W - 16xDO PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 934.96
+    },
+    {
+      "id": 1772,
+      "codigo_interno": "CP1W20EDT1",
+      "nome": "MÓDULO DE EXPANSÃO CP1W - 12xDI PNP/NPN - 8xDO PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2312.2
+    },
+    {
+      "id": 1773,
+      "codigo_interno": "NXEIC202",
+      "nome": "REMOTA NX ETH",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1788.86
+    },
+    {
+      "id": 1774,
+      "codigo_interno": "CJ1WOC211",
+      "nome": "MÓDULO DE EXPANSÃO CJ1W - 16xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 962.58
+    },
+    {
+      "id": 1775,
+      "codigo_interno": "CJ2MCPU11",
+      "nome": "CLP CJ2M - SERIAL",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2562.14
+    },
+    {
+      "id": 1776,
+      "codigo_interno": "CP1WMAD44",
+      "nome": "MÓDULO DE EXPANSÃO CP1W - 4xAI V/A - 4xAO V/A",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2182.58
+    },
+    {
+      "id": 1777,
+      "codigo_interno": "CP1EE30DRA",
+      "nome": "CLP CP1E -18xDI - 12xDO",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 3132.04
+    },
+    {
+      "id": 1778,
+      "codigo_interno": "CP1EN30DRA",
+      "nome": "CLP CP1E - 18xDI PNP/NPN - 12xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2003.84
+    },
+    {
+      "id": 1779,
+      "codigo_interno": "CP1EN20DRA",
+      "nome": "CLP CP1E - 12xDI PNP/NPN - 8xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1034.94
+    },
+    {
+      "id": 1780,
+      "codigo_interno": "CP1W40EDR",
+      "nome": "MÓDULO DE EXPANSÃO CP1W - 24xDI - 16xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1842.38
+    },
+    {
+      "id": 1781,
+      "codigo_interno": "NXOD5256",
+      "nome": "MÓDULO DE SAÍDA NX - 16xDO PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2225.34
+    },
+    {
+      "id": 1782,
+      "codigo_interno": "NXPD1000",
+      "nome": "MÓDULO DE ALIMENTAÇÃO NX - 24VDC",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2445.96
+    },
+    {
+      "id": 1783,
+      "codigo_interno": "CP1WCIF12V1",
+      "nome": "MÓDULO SERIAL CP1W - RS-422/485",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 985.64
+    },
+    {
+      "id": 1784,
+      "codigo_interno": "D4NL4EFAB",
+      "nome": "CHAVE DE SEGURANÇA D4NL",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1567.78
+    },
+    {
+      "id": 1785,
+      "codigo_interno": "G2RV1SG",
+      "nome": "RELE DE INTERFACE G2RV",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 110.74
+    },
+    {
+      "id": 1786,
+      "codigo_interno": "CP1WCIF01",
+      "nome": "MÓDULO SERIAL CP1W - RS-232C",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 772.86
+    },
+    {
+      "id": 1787,
+      "codigo_interno": "H3CRA",
+      "nome": "TEMPORIZADOR H3CR",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 840.98
+    },
+    {
+      "id": 1788,
+      "codigo_interno": "CPM1A20EDT1",
+      "nome": "MÓDULO DE EXPANSÃO CPM1A - 12xDI - 8xDO TRANSISTOR",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1314.5
+    },
+    {
+      "id": 1789,
+      "codigo_interno": "CPM1A20CDRAV1",
+      "nome": "CLP CPM1A - 12xDI - 8xDO RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1621.28
+    },
+    {
+      "id": 1790,
+      "codigo_interno": "E3SAT36",
+      "nome": "SENSOR FOTOELÉTRICO E3S - BARREIRA - PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1450.3
+    },
+    {
+      "id": 1791,
+      "codigo_interno": "E3JM10DM4TG",
+      "nome": "SENSOR FOTOELÉTRICO E3JM - BARREIRA - SAÍDA RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1286.24
+    },
+    {
+      "id": 1792,
+      "codigo_interno": "E3JMDS70M4TG",
+      "nome": "SENSOR FOTOELÉTRICO E3JM - DIFUSO - SAÍDA RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 522.18
+    },
+    {
+      "id": 1793,
+      "codigo_interno": "E3JMR4M4TG",
+      "nome": "SENSOR FOTOELÉTRICO E3JM - RETRORREFLEXIVO - SAÍDA RELE",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1139.58
+    },
+    {
+      "id": 1794,
+      "codigo_interno": "NB7WTW00B",
+      "nome": "IHM NB7W - 7 POLEGADAS",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 3474.74
+    },
+    {
+      "id": 1795,
+      "codigo_interno": "S8VKC48024",
+      "nome": "FONTE DE ALIMENTAÇÃO S8VK - 480W - 24VDC 20A",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1912.76
+    },
+    {
+      "id": 1796,
+      "codigo_interno": "E3JM10LG",
+      "nome": "SENSOR FOTOELÉTRICO E3JM - EMISSOR",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 2676.34
+    },
+    {
+      "id": 1797,
+      "codigo_interno": "XS2FLM12PVC4A5M",
+      "nome": "CABO DE CONEXÃO XS2F - M12 4 PINOS - 5M",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 394.44
+    },
+    {
+      "id": 1798,
+      "codigo_interno": "E3FARP21",
+      "nome": "SENSOR FOTOELÉTRICO E3FA - RETRORREFLEXIVO - PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 1893.76
+    },
+    {
+      "id": 1799,
+      "codigo_interno": "F39LGA",
+      "nome": "SUPORTE DE FIXAÇÃO F39 - BARREIRA DE SEGURANÇA",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 951.22
+    },
+    {
+      "id": 1800,
+      "codigo_interno": "E2ELX5E1M1L",
+      "nome": "SENSOR INDUTIVO E2EL - M18 5MM - NPN NA",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 569.06
+    },
+    {
+      "id": 1801,
+      "codigo_interno": "E3ZT86",
+      "nome": "SENSOR FOTOELÉTRICO E3Z - BARREIRA - PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 152.88
+    },
+    {
+      "id": 1802,
+      "codigo_interno": "E3FADP23",
+      "nome": "SENSOR FOTOELÉTRICO E3FA - DIFUSO - PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 351.72
+    },
+    {
+      "id": 1803,
+      "codigo_interno": "E3FADP22",
+      "nome": "SENSOR FOTOELÉTRICO E3FA - DIFUSO - PNP",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 242.5
+    },
+    {
+      "id": 1804,
+      "codigo_interno": "E2BM12KN08M1B1",
+      "nome": "SENSOR INDUTIVO E2B - M12 8MM - PNP NA",
+      "fornecedor_id": 399,
+      "ncm": "85371020",
+      "custo_ultima_compra": 963.54
+    }
+  ]
+}

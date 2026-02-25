@@ -118,7 +118,6 @@ left join t on t.documento_fiscal_id = d.documento_fiscal_id
 left join p on p.documento_fiscal_id = d.documento_fiscal_id
 order by d.competencia_date asc, d.documento_fiscal_id asc;
 $$;
-
 create or replace function public.fn_reparar_ap_por_nf_entrada_range(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -176,11 +175,9 @@ begin
   end loop;
 end;
 $$;
-
 revoke all on function public.fn_auditar_ap_por_nf_entrada_range(uuid, uuid, date, date) from public;
 grant execute on function public.fn_auditar_ap_por_nf_entrada_range(uuid, uuid, date, date) to authenticated;
 grant execute on function public.fn_auditar_ap_por_nf_entrada_range(uuid, uuid, date, date) to service_role;
-
 revoke all on function public.fn_reparar_ap_por_nf_entrada_range(uuid, uuid, date, date, boolean) from public;
 grant execute on function public.fn_reparar_ap_por_nf_entrada_range(uuid, uuid, date, date, boolean) to authenticated;
 grant execute on function public.fn_reparar_ap_por_nf_entrada_range(uuid, uuid, date, date, boolean) to service_role;

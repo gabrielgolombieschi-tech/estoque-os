@@ -71,10 +71,8 @@ begin
    where id = p_parcela_id;
 end;
 $$;
-
 grant all on function f.atualizar_titulo_parcela_vencimento_date(uuid, date, text) to authenticated;
 grant all on function f.atualizar_titulo_parcela_vencimento_date(uuid, date, text) to service_role;
-
 create or replace function f.atualizar_titulo_parcela_vencimento_date(
   p_parcela_id uuid,
   p_vencimento_date date
@@ -93,10 +91,8 @@ begin
   );
 end;
 $$;
-
 grant all on function f.atualizar_titulo_parcela_vencimento_date(uuid, date) to authenticated;
 grant all on function f.atualizar_titulo_parcela_vencimento_date(uuid, date) to service_role;
-
 create or replace function f.desdobrar_parcela_ar_para_recebimento(
   p_parcela_id uuid,
   p_valor_receber numeric,
@@ -241,6 +237,5 @@ begin
   return v_new_parcela_id;
 end;
 $$;
-
 grant all on function f.desdobrar_parcela_ar_para_recebimento(uuid, numeric, date, text) to authenticated;
 grant all on function f.desdobrar_parcela_ar_para_recebimento(uuid, numeric, date, text) to service_role;

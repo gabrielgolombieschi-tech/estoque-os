@@ -67,6 +67,5 @@ begin
   return v_item_id;
 end;
 $$;
-
 grant execute on function public.ensure_orcamento_item_generico(uuid, uuid, text) to authenticated;
 grant execute on function public.ensure_orcamento_item_generico(uuid, uuid, text) to service_role;

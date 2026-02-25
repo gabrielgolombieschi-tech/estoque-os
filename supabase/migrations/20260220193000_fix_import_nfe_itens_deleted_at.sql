@@ -39,7 +39,6 @@ begin
   return new;
 end;
 $$;
-
 create or replace function public.import_nf_entrada(
   p_empresa_id uuid,
   p_finalidade_contexto item_finalidade,

@@ -11,7 +11,6 @@ drop function if exists public.rel_entradas_periodo_consolidado(
   boolean,
   boolean
 );
-
 create or replace function public.rel_entradas_periodo_consolidado(
   p_tenant_id uuid,
   p_empresa_id uuid,

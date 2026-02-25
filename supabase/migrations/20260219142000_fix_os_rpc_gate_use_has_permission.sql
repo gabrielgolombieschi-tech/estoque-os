@@ -148,7 +148,6 @@ begin
   return v_row;
 end;
 $$;
-
 create or replace function public.remove_os_item_reverte_estoque(
   p_os_item_id integer,
   p_realizado_por text default null,

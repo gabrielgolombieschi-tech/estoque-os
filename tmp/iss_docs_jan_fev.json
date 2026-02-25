@@ -1,0 +1,146 @@
+{
+  "jan": {
+    "debito": [
+      {
+        "id": "48b1b7e3-9dc1-40f0-bc72-e9a8f70ff913",
+        "numero": "202600000001751",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001751",
+        "emissao": "2026-01-28",
+        "comp": "2026-01-01",
+        "valor_doc": 27025.6,
+        "valor_iss": 1351.28
+      },
+      {
+        "id": "488b8bf2-3988-4b30-a98c-5206e1dbec23",
+        "numero": "202600000001750",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001750",
+        "emissao": "2026-01-19",
+        "comp": "2026-01-01",
+        "valor_doc": 10800,
+        "valor_iss": 540
+      },
+      {
+        "id": "0185f6a6-417f-42e9-b4e6-15f6eaa5e119",
+        "numero": "202600000001748",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001748",
+        "emissao": "2026-01-13",
+        "comp": "2026-01-01",
+        "valor_doc": 3643.19,
+        "valor_iss": 182.16
+      }
+    ],
+    "retencao": [
+      {
+        "id": "b0bd132b-3df8-43df-9f35-f8e9b8a0d1ad",
+        "numero": "202600000001752",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001752",
+        "emissao": "2026-01-28",
+        "comp": "2026-01-01",
+        "valor_doc": 73434.9,
+        "valor_iss": 785.4
+      },
+      {
+        "id": "8c6ab71f-fcfe-460c-9699-dbba7624a524",
+        "numero": "1749",
+        "serie": "UNICA",
+        "modelo": "NFSE",
+        "chave": "NFSE-UNICA-1749-20260128",
+        "emissao": "2026-01-28",
+        "comp": "2026-01-01",
+        "valor_doc": 37222.22,
+        "valor_iss": 517.51
+      }
+    ]
+  },
+  "fev": {
+    "debito": [
+      {
+        "id": "256cf3f0-021c-4f5c-88d8-899096b09c81",
+        "numero": "202600000001759",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001759",
+        "emissao": "2026-02-16",
+        "comp": "2026-02-01",
+        "valor_doc": 677.15,
+        "valor_iss": 33.86
+      },
+      {
+        "id": "09c68664-0795-4a77-b8bf-9c37b03b926d",
+        "numero": "202600000001758",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001758",
+        "emissao": "2026-02-13",
+        "comp": "2026-02-01",
+        "valor_doc": 1031.22,
+        "valor_iss": 51.56
+      },
+      {
+        "id": "1cc06771-7ed4-43d7-82e9-b0b3766a3832",
+        "numero": "202600000001757",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001757",
+        "emissao": "2026-02-13",
+        "comp": "2026-02-01",
+        "valor_doc": 241.9,
+        "valor_iss": 12.1
+      },
+      {
+        "id": "718f178e-b5b6-47a1-ab6e-dc48cdd95476",
+        "numero": "202600000001756",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001756",
+        "emissao": "2026-02-12",
+        "comp": "2026-02-01",
+        "valor_doc": 5023.06,
+        "valor_iss": 251.15
+      }
+    ],
+    "retencao": [
+      {
+        "id": "5a5ce33c-7632-483a-abdb-59bf6ab5d701",
+        "numero": "202600000001754",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001754",
+        "emissao": "2026-02-10",
+        "comp": "2026-02-01",
+        "valor_doc": 9230.14,
+        "valor_iss": 120.13
+      },
+      {
+        "id": "6f0acaca-5802-43c7-9796-5cdc00fa8587",
+        "numero": "202600000001755",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001755",
+        "emissao": "2026-02-10",
+        "comp": "2026-02-01",
+        "valor_doc": 28965.55,
+        "valor_iss": 376.99
+      },
+      {
+        "id": "12a775e2-da2b-4ca6-b0ba-85e989d52195",
+        "numero": "202600000001753",
+        "serie": "A1",
+        "modelo": "NFSE",
+        "chave": "NFSE:13671448000189:A1:202600000001753",
+        "emissao": "2026-02-10",
+        "comp": "2026-02-01",
+        "valor_doc": 2786.4,
+        "valor_iss": 97.2
+      }
+    ]
+  }
+}

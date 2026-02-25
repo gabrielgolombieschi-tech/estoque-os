@@ -9,7 +9,6 @@ alter table public.nf_entrada_itens
   add column if not exists cofins_credito_valor_elegivel numeric(14,2),
   add column if not exists credito_classificado_em timestamptz,
   add column if not exists credito_classificacao_fonte text;
-
 update public.nf_entrada_itens
 set
   icms_credito_modo = coalesce(icms_credito_modo, 'PENDENTE_REVISAO'),
@@ -25,7 +24,6 @@ where
   or icms_credito_valor_elegivel is null
   or pis_credito_valor_elegivel is null
   or cofins_credito_valor_elegivel is null;
-
 alter table public.nf_entrada_itens
   alter column icms_credito_modo set default 'PENDENTE_REVISAO',
   alter column pis_credito_modo set default 'PENDENTE_REVISAO',
@@ -33,7 +31,6 @@ alter table public.nf_entrada_itens
   alter column icms_credito_valor_elegivel set default 0,
   alter column pis_credito_valor_elegivel set default 0,
   alter column cofins_credito_valor_elegivel set default 0;
-
 alter table public.nf_entrada_itens
   alter column icms_credito_modo set not null,
   alter column pis_credito_modo set not null,
@@ -41,7 +38,6 @@ alter table public.nf_entrada_itens
   alter column icms_credito_valor_elegivel set not null,
   alter column pis_credito_valor_elegivel set not null,
   alter column cofins_credito_valor_elegivel set not null;
-
 do $$
 begin
   if not exists (
@@ -77,7 +73,6 @@ begin
       check (cofins_credito_modo in ('NAO_CREDITA','CREDITA_IMEDIATO','CREDITA_PARCELADO','PENDENTE_REVISAO'));
   end if;
 end $$;
-
 create or replace function public.fn_classificar_credito_fiscal_nf_entrada(
   p_nf_entrada_id bigint,
   p_fonte text default 'AUTO_IMPORT'
@@ -176,7 +171,6 @@ begin
   return next;
 end;
 $$;
-
 create or replace function public.trg_nf_entrada_itens__classificar_credito_fiscal()
 returns trigger
 language plpgsql
@@ -194,15 +188,12 @@ begin
   return coalesce(new, old);
 end;
 $$;
-
 drop trigger if exists trg_nf_entrada_itens__classificar_credito_fiscal on public.nf_entrada_itens;
-
 create trigger trg_nf_entrada_itens__classificar_credito_fiscal
 after insert or update of item_id, v_icms, v_pis, v_cofins, nf_entrada_id
 on public.nf_entrada_itens
 for each row
 execute function public.trg_nf_entrada_itens__classificar_credito_fiscal();
-
 create or replace function f.fn_imposto_credito_conferencia_range(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -277,11 +268,11 @@ begin
       on ni.nf_entrada_id = d.source_nf_entrada_id
   ),
   itens_unpivot as (
-    select it.competencia_date, it.documento_fiscal_id, 'ICMS'::text as imposto, it.icms_credito_modo as modo, it.icms_elegivel as valor from itens it
+    select competencia_date, documento_fiscal_id, 'ICMS'::text as imposto, icms_credito_modo as modo, icms_elegivel as valor from itens
     union all
-    select it.competencia_date, it.documento_fiscal_id, 'PIS'::text as imposto, it.pis_credito_modo as modo, it.pis_elegivel as valor from itens it
+    select competencia_date, documento_fiscal_id, 'PIS'::text as imposto, pis_credito_modo as modo, pis_elegivel as valor from itens
     union all
-    select it.competencia_date, it.documento_fiscal_id, 'COFINS'::text as imposto, it.cofins_credito_modo as modo, it.cofins_elegivel as valor from itens it
+    select competencia_date, documento_fiscal_id, 'COFINS'::text as imposto, cofins_credito_modo as modo, cofins_elegivel as valor from itens
   ),
   prov as (
     select
@@ -331,15 +322,12 @@ begin
   order by 1 asc, 2 asc;
 end;
 $$;
-
 revoke all on function public.fn_classificar_credito_fiscal_nf_entrada(bigint, text) from public;
 grant execute on function public.fn_classificar_credito_fiscal_nf_entrada(bigint, text) to authenticated;
 grant execute on function public.fn_classificar_credito_fiscal_nf_entrada(bigint, text) to service_role;
-
 revoke all on function f.fn_imposto_credito_conferencia_range(uuid, uuid, date, date) from public;
 grant execute on function f.fn_imposto_credito_conferencia_range(uuid, uuid, date, date) to authenticated;
 grant execute on function f.fn_imposto_credito_conferencia_range(uuid, uuid, date, date) to service_role;
-
 -- Backfill para base atual
 select
   r.status,

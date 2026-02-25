@@ -10,7 +10,6 @@ drop function if exists public.rel_entradas_periodo_detalhes(
   text,
   boolean
 );
-
 create or replace function public.rel_entradas_periodo_detalhes(
   p_tenant_id uuid,
   p_empresa_id uuid,

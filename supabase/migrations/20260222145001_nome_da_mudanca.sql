@@ -1,7 +1,5 @@
 drop function if exists "public"."rel_entradas_periodo_consolidado"(p_tenant_id uuid, p_empresa_id uuid, p_data_ini date, p_data_fim date, p_fornecedor_prefix text, p_busca_item text, p_os_mode text, p_com_nf boolean, p_destacar_saldo_alto boolean);
-
 set check_function_bodies = off;
-
 CREATE OR REPLACE FUNCTION public.apply_movimentacao_estoque()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -57,9 +55,7 @@ begin
 
   return new;
 end;
-$function$
-;
-
+$function$;
 CREATE OR REPLACE FUNCTION public.fn_atualiza_estoque_por_mov()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -106,9 +102,7 @@ begin
 
   return new;
 end;
-$function$
-;
-
+$function$;
 CREATE OR REPLACE FUNCTION public.rel_entradas_periodo_consolidado(p_tenant_id uuid, p_empresa_id uuid, p_data_ini date, p_data_fim date, p_fornecedor_prefix text DEFAULT NULL::text, p_busca_item text DEFAULT NULL::text, p_os_mode text DEFAULT 'todos'::text, p_com_nf boolean DEFAULT false, p_destacar_saldo_alto boolean DEFAULT false)
  RETURNS TABLE(item_id integer, fornecedor_id integer, codigo_interno text, item_nome text, fornecedor_nome text, unidade_medida text, qtd_comprada numeric, qtd_para_os numeric, qtd_para_estoque numeric, percentual_os numeric, saldo_atual numeric, estoque_ideal numeric, situacao text)
  LANGUAGE sql
@@ -198,7 +192,4 @@ AS $function$
       or a.saldo_atual > a.estoque_ideal
     )
   order by coalesce(f.nome, 'SEM FORNECEDOR') asc, a.item_nome asc;
-$function$
-;
-
-
+$function$;

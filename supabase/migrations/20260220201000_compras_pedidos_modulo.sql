@@ -1,4 +1,3 @@
-
 -- Modulo Compras > Pedidos
 
 create or replace function c.has_compras_access(
@@ -46,9 +45,7 @@ as $$
     )
   from me;
 $$;
-
 grant execute on function c.has_compras_access(uuid, uuid) to authenticated, service_role;
-
 create or replace function public.can(p_resource text, p_action text, p_tenant_id uuid)
 returns boolean
 language plpgsql
@@ -130,7 +127,6 @@ begin
   return false;
 end;
 $$;
-
 create table if not exists m.compra_pendencia (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -162,14 +158,12 @@ create table if not exists m.compra_pendencia (
   constraint fk_compra_pendencia__origem_os_id__ordens_servico foreign key (tenant_id, empresa_id, origem_os_id) references public.ordens_servico(tenant_id, empresa_id, id),
   constraint fk_compra_pendencia__item_id__itens foreign key (tenant_id, empresa_id, item_id) references public.itens(tenant_id, empresa_id, id)
 );
-
 create index if not exists idx_compra_pendencia__tenant_empresa_status on m.compra_pendencia(tenant_id, empresa_id, status);
 create index if not exists idx_compra_pendencia__tenant_empresa_fornecedor_status on m.compra_pendencia(tenant_id, empresa_id, fornecedor_id, status);
 create index if not exists idx_compra_pendencia__tenant_empresa_item_status on m.compra_pendencia(tenant_id, empresa_id, item_id, status);
 create unique index if not exists uq_compra_pendencia__reposicao_aberta
   on m.compra_pendencia(tenant_id, empresa_id, fornecedor_id, item_id)
   where deleted_at is null and origem_tipo='ESTOQUE' and status in ('PENDENTE','EM_PEDIDO');
-
 create table if not exists m.pedido_compra_seq (
   tenant_id uuid not null,
   empresa_id uuid not null,
@@ -177,7 +171,6 @@ create table if not exists m.pedido_compra_seq (
   updated_at timestamptz not null default now(),
   constraint pk_m_pedido_compra_seq primary key (tenant_id, empresa_id)
 );
-
 create table if not exists m.pedido_compra (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -201,11 +194,9 @@ create table if not exists m.pedido_compra (
   deleted_at timestamptz null,
   constraint fk_pedido_compra__fornecedor_id__fornecedores foreign key (tenant_id, empresa_id, fornecedor_id) references public.fornecedores(tenant_id, empresa_id, id)
 );
-
 create unique index if not exists uq_pedido_compra__tenant_empresa_numero on m.pedido_compra(tenant_id, empresa_id, numero) where deleted_at is null;
 create unique index if not exists uq_pedido_compra__tenant_empresa_codigo on m.pedido_compra(tenant_id, empresa_id, codigo) where deleted_at is null;
 create index if not exists idx_pedido_compra__tenant_empresa_status on m.pedido_compra(tenant_id, empresa_id, status);
-
 create table if not exists m.pedido_compra_item (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -228,9 +219,7 @@ create table if not exists m.pedido_compra_item (
   deleted_at timestamptz null,
   constraint fk_pedido_compra_item__item_id__itens foreign key (tenant_id, empresa_id, item_id) references public.itens(tenant_id, empresa_id, id)
 );
-
 create unique index if not exists uq_pedido_compra_item__tenant_empresa_pedido_seq on m.pedido_compra_item(tenant_id, empresa_id, pedido_compra_id, seq) where deleted_at is null;
-
 create table if not exists m.pedido_compra_item_origem (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -242,9 +231,7 @@ create table if not exists m.pedido_compra_item_origem (
   created_by uuid null default a.fn_current_usuario_id(),
   deleted_at timestamptz null
 );
-
 create unique index if not exists uq_pedido_compra_item_origem__item_pendencia on m.pedido_compra_item_origem(pedido_compra_item_id, pendencia_id) where deleted_at is null;
-
 create table if not exists m.pedido_compra_evento (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -257,7 +244,6 @@ create table if not exists m.pedido_compra_evento (
   created_at timestamptz not null default now(),
   created_by uuid null default a.fn_current_usuario_id()
 );
-
 create table if not exists m.pedido_compra_recebimento (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -272,7 +258,6 @@ create table if not exists m.pedido_compra_recebimento (
   updated_by uuid null,
   deleted_at timestamptz null
 );
-
 create table if not exists m.pedido_compra_recebimento_item (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default public.current_tenant_id(),
@@ -286,7 +271,6 @@ create table if not exists m.pedido_compra_recebimento_item (
   deleted_at timestamptz null,
   constraint fk_pedido_compra_recebimento_item__item_id__itens foreign key (tenant_id, empresa_id, item_id) references public.itens(tenant_id, empresa_id, id)
 );
-
 create or replace function m.pedido_compra_next_numero(p_tenant uuid, p_empresa uuid)
 returns int
 language plpgsql
@@ -308,7 +292,6 @@ begin
   return coalesce(v_next, 1);
 end;
 $$;
-
 create or replace function m.pedido_compra_build_codigo(p_empresa_id uuid, p_numero int, p_emissao_date date)
 returns text
 language sql
@@ -321,7 +304,6 @@ as $$
          || '-' || lpad(((extract(year from coalesce(p_emissao_date, current_date))::int) % 1000)::text, 3, '0')
   from c.empresa e where e.id = p_empresa_id;
 $$;
-
 create or replace function m.fn_pedido_compra_recalcular_totais(p_pedido_id uuid)
 returns void
 language plpgsql
@@ -340,7 +322,6 @@ begin
    where p.id = p_pedido_id;
 end;
 $$;
-
 create or replace function m.trg_compra_pendencia_biu()
 returns trigger
 language plpgsql
@@ -361,7 +342,6 @@ begin
   return new;
 end;
 $$;
-
 create or replace function m.trg_pedido_compra_biu()
 returns trigger
 language plpgsql
@@ -381,7 +361,6 @@ begin
   return new;
 end;
 $$;
-
 create or replace function m.trg_pedido_compra_item_biu()
 returns trigger
 language plpgsql
@@ -412,7 +391,6 @@ begin
   return new;
 end;
 $$;
-
 create or replace function m.trg_pedido_compra_item_aiud()
 returns trigger
 language plpgsql
@@ -424,7 +402,6 @@ begin
   return coalesce(new, old);
 end;
 $$;
-
 create or replace function m.fn_pedido_compra_log_evento(p_pedido_id uuid, p_tipo text, p_status_de text, p_status_para text, p_mensagem text)
 returns void
 language plpgsql
@@ -439,7 +416,6 @@ begin
   values (v_tenant, v_empresa, p_pedido_id, p_tipo, p_status_de, p_status_para, p_mensagem);
 end;
 $$;
-
 create or replace function m.fn_pedido_compra_gerar(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -497,7 +473,6 @@ begin
   return v_pedido_id;
 end;
 $$;
-
 create or replace function m.fn_pedido_compra_transicionar(p_pedido_id uuid, p_status_para text, p_mensagem text default null)
 returns void
 language plpgsql
@@ -517,7 +492,6 @@ begin
   perform m.fn_pedido_compra_log_evento(p_pedido_id, case when v_new in ('APROVADO','REPROVADO') then 'APROVACAO' else 'STATUS' end, v_pedido.status, v_new, p_mensagem);
 end;
 $$;
-
 create or replace function m.fn_pedido_compra_receber(p_pedido_id uuid, p_recebimento_date date, p_documento_ref text, p_observacoes text, p_itens jsonb)
 returns uuid
 language plpgsql
@@ -581,7 +555,6 @@ begin
   return v_recebimento_id;
 end;
 $$;
-
 grant execute on function m.pedido_compra_next_numero(uuid, uuid) to authenticated, service_role;
 grant execute on function m.pedido_compra_build_codigo(uuid, int, date) to authenticated, service_role;
 grant execute on function m.fn_pedido_compra_recalcular_totais(uuid) to authenticated, service_role;
@@ -589,26 +562,21 @@ grant execute on function m.fn_pedido_compra_log_evento(uuid, text, text, text, 
 grant execute on function m.fn_pedido_compra_gerar(uuid, uuid, int, uuid[], text) to authenticated, service_role;
 grant execute on function m.fn_pedido_compra_transicionar(uuid, text, text) to authenticated, service_role;
 grant execute on function m.fn_pedido_compra_receber(uuid, date, text, text, jsonb) to authenticated, service_role;
-
 create trigger trg_compra_pendencia_biu before insert or update on m.compra_pendencia for each row execute function m.trg_compra_pendencia_biu();
 create trigger trg_compra_pendencia_set_updated_at before update on m.compra_pendencia for each row execute function a.fn_set_updated_at();
 create trigger trg_compra_pendencia_audit after insert or update or delete on m.compra_pendencia for each row execute function public.audit_trigger();
-
 create trigger trg_pedido_compra_biu before insert or update on m.pedido_compra for each row execute function m.trg_pedido_compra_biu();
 create trigger trg_pedido_compra_set_updated_at before update on m.pedido_compra for each row execute function a.fn_set_updated_at();
 create trigger trg_pedido_compra_audit after insert or update or delete on m.pedido_compra for each row execute function public.audit_trigger();
-
 create trigger trg_pedido_compra_item_biu before insert or update on m.pedido_compra_item for each row execute function m.trg_pedido_compra_item_biu();
 create trigger trg_pedido_compra_item_aiud after insert or update or delete on m.pedido_compra_item for each row execute function m.trg_pedido_compra_item_aiud();
 create trigger trg_pedido_compra_item_set_updated_at before update on m.pedido_compra_item for each row execute function a.fn_set_updated_at();
 create trigger trg_pedido_compra_item_audit after insert or update or delete on m.pedido_compra_item for each row execute function public.audit_trigger();
-
 create trigger trg_pedido_compra_item_origem_audit after insert or update or delete on m.pedido_compra_item_origem for each row execute function public.audit_trigger();
 create trigger trg_pedido_compra_evento_audit after insert or update or delete on m.pedido_compra_evento for each row execute function public.audit_trigger();
 create trigger trg_pedido_compra_recebimento_set_updated_at before update on m.pedido_compra_recebimento for each row execute function a.fn_set_updated_at();
 create trigger trg_pedido_compra_recebimento_audit after insert or update or delete on m.pedido_compra_recebimento for each row execute function public.audit_trigger();
 create trigger trg_pedido_compra_receb_item_audit after insert or update or delete on m.pedido_compra_recebimento_item for each row execute function public.audit_trigger();
-
 alter table m.compra_pendencia enable row level security;
 alter table m.pedido_compra_seq enable row level security;
 alter table m.pedido_compra enable row level security;
@@ -617,35 +585,26 @@ alter table m.pedido_compra_item_origem enable row level security;
 alter table m.pedido_compra_evento enable row level security;
 alter table m.pedido_compra_recebimento enable row level security;
 alter table m.pedido_compra_recebimento_item enable row level security;
-
 create policy compra_pendencia_select on m.compra_pendencia for select to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy compra_pendencia_insert on m.compra_pendencia for insert to authenticated with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy compra_pendencia_update on m.compra_pendencia for update to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_seq_all on m.pedido_compra_seq for all to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id)) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_select on m.pedido_compra for select to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_insert on m.pedido_compra for insert to authenticated with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_update on m.pedido_compra for update to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_item_select on m.pedido_compra_item for select to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_item_insert on m.pedido_compra_item for insert to authenticated with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_item_update on m.pedido_compra_item for update to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_item_origem_select on m.pedido_compra_item_origem for select to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_item_origem_insert on m.pedido_compra_item_origem for insert to authenticated with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_item_origem_update on m.pedido_compra_item_origem for update to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_evento_all on m.pedido_compra_evento for all to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id)) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_recebimento_select on m.pedido_compra_recebimento for select to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_recebimento_insert on m.pedido_compra_recebimento for insert to authenticated with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_recebimento_update on m.pedido_compra_recebimento for update to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 create policy pedido_compra_receb_item_select on m.pedido_compra_recebimento_item for select to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_receb_item_insert on m.pedido_compra_recebimento_item for insert to authenticated with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null);
 create policy pedido_compra_receb_item_update on m.pedido_compra_recebimento_item for update to authenticated using (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id) and deleted_at is null) with check (tenant_id=current_tenant_id() and empresa_id=current_empresa_id() and c.has_compras_access(tenant_id, empresa_id));
-
 grant select, insert, update, delete on m.compra_pendencia to authenticated, service_role;
 grant select, insert, update, delete on m.pedido_compra_seq to authenticated, service_role;
 grant select, insert, update, delete on m.pedido_compra to authenticated, service_role;
@@ -654,7 +613,6 @@ grant select, insert, update, delete on m.pedido_compra_item_origem to authentic
 grant select, insert, update, delete on m.pedido_compra_evento to authenticated, service_role;
 grant select, insert, update, delete on m.pedido_compra_recebimento to authenticated, service_role;
 grant select, insert, update, delete on m.pedido_compra_recebimento_item to authenticated, service_role;
-
 create or replace view r.r_compra_fornecedores_pendentes as
 select
   cp.tenant_id,
@@ -669,7 +627,6 @@ from m.compra_pendencia cp
 left join public.fornecedores f on f.tenant_id=cp.tenant_id and f.empresa_id=cp.empresa_id and f.id=cp.fornecedor_id
 where cp.deleted_at is null
 group by cp.tenant_id, cp.empresa_id, cp.fornecedor_id, coalesce(f.nome, 'SEM FORNECEDOR');
-
 create or replace view r.r_compra_pendencias_detalhadas as
 select
   cp.id as pendencia_id,
@@ -700,7 +657,6 @@ left join public.fornecedores f on f.tenant_id=cp.tenant_id and f.empresa_id=cp.
 left join public.ordens_servico os on os.tenant_id=cp.tenant_id and os.empresa_id=cp.empresa_id and os.id=cp.origem_os_id
 left join public.itens i on i.tenant_id=cp.tenant_id and i.empresa_id=cp.empresa_id and i.id=cp.item_id
 where cp.deleted_at is null;
-
 create or replace view r.r_compra_pendencias_agrupadas_item as
 with pend as (
   select
@@ -755,7 +711,6 @@ left join public.itens i on i.tenant_id=p.tenant_id and i.empresa_id=p.empresa_i
 left join public.estoque e on e.tenant_id=p.tenant_id and e.empresa_id=p.empresa_id and e.item_id=p.item_id
 left join em_compra ec on ec.tenant_id=p.tenant_id and ec.empresa_id=p.empresa_id and ec.item_id=p.item_id
 group by p.tenant_id,p.empresa_id,p.fornecedor_id,coalesce(f.nome,'SEM FORNECEDOR'),p.item_id,i.codigo_interno,p.item_nome,p.unidade,e.quantidade_atual,ec.qtd_em_compra_aberto,i.estoque_minimo,i.estoque_ideal,i.estoque_maximo;
-
 grant select on r.r_compra_fornecedores_pendentes to authenticated, service_role;
 grant select on r.r_compra_pendencias_detalhadas to authenticated, service_role;
 grant select on r.r_compra_pendencias_agrupadas_item to authenticated, service_role;

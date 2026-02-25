@@ -1,0 +1,8 @@
+# Build/cache artifacts rewritten continuously during `next dev`
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+
+# Local/runtime logs and temp files
+*.log
+tmp/

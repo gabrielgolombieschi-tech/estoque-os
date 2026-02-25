@@ -224,6 +224,4 @@ begin
   );
 end;
 $$;
-
 grant execute on function m.fn_compra_varredura(uuid, uuid, boolean, boolean) to authenticated, service_role;
-

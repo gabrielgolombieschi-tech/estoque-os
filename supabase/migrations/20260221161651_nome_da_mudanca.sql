@@ -1,5 +1,4 @@
 set check_function_bodies = off;
-
 CREATE OR REPLACE FUNCTION m.fn_compra_varredura(p_tenant_id uuid, p_empresa_id uuid, p_incluir_os boolean DEFAULT true, p_incluir_estoque boolean DEFAULT true)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -187,7 +186,4 @@ begin
     'total_movimentadas', v_os_inseridas + v_estoque_inseridas + v_estoque_atualizadas
   );
 end;
-$function$
-;
-
-
+$function$;

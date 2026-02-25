@@ -47,7 +47,6 @@ begin
   return new;
 end;
 $$;
-
 create or replace function public.apply_movimentacao_estoque()
 returns trigger
 language plpgsql
@@ -115,7 +114,6 @@ begin
   return new;
 end;
 $$;
-
 -- Recalculo historico do estoque pela regra corrigida.
 with saldo_calc as (
   select
@@ -141,7 +139,6 @@ update public.estoque e
  where e.tenant_id = s.tenant_id
    and e.empresa_id = s.empresa_id
    and e.item_id = s.item_id;
-
 update public.estoque e
    set quantidade_atual = 0,
        atualizado_em = now()
@@ -152,7 +149,6 @@ update public.estoque e
      and m.empresa_id = e.empresa_id
      and m.item_id = e.item_id
  );
-
 drop function if exists public.rel_entradas_periodo_consolidado(
   uuid,
   uuid,
@@ -164,7 +160,6 @@ drop function if exists public.rel_entradas_periodo_consolidado(
   boolean,
   boolean
 );
-
 create or replace function public.rel_entradas_periodo_consolidado(
   p_tenant_id uuid,
   p_empresa_id uuid,

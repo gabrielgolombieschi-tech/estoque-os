@@ -23,15 +23,12 @@ create table if not exists f.credito_fiscal_politica (
   constraint credito_fiscal_politica_cfop_like_ck check (cfop_like is null or length(trim(cfop_like)) > 0),
   constraint credito_fiscal_politica_cst_like_ck check (cst_like is null or length(trim(cst_like)) > 0)
 );
-
 create index if not exists idx_credito_fiscal_politica_tenant_empresa
   on f.credito_fiscal_politica (tenant_id, empresa_id, imposto, ativo, prioridade)
   where deleted_at is null;
-
 create index if not exists idx_credito_fiscal_politica_motivo
   on f.credito_fiscal_politica (tenant_id, motivo_compra_id)
   where deleted_at is null;
-
 create or replace function f.fn_pick_credito_fiscal_politica(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -117,7 +114,6 @@ begin
   return next;
 end;
 $$;
-
 create or replace function public.fn_classificar_credito_fiscal_nf_entrada(
   p_nf_entrada_id bigint,
   p_fonte text default 'AUTO_IMPORT'
@@ -254,7 +250,6 @@ begin
   return next;
 end;
 $$;
-
 create or replace function f.upsert_credito_fiscal_politica(
   p_id uuid default null,
   p_tenant_id uuid default null,
@@ -347,7 +342,6 @@ begin
   return v_id;
 end;
 $$;
-
 create or replace function f.list_credito_fiscal_politica(
   p_tenant_id uuid,
   p_empresa_id uuid default null,
@@ -402,32 +396,25 @@ as $$
     and (p_imposto is null or upper(r.imposto) = upper(p_imposto))
   order by r.imposto, r.prioridade, r.updated_at desc;
 $$;
-
 alter table f.credito_fiscal_politica enable row level security;
-
 drop policy if exists credito_fiscal_politica_all on f.credito_fiscal_politica;
 create policy credito_fiscal_politica_all
   on f.credito_fiscal_politica
   to authenticated
   using (tenant_id = public.current_tenant_id() and f.has_finance_access())
   with check (tenant_id = public.current_tenant_id() and f.has_finance_access());
-
 revoke all on table f.credito_fiscal_politica from public;
 grant select, insert, update, delete on table f.credito_fiscal_politica to authenticated;
 grant select on table f.credito_fiscal_politica to service_role;
-
 revoke all on function f.fn_pick_credito_fiscal_politica(uuid, uuid, text, public.item_finalidade, uuid, text, text, boolean, numeric) from public;
 grant execute on function f.fn_pick_credito_fiscal_politica(uuid, uuid, text, public.item_finalidade, uuid, text, text, boolean, numeric) to authenticated;
 grant execute on function f.fn_pick_credito_fiscal_politica(uuid, uuid, text, public.item_finalidade, uuid, text, text, boolean, numeric) to service_role;
-
 revoke all on function f.upsert_credito_fiscal_politica(uuid, uuid, uuid, text, text, integer, boolean, public.item_finalidade, uuid, text, text, boolean, text) from public;
 grant execute on function f.upsert_credito_fiscal_politica(uuid, uuid, uuid, text, text, integer, boolean, public.item_finalidade, uuid, text, text, boolean, text) to authenticated;
 grant execute on function f.upsert_credito_fiscal_politica(uuid, uuid, uuid, text, text, integer, boolean, public.item_finalidade, uuid, text, text, boolean, text) to service_role;
-
 revoke all on function f.list_credito_fiscal_politica(uuid, uuid, text) from public;
 grant execute on function f.list_credito_fiscal_politica(uuid, uuid, text) to authenticated;
 grant execute on function f.list_credito_fiscal_politica(uuid, uuid, text) to service_role;
-
 -- Regras padrao (conservadoras + suporte basico por tipo de gasto/finalidade)
 insert into f.credito_fiscal_politica(
   tenant_id, empresa_id, imposto, modo, prioridade, ativo, finalidade, cfop_like, requer_credit_flag, observacao
@@ -471,7 +458,6 @@ where coalesce(e.ativo, true) = true
       and coalesce(x.cfop_like,'') = coalesce(imp.cfop_like,'')
       and x.deleted_at is null
   );
-
 -- Reclassifica historico com a politica
 select r.status, r.message, r.itens_atualizados
 from public.nf_entrada ne

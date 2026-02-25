@@ -1,9 +1,6 @@
 drop function if exists "public"."rel_entradas_periodo_consolidado"(p_tenant_id uuid, p_empresa_id uuid, p_data_ini date, p_data_fim date, p_fornecedor_prefix text, p_busca_item text, p_os_mode text, p_com_nf boolean, p_destacar_saldo_alto boolean);
-
 drop function if exists "public"."rel_entradas_periodo_detalhes"(p_tenant_id uuid, p_empresa_id uuid, p_data_ini date, p_data_fim date, p_item_id integer, p_fornecedor_id integer, p_os_mode text, p_com_nf boolean);
-
 set check_function_bodies = off;
-
 CREATE OR REPLACE FUNCTION m.fn_compra_varredura(p_tenant_id uuid, p_empresa_id uuid, p_incluir_os boolean DEFAULT true, p_incluir_estoque boolean DEFAULT true)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -219,9 +216,7 @@ begin
     'total_movimentadas', v_os_inseridas + v_os_canceladas + v_estoque_inseridas + v_estoque_atualizadas
   );
 end;
-$function$
-;
-
+$function$;
 CREATE OR REPLACE FUNCTION m.trg_compra_pendencia_biu()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -307,7 +302,4 @@ begin
 
   return new;
 end;
-$function$
-;
-
-
+$function$;
