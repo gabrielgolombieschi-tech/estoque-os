@@ -59,6 +59,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (recebRes.error) return jsonError(400, recebRes.error.message);
 
   const itens = (itensRes.data ?? []) as Array<Record<string, unknown>>;
+  const pedidoItemIds = Array.from(
+    new Set(
+      itens
+        .map((it) => String(it.id ?? "").trim())
+        .filter((v) => v.length > 0)
+    )
+  );
   const itemIds = Array.from(
     new Set(
       itens
@@ -82,10 +89,114 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
+  const origemResumoByPedidoItemId = new Map<string, string>();
+  if (pedidoItemIds.length > 0) {
+    const { data: origensRows, error: origensErr } = await supabase
+      .schema("m")
+      .from("pedido_compra_item_origem")
+      .select("pedido_compra_item_id,pendencia_id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("deleted_at", null)
+      .in("pedido_compra_item_id", pedidoItemIds);
+    if (origensErr) return jsonError(400, origensErr.message);
+
+    const origensList = Array.isArray(origensRows) ? (origensRows as Array<Record<string, unknown>>) : [];
+    const pendenciaIds = Array.from(
+      new Set(
+        origensList
+          .map((r) => String(r.pendencia_id ?? "").trim())
+          .filter((v) => v.length > 0)
+      )
+    );
+
+    const pendenciaById = new Map<string, { origemTipo: string; origemOsId: number | null }>();
+    if (pendenciaIds.length > 0) {
+      const { data: pendenciasRows, error: pendenciasErr } = await supabase
+        .schema("m")
+        .from("compra_pendencia")
+        .select("id,origem_tipo,origem_os_id")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("empresa_id", ctx.empresaId)
+        .in("id", pendenciaIds);
+      if (pendenciasErr) return jsonError(400, pendenciasErr.message);
+
+      const pendencias = Array.isArray(pendenciasRows) ? (pendenciasRows as Array<Record<string, unknown>>) : [];
+      for (const p of pendencias) {
+        const pendId = String(p.id ?? "").trim();
+        if (!pendId) continue;
+        const osId = Number(p.origem_os_id);
+        pendenciaById.set(pendId, {
+          origemTipo: String(p.origem_tipo ?? "").trim().toUpperCase(),
+          origemOsId: Number.isFinite(osId) && osId > 0 ? osId : null,
+        });
+      }
+    }
+
+    const osIds = Array.from(
+      new Set(
+        Array.from(pendenciaById.values())
+          .map((p) => p.origemOsId)
+          .filter((id): id is number => typeof id === "number" && Number.isFinite(id) && id > 0)
+      )
+    );
+    const osLabelById = new Map<number, string>();
+    if (osIds.length > 0) {
+      const { data: osRows, error: osErr } = await supabase
+        .from("ordens_servico")
+        .select("id,numero_os,os_num")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("empresa_id", ctx.empresaId)
+        .in("id", osIds);
+      if (osErr) return jsonError(400, osErr.message);
+
+      for (const os of Array.isArray(osRows) ? (osRows as Array<Record<string, unknown>>) : []) {
+        const osId = Number(os.id);
+        if (!Number.isFinite(osId) || osId <= 0) continue;
+        const numeroOs = String(os.numero_os ?? "").trim();
+        const osNum = Number(os.os_num);
+        const numero =
+          numeroOs.length > 0 ? numeroOs : Number.isFinite(osNum) && osNum > 0 ? String(osNum) : String(osId);
+        osLabelById.set(osId, `OS ${numero}`);
+      }
+    }
+
+    const labelsByPedidoItemId = new Map<string, Set<string>>();
+    for (const row of origensList) {
+      const pedidoItemId = String(row.pedido_compra_item_id ?? "").trim();
+      const pendenciaId = String(row.pendencia_id ?? "").trim();
+      if (!pedidoItemId || !pendenciaId) continue;
+
+      const pend = pendenciaById.get(pendenciaId);
+      if (!pend) continue;
+
+      let label = "-";
+      if (pend.origemTipo === "OS") {
+        if (pend.origemOsId && osLabelById.has(pend.origemOsId)) label = osLabelById.get(pend.origemOsId) ?? "OS";
+        else label = "OS";
+      } else if (pend.origemTipo === "ESTOQUE") {
+        label = "ESTOQUE";
+      } else if (pend.origemTipo === "OUTROS") {
+        label = "OUTROS";
+      } else if (pend.origemTipo) {
+        label = pend.origemTipo;
+      }
+
+      if (!labelsByPedidoItemId.has(pedidoItemId)) labelsByPedidoItemId.set(pedidoItemId, new Set<string>());
+      labelsByPedidoItemId.get(pedidoItemId)?.add(label);
+    }
+
+    for (const [pedidoItemId, labels] of labelsByPedidoItemId.entries()) {
+      origemResumoByPedidoItemId.set(pedidoItemId, Array.from(labels).join(", "));
+    }
+  }
+
   const itensEnriquecidos = itens.map((it) => {
+    const pedidoItemId = String(it.id ?? "").trim();
     const itemId = Number(it.item_id);
     const itemCodigo = Number.isFinite(itemId) && itemId > 0 ? codigoByItemId.get(itemId) ?? "" : "";
-    return { ...it, item_codigo: itemCodigo || null };
+    const origemResumo = origemResumoByPedidoItemId.get(pedidoItemId) ?? null;
+    return { ...it, item_codigo: itemCodigo || null, origem_resumo: origemResumo };
   });
 
   return Response.json({

@@ -68,6 +68,7 @@ type PedidoItem = {
   id: string;
   item_id: number | null;
   item_codigo?: string | null;
+  origem_resumo?: string | null;
   item_nome: string;
   unidade: string;
   quantidade: number;
@@ -829,6 +830,16 @@ export default function ComprasPedidosClient() {
     tenantId,
   ]);
 
+  const imprimirPedido = useCallback((pedidoId: string) => {
+    const id = String(pedidoId ?? "").trim();
+    if (!id) return;
+    const params = new URLSearchParams();
+    if (tenantId) params.set("tenant_id", tenantId);
+    if (empresaId) params.set("empresa_id", empresaId);
+    params.set("auto", "1");
+    window.open(`/compras/pedidos/${encodeURIComponent(id)}/imprimir?${params.toString()}`, "_blank", "noopener,noreferrer");
+  }, [empresaId, tenantId]);
+
   if (!tenantId || !empresaId) return <div className="text-zinc-400">Carregando contexto...</div>;
   if (!canRead) return <div className="text-zinc-400">Sem permissao para Compras.</div>;
 
@@ -1307,6 +1318,7 @@ export default function ComprasPedidosClient() {
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "enviar")}>Enviar</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void receberTotal(selectedPedido.id)}>Receber</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "cancelar", { motivo: "Cancelado via tela" })}>Cancelar</button>
+                    <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => imprimirPedido(selectedPedido.id)}>Imprimir PDF</button>
                   </div>
 
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
@@ -1337,6 +1349,7 @@ export default function ComprasPedidosClient() {
                             <th>ID</th>
                             <th>Codigo</th>
                             <th>Descricao</th>
+                            <th>Origem</th>
                             <th>Unid</th>
                             <th>Qtd</th>
                             <th>Vlr unit</th>
@@ -1367,6 +1380,9 @@ export default function ComprasPedidosClient() {
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, item_nome: e.target.value } }))
                                     }
                                   />
+                                </td>
+                                <td className="text-xs text-zinc-300 whitespace-nowrap">
+                                  {String(it.origem_resumo ?? (isManual ? "MANUAL" : "-"))}
                                 </td>
                                 <td>
                                   <input
@@ -1422,7 +1438,7 @@ export default function ComprasPedidosClient() {
                           })}
                           {!pedidoItens.length && (
                             <tr>
-                              <td className="py-3 text-zinc-500" colSpan={9}>Nenhum item no pedido selecionado.</td>
+                              <td className="py-3 text-zinc-500" colSpan={10}>Nenhum item no pedido selecionado.</td>
                             </tr>
                           )}
                         </tbody>

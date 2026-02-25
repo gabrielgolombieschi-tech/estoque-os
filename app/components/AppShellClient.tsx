@@ -32,6 +32,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/itens" ||
     pathname === "/itens/imprimir" ||
     pathname === "/compras/pedidos" ||
+    pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname === "/estoque/relatorios" ||
     pathname === "/comercial/orcamentos" ||
     pathname?.startsWith("/comercial/orcamentos/") && pathname?.endsWith("/imprimir") ||
@@ -64,6 +65,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     isPainelTv ||
     pathname === "/itens/imprimir" ||
     pathname === "/estoque/importar/imprimir" ||
+    pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname?.startsWith("/comercial/orcamentos/") && pathname?.endsWith("/imprimir") ||
     pathname === "/painel-tv" ||
     pathname?.startsWith("/projetos") ||
@@ -265,6 +267,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
 
   // Páginas de impressão: não renderizar chrome/layout do app (menu/topbar/etc).
   const isBlankPrint =
+    pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname?.startsWith("/comercial/orcamentos/") && pathname?.endsWith("/imprimir");
   if (isBlankPrint) return <>{children}</>;
 
