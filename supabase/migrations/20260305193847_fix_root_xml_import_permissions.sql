@@ -1,5 +1,4 @@
 begin;
-
 -- Root fix: ensure XML import permission matrix includes COMPRAS and
 -- post-import fiscal document flow accepts xml_import.execute users.
 
@@ -84,7 +83,6 @@ begin
   return false;
 end;
 $$;
-
 create or replace function f.fn_find_documento_fiscal_from_import(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -209,10 +207,8 @@ begin
   return v_doc_id;
 end;
 $$;
-
 revoke all on function f.fn_find_documento_fiscal_from_import(uuid, uuid, bigint, text) from public;
 grant execute on function f.fn_find_documento_fiscal_from_import(uuid, uuid, bigint, text) to authenticated;
-
 with roles_norm as (
   select
     id,
@@ -240,5 +236,4 @@ select tr.id, r.resource, r.action
 from target_roles tr
 cross join rules r
 on conflict do nothing;
-
 commit;

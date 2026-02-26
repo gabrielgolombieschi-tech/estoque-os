@@ -1,5 +1,4 @@
 begin;
-
 -- Reconcilia matriz de permissao do gate legado de import_nf_entrada:
 -- a funcao ainda valida financeiro.write/config para gerar AP.
 -- Inclui COMPRAS no conjunto permitido para este gate.
@@ -84,6 +83,4 @@ begin
   return false;
 end;
 $$;
-
 commit;
-

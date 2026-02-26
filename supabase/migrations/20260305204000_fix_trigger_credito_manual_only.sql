@@ -1,5 +1,4 @@
 begin;
-
 create or replace function f.trg_titulo__aplicar_credito_fiscal_manual()
 returns trigger
 language plpgsql
@@ -23,6 +22,4 @@ begin
   return new;
 end;
 $$;
-
 commit;
-

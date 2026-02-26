@@ -1,3 +1,4 @@
 begin;
--- Legacy migration neutralized for local shadow-db replay.
+alter table public.itens
+  add column if not exists fabricante text;
 commit;

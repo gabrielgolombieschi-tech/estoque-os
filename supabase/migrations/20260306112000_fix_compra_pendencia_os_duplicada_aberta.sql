@@ -1,5 +1,4 @@
 begin;
-
 -- Corrige dados existentes: para a mesma OS + item, manter apenas uma pendencia aberta
 -- (priorizando EM_PEDIDO) e cancelar as duplicadas.
 with abertas as (
@@ -35,7 +34,6 @@ update m.compra_pendencia cp
        cancel_reason = 'Cancelado automaticamente: duplicidade de pendencia aberta para a mesma OS/item.',
        updated_by = a.fn_current_usuario_id()
  where cp.id in (select id from dups);
-
 -- Garante integridade futura: no maximo uma pendencia aberta (PENDENTE/EM_PEDIDO)
 -- por tenant+empresa+OS+item.
 create unique index if not exists uq_compra_pendencia__os_item_aberta
@@ -45,5 +43,4 @@ create unique index if not exists uq_compra_pendencia__os_item_aberta
     and status in ('PENDENTE', 'EM_PEDIDO')
     and origem_os_id is not null
     and item_id is not null;
-
 commit;

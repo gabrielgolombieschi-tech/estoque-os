@@ -1,5 +1,4 @@
 set check_function_bodies = off;
-
 create or replace function m.fn_compra_varredura(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -292,5 +291,4 @@ begin
   );
 end;
 $$;
-
 grant execute on function m.fn_compra_varredura(uuid, uuid, boolean, boolean) to authenticated, service_role;

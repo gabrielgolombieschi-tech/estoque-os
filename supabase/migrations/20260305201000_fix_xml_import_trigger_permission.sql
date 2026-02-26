@@ -1,5 +1,4 @@
 begin;
-
 create or replace function f.fn_nf_entrada__auto_fix_ap_from_xml()
 returns trigger
 language plpgsql
@@ -99,6 +98,4 @@ begin
   return new;
 end;
 $$;
-
 commit;
-

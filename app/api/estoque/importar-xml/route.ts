@@ -384,17 +384,15 @@ export async function POST(req: NextRequest) {
 
     if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
 
-    // Idempotent stock backfill for already-imported NFs that may lack movimentacoes.
-    if (status === "ja_importada") {
-      const { error: backfillMovErr } = await admin.rpc("fn_backfill_movimentacoes_nf_entrada", {
-        p_nf_entrada_id: nfEntradaId,
-      });
-      if (backfillMovErr) {
-        return jerr(
-          422,
-          `NF ja importada, mas falhou ao sincronizar movimentacoes de estoque. nf_entrada_id=${nfEntradaId}. Detalhe: ${backfillMovErr.message}`
-        );
-      }
+    // Idempotent stock backfill to guarantee movement consistency both for new and already-imported NFs.
+    const { error: backfillMovErr } = await admin.rpc("fn_backfill_movimentacoes_nf_entrada", {
+      p_nf_entrada_id: nfEntradaId,
+    });
+    if (backfillMovErr) {
+      return jerr(
+        422,
+        `NF importada, mas falhou ao sincronizar movimentacoes de estoque. nf_entrada_id=${nfEntradaId}. Detalhe: ${backfillMovErr.message}`
+      );
     }
 
     // Mandatory post-condition: import must end with AP title + parcelas consistent.
@@ -425,7 +423,10 @@ export async function POST(req: NextRequest) {
       p_aprovado_por: aprovadoPorUsuarioId,
     });
     if (syncErr) {
-      return jerr(422, `Falha ao sincronizar classificacao/aprovacao do titulo AP (${tituloId}). Detalhe: ${syncErr.message}`);
+      return jerr(
+        422,
+        `NF importada e estoque sincronizado, mas falhou ao sincronizar classificacao/aprovacao do titulo AP (${tituloId}). Detalhe: ${syncErr.message}`
+      );
     }
 
     return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });

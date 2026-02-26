@@ -1,4 +1,5 @@
 set check_function_bodies = off;
+
 create or replace function m.fn_compra_varredura(
   p_tenant_id uuid,
   p_empresa_id uuid,
@@ -168,15 +169,16 @@ begin
       select
         p.tenant_id,
         p.empresa_id,
-        i.item_id,
-        sum(greatest(i.quantidade - i.quantidade_recebida, 0))::numeric(15,3) as qtd_em_compra
-      from m.pedido_compra_item i
-      join m.pedido_compra p on p.id = i.pedido_compra_id
+        pci.item_id,
+        sum(greatest(pci.quantidade - pci.quantidade_recebida, 0))::numeric(15,3) as qtd_em_compra
+      from m.pedido_compra_item pci
+      join m.pedido_compra p on p.id = pci.pedido_compra_id
       where p.deleted_at is null
+        and pci.deleted_at is null
         and p.tenant_id = p_tenant_id
         and p.empresa_id = p_empresa_id
         and p.status in ('RASCUNHO','AGUARDANDO_APROVACAO','APROVADO','ENVIADO','PARCIAL_RECEBIDO')
-      group by p.tenant_id, p.empresa_id, i.item_id
+      group by p.tenant_id, p.empresa_id, pci.item_id
     ),
     calc as (
       select
@@ -208,7 +210,8 @@ begin
     existentes as (
       select distinct on (cp.item_id)
         cp.id,
-        cp.item_id
+        cp.item_id,
+        cp.status
       from m.compra_pendencia cp
       where cp.tenant_id = p_tenant_id
         and cp.empresa_id = p_empresa_id
@@ -223,10 +226,23 @@ begin
              estoque_meta = 'MIN',
              fornecedor_id = coalesce(cp.fornecedor_id, c.fornecedor_id),
              updated_by = a.fn_current_usuario_id()
-        from calc c, existentes ex
-       where ex.id = cp.id
-         and ex.item_id = c.item_id
+        from calc c
+        join existentes ex on ex.item_id = c.item_id
+       where cp.id = ex.id
+         and ex.status = 'PENDENTE'
          and c.sugestao_min > 0
+      returning cp.id
+    ),
+    canceladas_zero as (
+      update m.compra_pendencia cp
+         set status = 'CANCELADO',
+             cancel_reason = 'Cancelado automaticamente: necessidade de estoque atendida (sugestao MIN = 0).',
+             updated_by = a.fn_current_usuario_id()
+        from calc c
+        join existentes ex on ex.item_id = c.item_id
+       where cp.id = ex.id
+         and ex.status = 'PENDENTE'
+         and c.sugestao_min <= 0
       returning cp.id
     ),
     ins as (
@@ -278,4 +294,5 @@ begin
   );
 end;
 $$;
+
 grant execute on function m.fn_compra_varredura(uuid, uuid, boolean, boolean) to authenticated, service_role;

@@ -1,5 +1,4 @@
 begin;
-
 create or replace function public.fn_backfill_movimentacoes_nf_entrada(
   p_nf_entrada_id bigint
 ) returns table(rows_inserted integer)
@@ -93,8 +92,6 @@ begin
   return next;
 end;
 $$;
-
 grant all on function public.fn_backfill_movimentacoes_nf_entrada(bigint) to authenticated;
 grant all on function public.fn_backfill_movimentacoes_nf_entrada(bigint) to service_role;
-
 commit;

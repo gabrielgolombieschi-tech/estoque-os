@@ -1,13 +1,13 @@
 begin;
 -- Normalize CNPJ: keep only digits, require 14 digits, else NULL
-create or replace function public.normalize_cnpj(p text)
+create or replace function public.normalize_cnpj(p_cnpj text)
 returns text
 language sql
 immutable
 as $$
   select case
-    when length(nullif(regexp_replace(coalesce(p,''), '[^0-9]', '', 'g'), '')) = 14
-      then nullif(regexp_replace(coalesce(p,''), '[^0-9]', '', 'g'), '')
+    when length(nullif(regexp_replace(coalesce(p_cnpj,''), '[^0-9]', '', 'g'), '')) = 14
+      then nullif(regexp_replace(coalesce(p_cnpj,''), '[^0-9]', '', 'g'), '')
     else null
   end;
 $$;

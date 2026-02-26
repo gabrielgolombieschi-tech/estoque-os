@@ -1,5 +1,4 @@
 begin;
-
 -- Root-cause fix: consolidated impostos must use effective value
 -- (valor_ajustado when present, otherwise valor_calculado),
 -- same business logic expected by fiscal conference in the UI.
@@ -29,8 +28,6 @@ group by
   df.operacao,
   dfi.imposto,
   dfi.natureza;
-
 revoke all on f.vw_imposto_apuracao_mensal from public;
-
 notify pgrst, 'reload schema';
 commit;

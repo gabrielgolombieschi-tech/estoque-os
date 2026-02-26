@@ -12,7 +12,6 @@ set row_security to 'off'
 as $$
   select f.has_finance_access(p_tenant, p_empresa);
 $$;
-
 create table if not exists f.gestao_cobranca_os (
   id uuid default gen_random_uuid() not null,
   tenant_id uuid not null,
@@ -36,36 +35,28 @@ create table if not exists f.gestao_cobranca_os (
   constraint pk_f_gestao_cobranca_os primary key (id),
   constraint uq_gestao_cobranca_os__tenant_empresa_os unique (tenant_id, empresa_id, os_id)
 );
-
 create index if not exists idx_gestao_cobranca_os__tenant_empresa_status
   on f.gestao_cobranca_os (tenant_id, empresa_id, status)
   where deleted_at is null;
-
 create index if not exists idx_gestao_cobranca_os__tenant_empresa_os
   on f.gestao_cobranca_os (tenant_id, empresa_id, os_id)
   where deleted_at is null;
-
 create index if not exists idx_gestao_cobranca_os__proximo_contato
   on f.gestao_cobranca_os (tenant_id, empresa_id, proximo_contato_date)
   where deleted_at is null;
-
 drop trigger if exists trg_gestao_cobranca_os_set_updated_at on f.gestao_cobranca_os;
 create trigger trg_gestao_cobranca_os_set_updated_at
 before update on f.gestao_cobranca_os
 for each row execute function a.fn_set_updated_at();
-
 drop trigger if exists trg_gestao_cobranca_os_set_updated_by on f.gestao_cobranca_os;
 create trigger trg_gestao_cobranca_os_set_updated_by
 before update on f.gestao_cobranca_os
 for each row execute function f.fn_set_updated_by();
-
 drop trigger if exists trg_audit_gestao_cobranca_os on f.gestao_cobranca_os;
 create trigger trg_audit_gestao_cobranca_os
 after insert or update or delete on f.gestao_cobranca_os
 for each row execute function public.audit_trigger();
-
 alter table f.gestao_cobranca_os enable row level security;
-
 drop policy if exists gestao_cobranca_os_all on f.gestao_cobranca_os;
 create policy gestao_cobranca_os_all
 on f.gestao_cobranca_os
@@ -81,13 +72,11 @@ with check (
   and empresa_id = public.current_empresa_id()
   and f.has_cobranca_access()
 );
-
 insert into f.gestao_cobranca_os (tenant_id, empresa_id, os_id, status)
 select os.tenant_id, os.empresa_id, os.id, 'PENDENTE'
 from public.ordens_servico os
 where os.status = 'concluida'
 on conflict on constraint uq_gestao_cobranca_os__tenant_empresa_os do nothing;
-
 create or replace function public.fn_on_os_concluida_init_cobranca()
 returns trigger
 language plpgsql
@@ -105,13 +94,11 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_on_os_concluida_init_cobranca on public.ordens_servico;
 create trigger trg_on_os_concluida_init_cobranca
 after update of status on public.ordens_servico
 for each row
 execute function public.fn_on_os_concluida_init_cobranca();
-
 create or replace view r.r_gestao_cobranca_os as
 select
   os.tenant_id,

@@ -1,5 +1,4 @@
 begin;
-
 -- Adjust credit-conference RPC to current schema (without legacy nf_entrada_itens credit-mode columns).
 create or replace function f.fn_imposto_credito_conferencia_range(
   p_tenant_id uuid,
@@ -80,10 +79,8 @@ begin
   order by 1 asc, 2 asc;
 end;
 $$;
-
 revoke all on function f.fn_imposto_credito_conferencia_range(uuid, uuid, date, date) from public;
 grant execute on function f.fn_imposto_credito_conferencia_range(uuid, uuid, date, date) to authenticated;
 grant execute on function f.fn_imposto_credito_conferencia_range(uuid, uuid, date, date) to service_role;
-
 notify pgrst, 'reload schema';
 commit;

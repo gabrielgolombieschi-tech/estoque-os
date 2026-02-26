@@ -25,6 +25,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .single();
   if (pedidoErr) return jsonError(400, pedidoErr.message);
 
+  let fornecedorNome = "SEM FORNECEDOR";
+  const fornecedorId = Number((pedido as Record<string, unknown>).fornecedor_id);
+  if (Number.isFinite(fornecedorId) && fornecedorId > 0) {
+    const { data: fornecedor, error: fornecedorErr } = await supabase
+      .from("fornecedores")
+      .select("id,nome")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .eq("id", fornecedorId)
+      .maybeSingle();
+    if (fornecedorErr) return jsonError(400, fornecedorErr.message);
+    fornecedorNome = String((fornecedor as Record<string, unknown> | null)?.nome ?? "").trim() || "SEM FORNECEDOR";
+  }
+
   const [itensRes, eventosRes, recebRes] = await Promise.all([
     supabase
       .schema("m")
@@ -201,7 +215,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   return Response.json({
     data: {
-      pedido,
+      pedido: {
+        ...(pedido as Record<string, unknown>),
+        fornecedor_nome: fornecedorNome,
+      },
       itens: itensEnriquecidos,
       eventos: eventosRes.data ?? [],
       recebimentos: recebRes.data ?? [],

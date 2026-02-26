@@ -1,5 +1,4 @@
 begin;
-
 -- Sincroniza PIS/COFINS DEBITO para documentos NFSE de saida/servico.
 -- Regras:
 -- 1) Se existir valor em linha previa (DEBITO/RETENCAO), replica para DEBITO.
@@ -137,11 +136,9 @@ begin
   end loop;
 end;
 $$;
-
 revoke all on function f.fn_nfse_sync_piscofins_debito_doc(uuid) from public;
 grant execute on function f.fn_nfse_sync_piscofins_debito_doc(uuid) to service_role;
 grant execute on function f.fn_nfse_sync_piscofins_debito_doc(uuid) to authenticated;
-
 create or replace function f.trg_nfse_sync_piscofins_from_doc()
 returns trigger
 language plpgsql
@@ -164,14 +161,12 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_nfse_sync_piscofins_from_doc on f.documento_fiscal;
 create trigger trg_nfse_sync_piscofins_from_doc
 after insert or update of valor_servicos, valor_total, material_valor, chave_acesso, modelo, operacao, natureza, deleted_at
 on f.documento_fiscal
 for each row
 execute function f.trg_nfse_sync_piscofins_from_doc();
-
 create or replace function f.trg_nfse_sync_piscofins_from_imposto_ret()
 returns trigger
 language plpgsql
@@ -193,7 +188,6 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_nfse_sync_piscofins_from_imposto_ret on f.documento_fiscal_imposto;
 create trigger trg_nfse_sync_piscofins_from_imposto_ret
 after insert or update of valor_calculado, valor_ajustado, aliquota, natureza, deleted_at
@@ -201,7 +195,6 @@ on f.documento_fiscal_imposto
 for each row
 when (new.imposto in ('PIS','COFINS') and new.natureza = 'RETENCAO')
 execute function f.trg_nfse_sync_piscofins_from_imposto_ret();
-
 -- Backfill pontual solicitado: janeiro e fevereiro/2026.
 do $$
 declare
@@ -222,6 +215,5 @@ begin
     perform f.fn_nfse_sync_piscofins_debito_doc(r.id);
   end loop;
 end $$;
-
 notify pgrst, 'reload schema';
 commit;

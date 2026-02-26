@@ -30,24 +30,13 @@ CREATE TYPE "public"."capability_pair" AS (
 	"action" "text"
 );
 ALTER TYPE "public"."capability_pair" OWNER TO "postgres";
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'public'
-      AND t.typname = 'item_finalidade'
-  ) THEN
-    CREATE TYPE "public"."item_finalidade" AS ENUM (
-      'consumo',
-      'materia_prima',
-      'revenda',
-      'imobilizado',
-      'outros'
-    );
-  END IF;
-END $$;
+CREATE TYPE "public"."item_finalidade" AS ENUM (
+    'consumo',
+    'materia_prima',
+    'revenda',
+    'imobilizado',
+    'outros'
+);
 ALTER TYPE "public"."item_finalidade" OWNER TO "postgres";
 CREATE TYPE "public"."os_gestao_area" AS ENUM (
     'eletrico',

@@ -8,7 +8,7 @@ create or replace function public.fn_sync_titulo_aprovacao_from_nf_entrada(
 ) returns void
 language plpgsql
 security definer
-set search_path to 'public', 'f', 'a'
+set search_path to 'public', 'f', 'a', 'c'
 set row_security to off
 as $$
 declare
@@ -76,6 +76,7 @@ begin
   end if;
 end;
 $$;
+alter function public.fn_sync_titulo_aprovacao_from_nf_entrada(bigint, uuid, uuid, integer, uuid) owner to postgres;
 revoke all on function public.fn_sync_titulo_aprovacao_from_nf_entrada(bigint, uuid, uuid, integer, uuid) from public;
 grant execute on function public.fn_sync_titulo_aprovacao_from_nf_entrada(bigint, uuid, uuid, integer, uuid) to authenticated;
 grant execute on function public.fn_sync_titulo_aprovacao_from_nf_entrada(bigint, uuid, uuid, integer, uuid) to service_role;

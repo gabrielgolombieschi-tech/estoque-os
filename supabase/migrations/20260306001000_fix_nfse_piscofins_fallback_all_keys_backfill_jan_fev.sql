@@ -1,5 +1,4 @@
 begin;
-
 -- Ajuste: aplicar fallback cumulativo para NFSE de saida independentemente do formato da chave (NFSE- / NFSE:).
 create or replace function f.fn_nfse_sync_piscofins_debito_doc(
   p_documento_fiscal_id uuid
@@ -131,7 +130,6 @@ begin
   end loop;
 end;
 $$;
-
 -- re-backfill jan/fev solicitado
  do $$
  declare
@@ -152,6 +150,5 @@ $$;
      perform f.fn_nfse_sync_piscofins_debito_doc(r.id);
    end loop;
  end $$;
-
 notify pgrst, 'reload schema';
 commit;

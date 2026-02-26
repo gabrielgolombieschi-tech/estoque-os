@@ -1,5 +1,4 @@
 begin;
-
 -- Compras/Pedidos: liberar todas as acoes para os papeis
 -- ADMIN, FINANCEIRO, COORDENACAO e COMPRAS.
 create or replace function public.can(p_resource text, p_action text, p_tenant_id uuid)
@@ -74,5 +73,4 @@ begin
   return false;
 end;
 $$;
-
 commit;
