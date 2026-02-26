@@ -352,47 +352,54 @@ begin
   perform f.nfe_gravar_impostos_da_nf_entrada(v_df.source_nf_entrada_id, v_df.id, v_df.tenant_id);
 end;
 $$;
--- 2) Historical fix: ENTRADA with DEBITO -> CREDITO (ICMS/PIS/COFINS/IPI).
---    Avoid unique collisions (uq_documento_fiscal_imposto__doc_imp_nat) in 2 steps.
+do $$
+begin
+  if to_regclass('f.documento_fiscal_imposto') is not null
+    and to_regclass('f.documento_fiscal') is not null then
+    -- 2) Historical fix: ENTRADA with DEBITO -> CREDITO (ICMS/PIS/COFINS/IPI).
+    --    Avoid unique collisions (uq_documento_fiscal_imposto__doc_imp_nat) in 2 steps.
 
--- 2.1) Delete DEBITO rows when a matching CREDITO already exists.
-delete from f.documento_fiscal_imposto dfi
-using f.documento_fiscal df
-where df.id = dfi.documento_fiscal_id
-  and df.tenant_id = dfi.tenant_id
-  and df.deleted_at is null
-  and dfi.deleted_at is null
-  and df.operacao = 'ENTRADA'
-  and dfi.natureza = 'DEBITO'
-  and dfi.imposto in ('ICMS','PIS','COFINS','IPI')
-  and exists (
-    select 1
-    from f.documento_fiscal_imposto dfi2
-    where dfi2.tenant_id = dfi.tenant_id
-      and dfi2.documento_fiscal_id = dfi.documento_fiscal_id
-      and dfi2.imposto = dfi.imposto
-      and dfi2.natureza = 'CREDITO'
-      and dfi2.deleted_at is null
-  );
--- 2.2) Update remaining DEBITO -> CREDITO where there isn't a CREDITO yet.
-update f.documento_fiscal_imposto dfi
-set natureza = 'CREDITO',
-    updated_at = now()
-from f.documento_fiscal df
-where df.id = dfi.documento_fiscal_id
-  and df.tenant_id = dfi.tenant_id
-  and df.deleted_at is null
-  and dfi.deleted_at is null
-  and df.operacao = 'ENTRADA'
-  and dfi.natureza = 'DEBITO'
-  and dfi.imposto in ('ICMS','PIS','COFINS','IPI')
-  and not exists (
-    select 1
-    from f.documento_fiscal_imposto dfi2
-    where dfi2.tenant_id = dfi.tenant_id
-      and dfi2.documento_fiscal_id = dfi.documento_fiscal_id
-      and dfi2.imposto = dfi.imposto
-      and dfi2.natureza = 'CREDITO'
-      and dfi2.deleted_at is null
-  );
+    -- 2.1) Delete DEBITO rows when a matching CREDITO already exists.
+    delete from f.documento_fiscal_imposto dfi
+    using f.documento_fiscal df
+    where df.id = dfi.documento_fiscal_id
+      and df.tenant_id = dfi.tenant_id
+      and df.deleted_at is null
+      and dfi.deleted_at is null
+      and df.operacao = 'ENTRADA'
+      and dfi.natureza = 'DEBITO'
+      and dfi.imposto in ('ICMS','PIS','COFINS','IPI')
+      and exists (
+        select 1
+        from f.documento_fiscal_imposto dfi2
+        where dfi2.tenant_id = dfi.tenant_id
+          and dfi2.documento_fiscal_id = dfi.documento_fiscal_id
+          and dfi2.imposto = dfi.imposto
+          and dfi2.natureza = 'CREDITO'
+          and dfi2.deleted_at is null
+      );
+
+    -- 2.2) Update remaining DEBITO -> CREDITO where there isn't a CREDITO yet.
+    update f.documento_fiscal_imposto dfi
+    set natureza = 'CREDITO',
+        updated_at = now()
+    from f.documento_fiscal df
+    where df.id = dfi.documento_fiscal_id
+      and df.tenant_id = dfi.tenant_id
+      and df.deleted_at is null
+      and dfi.deleted_at is null
+      and df.operacao = 'ENTRADA'
+      and dfi.natureza = 'DEBITO'
+      and dfi.imposto in ('ICMS','PIS','COFINS','IPI')
+      and not exists (
+        select 1
+        from f.documento_fiscal_imposto dfi2
+        where dfi2.tenant_id = dfi.tenant_id
+          and dfi2.documento_fiscal_id = dfi.documento_fiscal_id
+          and dfi2.imposto = dfi.imposto
+          and dfi2.natureza = 'CREDITO'
+          and dfi2.deleted_at is null
+      );
+  end if;
+end$$;
 commit;

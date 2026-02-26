@@ -1,4 +1,5 @@
 begin;
+create schema if not exists f;
 -- Fix: make f.gerar_ap_pendente_por_nf_entrada_v2 compatible with the current finance schema.
 -- The previous version referenced non-existent columns (ex.: f.documento_fiscal.tipo/status/origem/observacoes,
 -- f.titulo.vencimento_date/solicitante_usuario_id/os_id, f.titulo_parcela.valor_original/status, etc).

@@ -11,12 +11,23 @@ begin
     );
   end if;
 end$$;
-alter table public.itens
-  add column if not exists finalidade public.item_finalidade;
-alter table public.fornecedores
-  add column if not exists finalidade_padrao public.item_finalidade;
-alter table public.nf_entrada
-  add column if not exists finalidade_contexto public.item_finalidade;
+do $$
+begin
+  if to_regclass('public.itens') is not null then
+    alter table public.itens
+      add column if not exists finalidade public.item_finalidade;
+  end if;
+
+  if to_regclass('public.fornecedores') is not null then
+    alter table public.fornecedores
+      add column if not exists finalidade_padrao public.item_finalidade;
+  end if;
+
+  if to_regclass('public.nf_entrada') is not null then
+    alter table public.nf_entrada
+      add column if not exists finalidade_contexto public.item_finalidade;
+  end if;
+end$$;
 drop function if exists public.import_nf_entrada(uuid, uuid, bigint, jsonb, jsonb, text);
 create or replace function public.import_nf_entrada(
   p_tenant_id uuid,

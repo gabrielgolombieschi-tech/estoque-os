@@ -18,21 +18,26 @@ begin
       cache 1;
   end if;
 end$$;
-alter sequence public.fornecedores_id_seq owned by public.fornecedores.id;
-alter table public.fornecedores
-  alter column id set default nextval('public.fornecedores_id_seq'::regclass);
 do $$
 begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'fornecedores_pkey'
-      and conrelid = 'public.fornecedores'::regclass
-  ) then
+  if to_regclass('public.fornecedores') is not null then
+    alter sequence public.fornecedores_id_seq owned by public.fornecedores.id;
+
     alter table public.fornecedores
-      add constraint fornecedores_pkey primary key (id);
+      alter column id set default nextval('public.fornecedores_id_seq'::regclass);
+
+    if not exists (
+      select 1
+      from pg_constraint
+      where conname = 'fornecedores_pkey'
+        and conrelid = 'public.fornecedores'::regclass
+    ) then
+      alter table public.fornecedores
+        add constraint fornecedores_pkey primary key (id);
+    end if;
+
+    create unique index if not exists fornecedores_tenant_documento_norm_uidx
+      on public.fornecedores (tenant_id, documento_norm);
   end if;
 end$$;
-create unique index if not exists fornecedores_tenant_documento_norm_uidx
-  on public.fornecedores (tenant_id, documento_norm);
 commit;

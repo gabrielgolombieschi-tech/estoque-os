@@ -1,6 +1,17 @@
 -- AP manual + despesas recorrentes (provis93o mensal)
 
 create schema if not exists f;
+create schema if not exists a;
+
+create or replace function a.fn_current_usuario_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select auth.uid()
+$$;
 -- 1) Tabela de recorr82ncia de AP (ex: energia/1gua/aluguel)
 create table if not exists f.ap_recorrencia (
   id uuid primary key default gen_random_uuid(),
@@ -37,23 +48,27 @@ begin
   end if;
 end$$;
 -- 2) Link opcional da recorr82ncia no t1tulo
-alter table f.titulo add column if not exists recorrencia_id uuid;
 do $$
 begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'uq_titulo__recorrencia_competencia'
-  ) then
-    alter table f.titulo
-      add constraint uq_titulo__recorrencia_competencia
-      unique (tenant_id, recorrencia_id, competencia_date);
+  if to_regclass('f.titulo') is not null then
+    alter table f.titulo add column if not exists recorrencia_id uuid;
+
+    if not exists (
+      select 1
+      from pg_constraint
+      where conname = 'uq_titulo__recorrencia_competencia'
+    ) then
+      alter table f.titulo
+        add constraint uq_titulo__recorrencia_competencia
+        unique (tenant_id, recorrencia_id, competencia_date);
+    end if;
+
+    create index if not exists idx_titulo__recorrencia_id on f.titulo (recorrencia_id);
   end if;
 exception
   when duplicate_object then
     null;
 end$$;
-create index if not exists idx_titulo__recorrencia_id on f.titulo (recorrencia_id);
 -- Helpers
 create or replace function f._month_first(p_date date)
 returns date
@@ -555,102 +570,108 @@ grant execute on function f.provisionar_ap_recorrencia(uuid, integer, text) to a
 grant execute on function f.atualizar_proximos_ap_recorrencia(uuid, date, text) to authenticated;
 -- 6) Ajustar valor do ttulo/parcela AP (antes de pagar). 
 -- Uso: contas provisionadas (energia/gua) podem variar; ajusta o valor para o real e depois paga.
-create or replace function f.ajustar_valor_parcela_ap(
-  p_titulo_parcela_id uuid,
-  p_novo_valor numeric,
-  p_change_reason text default null
-)
-returns void
-language plpgsql
-security definer
-set search_path to 'f','public','a','c'
-set row_security to 'off'
-as $$
-declare
-  v_tp f.titulo_parcela%rowtype;
-  v_t f.titulo%rowtype;
-  v_tenant_id uuid;
-  v_empresa_id uuid;
-  v_usuario_id uuid;
-  v_delta numeric(15,2);
+do $$
 begin
-  if p_titulo_parcela_id is null then
-    raise exception 'p_titulo_parcela_id obrigat3rio';
+  if to_regclass('f.titulo') is not null
+    and to_regclass('f.titulo_parcela') is not null
+    and to_regclass('f.pagamento_item') is not null then
+    execute $sql$
+      create or replace function f.ajustar_valor_parcela_ap(
+        p_titulo_parcela_id uuid,
+        p_novo_valor numeric,
+        p_change_reason text default null
+      )
+      returns void
+      language plpgsql
+      security definer
+      set search_path to 'f','public','a','c'
+      set row_security to 'off'
+      as $fn$
+      declare
+        v_tp f.titulo_parcela%rowtype;
+        v_t f.titulo%rowtype;
+        v_tenant_id uuid;
+        v_empresa_id uuid;
+        v_usuario_id uuid;
+        v_delta numeric(15,2);
+      begin
+        if p_titulo_parcela_id is null then
+          raise exception 'p_titulo_parcela_id obrigatorio';
+        end if;
+        if p_novo_valor is null or p_novo_valor <= 0 then
+          raise exception 'p_novo_valor deve ser > 0';
+        end if;
+
+        if auth.uid() is null then
+          if current_user not in ('postgres','service_role') then
+            raise exception 'Usuario nao autenticado';
+          end if;
+        end if;
+
+        select * into v_tp
+        from f.titulo_parcela tp
+        where tp.id = p_titulo_parcela_id
+          and tp.deleted_at is null;
+
+        if not found then
+          raise exception 'Parcela nao encontrada';
+        end if;
+
+        select * into v_t
+        from f.titulo t
+        where t.id = v_tp.titulo_id
+          and t.deleted_at is null;
+
+        if not found then
+          raise exception 'Titulo nao encontrado';
+        end if;
+
+        if v_t.tipo <> 'AP' then
+          raise exception 'Somente AP pode ajustar valor';
+        end if;
+
+        if v_t.status <> 'PENDENTE' then
+          raise exception 'So ajusta valor em titulo PENDENTE (status=%)', v_t.status;
+        end if;
+
+        if exists (
+          select 1
+          from f.pagamento_item pi
+          where pi.titulo_parcela_id = v_tp.id
+            and pi.deleted_at is null
+        ) then
+          raise exception 'Nao e possivel ajustar: parcela ja possui pagamentos aplicados';
+        end if;
+
+        v_tenant_id := v_t.tenant_id;
+        v_empresa_id := v_t.empresa_id;
+
+        if auth.uid() is not null then
+          if not f.has_finance_access(v_tenant_id, v_empresa_id) then
+            raise exception 'Sem permissao financeira';
+          end if;
+        end if;
+
+        v_usuario_id := a.fn_current_usuario_id();
+        v_delta := p_novo_valor - v_tp.valor;
+
+        update f.titulo_parcela
+           set valor = p_novo_valor,
+               valor_aberto = p_novo_valor,
+               updated_at = now(),
+               updated_by = v_usuario_id
+         where id = v_tp.id;
+
+        update f.titulo
+           set valor_total = valor_total + v_delta,
+               valor_aberto = valor_aberto + v_delta,
+               updated_at = now(),
+               updated_by = v_usuario_id
+         where id = v_t.id;
+      end;
+      $fn$;
+    $sql$;
+
+    grant execute on function f.ajustar_valor_parcela_ap(uuid, numeric, text) to authenticated;
   end if;
-  if p_novo_valor is null or p_novo_valor <= 0 then
-    raise exception 'p_novo_valor deve ser > 0';
-  end if;
-
-  -- Auth: app ou SQL Editor
-  if auth.uid() is null then
-    if current_user not in ('postgres','service_role') then
-      raise exception 'Usuario nao autenticado';
-    end if;
-  end if;
-
-  select * into v_tp
-  from f.titulo_parcela tp
-  where tp.id = p_titulo_parcela_id
-    and tp.deleted_at is null;
-
-  if not found then
-    raise exception 'Parcela n3o encontrada';
-  end if;
-
-  select * into v_t
-  from f.titulo t
-  where t.id = v_tp.titulo_id
-    and t.deleted_at is null;
-
-  if not found then
-    raise exception 'Titulo n3o encontrado';
-  end if;
-
-  if v_t.tipo <> 'AP' then
-    raise exception 'Somente AP pode ajustar valor';
-  end if;
-
-  if v_t.status <> 'PENDENTE' then
-    raise exception 'S3 ajusta valor em t1tulo PENDENTE (status=%)', v_t.status;
-  end if;
-
-  -- N3o permite ajustar se j1 h1 pagamentos aplicados
-  if exists (
-    select 1
-    from f.pagamento_item pi
-    where pi.titulo_parcela_id = v_tp.id
-      and pi.deleted_at is null
-  ) then
-    raise exception 'N3o  poss1vel ajustar: parcela j1 possui pagamentos aplicados';
-  end if;
-
-  v_tenant_id := v_t.tenant_id;
-  v_empresa_id := v_t.empresa_id;
-
-  if auth.uid() is not null then
-    if not f.has_finance_access(v_tenant_id, v_empresa_id) then
-      raise exception 'Sem permiss3o financeira';
-    end if;
-  end if;
-
-  v_usuario_id := a.fn_current_usuario_id();
-  v_delta := p_novo_valor - v_tp.valor;
-
-  -- Ajusta parcela
-  update f.titulo_parcela
-     set valor = p_novo_valor,
-         valor_aberto = p_novo_valor,
-         updated_at = now(),
-         updated_by = v_usuario_id
-   where id = v_tp.id;
-
-  -- Ajusta t1tulo
-  update f.titulo
-     set valor_total = valor_total + v_delta,
-         valor_aberto = valor_aberto + v_delta,
-         updated_at = now(),
-         updated_by = v_usuario_id
-   where id = v_t.id;
-end;
-$$;
-grant execute on function f.ajustar_valor_parcela_ap(uuid, numeric, text) to authenticated;
+end$$;

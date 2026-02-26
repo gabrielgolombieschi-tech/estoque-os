@@ -1,18 +1,21 @@
 begin;
 do $$
 begin
-  if exists (
-    select 1
-    from pg_constraint
-    where conname = 'tenant_memberships_role_check'
-  ) then
+  if to_regclass('public.tenant_memberships') is not null then
+    if exists (
+      select 1
+      from pg_constraint
+      where conname = 'tenant_memberships_role_check'
+    ) then
+      alter table public.tenant_memberships
+        drop constraint tenant_memberships_role_check;
+    end if;
+
     alter table public.tenant_memberships
-      drop constraint tenant_memberships_role_check;
+      add constraint tenant_memberships_role_check
+      check (role in ('admin', 'fiscal', 'estoque', 'projetos', 'financeiro'));
   end if;
 end$$;
-alter table public.tenant_memberships
-  add constraint tenant_memberships_role_check
-  check (role in ('admin', 'fiscal', 'estoque', 'projetos', 'financeiro'));
 do $$
 begin
   if to_regclass('public.permissions') is not null then

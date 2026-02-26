@@ -1,9 +1,9 @@
 -- Fix definitivo (Supabase/PostgREST RPC)
 --
 -- (1) remove_os_item_reverte_estoque: elimina ambiguidade de overloads
---     MantÃ©m APENAS a assinatura canÃ´nica:
+--     MantÃƒÂ©m APENAS a assinatura canÃƒÂ´nica:
 --       (p_os_item_id integer, p_realizado_por text, p_motivo text, p_empresa_id uuid)
---     e remove qualquer outra overload existente automaticamente (via catÃ¡logo pg_proc).
+--     e remove qualquer outra overload existente automaticamente (via catÃƒÂ¡logo pg_proc).
 
 BEGIN;
 --------------------------------------------------------------------------------
@@ -51,8 +51,8 @@ DECLARE
   v_tenant uuid;
   v_empresa uuid;
   v_realizado_por text;
-  v_item public.itens;
-  v_row public.os_itens;
+  v_item record;
+  v_row record;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Nao autenticado';

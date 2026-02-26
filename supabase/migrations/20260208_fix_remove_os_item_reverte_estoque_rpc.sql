@@ -40,8 +40,8 @@ declare
   v_tenant uuid;
   v_empresa uuid;
   v_realizado_por text;
-  v_item public.itens;
-  v_row public.os_itens;
+  v_item record;
+  v_row record;
 begin
   if auth.uid() is null then
     raise exception 'Nao autenticado';

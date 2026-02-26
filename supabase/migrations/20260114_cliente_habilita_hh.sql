@@ -1,8 +1,14 @@
-BEGIN;
--- Adicionar flag habilita_hh na tabela clientes
-ALTER TABLE clientes 
-  ADD COLUMN IF NOT EXISTS habilita_hh BOOLEAN NOT NULL DEFAULT false;
--- Comentário para documentação
-COMMENT ON COLUMN clientes.habilita_hh IS 'Indica se o cliente utiliza relatórios de Hora-Homem (HH)';
-NOTIFY pgrst, 'reload schema';
-COMMIT;
+begin;
+
+do $$
+begin
+  if to_regclass('public.clientes') is not null then
+    alter table public.clientes
+      add column if not exists habilita_hh boolean not null default false;
+
+    comment on column public.clientes.habilita_hh is 'Indica se o cliente utiliza relatorios de Hora-Homem (HH)';
+  end if;
+end$$;
+
+notify pgrst, 'reload schema';
+commit;
