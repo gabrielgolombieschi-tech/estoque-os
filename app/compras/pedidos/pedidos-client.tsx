@@ -161,6 +161,7 @@ export default function ComprasPedidosClient() {
   const [manualUnidade, setManualUnidade] = useState("UN");
   const [manualQtd, setManualQtd] = useState("1");
   const [manualValor, setManualValor] = useState("0");
+  const [pedidoEditMode, setPedidoEditMode] = useState(false);
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string }>>({});
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nome: string } | null>(null);
@@ -331,6 +332,11 @@ export default function ComprasPedidosClient() {
     const st = String(selectedPedido?.status ?? "").toUpperCase();
     return ["RASCUNHO", "AGUARDANDO_APROVACAO", "REPROVADO"].includes(st);
   }, [selectedPedido?.status]);
+  const canEditPedidoItems = canWrite && canEditManualItems && pedidoEditMode;
+
+  useEffect(() => {
+    setPedidoEditMode(false);
+  }, [manualPedidoId]);
 
   useEffect(() => {
     void loadFornecedores();
@@ -721,7 +727,7 @@ export default function ComprasPedidosClient() {
     }
   }, [empresaId, loadPedidoItens, loadPedidos, manualNome, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
 
-  const salvarItemManual = useCallback(
+  const salvarItemPedido = useCallback(
     async (itemId: string) => {
       if (!manualPedidoId) return;
       const draft = itemDrafts[itemId];
@@ -747,11 +753,11 @@ export default function ComprasPedidosClient() {
             valor_unitario: vlr,
           }),
         });
-        setOk("Item manual atualizado.");
+        setOk("Item atualizado.");
         await loadPedidoItens();
         await loadPedidos();
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : "Erro ao atualizar item manual.");
+        setErr(e instanceof Error ? e.message : "Erro ao atualizar item.");
       } finally {
         setBusy(false);
       }
@@ -759,7 +765,7 @@ export default function ComprasPedidosClient() {
     [empresaId, itemDrafts, loadPedidoItens, loadPedidos, manualPedidoId, tenantId]
   );
 
-  const excluirItemManual = useCallback(
+  const excluirItemPedido = useCallback(
     async (itemId: string) => {
       if (!manualPedidoId) return;
       setBusy(true);
@@ -769,11 +775,11 @@ export default function ComprasPedidosClient() {
         await authedFetch(`/api/compras/pedidos/${manualPedidoId}/itens/${itemId}?${ctxQuery}`, {
           method: "DELETE",
         });
-        setOk("Item manual excluido.");
+        setOk("Item excluido.");
         await loadPedidoItens();
         await loadPedidos();
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : "Erro ao excluir item manual.");
+        setErr(e instanceof Error ? e.message : "Erro ao excluir item.");
       } finally {
         setBusy(false);
       }
@@ -1312,6 +1318,13 @@ export default function ComprasPedidosClient() {
                   </div>
 
                   <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                      onClick={() => setPedidoEditMode((prev) => !prev)}
+                      disabled={!canWrite || !canEditManualItems}
+                    >
+                      {pedidoEditMode ? "Fechar edição" : "Editar"}
+                    </button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "enviar-aprovacao")}>Solic. Aprov.</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "aprovar")}>Aprovar</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "reprovar", { motivo: "Reprovado via tela" })}>Reprovar</button>
@@ -1324,17 +1337,21 @@ export default function ComprasPedidosClient() {
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Adicionar item manual no pedido</div>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 md:col-span-2 disabled:opacity-50" placeholder="Descricao do item" value={manualNome} disabled={!canEditManualItems || !canWrite} onChange={(e) => setManualNome(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="UN" value={manualUnidade} disabled={!canEditManualItems || !canWrite} onChange={(e) => setManualUnidade(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditManualItems || !canWrite} onChange={(e) => setManualQtd(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Valor unitario" value={manualValor} disabled={!canEditManualItems || !canWrite} onChange={(e) => setManualValor(e.target.value)} />
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 md:col-span-2 disabled:opacity-50" placeholder="Descricao do item" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="UN" value={manualUnidade} disabled={!canEditPedidoItems} onChange={(e) => setManualUnidade(e.target.value)} />
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditPedidoItems} onChange={(e) => setManualQtd(e.target.value)} />
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Valor unitario" value={manualValor} disabled={!canEditPedidoItems} onChange={(e) => setManualValor(e.target.value)} />
                     </div>
-                    <button className="px-3 py-2 rounded border border-zinc-800 disabled:opacity-50" onClick={() => void addManualItem()} disabled={busy || !canWrite || !canEditManualItems}>
+                    <button className="px-3 py-2 rounded border border-zinc-800 disabled:opacity-50" onClick={() => void addManualItem()} disabled={busy || !canEditPedidoItems}>
                       Adicionar item
                     </button>
                     {!canEditManualItems ? (
                       <div className="text-xs text-amber-300">
-                        Pedido em status {String(selectedPedido.status ?? "-")} nao permite incluir/editar/excluir item manual.
+                        Pedido em status {String(selectedPedido.status ?? "-")} nao permite edicao.
+                      </div>
+                    ) : !pedidoEditMode ? (
+                      <div className="text-xs text-zinc-400">
+                        Clique em <strong>Editar</strong> para alterar ou excluir itens.
                       </div>
                     ) : null}
                   </div>
@@ -1375,7 +1392,7 @@ export default function ComprasPedidosClient() {
                                   <input
                                     className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-full"
                                     value={draft.item_nome}
-                                    disabled={!isManual || !canWrite || !canEditManualItems}
+                                    disabled={!isManual || !canEditPedidoItems}
                                     onChange={(e) =>
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, item_nome: e.target.value } }))
                                     }
@@ -1388,7 +1405,7 @@ export default function ComprasPedidosClient() {
                                   <input
                                     className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-20"
                                     value={draft.unidade}
-                                    disabled={!isManual || !canWrite || !canEditManualItems}
+                                    disabled={!isManual || !canEditPedidoItems}
                                     onChange={(e) =>
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, unidade: e.target.value } }))
                                     }
@@ -1398,7 +1415,7 @@ export default function ComprasPedidosClient() {
                                   <input
                                     className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-24"
                                     value={draft.quantidade}
-                                    disabled={!isManual || !canWrite || !canEditManualItems}
+                                    disabled={!canEditPedidoItems}
                                     onChange={(e) =>
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, quantidade: e.target.value } }))
                                     }
@@ -1408,7 +1425,7 @@ export default function ComprasPedidosClient() {
                                   <input
                                     className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-28"
                                     value={draft.valor_unitario}
-                                    disabled={!isManual || !canWrite || !canEditManualItems}
+                                    disabled={!canEditPedidoItems}
                                     onChange={(e) =>
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, valor_unitario: e.target.value } }))
                                     }
@@ -1416,12 +1433,12 @@ export default function ComprasPedidosClient() {
                                 </td>
                                 <td className="text-center tabular-nums whitespace-nowrap px-3">{fmtMoney(Number(it.valor_total ?? 0))}</td>
                                 <td className="px-3">
-                                  {isManual ? (
+                                  {canEditPedidoItems ? (
                                     <div className="flex items-center justify-center gap-1">
-                                      <button className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50" disabled={busy || !canWrite || !canEditManualItems} onClick={() => void salvarItemManual(it.id)}>Salvar</button>
+                                      <button className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50" disabled={busy || !canEditPedidoItems} onClick={() => void salvarItemPedido(it.id)}>Salvar</button>
                                       <button
                                         className="px-2 py-1 rounded border border-red-900 text-red-300 disabled:opacity-50"
-                                        disabled={busy || !canWrite || !canEditManualItems}
+                                        disabled={busy || !canEditPedidoItems}
                                         onClick={() => setDeleteTarget({ id: it.id, nome: draft.item_nome || "ITEM MANUAL" })}
                                       >
                                         Excluir
@@ -1429,7 +1446,7 @@ export default function ComprasPedidosClient() {
                                     </div>
                                   ) : (
                                     <div className="text-center">
-                                      <span className="text-xs text-zinc-500">Item de pendencia</span>
+                                      <span className="text-xs text-zinc-500">{isManual ? "Item manual" : "Item de pendencia"}</span>
                                     </div>
                                   )}
                                 </td>
@@ -1457,7 +1474,7 @@ export default function ComprasPedidosClient() {
           <div className="w-full max-w-md rounded-lg border border-zinc-800 bg-zinc-950 p-4 space-y-3">
             <div className="text-sm font-semibold">Confirmar exclusao</div>
             <div className="text-sm text-zinc-300">
-              Excluir item manual <span className="font-medium">{deleteTarget.nome}</span>?
+              Excluir item <span className="font-medium">{deleteTarget.nome}</span>?
             </div>
             <div className="flex justify-end gap-2">
               <button
@@ -1472,7 +1489,7 @@ export default function ComprasPedidosClient() {
                 onClick={async () => {
                   const target = deleteTarget;
                   setDeleteTarget(null);
-                  if (target) await excluirItemManual(target.id);
+                  if (target) await excluirItemPedido(target.id);
                 }}
                 disabled={busy}
               >

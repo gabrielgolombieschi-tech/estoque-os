@@ -39,6 +39,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/financeiro/contas-pagar/aprovacoes" ||
     pathname === "/financeiro/impostos" ||
     pathname === "/financeiro/contas_pagar_receber" ||
+    pathname === "/financeiro/gestao-cobranca" ||
     pathname?.startsWith("/financeiro/contas_pagar_receber/");
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
@@ -455,6 +456,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         <Link href="/financeiro/contas_pagar_receber" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Fluxo Caixa
                         </Link>
+                        <Link href="/financeiro/gestao-cobranca" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Gestão Cobrança
+                        </Link>
 
                         <div className="border-t border-zinc-800 my-2" />
 
@@ -555,10 +559,6 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             <Link href="/financeiro/relatorios/fluxo-caixa/diario" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                               Diário
                             </Link>
-                            <Link href="/financeiro/gestao-cobranca" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
-                              Gestão Cobrança
-                            </Link>
-
                             <div className="border-t border-zinc-800 my-2" />
                             <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Aging</div>
                             <Link href="/financeiro/relatorios/ap-aging" className="block px-3 py-2 hover:bg-zinc-900 text-sm">

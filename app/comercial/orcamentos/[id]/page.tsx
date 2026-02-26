@@ -2166,7 +2166,9 @@ export default function OrcamentoPage() {
                   Titulo
                   <input
                     value={newDialog.titulo}
-                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, titulo: e.target.value } : p))}
+                    onChange={(e) =>
+                      setNewDialog((p) => (p.open ? { ...p, titulo: e.target.value.toLocaleUpperCase("pt-BR") } : p))
+                    }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="Ex.: Proposta de manutencao"
                   />

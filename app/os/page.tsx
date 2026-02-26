@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh: boolean 
 type OS = {
   id: number;
   numero_os: string;
+  pedido_compra: string | null;
   cliente_nome: string;
   cliente_id: number | null;
   status: string;
@@ -251,9 +252,9 @@ export default function OsListPage() {
     if (reqId !== clientesReqIdRef.current) return;
 
     if (error) {
-      // Para alguns papéis (ex.: APONTAMENTO_RH), a RLS de clientes pode bloquear via can(),
-      // enquanto ordens_servico usa can__legacy_40734. Nesses casos, não quebrar a tela:
-      // montar a lista a partir das OS visíveis.
+      // Para alguns papÃ©is (ex.: APONTAMENTO_RH), a RLS de clientes pode bloquear via can(),
+      // enquanto ordens_servico usa can__legacy_40734. Nesses casos, nÃ£o quebrar a tela:
+      // montar a lista a partir das OS visÃ­veis.
       logDebug("[OS] loadClientes:error (fallback to ordens_servico)", { message: error.message });
       await loadFromOs();
       return;
@@ -267,8 +268,8 @@ export default function OsListPage() {
     }
 
     setClientes(next);
-    // Se o usuário tem acesso a clientes, ainda assim podem existir OS antigas com nome livre.
-    // Não tentamos inferir aqui; o fallback via OS cobre quando necessário.
+    // Se o usuÃ¡rio tem acesso a clientes, ainda assim podem existir OS antigas com nome livre.
+    // NÃ£o tentamos inferir aqui; o fallback via OS cobre quando necessÃ¡rio.
     setClienteFiltroNomesLivres([]);
   }
 
@@ -305,7 +306,7 @@ export default function OsListPage() {
       supabase
         .from("ordens_servico")
         .select(
-          "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido,usa_relatorio_hh"
+          "id,numero_os,pedido_compra,cliente_nome,cliente_id,status,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido,usa_relatorio_hh"
         )
         .order("id", { ascending: false }),
       effectiveTenantId,
@@ -378,7 +379,7 @@ export default function OsListPage() {
       });
       setMateriaisPorOs(materiaisTotals);
 
-      // View sem tenant/empresa; não aplicar scope para evitar erro de coluna inexistente.
+      // View sem tenant/empresa; nÃ£o aplicar scope para evitar erro de coluna inexistente.
       const { data: maoData } = await supabase
         .from("vw_custo_mao_obra_os")
         .select("os_id,custo_mao_obra")
@@ -408,7 +409,7 @@ export default function OsListPage() {
       setHhTotalPorOs(hhTotals);
 
       // Valor do pedido HH calculado (para bater com PDF): soma(valor_hora * horas_efetivas)
-      // horas_efetivas segue a mesma regra do PDF (2 períodos ou entrada/saída; fallback horas_trabalhadas).
+      // horas_efetivas segue a mesma regra do PDF (2 perÃ­odos ou entrada/saÃ­da; fallback horas_trabalhadas).
       try {
         const hhOsIds = osList
           .filter((r) => Boolean(r.usa_relatorio_hh))
@@ -474,7 +475,7 @@ export default function OsListPage() {
       status,
     });
 
-    // NÃO aguardar tenantLoading ficar false.
+    // NÃƒO aguardar tenantLoading ficar false.
     // Sempre usar effectiveTenantId/effectiveEmpresaId (com fallback).
     if (!sessionReady || !session?.access_token) {
       logDebug("[OS] useEffect:return (sessionReady or session missing)", {
@@ -514,7 +515,7 @@ export default function OsListPage() {
     setErr(null);
     setOkMsg(null);
 
-    if (!canWriteOs) return setErr("Sem permissão para criar OS.");
+    if (!canWriteOs) return setErr("Sem permissÃ£o para criar OS.");
     if (!clienteId && !clienteNomeLivre.trim()) return setErr("Selecione um cliente ou informe um nome.");
 
     const orcadoValor = Number(orcado || 0);
@@ -568,7 +569,7 @@ export default function OsListPage() {
         numero_os: numeroGerado,
         cliente_id: clienteId,
         cliente_nome: clienteNomeFinal,
-        descricao_servico: descricao.trim() || null,
+        descricao_servico: descricao.trim() ? descricao.trim().toLocaleUpperCase("pt-BR") : null,
         pedido_compra: pedidoCompra.trim() || null,
         tipo_pedido: tipoPedido,
         vendedor: vendedor.trim() || null,
@@ -713,7 +714,7 @@ export default function OsListPage() {
   if (!tenantLoading && sessionReady && !canView) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300 px-4">
-        Sem permissão para visualizar OS.
+        Sem permissÃ£o para visualizar OS.
       </div>
     );
   }
@@ -758,7 +759,7 @@ export default function OsListPage() {
           >
             <option value="todas">Todos</option>
             <option value="hh">HH</option>
-            <option value="servico">Serviço</option>
+            <option value="servico">ServiÃ§o</option>
             <option value="material">Material</option>
           </select>
 
@@ -805,9 +806,10 @@ export default function OsListPage() {
           <thead className="bg-zinc-900/70">
             <tr className="text-zinc-200">
               <th className="px-4 py-3 text-left">OS</th>
+              <th className="px-4 py-3 text-left">Pedido</th>
               <th className="px-4 py-3 text-left">Cliente</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Descrição</th>
+              <th className="px-4 py-3 text-left">DescriÃ§Ã£o</th>
               <th className="px-4 py-3 text-right">Custo</th>
               {!hideValorPedido && <th className="px-4 py-3 text-right">Valor pedido</th>}
             </tr>
@@ -832,6 +834,8 @@ export default function OsListPage() {
                   <span className="underline decoration-zinc-600 hover:decoration-zinc-300">{r.numero_os}</span>
                 </td>
 
+                <td className="px-4 py-3 text-zinc-300">{r.pedido_compra?.trim() ? r.pedido_compra : "-"}</td>
+
                 <td className="px-4 py-3">
                   <div className="font-medium">{r.cliente_nome}</div>
                   {r.cliente_id && <div className="text-xs text-zinc-400">cliente_id={r.cliente_id}</div>}
@@ -844,11 +848,11 @@ export default function OsListPage() {
                 </td>
 
                 <td className="px-4 py-3 text-zinc-300">
-                  {r.descricao_servico ? r.descricao_servico : "Sem descrição"}
+                  {r.descricao_servico ? r.descricao_servico.toLocaleUpperCase("pt-BR") : "Sem descriÃ§Ã£o"}
                 </td>
 
                 {(() => {
-                  // HH deve depender da flag da OS; alguns perfis podem não ter SELECT em `clientes`.
+                  // HH deve depender da flag da OS; alguns perfis podem nÃ£o ter SELECT em `clientes`.
                   const hhEnabled = Boolean(r.usa_relatorio_hh);
                   const materiais = materiaisPorOs[r.id] ?? 0;
                   const maoObraExtra = maoObraPorOs[r.id] ?? 0;
@@ -894,7 +898,7 @@ export default function OsListPage() {
 
             {loading && (
               <tr>
-                <td colSpan={hideValorPedido ? 5 : 6} className="px-4 py-6 text-zinc-400">
+                <td colSpan={hideValorPedido ? 6 : 7} className="px-4 py-6 text-zinc-400">
                   Carregando...
                 </td>
               </tr>
@@ -902,7 +906,7 @@ export default function OsListPage() {
 
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={hideValorPedido ? 5 : 6} className="px-4 py-6 text-zinc-400">
+                <td colSpan={hideValorPedido ? 6 : 7} className="px-4 py-6 text-zinc-400">
                   Nenhuma OS encontrada.
                 </td>
               </tr>
@@ -1012,7 +1016,7 @@ export default function OsListPage() {
                       onChange={(e) => setUsaRelatorioHH(e.target.checked)}
                       disabled={creating}
                     />
-                    <span className="font-medium">Esta OS é de HH?</span>
+                    <span className="font-medium">Esta OS Ã© de HH?</span>
                   </label>
                 </div>
               )}
@@ -1046,7 +1050,7 @@ export default function OsListPage() {
                 <textarea
                   className="w-full px-3 py-2 min-h-[80px]"
                   value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
+                  onChange={(e) => setDescricao(e.target.value.toLocaleUpperCase("pt-BR"))}
                   aria-label="Descricao"
                   title="Descricao"
                 />
@@ -1106,3 +1110,4 @@ export default function OsListPage() {
     </div>
   );
 }
+

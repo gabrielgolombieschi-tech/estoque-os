@@ -618,7 +618,7 @@ export default function OsDetailPage() {
     setShowEdit(true);
     setClienteId(os.cliente_id ?? null);
     setClienteNomeLivre(os.cliente_nome ?? "");
-    setDescricao(os.descricao_servico ?? "");
+    setDescricao((os.descricao_servico ?? "").toLocaleUpperCase("pt-BR"));
     setPedidoCompra(os.pedido_compra ?? "");
     // Avoid React warning: <select value> must not be null.
     setTipoPedido(os.tipo_pedido === "material" ? "material" : "servico");
@@ -659,7 +659,7 @@ export default function OsDetailPage() {
       supabase.from("ordens_servico").update({
         cliente_id: clienteId,
         cliente_nome: clienteNomeFinal,
-        descricao_servico: descricao.trim() || null,
+        descricao_servico: descricao.trim() ? descricao.trim().toLocaleUpperCase("pt-BR") : null,
         pedido_compra: pedidoCompra.trim() || null,
         tipo_pedido: tipoPedido,
         vendedor: vendedor.trim() || null,
@@ -1749,7 +1749,7 @@ export default function OsDetailPage() {
                 <textarea
                   className="w-full px-3 py-2 min-h-[80px]"
                   value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
+                  onChange={(e) => setDescricao(e.target.value.toLocaleUpperCase("pt-BR"))}
                   aria-label="Descricao da OS"
                   title="Descricao da OS"
                 />
@@ -2305,7 +2305,7 @@ export default function OsDetailPage() {
                     aria-label="Descrição"
                     className="w-full px-3 py-2 min-h-[80px]"
                     value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
+                    onChange={(e) => setDescricao(e.target.value.toLocaleUpperCase("pt-BR"))}
                     placeholder="Descrição da OS"
                   />
                 </div>

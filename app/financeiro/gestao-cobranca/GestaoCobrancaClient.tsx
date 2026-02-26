@@ -44,6 +44,7 @@ type Row = {
 
 type StatusFilter = "TODOS" | "PENDENTE" | "FATURADO";
 type SortKey = "dias_desc" | "dias_asc" | "conclusao_desc" | "conclusao_asc" | "valor_desc" | "valor_asc";
+type ResponsavelOption = { id: string; nome: string };
 
 type EditState = {
   open: boolean;
@@ -57,8 +58,6 @@ type EditState = {
   busy: boolean;
   error: string | null;
 };
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function toNumber(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
@@ -122,6 +121,7 @@ export default function GestaoCobrancaClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [responsaveis, setResponsaveis] = useState<ResponsavelOption[]>([]);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("TODOS");
   const [clienteQ, setClienteQ] = useState("");
@@ -186,6 +186,42 @@ export default function GestaoCobrancaClient() {
     }
   }, [ready, tenantId, empresaId, supabase]);
 
+  const loadResponsaveis = useCallback(async () => {
+    if (!ready || !empresaId) return;
+    try {
+      const { data, error: qErr } = await supabase
+        .schema("a")
+        .from("usuario_empresa")
+        .select("usuario_id,papel,usuario:usuario_id(id,nome)")
+        .eq("empresa_id", empresaId)
+        .eq("ativo", true)
+        .is("deleted_at", null);
+
+      if (qErr) throw qErr;
+
+      const mapped = ((data ?? []) as Array<{
+        usuario_id?: string | null;
+        papel?: string | null;
+        usuario?: { id?: string | null; nome?: string | null } | null;
+      }>)
+        .map((r) => ({
+          id: String(r.usuario?.id ?? r.usuario_id ?? "").trim(),
+          nome: String(r.usuario?.nome ?? "").trim() || String(r.usuario_id ?? "").trim(),
+          papel: String(r.papel ?? "").trim().toUpperCase(),
+        }))
+        .filter((r) => r.id !== "")
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+      const unique = new Map<string, ResponsavelOption>();
+      for (const row of mapped) {
+        if (!unique.has(row.id)) unique.set(row.id, { id: row.id, nome: row.nome });
+      }
+      setResponsaveis(Array.from(unique.values()));
+    } catch {
+      setResponsaveis([]);
+    }
+  }, [ready, empresaId, supabase]);
+
   useEffect(() => {
     if (canRead === false) router.replace("/forbidden");
   }, [canRead, router]);
@@ -193,6 +229,10 @@ export default function GestaoCobrancaClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadResponsaveis();
+  }, [loadResponsaveis]);
 
   const today = todayISO();
 
@@ -279,12 +319,7 @@ export default function GestaoCobrancaClient() {
 
   const saveEdit = useCallback(async () => {
     if (!edit.row || !tenantId || !empresaId) return;
-
     const responsavel = edit.responsavelId.trim();
-    if (responsavel && !UUID_RE.test(responsavel)) {
-      setEdit((p) => ({ ...p, error: "Responsável deve ser um UUID válido." }));
-      return;
-    }
 
     setEdit((p) => ({ ...p, busy: true, error: null }));
 
@@ -440,6 +475,8 @@ export default function GestaoCobrancaClient() {
               tableRows.map((row) => {
                 const status = effectiveStatus(row);
                 const pedido = row.pedido_compra_cliente?.trim() ? row.pedido_compra_cliente : row.pedido_compra_os ?? "-";
+                const responsavelNome =
+                  responsaveis.find((u) => u.id === (row.responsavel_id ?? ""))?.nome ?? (row.responsavel_id ? row.responsavel_id : "-");
                 return (
                   <tr key={`${row.tenant_id}-${row.empresa_id}-${row.os_id}`} className="hover:bg-zinc-900/40">
                     <td className="px-3 py-3 text-zinc-200">{row.numero_os ?? row.os_num ?? row.os_id}</td>
@@ -455,7 +492,7 @@ export default function GestaoCobrancaClient() {
                       <span className={["inline-flex items-center px-2 py-1 rounded-md border text-xs", statusBadge(status)].join(" ")}>{status}</span>
                     </td>
                     <td className="px-3 py-3 text-zinc-300">{fmtDateBR(row.proximo_contato_date)}</td>
-                    <td className="px-3 py-3 text-zinc-300">{row.responsavel_id ?? "-"}</td>
+                    <td className="px-3 py-3 text-zinc-300">{responsavelNome}</td>
                     <td className="px-3 py-3">
                       <button
                         type="button"
@@ -537,14 +574,20 @@ export default function GestaoCobrancaClient() {
                 </label>
 
                 <label className="text-xs text-zinc-400 md:col-span-2">
-                  Responsável (UUID)
-                  <input
+                  Responsável
+                  <select
                     className="mt-1 w-full px-3 py-2"
                     value={edit.responsavelId}
                     onChange={(e) => setEdit((p) => ({ ...p, responsavelId: e.target.value }))}
-                    placeholder="00000000-0000-0000-0000-000000000000"
                     disabled={!canWrite || edit.busy}
-                  />
+                  >
+                    <option value="">(Não definido)</option>
+                    {responsaveis.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nome}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <label className="text-xs text-zinc-400 md:col-span-2">
