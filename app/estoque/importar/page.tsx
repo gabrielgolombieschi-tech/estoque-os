@@ -97,6 +97,16 @@ type UsuarioSolicitante = {
 
 type UsuariosSolicitantesApiResponse = { usuarios?: UsuarioSolicitante[]; error?: string };
 
+type PedidoLookupRow = {
+  id: string;
+  codigo: string | null;
+  status: string | null;
+  fornecedor_nome?: string | null;
+  solicitante_usuario_id?: string | null;
+  created_at?: string | null;
+  total_geral?: number | string | null;
+};
+
 type ImportItemPayload = {
   tenant_id: string;
   item_id: number | null;
@@ -220,7 +230,7 @@ export default function ImportarXmlPage() {
   const [finalidadeLote, setFinalidadeLote] = useState<ItemFinalidade | "">("");
 
   const [allowedAutoCadastrarFinalidades, setAllowedAutoCadastrarFinalidades] = useState<string[]>(["materia_prima"]);
-  const [allowedVincularFinalidades, setAllowedVincularFinalidades] = useState<string[]>(["materia_prima"]);
+  const [allowedVincularFinalidades, setAllowedVincularFinalidades] = useState<string[]>(["materia_prima", "revenda"]);
 
   const allowedAutoCadastrarSet = useMemo(
     () => new Set(allowedAutoCadastrarFinalidades.map((v) => String(v).trim()).filter(Boolean)),
@@ -230,6 +240,7 @@ export default function ImportarXmlPage() {
     () => new Set(allowedVincularFinalidades.map((v) => String(v).trim()).filter(Boolean)),
     [allowedVincularFinalidades]
   );
+  const finalidadesComItemObrigatorio = useMemo(() => new Set<string>(["materia_prima", "revenda"]), []);
 
   const {
     motivos,
@@ -243,6 +254,13 @@ export default function ImportarXmlPage() {
   const [usuariosSolicitantes, setUsuariosSolicitantes] = useState<UsuarioSolicitante[]>([]);
   const [usuariosSolicitantesLoading, setUsuariosSolicitantesLoading] = useState(false);
   const [usuariosSolicitantesError, setUsuariosSolicitantesError] = useState<string | null>(null);
+  const [pedidoCompraRef, setPedidoCompraRef] = useState("");
+  const [showPedidoLookup, setShowPedidoLookup] = useState(false);
+  const [pedidoLookupTerm, setPedidoLookupTerm] = useState("");
+  const [pedidoLookupRows, setPedidoLookupRows] = useState<PedidoLookupRow[]>([]);
+  const [pedidoLookupLoading, setPedidoLookupLoading] = useState(false);
+  const [pedidoLookupError, setPedidoLookupError] = useState<string | null>(null);
+  const pedidoLookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [defaultsToast, setDefaultsToast] = useState<{ kind: "saved" | "error" | "warn"; message: string } | null>(
     null
@@ -366,8 +384,12 @@ export default function ImportarXmlPage() {
   const tenantId = te.tenantId ?? "";
   const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
 
-  const permiteVincularItens = Boolean(finalidadeLote) && allowedVincularSet.has(String(finalidadeLote));
-  const permiteAutoCadastrarItens = Boolean(finalidadeLote) && allowedAutoCadastrarSet.has(String(finalidadeLote));
+  const permiteVincularItens =
+    Boolean(finalidadeLote) &&
+    (allowedVincularSet.has(String(finalidadeLote)) || finalidadesComItemObrigatorio.has(String(finalidadeLote)));
+  const permiteAutoCadastrarItens =
+    Boolean(finalidadeLote) &&
+    (allowedAutoCadastrarSet.has(String(finalidadeLote)) || finalidadesComItemObrigatorio.has(String(finalidadeLote)));
 
   useEffect(() => {
     let active = true;
@@ -716,6 +738,91 @@ export default function ImportarXmlPage() {
     setShowOsLookup(false);
     setOsLookupRows([]);
     setOsLookupError(null);
+  }, []);
+
+  const loadPedidoLookup = useCallback(
+    async (term: string) => {
+      setPedidoLookupLoading(true);
+      setPedidoLookupError(null);
+
+      if (!tenantId || !empresaId) {
+        setPedidoLookupRows([]);
+        setPedidoLookupError("Tenant ou empresa nao carregados.");
+        setPedidoLookupLoading(false);
+        return;
+      }
+
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token ?? null;
+        if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+        const qs = new URLSearchParams({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+        });
+
+        const res = await fetch(`/api/compras/pedidos?${qs.toString()}`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
+        const json = (await res.json().catch(() => null)) as { data?: unknown[]; error?: string } | null;
+        if (!res.ok) {
+          const msg = typeof json?.error === "string" ? json.error : "Erro ao buscar pedidos.";
+          throw new Error(msg);
+        }
+
+        const allRows = Array.isArray(json?.data) ? json!.data! : [];
+        const normalized = String(term ?? "").trim().toLowerCase();
+
+        const rows = allRows
+          .map((row) => row as Record<string, unknown>)
+          .map((row) => ({
+            id: String(row.id ?? ""),
+            codigo: row.codigo == null ? null : String(row.codigo),
+            status: row.status == null ? null : String(row.status),
+            fornecedor_nome: row.fornecedor_nome == null ? null : String(row.fornecedor_nome),
+            solicitante_usuario_id: row.solicitante_usuario_id == null ? null : String(row.solicitante_usuario_id),
+            created_at: row.created_at == null ? null : String(row.created_at),
+            total_geral:
+              typeof row.total_geral === "number" || typeof row.total_geral === "string" ? row.total_geral : null,
+          }))
+          .filter((row) => Boolean(row.id))
+          .filter((row) => {
+            if (!normalized) return true;
+            const code = String(row.codigo ?? "").toLowerCase();
+            const supplier = String(row.fornecedor_nome ?? "").toLowerCase();
+            const id = String(row.id ?? "").toLowerCase();
+            return code.includes(normalized) || supplier.includes(normalized) || id.includes(normalized);
+          })
+          .slice(0, 80);
+
+        setPedidoLookupRows(rows);
+        setPedidoLookupLoading(false);
+      } catch (e: unknown) {
+        setPedidoLookupRows([]);
+        setPedidoLookupError(getErrorMessage(e, "Erro ao buscar pedidos."));
+        setPedidoLookupLoading(false);
+      }
+    },
+    [empresaId, supabase, tenantId]
+  );
+
+  const openPedidoLookup = useCallback(
+    (term?: string) => {
+      const nextTerm = String(term ?? pedidoCompraRef).trim();
+      setShowPedidoLookup(true);
+      setPedidoLookupTerm(nextTerm);
+      setPedidoLookupRows([]);
+      setPedidoLookupError(null);
+      void loadPedidoLookup(nextTerm);
+    },
+    [loadPedidoLookup, pedidoCompraRef]
+  );
+
+  const closePedidoLookup = useCallback(() => {
+    setShowPedidoLookup(false);
+    setPedidoLookupRows([]);
+    setPedidoLookupError(null);
   }, []);
 
   useEffect(() => {
@@ -1545,8 +1652,12 @@ export default function ImportarXmlPage() {
 
     try {
       if (!canImport) throw new Error("Sem permissao para importar NF.");
-      if (!solicitanteUsuarioId) throw new Error("Selecione o solicitante (usuario) antes de importar.");
-      if (!finalidadeLote) throw new Error("Selecione a finalidade antes de importar.");
+      if (!solicitanteUsuarioId && !pedidoCompraInformado) {
+        throw new Error("Selecione o solicitante (usuario) antes de importar.");
+      }
+      if (!finalidadeLote && !pedidoCompraInformado) {
+        throw new Error("Selecione a finalidade antes de importar.");
+      }
 
       if (!motivosLoading && motivos.length === 0) {
         throw new Error("Nao existe nenhum motivo/classificacao ativo. Contate o admin.");
@@ -1556,7 +1667,7 @@ export default function ImportarXmlPage() {
       const motivoCodigo = String(motivo?.codigo ?? "")
         .trim()
         .toUpperCase();
-      if (!motivoCompraId || !motivo || !motivoCodigo || motivoCodigo === "NAO_CLASSIFICADO") {
+      if (!pedidoCompraInformado && (!motivoCompraId || !motivo || !motivoCodigo || motivoCodigo === "NAO_CLASSIFICADO")) {
         throw new Error("Selecione uma classificacao/motivo valido (nao pode ser NAO_CLASSIFICADO).");
       }
 
@@ -1619,6 +1730,7 @@ export default function ImportarXmlPage() {
             empresaId,
             finalidade: finalidadeLote,
             osId: finalidadeLote === "materia_prima" ? osId : null,
+            pedidoCompraId: pedidoCompraRef.trim() || null,
             motivoCompraId,
             solicitanteUsuarioId: solicitanteUsuarioId,
             fornecedorCnpj: info?.cnpjEmitente ?? null,
@@ -1672,21 +1784,6 @@ export default function ImportarXmlPage() {
           }
 
           setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importando", error: undefined } : j)));
-
-          // evita duplicidade
-          const { count: nfJaExiste } = await applyTenantEmpresa(
-            supabase.schema("public").from("nf_entrada").select("id", { count: "exact" }),
-            tenantId,
-            empresaId
-          )
-            .eq("chave", info.chave)
-            .limit(1);
-
-          if (typeof nfJaExiste === "number" && nfJaExiste > 0) {
-            results.push(`${job.fileName}: NF ja existente, pulada.`);
-            setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importado", error: "NF ja existia" } : j)));
-            continue;
-          }
 
           // valida itens (tem que existir)
           const codes = Array.from(new Set(job.itens.map((i) => i.codigo)));
@@ -1933,17 +2030,20 @@ export default function ImportarXmlPage() {
   }, [selectedOkJobs, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens]);
 
   const fornecedorResolvido = Boolean(fornecedorIdBase ?? fornecedorId);
-  const finalidadeSelecionada = Boolean(finalidadeLote);
-  const solicitanteSelecionado = Boolean(solicitanteUsuarioId);
+  const pedidoCompraInformado = Boolean(pedidoCompraRef.trim());
+  const finalidadeSelecionada = pedidoCompraInformado || Boolean(finalidadeLote);
+  const solicitanteSelecionado = Boolean(solicitanteUsuarioId || pedidoCompraInformado);
   const itensFaltantes = loteMissing.length > 0;
 
   const motivoSelecionadoRow = motivos.find((m) => m.id === motivoCompraId) ?? null;
   const motivoSelecionadoCodigo = String(motivoSelecionadoRow?.codigo ?? "")
     .trim()
     .toUpperCase();
-  const motivoSelecionadoOk = Boolean(
-    motivoCompraId && motivoSelecionadoRow && motivoSelecionadoCodigo && motivoSelecionadoCodigo !== "NAO_CLASSIFICADO"
-  );
+  const motivoSelecionadoOk = pedidoCompraInformado
+    ? true
+    : Boolean(
+        motivoCompraId && motivoSelecionadoRow && motivoSelecionadoCodigo && motivoSelecionadoCodigo !== "NAO_CLASSIFICADO"
+      );
 
   const requisitosChecklist = {
     xml: hasSelectedOkJobs,
@@ -2063,7 +2163,7 @@ export default function ImportarXmlPage() {
                     await setMotivoFavorito(id, next);
                   }}
                 />
-                {!motivosLoading && !motivosError && !motivoSelecionadoOk && (
+                {!motivosLoading && !motivosError && !motivoSelecionadoOk && !pedidoCompraInformado && (
                   <div className="text-xs text-amber-300">Obrigatorio para importar (nao pode ser NAO_CLASSIFICADO).</div>
                 )}
 
@@ -2102,8 +2202,39 @@ export default function ImportarXmlPage() {
                   <div className="text-xs text-red-400">{usuariosSolicitantesError}</div>
                 )}
                 {!usuariosSolicitantesLoading && !usuariosSolicitantesError && !solicitanteSelecionado && (
-                  <div className="text-xs text-amber-300">Obrigatorio para importar.</div>
+                  <div className="text-xs text-amber-300">Obrigatorio para importar (ou informe um pedido com solicitante).</div>
                 )}
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-zinc-200">Pedido de compra (opcional)</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={pedidoCompraRef}
+                    onChange={(e) => setPedidoCompraRef(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      openPedidoLookup((e.currentTarget as HTMLInputElement).value);
+                    }}
+                    className="flex-1 px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                    placeholder="Codigo (ex: PC-000123) ou UUID do pedido (Enter abre busca)"
+                    disabled={importBusy || isReading}
+                    autoComplete="off"
+                    enterKeyHint="search"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openPedidoLookup()}
+                    className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                    disabled={importBusy || isReading}
+                  >
+                    Buscar
+                  </button>
+                </div>
+                <div className="text-xs text-zinc-400">
+                  Se informado, a importacao tenta vincular itens ao pedido, inclusive itens manuais por confronto de valor.
+                </div>
               </label>
 
               {osEnabled && (
@@ -2767,6 +2898,105 @@ export default function ImportarXmlPage() {
                         <tr>
                           <td colSpan={4} className="px-3 py-4 text-zinc-400">
                             Nenhuma OS encontrada.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPedidoLookup && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && closePedidoLookup()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-3xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold">Buscar pedido de compra</div>
+                  <div className="text-sm text-zinc-400">Digite codigo, fornecedor ou UUID do pedido.</div>
+                </div>
+                <button
+                  onClick={closePedidoLookup}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3 flex-1 min-h-0 overflow-auto">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Buscar</div>
+                  <input
+                    value={pedidoLookupTerm}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPedidoLookupTerm(value);
+                      if (pedidoLookupDebounceRef.current) clearTimeout(pedidoLookupDebounceRef.current);
+                      pedidoLookupDebounceRef.current = setTimeout(() => {
+                        void loadPedidoLookup(value);
+                      }, 300);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void loadPedidoLookup(pedidoLookupTerm);
+                      }
+                    }}
+                    placeholder="Ex: PC-000123"
+                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                    autoFocus
+                  />
+                </div>
+
+                {pedidoLookupLoading && <div className="text-sm text-zinc-400">Buscando...</div>}
+                {pedidoLookupError && <div className="text-sm text-red-400">{pedidoLookupError}</div>}
+
+                <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-zinc-900/70">
+                      <tr className="text-zinc-200">
+                        <th className="px-3 py-2 text-left">Codigo</th>
+                        <th className="px-3 py-2 text-left">Fornecedor</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                        <th className="px-3 py-2 text-right">Total</th>
+                        <th className="px-3 py-2 text-left">Criado em</th>
+                        <th className="px-3 py-2 text-center">Acao</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {pedidoLookupRows.map((row) => (
+                        <tr key={row.id} className="hover:bg-zinc-900/40">
+                          <td className="px-3 py-2">{row.codigo ?? row.id}</td>
+                          <td className="px-3 py-2">{row.fornecedor_nome ?? "-"}</td>
+                          <td className="px-3 py-2">{row.status ?? "-"}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">R$ {formatMoneyBR(Number(row.total_geral ?? 0))}</td>
+                          <td className="px-3 py-2">{formatDateBR(row.created_at)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPedidoCompraRef((row.codigo ?? row.id) || "");
+                                if (row.solicitante_usuario_id) setSolicitanteUsuarioId(row.solicitante_usuario_id);
+                                closePedidoLookup();
+                              }}
+                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Selecionar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!pedidoLookupLoading && pedidoLookupRows.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-4 text-zinc-400">
+                            Nenhum pedido encontrado.
                           </td>
                         </tr>
                       )}

@@ -27,6 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const unidade = String(body.unidade ?? "UN").trim() || "UN";
   const quantidade = asNum(body.quantidade, 0);
   const valorUnitario = asNum(body.valor_unitario ?? body.valorUnitario, 0);
+  const osIdRaw = body.origem_os_id ?? body.origemOsId ?? null;
+  const osNumeroRaw = String(body.origem_os_numero ?? body.origemOsNumero ?? "").trim();
 
   if (!itemId && !itemNome) return jsonError(400, "Informe item_id ou item_nome.");
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
@@ -48,6 +50,46 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return jsonError(400, `Pedido em status ${status} nao permite incluir item.`);
   }
 
+  let origemOsId: number | null = null;
+  if (osIdRaw != null && String(osIdRaw).trim() !== "") {
+    const parsed = Number(osIdRaw);
+    origemOsId = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    if (!origemOsId) return jsonError(400, "origem_os_id invalido.");
+  } else if (osNumeroRaw) {
+    const { data: osByNumeroOs, error: osNumeroErr } = await supabase
+      .from("ordens_servico")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .eq("numero_os", osNumeroRaw)
+      .limit(1)
+      .maybeSingle();
+
+    if (osNumeroErr) return jsonError(400, osNumeroErr.message);
+
+    const idNumeroOs = Number((osByNumeroOs as Record<string, unknown> | null)?.id ?? 0);
+    if (Number.isFinite(idNumeroOs) && idNumeroOs > 0) {
+      origemOsId = idNumeroOs;
+    } else {
+      const osNumAsNumber = Number(osNumeroRaw);
+      if (Number.isFinite(osNumAsNumber) && osNumAsNumber > 0) {
+        const { data: osByOsNum, error: osNumErr } = await supabase
+          .from("ordens_servico")
+          .select("id")
+          .eq("tenant_id", ctx.tenantId)
+          .eq("empresa_id", ctx.empresaId)
+          .eq("os_num", osNumAsNumber)
+          .limit(1)
+          .maybeSingle();
+        if (osNumErr) return jsonError(400, osNumErr.message);
+        const idOsNum = Number((osByOsNum as Record<string, unknown> | null)?.id ?? 0);
+        origemOsId = Number.isFinite(idOsNum) && idOsNum > 0 ? idOsNum : null;
+      }
+    }
+
+    if (!origemOsId) return jsonError(404, "OS nao encontrada para vinculo.");
+  }
+
   const payload = {
     tenant_id: ctx.tenantId,
     empresa_id: ctx.empresaId,
@@ -57,6 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     unidade,
     quantidade,
     valor_unitario: valorUnitario,
+    origem_os_id: origemOsId,
   };
 
   const { data, error } = await supabase

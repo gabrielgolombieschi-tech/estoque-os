@@ -7,8 +7,8 @@ export type ImportacaoXmlParams = {
   allowedVincular: Set<ItemFinalidade>;
 };
 
-const FALLBACK_AUTO: ItemFinalidade[] = ["materia_prima"];
-const FALLBACK_VINCULAR: ItemFinalidade[] = ["materia_prima"];
+const FALLBACK_AUTO: ItemFinalidade[] = ["materia_prima", "revenda"];
+const FALLBACK_VINCULAR: ItemFinalidade[] = ["materia_prima", "revenda"];
 
 const buildFallback = (): ImportacaoXmlParams => ({
   allowedAutoCadastrar: new Set(FALLBACK_AUTO),

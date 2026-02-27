@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
   const fornecedorId = Number(body.fornecedorId ?? body.fornecedor_id ?? 0);
   const osReferencia = String(body.osReferencia ?? body.os_referencia ?? "").trim();
   const observacoesInput = String(body.observacoes ?? "").trim();
+  const solicitanteUsuarioIdRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
+  const solicitanteUsuarioId =
+    solicitanteUsuarioIdRaw && /^[0-9a-f-]{36}$/i.test(solicitanteUsuarioIdRaw) ? solicitanteUsuarioIdRaw : null;
 
   if (!Number.isFinite(fornecedorId) || fornecedorId <= 0) return jsonError(400, "fornecedorId invalido.");
 
@@ -44,8 +47,9 @@ export async function POST(req: NextRequest) {
       fornecedor_id: fornecedorId,
       status: "RASCUNHO",
       observacoes,
+      solicitante_usuario_id: solicitanteUsuarioId,
     })
-    .select("id,codigo,status,fornecedor_id,created_at,total_geral")
+    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,created_at,total_geral")
     .single();
 
   if (error) return jsonError(400, error.message);

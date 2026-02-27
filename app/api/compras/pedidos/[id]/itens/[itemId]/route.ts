@@ -66,6 +66,8 @@ export async function PATCH(
   const unidade = String(body.unidade ?? "UN").trim() || "UN";
   const quantidade = asNum(body.quantidade, 0);
   const valorUnitario = asNum(body.valor_unitario ?? body.valorUnitario, 0);
+  const osIdRaw = body.origem_os_id ?? body.origemOsId ?? null;
+  const osNumeroRaw = String(body.origem_os_numero ?? body.origemOsNumero ?? "").trim();
 
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
@@ -73,10 +75,51 @@ export async function PATCH(
     return jsonError(400, "Quantidade nao pode ser menor que a quantidade ja recebida.");
   }
 
+  let origemOsId: number | null = null;
+  if (osIdRaw != null && String(osIdRaw).trim() !== "") {
+    const parsed = Number(osIdRaw);
+    origemOsId = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    if (!origemOsId) return jsonError(400, "origem_os_id invalido.");
+  } else if (osNumeroRaw) {
+    const { data: osByNumeroOs, error: osNumeroErr } = await supabase
+      .from("ordens_servico")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .eq("numero_os", osNumeroRaw)
+      .limit(1)
+      .maybeSingle();
+
+    if (osNumeroErr) return jsonError(400, osNumeroErr.message);
+
+    const idNumeroOs = Number((osByNumeroOs as Record<string, unknown> | null)?.id ?? 0);
+    if (Number.isFinite(idNumeroOs) && idNumeroOs > 0) {
+      origemOsId = idNumeroOs;
+    } else {
+      const osNumAsNumber = Number(osNumeroRaw);
+      if (Number.isFinite(osNumAsNumber) && osNumAsNumber > 0) {
+        const { data: osByOsNum, error: osNumErr } = await supabase
+          .from("ordens_servico")
+          .select("id")
+          .eq("tenant_id", ctx.tenantId)
+          .eq("empresa_id", ctx.empresaId)
+          .eq("os_num", osNumAsNumber)
+          .limit(1)
+          .maybeSingle();
+        if (osNumErr) return jsonError(400, osNumErr.message);
+        const idOsNum = Number((osByOsNum as Record<string, unknown> | null)?.id ?? 0);
+        origemOsId = Number.isFinite(idOsNum) && idOsNum > 0 ? idOsNum : null;
+      }
+    }
+
+    if (!origemOsId) return jsonError(404, "OS nao encontrada para vinculo.");
+  }
+
   const payload: Record<string, unknown> = {
     quantidade,
     valor_unitario: valorUnitario,
     updated_by: null,
+    origem_os_id: origemOsId,
   };
 
   if (!isLinkedItem) {
@@ -158,11 +201,10 @@ export async function DELETE(
       const { error: delOrigensErr } = await supabase
         .schema("m")
         .from("pedido_compra_item_origem")
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .in("id", origemIds)
         .eq("tenant_id", ctx.tenantId)
-        .eq("empresa_id", ctx.empresaId)
-        .is("deleted_at", null);
+        .eq("empresa_id", ctx.empresaId);
       if (delOrigensErr) return jsonError(400, delOrigensErr.message);
 
       if (pendenciaIds.length > 0) {
@@ -257,16 +299,19 @@ export async function DELETE(
     }
   }
 
-  const { error } = await supabase
+  const { data: deletedRows, error } = await supabase
     .schema("m")
     .from("pedido_compra_item")
-    .update({ deleted_at: new Date().toISOString(), updated_by: null })
+    .delete()
     .eq("id", itemId)
     .eq("pedido_compra_id", pedidoId)
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
-    .is("deleted_at", null);
+    .select("id");
 
   if (error) return jsonError(400, error.message);
+  if (!Array.isArray(deletedRows) || deletedRows.length === 0) {
+    return jsonError(403, "Item nao removido (sem permissao ou ja excluido).");
+  }
   return Response.json({ ok: true });
 }

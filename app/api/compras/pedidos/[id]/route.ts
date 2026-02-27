@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../_lib";
 
 export const runtime = "nodejs";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthSupabase(req);
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (pedidoErr) return jsonError(400, pedidoErr.message);
 
   let fornecedorNome = "SEM FORNECEDOR";
+  let solicitanteNome = "";
   const fornecedorId = Number((pedido as Record<string, unknown>).fornecedor_id);
   if (Number.isFinite(fornecedorId) && fornecedorId > 0) {
     const { data: fornecedor, error: fornecedorErr } = await supabase
@@ -37,6 +39,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .maybeSingle();
     if (fornecedorErr) return jsonError(400, fornecedorErr.message);
     fornecedorNome = String((fornecedor as Record<string, unknown> | null)?.nome ?? "").trim() || "SEM FORNECEDOR";
+  }
+  const solicitanteId = String((pedido as Record<string, unknown>).solicitante_usuario_id ?? "").trim();
+  if (solicitanteId && UUID_RE.test(solicitanteId)) {
+    const { data: solicitante } = await supabase
+      .schema("a")
+      .from("usuario")
+      .select("id,nome,email")
+      .eq("id", solicitanteId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (solicitante) {
+      const nome = String((solicitante as Record<string, unknown>).nome ?? "").trim();
+      const email = String((solicitante as Record<string, unknown>).email ?? "").trim();
+      solicitanteNome = nome || email;
+    }
   }
 
   const [itensRes, eventosRes, recebRes] = await Promise.all([
@@ -104,6 +121,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const origemResumoByPedidoItemId = new Map<string, string>();
+  const origemOsByPedidoItemId = new Map<string, number>();
+  for (const it of itens) {
+    const pedidoItemId = String(it.id ?? "").trim();
+    const osId = Number(it.origem_os_id ?? 0);
+    if (pedidoItemId && Number.isFinite(osId) && osId > 0) origemOsByPedidoItemId.set(pedidoItemId, osId);
+  }
+  const osLabelById = new Map<number, string>();
   if (pedidoItemIds.length > 0) {
     const { data: origensRows, error: origensErr } = await supabase
       .schema("m")
@@ -154,14 +178,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           .filter((id): id is number => typeof id === "number" && Number.isFinite(id) && id > 0)
       )
     );
-    const osLabelById = new Map<number, string>();
-    if (osIds.length > 0) {
+    const osIdsManual = Array.from(new Set(Array.from(origemOsByPedidoItemId.values())));
+    const osIdsTotal = Array.from(new Set([...osIds, ...osIdsManual]));
+    if (osIdsTotal.length > 0) {
       const { data: osRows, error: osErr } = await supabase
         .from("ordens_servico")
         .select("id,numero_os,os_num")
         .eq("tenant_id", ctx.tenantId)
         .eq("empresa_id", ctx.empresaId)
-        .in("id", osIds);
+        .in("id", osIdsTotal);
       if (osErr) return jsonError(400, osErr.message);
 
       for (const os of Array.isArray(osRows) ? (osRows as Array<Record<string, unknown>>) : []) {
@@ -209,7 +234,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const pedidoItemId = String(it.id ?? "").trim();
     const itemId = Number(it.item_id);
     const itemCodigo = Number.isFinite(itemId) && itemId > 0 ? codigoByItemId.get(itemId) ?? "" : "";
-    const origemResumo = origemResumoByPedidoItemId.get(pedidoItemId) ?? null;
+    const origemFromPendencia = origemResumoByPedidoItemId.get(pedidoItemId) ?? null;
+    const origemOsId = origemOsByPedidoItemId.get(pedidoItemId) ?? null;
+    const origemFromManualOs = origemOsId ? (osLabelById.get(origemOsId) ?? `OS ${origemOsId}`) : null;
+    const origemResumo = origemFromPendencia ?? origemFromManualOs ?? null;
     return { ...it, item_codigo: itemCodigo || null, origem_resumo: origemResumo };
   });
 
@@ -218,10 +246,53 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       pedido: {
         ...(pedido as Record<string, unknown>),
         fornecedor_nome: fornecedorNome,
+        solicitante_nome: solicitanteNome || null,
       },
       itens: itensEnriquecidos,
       eventos: eventosRes.data ?? [],
       recebimentos: recebRes.data ?? [],
     },
   });
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await getAuthSupabase(req);
+  if ("error" in auth) return auth.error;
+  const { supabase } = auth;
+  const { id } = await params;
+  if (!id) return jsonError(400, "id obrigatorio.");
+
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const ctx = await resolveTenantEmpresa(supabase, body, req.nextUrl.searchParams);
+  if (!ctx) return jsonError(400, "Tenant/empresa nao carregados.");
+  if (!(await canCompras(supabase, "write"))) return jsonError(403, "Sem permissao (compras.write).");
+
+  const solicitanteRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
+  const solicitante = solicitanteRaw ? (UUID_RE.test(solicitanteRaw) ? solicitanteRaw : null) : null;
+  if (solicitanteRaw && !solicitante) return jsonError(400, "Solicitante invalido.");
+
+  const { data: pedido } = await supabase
+    .schema("m")
+    .from("pedido_compra")
+    .select("id,status")
+    .eq("id", id)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!pedido) return jsonError(404, "Pedido nao encontrado.");
+
+  const { data, error } = await supabase
+    .schema("m")
+    .from("pedido_compra")
+    .update({ solicitante_usuario_id: solicitante, updated_by: null })
+    .eq("id", id)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .is("deleted_at", null)
+    .select("id,solicitante_usuario_id")
+    .single();
+  if (error) return jsonError(400, error.message);
+
+  return Response.json({ data });
 }

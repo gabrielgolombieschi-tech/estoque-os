@@ -60,6 +60,8 @@ type Pedido = {
   status: string;
   fornecedor_id: number | null;
   fornecedor_nome?: string | null;
+  solicitante_usuario_id?: string | null;
+  solicitante_nome?: string | null;
   created_at: string;
   total_geral: number;
 };
@@ -69,12 +71,19 @@ type PedidoItem = {
   item_id: number | null;
   item_codigo?: string | null;
   origem_resumo?: string | null;
+  origem_os_id?: number | null;
   item_nome: string;
   unidade: string;
   quantidade: number;
   quantidade_recebida: number;
   valor_unitario: number;
   valor_total: number;
+};
+
+type UsuarioSolicitante = {
+  id: string;
+  nome: string;
+  email: string;
 };
 
 async function authedFetch(path: string, init?: RequestInit) {
@@ -84,6 +93,7 @@ async function authedFetch(path: string, init?: RequestInit) {
   if (!token) throw new Error("Sessao expirada.");
   const res = await fetch(path, {
     ...init,
+    cache: init?.cache ?? "no-store",
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
@@ -120,6 +130,14 @@ function fmtDate(v: string) {
   return d.toLocaleDateString("pt-BR");
 }
 
+function extractOsNumeroFromItem(it: Pick<PedidoItem, "origem_resumo" | "origem_os_id">): string {
+  const resumo = String(it.origem_resumo ?? "").trim();
+  const m = /^OS\s+(.+)$/i.exec(resumo);
+  if (m?.[1]) return String(m[1]).trim();
+  const osId = Number(it.origem_os_id ?? 0);
+  return Number.isFinite(osId) && osId > 0 ? String(osId) : "";
+}
+
 function statusBadgeClass(statusRaw: string) {
   const status = String(statusRaw ?? "").toUpperCase();
   if (status === "RECEBIDO") return "bg-emerald-900/40 text-emerald-200 border border-emerald-700";
@@ -129,6 +147,20 @@ function statusBadgeClass(statusRaw: string) {
   }
   if (status === "AGUARDANDO_APROVACAO") return "bg-amber-900/40 text-amber-200 border border-amber-700";
   return "bg-zinc-900 text-zinc-200 border border-zinc-700";
+}
+
+function statusLabel(statusRaw: string) {
+  const status = String(statusRaw ?? "").toUpperCase();
+  if (status === "PARCIAL_RECEBIDO") return "RECEBIDO PARCIAL";
+  return status || "-";
+}
+
+function itemRecebimentoLabel(item: Pick<PedidoItem, "quantidade" | "quantidade_recebida">) {
+  const qtd = Math.max(0, Number(item.quantidade ?? 0));
+  const qtdRec = Math.max(0, Number(item.quantidade_recebida ?? 0));
+  if (qtdRec <= 0) return { label: "PENDENTE", cls: "text-amber-300" };
+  if (qtdRec + 1e-9 >= qtd) return { label: "RECEBIDO", cls: "text-emerald-300" };
+  return { label: "RECEBIDO PARCIAL", cls: "text-sky-300" };
 }
 
 export default function ComprasPedidosClient() {
@@ -161,11 +193,14 @@ export default function ComprasPedidosClient() {
   const [manualUnidade, setManualUnidade] = useState("UN");
   const [manualQtd, setManualQtd] = useState("1");
   const [manualValor, setManualValor] = useState("0");
+  const [manualOsNumero, setManualOsNumero] = useState("");
   const [pedidoEditMode, setPedidoEditMode] = useState(false);
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
-  const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string }>>({});
+  const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }>>({});
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nome: string } | null>(null);
   const [autoScanTried, setAutoScanTried] = useState(false);
+  const [usuariosSolicitantes, setUsuariosSolicitantes] = useState<UsuarioSolicitante[]>([]);
+  const [pedidoSolicitanteId, setPedidoSolicitanteId] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -267,6 +302,14 @@ export default function ComprasPedidosClient() {
     if (avulsoFornecedorId == null && rows.length > 0) setAvulsoFornecedorId(Number(rows[0].id));
   }, [avulsoFornecedorId, canRead, ctxQuery, empresaId, tenantId]);
 
+  const loadUsuariosSolicitantes = useCallback(async () => {
+    if (!tenantId || !empresaId || !canRead) return;
+    const qp = `tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`;
+    const json = await authedFetch(`/api/estoque/usuarios-solicitantes?${qp}`);
+    const rows = ((json.usuarios as UsuarioSolicitante[]) ?? []).filter((u) => u?.id);
+    setUsuariosSolicitantes(rows);
+  }, [canRead, empresaId, tenantId]);
+
   const loadPendencias = useCallback(async () => {
     if (!tenantId || !empresaId || !canRead || fornecedorId == null) return;
     const base = `/api/compras/pendencias?${ctxQuery}&modo=${modo}&fornecedorId=${fornecedorId}`;
@@ -312,13 +355,14 @@ export default function ComprasPedidosClient() {
     const json = await authedFetch(`/api/compras/pedidos/${manualPedidoId}?${ctxQuery}`);
     const itens = ((json.data as { itens?: PedidoItem[] })?.itens ?? []) as PedidoItem[];
     setPedidoItens(itens);
-    const nextDrafts: Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string }> = {};
+    const nextDrafts: Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }> = {};
     for (const it of itens) {
       nextDrafts[it.id] = {
         item_nome: String(it.item_nome ?? ""),
         unidade: String(it.unidade ?? "UN"),
         quantidade: String(it.quantidade ?? 0),
         valor_unitario: String(it.valor_unitario ?? 0),
+        os_numero: extractOsNumeroFromItem(it),
       };
     }
     setItemDrafts(nextDrafts);
@@ -345,6 +389,14 @@ export default function ComprasPedidosClient() {
   useEffect(() => {
     void loadFornecedoresAvulso();
   }, [loadFornecedoresAvulso]);
+
+  useEffect(() => {
+    void loadUsuariosSolicitantes();
+  }, [loadUsuariosSolicitantes]);
+
+  useEffect(() => {
+    setPedidoSolicitanteId(String(selectedPedido?.solicitante_usuario_id ?? ""));
+  }, [selectedPedido?.solicitante_usuario_id]);
 
   useEffect(() => {
     if (tab === "comprar") void loadPendencias();
@@ -711,6 +763,7 @@ export default function ComprasPedidosClient() {
           unidade: manualUnidade || "UN",
           quantidade: qtd,
           valor_unitario: vlr,
+          origem_os_numero: manualOsNumero.trim() || null,
         }),
       });
       setOk("Item manual adicionado ao pedido.");
@@ -718,6 +771,7 @@ export default function ComprasPedidosClient() {
       setManualUnidade("UN");
       setManualQtd("1");
       setManualValor("0");
+      setManualOsNumero("");
       await loadPedidos();
       await loadPedidoItens();
     } catch (e: unknown) {
@@ -725,13 +779,15 @@ export default function ComprasPedidosClient() {
     } finally {
       setBusy(false);
     }
-  }, [empresaId, loadPedidoItens, loadPedidos, manualNome, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
+  }, [empresaId, loadPedidoItens, loadPedidos, manualNome, manualOsNumero, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
 
   const salvarItemPedido = useCallback(
     async (itemId: string) => {
       if (!manualPedidoId) return;
       const draft = itemDrafts[itemId];
       if (!draft) return;
+      const row = pedidoItens.find((it) => it.id === itemId);
+      const isManual = row ? row.item_id == null : true;
       const qtd = parseNum(draft.quantidade, 0);
       const vlr = parseNum(draft.valor_unitario, 0);
       if (!draft.item_nome.trim()) return setErr("Descricao do item manual obrigatoria.");
@@ -751,6 +807,7 @@ export default function ComprasPedidosClient() {
             unidade: draft.unidade || "UN",
             quantidade: qtd,
             valor_unitario: vlr,
+            ...(isManual ? { origem_os_numero: draft.os_numero?.trim() || null } : {}),
           }),
         });
         setOk("Item atualizado.");
@@ -762,7 +819,7 @@ export default function ComprasPedidosClient() {
         setBusy(false);
       }
     },
-    [empresaId, itemDrafts, loadPedidoItens, loadPedidos, manualPedidoId, tenantId]
+    [empresaId, itemDrafts, loadPedidoItens, loadPedidos, manualPedidoId, pedidoItens, tenantId]
   );
 
   const excluirItemPedido = useCallback(
@@ -804,6 +861,7 @@ export default function ComprasPedidosClient() {
           tenant_id: tenantId,
           empresa_id: empresaId,
           fornecedorId: avulsoFornecedorId,
+          solicitanteUsuarioId: pedidoSolicitanteId || null,
           osReferencia: avulsoOsReferencia.trim() || null,
           observacoes: avulsoObservacoes.trim() || null,
         }),
@@ -817,6 +875,7 @@ export default function ComprasPedidosClient() {
       setManualUnidade("UN");
       setManualQtd("1");
       setManualValor("0");
+      setManualOsNumero("");
 
       await loadPedidos();
       setTab("pedidos");
@@ -834,7 +893,31 @@ export default function ComprasPedidosClient() {
     empresaId,
     loadPedidos,
     tenantId,
+    pedidoSolicitanteId,
   ]);
+
+  const salvarSolicitantePedido = useCallback(async () => {
+    if (!manualPedidoId) return;
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      await authedFetch(`/api/compras/pedidos/${manualPedidoId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          solicitanteUsuarioId: pedidoSolicitanteId || null,
+        }),
+      });
+      setOk("Solicitante do pedido atualizado.");
+      await loadPedidos();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Erro ao atualizar solicitante.");
+    } finally {
+      setBusy(false);
+    }
+  }, [empresaId, loadPedidos, manualPedidoId, pedidoSolicitanteId, tenantId]);
 
   const imprimirPedido = useCallback((pedidoId: string) => {
     const id = String(pedidoId ?? "").trim();
@@ -1169,7 +1252,7 @@ export default function ComprasPedidosClient() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <label className="text-sm space-y-1">
               <div className="text-zinc-300">Fornecedor</div>
               <select
@@ -1181,6 +1264,22 @@ export default function ComprasPedidosClient() {
                 {avulsoFornecedores.map((f) => (
                   <option key={f.id} value={f.id}>
                     {String(f.nome ?? `Fornecedor #${f.id}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm space-y-1">
+              <div className="text-zinc-300">Solicitante (opcional)</div>
+              <select
+                className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
+                value={pedidoSolicitanteId}
+                onChange={(e) => setPedidoSolicitanteId(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {usuariosSolicitantes.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nome} - {u.email}
                   </option>
                 ))}
               </select>
@@ -1282,7 +1381,7 @@ export default function ComprasPedidosClient() {
                           </td>
                           <td className="py-2 px-3">
                             <span className={`inline-flex rounded px-2 py-0.5 text-xs ${statusBadgeClass(String(p.status ?? ""))}`}>
-                              {String(p.status ?? "-")}
+                              {statusLabel(String(p.status ?? ""))}
                             </span>
                           </td>
                           <td className="py-2 px-3 text-right tabular-nums">{fmtMoney(Number(p.total_geral ?? 0))}</td>
@@ -1309,12 +1408,39 @@ export default function ComprasPedidosClient() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="text-sm font-semibold">{selectedPedido.codigo}</div>
                     <span className={`inline-flex rounded px-2 py-0.5 text-xs ${statusBadgeClass(String(selectedPedido.status ?? ""))}`}>
-                      {String(selectedPedido.status ?? "-")}
+                      {statusLabel(String(selectedPedido.status ?? ""))}
                     </span>
                     <div className="text-xs text-zinc-500">
                       {String(selectedPedido.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR"}
                     </div>
                     <div className="ml-auto text-sm font-medium">{fmtMoney(Number(selectedPedido.total_geral ?? 0))}</div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs text-zinc-400">Solicitante</label>
+                    <select
+                      className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-sm min-w-[280px]"
+                      value={pedidoSolicitanteId}
+                      onChange={(e) => setPedidoSolicitanteId(e.target.value)}
+                      disabled={busy || !canWrite}
+                    >
+                      <option value="">Selecione...</option>
+                      {usuariosSolicitantes.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.nome} - {u.email}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                      onClick={() => void salvarSolicitantePedido()}
+                      disabled={busy || !canWrite}
+                    >
+                      Salvar solicitante
+                    </button>
+                    {selectedPedido.solicitante_nome ? (
+                      <span className="text-xs text-zinc-500">Atual: {selectedPedido.solicitante_nome}</span>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-1 flex-wrap">
@@ -1336,18 +1462,19 @@ export default function ComprasPedidosClient() {
 
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Adicionar item manual no pedido</div>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 md:col-span-2 disabled:opacity-50" placeholder="Descricao do item" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="UN" value={manualUnidade} disabled={!canEditPedidoItems} onChange={(e) => setManualUnidade(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditPedidoItems} onChange={(e) => setManualQtd(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Valor unitario" value={manualValor} disabled={!canEditPedidoItems} onChange={(e) => setManualValor(e.target.value)} />
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="OS (numero/id)" value={manualOsNumero} disabled={!canEditPedidoItems} onChange={(e) => setManualOsNumero(e.target.value)} />
                     </div>
                     <button className="px-3 py-2 rounded border border-zinc-800 disabled:opacity-50" onClick={() => void addManualItem()} disabled={busy || !canEditPedidoItems}>
                       Adicionar item
                     </button>
                     {!canEditManualItems ? (
                       <div className="text-xs text-amber-300">
-                        Pedido em status {String(selectedPedido.status ?? "-")} nao permite edicao.
+                        Pedido em status {statusLabel(String(selectedPedido.status ?? ""))} nao permite edicao.
                       </div>
                     ) : !pedidoEditMode ? (
                       <div className="text-xs text-zinc-400">
@@ -1359,7 +1486,7 @@ export default function ComprasPedidosClient() {
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Itens do pedido selecionado</div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm min-w-[860px]">
+                      <table className="w-full text-sm min-w-[940px]">
                         <thead>
                           <tr className="text-left text-zinc-300">
                             <th className="py-2">Tipo</th>
@@ -1368,7 +1495,10 @@ export default function ComprasPedidosClient() {
                             <th>Descricao</th>
                             <th>Origem</th>
                             <th>Unid</th>
+                            <th>OS</th>
                             <th>Qtd</th>
+                            <th>Receb.</th>
+                            <th>Status item</th>
                             <th>Vlr unit</th>
                             <th className="text-center min-w-[130px] px-3">Total</th>
                             <th className="text-center min-w-[170px] px-3">Acoes</th>
@@ -1380,6 +1510,7 @@ export default function ComprasPedidosClient() {
                             const draft = itemDrafts[it.id] ?? {
                               item_nome: it.item_nome,
                               unidade: it.unidade,
+                              os_numero: extractOsNumeroFromItem(it),
                               quantidade: String(it.quantidade),
                               valor_unitario: String(it.valor_unitario),
                             };
@@ -1412,6 +1543,21 @@ export default function ComprasPedidosClient() {
                                   />
                                 </td>
                                 <td>
+                                  {isManual ? (
+                                    <input
+                                      className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-24"
+                                      value={draft.os_numero}
+                                      disabled={!canEditPedidoItems}
+                                      placeholder="OS"
+                                      onChange={(e) =>
+                                        setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, os_numero: e.target.value } }))
+                                      }
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-zinc-500">-</span>
+                                  )}
+                                </td>
+                                <td>
                                   <input
                                     className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-24"
                                     value={draft.quantidade}
@@ -1420,6 +1566,15 @@ export default function ComprasPedidosClient() {
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, quantidade: e.target.value } }))
                                     }
                                   />
+                                </td>
+                                <td className="tabular-nums">
+                                  {Number(it.quantidade_recebida ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}
+                                </td>
+                                <td>
+                                  {(() => {
+                                    const st = itemRecebimentoLabel(it);
+                                    return <span className={`text-xs font-medium ${st.cls}`}>{st.label}</span>;
+                                  })()}
                                 </td>
                                 <td>
                                   <input
@@ -1455,7 +1610,7 @@ export default function ComprasPedidosClient() {
                           })}
                           {!pedidoItens.length && (
                             <tr>
-                              <td className="py-3 text-zinc-500" colSpan={10}>Nenhum item no pedido selecionado.</td>
+                              <td className="py-3 text-zinc-500" colSpan={13}>Nenhum item no pedido selecionado.</td>
                             </tr>
                           )}
                         </tbody>

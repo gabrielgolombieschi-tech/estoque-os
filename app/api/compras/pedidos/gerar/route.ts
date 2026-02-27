@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
 
   const fornecedorId = Number(body.fornecedorId ?? body.fornecedor_id ?? 0);
   const pendenciaIds = (Array.isArray(body.pendenciaIds) ? body.pendenciaIds : body.pendencia_ids) as unknown[];
+  const solicitanteUsuarioIdRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
+  const solicitanteUsuarioId =
+    solicitanteUsuarioIdRaw && /^[0-9a-f-]{36}$/i.test(solicitanteUsuarioIdRaw) ? solicitanteUsuarioIdRaw : null;
   const quantidadeOverridesRaw = body.quantidadeOverrides ?? body.quantidade_overrides;
   const valorUnitOverridesRaw = body.valorUnitOverrides ?? body.valor_unit_overrides;
   if (!Number.isFinite(fornecedorId) || fornecedorId <= 0) return jsonError(400, "fornecedorId invalido.");
@@ -88,6 +91,18 @@ export async function POST(req: NextRequest) {
   if (error) return jsonError(400, error.message);
   const pedidoId = data ? String(data) : null;
   if (!pedidoId) return Response.json({ pedido_id: null });
+
+  if (solicitanteUsuarioId) {
+    const { error: solErr } = await supabase
+      .schema("m")
+      .from("pedido_compra")
+      .update({ solicitante_usuario_id: solicitanteUsuarioId, updated_by: null })
+      .eq("id", pedidoId)
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("deleted_at", null);
+    if (solErr) return jsonError(400, solErr.message);
+  }
 
   const { error: genericCodeErr } = await supabase
     .schema("m")
