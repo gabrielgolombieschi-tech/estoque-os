@@ -3,6 +3,26 @@ import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "..
 
 export const runtime = "nodejs";
 
+function normText(v: unknown) {
+  return String(v ?? "").trim().toUpperCase();
+}
+
+function parseItemId(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function pickPositivePrice(
+  row: Partial<{ custo_ultima_compra: unknown; preco_unitario: unknown; custo_medio: unknown }>
+): number | null {
+  const candidates = [row.custo_ultima_compra, row.preco_unitario, row.custo_medio]
+    .map((v) => Number(v ?? NaN))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return candidates.length > 0 ? candidates[0] : null;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await getAuthSupabase(req);
   if ("error" in auth) return auth.error;
@@ -115,8 +135,125 @@ export async function POST(req: NextRequest) {
     .is("item_id", null);
   if (genericCodeErr) return jsonError(400, genericCodeErr.message);
 
-  if (valorUnitOverrides.length > 0) {
-    const overrideMap = new Map(valorUnitOverrides.map((v) => [v.id, v.valor_unitario]));
+  const overrideMap = new Map(valorUnitOverrides.map((v) => [v.id, v.valor_unitario]));
+
+  const { data: pendenciasRows, error: pendenciasErr } = await supabase
+    .schema("m")
+    .from("compra_pendencia")
+    .select("id,item_id,item_nome,unidade")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .in("id", pendenciaIds.map((id) => String(id)));
+  if (pendenciasErr) return jsonError(400, pendenciasErr.message);
+
+  const pendencias = Array.isArray(pendenciasRows) ? (pendenciasRows as Array<Record<string, unknown>>) : [];
+  const missingRows = pendencias.filter((p) => {
+    const id = String(p.id ?? "").trim();
+    return id && !overrideMap.has(id);
+  });
+
+  if (missingRows.length > 0) {
+    const missingItemIds = Array.from(
+      new Set(
+        missingRows
+          .map((p) => parseItemId(p.item_id))
+          .filter((n): n is number => typeof n === "number" && n > 0)
+      )
+    );
+
+    const priceByItemId = new Map<number, number>();
+    if (missingItemIds.length > 0) {
+      const { data: itensCad, error: itensCadErr } = await supabase
+        .from("itens")
+        .select("id,custo_ultima_compra,preco_unitario,custo_medio")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("empresa_id", ctx.empresaId)
+        .in("id", missingItemIds);
+      if (itensCadErr) return jsonError(400, itensCadErr.message);
+
+      for (const row of Array.isArray(itensCad) ? (itensCad as Array<Record<string, unknown>>) : []) {
+        const itemId = parseItemId(row.id);
+        if (itemId == null) continue;
+        const price = pickPositivePrice(row);
+        if (price != null) priceByItemId.set(itemId, price);
+      }
+    }
+
+    const unresolvedByText = new Map<string, string>();
+    for (const p of missingRows) {
+      const pendId = String(p.id ?? "").trim();
+      if (!pendId || overrideMap.has(pendId)) continue;
+      const itemId = parseItemId(p.item_id);
+      if (itemId != null) {
+        const price = priceByItemId.get(itemId);
+        if (price != null) {
+          overrideMap.set(pendId, price);
+          continue;
+        }
+      }
+      const key = `${normText(p.item_nome)}|${normText(p.unidade || "UN")}`;
+      if (key && key !== "|UN") unresolvedByText.set(pendId, key);
+    }
+
+    if (unresolvedByText.size > 0) {
+      const { data: pedidosHist, error: pedidosHistErr } = await supabase
+        .schema("m")
+        .from("pedido_compra")
+        .select("id,created_at")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("empresa_id", ctx.empresaId)
+        .eq("fornecedor_id", fornecedorId)
+        .is("deleted_at", null)
+        .neq("status", "CANCELADO")
+        .neq("id", pedidoId)
+        .order("created_at", { ascending: false })
+        .limit(300);
+      if (pedidosHistErr) return jsonError(400, pedidosHistErr.message);
+
+      const pedidoIdsHist = (pedidosHist ?? [])
+        .map((p) => String((p as { id?: unknown }).id ?? "").trim())
+        .filter(Boolean);
+
+      if (pedidoIdsHist.length > 0) {
+        const rankByPedidoId = new Map<string, number>();
+        for (let i = 0; i < pedidoIdsHist.length; i++) rankByPedidoId.set(pedidoIdsHist[i], i);
+
+        const { data: itensHist, error: itensHistErr } = await supabase
+          .schema("m")
+          .from("pedido_compra_item")
+          .select("pedido_compra_id,item_nome,unidade,valor_unitario")
+          .eq("tenant_id", ctx.tenantId)
+          .eq("empresa_id", ctx.empresaId)
+          .is("deleted_at", null)
+          .in("pedido_compra_id", pedidoIdsHist)
+          .gt("valor_unitario", 0)
+          .order("created_at", { ascending: false })
+          .limit(5000);
+        if (itensHistErr) return jsonError(400, itensHistErr.message);
+
+        const histByText = new Map<string, { rank: number; valor: number }>();
+        for (const row of Array.isArray(itensHist) ? (itensHist as Array<Record<string, unknown>>) : []) {
+          const pedidoHistId = String(row.pedido_compra_id ?? "").trim();
+          const rank = rankByPedidoId.get(pedidoHistId);
+          if (rank == null) continue;
+          const valor = Number(row.valor_unitario ?? NaN);
+          if (!Number.isFinite(valor) || valor <= 0) continue;
+          const key = `${normText(row.item_nome)}|${normText(row.unidade || "UN")}`;
+          if (!key || key === "|UN") continue;
+          const cur = histByText.get(key);
+          if (!cur || rank < cur.rank) histByText.set(key, { rank, valor });
+        }
+
+        for (const [pendId, key] of unresolvedByText.entries()) {
+          if (overrideMap.has(pendId)) continue;
+          const hist = histByText.get(key);
+          if (hist) overrideMap.set(pendId, hist.valor);
+        }
+      }
+    }
+  }
+
+  if (overrideMap.size > 0) {
     const { data: origens, error: origensErr } = await supabase
       .schema("m")
       .from("pedido_compra_item_origem")

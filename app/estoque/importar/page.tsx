@@ -760,6 +760,7 @@ export default function ImportarXmlPage() {
         const qs = new URLSearchParams({
           tenant_id: tenantId,
           empresa_id: empresaId,
+          status: "ENVIADO",
         });
 
         const res = await fetch(`/api/compras/pedidos?${qs.toString()}`, {
@@ -787,6 +788,7 @@ export default function ImportarXmlPage() {
               typeof row.total_geral === "number" || typeof row.total_geral === "string" ? row.total_geral : null,
           }))
           .filter((row) => Boolean(row.id))
+          .filter((row) => String(row.status ?? "").toUpperCase() === "ENVIADO")
           .filter((row) => {
             if (!normalized) return true;
             const code = String(row.codigo ?? "").toLowerCase();

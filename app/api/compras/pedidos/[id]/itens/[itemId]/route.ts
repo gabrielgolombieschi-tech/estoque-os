@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../../../_lib";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -154,6 +155,7 @@ export async function DELETE(
 
   const { id: pedidoId, itemId } = await params;
   if (!pedidoId || !itemId) return jsonError(400, "id/itemId obrigatorios.");
+  const admin = supabaseAdmin();
 
   const ctx = await resolveTenantEmpresa(supabase, undefined, req.nextUrl.searchParams);
   if (!ctx) return jsonError(400, "Tenant/empresa nao carregados.");
@@ -165,7 +167,7 @@ export async function DELETE(
     return jsonError(400, `Pedido em status ${pedido.data.status} nao permite excluir item.`);
   }
 
-  const { data: item, error: itemErr } = await supabase
+  const { data: item, error: itemErr } = await admin
     .schema("m")
     .from("pedido_compra_item")
     .select("id,item_id,quantidade_recebida")
@@ -182,124 +184,122 @@ export async function DELETE(
   }
 
   const isLinkedItem = (item as { item_id: number | null }).item_id != null;
-  if (isLinkedItem) {
-    const { data: origensRows, error: origensErr } = await supabase
+  const { data: origensRows, error: origensErr } = await admin
+    .schema("m")
+    .from("pedido_compra_item_origem")
+    .select("id,pendencia_id")
+    .eq("pedido_compra_item_id", itemId)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .is("deleted_at", null);
+  if (origensErr) return jsonError(400, origensErr.message);
+
+  const origens = Array.isArray(origensRows) ? (origensRows as Array<{ id: string; pendencia_id: string }>) : [];
+  if (origens.length > 0) {
+    const origemIds = origens.map((o) => o.id);
+    const pendenciaIds = Array.from(new Set(origens.map((o) => o.pendencia_id).filter(Boolean)));
+
+    const { error: delOrigensErr } = await admin
       .schema("m")
       .from("pedido_compra_item_origem")
-      .select("id,pendencia_id")
-      .eq("pedido_compra_item_id", itemId)
+      .delete()
+      .in("id", origemIds)
       .eq("tenant_id", ctx.tenantId)
-      .eq("empresa_id", ctx.empresaId)
-      .is("deleted_at", null);
-    if (origensErr) return jsonError(400, origensErr.message);
+      .eq("empresa_id", ctx.empresaId);
+    if (delOrigensErr) return jsonError(400, delOrigensErr.message);
 
-    const origens = Array.isArray(origensRows) ? (origensRows as Array<{ id: string; pendencia_id: string }>) : [];
-    if (origens.length > 0) {
-      const origemIds = origens.map((o) => o.id);
-      const pendenciaIds = Array.from(new Set(origens.map((o) => o.pendencia_id).filter(Boolean)));
-
-      const { error: delOrigensErr } = await supabase
+    if (isLinkedItem && pendenciaIds.length > 0) {
+      const { data: vinculosRestantes, error: vincRestErr } = await admin
         .schema("m")
         .from("pedido_compra_item_origem")
-        .delete()
-        .in("id", origemIds)
+        .select("pendencia_id,pedido_compra_item_id")
         .eq("tenant_id", ctx.tenantId)
-        .eq("empresa_id", ctx.empresaId);
-      if (delOrigensErr) return jsonError(400, delOrigensErr.message);
+        .eq("empresa_id", ctx.empresaId)
+        .is("deleted_at", null)
+        .in("pendencia_id", pendenciaIds);
+      if (vincRestErr) return jsonError(400, vincRestErr.message);
 
-      if (pendenciaIds.length > 0) {
-        const { data: vinculosRestantes, error: vincRestErr } = await supabase
+      const vincRows = Array.isArray(vinculosRestantes) ? (vinculosRestantes as Array<Record<string, unknown>>) : [];
+      const pedidoItemIds = Array.from(
+        new Set(
+          vincRows
+            .map((r) => String(r.pedido_compra_item_id ?? "").trim())
+            .filter((v) => v.length > 0)
+        )
+      );
+      const pedidoByPedidoItemId = new Map<string, string>();
+      if (pedidoItemIds.length > 0) {
+        const { data: pedidoItensRows, error: pedidoItensErr } = await admin
           .schema("m")
-          .from("pedido_compra_item_origem")
-          .select("pendencia_id,pedido_compra_item_id")
+          .from("pedido_compra_item")
+          .select("id,pedido_compra_id,deleted_at")
+          .in("id", pedidoItemIds)
           .eq("tenant_id", ctx.tenantId)
-          .eq("empresa_id", ctx.empresaId)
-          .is("deleted_at", null)
-          .in("pendencia_id", pendenciaIds);
-        if (vincRestErr) return jsonError(400, vincRestErr.message);
+          .eq("empresa_id", ctx.empresaId);
+        if (pedidoItensErr) return jsonError(400, pedidoItensErr.message);
 
-        const vincRows = Array.isArray(vinculosRestantes) ? (vinculosRestantes as Array<Record<string, unknown>>) : [];
-        const pedidoItemIds = Array.from(
-          new Set(
-            vincRows
-              .map((r) => String(r.pedido_compra_item_id ?? "").trim())
-              .filter((v) => v.length > 0)
-          )
-        );
-        const pedidoByPedidoItemId = new Map<string, string>();
-        if (pedidoItemIds.length > 0) {
-          const { data: pedidoItensRows, error: pedidoItensErr } = await supabase
+        const ativos = (Array.isArray(pedidoItensRows) ? pedidoItensRows : []).filter((r) => r.deleted_at == null) as Array<{
+          id: string;
+          pedido_compra_id: string;
+        }>;
+        const pedidoIds = Array.from(new Set(ativos.map((r) => String(r.pedido_compra_id)).filter(Boolean)));
+        const statusByPedidoId = new Map<string, string>();
+        if (pedidoIds.length > 0) {
+          const { data: pedidosRows, error: pedidosErr } = await admin
             .schema("m")
-            .from("pedido_compra_item")
-            .select("id,pedido_compra_id,deleted_at")
-            .in("id", pedidoItemIds)
+            .from("pedido_compra")
+            .select("id,status,deleted_at")
+            .in("id", pedidoIds)
             .eq("tenant_id", ctx.tenantId)
             .eq("empresa_id", ctx.empresaId);
-          if (pedidoItensErr) return jsonError(400, pedidoItensErr.message);
-
-          const ativos = (Array.isArray(pedidoItensRows) ? pedidoItensRows : []).filter((r) => r.deleted_at == null) as Array<{
-            id: string;
-            pedido_compra_id: string;
-          }>;
-          const pedidoIds = Array.from(new Set(ativos.map((r) => String(r.pedido_compra_id)).filter(Boolean)));
-          const statusByPedidoId = new Map<string, string>();
-          if (pedidoIds.length > 0) {
-            const { data: pedidosRows, error: pedidosErr } = await supabase
-              .schema("m")
-              .from("pedido_compra")
-              .select("id,status,deleted_at")
-              .in("id", pedidoIds)
-              .eq("tenant_id", ctx.tenantId)
-              .eq("empresa_id", ctx.empresaId);
-            if (pedidosErr) return jsonError(400, pedidosErr.message);
-            for (const p of Array.isArray(pedidosRows) ? pedidosRows : []) {
-              if (p.deleted_at != null) continue;
-              statusByPedidoId.set(String(p.id), String(p.status ?? "").toUpperCase());
-            }
-          }
-
-          for (const it of ativos) {
-            const st = statusByPedidoId.get(String(it.pedido_compra_id));
-            if (!st) continue;
-            pedidoByPedidoItemId.set(String(it.id), st);
+          if (pedidosErr) return jsonError(400, pedidosErr.message);
+          for (const p of Array.isArray(pedidosRows) ? pedidosRows : []) {
+            if (p.deleted_at != null) continue;
+            statusByPedidoId.set(String(p.id), String(p.status ?? "").toUpperCase());
           }
         }
 
-        const pendenciasComVinculoAtivo = new Set<string>();
-        for (const r of vincRows) {
-          const pendId = String(r.pendencia_id ?? "").trim();
-          const pedidoItemId = String(r.pedido_compra_item_id ?? "").trim();
-          if (!pendId || !pedidoItemId) continue;
-          const st = pedidoByPedidoItemId.get(pedidoItemId);
+        for (const it of ativos) {
+          const st = statusByPedidoId.get(String(it.pedido_compra_id));
           if (!st) continue;
-          if (["RASCUNHO", "AGUARDANDO_APROVACAO", "APROVADO", "ENVIADO", "PARCIAL_RECEBIDO"].includes(st)) {
-            pendenciasComVinculoAtivo.add(pendId);
-          }
+          pedidoByPedidoItemId.set(String(it.id), st);
         }
+      }
 
-        const liberarPendencias = pendenciaIds.filter((idPend) => !pendenciasComVinculoAtivo.has(idPend));
-        if (liberarPendencias.length > 0) {
-          const { error: liberaErr } = await supabase
-            .schema("m")
-            .from("compra_pendencia")
-            .update({
-              status: "PENDENTE",
-              cancel_reason: null,
-              concluido_em: null,
-              updated_by: null,
-            })
-            .in("id", liberarPendencias)
-            .eq("tenant_id", ctx.tenantId)
-            .eq("empresa_id", ctx.empresaId)
-            .eq("status", "EM_PEDIDO")
-            .is("deleted_at", null);
-          if (liberaErr) return jsonError(400, liberaErr.message);
+      const pendenciasComVinculoAtivo = new Set<string>();
+      for (const r of vincRows) {
+        const pendId = String(r.pendencia_id ?? "").trim();
+        const pedidoItemId = String(r.pedido_compra_item_id ?? "").trim();
+        if (!pendId || !pedidoItemId) continue;
+        const st = pedidoByPedidoItemId.get(pedidoItemId);
+        if (!st) continue;
+        if (["RASCUNHO", "AGUARDANDO_APROVACAO", "APROVADO", "ENVIADO", "PARCIAL_RECEBIDO"].includes(st)) {
+          pendenciasComVinculoAtivo.add(pendId);
         }
+      }
+
+      const liberarPendencias = pendenciaIds.filter((idPend) => !pendenciasComVinculoAtivo.has(idPend));
+      if (liberarPendencias.length > 0) {
+        const { error: liberaErr } = await admin
+          .schema("m")
+          .from("compra_pendencia")
+          .update({
+            status: "PENDENTE",
+            cancel_reason: null,
+            concluido_em: null,
+            updated_by: null,
+          })
+          .in("id", liberarPendencias)
+          .eq("tenant_id", ctx.tenantId)
+          .eq("empresa_id", ctx.empresaId)
+          .eq("status", "EM_PEDIDO")
+          .is("deleted_at", null);
+        if (liberaErr) return jsonError(400, liberaErr.message);
       }
     }
   }
 
-  const { data: deletedRows, error } = await supabase
+  const { data: deletedRows, error } = await admin
     .schema("m")
     .from("pedido_compra_item")
     .delete()
@@ -313,5 +313,18 @@ export async function DELETE(
   if (!Array.isArray(deletedRows) || deletedRows.length === 0) {
     return jsonError(403, "Item nao removido (sem permissao ou ja excluido).");
   }
-  return Response.json({ ok: true });
+  const { data: stillExists, error: checkErr } = await admin
+    .schema("m")
+    .from("pedido_compra_item")
+    .select("id")
+    .eq("id", itemId)
+    .eq("pedido_compra_id", pedidoId)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .maybeSingle();
+  if (checkErr) return jsonError(400, checkErr.message);
+  if (stillExists?.id) {
+    return jsonError(500, "Falha definitiva ao excluir item: registro ainda existe no banco.");
+  }
+  return Response.json({ ok: true, deleted_item_id: itemId });
 }

@@ -1768,21 +1768,31 @@ export async function POST(req: NextRequest) {
           .trim()
           .slice(0, 10);
         const recebDate = /^\d{4}-\d{2}-\d{2}$/.test(emissao) ? emissao : new Date().toISOString().slice(0, 10);
-        const { error: receberErr } = await admin.schema("m").rpc("fn_pedido_compra_receber", {
+        const payloadRecebimento = {
           p_pedido_id: pedidoCompraIdVinculado,
           p_recebimento_date: recebDate,
           p_documento_ref: docRef,
           p_observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
           p_itens: pedidoRecebimentos,
-        });
+        };
+        const { error: receberErr } = await supabase.schema("m").rpc("fn_pedido_compra_receber", payloadRecebimento);
         if (receberErr) {
-          console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento", {
+          const { error: receberErrAdmin } = await admin.schema("m").rpc("fn_pedido_compra_receber", payloadRecebimento);
+          if (!receberErrAdmin) {
+            return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });
+          }
+          console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento (auth/admin)", {
             tenantId,
             empresaId,
             pedidoCompraIdVinculado,
             nfEntradaId,
-            error: receberErr.message,
+            errorAuth: receberErr.message,
+            errorAdmin: receberErrAdmin.message,
           });
+          return jerr(
+            422,
+            `NF importada e estoque/OS sincronizados, mas falhou ao baixar o pedido ${pedidoCompraIdVinculado}. Detalhe: ${receberErr.message}`
+          );
         }
       }
     }

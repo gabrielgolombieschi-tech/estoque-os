@@ -187,7 +187,7 @@ export default function ComprasPedidosClient() {
   const [metaByRowKey, setMetaByRowKey] = useState<Record<string, "MIN" | "IDEAL" | "MAX">>({});
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [statusFiltro, setStatusFiltro] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("ANDAMENTO");
   const [manualPedidoId, setManualPedidoId] = useState<string>("");
   const [manualNome, setManualNome] = useState("");
   const [manualUnidade, setManualUnidade] = useState("UN");
@@ -340,7 +340,7 @@ export default function ComprasPedidosClient() {
   const loadPedidos = useCallback(async () => {
     if (!tenantId || !empresaId || !canRead) return;
     const statusQ = statusFiltro ? `&status=${encodeURIComponent(statusFiltro)}` : "";
-    const json = await authedFetch(`/api/compras/pedidos?${ctxQuery}${statusQ}`);
+    const json = await authedFetch(`/api/compras/pedidos?${ctxQuery}${statusQ}&_ts=${Date.now()}`);
     const rows = (json.data as Pedido[]) ?? [];
     setPedidos(rows);
     if (!manualPedidoId && rows[0]?.id) setManualPedidoId(rows[0].id);
@@ -352,7 +352,7 @@ export default function ComprasPedidosClient() {
       setItemDrafts({});
       return;
     }
-    const json = await authedFetch(`/api/compras/pedidos/${manualPedidoId}?${ctxQuery}`);
+    const json = await authedFetch(`/api/compras/pedidos/${manualPedidoId}?${ctxQuery}&_ts=${Date.now()}`);
     const itens = ((json.data as { itens?: PedidoItem[] })?.itens ?? []) as PedidoItem[];
     setPedidoItens(itens);
     const nextDrafts: Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }> = {};
@@ -831,6 +831,12 @@ export default function ComprasPedidosClient() {
       try {
         await authedFetch(`/api/compras/pedidos/${manualPedidoId}/itens/${itemId}?${ctxQuery}`, {
           method: "DELETE",
+        });
+        setPedidoItens((prev) => prev.filter((it) => it.id !== itemId));
+        setItemDrafts((prev) => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
         });
         setOk("Item excluido.");
         await loadPedidoItens();
@@ -1330,6 +1336,7 @@ export default function ComprasPedidosClient() {
               onChange={(e) => setStatusFiltro(e.target.value)}
             >
               <option value="">Todos status</option>
+              <option value="ANDAMENTO">Andamento</option>
               <option>RASCUNHO</option>
               <option>AGUARDANDO_APROVACAO</option>
               <option>APROVADO</option>

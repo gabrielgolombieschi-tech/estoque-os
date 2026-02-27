@@ -24,7 +24,11 @@ export async function GET(req: NextRequest) {
     .eq("empresa_id", ctx.empresaId)
     .is("deleted_at", null);
 
-  if (status) q = q.eq("status", status);
+  if (status === "ANDAMENTO") {
+    q = q.neq("status", "CANCELADO").neq("status", "RECEBIDO");
+  } else if (status) {
+    q = q.eq("status", status);
+  }
   if (Number.isFinite(fornecedorId)) q = q.eq("fornecedor_id", fornecedorId);
 
   const { data, error } = await q.order("created_at", { ascending: false });
