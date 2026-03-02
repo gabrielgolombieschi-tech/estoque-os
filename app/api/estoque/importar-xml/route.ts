@@ -54,6 +54,7 @@ type NfEntradaItemRow = {
   descricao: string | null;
   qtd: number | null;
   v_unit: number | null;
+  v_prod?: number | null;
   v_icms: number | null;
   v_ipi: number | null;
   v_pis: number | null;
@@ -222,24 +223,60 @@ function applySimplesScIcmsCreditFallback(opts: { xmlRaw: string | null; itensJs
 
   let changed = false;
   for (const rec of items) {
-    const creditoAtual = toNum(rec.credito_icms);
-    if (creditoAtual > 0) continue;
-
     const vProd = toNum(rec.v_prod ?? rec.total);
     const qtd = toNum(rec.qtd ?? rec.quantidade);
     const vUnit = toNum(rec.v_unit ?? rec.valor_unitario ?? rec.valorUnit);
     const base = vProd > 0 ? vProd : qtd > 0 && vUnit > 0 ? qtd * vUnit : 0;
     if (base <= 0) continue;
 
-    rec.credito_icms = round6(base * 0.07);
-    if (toNum(rec.aliq_icms) <= 0) rec.aliq_icms = 7;
-    changed = true;
+    // ICMS presumido 7% para Simples SC interno.
+    if (toNum(rec.credito_icms) <= 0) {
+      rec.credito_icms = round6(base * 0.07);
+      changed = true;
+    }
+    if (toNum(rec.v_icms) <= 0) {
+      rec.v_icms = round6(base * 0.07);
+      changed = true;
+    }
+    if (toNum(rec.aliq_icms) <= 0) {
+      rec.aliq_icms = 7;
+      changed = true;
+    }
+
+    // PIS/COFINS de compra para contexto de crédito fiscal (regra operacional do projeto).
+    if (toNum(rec.credito_pis) <= 0) {
+      rec.credito_pis = round6(base * 0.0165);
+      changed = true;
+    }
+    if (toNum(rec.v_pis) <= 0) {
+      rec.v_pis = round6(base * 0.0165);
+      changed = true;
+    }
+    if (toNum(rec.aliq_pis) <= 0) {
+      rec.aliq_pis = 1.65;
+      changed = true;
+    }
+
+    if (toNum(rec.credito_cofins) <= 0) {
+      rec.credito_cofins = round6(base * 0.076);
+      changed = true;
+    }
+    if (toNum(rec.v_cofins) <= 0) {
+      rec.v_cofins = round6(base * 0.076);
+      changed = true;
+    }
+    if (toNum(rec.aliq_cofins) <= 0) {
+      rec.aliq_cofins = 7.6;
+      changed = true;
+    }
   }
 
   return {
     itensJson: changed ? items : opts.itensJson,
     applied: changed,
-    reason: changed ? "XML Simples Nacional (CRT=1) com operacao interna SC: credito_icms fallback 7%." : null,
+    reason: changed
+      ? "XML Simples Nacional (CRT=1) com operacao interna SC: fallback de ICMS 7% e PIS/COFINS (1,65%/7,6%)."
+      : null,
   };
 }
 
@@ -582,93 +619,110 @@ async function bindImportItemsFromPedido(opts: {
 
     const codigo = normalizeItemCode(String(rec.codigo_fornecedor ?? rec.codigo ?? ""));
     const descricao = normalizeLookup(String(rec.descricao ?? rec.nome ?? ""));
-    const qtd = Math.max(0, toNum(rec.qtd ?? rec.quantidade));
-    const valorUnit = Math.max(0, toNum(rec.v_unit ?? rec.valor_unitario ?? rec.valorUnit));
+    const qtdXml = Math.max(0, toNum(rec.qtd ?? rec.quantidade));
 
-    let best: { row: PedidoCompraItemRow; score: number } | null = null;
-    for (const row of pedidoRows) {
+    // Considera desconto por item quando vier no payload.
+    // Se houver desconto, usa unitario liquido para casar pedido/OS.
+    const valorUnitRaw = Math.max(0, toNum(rec.v_unit ?? rec.valor_unitario ?? rec.valorUnit));
+    const vProd = Math.max(0, toNum(rec.v_prod ?? rec.total));
+    const vDesc = Math.max(0, toNum(rec.v_desc ?? rec.vDesc ?? 0));
+    const valorUnitLiq = qtdXml > 0 && vProd > 0 ? Math.max(0, (vProd - vDesc) / qtdXml) : 0;
+    const valorUnit = valorUnitLiq > 0 ? valorUnitLiq : valorUnitRaw;
+
+    // Um item do XML pode cobrir varias linhas do pedido (ex.: XML qtd=2 e pedido com 1 OS + 1 estoque).
+    let qtdPendente = qtdXml;
+    let guard = 0;
+    while (guard < pedidoRows.length + 8) {
+      guard += 1;
+
+      let best: { row: PedidoCompraItemRow; score: number } | null = null;
+      for (const row of pedidoRows) {
+        const remaining = remainingByPedidoItemId.get(row.id) ?? 0;
+        if (remaining <= 0) continue;
+
+        const rowCode = normalizeItemCode(row.item_codigo ?? "");
+        const rowDesc = normalizeLookup(row.item_nome ?? "");
+        const rowItemId = Number(row.item_id ?? 0);
+        const cat = rowItemId > 0 ? catalogById.get(rowItemId) ?? null : null;
+        const catCode = normalizeItemCode(cat?.codigo_interno ?? "");
+        const catDesc = normalizeLookup(cat?.nome ?? "");
+        const rowValor = Math.max(0, toNum(row.valor_unitario));
+
+        let score = 1000;
+        // Quando o XML ja veio com item_id resolvido, prioriza casar com esse item do pedido.
+        if (alreadyId > 0) {
+          if (rowItemId > 0 && rowItemId === alreadyId) score -= 850;
+          else if (rowItemId > 0 && rowItemId !== alreadyId) score += 350;
+        }
+        if (codigo && (codigo === rowCode || codigo === catCode)) score -= 700;
+        if (descricao && (descricao === rowDesc || descricao === catDesc)) score -= 250;
+        // Fallback importante: quando item for manual/sem codigo, o valor unitario tende a ser a melhor chave.
+        const diffUnit = moneyDiff(valorUnit, rowValor);
+        if (valorUnit > 0 && rowValor > 0) {
+          if (diffUnit <= 0.01) score -= 650;
+          else if (diffUnit <= 0.05) score -= 450;
+          else if (diffUnit <= 0.2) score -= 220;
+        }
+        score += moneyDiff(valorUnit, rowValor) * 50;
+        const alvoQtd = qtdXml > 0 ? qtdPendente : remaining;
+        score += Math.abs(alvoQtd - remaining);
+
+        if (!best || score < best.score) best = { row, score };
+      }
+
+      if (!best) break;
+      const threshold = 1100;
+      if (best.score > threshold) break;
+
+      const row = best.row;
+      let itemId = toNum(row.item_id);
+      if (itemId <= 0) {
+        if (alreadyId > 0) {
+          itemId = alreadyId;
+          // Mantem o item manual do pedido vinculado ao item ja resolvido no XML.
+          await admin
+            .schema("m")
+            .from("pedido_compra_item")
+            .update({
+              item_id: itemId,
+              updated_by: null,
+            })
+            .eq("tenant_id", opts.tenantId)
+            .eq("empresa_id", opts.empresaId)
+            .eq("id", row.id)
+            .is("deleted_at", null);
+        }
+      }
+      if (itemId <= 0) {
+        const created = await ensureItemFromPedidoManual({
+          tenantId: opts.tenantId,
+          empresaId: opts.empresaId,
+          fornecedorId: opts.fornecedorId,
+          finalidade: opts.finalidade,
+          pedidoItem: row,
+          preferredCode: codigo || normalizeItemCode(row.item_codigo),
+          preferredName: String(rec.descricao ?? rec.nome ?? row.item_nome ?? ""),
+          dataMov,
+        });
+        if (created && created > 0) itemId = created;
+      }
+      if (itemId <= 0) break;
+
+      rec.item_id = itemId;
+      if (!codigo) {
+        const cat = catalogById.get(itemId);
+        const fallbackCode = normalizeItemCode(row.item_codigo ?? cat?.codigo_interno ?? "");
+        if (fallbackCode) rec.codigo = fallbackCode;
+      }
+
       const remaining = remainingByPedidoItemId.get(row.id) ?? 0;
-      if (remaining <= 0) continue;
+      const demanda = qtdXml > 0 ? qtdPendente : remaining;
+      const qtdReceber = Math.max(0, Math.min(demanda || remaining, remaining));
+      if (qtdReceber <= 0) break;
 
-      const rowCode = normalizeItemCode(row.item_codigo ?? "");
-      const rowDesc = normalizeLookup(row.item_nome ?? "");
-      const rowItemId = Number(row.item_id ?? 0);
-      const cat = rowItemId > 0 ? catalogById.get(rowItemId) ?? null : null;
-      const catCode = normalizeItemCode(cat?.codigo_interno ?? "");
-      const catDesc = normalizeLookup(cat?.nome ?? "");
-      const rowValor = Math.max(0, toNum(row.valor_unitario));
-
-      let score = 1000;
-      // Quando o XML ja veio com item_id resolvido, prioriza casar com esse item do pedido.
-      if (alreadyId > 0) {
-        if (rowItemId > 0 && rowItemId === alreadyId) score -= 850;
-        else if (rowItemId > 0 && rowItemId !== alreadyId) score += 350;
-      }
-      if (codigo && (codigo === rowCode || codigo === catCode)) score -= 700;
-      if (descricao && (descricao === rowDesc || descricao === catDesc)) score -= 250;
-      // Fallback importante: quando item for manual/sem codigo, o valor unitario tende a ser a melhor chave.
-      const diffUnit = moneyDiff(valorUnit, rowValor);
-      if (valorUnit > 0 && rowValor > 0) {
-        if (diffUnit <= 0.01) score -= 650;
-        else if (diffUnit <= 0.05) score -= 450;
-        else if (diffUnit <= 0.2) score -= 220;
-      }
-      score += moneyDiff(valorUnit, rowValor) * 50;
-      score += Math.abs(qtd - remaining);
-
-      if (!best || score < best.score) best = { row, score };
-    }
-
-    if (!best) continue;
-    const threshold = 1100;
-    if (best.score > threshold) continue;
-
-    const row = best.row;
-    let itemId = toNum(row.item_id);
-    if (itemId <= 0) {
-      if (alreadyId > 0) {
-        itemId = alreadyId;
-        // Mantem o item manual do pedido vinculado ao item ja resolvido no XML.
-        await admin
-          .schema("m")
-          .from("pedido_compra_item")
-          .update({
-            item_id: itemId,
-            updated_by: null,
-          })
-          .eq("tenant_id", opts.tenantId)
-          .eq("empresa_id", opts.empresaId)
-          .eq("id", row.id)
-          .is("deleted_at", null);
-      }
-    }
-    if (itemId <= 0) {
-      const created = await ensureItemFromPedidoManual({
-        tenantId: opts.tenantId,
-        empresaId: opts.empresaId,
-        fornecedorId: opts.fornecedorId,
-        finalidade: opts.finalidade,
-        pedidoItem: row,
-        preferredCode: codigo || normalizeItemCode(row.item_codigo),
-        preferredName: String(rec.descricao ?? rec.nome ?? row.item_nome ?? ""),
-        dataMov,
-      });
-      if (created && created > 0) itemId = created;
-    }
-    if (itemId <= 0) continue;
-
-    rec.item_id = itemId;
-    if (!codigo) {
-      const cat = catalogById.get(itemId);
-      const fallbackCode = normalizeItemCode(row.item_codigo ?? cat?.codigo_interno ?? "");
-      if (fallbackCode) rec.codigo = fallbackCode;
-    }
-
-    const remaining = remainingByPedidoItemId.get(row.id) ?? 0;
-    const qtdReceber = Math.max(0, Math.min(qtd || remaining, remaining));
-    if (qtdReceber > 0) {
       recebimentoMap.set(row.id, (recebimentoMap.get(row.id) ?? 0) + qtdReceber);
       remainingByPedidoItemId.set(row.id, Math.max(0, remaining - qtdReceber));
+
       const osId = Number(row.origem_os_id ?? origemOsByPedidoItemId.get(String(row.id)) ?? 0);
       if (osId > 0 && itemId > 0) {
         const key = `${osId}:${itemId}`;
@@ -679,6 +733,13 @@ async function bindImportItemsFromPedido(opts: {
           quantidade: (prev?.quantidade ?? 0) + qtdReceber,
           valor_unitario: valorUnit > 0 ? valorUnit : prev?.valor_unitario ?? toNum(row.valor_unitario),
         });
+      }
+
+      if (qtdXml > 0) {
+        qtdPendente = Math.max(0, qtdPendente - qtdReceber);
+        if (qtdPendente <= 1e-9) break;
+      } else {
+        break;
       }
     }
   }
@@ -878,17 +939,20 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
 
   const { data: nfRow } = await admin
     .from("nf_entrada")
-    .select("id,data_emissao")
+    .select("id,data_emissao,xml_raw")
     .eq("tenant_id", tenantId)
     .eq("empresa_id", empresaId)
     .eq("id", nfEntradaId)
-    .maybeSingle<{ id: number; data_emissao: string | null }>();
+    .maybeSingle<{ id: number; data_emissao: string | null; xml_raw: string | null }>();
 
   const dataMov = nfRow?.data_emissao ?? new Date().toISOString();
+  const taxCtx = parseXmlTaxContext(nfRow?.xml_raw ?? null);
+  const shouldUseSimplesScCreditoFallback =
+    taxCtx.crt === "1" && taxCtx.emitUf === "SC" && (taxCtx.destUf === "SC" || taxCtx.idDest === "1");
 
   const { data: itensNf, error: itensErr } = await admin
     .from("nf_entrada_itens")
-    .select("item_id,qtd,v_unit,v_icms,v_ipi,v_pis,v_cofins")
+    .select("item_id,qtd,v_unit,v_prod,v_icms,v_ipi,v_pis,v_cofins")
     .eq("tenant_id", tenantId)
     .eq("empresa_id", empresaId)
     .eq("nf_entrada_id", nfEntradaId)
@@ -952,6 +1016,29 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
     const qtd = toNum(row.qtd);
     if (qtd <= 0) continue;
     insertedQuantByItem.set(itemId, qtd);
+    const baseProd = toNum(row.v_prod);
+    const baseCalculo = baseProd > 0 ? baseProd : qtd * toNum(row.v_unit);
+    const vIcms = toNum(row.v_icms);
+    const vPis = toNum(row.v_pis);
+    const vCofins = toNum(row.v_cofins);
+    const creditoIcms =
+      vIcms > 0
+        ? vIcms
+        : shouldUseSimplesScCreditoFallback && baseCalculo > 0
+          ? round6(baseCalculo * 0.07)
+          : 0;
+    const creditoPis =
+      vPis > 0
+        ? vPis
+        : shouldUseSimplesScCreditoFallback && baseCalculo > 0
+          ? round6(baseCalculo * 0.0165)
+          : 0;
+    const creditoCofins =
+      vCofins > 0
+        ? vCofins
+        : shouldUseSimplesScCreditoFallback && baseCalculo > 0
+          ? round6(baseCalculo * 0.076)
+          : 0;
     inserts.push({
       tenant_id: tenantId,
       empresa_id: empresaId,
@@ -968,9 +1055,9 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
       v_pis: toNum(row.v_pis),
       v_cofins: toNum(row.v_cofins),
       v_frete_rateado: 0,
-      credito_icms: 0,
-      credito_pis: 0,
-      credito_cofins: 0,
+      credito_icms: creditoIcms,
+      credito_pis: creditoPis,
+      credito_cofins: creditoCofins,
       origem_nf_entrada_id: nfEntradaId,
     });
   }
@@ -1034,6 +1121,51 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
   }
 
   return { inserted: inserts.length };
+}
+
+async function syncDocumentoFiscalImpostosFromNfEntradaFallback(opts: {
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+}) {
+  const admin = supabaseAdmin();
+
+  const { data: nfRow, error: nfErr } = await admin
+    .from("nf_entrada")
+    .select("chave")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.nfEntradaId)
+    .maybeSingle<{ chave: string | null }>();
+  if (nfErr) throw new Error(nfErr.message);
+
+  // Usa função SECURITY DEFINER para evitar depender de grants diretos em f.documento_fiscal.
+  let { data: documentoFiscalIdRaw, error: findErr } = await admin.schema("f").rpc("fn_find_documento_fiscal_from_import", {
+    p_tenant_id: opts.tenantId,
+    p_empresa_id: opts.empresaId,
+    p_nf_entrada_id: opts.nfEntradaId,
+    p_chave_acesso: String(nfRow?.chave ?? ""),
+  });
+  if (findErr) {
+    // Compatibilidade com ambientes antigos (assinatura somente com p_nf_entrada_id).
+    const legacy = await admin.schema("f").rpc("fn_find_documento_fiscal_from_import", {
+      p_nf_entrada_id: opts.nfEntradaId,
+    });
+    documentoFiscalIdRaw = legacy.data;
+    findErr = legacy.error;
+  }
+  if (findErr) throw new Error(findErr.message);
+
+  const documentoFiscalId =
+    typeof documentoFiscalIdRaw === "string" && UUID_REGEX.test(documentoFiscalIdRaw) ? documentoFiscalIdRaw : null;
+  if (!documentoFiscalId) return { synced: false, documentoFiscalId: null as string | null };
+
+  const { error: syncErr } = await admin.schema("f").rpc("nfe_sync_creditos_entrada_from_nf_itens", {
+    p_documento_fiscal_id: documentoFiscalId,
+  });
+  if (syncErr) throw new Error(syncErr.message);
+
+  return { synced: true, documentoFiscalId };
 }
 
 async function syncPedidoMateriaisToOs(opts: {
@@ -1135,6 +1267,69 @@ async function syncPedidoMateriaisToOs(opts: {
       });
     }
   }
+}
+
+async function buildDirectOsVinculosFromNfEntrada(opts: {
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+  osId: number;
+}): Promise<Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>> {
+  const admin = supabaseAdmin();
+  if (!Number.isFinite(opts.osId) || opts.osId <= 0) return [];
+
+  const { data: nfItens, error: nfItensErr } = await admin
+    .from("nf_entrada_itens")
+    .select("item_id,qtd,v_unit")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("nf_entrada_id", opts.nfEntradaId)
+    .returns<Array<{ item_id: number | null; qtd: number | null; v_unit: number | null }>>();
+  if (nfItensErr) return [];
+
+  const agregados = new Map<number, { quantidade: number; valor_unitario: number }>();
+  for (const row of Array.isArray(nfItens) ? nfItens : []) {
+    const itemId = Number(row.item_id ?? 0);
+    const qtd = Math.max(0, toNum(row.qtd));
+    const vUnit = Math.max(0, toNum(row.v_unit));
+    if (!Number.isFinite(itemId) || itemId <= 0 || qtd <= 0) continue;
+    const prev = agregados.get(itemId);
+    agregados.set(itemId, {
+      quantidade: (prev?.quantidade ?? 0) + qtd,
+      valor_unitario: vUnit > 0 ? vUnit : prev?.valor_unitario ?? 0,
+    });
+  }
+  if (agregados.size === 0) return [];
+
+  const itemIds = Array.from(agregados.keys());
+  const { data: osItensRows, error: osItensErr } = await admin
+    .from("os_itens")
+    .select("item_id")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("os_id", opts.osId)
+    .in("item_id", itemIds)
+    .is("deleted_at", null)
+    .returns<Array<{ item_id: number | null }>>();
+  if (osItensErr) return [];
+
+  const itemIdsPresentesNaOs = new Set(
+    (Array.isArray(osItensRows) ? osItensRows : [])
+      .map((r) => Number(r.item_id ?? 0))
+      .filter((n) => Number.isFinite(n) && n > 0)
+  );
+
+  const vinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }> = [];
+  for (const [itemId, agg] of agregados.entries()) {
+    if (!itemIdsPresentesNaOs.has(itemId)) continue;
+    vinculos.push({
+      os_id: opts.osId,
+      item_id: itemId,
+      quantidade: agg.quantidade,
+      valor_unitario: agg.valor_unitario,
+    });
+  }
+  return vinculos;
 }
 
 async function getCurrentUsuarioId(opts: { authUserId: string }): Promise<string | null> {
@@ -1730,6 +1925,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    try {
+      await syncDocumentoFiscalImpostosFromNfEntradaFallback({
+        tenantId,
+        empresaId,
+        nfEntradaId,
+      });
+    } catch (fiscalSyncErr) {
+      console.warn("[XML_IMPORT][FISCAL_SYNC] falha nao-bloqueante ao sincronizar impostos para apuracao", {
+        tenantId,
+        empresaId,
+        nfEntradaId,
+        error: fiscalSyncErr instanceof Error ? fiscalSyncErr.message : "erro desconhecido",
+      });
+    }
+
     if (String(finalidadeNorm).toLowerCase() === "materia_prima" && pedidoOsVinculos.length > 0) {
       try {
         await syncPedidoMateriaisToOs({
@@ -1745,6 +1955,41 @@ export async function POST(req: NextRequest) {
           empresaId,
           nfEntradaId,
           error: osSyncErr instanceof Error ? osSyncErr.message : "erro desconhecido",
+        });
+      }
+    }
+
+    // Fluxo direto para OS (sem pedido vinculado): garante baixa por movimentacao
+    // para nao deixar saldo duplicado (entrada em estoque + consumo na OS).
+    if (
+      String(finalidadeNorm).toLowerCase() === "materia_prima" &&
+      pedidoOsVinculos.length === 0 &&
+      Number.isFinite(osId) &&
+      Number(osId) > 0
+    ) {
+      try {
+        const osVinculosDireto = await buildDirectOsVinculosFromNfEntrada({
+          tenantId,
+          empresaId,
+          nfEntradaId,
+          osId: Number(osId),
+        });
+        if (osVinculosDireto.length > 0) {
+          await syncPedidoMateriaisToOs({
+            tenantId,
+            empresaId,
+            nfEntradaId,
+            realizadoPor: userData.user.email ?? userData.user.id ?? "sistema",
+            osVinculos: osVinculosDireto,
+          });
+        }
+      } catch (osDirectSyncErr) {
+        console.warn("[XML_IMPORT][OS_DIRETO] falha ao sincronizar baixa da NF na OS informada", {
+          tenantId,
+          empresaId,
+          nfEntradaId,
+          osId,
+          error: osDirectSyncErr instanceof Error ? osDirectSyncErr.message : "erro desconhecido",
         });
       }
     }

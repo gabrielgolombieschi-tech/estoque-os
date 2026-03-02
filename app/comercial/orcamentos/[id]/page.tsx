@@ -23,6 +23,7 @@ import {
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
   listVendedores,
+  reabrirOrcamento,
   searchClientes,
   updateItem,
   updateOrcamento,
@@ -1187,6 +1188,32 @@ export default function OrcamentoPage() {
     }
   }, [canWrite, confirm, empresaId, orc, readOnly, reload, supabase, tenantId]);
 
+  const doReabrir = useCallback(async () => {
+    if (!orc?.id) return;
+    if (!supabase || !tenantId || !empresaId) return;
+    if (!canWrite || busy || status !== "CANCELADO") return;
+
+    const ok = await confirm({
+      title: `Reabrir orcamento ${orc.codigo}?`,
+      description: "O status voltara para RASCUNHO e a edicao sera liberada.",
+      confirmText: "Reabrir",
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      await reabrirOrcamento(supabase, { tenantId, empresaId, id: orc.id });
+      setOk("Orcamento reaberto em rascunho.");
+      await reload();
+    } catch (e: unknown) {
+      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao reabrir orcamento."));
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, canWrite, confirm, empresaId, orc, reload, status, supabase, tenantId]);
+
   const closeItemDialog = useCallback(() => setItemDialog(closedItemDialog()), []);
 
   const submitItem = useCallback(async () => {
@@ -1757,6 +1784,14 @@ export default function OrcamentoPage() {
                 className="px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 text-sm disabled:opacity-60"
               >
                 Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void doReabrir()}
+                disabled={!canWrite || busy || status !== "CANCELADO"}
+                className="px-3 py-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 text-sm disabled:opacity-60"
+              >
+                Reabrir
               </button>
             </>
           )}

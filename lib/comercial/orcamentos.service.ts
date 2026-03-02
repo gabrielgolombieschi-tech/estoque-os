@@ -276,6 +276,13 @@ export async function cancelarOrcamento(
   await updateOrcamento(supabase, { ...params, patch: { status: "CANCELADO" } });
 }
 
+export async function reabrirOrcamento(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; id: string }
+) {
+  await updateOrcamento(supabase, { ...params, patch: { status: "RASCUNHO" } });
+}
+
 export async function deleteOrcamento(
   supabase: SupabaseClient,
   params: { tenantId: string; empresaId: string; id: string }

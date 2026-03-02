@@ -189,6 +189,7 @@ export default function ComprasPedidosClient() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [statusFiltro, setStatusFiltro] = useState("ANDAMENTO");
   const [manualPedidoId, setManualPedidoId] = useState<string>("");
+  const [manualCodigo, setManualCodigo] = useState("");
   const [manualNome, setManualNome] = useState("");
   const [manualUnidade, setManualUnidade] = useState("UN");
   const [manualQtd, setManualQtd] = useState("1");
@@ -735,10 +736,12 @@ export default function ComprasPedidosClient() {
       setErr("Selecione um pedido.");
       return;
     }
+    const codigo = manualCodigo.trim();
+    const nome = manualNome.trim();
     const qtd = parseNum(manualQtd, 0);
     const vlr = parseNum(manualValor, 0);
-    if (!manualNome.trim()) {
-      setErr("Informe o nome do item manual.");
+    if (!codigo && !nome) {
+      setErr("Informe o codigo existente ou a descricao do item.");
       return;
     }
     if (qtd <= 0) {
@@ -759,14 +762,16 @@ export default function ComprasPedidosClient() {
         body: JSON.stringify({
           tenant_id: tenantId,
           empresa_id: empresaId,
-          item_nome: manualNome,
+          item_codigo: codigo || null,
+          item_nome: nome,
           unidade: manualUnidade || "UN",
           quantidade: qtd,
           valor_unitario: vlr,
           origem_os_numero: manualOsNumero.trim() || null,
         }),
       });
-      setOk("Item manual adicionado ao pedido.");
+      setOk(codigo ? "Item vinculado por codigo adicionado ao pedido." : "Item manual adicionado ao pedido.");
+      setManualCodigo("");
       setManualNome("");
       setManualUnidade("UN");
       setManualQtd("1");
@@ -779,7 +784,7 @@ export default function ComprasPedidosClient() {
     } finally {
       setBusy(false);
     }
-  }, [empresaId, loadPedidoItens, loadPedidos, manualNome, manualOsNumero, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
+  }, [empresaId, loadPedidoItens, loadPedidos, manualCodigo, manualNome, manualOsNumero, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
 
   const salvarItemPedido = useCallback(
     async (itemId: string) => {
@@ -877,6 +882,7 @@ export default function ComprasPedidosClient() {
       if (!pedidoId) throw new Error("Nao foi possivel criar o pedido avulso.");
 
       setManualPedidoId(pedidoId);
+      setManualCodigo("");
       setManualNome("");
       setManualUnidade("UN");
       setManualQtd("1");
@@ -1468,13 +1474,17 @@ export default function ComprasPedidosClient() {
                   </div>
 
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
-                    <div className="text-sm font-medium">Adicionar item manual no pedido</div>
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 md:col-span-2 disabled:opacity-50" placeholder="Descricao do item" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
+                    <div className="text-sm font-medium">Adicionar item no pedido</div>
+                    <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Codigo existente" value={manualCodigo} disabled={!canEditPedidoItems} onChange={(e) => setManualCodigo(e.target.value)} />
+                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 md:col-span-2 disabled:opacity-50" placeholder="Descricao do item (manual)" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="UN" value={manualUnidade} disabled={!canEditPedidoItems} onChange={(e) => setManualUnidade(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditPedidoItems} onChange={(e) => setManualQtd(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Valor unitario" value={manualValor} disabled={!canEditPedidoItems} onChange={(e) => setManualValor(e.target.value)} />
                       <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="OS (numero/id)" value={manualOsNumero} disabled={!canEditPedidoItems} onChange={(e) => setManualOsNumero(e.target.value)} />
+                    </div>
+                    <div className="text-xs text-zinc-500">
+                      No campo codigo, pode informar o codigo interno (ex.: 199.19240) ou o ID do item (ex.: 1733).
                     </div>
                     <button className="px-3 py-2 rounded border border-zinc-800 disabled:opacity-50" onClick={() => void addManualItem()} disabled={busy || !canEditPedidoItems}>
                       Adicionar item

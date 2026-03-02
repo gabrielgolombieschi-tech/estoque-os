@@ -22,15 +22,63 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!(await canCompras(supabase, "write"))) return jsonError(403, "Sem permissao (compras.write).");
 
   const itemIdRaw = body.item_id ?? body.itemId ?? null;
-  const itemId = itemIdRaw == null || String(itemIdRaw).trim() === "" ? null : Number(itemIdRaw);
-  const itemNome = String(body.item_nome ?? body.itemNome ?? "").trim();
+  let itemId = itemIdRaw == null || String(itemIdRaw).trim() === "" ? null : Number(itemIdRaw);
+  let itemNome = String(body.item_nome ?? body.itemNome ?? "").trim();
+  const itemCodigo = String(body.item_codigo ?? body.itemCodigo ?? "").trim();
   const unidade = String(body.unidade ?? "UN").trim() || "UN";
   const quantidade = asNum(body.quantidade, 0);
   const valorUnitario = asNum(body.valor_unitario ?? body.valorUnitario, 0);
   const osIdRaw = body.origem_os_id ?? body.origemOsId ?? null;
   const osNumeroRaw = String(body.origem_os_numero ?? body.origemOsNumero ?? "").trim();
 
-  if (!itemId && !itemNome) return jsonError(400, "Informe item_id ou item_nome.");
+  if (itemId != null && (!Number.isFinite(itemId) || itemId <= 0)) {
+    return jsonError(400, "item_id invalido.");
+  }
+
+  if (itemCodigo) {
+    const { data: itemByCodigoRaw, error: itemByCodigoErr } = await supabase
+      .from("itens")
+      .select("id,nome")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .eq("codigo_interno", itemCodigo)
+      .limit(1)
+      .maybeSingle();
+
+    if (itemByCodigoErr) return jsonError(400, itemByCodigoErr.message);
+    let itemByCodigo = itemByCodigoRaw;
+
+    // UX fallback: permite informar o ID do item no mesmo campo de codigo.
+    if (!itemByCodigo) {
+      const codigoAsId = Number(itemCodigo);
+      if (Number.isFinite(codigoAsId) && codigoAsId > 0) {
+        const { data: itemById, error: itemByIdErr } = await supabase
+          .from("itens")
+          .select("id,nome")
+          .eq("tenant_id", ctx.tenantId)
+          .eq("empresa_id", ctx.empresaId)
+          .eq("id", codigoAsId)
+          .limit(1)
+          .maybeSingle();
+        if (itemByIdErr) return jsonError(400, itemByIdErr.message);
+        itemByCodigo = itemById;
+      }
+    }
+
+    const resolvedItemId = Number((itemByCodigo as Record<string, unknown> | null)?.id ?? 0);
+    if (!Number.isFinite(resolvedItemId) || resolvedItemId <= 0) {
+      return jsonError(404, `Codigo de item nao encontrado: ${itemCodigo}`);
+    }
+
+    if (itemId != null && Number.isFinite(itemId) && itemId > 0 && itemId !== resolvedItemId) {
+      return jsonError(400, "item_id e item_codigo referenciam itens diferentes.");
+    }
+
+    itemId = resolvedItemId;
+    if (!itemNome) itemNome = String((itemByCodigo as Record<string, unknown> | null)?.nome ?? "").trim();
+  }
+
+  if (!itemId && !itemNome) return jsonError(400, "Informe item_codigo existente, item_id ou item_nome.");
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
 

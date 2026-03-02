@@ -1,7 +1,17 @@
 import { NextRequest } from "next/server";
 import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../_lib";
+import { getAllowedEmpresas } from "@/lib/auth/empresa";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+const PEDIDO_LOOKUP_ALLOWED_ROLES = new Set([
+  "ADMIN",
+  "FINANCEIRO",
+  "COORDENACAO",
+  "COMPRAS",
+  "ALMOXARIFADO",
+  "APONTAMENTO_RH",
+]);
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthSupabase(req);
@@ -10,13 +20,31 @@ export async function GET(req: NextRequest) {
 
   const ctx = await resolveTenantEmpresa(supabase, undefined, req.nextUrl.searchParams);
   if (!ctx) return jsonError(400, "Tenant/empresa nao carregados.");
-  if (!(await canCompras(supabase, "read"))) return jsonError(403, "Sem permissao (compras.read).");
+
+  const canReadCompras = await canCompras(supabase, "read");
+  let canLookupByRole = false;
+  if (!canReadCompras) {
+    try {
+      const allowed = await getAllowedEmpresas(supabase, ctx.tenantId);
+      const empresa = allowed.find((e) => String(e.id) === ctx.empresaId);
+      const role = String(empresa?.papel ?? "").trim().toUpperCase();
+      canLookupByRole = PEDIDO_LOOKUP_ALLOWED_ROLES.has(role);
+    } catch {
+      canLookupByRole = false;
+    }
+  }
+
+  if (!canReadCompras && !canLookupByRole) {
+    return jsonError(403, "Sem permissao (compras.read).");
+  }
+
+  const db = canReadCompras ? supabase : supabaseAdmin();
 
   const status = String(req.nextUrl.searchParams.get("status") ?? "").trim().toUpperCase();
   const fornecedorIdRaw = String(req.nextUrl.searchParams.get("fornecedorId") ?? "").trim();
   const fornecedorId = fornecedorIdRaw ? Number(fornecedorIdRaw) : null;
 
-  let q = supabase
+  let q = db
     .schema("m")
     .from("pedido_compra")
     .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,created_at,total_geral")
@@ -45,7 +73,7 @@ export async function GET(req: NextRequest) {
 
   const fornecedorMap = new Map<number, string>();
   if (fornecedorIds.length > 0) {
-    const { data: fData, error: fErr } = await supabase
+    const { data: fData, error: fErr } = await db
       .from("fornecedores")
       .select("id,nome")
       .eq("tenant_id", ctx.tenantId)

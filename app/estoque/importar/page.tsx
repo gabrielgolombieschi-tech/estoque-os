@@ -121,6 +121,7 @@ type ImportItemPayload = {
   qtd: number;
   v_unit: number;
   v_prod: number;
+  v_desc?: number;
   v_icms: number;
   v_ipi: number;
   v_pis: number;
@@ -1821,7 +1822,10 @@ export default function ImportarXmlPage() {
 
             const qtd = Number(it.quantidade ?? 0);
             const baseProd = Number(it.valorProd ?? 0);
-            const baseLiquida = Math.max(0, baseProd - Number(it.vDesc ?? 0));
+            const vDesc = Number(it.vDesc ?? 0);
+            const baseLiquida = Math.max(0, baseProd - vDesc);
+            const vUnitRaw = Number(it.valorUnit ?? 0);
+            const vUnitLiquido = qtd > 0 && baseLiquida > 0 ? baseLiquida / qtd : vUnitRaw;
 
             const vIcms = Number(it.vIcms ?? 0);
             const vIpi = Number(it.vIpi ?? 0);
@@ -1854,8 +1858,9 @@ export default function ImportarXmlPage() {
               ncm: it.ncm ?? null,
               cfop: it.cfop ?? null,
               qtd: round6(qtd),
-              v_unit: round6(Number(it.valorUnit ?? 0)),
+              v_unit: round6(vUnitLiquido > 0 ? vUnitLiquido : vUnitRaw),
               v_prod: round6(baseProd),
+              v_desc: round6(vDesc),
               v_icms: round6(vIcms),
               v_ipi: round6(vIpi),
               v_pis: round6(vPis),
