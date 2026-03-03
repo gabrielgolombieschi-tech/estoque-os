@@ -3,6 +3,21 @@ import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "..
 
 export const runtime = "nodejs";
 
+function num(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function staleEstoqueFromAgrRow(row: Record<string, unknown>): boolean {
+  return (
+    num(row.qtd_estoque_pendencia) > 0 &&
+    num(row.sugestao_min) <= 0 &&
+    num(row.sugestao_ideal) <= 0 &&
+    num(row.sugestao_max) <= 0 &&
+    num(row.qtd_os_total) <= 0
+  );
+}
+
 export async function GET(req: NextRequest) {
   const auth = await getAuthSupabase(req);
   if ("error" in auth) return auth.error;
@@ -26,7 +41,8 @@ export async function GET(req: NextRequest) {
     if (Number.isFinite(fornecedorId)) q = q.eq("fornecedor_id", fornecedorId);
     const { data, error } = await q.order("item_nome", { ascending: true });
     if (error) return jsonError(400, error.message);
-    return Response.json({ data: data ?? [] });
+    const rows = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
+    return Response.json({ data: rows.filter((r) => !staleEstoqueFromAgrRow(r)) });
   }
 
   let q = supabase
@@ -39,7 +55,32 @@ export async function GET(req: NextRequest) {
   if (Number.isFinite(fornecedorId)) q = q.eq("fornecedor_id", fornecedorId);
   const { data, error } = await q.order("necessario_em", { ascending: true, nullsFirst: true });
   if (error) return jsonError(400, error.message);
-  return Response.json({ data: data ?? [] });
+
+  const rows = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
+  const hasEstoque = rows.some((r) => String(r.origem_tipo ?? "").toUpperCase() === "ESTOQUE");
+  if (!hasEstoque) return Response.json({ data: rows });
+
+  let agrQ = supabase
+    .schema("r")
+    .from("r_compra_pendencias_agrupadas_item")
+    .select("fornecedor_id,item_id,qtd_os_total,qtd_estoque_pendencia,sugestao_min,sugestao_ideal,sugestao_max")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId);
+  if (Number.isFinite(fornecedorId)) agrQ = agrQ.eq("fornecedor_id", fornecedorId);
+  const { data: agrData, error: agrErr } = await agrQ;
+  if (agrErr) return jsonError(400, agrErr.message);
+
+  const staleKeys = new Set(
+    (Array.isArray(agrData) ? agrData : [])
+      .filter((r) => staleEstoqueFromAgrRow(r as Record<string, unknown>))
+      .map((r) => `${num(r.fornecedor_id)}:${num(r.item_id)}`)
+  );
+  const filtered = rows.filter((r) => {
+    if (String(r.origem_tipo ?? "").toUpperCase() !== "ESTOQUE") return true;
+    const key = `${num(r.fornecedor_id)}:${num(r.item_id)}`;
+    return !staleKeys.has(key);
+  });
+  return Response.json({ data: filtered });
 }
 
 export async function POST(req: NextRequest) {

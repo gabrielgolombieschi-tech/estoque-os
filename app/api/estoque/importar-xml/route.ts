@@ -775,6 +775,210 @@ function mergeRecebimentoItens(
     .filter((r) => r.quantidade > 0);
 }
 
+function isPermissaoRecebimentoError(message: string | null | undefined): boolean {
+  const text = String(message ?? "").toLowerCase();
+  return text.includes("sem permissao para recebimento") || text.includes("sem permissao para receber");
+}
+
+async function registrarRecebimentoPedidoViaImportFallback(opts: {
+  tenantId: string;
+  empresaId: string;
+  pedidoCompraId: string;
+  recebimentoDate: string;
+  documentoRef: string;
+  observacoes: string;
+  currentUsuarioId: string | null;
+  recebimentoItens: Array<{ pedidoItemId: string; quantidade: number }>;
+}) {
+  const admin = supabaseAdmin();
+  const itens = mergeRecebimentoItens([], opts.recebimentoItens);
+  if (!itens.length) return;
+
+  const { data: pedido, error: pedidoErr } = await admin
+    .schema("m")
+    .from("pedido_compra")
+    .select("id,status")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.pedidoCompraId)
+    .is("deleted_at", null)
+    .maybeSingle<Pick<PedidoCompraRow, "id" | "status">>();
+  if (pedidoErr) throw new Error(pedidoErr.message);
+  if (!pedido) throw new Error("Pedido nao encontrado para recebimento.");
+
+  const pedidoItemIds = itens.map((r) => String(r.pedidoItemId)).filter(Boolean);
+  const { data: pedidoItens, error: pedidoItensErr } = await admin
+    .schema("m")
+    .from("pedido_compra_item")
+    .select("id,item_id,quantidade,quantidade_recebida")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("pedido_compra_id", opts.pedidoCompraId)
+    .is("deleted_at", null)
+    .in("id", pedidoItemIds)
+    .returns<Array<Pick<PedidoCompraItemRow, "id" | "item_id" | "quantidade" | "quantidade_recebida">>>();
+  if (pedidoItensErr) throw new Error(pedidoItensErr.message);
+
+  const byId = new Map(
+    (Array.isArray(pedidoItens) ? pedidoItens : []).map((row) => [String(row.id), row as Pick<PedidoCompraItemRow, "id" | "item_id" | "quantidade" | "quantidade_recebida">])
+  );
+  if (byId.size !== pedidoItemIds.length) {
+    throw new Error("Pedido item nao encontrado para recebimento.");
+  }
+
+  const recebimentoRows: Array<{ pedido_compra_item_id: string; item_id: number | null; quantidade: number }> = [];
+  const itemNovoRecebido = new Map<string, number>();
+  for (const it of itens) {
+    const pedidoItemId = String(it.pedidoItemId);
+    const row = byId.get(pedidoItemId);
+    if (!row) throw new Error("Pedido item nao encontrado para recebimento.");
+
+    const qtd = Math.max(0, toNum(it.quantidade));
+    if (qtd <= 0) continue;
+
+    const qtdAtual = toNum(row.quantidade_recebida);
+    const qtdTotal = toNum(row.quantidade);
+    const saldo = Math.max(0, qtdTotal - qtdAtual);
+    if (qtd - saldo > 1e-6) throw new Error("Quantidade excede saldo.");
+
+    recebimentoRows.push({
+      pedido_compra_item_id: pedidoItemId,
+      item_id: Number.isFinite(Number(row.item_id)) ? Number(row.item_id) : null,
+      quantidade: qtd,
+    });
+    itemNovoRecebido.set(pedidoItemId, qtdAtual + qtd);
+  }
+  if (!recebimentoRows.length) return;
+
+  const { data: receb, error: recebErr } = await admin
+    .schema("m")
+    .from("pedido_compra_recebimento")
+    .insert({
+      tenant_id: opts.tenantId,
+      empresa_id: opts.empresaId,
+      pedido_compra_id: opts.pedidoCompraId,
+      recebimento_date: opts.recebimentoDate,
+      documento_ref: opts.documentoRef,
+      observacoes: opts.observacoes,
+      created_by: opts.currentUsuarioId,
+      updated_by: opts.currentUsuarioId,
+    })
+    .select("id")
+    .single<RowWithId>();
+  if (recebErr) throw new Error(recebErr.message);
+
+  const recebimentoId = readIdString(receb);
+  if (!recebimentoId) throw new Error("Falha ao criar recebimento do pedido.");
+
+  const { error: insItensErr } = await admin
+    .schema("m")
+    .from("pedido_compra_recebimento_item")
+    .insert(
+      recebimentoRows.map((r) => ({
+        tenant_id: opts.tenantId,
+        empresa_id: opts.empresaId,
+        recebimento_id: recebimentoId,
+        pedido_compra_item_id: r.pedido_compra_item_id,
+        item_id: r.item_id,
+        quantidade: r.quantidade,
+        created_by: opts.currentUsuarioId,
+      }))
+    );
+  if (insItensErr) throw new Error(insItensErr.message);
+
+  for (const [pedidoItemId, novaQtd] of itemNovoRecebido.entries()) {
+    const { error: updItemErr } = await admin
+      .schema("m")
+      .from("pedido_compra_item")
+      .update({ quantidade_recebida: novaQtd, updated_by: opts.currentUsuarioId })
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("pedido_compra_id", opts.pedidoCompraId)
+      .eq("id", pedidoItemId)
+      .is("deleted_at", null);
+    if (updItemErr) throw new Error(updItemErr.message);
+  }
+
+  const { data: itensAtualizados, error: itensAtualizadosErr } = await admin
+    .schema("m")
+    .from("pedido_compra_item")
+    .select("id,quantidade,quantidade_recebida")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("pedido_compra_id", opts.pedidoCompraId)
+    .is("deleted_at", null)
+    .returns<Array<Pick<PedidoCompraItemRow, "id" | "quantidade" | "quantidade_recebida">>>();
+  if (itensAtualizadosErr) throw new Error(itensAtualizadosErr.message);
+
+  const itensPedido = Array.isArray(itensAtualizados) ? itensAtualizados : [];
+  const todosRecebidos =
+    itensPedido.length > 0 &&
+    itensPedido.every((r) => toNum(r.quantidade_recebida) + 1e-6 >= toNum(r.quantidade));
+  const novoStatus = todosRecebidos ? "RECEBIDO" : "PARCIAL_RECEBIDO";
+  const statusAnterior = String(pedido.status ?? "").trim().toUpperCase();
+
+  const { error: updPedidoErr } = await admin
+    .schema("m")
+    .from("pedido_compra")
+    .update({ status: novoStatus, updated_by: opts.currentUsuarioId })
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.pedidoCompraId)
+    .is("deleted_at", null);
+  if (updPedidoErr) throw new Error(updPedidoErr.message);
+
+  await admin.schema("m").rpc("fn_pedido_compra_log_evento", {
+    p_pedido_id: opts.pedidoCompraId,
+    p_tipo: "RECEBIMENTO",
+    p_status_de: statusAnterior || null,
+    p_status_para: novoStatus,
+    p_mensagem: opts.observacoes || "Recebimento",
+  });
+
+  const itensTotaisRecebidosIds = itensPedido
+    .filter((r) => toNum(r.quantidade_recebida) + 1e-6 >= toNum(r.quantidade))
+    .map((r) => String(r.id))
+    .filter(Boolean);
+
+  if (itensTotaisRecebidosIds.length > 0) {
+    const { data: origens, error: origErr } = await admin
+      .schema("m")
+      .from("pedido_compra_item_origem")
+      .select("pendencia_id")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .in("pedido_compra_item_id", itensTotaisRecebidosIds)
+      .is("deleted_at", null)
+      .returns<PedidoCompraItemOrigemRow[]>();
+    if (origErr) throw new Error(origErr.message);
+
+    const pendenciaIds = Array.from(
+      new Set(
+        (Array.isArray(origens) ? origens : [])
+          .map((r) => String(r.pendencia_id ?? "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (pendenciaIds.length > 0) {
+      const { error: pendErr } = await admin
+        .schema("m")
+        .from("compra_pendencia")
+        .update({
+          status: "CONCLUIDO",
+          concluido_em: new Date().toISOString(),
+          updated_by: opts.currentUsuarioId,
+        })
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("status", "EM_PEDIDO")
+        .is("deleted_at", null)
+        .in("id", pendenciaIds);
+      if (pendErr) throw new Error(pendErr.message);
+    }
+  }
+}
+
 function mergeOsVinculos(
   base: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>,
   extra: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>
@@ -1568,7 +1772,8 @@ export async function POST(req: NextRequest) {
       p_resource: "xml_import",
       p_action: "execute",
     });
-    if (canErr || !canImport) return jerr(403, "Sem permissao para importar XML.");
+    const canImportXml = !canErr && Boolean(canImport);
+    if (!canImportXml) return jerr(403, "Sem permissao para importar XML.");
 
     // Validate empresa membership
     const allowed = await getAllowedEmpresas(supabase, tenantId);
@@ -2025,6 +2230,32 @@ export async function POST(req: NextRequest) {
           const { error: receberErrAdmin } = await admin.schema("m").rpc("fn_pedido_compra_receber", payloadRecebimento);
           if (!receberErrAdmin) {
             return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });
+          }
+          const erroPermissao =
+            isPermissaoRecebimentoError(receberErr.message) ||
+            isPermissaoRecebimentoError(receberErrAdmin.message);
+          if (erroPermissao && canImportXml) {
+            try {
+              await registrarRecebimentoPedidoViaImportFallback({
+                tenantId,
+                empresaId,
+                pedidoCompraId: pedidoCompraIdVinculado,
+                recebimentoDate: recebDate,
+                documentoRef: docRef,
+                observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
+                currentUsuarioId,
+                recebimentoItens: pedidoRecebimentos,
+              });
+              return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });
+            } catch (fallbackErr) {
+              console.warn("[XML_IMPORT][PEDIDO] fallback de recebimento tambem falhou", {
+                tenantId,
+                empresaId,
+                pedidoCompraIdVinculado,
+                nfEntradaId,
+                errorFallback: fallbackErr instanceof Error ? fallbackErr.message : "erro desconhecido",
+              });
+            }
           }
           console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento (auth/admin)", {
             tenantId,

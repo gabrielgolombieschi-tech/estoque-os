@@ -106,18 +106,45 @@ async function authedFetch(path: string, init?: RequestInit) {
 }
 
 function parseNum(v: unknown, def = 0) {
-  const n = Number(v ?? def);
-  return Number.isFinite(n) ? n : def;
+  const n = parseLocaleNumber(v);
+  return n ?? def;
 }
 
 function parseQtyInput(v: string) {
-  const n = Number(String(v ?? "").replace(",", ".").trim());
-  return Number.isFinite(n) ? n : null;
+  return parseLocaleNumber(v);
 }
 
 function parseMoneyInput(v: string) {
-  const n = Number(String(v ?? "").replace(",", ".").trim());
+  return parseLocaleNumber(v);
+}
+
+function parseLocaleNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+
+  const compact = raw.replace(/\s+/g, "");
+  const hasComma = compact.includes(",");
+  const hasDot = compact.includes(".");
+  let normalized = compact;
+
+  if (hasComma && hasDot) {
+    normalized =
+      compact.lastIndexOf(",") > compact.lastIndexOf(".")
+        ? compact.replace(/\./g, "").replace(",", ".")
+        : compact.replace(/,/g, "");
+  } else if (hasComma) {
+    normalized = compact.replace(/\./g, "").replace(",", ".");
+  }
+
+  const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
+}
+
+function formatEditableNumber(v: unknown, maxFractionDigits = 4): string {
+  const n = Number(v ?? 0);
+  if (!Number.isFinite(n)) return "0";
+  return n.toLocaleString("pt-BR", { useGrouping: false, maximumFractionDigits: maxFractionDigits });
 }
 
 function fmtMoney(v: number) {
@@ -195,6 +222,7 @@ export default function ComprasPedidosClient() {
   const [manualQtd, setManualQtd] = useState("1");
   const [manualValor, setManualValor] = useState("0");
   const [manualOsNumero, setManualOsNumero] = useState("");
+  const [manualCodigoLookupBusy, setManualCodigoLookupBusy] = useState(false);
   const [pedidoEditMode, setPedidoEditMode] = useState(false);
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }>>({});
@@ -362,7 +390,7 @@ export default function ComprasPedidosClient() {
         item_nome: String(it.item_nome ?? ""),
         unidade: String(it.unidade ?? "UN"),
         quantidade: String(it.quantidade ?? 0),
-        valor_unitario: String(it.valor_unitario ?? 0),
+        valor_unitario: formatEditableNumber(it.valor_unitario, 4),
         os_numero: extractOsNumeroFromItem(it),
       };
     }
@@ -786,6 +814,44 @@ export default function ComprasPedidosClient() {
     }
   }, [empresaId, loadPedidoItens, loadPedidos, manualCodigo, manualNome, manualOsNumero, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
 
+  const buscarCodigoExistente = useCallback(async () => {
+    const codigo = manualCodigo.trim();
+    if (!codigo) return;
+    if (!tenantId || !empresaId) return;
+
+    const fornecedorIdLookup = Number(selectedPedido?.fornecedor_id ?? 0);
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      empresa_id: empresaId,
+      codigo,
+    });
+    if (Number.isFinite(fornecedorIdLookup) && fornecedorIdLookup > 0) {
+      q.set("fornecedorId", String(fornecedorIdLookup));
+    }
+
+    setManualCodigoLookupBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      const json = await authedFetch(`/api/compras/pedidos/item-lookup?${q.toString()}`);
+      const row = (json.data ?? {}) as Record<string, unknown>;
+      const nome = String(row.item_nome ?? "").trim();
+      const unidade = String(row.unidade ?? "").trim();
+      const valor = Number(row.valor_unitario_sugerido ?? row.valor_unitario_cadastro ?? 0);
+
+      if (nome) setManualNome(nome);
+      if (unidade) setManualUnidade(unidade);
+      if (Number.isFinite(valor) && valor >= 0) {
+        setManualValor(formatEditableNumber(valor, 4));
+      }
+      setOk(nome ? `Item localizado: ${nome}` : "Item localizado.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Nao foi possivel localizar o item pelo codigo.");
+    } finally {
+      setManualCodigoLookupBusy(false);
+    }
+  }, [empresaId, manualCodigo, selectedPedido?.fornecedor_id, tenantId]);
+
   const salvarItemPedido = useCallback(
     async (itemId: string) => {
       if (!manualPedidoId) return;
@@ -795,7 +861,7 @@ export default function ComprasPedidosClient() {
       const isManual = row ? row.item_id == null : true;
       const qtd = parseNum(draft.quantidade, 0);
       const vlr = parseNum(draft.valor_unitario, 0);
-      if (!draft.item_nome.trim()) return setErr("Descricao do item manual obrigatoria.");
+      if (isManual && !draft.item_nome.trim()) return setErr("Descricao do item manual obrigatoria.");
       if (qtd <= 0) return setErr("Quantidade invalida.");
       if (vlr < 0) return setErr("Valor unitario invalido.");
 
@@ -812,7 +878,7 @@ export default function ComprasPedidosClient() {
             unidade: draft.unidade || "UN",
             quantidade: qtd,
             valor_unitario: vlr,
-            ...(isManual ? { origem_os_numero: draft.os_numero?.trim() || null } : {}),
+            origem_os_numero: draft.os_numero?.trim() || null,
           }),
         });
         setOk("Item atualizado.");
@@ -1476,12 +1542,41 @@ export default function ComprasPedidosClient() {
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Adicionar item no pedido</div>
                     <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Codigo existente" value={manualCodigo} disabled={!canEditPedidoItems} onChange={(e) => setManualCodigo(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 md:col-span-2 disabled:opacity-50" placeholder="Descricao do item (manual)" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="UN" value={manualUnidade} disabled={!canEditPedidoItems} onChange={(e) => setManualUnidade(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditPedidoItems} onChange={(e) => setManualQtd(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Valor unitario" value={manualValor} disabled={!canEditPedidoItems} onChange={(e) => setManualValor(e.target.value)} />
-                      <input className="px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="OS (numero/id)" value={manualOsNumero} disabled={!canEditPedidoItems} onChange={(e) => setManualOsNumero(e.target.value)} />
+                      <label className="space-y-1">
+                        <div className="text-[11px] text-zinc-400">Codigo existente</div>
+                        <input
+                          className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50"
+                          placeholder="Codigo existente"
+                          value={manualCodigo}
+                          disabled={!canEditPedidoItems || manualCodigoLookupBusy}
+                          onChange={(e) => setManualCodigo(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            void buscarCodigoExistente();
+                          }}
+                        />
+                      </label>
+                      <label className="space-y-1 md:col-span-2">
+                        <div className="text-[11px] text-zinc-400">Descricao do item (manual)</div>
+                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Descricao do item (manual)" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
+                      </label>
+                      <label className="space-y-1">
+                        <div className="text-[11px] text-zinc-400">Unidade</div>
+                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="UN" value={manualUnidade} disabled={!canEditPedidoItems} onChange={(e) => setManualUnidade(e.target.value)} />
+                      </label>
+                      <label className="space-y-1">
+                        <div className="text-[11px] text-zinc-400">Qtd</div>
+                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditPedidoItems} onChange={(e) => setManualQtd(e.target.value)} />
+                      </label>
+                      <label className="space-y-1">
+                        <div className="text-[11px] text-zinc-400">Vlr unit</div>
+                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="0,00" value={manualValor} disabled={!canEditPedidoItems} onChange={(e) => setManualValor(e.target.value)} />
+                      </label>
+                      <label className="space-y-1">
+                        <div className="text-[11px] text-zinc-400">OS (numero/id)</div>
+                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="OS (numero/id)" value={manualOsNumero} disabled={!canEditPedidoItems} onChange={(e) => setManualOsNumero(e.target.value)} />
+                      </label>
                     </div>
                     <div className="text-xs text-zinc-500">
                       No campo codigo, pode informar o codigo interno (ex.: 199.19240) ou o ID do item (ex.: 1733).
@@ -1529,7 +1624,7 @@ export default function ComprasPedidosClient() {
                               unidade: it.unidade,
                               os_numero: extractOsNumeroFromItem(it),
                               quantidade: String(it.quantidade),
-                              valor_unitario: String(it.valor_unitario),
+                              valor_unitario: formatEditableNumber(it.valor_unitario, 4),
                             };
                             return (
                               <tr key={it.id} className="border-t border-zinc-900">
@@ -1560,19 +1655,15 @@ export default function ComprasPedidosClient() {
                                   />
                                 </td>
                                 <td>
-                                  {isManual ? (
-                                    <input
-                                      className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-24"
-                                      value={draft.os_numero}
-                                      disabled={!canEditPedidoItems}
-                                      placeholder="OS"
-                                      onChange={(e) =>
-                                        setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, os_numero: e.target.value } }))
-                                      }
-                                    />
-                                  ) : (
-                                    <span className="text-xs text-zinc-500">-</span>
-                                  )}
+                                  <input
+                                    className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 w-24"
+                                    value={draft.os_numero}
+                                    disabled={!canEditPedidoItems}
+                                    placeholder="OS"
+                                    onChange={(e) =>
+                                      setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, os_numero: e.target.value } }))
+                                    }
+                                  />
                                 </td>
                                 <td>
                                   <input
