@@ -5,8 +5,8 @@ import { getAllowedEmpresas } from "@/lib/auth/empresa";
 
 export const runtime = "nodejs";
 
-function jerr(status: number, error: string) {
-  return NextResponse.json({ error }, { status });
+function jerr(status: number, error: string, details?: unknown) {
+  return NextResponse.json({ error, ...(details !== undefined ? { details } : {}) }, { status });
 }
 
 function normalizeCnpj(value: string | null | undefined): string | null {
@@ -1001,6 +1001,225 @@ function mergeOsVinculos(
   return Array.from(map.values()).filter((r) => r.quantidade > 0);
 }
 
+async function runStrictImportPreflight(opts: {
+  tenantId: string;
+  empresaId: string;
+  pedidoCompraRaw: string;
+  pedidoCompraIdVinculado: string | null;
+  pedidoLinkWarnings: string[];
+  pedidoRecebimentos: Array<{ pedidoItemId: string; quantidade: number }>;
+  pedidoOsVinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>;
+  finalidadeNorm: string;
+  osId: number | null;
+  itensJsonToImport: unknown;
+  documentoRef: string | null;
+}): Promise<string[]> {
+  const admin = supabaseAdmin();
+  const issues: string[] = [];
+
+  if (opts.pedidoCompraRaw) {
+    if (!opts.pedidoCompraIdVinculado) {
+      const reason =
+        opts.pedidoLinkWarnings.find((w) => !w.toLowerCase().includes("filiais diferentes")) ??
+        "nao foi possivel vincular XML ao pedido.";
+      issues.push(`Pedido ${opts.pedidoCompraRaw}: ${reason}`);
+    } else {
+      const { data: pedido, error: pedidoErr } = await admin
+        .schema("m")
+        .from("pedido_compra")
+        .select("id,codigo,status")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("id", opts.pedidoCompraIdVinculado)
+        .is("deleted_at", null)
+        .maybeSingle<{ id: string; codigo: string | null; status: string | null }>();
+      if (pedidoErr) {
+        issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: erro ao validar pedido (${pedidoErr.message}).`);
+      } else if (!pedido) {
+        issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: nao encontrado para esta empresa.`);
+      } else {
+        const st = String(pedido.status ?? "").trim().toUpperCase();
+        if (st === "CANCELADO") issues.push(`Pedido ${pedido.codigo ?? pedido.id}: status CANCELADO.`);
+      }
+
+      const recebimentos = mergeRecebimentoItens([], opts.pedidoRecebimentos).filter((r) => toNum(r.quantidade) > 0);
+      if (!recebimentos.length) {
+        issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: nenhum item da NF foi alocado para recebimento.`);
+      } else {
+        const ids = recebimentos.map((r) => String(r.pedidoItemId)).filter(Boolean);
+        const { data: pedidoItens, error: pedidoItensErr } = await admin
+          .schema("m")
+          .from("pedido_compra_item")
+          .select("id,quantidade,quantidade_recebida")
+          .eq("tenant_id", opts.tenantId)
+          .eq("empresa_id", opts.empresaId)
+          .eq("pedido_compra_id", opts.pedidoCompraIdVinculado)
+          .is("deleted_at", null)
+          .in("id", ids)
+          .returns<Array<Pick<PedidoCompraItemRow, "id" | "quantidade" | "quantidade_recebida">>>();
+
+        if (pedidoItensErr) {
+          issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: erro ao validar itens (${pedidoItensErr.message}).`);
+        } else {
+          const byId = new Map(
+            (Array.isArray(pedidoItens) ? pedidoItens : []).map((r) => [
+              String(r.id),
+              r as Pick<PedidoCompraItemRow, "id" | "quantidade" | "quantidade_recebida">,
+            ])
+          );
+          for (const rec of recebimentos) {
+            const itemId = String(rec.pedidoItemId ?? "").trim();
+            const row = byId.get(itemId);
+            if (!row) {
+              issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: item ${itemId} nao encontrado.`);
+              continue;
+            }
+            const saldo = Math.max(0, toNum(row.quantidade) - toNum(row.quantidade_recebida));
+            const qtd = Math.max(0, toNum(rec.quantidade));
+            if (qtd <= 0) {
+              issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: quantidade invalida para item ${itemId}.`);
+              continue;
+            }
+            if (qtd - saldo > 1e-6) {
+              issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: item ${itemId} sem saldo suficiente (saldo=${saldo}, NF=${qtd}).`);
+            }
+          }
+        }
+      }
+
+      if (opts.documentoRef) {
+        const { data: docExists, error: docExistsErr } = await admin
+          .schema("m")
+          .from("pedido_compra_recebimento")
+          .select("id")
+          .eq("tenant_id", opts.tenantId)
+          .eq("empresa_id", opts.empresaId)
+          .eq("pedido_compra_id", opts.pedidoCompraIdVinculado)
+          .eq("documento_ref", opts.documentoRef)
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle<RowWithId>();
+        if (docExistsErr) {
+          issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: erro ao validar documento de recebimento (${docExistsErr.message}).`);
+        } else if (readIdString(docExists)) {
+          issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: documento ${opts.documentoRef} ja recebido.`);
+        }
+      }
+    }
+  }
+
+  const finalidade = String(opts.finalidadeNorm ?? "").trim().toLowerCase();
+  const osVinculos = mergeOsVinculos([], opts.pedidoOsVinculos);
+
+  if (finalidade === "materia_prima" && osVinculos.length > 0) {
+    const osIds = Array.from(new Set(osVinculos.map((r) => Number(r.os_id)).filter((n) => Number.isFinite(n) && n > 0)));
+    const itemIds = Array.from(new Set(osVinculos.map((r) => Number(r.item_id)).filter((n) => Number.isFinite(n) && n > 0)));
+
+    const { data: osRows, error: osErr } = await admin
+      .from("ordens_servico")
+      .select("id,numero_os,os_num")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .in("id", osIds)
+      .returns<Array<{ id: number; numero_os: string | null; os_num: number | null }>>();
+    if (osErr) {
+      issues.push(`Erro ao validar OS vinculadas: ${osErr.message}`);
+    } else {
+      const osLabelById = new Map<number, string>();
+      for (const os of Array.isArray(osRows) ? osRows : []) {
+        const id = Number(os.id ?? 0);
+        if (!Number.isFinite(id) || id <= 0) continue;
+        const numeroOs = String(os.numero_os ?? "").trim();
+        const osNum = Number(os.os_num ?? 0);
+        const label = numeroOs || (Number.isFinite(osNum) && osNum > 0 ? String(osNum) : String(id));
+        osLabelById.set(id, label);
+      }
+
+      for (const osId of osIds) {
+        if (!osLabelById.has(osId)) issues.push(`OS ${osId} nao encontrada para vinculo da NF.`);
+      }
+
+      const { data: osItemRows, error: osItemErr } = await admin
+        .from("os_itens")
+        .select("os_id,item_id")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .in("os_id", osIds)
+        .in("item_id", itemIds)
+        .is("deleted_at", null)
+        .returns<Array<{ os_id: number | null; item_id: number | null }>>();
+      if (osItemErr) {
+        issues.push(`Erro ao validar itens da OS: ${osItemErr.message}`);
+      } else {
+        const existing = new Set(
+          (Array.isArray(osItemRows) ? osItemRows : [])
+            .map((r) => `${Number(r.os_id ?? 0)}:${Number(r.item_id ?? 0)}`)
+        );
+        for (const v of osVinculos) {
+          const k = `${Number(v.os_id)}:${Number(v.item_id)}`;
+          if (existing.has(k)) continue;
+          const osLabel = osLabelById.get(Number(v.os_id)) ?? String(v.os_id);
+          issues.push(`OS ${osLabel} nao contem o item ${v.item_id} para baixa automatica.`);
+        }
+      }
+    }
+  }
+
+  if (finalidade === "materia_prima" && (!osVinculos.length && Number.isFinite(opts.osId) && Number(opts.osId) > 0)) {
+    const osId = Number(opts.osId);
+    const itens = Array.isArray(opts.itensJsonToImport)
+      ? opts.itensJsonToImport.filter((v) => v && typeof v === "object").map((v) => v as Record<string, unknown>)
+      : [];
+    const itemIds = Array.from(
+      new Set(
+        itens
+          .map((r) => Number(r.item_id ?? 0))
+          .filter((n) => Number.isFinite(n) && n > 0)
+      )
+    );
+
+    const { data: osRow, error: osErr } = await admin
+      .from("ordens_servico")
+      .select("id")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("id", osId)
+      .maybeSingle<{ id: number }>();
+    if (osErr) issues.push(`Erro ao validar OS ${osId}: ${osErr.message}`);
+    else if (!osRow?.id) issues.push(`OS ${osId} nao encontrada para importacao.`);
+
+    if (itemIds.length === 0) {
+      issues.push("Importacao com OS direta exige itens vinculados a cadastro (item_id).");
+    } else if (osRow?.id) {
+      const { data: osItems, error: osItemsErr } = await admin
+        .from("os_itens")
+        .select("item_id")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("os_id", osId)
+        .in("item_id", itemIds)
+        .is("deleted_at", null)
+        .returns<Array<{ item_id: number | null }>>();
+      if (osItemsErr) {
+        issues.push(`Erro ao validar itens da OS ${osId}: ${osItemsErr.message}`);
+      } else {
+        const osItemSet = new Set(
+          (Array.isArray(osItems) ? osItems : [])
+            .map((r) => Number(r.item_id ?? 0))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        );
+        for (const itemId of itemIds) {
+          if (!osItemSet.has(itemId)) {
+            issues.push(`OS ${osId} nao contem o item ${itemId} para baixa automatica.`);
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(new Set(issues));
+}
+
 async function reconcileNfEntradaItemIdsFromPayload(opts: {
   tenantId: string;
   empresaId: string;
@@ -1820,6 +2039,7 @@ export async function POST(req: NextRequest) {
     let pedidoCompraIdVinculado: string | null = null;
     let pedidoRecebimentos: Array<{ pedidoItemId: string; quantidade: number }> = [];
     let pedidoOsVinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }> = [];
+    let pedidoLinkWarnings: string[] = [];
     let solicitanteFromPedido: string | null = null;
     let pedidoDocumentoRef: string | null = null;
 
@@ -1838,6 +2058,7 @@ export async function POST(req: NextRequest) {
       pedidoCompraIdVinculado = linked.pedidoId;
       pedidoRecebimentos = linked.recebimentoItens;
       pedidoOsVinculos = linked.osVinculos;
+      pedidoLinkWarnings = linked.warnings;
       solicitanteFromPedido = linked.solicitanteUsuarioId;
       pedidoDocumentoRef = linked.documentoRef;
       for (const w of linked.warnings) {
@@ -1977,6 +2198,31 @@ export async function POST(req: NextRequest) {
       if (itensSemCadastro.length > 0) {
         return jerr(422, `Itens nao cadastrados: ${itensSemCadastro.join(", ")}`);
       }
+    }
+
+    const docRefPreflight =
+      pedidoDocumentoRef ??
+      (String((body.nfJson as Record<string, unknown> | null)?.chave ?? "").trim() || null);
+    const preflightIssues = await runStrictImportPreflight({
+      tenantId,
+      empresaId,
+      pedidoCompraRaw,
+      pedidoCompraIdVinculado,
+      pedidoLinkWarnings,
+      pedidoRecebimentos,
+      pedidoOsVinculos,
+      finalidadeNorm,
+      osId,
+      itensJsonToImport,
+      documentoRef: docRefPreflight,
+    });
+    if (preflightIssues.length > 0) {
+      const issueText = preflightIssues.map((issue, idx) => `${idx + 1}) ${issue}`).join(" | ");
+      return jerr(
+        422,
+        `Pre-validacao da importacao falhou: ${issueText}`,
+        { issues: preflightIssues }
+      );
     }
 
     // Call import RPC using the user's auth context
