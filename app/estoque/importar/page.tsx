@@ -209,6 +209,7 @@ export default function ImportarXmlPage() {
 
   const [importErr, setImportErr] = useState<string | null>(null);
   const [importOk, setImportOk] = useState<string | null>(null);
+  const [importWarn, setImportWarn] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [cadBusy, setCadBusy] = useState(false);
 
@@ -1649,6 +1650,7 @@ export default function ImportarXmlPage() {
 
     setImportErr(null);
     setImportOk(null);
+    setImportWarn(null);
     setImportBusy(true);
 
     const round6 = (n: number) => (Number.isFinite(n) ? Number(n.toFixed(6)) : 0);
@@ -1756,6 +1758,16 @@ export default function ImportarXmlPage() {
           throw err;
         }
 
+        const warningsRaw = Array.isArray(jsonObj?.warnings) ? jsonObj.warnings : [];
+        const warnings = warningsRaw
+          .map((w) => {
+            if (typeof w === "string") return w.trim();
+            if (!w || typeof w !== "object") return "";
+            const rec = w as Record<string, unknown>;
+            return typeof rec.message === "string" ? rec.message.trim() : "";
+          })
+          .filter((w): w is string => Boolean(w));
+
         return {
           status: typeof jsonObj?.status === "string" ? jsonObj.status : undefined,
           message: typeof jsonObj?.message === "string" ? jsonObj.message : undefined,
@@ -1765,10 +1777,12 @@ export default function ImportarXmlPage() {
               : jsonObj?.nf_entrada_id
                 ? Number(jsonObj.nf_entrada_id) || null
                 : null,
+          warnings,
         };
       };
 
       const results: string[] = [];
+      const warningResults: string[] = [];
 
       for (const job of jobsToImport) {
         try {
@@ -1924,6 +1938,9 @@ export default function ImportarXmlPage() {
             } else {
               results.push(`${job.fileName}: importado com sucesso.`);
             }
+            if (Array.isArray(importRes.warnings) && importRes.warnings.length > 0) {
+              warningResults.push(`${job.fileName}: ${importRes.warnings.join(" ")}`);
+            }
           }
         } catch (err: unknown) {
           const msg = getErrorMessage(err, "Erro");
@@ -1934,6 +1951,7 @@ export default function ImportarXmlPage() {
 
       setJobs((prev) => prev.filter((j) => j.status !== "importado"));
       setImportOk(results.join(" "));
+      setImportWarn(warningResults.length > 0 ? warningResults.join(" ") : null);
     } catch (e: unknown) {
       setImportErr(getErrorMessage(e, "Erro ao importar."));
     } finally {
@@ -2641,6 +2659,7 @@ export default function ImportarXmlPage() {
             </div>
 
             {importErr && <div className="text-sm text-red-400">{importErr}</div>}
+            {importWarn && <div className="text-sm text-amber-300">{importWarn}</div>}
             {importOk && <div className="text-sm text-emerald-300">{importOk}</div>}
           </div>
         </div>

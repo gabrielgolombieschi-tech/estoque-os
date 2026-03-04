@@ -12,6 +12,16 @@ type MovTipo = "entrada" | "saida" | "ajuste";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
+type NfImportadorRow = {
+  nf_entrada_id: number;
+  usuario: string | null;
+};
+
+type NfImportadoresApiResponse = {
+  importadores?: NfImportadorRow[];
+  error?: string;
+};
+
 type MovRow = {
   id: number;
   item_id: number;
@@ -29,6 +39,9 @@ type MovRow = {
   nf: {
     criado_em: string;
     fornecedor_id: number | null;
+    numero: string | null;
+    serie: string | null;
+    chave: string | null;
     fornecedores?: { nome: string | null } | null;
   } | null;
 };
@@ -51,6 +64,7 @@ export default function MovimentacoesPage() {
 
   const [rows, setRows] = useState<MovRow[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [nfImportadoresByNfId, setNfImportadoresByNfId] = useState<Map<number, string>>(new Map());
   const [err, setErr] = useState<string | null>(null);
 
   // filtros
@@ -61,9 +75,33 @@ export default function MovimentacoesPage() {
   const [fornecedorFiltroId, setFornecedorFiltroId] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [somenteNfImportacao, setSomenteNfImportacao] = useState(false);
+  const [nfImportacaoNoTopo, setNfImportacaoNoTopo] = useState(true);
+  const [nfFiltroRapido, setNfFiltroRapido] = useState("");
 
   function dataReferencia(r: MovRow) {
     return r.nf?.criado_em ?? r.data_movimentacao;
+  }
+
+  function isNfImportacao(r: MovRow) {
+    if (r.origem_nf_entrada_id == null) return false;
+    if (r.tipo !== "entrada") return false;
+    const motivo = (r.motivo ?? "").toLowerCase();
+    return motivo.includes("nf-e") || motivo.includes("importacao xml") || motivo.includes("backfill");
+  }
+
+  function usuarioExibicao(r: MovRow, importadoresMap?: Map<number, string>): string {
+    const realizadoPor = String(r.realizado_por ?? "").trim();
+    if (realizadoPor && realizadoPor.toLowerCase() !== "system-backfill") return realizadoPor;
+
+    const nfId = Number(r.origem_nf_entrada_id ?? 0);
+    if (Number.isFinite(nfId) && nfId > 0) {
+      const map = importadoresMap ?? nfImportadoresByNfId;
+      const importador = String(map.get(nfId) ?? "").trim();
+      if (importador) return importador;
+    }
+
+    return realizadoPor || "—";
   }
 
   async function loadFornecedores() {
@@ -74,6 +112,43 @@ export default function MovimentacoesPage() {
       .order("nome", { ascending: true })
       .limit(500);
     if (!error) setFornecedores((data ?? []) as unknown as Fornecedor[]);
+  }
+
+  async function loadNfImportadores(nfIds: number[]): Promise<Map<number, string>> {
+    const next = new Map<number, string>();
+    const uniqueNfIds = Array.from(
+      new Set(nfIds.filter((id) => Number.isFinite(id) && id > 0).map((id) => Number(id)))
+    );
+    if (!uniqueNfIds.length || tenantEmpresaLoading || !tenantId || !empresaId) return next;
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? null;
+      if (!token) return next;
+
+      const params = new URLSearchParams({
+        tenantId,
+        empresaId,
+        nfIds: uniqueNfIds.join(","),
+      });
+      const res = await fetch(`/api/estoque/nf-importadores?${params.toString()}`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const json = (await res.json().catch(() => null)) as NfImportadoresApiResponse | null;
+      if (!res.ok) return next;
+
+      const importadores = Array.isArray(json?.importadores) ? json.importadores : [];
+      for (const row of importadores) {
+        const nfEntradaId = Number(row.nf_entrada_id ?? 0);
+        const usuario = String(row.usuario ?? "").trim();
+        if (!Number.isFinite(nfEntradaId) || nfEntradaId <= 0 || !usuario) continue;
+        next.set(nfEntradaId, usuario);
+      }
+    } catch {
+      return next;
+    }
+
+    return next;
   }
 
   async function load() {
@@ -88,7 +163,7 @@ export default function MovimentacoesPage() {
       supabase
         .from("movimentacoes")
         .select(
-          "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,origem_nf_entrada_id,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida),nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(criado_em,fornecedor_id,fornecedores(nome))"
+          "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,origem_nf_entrada_id,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida),nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(criado_em,fornecedor_id,numero,serie,chave,fornecedores(nome))"
         ),
       tenantId,
       empresaId
@@ -99,6 +174,12 @@ export default function MovimentacoesPage() {
     if (error) return setErr(error.message);
 
     let list = (data ?? []) as unknown as MovRow[];
+    const importadoresMap = await loadNfImportadores(
+      list
+        .map((r) => Number(r.origem_nf_entrada_id ?? 0))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    );
+    setNfImportadoresByNfId(importadoresMap);
 
     const fornecedorIdRaw = fornecedorFiltroId.trim();
     if (fornecedorIdRaw) {
@@ -131,7 +212,7 @@ export default function MovimentacoesPage() {
 
     const usuarioTerm = usuarioFiltro.trim().toLowerCase();
     if (usuarioTerm) {
-      list = list.filter((r) => (r.realizado_por ?? "").toLowerCase().includes(usuarioTerm));
+      list = list.filter((r) => usuarioExibicao(r, importadoresMap).toLowerCase().includes(usuarioTerm));
     }
 
     const ini = dataInicio ? new Date(dataInicio) : null;
@@ -149,7 +230,34 @@ export default function MovimentacoesPage() {
       });
     }
 
+    if (somenteNfImportacao) {
+      list = list.filter((r) => isNfImportacao(r));
+    }
+
+    const nfTermRaw = nfFiltroRapido.trim().toLowerCase();
+    const nfTermDigits = nfTermRaw.replace(/\D+/g, "");
+    if (nfTermRaw) {
+      list = list.filter((r) => {
+        const motivo = (r.motivo ?? "").toLowerCase();
+        const numero = String(r.nf?.numero ?? "").toLowerCase();
+        const serie = String(r.nf?.serie ?? "").toLowerCase();
+        const chave = String(r.nf?.chave ?? "");
+        const nfId = String(r.origem_nf_entrada_id ?? "");
+        if (motivo.includes(nfTermRaw)) return true;
+        if (numero.includes(nfTermRaw)) return true;
+        if (serie.includes(nfTermRaw)) return true;
+        if (nfId.includes(nfTermRaw)) return true;
+        if (nfTermDigits && chave.includes(nfTermDigits)) return true;
+        return false;
+      });
+    }
+
     list = list.sort((a, b) => {
+      if (nfImportacaoNoTopo) {
+        const aNf = isNfImportacao(a) ? 1 : 0;
+        const bNf = isNfImportacao(b) ? 1 : 0;
+        if (bNf !== aNf) return bNf - aNf;
+      }
       const da = new Date(dataReferencia(a)).getTime();
       const db = new Date(dataReferencia(b)).getTime();
       if (db !== da) return db - da;
@@ -318,6 +426,9 @@ export default function MovimentacoesPage() {
                   setUsuarioFiltro("");
                   setDataInicio("");
                   setDataFim("");
+                  setSomenteNfImportacao(false);
+                  setNfImportacaoNoTopo(true);
+                  setNfFiltroRapido("");
                   void load();
                 }}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-full"
@@ -326,6 +437,38 @@ export default function MovimentacoesPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-400">Filtro rapido NF-e</div>
+            <input
+              className="w-full px-3 py-2"
+              value={nfFiltroRapido}
+              onChange={(e) => setNfFiltroRapido(e.target.value)}
+              placeholder="Chave, numero, serie ou ID NF"
+              aria-label="Filtro rapido NF-e"
+              title="Filtro rapido NF-e"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900/40 mt-6 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={somenteNfImportacao}
+              onChange={(e) => setSomenteNfImportacao(e.target.checked)}
+            />
+            <span className="text-sm text-zinc-200">Somente importacao NF-e</span>
+          </label>
+
+          <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900/40 mt-6 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={nfImportacaoNoTopo}
+              onChange={(e) => setNfImportacaoNoTopo(e.target.checked)}
+            />
+            <span className="text-sm text-zinc-200">Destacar importacao NF-e no topo</span>
+          </label>
         </div>
 
         {err && <div className="text-sm text-red-400 mt-3">{err}</div>}
@@ -378,9 +521,23 @@ export default function MovimentacoesPage() {
                   {formatDecimalBR(Number(r.quantidade ?? 0), 3)}
                 </td>
 
-                <td className="px-4 py-3 text-zinc-300">{r.motivo ?? "—"}</td>
+                <td className="px-4 py-3 text-zinc-300">
+                  <div className="space-y-1">
+                    {isNfImportacao(r) && (
+                      <div className="inline-flex items-center px-2 py-0.5 rounded text-[11px] border border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
+                        importacao NF-e
+                      </div>
+                    )}
+                    <div>{r.motivo ?? "—"}</div>
+                    {isNfImportacao(r) && (
+                      <div className="text-[11px] text-zinc-400">
+                        NF {r.nf?.numero ?? "?"}/{r.nf?.serie ?? "?"} | ID {r.origem_nf_entrada_id}
+                      </div>
+                    )}
+                  </div>
+                </td>
 
-                <td className="px-4 py-3 text-zinc-400">{r.realizado_por ?? "—"}</td>
+                <td className="px-4 py-3 text-zinc-400">{usuarioExibicao(r)}</td>
               </tr>
             ))}
 
@@ -397,3 +554,5 @@ export default function MovimentacoesPage() {
     </div>
   );
 }
+
+

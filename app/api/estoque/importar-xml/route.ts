@@ -160,6 +160,14 @@ function round6(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
 }
 
+function formatMoneyBr(value: number): string {
+  const n = Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
 function extractFirstXmlTagValue(xml: string, tag: string): string | null {
   const re = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>([^<]*)<\\/(?:\\w+:)?${tag}>`, "i");
   const match = re.exec(xml);
@@ -396,6 +404,7 @@ async function bindImportItemsFromPedido(opts: {
   itensJson: unknown;
   recebimentoItens: Array<{ pedidoItemId: string; quantidade: number }>;
   osVinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>;
+  pedidoHasOsOrigem: boolean;
   solicitanteUsuarioId: string | null;
   documentoRef: string | null;
   warnings: string[];
@@ -411,6 +420,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: opts.itensJson,
       recebimentoItens: [],
       osVinculos: [],
+      pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
       warnings,
@@ -429,6 +439,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
       warnings,
@@ -443,6 +454,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
       warnings,
@@ -480,6 +492,7 @@ async function bindImportItemsFromPedido(opts: {
         itensJson: parsedItems,
         recebimentoItens: [],
         osVinculos: [],
+        pedidoHasOsOrigem: false,
         solicitanteUsuarioId: null,
         documentoRef: null,
         warnings,
@@ -506,6 +519,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
       warnings,
@@ -520,6 +534,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
       warnings,
@@ -647,12 +662,13 @@ async function bindImportItemsFromPedido(opts: {
         const catCode = normalizeItemCode(cat?.codigo_interno ?? "");
         const catDesc = normalizeLookup(cat?.nome ?? "");
         const rowValor = Math.max(0, toNum(row.valor_unitario));
+        const sameResolvedItem = alreadyId > 0 && rowItemId > 0 && rowItemId === alreadyId;
 
         let score = 1000;
         // Quando o XML ja veio com item_id resolvido, prioriza casar com esse item do pedido.
         if (alreadyId > 0) {
-          if (rowItemId > 0 && rowItemId === alreadyId) score -= 850;
-          else if (rowItemId > 0 && rowItemId !== alreadyId) score += 350;
+          if (sameResolvedItem) score -= 3200;
+          else if (rowItemId > 0 && rowItemId !== alreadyId) score += 1200;
         }
         if (codigo && (codigo === rowCode || codigo === catCode)) score -= 700;
         if (descricao && (descricao === rowDesc || descricao === catDesc)) score -= 250;
@@ -663,7 +679,9 @@ async function bindImportItemsFromPedido(opts: {
           else if (diffUnit <= 0.05) score -= 450;
           else if (diffUnit <= 0.2) score -= 220;
         }
-        score += moneyDiff(valorUnit, rowValor) * 50;
+        // Quando item_id ja foi resolvido no XML e coincide com item do pedido,
+        // o valor unitario pode divergir por desconto/acrescimo e nao deve bloquear o match.
+        score += moneyDiff(valorUnit, rowValor) * (sameResolvedItem ? 2 : 50);
         const alvoQtd = qtdXml > 0 ? qtdPendente : remaining;
         score += Math.abs(alvoQtd - remaining);
 
@@ -748,11 +766,22 @@ async function bindImportItemsFromPedido(opts: {
     .map(([pedidoItemId, quantidade]) => ({ pedidoItemId, quantidade }))
     .filter((r) => r.quantidade > 0);
   const osVinculos = Array.from(osVinculosMap.values()).filter((r) => r.os_id > 0 && r.item_id > 0 && r.quantidade > 0);
+  const pedidoHasOsOrigem =
+    pedidoRows.some((r) => Number(r.origem_os_id ?? 0) > 0) || origemOsByPedidoItemId.size > 0;
 
   const nf = (opts.nfJson as Record<string, unknown> | null) ?? null;
   const documentoRef = String(nf?.chave ?? "").trim() || null;
   const solicitanteUsuarioId = String((pedido as Record<string, unknown>).solicitante_usuario_id ?? "").trim() || null;
-  return { pedidoId: pedido.id, itensJson: parsedItems, recebimentoItens, osVinculos, solicitanteUsuarioId, documentoRef, warnings };
+  return {
+    pedidoId: pedido.id,
+    itensJson: parsedItems,
+    recebimentoItens,
+    osVinculos,
+    pedidoHasOsOrigem,
+    solicitanteUsuarioId,
+    documentoRef,
+    warnings,
+  };
 }
 
 function mergeRecebimentoItens(
@@ -775,9 +804,20 @@ function mergeRecebimentoItens(
     .filter((r) => r.quantidade > 0);
 }
 
-function isPermissaoRecebimentoError(message: string | null | undefined): boolean {
-  const text = String(message ?? "").toLowerCase();
-  return text.includes("sem permissao para recebimento") || text.includes("sem permissao para receber");
+function mergeRecebimentoItensByMax(
+  base: Array<{ pedidoItemId: string; quantidade: number }>,
+  extra: Array<{ pedidoItemId: string; quantidade: number }>
+): Array<{ pedidoItemId: string; quantidade: number }> {
+  const map = new Map<string, number>();
+  for (const r of [...base, ...extra]) {
+    const id = String(r.pedidoItemId ?? "").trim();
+    if (!id) continue;
+    const qtd = Math.max(0, toNum(r.quantidade));
+    map.set(id, Math.max(map.get(id) ?? 0, qtd));
+  }
+  return Array.from(map.entries())
+    .map(([pedidoItemId, quantidade]) => ({ pedidoItemId, quantidade }))
+    .filter((r) => r.quantidade > 0);
 }
 
 async function registrarRecebimentoPedidoViaImportFallback(opts: {
@@ -1001,6 +1041,28 @@ function mergeOsVinculos(
   return Array.from(map.values()).filter((r) => r.quantidade > 0);
 }
 
+function mergeOsVinculosByMax(
+  base: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>,
+  extra: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>
+): Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }> {
+  const map = new Map<string, { os_id: number; item_id: number; quantidade: number; valor_unitario: number }>();
+  for (const row of [...base, ...extra]) {
+    const osId = Number(row.os_id ?? 0);
+    const itemId = Number(row.item_id ?? 0);
+    const qtd = Math.max(0, toNum(row.quantidade));
+    if (osId <= 0 || itemId <= 0 || qtd <= 0) continue;
+    const key = `${osId}:${itemId}`;
+    const prev = map.get(key);
+    map.set(key, {
+      os_id: osId,
+      item_id: itemId,
+      quantidade: Math.max(prev?.quantidade ?? 0, qtd),
+      valor_unitario: toNum(row.valor_unitario) > 0 ? toNum(row.valor_unitario) : prev?.valor_unitario ?? 0,
+    });
+  }
+  return Array.from(map.values()).filter((r) => r.quantidade > 0);
+}
+
 async function runStrictImportPreflight(opts: {
   tenantId: string;
   empresaId: string;
@@ -1146,7 +1208,6 @@ async function runStrictImportPreflight(opts: {
         .eq("empresa_id", opts.empresaId)
         .in("os_id", osIds)
         .in("item_id", itemIds)
-        .is("deleted_at", null)
         .returns<Array<{ os_id: number | null; item_id: number | null }>>();
       if (osItemErr) {
         issues.push(`Erro ao validar itens da OS: ${osItemErr.message}`);
@@ -1198,7 +1259,6 @@ async function runStrictImportPreflight(opts: {
         .eq("empresa_id", opts.empresaId)
         .eq("os_id", osId)
         .in("item_id", itemIds)
-        .is("deleted_at", null)
         .returns<Array<{ item_id: number | null }>>();
       if (osItemsErr) {
         issues.push(`Erro ao validar itens da OS ${osId}: ${osItemsErr.message}`);
@@ -1732,7 +1792,6 @@ async function buildDirectOsVinculosFromNfEntrada(opts: {
     .eq("empresa_id", opts.empresaId)
     .eq("os_id", opts.osId)
     .in("item_id", itemIds)
-    .is("deleted_at", null)
     .returns<Array<{ item_id: number | null }>>();
   if (osItensErr) return [];
 
@@ -2039,6 +2098,7 @@ export async function POST(req: NextRequest) {
     let pedidoCompraIdVinculado: string | null = null;
     let pedidoRecebimentos: Array<{ pedidoItemId: string; quantidade: number }> = [];
     let pedidoOsVinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }> = [];
+    let pedidoHasOsOrigem = false;
     let pedidoLinkWarnings: string[] = [];
     let solicitanteFromPedido: string | null = null;
     let pedidoDocumentoRef: string | null = null;
@@ -2058,6 +2118,7 @@ export async function POST(req: NextRequest) {
       pedidoCompraIdVinculado = linked.pedidoId;
       pedidoRecebimentos = linked.recebimentoItens;
       pedidoOsVinculos = linked.osVinculos;
+      pedidoHasOsOrigem = linked.pedidoHasOsOrigem;
       pedidoLinkWarnings = linked.warnings;
       solicitanteFromPedido = linked.solicitanteUsuarioId;
       pedidoDocumentoRef = linked.documentoRef;
@@ -2250,6 +2311,7 @@ export async function POST(req: NextRequest) {
     const message = String(result?.message ?? "");
     const nfEntradaIdRaw = result?.nf_entrada_id ?? result?.nf_id ?? null;
     const nfEntradaId = nfEntradaIdRaw ? Number(nfEntradaIdRaw) || null : null;
+    const postImportWarnings: Array<{ code: string; message: string; data?: Record<string, unknown> }> = [];
 
     if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
 
@@ -2262,11 +2324,13 @@ export async function POST(req: NextRequest) {
 
     // Fallback de robustez: se o vinculo com pedido nao gerou recebimentos/OS no payload,
     // tenta novamente usando os itens efetivamente gravados na nf_entrada.
+    const needsPedidoOsRelink =
+      String(finalidadeNorm).toLowerCase() === "materia_prima" && pedidoHasOsOrigem && pedidoOsVinculos.length === 0;
     if (
       pedidoCompraRaw &&
       (!pedidoCompraIdVinculado ||
         pedidoRecebimentos.length === 0 ||
-        (String(finalidadeNorm).toLowerCase() === "materia_prima" && pedidoOsVinculos.length === 0))
+        needsPedidoOsRelink)
     ) {
       const { data: nfItensPersistidos, error: nfItensPersistidosErr } = await admin
         .from("nf_entrada_itens")
@@ -2307,8 +2371,9 @@ export async function POST(req: NextRequest) {
         if (!pedidoCompraIdVinculado && relink.pedidoId) {
           pedidoCompraIdVinculado = relink.pedidoId;
         }
-        pedidoRecebimentos = mergeRecebimentoItens(pedidoRecebimentos, relink.recebimentoItens);
-        pedidoOsVinculos = mergeOsVinculos(pedidoOsVinculos, relink.osVinculos);
+        pedidoHasOsOrigem = pedidoHasOsOrigem || relink.pedidoHasOsOrigem;
+        pedidoRecebimentos = mergeRecebimentoItensByMax(pedidoRecebimentos, relink.recebimentoItens);
+        pedidoOsVinculos = mergeOsVinculosByMax(pedidoOsVinculos, relink.osVinculos);
         for (const w of relink.warnings) {
           console.warn("[XML_IMPORT][PEDIDO][RELINK_FALLBACK]", {
             tenantId,
@@ -2322,22 +2387,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Idempotent stock backfill to guarantee movement consistency both for new and already-imported NFs.
-    const { error: backfillMovErr } = await admin.rpc("fn_backfill_movimentacoes_nf_entrada", {
-      p_nf_entrada_id: nfEntradaId,
-    });
-    if (backfillMovErr) {
-      try {
-        await syncMovimentacoesFromNfEntradaFallback({
-          tenantId,
-          empresaId,
-          nfEntradaId,
-          realizadoPor: userData.user.email ?? userData.user.id ?? "sistema",
-        });
-      } catch (fallbackErr: unknown) {
-        const detail = fallbackErr instanceof Error ? fallbackErr.message : "erro desconhecido";
+    // Prioriza o fallback local para preservar rastreabilidade de quem executou a operacao.
+    const backfillActor = userData.user.email ?? userData.user.id ?? "sistema";
+    let fallbackBackfillError: string | null = null;
+    try {
+      await syncMovimentacoesFromNfEntradaFallback({
+        tenantId,
+        empresaId,
+        nfEntradaId,
+        realizadoPor: backfillActor,
+      });
+    } catch (fallbackErr: unknown) {
+      fallbackBackfillError = fallbackErr instanceof Error ? fallbackErr.message : "erro desconhecido";
+      console.warn("[XML_IMPORT][MOV_BACKFILL] falha no fallback primario; tentando RPC com contexto do usuario", {
+        tenantId,
+        empresaId,
+        nfEntradaId,
+        error: fallbackBackfillError,
+      });
+    }
+
+    if (fallbackBackfillError) {
+      const { error: backfillMovErr } = await supabase.rpc("fn_backfill_movimentacoes_nf_entrada", {
+        p_nf_entrada_id: nfEntradaId,
+      });
+      if (backfillMovErr) {
         return jerr(
           422,
-          `NF importada, mas falhou ao sincronizar movimentacoes de estoque. nf_entrada_id=${nfEntradaId}. RPC: ${backfillMovErr.message}. Fallback: ${detail}`
+          `NF importada, mas falhou ao sincronizar movimentacoes de estoque. nf_entrada_id=${nfEntradaId}. Fallback: ${fallbackBackfillError}. RPC: ${backfillMovErr.message}`
         );
       }
     }
@@ -2464,62 +2541,99 @@ export async function POST(req: NextRequest) {
           .trim()
           .slice(0, 10);
         const recebDate = /^\d{4}-\d{2}-\d{2}$/.test(emissao) ? emissao : new Date().toISOString().slice(0, 10);
-        const payloadRecebimento = {
-          p_pedido_id: pedidoCompraIdVinculado,
-          p_recebimento_date: recebDate,
-          p_documento_ref: docRef,
-          p_observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
-          p_itens: pedidoRecebimentos,
-        };
-        const { error: receberErr } = await supabase.schema("m").rpc("fn_pedido_compra_receber", payloadRecebimento);
-        if (receberErr) {
-          const { error: receberErrAdmin } = await admin.schema("m").rpc("fn_pedido_compra_receber", payloadRecebimento);
-          if (!receberErrAdmin) {
-            return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });
-          }
-          const erroPermissao =
-            isPermissaoRecebimentoError(receberErr.message) ||
-            isPermissaoRecebimentoError(receberErrAdmin.message);
-          if (erroPermissao && canImportXml) {
-            try {
-              await registrarRecebimentoPedidoViaImportFallback({
-                tenantId,
-                empresaId,
-                pedidoCompraId: pedidoCompraIdVinculado,
-                recebimentoDate: recebDate,
-                documentoRef: docRef,
-                observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
-                currentUsuarioId,
-                recebimentoItens: pedidoRecebimentos,
-              });
-              return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });
-            } catch (fallbackErr) {
-              console.warn("[XML_IMPORT][PEDIDO] fallback de recebimento tambem falhou", {
-                tenantId,
-                empresaId,
-                pedidoCompraIdVinculado,
-                nfEntradaId,
-                errorFallback: fallbackErr instanceof Error ? fallbackErr.message : "erro desconhecido",
-              });
-            }
-          }
-          console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento (auth/admin)", {
+        try {
+          await registrarRecebimentoPedidoViaImportFallback({
+            tenantId,
+            empresaId,
+            pedidoCompraId: pedidoCompraIdVinculado,
+            recebimentoDate: recebDate,
+            documentoRef: docRef,
+            observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
+            currentUsuarioId,
+            recebimentoItens: pedidoRecebimentos,
+          });
+        } catch (receberErr) {
+          const detail = receberErr instanceof Error ? receberErr.message : "erro desconhecido";
+          console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento via rotina dedicada", {
             tenantId,
             empresaId,
             pedidoCompraIdVinculado,
             nfEntradaId,
-            errorAuth: receberErr.message,
-            errorAdmin: receberErrAdmin.message,
+            detail,
           });
           return jerr(
             422,
-            `NF importada e estoque/OS sincronizados, mas falhou ao baixar o pedido ${pedidoCompraIdVinculado}. Detalhe: ${receberErr.message}`
+            `NF importada e estoque/OS sincronizados, mas falhou ao baixar o pedido ${pedidoCompraIdVinculado}. Detalhe: ${detail}`
           );
         }
       }
     }
 
-    return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId });
+    // Aviso nao-bloqueante: divergencia entre total do pedido e total da NF.
+    // Regra de negocio: importar deve seguir; a tela orienta ajuste/validacao manual quando houver diferenca.
+    if (pedidoCompraIdVinculado) {
+      try {
+        const { data: pedidoItensTotalRows, error: pedidoItensTotalErr } = await admin
+          .schema("m")
+          .from("pedido_compra_item")
+          .select("quantidade,valor_unitario")
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
+          .eq("pedido_compra_id", pedidoCompraIdVinculado)
+          .is("deleted_at", null)
+          .returns<Array<{ quantidade: number | null; valor_unitario: number | null }>>();
+
+        if (!pedidoItensTotalErr) {
+          const pedidoTotal = (Array.isArray(pedidoItensTotalRows) ? pedidoItensTotalRows : []).reduce(
+            (sum, row) => sum + toNum(row.quantidade) * toNum(row.valor_unitario),
+            0
+          );
+
+          const { data: nfResumo, error: nfResumoErr } = await admin
+            .from("nf_entrada")
+            .select("numero,serie,valor_total,valor_produtos")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
+            .eq("id", nfEntradaId)
+            .maybeSingle<{ numero: string | null; serie: string | null; valor_total: number | null; valor_produtos: number | null }>();
+
+          if (!nfResumoErr && nfResumo) {
+            const nfValorProdutos = toNum(nfResumo.valor_produtos);
+            const nfValorTotal = toNum(nfResumo.valor_total);
+            const diffTotal = nfValorTotal - pedidoTotal;
+
+            if (Math.abs(diffTotal) >= 0.01) {
+              const sinal = diffTotal >= 0 ? "+" : "-";
+              postImportWarnings.push({
+                code: "pedido_nota_total_divergente",
+                message:
+                  `Aviso: diferenca entre pedido e NF ${String(nfResumo.numero ?? "?")}/${String(nfResumo.serie ?? "?")}. ` +
+                  `Pedido: R$ ${formatMoneyBr(pedidoTotal)} | ` +
+                  `NF produtos: R$ ${formatMoneyBr(nfValorProdutos)} | ` +
+                  `NF total: R$ ${formatMoneyBr(nfValorTotal)} | ` +
+                  `Diferenca (NF total - pedido): ${sinal}R$ ${formatMoneyBr(Math.abs(diffTotal))}.`,
+                data: {
+                  pedido_total: round6(pedidoTotal),
+                  nf_valor_produtos: round6(nfValorProdutos),
+                  nf_valor_total: round6(nfValorTotal),
+                  diferenca_nf_total_menos_pedido: round6(diffTotal),
+                },
+              });
+            }
+          }
+        }
+      } catch (warnErr) {
+        console.warn("[XML_IMPORT][WARN_PEDIDO_VS_NF] falha ao calcular aviso de diferenca", {
+          tenantId,
+          empresaId,
+          pedidoCompraIdVinculado,
+          nfEntradaId,
+          error: warnErr instanceof Error ? warnErr.message : "erro desconhecido",
+        });
+      }
+    }
+
+    return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId, warnings: postImportWarnings });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Erro inesperado.";
     return jerr(500, message);
