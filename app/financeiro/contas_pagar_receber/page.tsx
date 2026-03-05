@@ -185,7 +185,7 @@ export default function ContasPagarReceberPage() {
   const [rows, setRows] = useState<UnifiedRow[]>([]);
 
   const [selected, setSelected] = useState<UnifiedRow | null>(null);
-  const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "VENCIMENTO" | "RECEBER">("APROVAR");
+  const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO">("APROVAR");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
@@ -204,6 +204,9 @@ export default function ContasPagarReceberPage() {
   const [motivos, setMotivos] = useState<MotivoCompra[]>([]);
   const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [aplicacoes, setAplicacoes] = useState<PagamentoAplicado[]>([]);
+  const [cancelPagamentoId, setCancelPagamentoId] = useState<string>("");
+  const [cancelMotivo, setCancelMotivo] = useState<string>("");
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const [actionBusy, setActionBusy] = useState(false);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -257,6 +260,9 @@ export default function ContasPagarReceberPage() {
     setSplitRecebimento(false);
     setSplitVencimentoDate("");
     setAplicacoes([]);
+    setCancelPagamentoId("");
+    setCancelMotivo("");
+    setCancelConfirmOpen(false);
   }, []);
 
   const parseMoneyOrZero = useCallback((value: string) => {
@@ -860,7 +866,7 @@ export default function ContasPagarReceberPage() {
     } finally {
       setEmissaoBusy(false);
     }
-  }, [editEmissaoDate, load, selected, supabase, tituloMeta?.documentoFiscalId]);
+  }, [editEmissaoDate, load, selected, supabase, tituloMeta]);
 
   const doUpdateVencimentoDate = useCallback(async () => {
     if (!selected || (selected.kind !== "AP" && selected.kind !== "AR")) return;
@@ -957,6 +963,11 @@ export default function ContasPagarReceberPage() {
     if (!motivoId) return null;
     return motivos.find((m) => m.id === motivoId) ?? null;
   }, [motivoId, motivos]);
+
+  const cancelAplicacaoSelecionada = useMemo(() => {
+    if (!cancelPagamentoId) return null;
+    return aplicacoes.find((a) => String(a.pagamento.id) === cancelPagamentoId) ?? null;
+  }, [aplicacoes, cancelPagamentoId]);
 
   const open = useCallback(
     async (row: UnifiedRow) => {
@@ -1095,7 +1106,13 @@ export default function ContasPagarReceberPage() {
           .eq("titulo_parcela_id", row.parcelaId)
           .is("deleted_at", null)
           .order("created_at", { ascending: false });
-        if (!appliedErr) setAplicacoes((applied ?? []) as unknown as PagamentoAplicado[]);
+        if (!appliedErr) {
+          const mapped = (applied ?? []) as unknown as PagamentoAplicado[];
+          setAplicacoes(mapped);
+          if (row.kind === "AP" && mapped.length > 0) {
+            setCancelPagamentoId(String(mapped[0].pagamento.id));
+          }
+        }
       } catch (e: unknown) {
         setActionErr(getErrorMessage(e, "Erro ao preparar modal."));
       }
@@ -1128,6 +1145,13 @@ export default function ContasPagarReceberPage() {
     const iso = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
     setDataPagamento(iso);
   }, [dataPagamento, selected, tab]);
+
+  useEffect(() => {
+    if (!selected || selected.kind !== "AP") return;
+    if (cancelPagamentoId) return;
+    if (!aplicacoes.length) return;
+    setCancelPagamentoId(String(aplicacoes[0].pagamento.id));
+  }, [aplicacoes, cancelPagamentoId, selected]);
 
   const doAprovar = useCallback(async () => {
     if (!selected || selected.kind !== "AP") return;
@@ -1353,6 +1377,45 @@ export default function ContasPagarReceberPage() {
       valorMulta,
     ]
   );
+
+  const doCancelarPagamento = useCallback(async () => {
+    if (!selected || selected.kind !== "AP") return;
+    if (!cancelPagamentoId) {
+      setActionErr("Selecione o pagamento que deseja cancelar.");
+      return;
+    }
+
+    const motivo = cancelMotivo.trim();
+    if (motivo.length < 5) {
+      setActionErr("Informe o motivo do cancelamento (minimo 5 caracteres).");
+      return;
+    }
+
+    setActionBusy(true);
+    setActionErr(null);
+    setCancelConfirmOpen(false);
+    try {
+      const { error } = await supabase.schema("f").rpc("estornar_pagamento_ap", {
+        p_pagamento_id: cancelPagamentoId,
+        p_motivo: motivo,
+      });
+      if (error) throw error;
+
+      await load();
+      setToastMsg("Pagamento cancelado com sucesso.");
+      if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = window.setTimeout(() => setToastMsg(null), 6000);
+      close();
+    } catch (e: unknown) {
+      if (isMissingRpc(e, "estornar_pagamento_ap")) {
+        setActionErr("Funcao de cancelamento nao disponivel no banco (estornar_pagamento_ap).");
+      } else {
+        setActionErr(getErrorMessage(e, "Erro ao cancelar pagamento."));
+      }
+    } finally {
+      setActionBusy(false);
+    }
+  }, [cancelMotivo, cancelPagamentoId, close, load, selected, supabase]);
 
   if (!canFinanceiro) {
     return <div className="text-sm text-zinc-300">Sem permissão financeira.</div>;
@@ -1622,7 +1685,16 @@ export default function ContasPagarReceberPage() {
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={close} />
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => {
+              if (cancelConfirmOpen) {
+                setCancelConfirmOpen(false);
+                return;
+              }
+              close();
+            }}
+          />
           <div className="relative w-full max-w-2xl rounded-lg border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1657,7 +1729,10 @@ export default function ContasPagarReceberPage() {
                 <>
                   <button
                     type="button"
-                    onClick={() => setTab("APROVAR")}
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("APROVAR");
+                    }}
                     className={`px-3 py-1.5 rounded-md text-sm border ${
                       tab === "APROVAR" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
                     }`}
@@ -1666,7 +1741,10 @@ export default function ContasPagarReceberPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTab("PAGAR")}
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("PAGAR");
+                    }}
                     className={`px-3 py-1.5 rounded-md text-sm border ${
                       tab === "PAGAR" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
                     }`}
@@ -1675,19 +1753,39 @@ export default function ContasPagarReceberPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTab("VENCIMENTO")}
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("VENCIMENTO");
+                    }}
                     className={`px-3 py-1.5 rounded-md text-sm border ${
                       tab === "VENCIMENTO" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
                     }`}
                   >
                     Vencimento
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("CANCELAR_PAGAMENTO");
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-sm border ${
+                      tab === "CANCELAR_PAGAMENTO"
+                        ? "bg-zinc-100 text-zinc-900 border-zinc-100"
+                        : "border-zinc-800 text-zinc-200"
+                    }`}
+                  >
+                    Cancelar pagamento
+                  </button>
                 </>
               ) : (
                 <>
                   <button
                     type="button"
-                    onClick={() => setTab("RECEBER")}
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("RECEBER");
+                    }}
                     className={`px-3 py-1.5 rounded-md text-sm border ${
                       tab === "RECEBER" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
                     }`}
@@ -1696,7 +1794,10 @@ export default function ContasPagarReceberPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTab("VENCIMENTO")}
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("VENCIMENTO");
+                    }}
                     className={`px-3 py-1.5 rounded-md text-sm border ${
                       tab === "VENCIMENTO" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
                     }`}
@@ -1802,6 +1903,75 @@ export default function ContasPagarReceberPage() {
                       className="px-3 py-2 rounded-md bg-emerald-500 text-zinc-950 hover:bg-emerald-400 text-sm font-medium disabled:opacity-60"
                     >
                       {actionBusy ? "Aprovando..." : "Confirmar aprovação"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {tab === "CANCELAR_PAGAMENTO" && selected.kind === "AP" && (
+                <div className="space-y-3">
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 space-y-2">
+                    <div className="text-sm font-medium text-zinc-200">Pagamento aplicado na parcela</div>
+                    {aplicacoes.length === 0 ? (
+                      <div className="text-sm text-zinc-400">
+                        Esta parcela ainda nao possui pagamento aplicado para cancelar.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {aplicacoes.map((a) => (
+                          <label
+                            key={String(a.pagamento.id)}
+                            className="flex items-center gap-3 rounded-md border border-zinc-800 px-3 py-2"
+                          >
+                            <input
+                              type="radio"
+                              name="cancel-pagamento-id"
+                              checked={cancelPagamentoId === String(a.pagamento.id)}
+                              onChange={() => setCancelPagamentoId(String(a.pagamento.id))}
+                            />
+                            <div className="text-sm text-zinc-200">
+                              <span className="font-medium">{formatMoneyBR(Number(a.valor ?? 0))}</span>
+                              <span className="text-zinc-500"> • </span>
+                              <span>{formatDateBR(String(a.pagamento.data_pagamento ?? ""))}</span>
+                              <span className="text-zinc-500"> • </span>
+                              <span>{a.pagamento.forma_pagamento}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-zinc-300">Motivo do cancelamento</div>
+                    <textarea
+                      aria-label="Motivo do cancelamento"
+                      value={cancelMotivo}
+                      onChange={(e) => setCancelMotivo(e.target.value)}
+                      placeholder="Ex: pagamento registrado em conta errada"
+                      className="w-full min-h-[88px] bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={actionBusy || aplicacoes.length === 0}
+                      onClick={() => {
+                        if (!cancelPagamentoId) {
+                          setActionErr("Selecione o pagamento que deseja cancelar.");
+                          return;
+                        }
+                        if (cancelMotivo.trim().length < 5) {
+                          setActionErr("Informe o motivo do cancelamento (minimo 5 caracteres).");
+                          return;
+                        }
+                        setActionErr(null);
+                        setCancelConfirmOpen(true);
+                      }}
+                      className="px-3 py-2 rounded-md bg-red-500 text-zinc-950 hover:bg-red-400 text-sm font-medium disabled:opacity-60"
+                    >
+                      Solicitar cancelamento
                     </button>
                   </div>
                 </div>
@@ -2048,6 +2218,54 @@ export default function ContasPagarReceberPage() {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {cancelConfirmOpen && tab === "CANCELAR_PAGAMENTO" && selected.kind === "AP" && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-black/70 p-4">
+                  <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-4 space-y-3">
+                    <div className="text-base font-semibold text-zinc-100">Confirmar cancelamento</div>
+                    <div className="text-sm text-zinc-300">
+                      Esse processo estorna o pagamento selecionado e reabre o saldo da parcela.
+                    </div>
+
+                    {cancelAplicacaoSelecionada && (
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 text-sm text-zinc-300 space-y-1">
+                        <div>
+                          Valor:{" "}
+                          <span className="font-medium text-zinc-100">
+                            {formatMoneyBR(Number(cancelAplicacaoSelecionada.valor ?? 0))}
+                          </span>
+                        </div>
+                        <div>Data: {formatDateBR(String(cancelAplicacaoSelecionada.pagamento.data_pagamento ?? ""))}</div>
+                        <div>Forma: {cancelAplicacaoSelecionada.pagamento.forma_pagamento}</div>
+                      </div>
+                    )}
+
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 text-sm text-zinc-300">
+                      <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">Motivo</div>
+                      <div className="whitespace-pre-wrap break-words">{cancelMotivo.trim()}</div>
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={actionBusy}
+                        onClick={() => setCancelConfirmOpen(false)}
+                        className="px-3 py-2 rounded-md border border-zinc-800 text-zinc-200 hover:bg-zinc-900 text-sm disabled:opacity-60"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionBusy}
+                        onClick={() => void doCancelarPagamento()}
+                        className="px-3 py-2 rounded-md bg-red-500 text-zinc-950 hover:bg-red-400 text-sm font-medium disabled:opacity-60"
+                      >
+                        {actionBusy ? "Cancelando..." : "Confirmar cancelamento"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
