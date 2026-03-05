@@ -1,5 +1,7 @@
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
+import { getOrcamentoStatusFilterValues } from "@/lib/comercial/status";
 import type {
   ClienteLookupRow,
   ConfigOrcamentoRow,
@@ -71,7 +73,14 @@ export async function listOrcamentos(
   );
 
   const status = filters.status ?? "TODOS";
-  if (status !== "TODOS") query = query.eq("status", status);
+  if (status !== "TODOS") {
+    const statusValues = getOrcamentoStatusFilterValues(status);
+    if (statusValues.length === 1) {
+      query = query.eq("status", statusValues[0]);
+    } else if (statusValues.length > 1) {
+      query = query.in("status", statusValues);
+    }
+  }
 
   const from = String(filters.from ?? "").trim();
   const to = String(filters.to ?? "").trim();
@@ -266,21 +275,42 @@ export async function finalizarOrcamento(
   supabase: SupabaseClient,
   params: { tenantId: string; empresaId: string; id: string }
 ) {
-  await updateOrcamento(supabase, { ...params, patch: { status: "FINALIZADO" } });
+  await updateOrcamento(supabase, { ...params, patch: { status: "FECHADO" } });
 }
 
 export async function cancelarOrcamento(
   supabase: SupabaseClient,
   params: { tenantId: string; empresaId: string; id: string }
 ) {
-  await updateOrcamento(supabase, { ...params, patch: { status: "CANCELADO" } });
+  await updateOrcamento(supabase, { ...params, patch: { status: "PERDIDO" } });
 }
 
 export async function reabrirOrcamento(
   supabase: SupabaseClient,
   params: { tenantId: string; empresaId: string; id: string }
 ) {
-  await updateOrcamento(supabase, { ...params, patch: { status: "RASCUNHO" } });
+  await updateOrcamento(supabase, { ...params, patch: { status: "ANDAMENTO" } });
+}
+
+export async function atualizarStatusOrcamento(
+  supabase: SupabaseClient,
+  params: {
+    tenantId: string;
+    empresaId: string;
+    id: string;
+    status: OrcamentoStatusCanonical;
+    followup: string;
+  }
+) {
+  await updateOrcamento(supabase, {
+    tenantId: params.tenantId,
+    empresaId: params.empresaId,
+    id: params.id,
+    patch: {
+      status: params.status,
+      observacoes: params.followup,
+    },
+  });
 }
 
 export async function deleteOrcamento(

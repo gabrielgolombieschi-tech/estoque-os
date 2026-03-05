@@ -1,3 +1,5 @@
+import { isOrcamentoEditableStatus } from "@/lib/comercial/status";
+
 export type SupabaseErrorLike = { code?: string; message?: string } | null | undefined;
 
 export function toSupabaseErrorLike(error: unknown): SupabaseErrorLike {
@@ -26,7 +28,7 @@ export function upperTrim(v: string): string {
 }
 
 export function isOrcamentoReadOnly(status: string | null | undefined): boolean {
-  return String(status ?? "").toUpperCase() !== "RASCUNHO";
+  return !isOrcamentoEditableStatus(status);
 }
 
 export function mapOrcamentoError(error: SupabaseErrorLike, fallback: string): string {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
@@ -9,92 +9,34 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { formatMoneyBR } from "@/lib/decimal";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import type { OrcamentoListaRow, OrcamentoStatus } from "@/lib/comercial/types";
+import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
+import { getOrcamentoStatusLabel } from "@/lib/comercial/status";
 import { mapOrcamentoError, n, toSupabaseErrorLike } from "@/lib/comercial/utils";
-import {
-  cancelarOrcamento,
-  deleteOrcamento,
-  finalizarOrcamento,
-  listOrcamentos,
-} from "@/lib/comercial/orcamentos.service";
+import { atualizarStatusOrcamento, listOrcamentos } from "@/lib/comercial/orcamentos.service";
+import OrcamentoStatusDialog from "./OrcamentoStatusDialog";
 
 const PAGE_SIZE = 50;
-const STATUS_OPTIONS: Array<OrcamentoStatus | "TODOS"> = ["RASCUNHO", "FINALIZADO", "CANCELADO", "TODOS"];
+const STATUS_OPTIONS: Array<{ value: OrcamentoStatus | "TODOS"; label: string }> = [
+  { value: "TODOS", label: "Todos" },
+  { value: "ANDAMENTO", label: "Andamento" },
+  { value: "FECHADO", label: "Fechado" },
+  { value: "PERDIDO", label: "Perdido" },
+];
 
-type ConfirmOptions = {
-  title: string;
-  description?: string;
-  confirmText?: string;
-  cancelText?: string;
-  destructive?: boolean;
-};
-
-function useConfirmDialog() {
-  const [opts, setOpts] = useState<ConfirmOptions | null>(null);
-  const resolverRef = useRef<((v: boolean) => void) | null>(null);
-
-  const confirm = useCallback((next: ConfirmOptions) => {
-    return new Promise<boolean>((resolve) => {
-      resolverRef.current = resolve;
-      setOpts(next);
-    });
-  }, []);
-
-  const close = useCallback((value: boolean) => {
-    const resolve = resolverRef.current;
-    resolverRef.current = null;
-    setOpts(null);
-    resolve?.(value);
-  }, []);
-
-  const dialog = opts ? (
-    <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4"
-      onClick={(e) => e.target === e.currentTarget && close(false)}
-      role="presentation"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={opts.title}
-        className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
-          <div className="font-semibold text-zinc-100">{opts.title}</div>
-          {opts.description && <div className="text-xs text-zinc-400 mt-1">{opts.description}</div>}
-        </div>
-        <div className="px-5 py-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => close(false)}
-            className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
-          >
-            {opts.cancelText ?? "Cancelar"}
-          </button>
-          <button
-            type="button"
-            onClick={() => close(true)}
-            className={
-              opts.destructive
-                ? "px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-500 font-medium"
-                : "px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-            }
-          >
-            {opts.confirmText ?? "Confirmar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
-  return { confirm, dialog };
-}
+type StatusDialogState =
+  | { open: false }
+  | { open: true; row: OrcamentoListaRow; status: OrcamentoStatusCanonical };
 
 function formatDateBR(iso?: string | null) {
   if (!iso) return "-";
   const [y, m, d] = String(iso).slice(0, 10).split("-");
   if (!y || !m || !d) return String(iso);
   return `${d}/${m}/${y}`;
+}
+
+function truncateFollowup(value: string, max = 70): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}...`;
 }
 
 function hasAny(caps: Capabilities | null, keys: CapabilityKey[]): boolean {
@@ -108,7 +50,6 @@ export default function OrcamentosClient() {
 
   const canView = hasAny(capabilities, ["financeiro.read", "financeiro.write", "os.read", "os.write"]);
   const canWrite = hasAny(capabilities, ["financeiro.write", "os.write"]);
-  const canDelete = hasAny(capabilities, ["financeiro.delete", "os.delete"]);
 
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -125,18 +66,17 @@ export default function OrcamentosClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [ultimoFollowupById, setUltimoFollowupById] = useState<Record<string, string>>({});
 
-  // filtros
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<OrcamentoStatus | "TODOS">("TODOS");
+  const [status, setStatus] = useState<OrcamentoStatus | "TODOS">("ANDAMENTO");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
   const pageSafe = Math.min(Math.max(1, page), totalPages);
-
-  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [statusDialog, setStatusDialog] = useState<StatusDialogState>({ open: false });
 
   const reload = useCallback(async () => {
     setErr(null);
@@ -144,7 +84,7 @@ export default function OrcamentosClient() {
 
     if (!supabase) return;
     if (!tenantId || !empresaId) {
-      setErr("Contexto (tenant/empresa) não carregado.");
+      setErr("Contexto (tenant/empresa) nao carregado.");
       setRows([]);
       setCount(0);
       setLoading(false);
@@ -166,7 +106,7 @@ export default function OrcamentosClient() {
       setRows(res.rows);
       setCount(res.count);
     } catch (e: unknown) {
-      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar orçamentos."));
+      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar orcamentos."));
       setRows([]);
       setCount(0);
     } finally {
@@ -187,88 +127,59 @@ export default function OrcamentosClient() {
     router.push("/comercial/orcamentos/novo");
   }, [router]);
 
-  const doFinalizar = useCallback(
-    async (row: OrcamentoListaRow) => {
-      if (!canWrite) return;
-      if (!supabase || !tenantId || !empresaId) return;
-      const ok = await confirm({
-        title: `Finalizar orçamento ${row.codigo}?`,
-        description: "Após finalizar, a edição fica bloqueada.",
-        confirmText: "Finalizar",
-      });
-      if (!ok) return;
-      setBusy(true);
-      setErr(null);
-      setOk(null);
-      try {
-        await finalizarOrcamento(supabase, { tenantId, empresaId, id: row.id });
-        setOk("Orçamento finalizado.");
-        await reload();
-      } catch (e: unknown) {
-        setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao finalizar."));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [canWrite, confirm, empresaId, reload, supabase, tenantId]
-  );
+  const openStatusDialog = useCallback((row: OrcamentoListaRow, nextStatus: OrcamentoStatusCanonical) => {
+    setStatusDialog({ open: true, row, status: nextStatus });
+  }, []);
 
-  const doCancelar = useCallback(
-    async (row: OrcamentoListaRow) => {
-      if (!canWrite) return;
-      if (!supabase || !tenantId || !empresaId) return;
-      const ok = await confirm({
-        title: `Cancelar orçamento ${row.codigo}?`,
-        description: "A edição ficará bloqueada.",
-        confirmText: "Cancelar",
-        destructive: true,
-      });
-      if (!ok) return;
-      setBusy(true);
-      setErr(null);
-      setOk(null);
-      try {
-        await cancelarOrcamento(supabase, { tenantId, empresaId, id: row.id });
-        setOk("Orçamento cancelado.");
-        await reload();
-      } catch (e: unknown) {
-        setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao cancelar."));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [canWrite, confirm, empresaId, reload, supabase, tenantId]
-  );
+  const closeStatusDialog = useCallback(() => {
+    if (busy) return;
+    setStatusDialog({ open: false });
+  }, [busy]);
 
-  const doExcluir = useCallback(
-    async (row: OrcamentoListaRow) => {
-      if (!canDelete) return;
-      if (!supabase || !tenantId || !empresaId) return;
-      const ok = await confirm({
-        title: `Excluir orçamento ${row.codigo}?`,
-        description: "Exclusão é arquivamento (soft delete).",
-        confirmText: "Excluir",
-        destructive: true,
-      });
-      if (!ok) return;
+  const submitStatusDialog = useCallback(
+    async (payload: { status: OrcamentoStatusCanonical; followup: string }) => {
+      if (!statusDialog.open) return;
+      if (!canWrite || !supabase || !tenantId || !empresaId) return;
+
+      const targetRowId = statusDialog.row.id;
+      const prevRows = rows;
+      const prevFollowup = ultimoFollowupById[targetRowId];
+
       setBusy(true);
       setErr(null);
       setOk(null);
+
+      setRows((prev) => prev.map((row) => (row.id === targetRowId ? { ...row, status: payload.status } : row)));
+      setUltimoFollowupById((prev) => ({ ...prev, [targetRowId]: payload.followup }));
+
       try {
-        await deleteOrcamento(supabase, { tenantId, empresaId, id: row.id });
-        setOk("Orçamento excluído.");
-        await reload();
+        await atualizarStatusOrcamento(supabase, {
+          tenantId,
+          empresaId,
+          id: targetRowId,
+          status: payload.status,
+          followup: payload.followup,
+        });
+        setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
+        setStatusDialog({ open: false });
       } catch (e: unknown) {
-        setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao excluir."));
+        setRows(prevRows);
+        setUltimoFollowupById((prev) => {
+          const next = { ...prev };
+          if (prevFollowup) next[targetRowId] = prevFollowup;
+          else delete next[targetRowId];
+          return next;
+        });
+        setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao atualizar status do orcamento."));
       } finally {
         setBusy(false);
       }
     },
-    [canDelete, confirm, empresaId, reload, supabase, tenantId]
+    [canWrite, empresaId, rows, statusDialog, supabase, tenantId, ultimoFollowupById]
   );
 
   if (!ready && permissionsLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissões...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissoes...</div>;
   }
 
   if (!canView) {
@@ -279,8 +190,8 @@ export default function OrcamentosClient() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Orçamentos</h1>
-          <p className="text-sm text-zinc-400 mt-1">Crie, edite e finalize orçamentos (cálculos automáticos no banco).</p>
+          <h1 className="text-2xl font-semibold">Orcamentos</h1>
+          <p className="text-sm text-zinc-400 mt-1">Crie, edite e atualize status dos orcamentos.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -298,10 +209,7 @@ export default function OrcamentosClient() {
           >
             Atualizar
           </button>
-          <Link
-            href="/"
-            className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
-          >
+          <Link href="/" className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm">
             Voltar
           </Link>
         </div>
@@ -315,7 +223,7 @@ export default function OrcamentosClient() {
               setQ(e.target.value);
               setPage(1);
             }}
-            placeholder="Buscar por cliente, título ou código…"
+            placeholder="Buscar por cliente, titulo ou codigo..."
             aria-label="Buscar"
             className="w-full sm:w-[420px] rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
           />
@@ -331,16 +239,16 @@ export default function OrcamentosClient() {
               className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
               aria-label="Status"
             >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="block text-xs text-zinc-400">
-            Emissão (de)
+            Emissao (de)
             <input
               type="date"
               value={from}
@@ -353,7 +261,7 @@ export default function OrcamentosClient() {
           </label>
 
           <label className="block text-xs text-zinc-400">
-            Emissão (até)
+            Emissao (ate)
             <input
               type="date"
               value={to}
@@ -378,7 +286,7 @@ export default function OrcamentosClient() {
               type="button"
               onClick={() => {
                 setQ("");
-                setStatus("TODOS");
+                setStatus("ANDAMENTO");
                 setFrom("");
                 setTo("");
                 setPage(1);
@@ -399,82 +307,86 @@ export default function OrcamentosClient() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-900/70">
               <tr className="text-zinc-200">
-                <th className="px-3 py-3 text-left whitespace-nowrap">Código</th>
-                <th className="px-3 py-3 text-left whitespace-nowrap">Emissão</th>
-                <th className="px-3 py-3 text-left whitespace-nowrap">Título</th>
+                <th className="px-3 py-3 text-left whitespace-nowrap">Codigo</th>
+                <th className="px-3 py-3 text-left whitespace-nowrap">Emissao</th>
+                <th className="px-3 py-3 text-left whitespace-nowrap">Titulo</th>
                 <th className="px-3 py-3 text-left whitespace-nowrap">Cliente</th>
                 <th className="px-3 py-3 text-left whitespace-nowrap">Vendedor</th>
                 <th className="px-3 py-3 text-left whitespace-nowrap">Cond. Pgto</th>
                 <th className="px-3 py-3 text-left whitespace-nowrap">Status</th>
-                <th className="px-3 py-3 text-right whitespace-nowrap">Total Líquido</th>
-                <th className="px-3 py-3 text-right whitespace-nowrap">Ações</th>
+                <th className="px-3 py-3 text-right whitespace-nowrap">Total Liquido</th>
+                <th className="px-3 py-3 text-right whitespace-nowrap">Acoes</th>
               </tr>
             </thead>
             <tbody>
               {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-3 py-6 text-zinc-400">
-                    Nenhum orçamento encontrado.
+                    Nenhum orcamento encontrado.
                   </td>
                 </tr>
               )}
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-zinc-900/60 hover:bg-zinc-900/30 cursor-pointer"
-                  onClick={() => router.push(`/comercial/orcamentos/${encodeURIComponent(r.codigo ?? r.id)}`)}
-                >
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <span className="underline decoration-zinc-700/60 underline-offset-2 hover:text-zinc-100">
-                      {r.codigo}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{formatDateBR(r.emissao_date)}</td>
-                  <td className="px-3 py-2 whitespace-normal break-words">{r.titulo}</td>
-                  <td className="px-3 py-2">{r.cliente_nome ?? `#${r.cliente_id}`}</td>
-                  <td className="px-3 py-2">{r.vendedor_nome ?? "-"}</td>
-                  <td className="px-3 py-2">{r.condicao_pagamento_nome ?? "-"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{String(r.status ?? "").toUpperCase()}</td>
-                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(r.total_liquido))}</td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <div className="inline-flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void doFinalizar(r);
-                        }}
-                        disabled={!canWrite || busy || String(r.status).toUpperCase() !== "RASCUNHO"}
-                        className="px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 disabled:opacity-60"
-                      >
-                        Finalizar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void doCancelar(r);
-                        }}
-                        disabled={!canWrite || busy || String(r.status).toUpperCase() !== "RASCUNHO"}
-                        className="px-3 py-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 disabled:opacity-60"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void doExcluir(r);
-                        }}
-                        disabled={!canDelete || busy}
-                        className="px-3 py-1.5 rounded-md border border-red-900/60 bg-red-950/40 hover:bg-red-950/70 text-red-200 disabled:opacity-60"
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const followup = ultimoFollowupById[r.id] ?? "";
+                return (
+                  <tr
+                    key={r.id}
+                    className="border-t border-zinc-900/60 hover:bg-zinc-900/30 cursor-pointer"
+                    onClick={() => router.push(`/comercial/orcamentos/${encodeURIComponent(r.codigo ?? r.id)}`)}
+                  >
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <span className="underline decoration-zinc-700/60 underline-offset-2 hover:text-zinc-100">{r.codigo}</span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">{formatDateBR(r.emissao_date)}</td>
+                    <td className="px-3 py-2 whitespace-normal break-words">{r.titulo}</td>
+                    <td className="px-3 py-2">{r.cliente_nome ?? `#${r.cliente_id}`}</td>
+                    <td className="px-3 py-2">{r.vendedor_nome ?? "-"}</td>
+                    <td className="px-3 py-2">{r.condicao_pagamento_nome ?? "-"}</td>
+                    <td className="px-3 py-2">
+                      <div className="whitespace-nowrap">{getOrcamentoStatusLabel(r.status)}</div>
+                      {followup && <div className="text-xs text-zinc-400 mt-0.5">Ultimo followup: {truncateFollowup(followup)}</div>}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatMoneyBR(n(r.total_liquido))}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStatusDialog(r, "FECHADO");
+                          }}
+                          disabled={!canWrite || busy}
+                          className="px-3 py-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 disabled:opacity-60"
+                        >
+                          Fechado
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStatusDialog(r, "PERDIDO");
+                          }}
+                          disabled={!canWrite || busy}
+                          className="px-3 py-1.5 rounded-md border border-red-500/30 bg-red-500/10 hover:bg-red-500/15 text-red-200 disabled:opacity-60"
+                        >
+                          Perdido
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStatusDialog(r, "ANDAMENTO");
+                          }}
+                          disabled={!canWrite || busy}
+                          className="px-3 py-1.5 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 disabled:opacity-60"
+                        >
+                          Andamento
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {loading && (
                 <tr>
                   <td colSpan={9} className="px-3 py-6 text-zinc-400">
@@ -490,10 +402,10 @@ export default function OrcamentosClient() {
           <div className="text-xs text-zinc-400">
             {count ? (
               <>
-                Página {pageSafe} de {totalPages} — {count} registros
+                Pagina {pageSafe} de {totalPages} - {count} registros
               </>
             ) : (
-              <>—</>
+              <>-</>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -509,13 +421,21 @@ export default function OrcamentosClient() {
               disabled={pageSafe >= totalPages}
               className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
             >
-              Próxima
+              Proxima
             </button>
           </div>
         </div>
       </div>
 
-      {confirmDialog}
+      {statusDialog.open && (
+        <OrcamentoStatusDialog
+          open={statusDialog.open}
+          status={statusDialog.status}
+          loading={busy}
+          onCancel={closeStatusDialog}
+          onSave={submitStatusDialog}
+        />
+      )}
     </div>
   );
 }

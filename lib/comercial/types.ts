@@ -1,4 +1,4 @@
-export type OrcamentoStatus = "RASCUNHO" | "FINALIZADO" | "CANCELADO";
+export type OrcamentoStatus = "ANDAMENTO" | "FECHADO" | "PERDIDO" | "RASCUNHO" | "FINALIZADO" | "CANCELADO";
 
 export type OrcamentoListaRow = {
   id: string;

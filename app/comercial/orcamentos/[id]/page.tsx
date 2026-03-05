@@ -9,12 +9,12 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import type { OrcamentoItemRow, OrcamentoRow, OrcamentoStatus, UsuarioLookupRow } from "@/lib/comercial/types";
+import { getOrcamentoStatusLabel, normalizeOrcamentoStatus, type OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
   addItem,
-  cancelarOrcamento,
+  atualizarStatusOrcamento,
   createOrcamento,
-  finalizarOrcamento,
   getClienteById,
   getItemByCodigo,
   getItemById,
@@ -23,11 +23,11 @@ import {
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
   listVendedores,
-  reabrirOrcamento,
   searchClientes,
   updateItem,
   updateOrcamento,
 } from "@/lib/comercial/orcamentos.service";
+import OrcamentoStatusDialog from "../OrcamentoStatusDialog";
 
 import type { ItemByIdRow } from "@/lib/comercial/orcamentos.service";
 
@@ -144,11 +144,16 @@ function formatDateBR(iso?: string | null) {
   return `${d}/${m}/${y}`;
 }
 
+function truncateText(value: string, max = 90): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}...`;
+}
+
 function statusBadgeClass(status: string): string {
-  const s = String(status ?? "").toUpperCase();
-  if (s === "RASCUNHO") return "bg-blue-500/15 text-blue-300 border-blue-500/30";
-  if (s === "FINALIZADO") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-  if (s === "CANCELADO") return "bg-red-500/15 text-red-300 border-red-500/30";
+  const s = normalizeOrcamentoStatus(status);
+  if (s === "ANDAMENTO") return "bg-blue-500/15 text-blue-300 border-blue-500/30";
+  if (s === "FECHADO") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+  if (s === "PERDIDO") return "bg-red-500/15 text-red-300 border-red-500/30";
   return "bg-zinc-500/10 text-zinc-300 border-zinc-500/30";
 }
 
@@ -308,11 +313,17 @@ export default function OrcamentoPage() {
     | { open: false }
     | { open: true; conjunto: ConjuntoCatalogoRow; quantidade: string; busy: boolean; error: string | null }
   >({ open: false });
+  const [statusDialog, setStatusDialog] = useState<{ open: false } | { open: true; status: OrcamentoStatusCanonical }>({
+    open: false,
+  });
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
-  const status = String(orc?.status ?? "").toUpperCase() as OrcamentoStatus | string;
-  const readOnly = isOrcamentoReadOnly(status);
+  const statusRaw = String(orc?.status ?? "").toUpperCase() as OrcamentoStatus | string;
+  const status = normalizeOrcamentoStatus(statusRaw);
+  const statusLabel = getOrcamentoStatusLabel(statusRaw);
+  const statusFollowup = String(orc?.observacoes ?? "").trim();
+  const readOnly = isOrcamentoReadOnly(statusRaw);
 
   const inlineAcrescimoCondPagPercent = useMemo(() => {
     const id = form?.condicao_pagamento_id ?? null;
@@ -1135,84 +1146,55 @@ export default function OrcamentoPage() {
     [canWrite, cfgDescontoMax, empresaId, form, orc?.cliente_id, orc?.id, readOnly, reload, supabase, tenantId]
   );
 
-  const doFinalizar = useCallback(async () => {
-    if (!orc?.id) return;
-    if (!supabase || !tenantId || !empresaId) return;
-    if (!canWrite || readOnly) return;
+  const openStatusDialog = useCallback(
+    (nextStatus: OrcamentoStatusCanonical) => {
+      if (!orc?.id) return;
+      if (!canWrite || busy) return;
+      setStatusDialog({ open: true, status: nextStatus });
+    },
+    [busy, canWrite, orc?.id]
+  );
 
-    const ok = await confirm({
-      title: `Finalizar orcamento ${orc.codigo}?`,
-      description: "Apos finalizar, a edicao fica bloqueada.",
-      confirmText: "Finalizar",
-    });
-    if (!ok) return;
+  const closeStatusDialog = useCallback(() => {
+    if (busy) return;
+    setStatusDialog({ open: false });
+  }, [busy]);
 
-    setBusy(true);
-    setErr(null);
-    setOk(null);
-    try {
-      await finalizarOrcamento(supabase, { tenantId, empresaId, id: orc.id });
-      setOk("Orcamento finalizado.");
-      await reload();
-    } catch (e: unknown) {
-      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao finalizar."));
-    } finally {
-      setBusy(false);
-    }
-  }, [canWrite, confirm, empresaId, orc, readOnly, reload, supabase, tenantId]);
+  const saveStatusDialog = useCallback(
+    async (payload: { status: OrcamentoStatusCanonical; followup: string }) => {
+      if (!orc?.id) return;
+      if (!statusDialog.open) return;
+      if (!supabase || !tenantId || !empresaId) return;
+      if (!canWrite || busy) return;
 
-  const doCancelar = useCallback(async () => {
-    if (!orc?.id) return;
-    if (!supabase || !tenantId || !empresaId) return;
-    if (!canWrite || readOnly) return;
+      const prevOrc = orc;
 
-    const ok = await confirm({
-      title: `Cancelar orcamento ${orc.codigo}?`,
-      description: "A edicao ficara bloqueada.",
-      confirmText: "Cancelar",
-      destructive: true,
-    });
-    if (!ok) return;
-
-    setBusy(true);
-    setErr(null);
-    setOk(null);
-    try {
-      await cancelarOrcamento(supabase, { tenantId, empresaId, id: orc.id });
-      setOk("Orcamento cancelado.");
-      await reload();
-    } catch (e: unknown) {
-      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao cancelar."));
-    } finally {
-      setBusy(false);
-    }
-  }, [canWrite, confirm, empresaId, orc, readOnly, reload, supabase, tenantId]);
-
-  const doReabrir = useCallback(async () => {
-    if (!orc?.id) return;
-    if (!supabase || !tenantId || !empresaId) return;
-    if (!canWrite || busy || status !== "CANCELADO") return;
-
-    const ok = await confirm({
-      title: `Reabrir orcamento ${orc.codigo}?`,
-      description: "O status voltara para RASCUNHO e a edicao sera liberada.",
-      confirmText: "Reabrir",
-    });
-    if (!ok) return;
-
-    setBusy(true);
-    setErr(null);
-    setOk(null);
-    try {
-      await reabrirOrcamento(supabase, { tenantId, empresaId, id: orc.id });
-      setOk("Orcamento reaberto em rascunho.");
-      await reload();
-    } catch (e: unknown) {
-      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao reabrir orcamento."));
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, canWrite, confirm, empresaId, orc, reload, status, supabase, tenantId]);
+      setBusy(true);
+      setErr(null);
+      setOk(null);
+      setOrc((current) =>
+        current ? { ...current, status: payload.status, observacoes: payload.followup, updated_at: new Date().toISOString() } : current
+      );
+      try {
+        await atualizarStatusOrcamento(supabase, {
+          tenantId,
+          empresaId,
+          id: orc.id,
+          status: payload.status,
+          followup: payload.followup,
+        });
+        setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
+        setStatusDialog({ open: false });
+        await reload();
+      } catch (e: unknown) {
+        setOrc(prevOrc);
+        setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao atualizar status do orcamento."));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, canWrite, empresaId, orc, reload, statusDialog.open, supabase, tenantId]
+  );
 
   const closeItemDialog = useCallback(() => setItemDialog(closedItemDialog()), []);
 
@@ -1726,9 +1708,10 @@ export default function OrcamentoPage() {
               )}
             </span>
             {orc?.status && (
-              <span className={`px-2 py-0.5 rounded-full border text-xs ${statusBadgeClass(status)}`}>{status}</span>
+              <span className={`px-2 py-0.5 rounded-full border text-xs ${statusBadgeClass(status)}`}>{statusLabel}</span>
             )}
             {orc?.emissao_date ? <span>Emissao: {formatDateBR(orc.emissao_date)}</span> : null}
+            {statusFollowup ? <span className="text-zinc-400">Ultimo followup: {truncateText(statusFollowup)}</span> : null}
           </div>
         </div>
 
@@ -1771,27 +1754,27 @@ export default function OrcamentoPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void doFinalizar()}
-                disabled={!canWrite || readOnly || busy || status !== "RASCUNHO"}
-                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
-              >
-                Finalizar
-              </button>
-              <button
-                type="button"
-                onClick={() => void doCancelar()}
-                disabled={!canWrite || readOnly || busy || status !== "RASCUNHO"}
-                className="px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 text-sm disabled:opacity-60"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void doReabrir()}
-                disabled={!canWrite || busy || status !== "CANCELADO"}
+                onClick={() => openStatusDialog("FECHADO")}
+                disabled={!canWrite || busy}
                 className="px-3 py-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 text-sm disabled:opacity-60"
               >
-                Reabrir
+                Fechado
+              </button>
+              <button
+                type="button"
+                onClick={() => openStatusDialog("PERDIDO")}
+                disabled={!canWrite || busy}
+                className="px-3 py-2 rounded-md border border-red-500/30 bg-red-500/10 hover:bg-red-500/15 text-red-200 text-sm disabled:opacity-60"
+              >
+                Perdido
+              </button>
+              <button
+                type="button"
+                onClick={() => openStatusDialog("ANDAMENTO")}
+                disabled={!canWrite || busy}
+                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
+              >
+                Andamento
               </button>
             </>
           )}
@@ -1887,7 +1870,7 @@ export default function OrcamentoPage() {
 
             </div>
 
-            {readOnly && <div className="text-xs text-zinc-500">Edicao bloqueada (status {status}).</div>}
+            {readOnly && <div className="text-xs text-zinc-500">Edicao bloqueada (status {statusLabel}).</div>}
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
@@ -2427,6 +2410,15 @@ export default function OrcamentoPage() {
         </div>
       )}
 
+      {statusDialog.open && (
+        <OrcamentoStatusDialog
+          open={statusDialog.open}
+          status={statusDialog.status}
+          loading={busy}
+          onCancel={closeStatusDialog}
+          onSave={saveStatusDialog}
+        />
+      )}
       {confirmDialog}
       </div>
   );
