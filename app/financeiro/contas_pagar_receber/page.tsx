@@ -104,6 +104,11 @@ function isOverdue(vencimentoISO: string): boolean {
 }
 
 function statusBadge(row: UnifiedRow): { label: string; className: string } {
+  const status = String(row.tituloStatus ?? "").toUpperCase();
+  if (status === "CANCELADO") {
+    return { label: "Cancelado", className: "bg-rose-500/15 text-rose-300 border border-rose-500/30" };
+  }
+
   if (row.valorAberto <= 0) {
     if (row.kind === "AP") {
       return { label: "Pago", className: "bg-blue-500/15 text-blue-300 border border-blue-500/30" };
@@ -1417,6 +1422,41 @@ export default function ContasPagarReceberPage() {
     }
   }, [cancelMotivo, cancelPagamentoId, close, load, selected, supabase]);
 
+  const doCancelarTitulo = useCallback(async () => {
+    if (!selected || selected.kind !== "AP") return;
+
+    const motivo = cancelMotivo.trim();
+    if (motivo.length < 5) {
+      setActionErr("Informe o motivo do cancelamento (minimo 5 caracteres).");
+      return;
+    }
+
+    setActionBusy(true);
+    setActionErr(null);
+    setCancelConfirmOpen(false);
+    try {
+      const { error } = await supabase.schema("f").rpc("cancelar_titulo_ap", {
+        p_titulo_id: selected.tituloId,
+        p_motivo: motivo,
+      });
+      if (error) throw error;
+
+      await load();
+      setToastMsg("Lancamento cancelado com sucesso.");
+      if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = window.setTimeout(() => setToastMsg(null), 6000);
+      close();
+    } catch (e: unknown) {
+      if (isMissingRpc(e, "cancelar_titulo_ap")) {
+        setActionErr("Funcao de cancelamento nao disponivel no banco (cancelar_titulo_ap).");
+      } else {
+        setActionErr(getErrorMessage(e, "Erro ao cancelar lancamento."));
+      }
+    } finally {
+      setActionBusy(false);
+    }
+  }, [cancelMotivo, close, load, selected, supabase]);
+
   if (!canFinanceiro) {
     return <div className="text-sm text-zinc-300">Sem permissão financeira.</div>;
   }
@@ -1914,7 +1954,7 @@ export default function ContasPagarReceberPage() {
                     <div className="text-sm font-medium text-zinc-200">Pagamento aplicado na parcela</div>
                     {aplicacoes.length === 0 ? (
                       <div className="text-sm text-zinc-400">
-                        Esta parcela ainda nao possui pagamento aplicado para cancelar.
+                        Esta parcela ainda nao possui pagamento aplicado. Neste caso, voce pode cancelar o lancamento.
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -1956,9 +1996,10 @@ export default function ContasPagarReceberPage() {
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      disabled={actionBusy || aplicacoes.length === 0}
+                      disabled={actionBusy}
                       onClick={() => {
-                        if (!cancelPagamentoId) {
+                        const semPagamentoAplicado = aplicacoes.length === 0;
+                        if (!semPagamentoAplicado && !cancelPagamentoId) {
                           setActionErr("Selecione o pagamento que deseja cancelar.");
                           return;
                         }
@@ -1971,7 +2012,7 @@ export default function ContasPagarReceberPage() {
                       }}
                       className="px-3 py-2 rounded-md bg-red-500 text-zinc-950 hover:bg-red-400 text-sm font-medium disabled:opacity-60"
                     >
-                      Solicitar cancelamento
+                      {aplicacoes.length > 0 ? "Solicitar cancelamento" : "Solicitar cancelamento do lancamento"}
                     </button>
                   </div>
                 </div>
@@ -2227,10 +2268,12 @@ export default function ContasPagarReceberPage() {
                   <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950 p-4 space-y-3">
                     <div className="text-base font-semibold text-zinc-100">Confirmar cancelamento</div>
                     <div className="text-sm text-zinc-300">
-                      Esse processo estorna o pagamento selecionado e reabre o saldo da parcela.
+                      {aplicacoes.length > 0
+                        ? "Esse processo estorna o pagamento selecionado e reabre o saldo da parcela."
+                        : "Esse processo cancela o lancamento e remove o saldo em aberto do titulo."}
                     </div>
 
-                    {cancelAplicacaoSelecionada && (
+                    {aplicacoes.length > 0 && cancelAplicacaoSelecionada && (
                       <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 text-sm text-zinc-300 space-y-1">
                         <div>
                           Valor:{" "}
@@ -2240,6 +2283,15 @@ export default function ContasPagarReceberPage() {
                         </div>
                         <div>Data: {formatDateBR(String(cancelAplicacaoSelecionada.pagamento.data_pagamento ?? ""))}</div>
                         <div>Forma: {cancelAplicacaoSelecionada.pagamento.forma_pagamento}</div>
+                      </div>
+                    )}
+                    {aplicacoes.length === 0 && (
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 text-sm text-zinc-300 space-y-1">
+                        <div>
+                          Titulo: <span className="font-medium text-zinc-100">{selected.tituloId}</span>
+                        </div>
+                        <div>Fornecedor: {selected.pessoaNome}</div>
+                        <div>Parcela: {fmtParcela(selected.parcelaNumero)}</div>
                       </div>
                     )}
 
@@ -2260,7 +2312,13 @@ export default function ContasPagarReceberPage() {
                       <button
                         type="button"
                         disabled={actionBusy}
-                        onClick={() => void doCancelarPagamento()}
+                        onClick={() => {
+                          if (aplicacoes.length > 0) {
+                            void doCancelarPagamento();
+                            return;
+                          }
+                          void doCancelarTitulo();
+                        }}
                         className="px-3 py-2 rounded-md bg-red-500 text-zinc-950 hover:bg-red-400 text-sm font-medium disabled:opacity-60"
                       >
                         {actionBusy ? "Cancelando..." : "Confirmar cancelamento"}
