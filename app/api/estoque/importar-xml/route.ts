@@ -1175,7 +1175,6 @@ async function runStrictImportPreflight(opts: {
 
   if (finalidade === "materia_prima" && osVinculos.length > 0) {
     const osIds = Array.from(new Set(osVinculos.map((r) => Number(r.os_id)).filter((n) => Number.isFinite(n) && n > 0)));
-    const itemIds = Array.from(new Set(osVinculos.map((r) => Number(r.item_id)).filter((n) => Number.isFinite(n) && n > 0)));
 
     const { data: osRows, error: osErr } = await admin
       .from("ordens_servico")
@@ -1199,29 +1198,6 @@ async function runStrictImportPreflight(opts: {
 
       for (const osId of osIds) {
         if (!osLabelById.has(osId)) issues.push(`OS ${osId} nao encontrada para vinculo da NF.`);
-      }
-
-      const { data: osItemRows, error: osItemErr } = await admin
-        .from("os_itens")
-        .select("os_id,item_id")
-        .eq("tenant_id", opts.tenantId)
-        .eq("empresa_id", opts.empresaId)
-        .in("os_id", osIds)
-        .in("item_id", itemIds)
-        .returns<Array<{ os_id: number | null; item_id: number | null }>>();
-      if (osItemErr) {
-        issues.push(`Erro ao validar itens da OS: ${osItemErr.message}`);
-      } else {
-        const existing = new Set(
-          (Array.isArray(osItemRows) ? osItemRows : [])
-            .map((r) => `${Number(r.os_id ?? 0)}:${Number(r.item_id ?? 0)}`)
-        );
-        for (const v of osVinculos) {
-          const k = `${Number(v.os_id)}:${Number(v.item_id)}`;
-          if (existing.has(k)) continue;
-          const osLabel = osLabelById.get(Number(v.os_id)) ?? String(v.os_id);
-          issues.push(`OS ${osLabel} nao contem o item ${v.item_id} para baixa automatica.`);
-        }
       }
     }
   }
@@ -1251,29 +1227,6 @@ async function runStrictImportPreflight(opts: {
 
     if (itemIds.length === 0) {
       issues.push("Importacao com OS direta exige itens vinculados a cadastro (item_id).");
-    } else if (osRow?.id) {
-      const { data: osItems, error: osItemsErr } = await admin
-        .from("os_itens")
-        .select("item_id")
-        .eq("tenant_id", opts.tenantId)
-        .eq("empresa_id", opts.empresaId)
-        .eq("os_id", osId)
-        .in("item_id", itemIds)
-        .returns<Array<{ item_id: number | null }>>();
-      if (osItemsErr) {
-        issues.push(`Erro ao validar itens da OS ${osId}: ${osItemsErr.message}`);
-      } else {
-        const osItemSet = new Set(
-          (Array.isArray(osItems) ? osItems : [])
-            .map((r) => Number(r.item_id ?? 0))
-            .filter((n) => Number.isFinite(n) && n > 0)
-        );
-        for (const itemId of itemIds) {
-          if (!osItemSet.has(itemId)) {
-            issues.push(`OS ${osId} nao contem o item ${itemId} para baixa automatica.`);
-          }
-        }
-      }
     }
   }
 
@@ -1784,26 +1737,8 @@ async function buildDirectOsVinculosFromNfEntrada(opts: {
   }
   if (agregados.size === 0) return [];
 
-  const itemIds = Array.from(agregados.keys());
-  const { data: osItensRows, error: osItensErr } = await admin
-    .from("os_itens")
-    .select("item_id")
-    .eq("tenant_id", opts.tenantId)
-    .eq("empresa_id", opts.empresaId)
-    .eq("os_id", opts.osId)
-    .in("item_id", itemIds)
-    .returns<Array<{ item_id: number | null }>>();
-  if (osItensErr) return [];
-
-  const itemIdsPresentesNaOs = new Set(
-    (Array.isArray(osItensRows) ? osItensRows : [])
-      .map((r) => Number(r.item_id ?? 0))
-      .filter((n) => Number.isFinite(n) && n > 0)
-  );
-
   const vinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }> = [];
   for (const [itemId, agg] of agregados.entries()) {
-    if (!itemIdsPresentesNaOs.has(itemId)) continue;
     vinculos.push({
       os_id: opts.osId,
       item_id: itemId,

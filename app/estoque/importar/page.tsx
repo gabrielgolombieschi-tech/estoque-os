@@ -158,6 +158,26 @@ type NfEntradaResumoRow = {
   solicitante_usuario_id?: string | null;
 };
 
+type ParcelaPayload = {
+  numero: string;
+  vencimento: string;
+  valor: number;
+};
+
+type PagamentoModoImportacao = "seguir_nota" | "cartao" | "dinheiro" | "faturado";
+
+type PagamentoImportacaoConfig =
+  | { modo: "seguir_nota" }
+  | { modo: "cartao"; quantidade: number }
+  | { modo: "dinheiro" }
+  | { modo: "faturado"; parcelas: ParcelaPayload[] };
+
+type FaturadoParcelaForm = {
+  numero: string;
+  valor: string;
+  vencimento: string;
+};
+
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -191,6 +211,117 @@ function formatDateBR(iso?: string | null): string {
   return d.toLocaleDateString("pt-BR");
 }
 
+function clampParcelas(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(60, Math.max(1, Math.trunc(value)));
+}
+
+function parseIsoDateLocal(iso: string): Date {
+  const [year, month, day] = iso.split("-").map((part) => Number(part));
+  if (!year || !month || !day) {
+    return new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 12, 0, 0, 0);
+  }
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function formatIsoDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addMonthsKeepingDay(base: Date, months: number, dayOverride?: number): Date {
+  const targetDay = dayOverride ?? base.getDate();
+  const first = new Date(base.getFullYear(), base.getMonth() + months, 1, 12, 0, 0, 0);
+  const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  return new Date(first.getFullYear(), first.getMonth(), Math.min(targetDay, lastDay), 12, 0, 0, 0);
+}
+
+function splitAmount(total: number, parcelas: number): number[] {
+  const count = clampParcelas(parcelas);
+  const totalCents = Math.round(Math.max(0, total) * 100);
+  const base = Math.floor(totalCents / count);
+  const rest = totalCents - base * count;
+  return Array.from({ length: count }, (_, idx) => (base + (idx < rest ? 1 : 0)) / 100);
+}
+
+function parseMoneyInput(raw: string): number {
+  const input = String(raw ?? "").trim().replace(/\s/g, "");
+  const normalized = input.includes(",") && input.includes(".")
+    ? input.replace(/\./g, "").replace(",", ".")
+    : input.replace(",", ".");
+  const n = Number(normalized);
+  return Number.isFinite(n) ? Number(n.toFixed(2)) : Number.NaN;
+}
+
+function buildParcelasDinheiro(total: number, dataEmissao: string | null | undefined): ParcelaPayload[] {
+  const emissao = toDateOnly(dataEmissao) ?? toDateOnly(new Date().toISOString()) ?? formatIsoDateLocal(new Date());
+  return [{ numero: "001", vencimento: emissao, valor: Number(total.toFixed(2)) }];
+}
+
+function buildParcelasCartao(total: number, parcelas: number, dataEmissao: string | null | undefined): ParcelaPayload[] {
+  const count = clampParcelas(parcelas);
+  const emissao = toDateOnly(dataEmissao) ?? toDateOnly(new Date().toISOString()) ?? formatIsoDateLocal(new Date());
+  const emissaoDate = parseIsoDateLocal(emissao);
+  const primeiroVencimento = addMonthsKeepingDay(emissaoDate, 1, 9);
+  const valores = splitAmount(total, count);
+
+  return valores.map((valor, idx) => ({
+    numero: String(idx + 1).padStart(3, "0"),
+    vencimento: formatIsoDateLocal(addMonthsKeepingDay(primeiroVencimento, idx, 9)),
+    valor,
+  }));
+}
+
+function buildFaturadoDrafts(
+  quantidade: number,
+  total: number,
+  dataEmissao: string | null | undefined,
+  previous: FaturadoParcelaForm[] = []
+): FaturadoParcelaForm[] {
+  const count = clampParcelas(quantidade);
+  const emissao = toDateOnly(dataEmissao) ?? toDateOnly(new Date().toISOString()) ?? formatIsoDateLocal(new Date());
+  const emissaoDate = parseIsoDateLocal(emissao);
+  const valores = total > 0 ? splitAmount(total, count) : Array.from({ length: count }, () => 0);
+
+  return Array.from({ length: count }, (_, idx) => {
+    const prev = previous[idx];
+    return {
+      numero: String(idx + 1).padStart(3, "0"),
+      valor: prev?.valor ?? (valores[idx] > 0 ? valores[idx].toFixed(2) : ""),
+      vencimento: prev?.vencimento ?? formatIsoDateLocal(addMonthsKeepingDay(emissaoDate, idx + 1)),
+    };
+  });
+}
+
+function buildParcelasPorPagamento(
+  nfe: ParsedNfe,
+  config: PagamentoImportacaoConfig | null
+): ParcelaPayload[] | null {
+  const modo = config?.modo ?? "seguir_nota";
+  if (modo === "seguir_nota") {
+    const fromXml = nfe.parcelas ?? [];
+    return fromXml.length > 0 ? fromXml : null;
+  }
+
+  const total = Number(nfe.valorTotal ?? 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error("Valor total da NF invalido para gerar parcelas.");
+  }
+
+  if (modo === "dinheiro") {
+    return buildParcelasDinheiro(total, nfe.dataEmissao);
+  }
+  if (modo === "cartao" && config?.modo === "cartao") {
+    return buildParcelasCartao(total, config.quantidade, nfe.dataEmissao);
+  }
+  if (modo === "faturado" && config?.modo === "faturado") {
+    return config.parcelas;
+  }
+  return null;
+}
+
 export default function ImportarXmlPage() {
   const router = useRouter();
   const supabase = useMemo(() => {
@@ -218,6 +349,11 @@ export default function ImportarXmlPage() {
 
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [pagamentoModo, setPagamentoModo] = useState<PagamentoModoImportacao>("seguir_nota");
+  const [pagamentoParcelasQtd, setPagamentoParcelasQtd] = useState(1);
+  const [faturadoParcelasForm, setFaturadoParcelasForm] = useState<FaturadoParcelaForm[]>([]);
+  const [pagamentoModalErr, setPagamentoModalErr] = useState<string | null>(null);
 
   const [fornecedorCnpjBase, setFornecedorCnpjBase] = useState<string | null>(null);
   const [fornecedorIdBase, setFornecedorIdBase] = useState<number | null>(null);
@@ -1645,7 +1781,7 @@ export default function ImportarXmlPage() {
     }
   }
 
-  async function importarNfe() {
+  async function importarNfe(paymentConfig: PagamentoImportacaoConfig | null = null) {
     if (isReading || importBusy) return;
 
     setImportErr(null);
@@ -1913,8 +2049,8 @@ export default function ImportarXmlPage() {
           };
 
           const shouldGenerateFinance = Boolean(gerarContasAuto);
-          const parcelasFromXml = info.parcelas ?? [];
-          const parcelasJson = shouldGenerateFinance && parcelasFromXml.length > 0 ? parcelasFromXml : null;
+          const parcelasJson = shouldGenerateFinance ? buildParcelasPorPagamento(info, paymentConfig) : null;
+          const parcelasCount = Array.isArray(parcelasJson) ? parcelasJson.length : 0;
 
           const importRes = await callImportApi(job, {
             nfJson,
@@ -1933,7 +2069,7 @@ export default function ImportarXmlPage() {
             results.push(`${job.fileName}: NF ja importada (nada foi duplicado).`);
           } else {
             setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "importado", error: undefined } : j)));
-            if (shouldGenerateFinance && parcelasFromXml.length === 0) {
+            if (shouldGenerateFinance && parcelasCount === 0) {
               results.push(`${job.fileName}: importado com sucesso. XML sem duplicatas; gerado lançamento à vista.`);
             } else {
               results.push(`${job.fileName}: importado com sucesso.`);
@@ -1975,6 +2111,26 @@ export default function ImportarXmlPage() {
 
   const selectedOkJobs = useMemo(() => jobs.filter((j) => j.selected && j.status === "ok"), [jobs]);
   const hasSelectedOkJobs = selectedOkJobs.length > 0;
+  const pagamentoPreviewJob = selectedOkJobs[0] ?? selectedJob ?? null;
+  const pagamentoPreviewDataEmissao = pagamentoPreviewJob?.nfeInfo?.dataEmissao ?? null;
+  const pagamentoPreviewTotal = Number(pagamentoPreviewJob?.nfeInfo?.valorTotal ?? 0);
+  const pagamentoPreviewParcelasXml = pagamentoPreviewJob?.nfeInfo?.parcelas ?? [];
+  const cartaoPreviewParcelas = useMemo(() => {
+    if (!Number.isFinite(pagamentoPreviewTotal) || pagamentoPreviewTotal <= 0) return [];
+    return buildParcelasCartao(pagamentoPreviewTotal, pagamentoParcelasQtd, pagamentoPreviewDataEmissao);
+  }, [pagamentoPreviewTotal, pagamentoParcelasQtd, pagamentoPreviewDataEmissao]);
+
+  useEffect(() => {
+    if (!showPagamentoModal || pagamentoModo !== "faturado") return;
+    setFaturadoParcelasForm((prev) =>
+      buildFaturadoDrafts(
+        pagamentoParcelasQtd,
+        pagamentoPreviewTotal,
+        pagamentoPreviewDataEmissao,
+        prev
+      )
+    );
+  }, [showPagamentoModal, pagamentoModo, pagamentoParcelasQtd, pagamentoPreviewTotal, pagamentoPreviewDataEmissao]);
 
   useEffect(() => {
     const loadMap = async () => {
@@ -2101,6 +2257,98 @@ export default function ImportarXmlPage() {
     !empresaId ||
     !podeCriarItens ||
     !permiteAutoCadastrarItens;
+
+  const abrirModalPagamento = () => {
+    if (isReading || importBusy || bloqueiaImportacao || !canImport) return;
+
+    const qtdPadrao = clampParcelas(pagamentoPreviewParcelasXml.length || 1);
+    setPagamentoModo("seguir_nota");
+    setPagamentoParcelasQtd(qtdPadrao);
+    setFaturadoParcelasForm(
+      buildFaturadoDrafts(
+        qtdPadrao,
+        pagamentoPreviewTotal,
+        pagamentoPreviewDataEmissao
+      )
+    );
+    setPagamentoModalErr(null);
+    setShowPagamentoModal(true);
+  };
+
+  const fecharModalPagamento = () => {
+    if (importBusy) return;
+    setShowPagamentoModal(false);
+    setPagamentoModalErr(null);
+  };
+
+  const confirmarPagamentoEImportar = async () => {
+    if (importBusy || isReading) return;
+
+    const jobsToImport = jobs.filter((j) => j.selected && j.status === "ok");
+    if (jobsToImport.length === 0) {
+      setPagamentoModalErr("Nenhum XML selecionado para importar.");
+      return;
+    }
+
+    const qtd = clampParcelas(pagamentoParcelasQtd);
+    let config: PagamentoImportacaoConfig = { modo: "seguir_nota" };
+
+    if (pagamentoModo === "cartao") {
+      config = { modo: "cartao", quantidade: qtd };
+    } else if (pagamentoModo === "dinheiro") {
+      config = { modo: "dinheiro" };
+    } else if (pagamentoModo === "faturado") {
+      if (jobsToImport.length > 1) {
+        setPagamentoModalErr("Para faturado manual, importe um XML por vez.");
+        return;
+      }
+
+      const rows = faturadoParcelasForm.slice(0, qtd);
+      if (rows.length !== qtd) {
+        setPagamentoModalErr("Informe todas as parcelas do faturado.");
+        return;
+      }
+
+      const parcelas: ParcelaPayload[] = [];
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        const vencimento = toDateOnly(row.vencimento);
+        const valor = parseMoneyInput(row.valor);
+
+        if (!vencimento) {
+          setPagamentoModalErr(`Parcela ${i + 1}: informe uma data valida.`);
+          return;
+        }
+        if (!Number.isFinite(valor) || valor <= 0) {
+          setPagamentoModalErr(`Parcela ${i + 1}: valor invalido.`);
+          return;
+        }
+
+        parcelas.push({
+          numero: String(i + 1).padStart(3, "0"),
+          vencimento,
+          valor,
+        });
+      }
+
+      const totalNf = Number(jobsToImport[0]?.nfeInfo?.valorTotal ?? 0);
+      if (Number.isFinite(totalNf) && totalNf > 0) {
+        const soma = Number(parcelas.reduce((acc, p) => acc + p.valor, 0).toFixed(2));
+        if (Math.abs(soma - totalNf) > 0.05) {
+          setPagamentoModalErr(
+            `A soma das parcelas (R$ ${formatMoneyBR(soma)}) difere do total da NF (R$ ${formatMoneyBR(totalNf)}).`
+          );
+          return;
+        }
+      }
+
+      config = { modo: "faturado", parcelas };
+    }
+
+    setPagamentoModalErr(null);
+    setShowPagamentoModal(false);
+    await importarNfe(config);
+  };
 
   if (!ready && permissionsLoading) {
     return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando permissoes...</div>;
@@ -2387,7 +2635,7 @@ export default function ImportarXmlPage() {
             </button>
 
             <button
-              onClick={importarNfe}
+              onClick={abrirModalPagamento}
               disabled={isReading || importBusy || bloqueiaImportacao || !canImport}
               className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
             >
@@ -2675,7 +2923,7 @@ export default function ImportarXmlPage() {
           </button>
 
           <button
-            onClick={importarNfe}
+            onClick={abrirModalPagamento}
             disabled={isReading || importBusy || bloqueiaImportacao || !canImport}
             className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
           >
@@ -2837,6 +3085,277 @@ export default function ImportarXmlPage() {
           </table>
         </div>
       </div>
+
+      {showPagamentoModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && fecharModalPagamento()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-3xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-semibold">Forma de pagamento</div>
+                  <div className="text-sm text-zinc-400">
+                    Defina como montar as parcelas antes de importar a NF para contas a pagar.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={fecharModalPagamento}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                  disabled={importBusy}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-auto">
+                {!fornecedorGerarContasAuto && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                    Fornecedor com contas a pagar automatico = Nao. A importacao segue normal, mas as parcelas nao serao aplicadas.
+                  </div>
+                )}
+
+                <fieldset className="space-y-2">
+                  <legend className="text-sm text-zinc-300 mb-2">Selecione a forma</legend>
+
+                  <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900/30 px-3 py-2">
+                    <input
+                      type="radio"
+                      name="pagamento-forma"
+                      checked={pagamentoModo === "seguir_nota"}
+                      autoFocus
+                      onChange={() => {
+                        setPagamentoModo("seguir_nota");
+                        setPagamentoModalErr(null);
+                      }}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-zinc-100">Seguir nota</div>
+                      <div className="text-xs text-zinc-400">Usa as duplicatas do XML (quando existirem).</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900/30 px-3 py-2">
+                    <input
+                      type="radio"
+                      name="pagamento-forma"
+                      checked={pagamentoModo === "cartao"}
+                      onChange={() => {
+                        setPagamentoModo("cartao");
+                        setPagamentoModalErr(null);
+                      }}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-zinc-100">Cartao</div>
+                      <div className="text-xs text-zinc-400">
+                        Informe o numero de parcelas. Primeira parcela sempre no dia 09 do mes seguinte.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900/30 px-3 py-2">
+                    <input
+                      type="radio"
+                      name="pagamento-forma"
+                      checked={pagamentoModo === "dinheiro"}
+                      onChange={() => {
+                        setPagamentoModo("dinheiro");
+                        setPagamentoModalErr(null);
+                      }}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-zinc-100">Dinheiro</div>
+                      <div className="text-xs text-zinc-400">Parcela unica a vista.</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900/30 px-3 py-2">
+                    <input
+                      type="radio"
+                      name="pagamento-forma"
+                      checked={pagamentoModo === "faturado"}
+                      onChange={() => {
+                        setPagamentoModo("faturado");
+                        setPagamentoModalErr(null);
+                      }}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-zinc-100">Faturado (entrada manual)</div>
+                      <div className="text-xs text-zinc-400">
+                        Defina quantidade, valores e datas de vencimento manualmente.
+                      </div>
+                    </div>
+                  </label>
+                </fieldset>
+
+                {pagamentoModo === "seguir_nota" && (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-3 space-y-2">
+                    <div className="text-sm text-zinc-300">
+                      {selectedOkJobs.length > 1
+                        ? "Visualizacao do primeiro XML selecionado:"
+                        : "Parcelas encontradas no XML selecionado:"}
+                    </div>
+                    {pagamentoPreviewParcelasXml.length > 0 ? (
+                      <div className="border border-zinc-800 rounded-md overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead className="bg-zinc-900/70 text-zinc-200">
+                            <tr>
+                              <th className="px-2 py-1 text-left">Parcela</th>
+                              <th className="px-2 py-1 text-left">Vencimento</th>
+                              <th className="px-2 py-1 text-right">Valor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800">
+                            {pagamentoPreviewParcelasXml.map((parcela) => (
+                              <tr key={`${parcela.numero}-${parcela.vencimento}`}>
+                                <td className="px-2 py-1">{parcela.numero}</td>
+                                <td className="px-2 py-1">{formatDateBR(parcela.vencimento)}</td>
+                                <td className="px-2 py-1 text-right tabular-nums">R$ {formatMoneyBR(parcela.valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-zinc-400">
+                        XML sem duplicatas. Se contas a pagar automatico estiver ativo, sera gerada parcela unica.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {pagamentoModo === "cartao" && (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-3 space-y-3">
+                    <label className="flex flex-col gap-1 max-w-[240px]">
+                      <span className="text-sm text-zinc-300">Quantidade de parcelas</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        step={1}
+                        value={pagamentoParcelasQtd}
+                        onChange={(e) => setPagamentoParcelasQtd(clampParcelas(Number(e.target.value || 1)))}
+                        className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                      />
+                    </label>
+
+                    {cartaoPreviewParcelas.length > 0 && (
+                      <div className="border border-zinc-800 rounded-md overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead className="bg-zinc-900/70 text-zinc-200">
+                            <tr>
+                              <th className="px-2 py-1 text-left">Parcela</th>
+                              <th className="px-2 py-1 text-left">Vencimento</th>
+                              <th className="px-2 py-1 text-right">Valor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800">
+                            {cartaoPreviewParcelas.map((parcela) => (
+                              <tr key={`${parcela.numero}-${parcela.vencimento}`}>
+                                <td className="px-2 py-1">{parcela.numero}</td>
+                                <td className="px-2 py-1">{formatDateBR(parcela.vencimento)}</td>
+                                <td className="px-2 py-1 text-right tabular-nums">R$ {formatMoneyBR(parcela.valor)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {pagamentoModo === "dinheiro" && (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/30 px-3 py-2 text-xs text-zinc-300">
+                    Sera criada uma unica parcela (001) com o valor total da nota.
+                  </div>
+                )}
+
+                {pagamentoModo === "faturado" && (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-3 space-y-3">
+                    <label className="flex flex-col gap-1 max-w-[240px]">
+                      <span className="text-sm text-zinc-300">Quantidade de pagamentos</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        step={1}
+                        value={pagamentoParcelasQtd}
+                        onChange={(e) => setPagamentoParcelasQtd(clampParcelas(Number(e.target.value || 1)))}
+                        className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                      />
+                    </label>
+
+                    {selectedOkJobs.length > 1 && (
+                      <div className="text-xs text-amber-300">
+                        Para faturado manual, selecione apenas um XML por importacao.
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {faturadoParcelasForm.slice(0, clampParcelas(pagamentoParcelasQtd)).map((row, idx) => (
+                        <div key={row.numero} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 text-sm text-zinc-300">
+                            Parcela {row.numero}
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Valor (ex: 1500,00)"
+                            value={row.valor}
+                            onChange={(e) =>
+                              setFaturadoParcelasForm((prev) =>
+                                prev.map((item, pidx) => (pidx === idx ? { ...item, valor: e.target.value } : item))
+                              )
+                            }
+                            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                          />
+                          <input
+                            type="date"
+                            value={row.vencimento}
+                            onChange={(e) =>
+                              setFaturadoParcelasForm((prev) =>
+                                prev.map((item, pidx) => (pidx === idx ? { ...item, vencimento: e.target.value } : item))
+                              )
+                            }
+                            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {pagamentoModalErr && <div className="text-sm text-red-400">{pagamentoModalErr}</div>}
+              </div>
+
+              <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={fecharModalPagamento}
+                  className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                  disabled={importBusy}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmarPagamentoEImportar()}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                  disabled={importBusy}
+                >
+                  {importBusy ? "Importando..." : "Confirmar e importar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showOsLookup && (
         <div
