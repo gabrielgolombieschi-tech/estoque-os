@@ -74,36 +74,35 @@ export async function syncHhToApontamentos({
   const tipoHoraId = tipoHoras.id;
 
   // 2. Delete apontamentos antigos
+  const deleteMatchBase = {
+    tenant_id: tenantId,
+    ...(empresaId ? { empresa_id: empresaId } : {}),
+    os_id: osId,
+    colaborador_id: colaboradorId,
+    data: dataISO,
+  };
+
   let deleteError: unknown | null = null;
-  try {
-    await supabase
-      .from("apontamentos_horas")
-      .delete()
-      .match({
-        tenant_id: tenantId,
-        os_id: osId,
-        colaborador_id: colaboradorId,
-        data: dataISO,
-        gerado_por_hh: true,
-      });
-  } catch (e: unknown) {
-    if (isMissingColumnError(e, "gerado_por_hh")) {
+  const deleteWithHhFlag = await supabase
+    .from("apontamentos_horas")
+    .delete()
+    .match({
+      ...deleteMatchBase,
+      gerado_por_hh: true,
+    });
+
+  if (deleteWithHhFlag.error) {
+    if (isMissingColumnError(deleteWithHhFlag.error, "gerado_por_hh")) {
       // Fallback: remover filtro gerado_por_hh
-      try {
-        await supabase
-          .from("apontamentos_horas")
-          .delete()
-          .match({
-            tenant_id: tenantId,
-            os_id: osId,
-            colaborador_id: colaboradorId,
-            data: dataISO,
-          });
-      } catch (e2) {
-        deleteError = e2;
+      const deleteFallback = await supabase
+        .from("apontamentos_horas")
+        .delete()
+        .match(deleteMatchBase);
+      if (deleteFallback.error) {
+        deleteError = deleteFallback.error;
       }
     } else {
-      deleteError = e;
+      deleteError = deleteWithHhFlag.error;
     }
   }
   if (deleteError) throw new Error(formatSbError(deleteError));
@@ -141,62 +140,39 @@ export async function syncHhToApontamentos({
   };
 
   // Fallbacks para colunas opcionais
-  let insertError: unknown | null = null;
-  try {
-    await supabase.from("apontamentos_horas").insert(payload);
-  } catch (e: unknown) {
-    if (isMissingColumnError(e, "empresa_id")) {
-      const { empresa_id: _empresa_id, ...p2 } = payload;
-      try {
-        await supabase.from("apontamentos_horas").insert(p2);
-      } catch (e2: unknown) {
-        if (isMissingColumnError(e2, "descricao")) {
-          const { descricao: _descricao, ...p3 } = p2;
-          try {
-            await supabase.from("apontamentos_horas").insert(p3);
-          } catch (e3: unknown) {
-            if (isMissingColumnError(e3, "gerado_por_hh")) {
-              const { gerado_por_hh: _gerado_por_hh, ...p4 } = p3;
-              try {
-                await supabase.from("apontamentos_horas").insert(p4);
-              } catch (e4) {
-                insertError = e4;
-              }
-            } else {
-              insertError = e3;
-            }
-          }
-        } else {
-          insertError = e2;
-        }
+  const insertPayload = async (value: Record<string, unknown>) => {
+    const result = await supabase.from("apontamentos_horas").insert(value);
+    return result.error ?? null;
+  };
+
+  let insertError: unknown | null = await insertPayload(payload);
+  if (insertError && isMissingColumnError(insertError, "empresa_id")) {
+    const p2 = { ...payload };
+    delete p2.empresa_id;
+    insertError = await insertPayload(p2);
+    if (insertError && isMissingColumnError(insertError, "descricao")) {
+      const p3 = { ...p2 };
+      delete p3.descricao;
+      insertError = await insertPayload(p3);
+      if (insertError && isMissingColumnError(insertError, "gerado_por_hh")) {
+        const p4 = { ...p3 };
+        delete p4.gerado_por_hh;
+        insertError = await insertPayload(p4);
       }
-    } else if (isMissingColumnError(e, "descricao")) {
-      const { descricao: _descricao, ...p2 } = payload;
-      try {
-        await supabase.from("apontamentos_horas").insert(p2);
-      } catch (e2: unknown) {
-        if (isMissingColumnError(e2, "gerado_por_hh")) {
-          const { gerado_por_hh: _gerado_por_hh, ...p3 } = p2;
-          try {
-            await supabase.from("apontamentos_horas").insert(p3);
-          } catch (e3) {
-            insertError = e3;
-          }
-        } else {
-          insertError = e2;
-        }
-      }
-    } else if (isMissingColumnError(e, "gerado_por_hh")) {
-      const { gerado_por_hh: _gerado_por_hh, ...p2 } = payload;
-      try {
-        await supabase.from("apontamentos_horas").insert(p2);
-      } catch (e2) {
-        insertError = e2;
-      }
-    } else {
-      insertError = e;
     }
+  } else if (insertError && isMissingColumnError(insertError, "descricao")) {
+    const p2 = { ...payload };
+    delete p2.descricao;
+    insertError = await insertPayload(p2);
+    if (insertError && isMissingColumnError(insertError, "gerado_por_hh")) {
+      const p3 = { ...p2 };
+      delete p3.gerado_por_hh;
+      insertError = await insertPayload(p3);
+    }
+  } else if (insertError && isMissingColumnError(insertError, "gerado_por_hh")) {
+    const p2 = { ...payload };
+    delete p2.gerado_por_hh;
+    insertError = await insertPayload(p2);
   }
   if (insertError) throw new Error(formatSbError(insertError));
 }
-

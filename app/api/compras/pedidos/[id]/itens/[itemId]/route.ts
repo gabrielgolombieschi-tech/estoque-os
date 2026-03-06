@@ -1,5 +1,12 @@
 import { NextRequest } from "next/server";
-import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../../../_lib";
+import {
+  calcPedidoItemValorTotal,
+  canCompras,
+  getAuthSupabase,
+  jsonError,
+  resolveTenantEmpresa,
+  syncPedidoTotais,
+} from "../../../../_lib";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -75,6 +82,7 @@ export async function PATCH(
   if (quantidade < asNum((item as { quantidade_recebida?: unknown }).quantidade_recebida, 0)) {
     return jsonError(400, "Quantidade nao pode ser menor que a quantidade ja recebida.");
   }
+  const valorTotal = calcPedidoItemValorTotal(quantidade, valorUnitario);
 
   let origemOsId: number | null = null;
   if (osIdRaw != null && String(osIdRaw).trim() !== "") {
@@ -119,6 +127,7 @@ export async function PATCH(
   const payload: Record<string, unknown> = {
     quantidade,
     valor_unitario: valorUnitario,
+    valor_total: valorTotal,
     updated_by: null,
     origem_os_id: origemOsId,
   };
@@ -142,6 +151,10 @@ export async function PATCH(
     .single();
 
   if (error) return jsonError(400, error.message);
+
+  const syncResult = await syncPedidoTotais(supabase, pedidoId, ctx.tenantId, ctx.empresaId);
+  if ("error" in syncResult) return jsonError(400, syncResult.error);
+
   return Response.json({ data });
 }
 
@@ -326,5 +339,9 @@ export async function DELETE(
   if (stillExists?.id) {
     return jsonError(500, "Falha definitiva ao excluir item: registro ainda existe no banco.");
   }
+
+  const syncResult = await syncPedidoTotais(supabase, pedidoId, ctx.tenantId, ctx.empresaId);
+  if ("error" in syncResult) return jsonError(400, syncResult.error);
+
   return Response.json({ ok: true, deleted_item_id: itemId });
 }

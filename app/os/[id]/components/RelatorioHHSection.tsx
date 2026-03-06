@@ -102,6 +102,19 @@ type HhLancamentoViewRow = {
   criado_em: string | null;
 };
 
+type HhLancamentoSyncRow = {
+  data: string;
+  colaborador_id?: string | null;
+  entrada_1?: string | null;
+  saida_1?: string | null;
+  entrada_2?: string | null;
+  saida_2?: string | null;
+  hora_entrada?: string | null;
+  hora_saida?: string | null;
+  percentual_aplicado?: number | null;
+  observacao?: string | null;
+};
+
 type Colaborador = {
   id: string;
   nome: string;
@@ -155,6 +168,33 @@ function getPercentualFromDate(dateISO: string): 0 | 50 | 100 {
   if (dow === 0) return 100;
   if (dow === 6) return 50;
   return 0;
+}
+
+function normalizePercentualHh(value: unknown, dateISO: string): 0 | 50 | 100 {
+  const percentual = Number(value);
+  if (percentual === 50 || percentual === 100) return percentual;
+  if (percentual === 0) return 0;
+  return getPercentualFromDate(dateISO);
+}
+
+function buildPeriodosSyncFromHhRows(rows: HhLancamentoSyncRow[]): Array<{ entrada: string; saida: string }> {
+  const periodos: Array<{ entrada: string; saida: string }> = [];
+
+  for (const row of rows) {
+    const entrada1 = formatTimeHHMM(row.entrada_1) || formatTimeHHMM(row.hora_entrada);
+    const saida1 = formatTimeHHMM(row.saida_1) || formatTimeHHMM(row.hora_saida);
+    const entrada2 = formatTimeHHMM(row.entrada_2);
+    const saida2 = formatTimeHHMM(row.saida_2);
+
+    if (entrada1 && saida1) {
+      periodos.push({ entrada: entrada1, saida: saida1 });
+    }
+    if (entrada2 && saida2) {
+      periodos.push({ entrada: entrada2, saida: saida2 });
+    }
+  }
+
+  return periodos;
 }
 
 function getTipoHHLabel(percentual: number): string {
@@ -1553,29 +1593,86 @@ export default function RelatorioHHSection({
 
     try {
       setErr(null);
+      setOk(null);
       const ctx = await ensureDbContext();
       if (!ctx.tenant || !ctx.empresa) {
         setErr("Tenant/empresa não carregados.");
         return;
       }
+      const tenantId = ctx.tenant;
+      const empresaId = ctx.empresa;
       const del = await applyTenantEmpresa(
         supabase
           .from("hh_lancamentos")
           .delete()
           .eq("id", id)
           .eq("os_id", osId)
-          .eq("empresa_id", ctx.empresa)
-          .select("id"),
-        ctx.tenant,
-        ctx.empresa
+          .eq("empresa_id", empresaId)
+          .select("id,data,colaborador_id,percentual_aplicado,observacao"),
+        tenantId,
+        empresaId
       );
+
+      const deletedRow = (del.data?.[0] ?? null) as HhLancamentoSyncRow | null;
+      const deletedData = String(deletedRow?.data ?? "").trim();
+      const deletedColaboradorId = String(deletedRow?.colaborador_id ?? "").trim();
+      const syncDeletedLancamento = async (): Promise<string | null> => {
+        if (!enabled || !deletedData || !deletedColaboradorId) return null;
+
+        try {
+          const remaining = await applyTenantEmpresa(
+            supabase
+              .from("hh_lancamentos")
+              .select("data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,observacao")
+              .eq("os_id", osId)
+              .eq("empresa_id", empresaId)
+              .eq("data", deletedData)
+              .eq("colaborador_id", deletedColaboradorId)
+              .order("criado_em", { ascending: false }),
+            tenantId,
+            empresaId
+          );
+
+          if (remaining.error) throw remaining.error;
+
+          const remainingRows = (remaining.data ?? []) as HhLancamentoSyncRow[];
+          const rowWithObservacao = remainingRows.find((row) => String(row.observacao ?? "").trim());
+
+          await syncHhToApontamentos({
+            supabase,
+            tenantId,
+            empresaId,
+            osId,
+            colaboradorId: deletedColaboradorId,
+            dataISO: deletedData,
+            periodos: buildPeriodosSyncFromHhRows(remainingRows),
+            descricao: String(rowWithObservacao?.observacao ?? deletedRow?.observacao ?? "").trim() || "HH lancado na OS",
+            percentual: normalizePercentualHh(
+              remainingRows[0]?.percentual_aplicado ?? deletedRow?.percentual_aplicado,
+              deletedData
+            ),
+          });
+
+          return null;
+        } catch (syncErr: unknown) {
+          console.error("[HH] Falha ao sincronizar apontamentos_horas apos excluir HH", syncErr);
+          return getDbErrorMessage(syncErr, "Erro ao sincronizar apontamentos.");
+        }
+      };
 
       if (del.error) throw del.error;
       if (!del.data || del.data.length === 0) {
         throw new Error("Lançamento não encontrado ou sem permissão para excluir.");
       }
       setOk("Lançamento excluído.");
+      const syncError = await syncDeletedLancamento();
       await loadHhLancamentos();
+      await loadRelatorios();
+      if (syncError) {
+        setOk(null);
+        setErr(`Lancamento HH excluido, mas falhou ao sincronizar apontamentos: ${syncError}`);
+        return;
+      }
     } catch (e: unknown) {
       const message = getDbErrorMessage(e, "Erro ao excluir lançamento.");
       if (process.env.NODE_ENV !== "production") {

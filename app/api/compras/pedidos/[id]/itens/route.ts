@@ -1,5 +1,12 @@
 import { NextRequest } from "next/server";
-import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../../_lib";
+import {
+  calcPedidoItemValorTotal,
+  canCompras,
+  getAuthSupabase,
+  jsonError,
+  resolveTenantEmpresa,
+  syncPedidoTotais,
+} from "../../../_lib";
 
 export const runtime = "nodejs";
 
@@ -81,6 +88,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!itemId && !itemNome) return jsonError(400, "Informe item_codigo existente, item_id ou item_nome.");
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
+  const valorTotal = calcPedidoItemValorTotal(quantidade, valorUnitario);
 
   const { data: pedido, error: pedidoErr } = await supabase
     .schema("m")
@@ -147,6 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     unidade,
     quantidade,
     valor_unitario: valorUnitario,
+    valor_total: valorTotal,
     origem_os_id: origemOsId,
   };
 
@@ -157,6 +166,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select("*")
     .single();
   if (error) return jsonError(400, error.message);
+
+  const syncResult = await syncPedidoTotais(supabase, id, ctx.tenantId, ctx.empresaId);
+  if ("error" in syncResult) return jsonError(400, syncResult.error);
 
   return Response.json({ data });
 }

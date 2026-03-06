@@ -100,8 +100,22 @@ async function authedFetch(path: string, init?: RequestInit) {
       ...(init?.headers ?? {}),
     },
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(String((json as { error?: string }).error ?? "Erro de requisicao."));
+  const raw = await res.text();
+  const json = raw
+    ? ((() => {
+        try {
+          return JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          return {};
+        }
+      })())
+    : {};
+  if (!res.ok) {
+    const htmlLike = raw.trim().startsWith("<");
+    const fallback = htmlLike ? `Erro de requisicao (${res.status}).` : raw.trim();
+    const message = (json as { error?: string }).error ?? fallback ?? `Erro de requisicao (${res.status}).`;
+    throw new Error(String(message));
+  }
   return json as Record<string, unknown>;
 }
 

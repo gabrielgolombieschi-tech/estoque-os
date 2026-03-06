@@ -2,6 +2,15 @@ import { NextRequest } from "next/server";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+type AuthedSupabase = ReturnType<typeof supabaseFromAuthHeader>;
+type SyncPedidoTotaisResult =
+  | { error: string }
+  | {
+      data: {
+        totalItens: number;
+        totalGeral: number;
+      };
+    };
 
 export function jsonError(status: number, error: string, details?: unknown) {
   return Response.json({ error, ...(details !== undefined ? { details } : {}) }, { status });
@@ -87,4 +96,66 @@ export async function canCompras(
 ) {
   const { data } = await supabase.rpc("can", { p_resource: "compras", p_action: action });
   return Boolean(data);
+}
+
+function roundMoney(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
+}
+
+export function calcPedidoItemValorTotal(quantidade: number, valorUnitario: number) {
+  return roundMoney((Number.isFinite(quantidade) ? quantidade : 0) * (Number.isFinite(valorUnitario) ? valorUnitario : 0));
+}
+
+export async function syncPedidoTotais(
+  supabase: AuthedSupabase,
+  pedidoId: string,
+  tenantId: string,
+  empresaId: string
+): Promise<SyncPedidoTotaisResult> {
+  const { data: pedido, error: pedidoErr } = await supabase
+    .schema("m")
+    .from("pedido_compra")
+    .select("id,total_frete,total_desconto")
+    .eq("id", pedidoId)
+    .eq("tenant_id", tenantId)
+    .eq("empresa_id", empresaId)
+    .is("deleted_at", null)
+    .single();
+  if (pedidoErr || !pedido) {
+    return { error: pedidoErr?.message ?? "Pedido nao encontrado para recalculo." } as const;
+  }
+
+  const { data: itens, error: itensErr } = await supabase
+    .schema("m")
+    .from("pedido_compra_item")
+    .select("valor_total")
+    .eq("pedido_compra_id", pedidoId)
+    .eq("tenant_id", tenantId)
+    .eq("empresa_id", empresaId)
+    .is("deleted_at", null);
+  if (itensErr) return { error: itensErr.message } as const;
+
+  const totalItens = roundMoney(
+    (Array.isArray(itens) ? itens : []).reduce((acc, row) => acc + Number((row as Record<string, unknown>).valor_total ?? 0), 0)
+  );
+  const totalFrete = roundMoney(Number((pedido as Record<string, unknown>).total_frete ?? 0));
+  const totalDesconto = roundMoney(Number((pedido as Record<string, unknown>).total_desconto ?? 0));
+  const totalGeral = roundMoney(totalItens + totalFrete - totalDesconto);
+
+  const { error: updErr } = await supabase
+    .schema("m")
+    .from("pedido_compra")
+    .update({
+      total_itens: totalItens,
+      total_geral: totalGeral,
+      updated_by: null,
+    })
+    .eq("id", pedidoId)
+    .eq("tenant_id", tenantId)
+    .eq("empresa_id", empresaId)
+    .is("deleted_at", null);
+  if (updErr) return { error: updErr.message } as const;
+
+  return { data: { totalItens, totalGeral } } as const;
 }
