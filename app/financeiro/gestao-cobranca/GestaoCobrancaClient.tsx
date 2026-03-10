@@ -28,6 +28,7 @@ type Row = {
   faturado_em: string | null;
   proximo_contato_date: string | null;
   responsavel_id: string | null;
+  responsavel_cliente_nome: string | null;
   observacao: string | null;
   documento_fiscal_id: string | null;
   doc_modelo: string | null;
@@ -54,6 +55,7 @@ type EditState = {
   pedidoRecebidoEm: string;
   proximoContatoDate: string;
   responsavelId: string;
+  responsavelClienteNome: string;
   observacao: string;
   busy: boolean;
   error: string | null;
@@ -123,7 +125,7 @@ export default function GestaoCobrancaClient() {
   const [rows, setRows] = useState<Row[]>([]);
   const [responsaveis, setResponsaveis] = useState<ResponsavelOption[]>([]);
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("TODOS");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("PENDENTE");
   const [clienteQ, setClienteQ] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -138,6 +140,7 @@ export default function GestaoCobrancaClient() {
     pedidoRecebidoEm: "",
     proximoContatoDate: "",
     responsavelId: "",
+    responsavelClienteNome: "",
     observacao: "",
     busy: false,
     error: null,
@@ -167,16 +170,34 @@ export default function GestaoCobrancaClient() {
     setError(null);
 
     try {
-      const query = applyTenantEmpresa(
-        supabase.schema("r").from("r_gestao_cobranca_os").select("*"),
-        tenantId,
-        empresaId
-      ).order("dias_desde_conclusao", { ascending: false, nullsFirst: false });
+      const [rowsResult, cobrancaMetaResult] = await Promise.all([
+        applyTenantEmpresa(
+          supabase.schema("r").from("r_gestao_cobranca_os").select("*"),
+          tenantId,
+          empresaId
+        ).order("dias_desde_conclusao", { ascending: false, nullsFirst: false }),
+        applyTenantEmpresa(
+          supabase.schema("f").from("gestao_cobranca_os").select("os_id,responsavel_cliente_nome"),
+          tenantId,
+          empresaId
+        ).is("deleted_at", null),
+      ]);
 
-      const { data, error: qErr } = await query;
-      if (qErr) throw qErr;
+      if (rowsResult.error) throw rowsResult.error;
 
-      setRows((data ?? []) as Row[]);
+      const responsavelClienteByOs = new Map<number, string | null>();
+      if (!cobrancaMetaResult.error) {
+        for (const item of (cobrancaMetaResult.data ?? []) as Array<{ os_id: number; responsavel_cliente_nome: string | null }>) {
+          responsavelClienteByOs.set(Number(item.os_id), item.responsavel_cliente_nome ?? null);
+        }
+      }
+
+      const mergedRows = ((rowsResult.data ?? []) as Row[]).map((row) => ({
+        ...row,
+        responsavel_cliente_nome: responsavelClienteByOs.get(Number(row.os_id)) ?? row.responsavel_cliente_nome ?? null,
+      }));
+
+      setRows(mergedRows);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Erro ao carregar gestão de cobrança.";
       setError(message);
@@ -307,6 +328,7 @@ export default function GestaoCobrancaClient() {
       pedidoRecebidoEm: row.pedido_recebido_em ? String(row.pedido_recebido_em).slice(0, 10) : "",
       proximoContatoDate: row.proximo_contato_date ? String(row.proximo_contato_date).slice(0, 10) : "",
       responsavelId: row.responsavel_id ?? "",
+      responsavelClienteNome: row.responsavel_cliente_nome ?? "",
       observacao: row.observacao ?? "",
       busy: false,
       error: null,
@@ -337,6 +359,7 @@ export default function GestaoCobrancaClient() {
       documento_fiscal_id: edit.row.documento_fiscal_id ?? null,
       titulo_ar_id: edit.row.titulo_ar_id ?? null,
       responsavel_id: responsavel || null,
+      responsavel_cliente_nome: edit.responsavelClienteNome.trim() || null,
       proximo_contato_date: edit.proximoContatoDate || null,
       observacao: edit.observacao.trim() || null,
       deleted_at: null as string | null,
@@ -433,7 +456,7 @@ export default function GestaoCobrancaClient() {
             checked={onlyContatoVencido}
             onChange={(e) => setOnlyContatoVencido(e.target.checked)}
           />
-          Somente com próximo contato vencido
+          Somente com última cobrança anterior a hoje
         </label>
       </div>
 
@@ -453,8 +476,8 @@ export default function GestaoCobrancaClient() {
               <th className="px-3 py-3 text-left">NF</th>
               <th className="px-3 py-3 text-right">A Receber</th>
               <th className="px-3 py-3 text-left">Status</th>
-              <th className="px-3 py-3 text-left">Próximo contato</th>
-              <th className="px-3 py-3 text-left">Responsável</th>
+              <th className="px-3 py-3 text-left">Data ultima cobrança</th>
+              <th className="px-3 py-3 text-left">Responsavel Cliente</th>
               <th className="px-3 py-3 text-left">Ações</th>
             </tr>
           </thead>
@@ -475,13 +498,16 @@ export default function GestaoCobrancaClient() {
               tableRows.map((row) => {
                 const status = effectiveStatus(row);
                 const pedido = row.pedido_compra_cliente?.trim() ? row.pedido_compra_cliente : row.pedido_compra_os ?? "-";
-                const responsavelNome =
-                  responsaveis.find((u) => u.id === (row.responsavel_id ?? ""))?.nome ?? (row.responsavel_id ? row.responsavel_id : "-");
+                const observacao = String(row.observacao ?? "").trim();
+                const responsavelClienteNome = String(row.responsavel_cliente_nome ?? "").trim() || "-";
                 return (
                   <tr key={`${row.tenant_id}-${row.empresa_id}-${row.os_id}`} className="hover:bg-zinc-900/40">
                     <td className="px-3 py-3 text-zinc-200">{row.numero_os ?? row.os_num ?? row.os_id}</td>
                     <td className="px-3 py-3 text-zinc-200">{row.cliente_nome ?? "-"}</td>
-                    <td className="px-3 py-3 text-zinc-300">{row.descricao_servico ?? "-"}</td>
+                    <td className="px-3 py-3 text-zinc-300">
+                      <div className="text-zinc-200">{row.descricao_servico ?? "-"}</div>
+                      {observacao ? <div className="mt-1 text-xs leading-5 text-zinc-500 whitespace-pre-wrap">{observacao}</div> : null}
+                    </td>
                     <td className="px-3 py-3 text-zinc-300">{fmtDateBR(row.data_conclusao)}</td>
                     <td className="px-3 py-3 text-right tabular-nums text-zinc-300">{row.dias_desde_conclusao ?? "-"}</td>
                     <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(row.valor_total)}</td>
@@ -492,7 +518,7 @@ export default function GestaoCobrancaClient() {
                       <span className={["inline-flex items-center px-2 py-1 rounded-md border text-xs", statusBadge(status)].join(" ")}>{status}</span>
                     </td>
                     <td className="px-3 py-3 text-zinc-300">{fmtDateBR(row.proximo_contato_date)}</td>
-                    <td className="px-3 py-3 text-zinc-300">{responsavelNome}</td>
+                    <td className="px-3 py-3 text-zinc-300">{responsavelClienteNome}</td>
                     <td className="px-3 py-3">
                       <button
                         type="button"
@@ -563,7 +589,7 @@ export default function GestaoCobrancaClient() {
                 </label>
 
                 <label className="text-xs text-zinc-400">
-                  Próximo contato
+                  Data ultima cobrança
                   <input
                     type="date"
                     className="mt-1 w-full px-3 py-2"
@@ -573,8 +599,19 @@ export default function GestaoCobrancaClient() {
                   />
                 </label>
 
+                <label className="text-xs text-zinc-400">
+                  Responsável cliente
+                  <input
+                    className="mt-1 w-full px-3 py-2"
+                    value={edit.responsavelClienteNome}
+                    onChange={(e) => setEdit((p) => ({ ...p, responsavelClienteNome: e.target.value }))}
+                    disabled={!canWrite || edit.busy}
+                    placeholder="Nome de quem responde pela dívida"
+                  />
+                </label>
+
                 <label className="text-xs text-zinc-400 md:col-span-2">
-                  Responsável
+                  Responsável interno
                   <select
                     className="mt-1 w-full px-3 py-2"
                     value={edit.responsavelId}

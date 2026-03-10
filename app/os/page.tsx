@@ -63,6 +63,8 @@ type OsClienteRow = {
   cliente_nome: string | null;
 };
 
+type TipoFiltro = "todos_sem_hh" | "todas" | "hh" | "servico" | "material";
+
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   em_andamento: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -149,7 +151,7 @@ export default function OsListPage() {
   const [status, setStatus] = useState("em_andamento");
   const [clienteFiltro, setClienteFiltro] = useState<string>("");
   const [clienteFiltroNomesLivres, setClienteFiltroNomesLivres] = useState<string[]>([]);
-  const [tipoFiltro, setTipoFiltro] = useState<"todas" | "hh" | "servico" | "material">("todas");
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("todos_sem_hh");
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
@@ -189,6 +191,16 @@ export default function OsListPage() {
 
   const logDebug = (...args: unknown[]) => {
     if (debugEnabled) console.debug(...args);
+  };
+
+  const shouldShowRowForTipoFiltro = (row: OS, filtro: TipoFiltro) => {
+    const isHh = Boolean(row.usa_relatorio_hh);
+
+    if (filtro === "todos_sem_hh") return !isHh;
+    if (filtro === "hh") return isHh;
+    if (filtro === "servico") return row.tipo_pedido === "servico" && !isHh;
+    if (filtro === "material") return row.tipo_pedido === "material";
+    return true;
   };
 
   async function loadClientes() {
@@ -253,9 +265,9 @@ export default function OsListPage() {
     if (reqId !== clientesReqIdRef.current) return;
 
     if (error) {
-      // Para alguns papÃ©is (ex.: APONTAMENTO_RH), a RLS de clientes pode bloquear via can(),
-      // enquanto ordens_servico usa can__legacy_40734. Nesses casos, nÃ£o quebrar a tela:
-      // montar a lista a partir das OS visÃ­veis.
+      // Para alguns papéis (ex.: APONTAMENTO_RH), a RLS de clientes pode bloquear via can(),
+      // enquanto ordens_servico usa can__legacy_40734. Nesses casos, não quebrar a tela:
+      // montar a lista a partir das OS visíveis.
       logDebug("[OS] loadClientes:error (fallback to ordens_servico)", { message: error.message });
       await loadFromOs();
       return;
@@ -269,8 +281,8 @@ export default function OsListPage() {
     }
 
     setClientes(next);
-    // Se o usuÃ¡rio tem acesso a clientes, ainda assim podem existir OS antigas com nome livre.
-    // NÃ£o tentamos inferir aqui; o fallback via OS cobre quando necessÃ¡rio.
+    // Se o usuário tem acesso a clientes, ainda assim podem existir OS antigas com nome livre.
+    // Não tentamos inferir aqui; o fallback via OS cobre quando necessário.
     setClienteFiltroNomesLivres([]);
   }
 
@@ -351,7 +363,7 @@ export default function OsListPage() {
       return;
     }
 
-    const osList = (data ?? []) as unknown as OS[];
+    const osList = ((data ?? []) as unknown as OS[]).filter((row) => shouldShowRowForTipoFiltro(row, tipoFiltro));
     setRows(osList);
     logDebug("[OS] load:rows", { count: osList.length, reqId });
 
@@ -380,7 +392,7 @@ export default function OsListPage() {
       });
       setMateriaisPorOs(materiaisTotals);
 
-      // View sem tenant/empresa; nÃ£o aplicar scope para evitar erro de coluna inexistente.
+      // View sem tenant/empresa; não aplicar scope para evitar erro de coluna inexistente.
       const { data: maoData } = await supabase
         .from("vw_custo_mao_obra_os")
         .select("os_id,custo_mao_obra")
@@ -410,7 +422,7 @@ export default function OsListPage() {
       setHhTotalPorOs(hhTotals);
 
       // Valor do pedido HH calculado (para bater com PDF): soma(valor_hora * horas_efetivas)
-      // horas_efetivas segue a mesma regra do PDF (2 perÃ­odos ou entrada/saÃ­da; fallback horas_trabalhadas).
+      // horas_efetivas segue a mesma regra do PDF (2 períodos ou entrada/saída; fallback horas_trabalhadas).
       try {
         const hhOsIds = osList
           .filter((r) => Boolean(r.usa_relatorio_hh))
@@ -476,7 +488,7 @@ export default function OsListPage() {
       status,
     });
 
-    // NÃƒO aguardar tenantLoading ficar false.
+    // NÃO aguardar tenantLoading ficar false.
     // Sempre usar effectiveTenantId/effectiveEmpresaId (com fallback).
     if (!sessionReady || !session?.access_token) {
       logDebug("[OS] useEffect:return (sessionReady or session missing)", {
@@ -516,7 +528,7 @@ export default function OsListPage() {
     setErr(null);
     setOkMsg(null);
 
-    if (!canWriteOs) return setErr("Sem permissÃ£o para criar OS.");
+    if (!canWriteOs) return setErr("Sem permissão para criar OS.");
     if (!clienteId && !clienteNomeLivre.trim()) return setErr("Selecione um cliente ou informe um nome.");
 
     const orcadoValor = Number(orcado || 0);
@@ -715,7 +727,7 @@ export default function OsListPage() {
   if (!tenantLoading && sessionReady && !canView) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300 px-4">
-        Sem permissÃ£o para visualizar OS.
+        Sem permissão para visualizar OS.
       </div>
     );
   }
@@ -724,7 +736,7 @@ export default function OsListPage() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Ordens de Servico</h1>
+          <h1 className="text-2xl font-semibold">Ordens de Serviço</h1>
           <p className="text-sm text-zinc-400 mt-1">Criar, filtrar e acessar OS.</p>
         </div>
 
@@ -758,9 +770,10 @@ export default function OsListPage() {
             aria-label="Filtrar por tipo"
             title="Filtrar por tipo"
           >
+            <option value="todos_sem_hh">Todos - HH</option>
             <option value="todas">Todos</option>
             <option value="hh">HH</option>
-            <option value="servico">ServiÃ§o</option>
+            <option value="servico">Serviço</option>
             <option value="material">Material</option>
           </select>
 
@@ -774,7 +787,7 @@ export default function OsListPage() {
             <option value="todas">Todas</option>
             <option value="aberta">Aberta</option>
             <option value="em_andamento">Em andamento</option>
-            <option value="concluida">Concluida</option>
+            <option value="concluida">Concluída</option>
             <option value="cancelada">Cancelada</option>
           </select>
 
@@ -810,7 +823,7 @@ export default function OsListPage() {
               <th className="px-4 py-3 text-left">Pedido</th>
               <th className="px-4 py-3 text-left">Cliente</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">DescriÃ§Ã£o</th>
+              <th className="px-4 py-3 text-left">Descrição</th>
               <th className="px-4 py-3 text-right">Custo</th>
               {!hideValorPedido && <th className="px-4 py-3 text-right">Valor pedido</th>}
             </tr>
@@ -850,28 +863,29 @@ export default function OsListPage() {
                 </td>
 
                 <td className="px-4 py-3 text-zinc-300">
-                  {r.descricao_servico ? r.descricao_servico.toLocaleUpperCase("pt-BR") : "Sem descriÃ§Ã£o"}
+                  {r.descricao_servico ? r.descricao_servico.toLocaleUpperCase("pt-BR") : "Sem descrição"}
                 </td>
 
                 {(() => {
-                  // HH deve depender da flag da OS; alguns perfis podem nÃ£o ter SELECT em `clientes`.
+                  // HH deve depender da flag da OS; alguns perfis podem não ter SELECT em `clientes`.
                   const hhEnabled = Boolean(r.usa_relatorio_hh);
                   const materiais = materiaisPorOs[r.id] ?? 0;
                   const maoObraExtra = maoObraPorOs[r.id] ?? 0;
                   const hhBruto = hhTotalPorOs[r.id] ?? 0;
                   const hhPedido = hhPedidoPorOs[r.id] ?? hhBruto;
+                  const pedidoCadastro = Number(r.orcado ?? 0);
+                  const tipoPedidoAtual = r.tipo_pedido === "material" ? "material" : "servico";
 
                   let impostos = 0;
                   if (hhEnabled) {
-                    impostos = hhBruto * 0.19;
-                  } else if (materiais > 0) {
-                    impostos = materiais * 0.21;
+                    impostos = hhPedido * 0.15;
+                  } else if (tipoPedidoAtual === "material") {
+                    impostos = pedidoCadastro * 0.27;
                   } else {
-                    impostos = (materiais + maoObraExtra) * 0.19;
+                    impostos = pedidoCadastro * 0.15;
                   }
 
                   const custo = materiais + maoObraExtra + impostos;
-                  const pedidoCadastro = Number(r.orcado ?? 0);
                   const pedidoCalculado = hhEnabled ? hhPedido : pedidoCadastro;
                   const pedido = hideValorPedido ? 0 : pedidoCalculado;
 
@@ -964,7 +978,7 @@ export default function OsListPage() {
                   aria-label="Tipo de pedido"
                   title="Tipo de pedido"
                 >
-                  <option value="servico">Servico</option>
+                  <option value="servico">Serviço</option>
                   <option value="material">Material</option>
                 </select>
               </div>
@@ -1018,7 +1032,7 @@ export default function OsListPage() {
                       onChange={(e) => setUsaRelatorioHH(e.target.checked)}
                       disabled={creating}
                     />
-                    <span className="font-medium">Esta OS Ã© de HH?</span>
+                    <span className="font-medium">Esta OS é de HH?</span>
                   </label>
                 </div>
               )}
@@ -1048,13 +1062,13 @@ export default function OsListPage() {
               </div>
 
               <div className="space-y-1 md:col-span-3">
-                <div className="text-xs text-zinc-400">Descricao (opcional)</div>
+                <div className="text-xs text-zinc-400">Descrição (opcional)</div>
                 <textarea
                   className="w-full px-3 py-2 min-h-[80px]"
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value.toLocaleUpperCase("pt-BR"))}
-                  aria-label="Descricao"
-                  title="Descricao"
+                  aria-label="Descrição"
+                  title="Descrição"
                 />
               </div>
             </div>

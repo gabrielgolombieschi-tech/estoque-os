@@ -334,6 +334,9 @@ export default function OsDetailPage() {
     }
   }, [activeTab, hhEnabled]);
 
+  const orcado = toNum(os?.orcado);
+  const hhPedidoTotal = Number(hhPedido || 0) || Number(hhTotal || 0);
+
   const totais = (() => {
     const materiais = rows
       .filter((r) => r.itens?.tipo === "produto")
@@ -346,28 +349,31 @@ export default function OsDetailPage() {
     // - Se usa HH: 19% do total de HH
     // - Se material: 21% do valor de material
     // - Se serviço normal: 19% do total
+    const tipoPedidoAtual = os?.tipo_pedido === "material" ? "material" : "servico";
+
     let impostos = 0;
+    let total = 0;
     if (hhEnabled) {
       // HH: 19% sobre o total de HH
-      impostos = Number(hhTotal || 0) * 0.19;
-    } else if (rows.some((r) => r.itens?.tipo === "produto")) {
+      impostos = hhPedidoTotal * 0.15;
+      total = hhPedidoTotal;
+    } else if (tipoPedidoAtual === "material") {
       // Tem material: 21% sobre material
-      impostos = materiais * 0.21;
+      impostos = orcado * 0.27;
+      total = materiais + maoObra + impostos;
     } else {
       // Serviço normal: 19% sobre total (material + mão de obra)
-      impostos = (materiais + maoObra) * 0.19;
+      impostos = orcado * 0.15;
+      total = materiais + maoObra + impostos;
     }
 
     // Total:
     // - Se HH habilitado: total de HH (que já inclui mão de obra HH)
     // - Senão: Material + Mão de obra + Impostos
-    const total = hhEnabled ? Number(hhPedido || 0) : materiais + maoObra + impostos;
-
     return { materiais, maoObra, impostos, total };
   })();
 
-  const orcado = toNum(os?.orcado);
-  const totalAlert = orcado > 0 && totais.total >= orcado * 0.9;
+  const totalAlert = !hhEnabled && orcado > 0 && totais.total >= orcado * 0.9;
   const totalClass = totalAlert ? "text-red-300 border-red-500/40" : "text-emerald-300 border-emerald-500/40";
 
   const calculateUnitPriceWithTaxes = (item: { preco_unitario?: number | null; aliquota_ipi?: number | null }) => {

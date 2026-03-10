@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -85,6 +85,21 @@ type UsuarioSolicitante = {
   nome: string;
   email: string;
 };
+
+type LookupItemRow = {
+  id: number;
+  codigo_interno: string | null;
+  nome: string | null;
+  unidade: string;
+  fornecedor: string | null;
+  ultima_entrada: string | null;
+  preco_unitario: number;
+  estoque_atual: number | null;
+};
+
+type LookupSortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "saldo";
+type LookupSortDir = "asc" | "desc";
+type LookupSortValue = string | number | null;
 
 async function authedFetch(path: string, init?: RequestInit) {
   const supabase = supabaseBrowser();
@@ -171,6 +186,47 @@ function fmtDate(v: string) {
   return d.toLocaleDateString("pt-BR");
 }
 
+function fmtLookupSaldo(v: number | null) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return "-";
+  return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+
+function sortLookupRows(rows: LookupItemRow[], key: LookupSortKey, dir: LookupSortDir) {
+  const factor = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const getValue = (row: LookupItemRow): LookupSortValue => {
+      switch (key) {
+        case "id":
+          return row.id;
+        case "codigo":
+          return row.codigo_interno?.toLowerCase() ?? "";
+        case "descricao":
+          return row.nome?.toLowerCase() ?? "";
+        case "fornecedor":
+          return row.fornecedor?.toLowerCase() ?? "";
+        case "ultima":
+          return row.ultima_entrada ? new Date(row.ultima_entrada).getTime() : null;
+        case "preco":
+          return typeof row.preco_unitario === "number" ? row.preco_unitario : null;
+        case "saldo":
+          return typeof row.estoque_atual === "number" ? row.estoque_atual : null;
+      }
+    };
+
+    const aValue = getValue(a);
+    const bValue = getValue(b);
+    const aNull = aValue === null || aValue === undefined || aValue === "";
+    const bNull = bValue === null || bValue === undefined || bValue === "";
+
+    if (aNull && bNull) return 0;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    if (aValue < bValue) return -1 * factor;
+    if (aValue > bValue) return 1 * factor;
+    return 0;
+  });
+}
+
 function extractOsNumeroFromItem(it: Pick<PedidoItem, "origem_resumo" | "origem_os_id">): string {
   const resumo = String(it.origem_resumo ?? "").trim();
   const m = /^OS\s+(.+)$/i.exec(resumo);
@@ -237,6 +293,14 @@ export default function ComprasPedidosClient() {
   const [manualValor, setManualValor] = useState("0");
   const [manualOsNumero, setManualOsNumero] = useState("");
   const [manualCodigoLookupBusy, setManualCodigoLookupBusy] = useState(false);
+  const [showLookup, setShowLookup] = useState(false);
+  const [lookupNome, setLookupNome] = useState("");
+  const [lookupFornecedor, setLookupFornecedor] = useState("");
+  const [lookupRows, setLookupRows] = useState<LookupItemRow[]>([]);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupErr, setLookupErr] = useState<string | null>(null);
+  const [lookupSortKey, setLookupSortKey] = useState<LookupSortKey>("id");
+  const [lookupSortDir, setLookupSortDir] = useState<LookupSortDir>("asc");
   const [pedidoEditMode, setPedidoEditMode] = useState(false);
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }>>({});
@@ -244,6 +308,7 @@ export default function ComprasPedidosClient() {
   const [autoScanTried, setAutoScanTried] = useState(false);
   const [usuariosSolicitantes, setUsuariosSolicitantes] = useState<UsuarioSolicitante[]>([]);
   const [pedidoSolicitanteId, setPedidoSolicitanteId] = useState("");
+  const manualQtdInputRef = useRef<HTMLInputElement | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -393,22 +458,27 @@ export default function ComprasPedidosClient() {
     if (!tenantId || !empresaId || !canRead || !manualPedidoId) {
       setPedidoItens([]);
       setItemDrafts({});
+      setManualOsNumero("");
       return;
     }
     const json = await authedFetch(`/api/compras/pedidos/${manualPedidoId}?${ctxQuery}&_ts=${Date.now()}`);
     const itens = ((json.data as { itens?: PedidoItem[] })?.itens ?? []) as PedidoItem[];
     setPedidoItens(itens);
     const nextDrafts: Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }> = {};
+    let lastOsNumero = "";
     for (const it of itens) {
+      const osNumero = extractOsNumeroFromItem(it);
       nextDrafts[it.id] = {
         item_nome: String(it.item_nome ?? ""),
         unidade: String(it.unidade ?? "UN"),
         quantidade: String(it.quantidade ?? 0),
         valor_unitario: formatEditableNumber(it.valor_unitario, 4),
-        os_numero: extractOsNumeroFromItem(it),
+        os_numero: osNumero,
       };
+      if (osNumero) lastOsNumero = osNumero;
     }
     setItemDrafts(nextDrafts);
+    setManualOsNumero(lastOsNumero);
   }, [canRead, ctxQuery, empresaId, manualPedidoId, tenantId]);
 
   const selectedPedido = useMemo(
@@ -420,6 +490,77 @@ export default function ComprasPedidosClient() {
     return ["RASCUNHO", "AGUARDANDO_APROVACAO", "REPROVADO"].includes(st);
   }, [selectedPedido?.status]);
   const canEditPedidoItems = canWrite && canEditManualItems && pedidoEditMode;
+  const sortedLookupRows = useMemo(
+    () => sortLookupRows(lookupRows, lookupSortKey, lookupSortDir),
+    [lookupRows, lookupSortDir, lookupSortKey]
+  );
+
+  const buscarItensLookup = useCallback(
+    async (nextNome?: string, nextFornecedor?: string) => {
+      const nomeTerm = (nextNome ?? lookupNome).trim();
+      const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
+
+      if (!nomeTerm && !fornecedorTerm) {
+        setLookupRows([]);
+        setLookupErr(null);
+        return;
+      }
+
+      const q = new URLSearchParams({
+        tenant_id: tenantId,
+        empresa_id: empresaId,
+      });
+      if (nomeTerm) q.set("nome", nomeTerm);
+      if (fornecedorTerm) q.set("fornecedor", fornecedorTerm);
+
+      setLookupBusy(true);
+      setLookupErr(null);
+
+      try {
+        const json = await authedFetch(`/api/compras/pedidos/item-lookup?${q.toString()}`);
+        const rows = Array.isArray(json.data) ? (json.data as LookupItemRow[]) : [];
+        setLookupRows(rows);
+      } catch (e: unknown) {
+        setLookupRows([]);
+        setLookupErr(e instanceof Error ? e.message : "Erro ao buscar itens.");
+      } finally {
+        setLookupBusy(false);
+      }
+    },
+    [empresaId, lookupFornecedor, lookupNome, tenantId]
+  );
+
+  const abrirLookupCodigo = useCallback(() => {
+    const nomeInicial = manualCodigo.trim();
+    const fornecedorInicial = String(selectedPedido?.fornecedor_nome ?? "").trim();
+
+    setLookupNome(nomeInicial);
+    setLookupFornecedor(fornecedorInicial);
+    setLookupErr(null);
+    setLookupRows([]);
+    setShowLookup(true);
+
+    if (nomeInicial || fornecedorInicial) {
+      void buscarItensLookup(nomeInicial, fornecedorInicial);
+    }
+  }, [buscarItensLookup, manualCodigo, selectedPedido?.fornecedor_nome]);
+
+  async function selecionarItemLookup(row: LookupItemRow) {
+    const codigoSelecionado = String(row.codigo_interno ?? "").trim() || String(row.id);
+    setManualCodigo(codigoSelecionado);
+    setShowLookup(false);
+    setLookupErr(null);
+    await buscarCodigoExistente(codigoSelecionado);
+  }
+
+  const handleLookupSort = useCallback((key: LookupSortKey) => {
+    if (lookupSortKey === key) {
+      setLookupSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setLookupSortKey(key);
+    setLookupSortDir("asc");
+  }, [lookupSortKey]);
 
   useEffect(() => {
     setPedidoEditMode(false);
@@ -818,7 +959,6 @@ export default function ComprasPedidosClient() {
       setManualUnidade("UN");
       setManualQtd("1");
       setManualValor("0");
-      setManualOsNumero("");
       await loadPedidos();
       await loadPedidoItens();
     } catch (e: unknown) {
@@ -828,8 +968,8 @@ export default function ComprasPedidosClient() {
     }
   }, [empresaId, loadPedidoItens, loadPedidos, manualCodigo, manualNome, manualOsNumero, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
 
-  const buscarCodigoExistente = useCallback(async () => {
-    const codigo = manualCodigo.trim();
+  async function buscarCodigoExistente(codigoParam?: string) {
+    const codigo = String(codigoParam ?? manualCodigo).trim();
     if (!codigo) return;
     if (!tenantId || !empresaId) return;
 
@@ -864,7 +1004,7 @@ export default function ComprasPedidosClient() {
     } finally {
       setManualCodigoLookupBusy(false);
     }
-  }, [empresaId, manualCodigo, selectedPedido?.fornecedor_id, tenantId]);
+  }
 
   const salvarItemPedido = useCallback(
     async (itemId: string) => {
@@ -1567,13 +1707,25 @@ export default function ComprasPedidosClient() {
                           onKeyDown={(e) => {
                             if (e.key !== "Enter") return;
                             e.preventDefault();
-                            void buscarCodigoExistente();
+                            abrirLookupCodigo();
                           }}
                         />
                       </label>
                       <label className="space-y-1 md:col-span-2">
                         <div className="text-[11px] text-zinc-400">Descricao do item (manual)</div>
-                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Descricao do item (manual)" value={manualNome} disabled={!canEditPedidoItems} onChange={(e) => setManualNome(e.target.value)} />
+                        <input
+                          className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50"
+                          placeholder="Descricao do item (manual)"
+                          value={manualNome}
+                          disabled={!canEditPedidoItems}
+                          onChange={(e) => setManualNome(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            manualQtdInputRef.current?.focus();
+                            manualQtdInputRef.current?.select();
+                          }}
+                        />
                       </label>
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">Unidade</div>
@@ -1581,7 +1733,21 @@ export default function ComprasPedidosClient() {
                       </label>
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">Qtd</div>
-                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="Qtd" value={manualQtd} disabled={!canEditPedidoItems} onChange={(e) => setManualQtd(e.target.value)} />
+                        <input
+                          ref={manualQtdInputRef}
+                          className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50"
+                          placeholder="Qtd"
+                          value={manualQtd}
+                          disabled={!canEditPedidoItems}
+                          onChange={(e) => setManualQtd(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            if (!busy && canEditPedidoItems) {
+                              void addManualItem();
+                            }
+                          }}
+                        />
                       </label>
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">Vlr unit</div>
@@ -1608,6 +1774,149 @@ export default function ComprasPedidosClient() {
                       </div>
                     ) : null}
                   </div>
+
+                  {showLookup && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
+                      <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
+                        <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-lg font-semibold">Localizar item</div>
+                              <div className="text-sm text-zinc-400">Filtre por nome, codigo ou fornecedor para localizar o item.</div>
+                            </div>
+                            <button
+                              onClick={() => setShowLookup(false)}
+                              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Fechar
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <div className="text-xs text-zinc-400">Nome</div>
+                              <input
+                                className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950"
+                                value={lookupNome}
+                                onChange={(e) => setLookupNome(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key !== "Enter") return;
+                                  e.preventDefault();
+                                  void buscarItensLookup(e.currentTarget.value, lookupFornecedor);
+                                }}
+                                aria-label="Buscar item por nome"
+                                title="Buscar item por nome"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="text-xs text-zinc-400">Fornecedor</div>
+                              <input
+                                className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950"
+                                value={lookupFornecedor}
+                                onChange={(e) => setLookupFornecedor(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key !== "Enter") return;
+                                  e.preventDefault();
+                                  void buscarItensLookup(lookupNome, e.currentTarget.value);
+                                }}
+                                aria-label="Buscar item por fornecedor"
+                                title="Buscar item por fornecedor"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => void buscarItensLookup()}
+                              disabled={lookupBusy}
+                              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                            >
+                              {lookupBusy ? "Buscando..." : "Buscar"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setLookupNome("");
+                                setLookupFornecedor("");
+                                setLookupRows([]);
+                                setLookupErr(null);
+                              }}
+                              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Limpar
+                            </button>
+                          </div>
+
+                          {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
+
+                          <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-auto overscroll-contain">
+                            <table className="w-full text-sm min-w-[980px]">
+                              <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                                <tr className="text-left text-zinc-200">
+                                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleLookupSort("id")}>
+                                    ID {lookupSortKey === "id" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleLookupSort("codigo")}>
+                                    Codigo {lookupSortKey === "codigo" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleLookupSort("descricao")}>
+                                    Descricao {lookupSortKey === "descricao" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleLookupSort("fornecedor")}>
+                                    Fornecedor {lookupSortKey === "fornecedor" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleLookupSort("ultima")}>
+                                    Ultima entrada {lookupSortKey === "ultima" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                  <th className="px-4 py-3 text-right cursor-pointer" onClick={() => handleLookupSort("preco")}>
+                                    Preco {lookupSortKey === "preco" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                  <th className="px-4 py-3 text-right cursor-pointer" onClick={() => handleLookupSort("saldo")}>
+                                    Saldo {lookupSortKey === "saldo" && (lookupSortDir === "asc" ? "^" : "v")}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-800">
+                                {sortedLookupRows.map((it) => (
+                                  <tr
+                                    key={`${it.id}-${it.codigo_interno ?? ""}`}
+                                    className="hover:bg-zinc-900/40 cursor-pointer"
+                                    onClick={() => void selecionarItemLookup(it)}
+                                  >
+                                    <td className="px-4 py-3 tabular-nums">{it.id}</td>
+                                    <td className="px-4 py-3">{it.codigo_interno ?? "-"}</td>
+                                    <td className="px-4 py-3">{it.nome ?? "-"}</td>
+                                    <td className="px-4 py-3 text-zinc-300">{it.fornecedor ?? "-"}</td>
+                                    <td className="px-4 py-3 text-zinc-300">
+                                      {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "-"}
+                                    </td>
+                                    <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(Number(it.preco_unitario ?? 0))}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums">{fmtLookupSaldo(it.estoque_atual)}</td>
+                                  </tr>
+                                ))}
+
+                                {!lookupBusy && sortedLookupRows.length === 0 && (
+                                  <tr>
+                                    <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
+                                      Nenhum resultado ainda. Informe filtros e busque.
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {lookupBusy && (
+                                  <tr>
+                                    <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
+                                      Buscando itens...
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Itens do pedido selecionado</div>
