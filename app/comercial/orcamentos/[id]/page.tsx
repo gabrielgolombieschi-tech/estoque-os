@@ -36,6 +36,7 @@ type ItemLookupBaseRow = {
   codigo_interno: string | null;
   nome: string | null;
   preco_unitario: number | null;
+  custo_ultima_compra: number | null;
   fornecedores?: { nome?: string | null } | null;
 };
 
@@ -155,6 +156,19 @@ function statusBadgeClass(status: string): string {
   if (s === "FECHADO") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
   if (s === "PERDIDO") return "bg-red-500/15 text-red-300 border-red-500/30";
   return "bg-zinc-500/10 text-zinc-300 border-zinc-500/30";
+}
+
+function getSuggestedOrcamentoUnitPrice(params: {
+  custoUltimaCompra?: number | string | null;
+  precoUnitario?: number | string | null;
+  margemLucroPadraoPercent?: number | string | null;
+}): number {
+  const margem = Math.max(0, n(params.margemLucroPadraoPercent));
+  const custo = n(params.custoUltimaCompra);
+  const preco = n(params.precoUnitario);
+  const base = Number.isFinite(custo) && custo > 0 ? custo : preco;
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  return Number((base * (1 + margem / 100)).toFixed(2));
 }
 
 type OrcamentoForm = {
@@ -360,11 +374,11 @@ export default function OrcamentoPage() {
   const defaultValorUnitarioFromItem = useCallback(
     (item: ItemByIdRow | null): string => {
       if (!item?.id) return "0";
-      const margem = Math.max(0, n(cfgMargemLucroPadraoPercent));
-      const custo = n(item.custo_ultima_compra);
-      const hasCusto = Number.isFinite(custo) && custo > 0;
-      const base = hasCusto ? custo : n(item.preco_unitario);
-      const computed = hasCusto ? base * (1 + margem / 100) : base;
+      const computed = getSuggestedOrcamentoUnitPrice({
+        custoUltimaCompra: item.custo_ultima_compra,
+        precoUnitario: item.preco_unitario,
+        margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+      });
       if (!Number.isFinite(computed) || computed < 0) return "0";
       return computed.toFixed(2);
     },
@@ -770,8 +784,8 @@ export default function OrcamentoPage() {
     setLookupConjuntoRows([]);
 
     const baseSelect = fornecedorTerm
-      ? "id,codigo_interno,nome,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
-      : "id,codigo_interno,nome,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
+      ? "id,codigo_interno,nome,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
+      : "id,codigo_interno,nome,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
 
     let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 
@@ -821,7 +835,11 @@ export default function OrcamentoPage() {
         nome: r.nome,
         fornecedor: r.fornecedores?.nome ?? null,
         ultima_entrada: ultimaMap.get(r.id) ?? null,
-        preco_unitario: r.preco_unitario,
+        preco_unitario: getSuggestedOrcamentoUnitPrice({
+          custoUltimaCompra: r.custo_ultima_compra,
+          precoUnitario: r.preco_unitario,
+          margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+        }),
         estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
       }))
     );
@@ -1545,7 +1563,7 @@ export default function OrcamentoPage() {
                           Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("preco")}>
-                          Preco {sortKey === "preco" && (sortDir === "asc" ? "^" : "v")}
+                          Preco sugerido {sortKey === "preco" && (sortDir === "asc" ? "^" : "v")}
                         </th>
                         <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
                           Saldo {sortKey === "estoque" && (sortDir === "asc" ? "^" : "v")}

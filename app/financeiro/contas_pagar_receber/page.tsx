@@ -134,6 +134,10 @@ function statusBadge(row: UnifiedRow): { label: string; className: string } {
   return { label: "A receber", className: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" };
 }
 
+function isCancelledRow(row: UnifiedRow): boolean {
+  return String(row.tituloStatus ?? "").toUpperCase() === "CANCELADO";
+}
+
 function fmtParcela(n: string | null) {
   return n ? `Parc. ${n}` : "Parcela";
 }
@@ -939,13 +943,14 @@ export default function ContasPagarReceberPage() {
   }, [filtered]);
 
   const resumo = useMemo(() => {
-    const previstoReceitas = filtered.filter((r) => r.kind === "AR").reduce((acc, r) => acc + Number(r.valor || 0), 0);
-    const previstoDespesas = filtered.filter((r) => r.kind === "AP").reduce((acc, r) => acc + Number(r.valor || 0), 0);
+    const rowsResumo = filtered.filter((r) => !isCancelledRow(r));
+    const previstoReceitas = rowsResumo.filter((r) => r.kind === "AR").reduce((acc, r) => acc + Number(r.valor || 0), 0);
+    const previstoDespesas = rowsResumo.filter((r) => r.kind === "AP").reduce((acc, r) => acc + Number(r.valor || 0), 0);
     const realizadoReceitas = filtered
-      .filter((r) => r.kind === "AR")
+      .filter((r) => r.kind === "AR" && !isCancelledRow(r))
       .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
     const realizadoDespesas = filtered
-      .filter((r) => r.kind === "AP")
+      .filter((r) => r.kind === "AP" && !isCancelledRow(r))
       .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
 
     return {

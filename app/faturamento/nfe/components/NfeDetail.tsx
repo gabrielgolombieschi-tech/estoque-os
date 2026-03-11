@@ -296,12 +296,24 @@ export default function NfeDetail({
           }));
         }
 
+        const titulosVisiveis = (titData ?? []).filter((titulo) => {
+          const isLegacyCancelledAp =
+            docRow.operacao === "SAIDA" &&
+            Boolean(docRow.source_nf_entrada_id) &&
+            titulo.tipo === "AP" &&
+            String(titulo.status ?? "").toUpperCase() === "CANCELADO";
+          return !isLegacyCancelledAp;
+        });
+
+        const tituloIdsVisiveis = titulosVisiveis.map((t) => String(t.id)).filter(Boolean);
+        const parcelasVisiveis = (parcData ?? []).filter((p) => tituloIdsVisiveis.includes(String(p.titulo_id)));
+
         if (cancelled) return;
         setDoc(docRow);
         setItens(resolvedItens);
         setImpostos(impData ?? []);
-        setTitulos(titData ?? []);
-        setParcelas(parcData ?? []);
+        setTitulos(titulosVisiveis);
+        setParcelas(parcelasVisiveis);
         setClienteNome(cliNome);
         setFornecedorNome(fornNome);
       } catch (e: unknown) {
