@@ -11,6 +11,24 @@ type SyncPedidoTotaisResult =
         totalGeral: number;
       };
     };
+type ResolvedItemRow = {
+  id: number;
+  codigo_interno: string | null;
+  nome: string | null;
+  descricao?: string | null;
+  unidade_medida?: string | null;
+  preco_unitario?: number | null;
+  fornecedor_id?: number | null;
+};
+type ResolveItemByCodigoOuIdResult =
+  | {
+      data: ResolvedItemRow;
+      matchedBy: "codigo" | "id";
+    }
+  | {
+      error: string;
+      status?: number;
+    };
 
 export function jsonError(status: number, error: string, details?: unknown) {
   return Response.json({ error, ...(details !== undefined ? { details } : {}) }, { status });
@@ -101,6 +119,81 @@ export async function canCompras(
 function roundMoney(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.round(value * 100) / 100;
+}
+
+async function loadItemExact(
+  supabase: AuthedSupabase,
+  tenantId: string,
+  empresaId: string,
+  field: "codigo_interno" | "id",
+  value: string | number
+) {
+  const { data, error } = await supabase
+    .from("itens")
+    .select("id,codigo_interno,nome,descricao,unidade_medida,preco_unitario,fornecedor_id")
+    .eq("tenant_id", tenantId)
+    .eq("empresa_id", empresaId)
+    .eq(field, value)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { error: error.message } as const;
+  return { data: (data as ResolvedItemRow | null) ?? null } as const;
+}
+
+function itemResolveLabel(item: ResolvedItemRow) {
+  const nome = String(item.nome ?? item.descricao ?? "").trim();
+  return nome || String(item.codigo_interno ?? "").trim() || `ID ${item.id}`;
+}
+
+export async function resolveItemByCodigoOuId(
+  supabase: AuthedSupabase,
+  opts: {
+    tenantId: string;
+    empresaId: string;
+    codigo: string;
+    fornecedorId?: number | null;
+  }
+): Promise<ResolveItemByCodigoOuIdResult> {
+  const codigo = String(opts.codigo ?? "").trim();
+  if (!codigo) return { error: "codigo obrigatorio.", status: 400 } as const;
+
+  const byCodigoRes = await loadItemExact(supabase, opts.tenantId, opts.empresaId, "codigo_interno", codigo);
+  if ("error" in byCodigoRes && byCodigoRes.error) return { error: byCodigoRes.error, status: 400 } as const;
+
+  let byId: ResolvedItemRow | null = null;
+  const codigoAsId = Number(codigo);
+  if (Number.isFinite(codigoAsId) && codigoAsId > 0) {
+    const byIdRes = await loadItemExact(supabase, opts.tenantId, opts.empresaId, "id", codigoAsId);
+    if ("error" in byIdRes && byIdRes.error) return { error: byIdRes.error, status: 400 } as const;
+    byId = byIdRes.data ?? null;
+  }
+
+  const byCodigo = byCodigoRes.data ?? null;
+  if (byCodigo && byId && Number(byCodigo.id) !== Number(byId.id)) {
+    const fornecedorId = Number(opts.fornecedorId ?? 0);
+    if (Number.isFinite(fornecedorId) && fornecedorId > 0) {
+      const codigoMatchesFornecedor = Number(byCodigo.fornecedor_id ?? 0) === fornecedorId;
+      const idMatchesFornecedor = Number(byId.fornecedor_id ?? 0) === fornecedorId;
+      if (codigoMatchesFornecedor !== idMatchesFornecedor) {
+        return {
+          data: codigoMatchesFornecedor ? byCodigo : byId,
+          matchedBy: codigoMatchesFornecedor ? "codigo" : "id",
+        } as const;
+      }
+    }
+
+    return {
+      error:
+        `Codigo ambiguo: ${codigo} corresponde ao codigo interno do item ${byCodigo.id} (${itemResolveLabel(byCodigo)}) ` +
+        `e ao ID do item ${byId.id} (${itemResolveLabel(byId)}). Use a busca pelo item ou informe o codigo interno completo.`,
+      status: 409,
+    } as const;
+  }
+
+  if (byCodigo) return { data: byCodigo, matchedBy: "codigo" } as const;
+  if (byId) return { data: byId, matchedBy: "id" } as const;
+  return { error: `Codigo de item nao encontrado: ${codigo}`, status: 404 } as const;
 }
 
 export function calcPedidoItemValorTotal(quantidade: number, valorUnitario: number) {

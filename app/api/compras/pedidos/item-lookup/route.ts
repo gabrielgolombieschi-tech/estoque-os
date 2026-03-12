@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../_lib";
+import { canCompras, getAuthSupabase, jsonError, resolveItemByCodigoOuId, resolveTenantEmpresa } from "../../_lib";
 import { getAllowedEmpresas } from "@/lib/auth/empresa";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -163,37 +163,17 @@ export async function GET(req: NextRequest) {
 
   if (!codigo) return jsonError(400, "codigo obrigatorio.");
 
-  let item: Record<string, unknown> | null = null;
-
-  const byCodigo = await db
-    .from("itens")
-    .select("id,codigo_interno,nome,descricao,unidade_medida,preco_unitario")
-    .eq("tenant_id", ctx.tenantId)
-    .eq("empresa_id", ctx.empresaId)
-    .eq("codigo_interno", codigo)
-    .limit(1)
-    .maybeSingle();
-  if (byCodigo.error) return jsonError(400, byCodigo.error.message);
-  item = (byCodigo.data as Record<string, unknown> | null) ?? null;
-
-  if (!item) {
-    const codigoAsId = Number(codigo);
-    if (Number.isFinite(codigoAsId) && codigoAsId > 0) {
-      const byId = await db
-        .from("itens")
-        .select("id,codigo_interno,nome,descricao,unidade_medida,preco_unitario")
-        .eq("tenant_id", ctx.tenantId)
-        .eq("empresa_id", ctx.empresaId)
-        .eq("id", codigoAsId)
-        .limit(1)
-        .maybeSingle();
-      if (byId.error) return jsonError(400, byId.error.message);
-      item = (byId.data as Record<string, unknown> | null) ?? null;
-    }
+  const itemResolved = await resolveItemByCodigoOuId(db, {
+    tenantId: ctx.tenantId,
+    empresaId: ctx.empresaId,
+    codigo,
+    fornecedorId,
+  });
+  if ("error" in itemResolved) {
+    return jsonError(itemResolved.status ?? 400, itemResolved.error);
   }
 
-  if (!item) return jsonError(404, `Codigo de item nao encontrado: ${codigo}`);
-
+  const item = itemResolved.data as Record<string, unknown>;
   const itemId = toNum(item.id, 0);
   if (!Number.isFinite(itemId) || itemId <= 0) {
     return jsonError(404, `Codigo de item nao encontrado: ${codigo}`);

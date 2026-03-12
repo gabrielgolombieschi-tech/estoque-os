@@ -31,6 +31,8 @@ export type TenantEmpresaContextValue = TenantEmpresaState & {
 const TenantEmpresaContext = createContext<TenantEmpresaContextValue | null>(null);
 const isDev = process.env.NODE_ENV !== "production";
 const PROVIDER_BUILD_ID = "caps-rpc-20260119-213547";
+const WINDOW_REVALIDATE_DEBOUNCE_MS = 1000;
+const WINDOW_REVALIDATE_STALE_MS = 2 * 60 * 1000;
 
 type CachedTenantEmpresa = {
   tenantId: string;
@@ -485,15 +487,12 @@ async function loadCapabilitiesFromRpc(
   }
 }
 
-export function TenantEmpresaProvider({
-  children,
-  initialCapabilities = null,
-  initialTenantId = null,
-}: {
+export function TenantEmpresaProvider(props: {
   children: ReactNode;
   initialCapabilities?: Capabilities | null;
   initialTenantId?: string | null;
 }) {
+  const { children, initialTenantId = null } = props;
   const router = useRouter();
   const supabaseRef = useRef<ReturnType<typeof getSupabaseBrowser> | null>(null);
   const capsRequestIdRef = useRef(0);
@@ -559,6 +558,7 @@ export function TenantEmpresaProvider({
   const inflightRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const lastRevalidateRef = useRef<number>(0);
+  const lastContextSyncAtRef = useRef<number>(0);
   const permissionScopeRef = useRef<{ tenantId: string | null; empresaId: string | null }>({
     tenantId: null,
     empresaId: null,
@@ -765,6 +765,7 @@ export function TenantEmpresaProvider({
             empresas,
             updatedAt: Date.now(),
           });
+          lastContextSyncAtRef.current = Date.now();
 
           if (isDev) console.debug("[TENANT] revalidated", { reason, tenantId: ensuredTenantId, empresaId });
         } catch (e: unknown) {
@@ -783,7 +784,7 @@ export function TenantEmpresaProvider({
 
       return inflightRef.current;
     },
-    [clear, initialTenantId, state.capabilities, state.sessionUserId, state.tenantId]
+    [clear, initialTenantId, state.sessionUserId, state.tenantId]
   );
 
   const reload = useCallback(
@@ -996,7 +997,7 @@ export function TenantEmpresaProvider({
       void revalidate({ background: true, reason: "setEmpresaId" });
       router.refresh();
     },
-    [revalidate, router, state.empresaId, state.empresas, state.tenantId]
+    [revalidate, router, state.empresaId, state.empresas, state.sessionUserId, state.tenantId]
   );
 
   // Boot: getSession once + subscribe
@@ -1084,7 +1085,7 @@ export function TenantEmpresaProvider({
         return;
       }
 
-      if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         const userId = session?.user?.id ?? null;
         const email = session?.user?.email ?? null;
         setState((prev) => ({ ...prev, sessionUserId: userId, email }));
@@ -1103,7 +1104,10 @@ export function TenantEmpresaProvider({
     const trigger = (reason: "focus" | "visible" | "pageshow" | "online") => {
       if (!state.sessionUserId) return;
       const now = Date.now();
-      if (now - lastRevalidateRef.current < 1000) return;
+      if (now - lastRevalidateRef.current < WINDOW_REVALIDATE_DEBOUNCE_MS) return;
+      if (reason !== "online" && lastContextSyncAtRef.current && now - lastContextSyncAtRef.current < WINDOW_REVALIDATE_STALE_MS) {
+        return;
+      }
       lastRevalidateRef.current = now;
       void revalidate({ background: true, reason });
     };

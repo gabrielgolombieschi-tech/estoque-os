@@ -894,12 +894,14 @@ export default function ImportarXmlPage() {
         const { data: sess } = await supabase.auth.getSession();
         const token = sess.session?.access_token ?? null;
         if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+        const fornecedorFiltroId = fornecedorIdBase ?? fornecedorId ?? null;
 
         const qs = new URLSearchParams({
           tenant_id: tenantId,
           empresa_id: empresaId,
           status: "ENVIADO",
         });
+        if (fornecedorFiltroId) qs.set("fornecedorId", String(fornecedorFiltroId));
 
         const res = await fetch(`/api/compras/pedidos?${qs.toString()}`, {
           headers: { authorization: `Bearer ${token}` },
@@ -944,7 +946,7 @@ export default function ImportarXmlPage() {
         setPedidoLookupLoading(false);
       }
     },
-    [empresaId, supabase, tenantId]
+    [empresaId, fornecedorId, fornecedorIdBase, supabase, tenantId]
   );
 
   const openPedidoLookup = useCallback(
@@ -3466,6 +3468,11 @@ export default function ImportarXmlPage() {
                 <div>
                   <div className="text-lg font-semibold">Buscar pedido de compra</div>
                   <div className="text-sm text-zinc-400">Digite codigo, fornecedor ou UUID do pedido.</div>
+                  {fornecedorResolvido && (
+                    <div className="text-xs text-zinc-500">
+                      Filtrando pelo fornecedor do XML: {fornecedorNome ?? "Fornecedor identificado"}.
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={closePedidoLookup}

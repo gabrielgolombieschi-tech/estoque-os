@@ -39,6 +39,12 @@ export default function AuthGate({ children, showLoading = false }: Props) {
   const [status, setStatus] = useState<AuthStatus>("checking");
   const didRedirectRef = useRef(false);
   const verifyIdRef = useRef(0);
+  const statusRef = useRef<AuthStatus>("checking");
+
+  useEffect(() => {
+    statusRef.current = status;
+    if (status === "authed") didRedirectRef.current = false;
+  }, [status]);
 
   const redirectToLogin = useCallback(() => {
     // Avoid loops if already on login.
@@ -49,12 +55,13 @@ export default function AuthGate({ children, showLoading = false }: Props) {
     router.replace(`/login?next=${next}`);
   }, [nextUrl, pathname, router]);
 
-  const verify = useCallback(async () => {
+  const verify = useCallback(async (opts?: { background?: boolean }) => {
     const supabase = getSupabaseBrowser();
     const verifyId = ++verifyIdRef.current;
     const isStale = () => verifyIdRef.current !== verifyId;
+    const shouldBlockRender = !opts?.background && statusRef.current !== "authed";
 
-    setStatus("checking");
+    if (shouldBlockRender) setStatus("checking");
 
     try {
       const { data: sessData, error: sessErr } = await supabase.auth.getSession();
@@ -118,8 +125,8 @@ export default function AuthGate({ children, showLoading = false }: Props) {
         return;
       }
 
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-        void verify();
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        void verify({ background: true });
       }
     });
 

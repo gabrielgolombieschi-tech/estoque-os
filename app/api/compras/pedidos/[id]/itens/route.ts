@@ -4,6 +4,7 @@ import {
   canCompras,
   getAuthSupabase,
   jsonError,
+  resolveItemByCodigoOuId,
   resolveTenantEmpresa,
   syncPedidoTotais,
 } from "../../../_lib";
@@ -28,6 +29,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!ctx) return jsonError(400, "Tenant/empresa nao carregados.");
   if (!(await canCompras(supabase, "write"))) return jsonError(403, "Sem permissao (compras.write).");
 
+  const { data: pedido, error: pedidoErr } = await supabase
+    .schema("m")
+    .from("pedido_compra")
+    .select("id,status,fornecedor_id")
+    .eq("id", id)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .is("deleted_at", null)
+    .single();
+  if (pedidoErr || !pedido) return jsonError(404, "Pedido nao encontrado.");
+
   const itemIdRaw = body.item_id ?? body.itemId ?? null;
   let itemId = itemIdRaw == null || String(itemIdRaw).trim() === "" ? null : Number(itemIdRaw);
   let itemNome = String(body.item_nome ?? body.itemNome ?? "").trim();
@@ -43,36 +55,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (itemCodigo) {
-    const { data: itemByCodigoRaw, error: itemByCodigoErr } = await supabase
-      .from("itens")
-      .select("id,nome")
-      .eq("tenant_id", ctx.tenantId)
-      .eq("empresa_id", ctx.empresaId)
-      .eq("codigo_interno", itemCodigo)
-      .limit(1)
-      .maybeSingle();
-
-    if (itemByCodigoErr) return jsonError(400, itemByCodigoErr.message);
-    let itemByCodigo = itemByCodigoRaw;
-
-    // UX fallback: permite informar o ID do item no mesmo campo de codigo.
-    if (!itemByCodigo) {
-      const codigoAsId = Number(itemCodigo);
-      if (Number.isFinite(codigoAsId) && codigoAsId > 0) {
-        const { data: itemById, error: itemByIdErr } = await supabase
-          .from("itens")
-          .select("id,nome")
-          .eq("tenant_id", ctx.tenantId)
-          .eq("empresa_id", ctx.empresaId)
-          .eq("id", codigoAsId)
-          .limit(1)
-          .maybeSingle();
-        if (itemByIdErr) return jsonError(400, itemByIdErr.message);
-        itemByCodigo = itemById;
-      }
+    const itemResolved = await resolveItemByCodigoOuId(supabase, {
+      tenantId: ctx.tenantId,
+      empresaId: ctx.empresaId,
+      codigo: itemCodigo,
+      fornecedorId: Number((pedido as Record<string, unknown>).fornecedor_id ?? 0),
+    });
+    if ("error" in itemResolved) {
+      return jsonError(itemResolved.status ?? 400, itemResolved.error);
     }
 
-    const resolvedItemId = Number((itemByCodigo as Record<string, unknown> | null)?.id ?? 0);
+    const resolvedItemId = Number(itemResolved.data.id ?? 0);
     if (!Number.isFinite(resolvedItemId) || resolvedItemId <= 0) {
       return jsonError(404, `Codigo de item nao encontrado: ${itemCodigo}`);
     }
@@ -82,24 +75,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     itemId = resolvedItemId;
-    if (!itemNome) itemNome = String((itemByCodigo as Record<string, unknown> | null)?.nome ?? "").trim();
+    if (!itemNome) itemNome = String(itemResolved.data.nome ?? itemResolved.data.descricao ?? "").trim();
   }
 
   if (!itemId && !itemNome) return jsonError(400, "Informe item_codigo existente, item_id ou item_nome.");
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
   const valorTotal = calcPedidoItemValorTotal(quantidade, valorUnitario);
-
-  const { data: pedido, error: pedidoErr } = await supabase
-    .schema("m")
-    .from("pedido_compra")
-    .select("id,status")
-    .eq("id", id)
-    .eq("tenant_id", ctx.tenantId)
-    .eq("empresa_id", ctx.empresaId)
-    .is("deleted_at", null)
-    .single();
-  if (pedidoErr || !pedido) return jsonError(404, "Pedido nao encontrado.");
 
   const status = String((pedido as { status?: string }).status ?? "");
   if (["APROVADO", "ENVIADO", "PARCIAL_RECEBIDO", "RECEBIDO", "CANCELADO"].includes(status)) {

@@ -191,6 +191,14 @@ function fmtLookupSaldo(v: number | null) {
   return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 
+function normalizeFilterText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function sortLookupRows(rows: LookupItemRow[], key: LookupSortKey, dir: LookupSortDir) {
   const factor = dir === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
@@ -285,6 +293,7 @@ export default function ComprasPedidosClient() {
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [statusFiltro, setStatusFiltro] = useState("ANDAMENTO");
+  const [fornecedorFiltro, setFornecedorFiltro] = useState("");
   const [manualPedidoId, setManualPedidoId] = useState<string>("");
   const [manualCodigo, setManualCodigo] = useState("");
   const [manualNome, setManualNome] = useState("");
@@ -481,9 +490,18 @@ export default function ComprasPedidosClient() {
     setManualOsNumero(lastOsNumero);
   }, [canRead, ctxQuery, empresaId, manualPedidoId, tenantId]);
 
+  const pedidosFiltrados = useMemo(() => {
+    const termoFornecedor = normalizeFilterText(fornecedorFiltro);
+    if (!termoFornecedor) return pedidos;
+
+    return pedidos.filter((pedido) =>
+      normalizeFilterText(String(pedido.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR").includes(termoFornecedor)
+    );
+  }, [fornecedorFiltro, pedidos]);
+
   const selectedPedido = useMemo(
-    () => pedidos.find((p) => p.id === manualPedidoId) ?? null,
-    [manualPedidoId, pedidos]
+    () => pedidosFiltrados.find((p) => p.id === manualPedidoId) ?? null,
+    [manualPedidoId, pedidosFiltrados]
   );
   const canEditManualItems = useMemo(() => {
     const st = String(selectedPedido?.status ?? "").toUpperCase();
@@ -581,6 +599,17 @@ export default function ComprasPedidosClient() {
   useEffect(() => {
     setPedidoSolicitanteId(String(selectedPedido?.solicitante_usuario_id ?? ""));
   }, [selectedPedido?.solicitante_usuario_id]);
+
+  useEffect(() => {
+    if (tab !== "pedidos") return;
+    if (!pedidosFiltrados.length) {
+      if (manualPedidoId) setManualPedidoId("");
+      return;
+    }
+    if (!pedidosFiltrados.some((pedido) => pedido.id === manualPedidoId)) {
+      setManualPedidoId(pedidosFiltrados[0].id);
+    }
+  }, [manualPedidoId, pedidosFiltrados, tab]);
 
   useEffect(() => {
     if (tab === "comprar") void loadPendencias();
@@ -1555,7 +1584,7 @@ export default function ComprasPedidosClient() {
 
       {tab === "pedidos" && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3 space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950"
               value={statusFiltro}
@@ -1572,10 +1601,18 @@ export default function ComprasPedidosClient() {
               <option>RECEBIDO</option>
               <option>CANCELADO</option>
             </select>
+            <input
+              className="min-w-[16rem] flex-1 px-2 py-1 rounded border border-zinc-800 bg-zinc-950"
+              placeholder="Filtrar por fornecedor"
+              value={fornecedorFiltro}
+              onChange={(e) => setFornecedorFiltro(e.target.value)}
+            />
             <button className="px-3 py-1 rounded border border-zinc-800" onClick={() => void loadPedidos()}>
               Atualizar
             </button>
-            <div className="ml-auto text-xs text-zinc-400">{pedidos.length} pedido(s)</div>
+            <div className="ml-auto text-xs text-zinc-400">
+              {fornecedorFiltro.trim() ? `${pedidosFiltrados.length} de ${pedidos.length}` : pedidos.length} pedido(s)
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -1595,7 +1632,7 @@ export default function ComprasPedidosClient() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pedidos.map((p) => {
+                    {pedidosFiltrados.map((p) => {
                       const selected = manualPedidoId === p.id;
                       return (
                         <tr
@@ -1621,7 +1658,7 @@ export default function ComprasPedidosClient() {
                         </tr>
                       );
                     })}
-                    {!pedidos.length && (
+                    {!pedidosFiltrados.length && (
                       <tr>
                         <td className="py-6 px-3 text-zinc-500 text-center" colSpan={4}>
                           Nenhum pedido encontrado.
