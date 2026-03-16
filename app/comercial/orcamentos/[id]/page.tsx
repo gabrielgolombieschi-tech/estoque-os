@@ -789,7 +789,10 @@ export default function OrcamentoPage() {
 
     let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 
-    if (nomeTerm) query = query.ilike("nome", `%${nomeTerm}%`);
+    if (nomeTerm) {
+      const like = `%${nomeTerm}%`;
+      query = query.or(`nome.ilike.${like},codigo_interno.ilike.${like}`);
+    }
     if (fornecedorTerm) query = query.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
 
     const { data, error } = await query.order("nome", { ascending: true }).limit(50);
@@ -1440,7 +1443,7 @@ export default function OrcamentoPage() {
                   <div className="text-sm text-zinc-400">
                     {lookupBuscarConjuntos
                       ? "Busque conjuntos (kits) para inserir no orcamento."
-                      : "Filtre por nome ou fabricante para localizar o ID."}
+                      : "Filtre por nome, codigo ou fabricante para localizar o ID."}
                   </div>
                 </div>
                 <button
@@ -1470,7 +1473,7 @@ export default function OrcamentoPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <div className="text-xs text-zinc-400">{lookupBuscarConjuntos ? "Codigo/Nome" : "Nome"}</div>
+                  <div className="text-xs text-zinc-400">{lookupBuscarConjuntos ? "Codigo/Nome" : "Nome/Codigo"}</div>
                   <input
                     className="w-full px-3 py-2"
                     value={lookupNome}
@@ -1481,8 +1484,8 @@ export default function OrcamentoPage() {
                         void handleLookupSearch(e.currentTarget.value, lookupFornecedor);
                       }
                     }}
-                    aria-label={lookupBuscarConjuntos ? "Buscar conjunto" : "Buscar item por nome"}
-                    title={lookupBuscarConjuntos ? "Buscar conjunto" : "Buscar item por nome"}
+                    aria-label={lookupBuscarConjuntos ? "Buscar conjunto" : "Buscar item por nome ou codigo"}
+                    title={lookupBuscarConjuntos ? "Buscar conjunto" : "Buscar item por nome ou codigo"}
                   />
                 </div>
 

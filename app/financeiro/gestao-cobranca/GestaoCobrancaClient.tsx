@@ -20,6 +20,7 @@ type Row = {
   descricao_servico: string | null;
   data_conclusao: string | null;
   valor_total: number | string | null;
+  valor_pedido: number | string | null;
   pedido_compra_os: string | null;
   cobranca_id: string | null;
   cobranca_status: CobrancaStatus | null;
@@ -68,6 +69,10 @@ function toNumber(value: unknown): number {
 
 function fmtMoney(value: unknown): string {
   return `R$ ${formatDecimalBR(toNumber(value), 2)}`;
+}
+
+function getValorPedido(row: Row): number {
+  return toNumber(row.valor_pedido ?? row.valor_total ?? 0);
 }
 
 function fmtDateBR(iso: string | null | undefined): string {
@@ -192,8 +197,30 @@ export default function GestaoCobrancaClient() {
         }
       }
 
+      const osIds = Array.from(
+        new Set(
+          ((rowsResult.data ?? []) as Row[])
+            .map((row) => Number(row.os_id ?? 0))
+            .filter((osId) => Number.isFinite(osId) && osId > 0)
+        )
+      );
+      const valorPedidoByOs = new Map<number, number>();
+      if (osIds.length > 0) {
+        const { data: osData, error: osErr } = await applyTenantEmpresa(
+          supabase.from("ordens_servico").select("id,orcado").in("id", osIds),
+          tenantId,
+          empresaId
+        );
+        if (osErr) throw osErr;
+
+        for (const item of (osData ?? []) as Array<{ id: number; orcado: number | string | null }>) {
+          valorPedidoByOs.set(Number(item.id), toNumber(item.orcado));
+        }
+      }
+
       const mergedRows = ((rowsResult.data ?? []) as Row[]).map((row) => ({
         ...row,
+        valor_pedido: valorPedidoByOs.get(Number(row.os_id)) ?? row.valor_total ?? null,
         responsavel_cliente_nome: responsavelClienteByOs.get(Number(row.os_id)) ?? row.responsavel_cliente_nome ?? null,
       }));
 
@@ -294,7 +321,7 @@ export default function GestaoCobrancaClient() {
       }
       if (status === "FATURADO") faturados += 1;
 
-      totalAberto += toNumber(row.ar_valor_aberto ?? row.valor_total ?? 0);
+      totalAberto += toNumber(row.ar_valor_aberto ?? getValorPedido(row));
     }
 
     return { pendentes, faturados, pendentes7, pendentes15, totalAberto };
@@ -312,8 +339,8 @@ export default function GestaoCobrancaClient() {
       if (sortKey === "dias_asc") return Number(a.dias_desde_conclusao ?? 99999) - Number(b.dias_desde_conclusao ?? 99999);
       if (sortKey === "conclusao_desc") return String(b.data_conclusao ?? "").localeCompare(String(a.data_conclusao ?? ""));
       if (sortKey === "conclusao_asc") return String(a.data_conclusao ?? "").localeCompare(String(b.data_conclusao ?? ""));
-      if (sortKey === "valor_desc") return toNumber(b.valor_total) - toNumber(a.valor_total);
-      return toNumber(a.valor_total) - toNumber(b.valor_total);
+      if (sortKey === "valor_desc") return getValorPedido(b) - getValorPedido(a);
+      return getValorPedido(a) - getValorPedido(b);
     });
 
     return sorted;
@@ -510,10 +537,10 @@ export default function GestaoCobrancaClient() {
                     </td>
                     <td className="px-3 py-3 text-zinc-300">{fmtDateBR(row.data_conclusao)}</td>
                     <td className="px-3 py-3 text-right tabular-nums text-zinc-300">{row.dias_desde_conclusao ?? "-"}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(row.valor_total)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(getValorPedido(row))}</td>
                     <td className="px-3 py-3 text-zinc-300">{pedido}</td>
                     <td className="px-3 py-3 text-zinc-300">{docLabel(row)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(row.ar_valor_aberto ?? row.valor_total)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(row.ar_valor_aberto ?? getValorPedido(row))}</td>
                     <td className="px-3 py-3">
                       <span className={["inline-flex items-center px-2 py-1 rounded-md border text-xs", statusBadge(status)].join(" ")}>{status}</span>
                     </td>

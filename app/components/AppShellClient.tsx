@@ -31,6 +31,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const isFullWidth =
     pathname === "/itens" ||
     pathname === "/itens/imprimir" ||
+    pathname === "/os/analitico" ||
     pathname === "/compras/pedidos" ||
     pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname === "/estoque/relatorios" ||
@@ -305,6 +306,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         {can("os.read") && (
                           <Link href="/os" className="block px-3 py-2 hover:bg-zinc-900">
                             OSs
+                          </Link>
+                        )}
+                        {can("os.read") && (
+                          <Link href="/os/analitico" className="block px-3 py-2 hover:bg-zinc-900">
+                            Analitico
                           </Link>
                         )}
                         {can("os.read") && (
@@ -685,6 +691,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         </Link>
                         <Link href="/faturamento/nfe" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           NF-e
+                        </Link>
+                        <Link href="/faturamento/analitico" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Analitico
                         </Link>
                       </div>
                     )}

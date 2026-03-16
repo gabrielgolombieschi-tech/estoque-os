@@ -1616,73 +1616,57 @@ async function syncPedidoMateriaisToOs(opts: {
   if (!rows.length) return;
 
   for (const row of rows) {
-    const { data: movExists } = await admin
-      .from("movimentacoes")
-      .select("id")
-      .eq("tenant_id", opts.tenantId)
-      .eq("empresa_id", opts.empresaId)
-      .eq("tipo", "saida")
-      .eq("origem_nf_entrada_id", opts.nfEntradaId)
-      .eq("origem_os_id", row.os_id)
-      .eq("item_id", row.item_id)
-      .limit(1)
-      .maybeSingle<{ id: number }>();
-
-    const { data: existing } = await admin
-      .from("os_itens")
-      .select("id,quantidade,valor_unitario,valor_total,baixa_estoque")
-      .eq("tenant_id", opts.tenantId)
-      .eq("empresa_id", opts.empresaId)
-      .eq("os_id", row.os_id)
-      .eq("item_id", row.item_id)
-      .limit(1)
-      .maybeSingle<{
-        id: number;
-        quantidade: number | null;
-        valor_unitario: number | null;
-        valor_total: number | null;
-        baixa_estoque: boolean | null;
-      }>();
-
-    if (existing?.id) {
-      const qtdAtual = toNum(existing.quantidade);
-      const valorUnitEntrada = toNum(row.valor_unitario);
-      const valorUnitAtual = toNum(existing.valor_unitario);
-      const valorUnitFinal = valorUnitAtual > 0 ? valorUnitAtual : valorUnitEntrada;
-
-      const isRepairOnly =
-        !movExists?.id &&
-        qtdAtual >= row.quantidade &&
-        (valorUnitAtual === 0 || Math.abs(valorUnitAtual - valorUnitEntrada) < 0.0001);
-
-      const qtdAdicionar = movExists?.id ? 0 : isRepairOnly ? 0 : row.quantidade;
-      const qtdNova = qtdAtual + qtdAdicionar;
-      const incrementoTotal = qtdAdicionar * (valorUnitEntrada > 0 ? valorUnitEntrada : valorUnitFinal);
-      const valorTotalAtual = toNum(existing.valor_total);
-      const valorTotalNovo = valorTotalAtual > 0 ? valorTotalAtual + incrementoTotal : qtdNova * valorUnitFinal;
-      await admin
-        .from("os_itens")
-        .update({
-          quantidade: qtdNova,
-          valor_unitario: Number.isFinite(valorUnitFinal) ? valorUnitFinal : 0,
-          valor_total: Number.isFinite(valorTotalNovo) ? valorTotalNovo : 0,
-          baixa_estoque: true,
-        })
+    const observacoesImportacao = `Importacao XML NF ${opts.nfEntradaId} [OS ${row.os_id}]`;
+    const [{ data: movExists }, { data: importedRow }] = await Promise.all([
+      admin
+        .from("movimentacoes")
+        .select("id")
         .eq("tenant_id", opts.tenantId)
         .eq("empresa_id", opts.empresaId)
-        .eq("id", existing.id);
+        .eq("tipo", "saida")
+        .eq("origem_nf_entrada_id", opts.nfEntradaId)
+        .eq("origem_os_id", row.os_id)
+        .eq("item_id", row.item_id)
+        .limit(1)
+        .maybeSingle<{ id: number }>(),
+      admin
+        .from("os_itens")
+        .select("id")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("os_id", row.os_id)
+        .eq("item_id", row.item_id)
+        .eq("observacoes", observacoesImportacao)
+        .limit(1)
+        .maybeSingle<{ id: number }>(),
+    ]);
+
+    const valorUnit = toNum(row.valor_unitario);
+    const valorTotal = row.quantidade * valorUnit;
+    const osItemPayload = {
+      quantidade: row.quantidade,
+      valor_unitario: Number.isFinite(valorUnit) ? valorUnit : 0,
+      valor_total: Number.isFinite(valorTotal) ? valorTotal : 0,
+      baixa_estoque: true,
+      observacoes: observacoesImportacao,
+    };
+
+    // Mantem a quantidade importada em uma linha dedicada da OS para nao misturar
+    // materiais antigos sem baixa com a baixa automatica desta NF.
+    if (importedRow?.id) {
+      await admin
+        .from("os_itens")
+        .update(osItemPayload)
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("id", importedRow.id);
     } else {
-      const valorUnit = toNum(row.valor_unitario);
-      const valorTotal = row.quantidade * valorUnit;
       await admin.from("os_itens").insert({
         tenant_id: opts.tenantId,
         empresa_id: opts.empresaId,
         os_id: row.os_id,
         item_id: row.item_id,
-        quantidade: row.quantidade,
-        valor_unitario: Number.isFinite(valorUnit) ? valorUnit : 0,
-        valor_total: Number.isFinite(valorTotal) ? valorTotal : 0,
-        baixa_estoque: true,
+        ...osItemPayload,
         criado_em: new Date().toISOString(),
       });
     }
@@ -2232,7 +2216,9 @@ export async function POST(req: NextRequest) {
       p_xml_raw: xmlRaw,
       p_gerar_contas_pagar: gerar,
       p_parcelas_json: gerar ? (body.parcelasJson ?? null) : null,
-      p_os_id: osId,
+      // A vinculacao com OS acontece depois, em uma sincronizacao controlada
+      // que evita misturar itens antigos sem baixa com itens baixados por esta NF.
+      p_os_id: null,
       p_baixar_os: false,
       p_motivo_compra_id: motivoCompraId,
       p_solicitante_usuario_id: solicitanteUsuarioId,
@@ -2249,6 +2235,26 @@ export async function POST(req: NextRequest) {
     const postImportWarnings: Array<{ code: string; message: string; data?: Record<string, unknown> }> = [];
 
     if (!nfEntradaId) return jerr(500, "Importacao nao retornou nf_entrada_id.");
+
+    if (Number.isFinite(osId) && Number(osId) > 0) {
+      const { error: linkOsErr } = await admin
+        .from("nf_entrada")
+        .update({
+          os_id: Number(osId),
+          baixa_os_automatica: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("empresa_id", empresaId)
+        .eq("id", nfEntradaId);
+
+      if (linkOsErr) {
+        return jerr(
+          422,
+          `NF importada, mas falhou ao vincular a OS ${Number(osId)} na nf_entrada ${nfEntradaId}. Detalhe: ${linkOsErr.message}`
+        );
+      }
+    }
 
     await reconcileNfEntradaItemIdsFromPayload({
       tenantId,
