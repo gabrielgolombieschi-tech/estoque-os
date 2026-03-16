@@ -727,7 +727,7 @@ export default function AnaliticoFaturamentoClient() {
   );
 
   const monthTargetTotal = useMemo(
-    () => monthTargets.reduce((acc, value) => acc + (value ?? 0), 0),
+    () => monthTargets.reduce<number>((acc, value) => acc + (value ?? 0), 0),
     [monthTargets]
   );
 
@@ -737,7 +737,7 @@ export default function AnaliticoFaturamentoClient() {
   );
 
   const yearTargetTotal = useMemo(
-    () => yearTargets.reduce((acc, value) => acc + (value ?? 0), 0),
+    () => yearTargets.reduce<number>((acc, value) => acc + (value ?? 0), 0),
     [yearTargets]
   );
 
