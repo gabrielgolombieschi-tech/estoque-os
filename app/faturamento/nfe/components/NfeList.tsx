@@ -23,10 +23,37 @@ type DocumentoFiscalRow = {
   created_at: string;
 };
 
+type TituloFinanceiroRow = {
+  id: string;
+  documento_fiscal_id: string;
+  tipo: string | null;
+  status: string | null;
+  valor_total: number | string | null;
+  valor_aberto: number | string | null;
+};
+
+type ParcelaFinanceiraRow = {
+  id: string;
+  titulo_id: string;
+  vencimento_date: string | null;
+  valor: number | string | null;
+  valor_aberto: number | string | null;
+};
+
+type PagamentoStatus = "PAGO" | "A_PAGAR" | "ATRASADO";
+type PagamentoFiltro = "TODOS" | "PAGOS" | "A_PAGAR" | "ATRASADOS";
+
+type PagamentoMeta = {
+  status: PagamentoStatus;
+  pago: number;
+  aPagar: number;
+};
+
 type ClienteRow = { id: number; nome: string };
 type FornecedorRow = { id: number; nome: string | null };
 
 const PAGE_SIZE = 50;
+const PAYMENT_EPSILON = 0.009;
 
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -43,7 +70,102 @@ function formatDateBR(iso?: string | null): string {
 function shortKey(key: string): string {
   const k = String(key || "");
   if (k.length <= 12) return k;
-  return `${k.slice(0, 4)}…${k.slice(-6)}`;
+  return `${k.slice(0, 4)}...${k.slice(-6)}`;
+}
+
+function normalizePagamentoFiltro(value: string | null): PagamentoFiltro {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/-/g, "_");
+
+  switch (normalized) {
+    case "PAGOS":
+    case "PAGO":
+      return "PAGOS";
+    case "A_PAGAR":
+    case "APAGAR":
+    case "EM_ABERTO":
+      return "A_PAGAR";
+    case "ATRASADOS":
+    case "ATRASADO":
+      return "ATRASADOS";
+    default:
+      return "TODOS";
+  }
+}
+
+function matchesPagamentoFiltro(status: PagamentoStatus, filtro: PagamentoFiltro): boolean {
+  if (filtro === "PAGOS") return status === "PAGO";
+  if (filtro === "A_PAGAR") return status === "A_PAGAR";
+  if (filtro === "ATRASADOS") return status === "ATRASADO";
+  return true;
+}
+
+function todayIsoDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isPastDue(vencimentoDate?: string | null): boolean {
+  const normalized = String(vencimentoDate ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return false;
+  return normalized < todayIsoDate();
+}
+
+function pagamentoStatusLabel(status: PagamentoStatus): string {
+  if (status === "PAGO") return "Pago";
+  if (status === "ATRASADO") return "Atrasado";
+  return "A pagar";
+}
+
+function pagamentoStatusBadgeClass(status: PagamentoStatus): string {
+  if (status === "PAGO") {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  }
+  if (status === "ATRASADO") {
+    return "border-rose-500/30 bg-rose-500/10 text-rose-300";
+  }
+  return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+}
+
+function pagamentoRowClass(status: PagamentoStatus): string {
+  if (status === "PAGO") return "bg-emerald-950/10 hover:bg-emerald-950/20";
+  if (status === "ATRASADO") return "bg-rose-950/10 hover:bg-rose-950/20";
+  return "bg-amber-950/10 hover:bg-amber-950/20";
+}
+
+function buildPagamentoFallback(row: DocumentoFiscalRow): PagamentoMeta {
+  const total = Math.max(0, n(row.valor_total));
+  if (total <= PAYMENT_EPSILON) {
+    return { status: "PAGO", pago: 0, aPagar: 0 };
+  }
+  return { status: "A_PAGAR", pago: 0, aPagar: total };
+}
+
+function computePagamentoMeta(
+  row: DocumentoFiscalRow,
+  titulos: TituloFinanceiroRow[],
+  parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]>
+): PagamentoMeta {
+  if (!titulos.length) return buildPagamentoFallback(row);
+
+  const totalTitulos = titulos.reduce((sum, titulo) => sum + n(titulo.valor_total), 0);
+  const totalAberto = titulos.reduce((sum, titulo) => sum + n(titulo.valor_aberto), 0);
+  const parcelasEmAberto = titulos.flatMap((titulo) =>
+    (parcelasByTituloId[String(titulo.id)] ?? []).filter((parcela) => n(parcela.valor_aberto) > PAYMENT_EPSILON)
+  );
+
+  const pago = Math.max(0, totalTitulos - totalAberto);
+  const aPagar = Math.max(0, totalAberto);
+  const atrasado = aPagar > PAYMENT_EPSILON && parcelasEmAberto.some((parcela) => isPastDue(parcela.vencimento_date));
+  const status: PagamentoStatus =
+    aPagar <= PAYMENT_EPSILON ? "PAGO" : atrasado ? "ATRASADO" : "A_PAGAR";
+
+  return { status, pago, aPagar };
 }
 
 export default function NfeList() {
@@ -72,6 +194,7 @@ export default function NfeList() {
   const [docs, setDocs] = useState<DocumentoFiscalRow[]>([]);
   const [clientesById, setClientesById] = useState<Record<string, string>>({});
   const [fornecedoresById, setFornecedoresById] = useState<Record<string, string>>({});
+  const [pagamentosByDocId, setPagamentosByDocId] = useState<Record<string, PagamentoMeta>>({});
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -99,6 +222,19 @@ export default function NfeList() {
     Boolean(te.tenantId) &&
     (Boolean(te.empresaId) || te.empresas.length === 1) &&
     canFinanceiro === true;
+
+  const pagamentoFiltro = normalizePagamentoFiltro(searchParams.get("pagamento"));
+
+  const setPagamentoFiltro = (filtro: PagamentoFiltro) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (filtro === "TODOS") {
+      params.delete("pagamento");
+    } else {
+      params.set("pagamento", filtro.toLowerCase());
+    }
+    const nextUrl = params.toString() ? `/faturamento/nfe?${params.toString()}` : "/faturamento/nfe";
+    router.replace(nextUrl, { scroll: false });
+  };
 
   const resolveClientes = async (rows: DocumentoFiscalRow[]) => {
     if (!te.tenantId) return;
@@ -166,6 +302,76 @@ export default function NfeList() {
     });
   };
 
+  const loadPagamentos = async (rows: DocumentoFiscalRow[]) => {
+    if (!te.tenantId) return {} as Record<string, PagamentoMeta>;
+
+    const documentoIds = Array.from(new Set(rows.map((row) => String(row.id)).filter(Boolean)));
+    if (!documentoIds.length) return {} as Record<string, PagamentoMeta>;
+
+    const supabase = supabaseBrowser();
+    const tenantId = te.tenantId;
+    const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
+
+    const { data: tituloData, error: titErr } = await applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("titulo")
+        .select("id,documento_fiscal_id,tipo,status,valor_total,valor_aberto")
+        .in("documento_fiscal_id", documentoIds)
+        .is("deleted_at", null),
+      tenantId,
+      empresaId
+    ).returns<TituloFinanceiroRow[]>();
+    if (titErr) throw titErr;
+
+    const titulosRelevantes = (tituloData ?? []).filter((titulo) => {
+      const tipo = String(titulo.tipo ?? "").trim().toUpperCase();
+      const status = String(titulo.status ?? "").trim().toUpperCase();
+      return tipo === "AR" && status !== "CANCELADO";
+    });
+
+    const tituloIds = titulosRelevantes.map((titulo) => String(titulo.id)).filter(Boolean);
+    const { data: parcelaData, error: parcErr } = tituloIds.length
+      ? await applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("titulo_parcela")
+            .select("id,titulo_id,vencimento_date,valor,valor_aberto")
+            .in("titulo_id", tituloIds)
+            .is("deleted_at", null),
+          tenantId,
+          empresaId
+        ).returns<ParcelaFinanceiraRow[]>()
+      : { data: [] as ParcelaFinanceiraRow[], error: null };
+    if (parcErr) throw parcErr;
+
+    const titulosByDocumentoId: Record<string, TituloFinanceiroRow[]> = {};
+    for (const titulo of titulosRelevantes) {
+      const docId = String(titulo.documento_fiscal_id ?? "");
+      if (!docId) continue;
+      if (!titulosByDocumentoId[docId]) titulosByDocumentoId[docId] = [];
+      titulosByDocumentoId[docId].push(titulo);
+    }
+
+    const parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]> = {};
+    for (const parcela of parcelaData ?? []) {
+      const tituloId = String(parcela.titulo_id ?? "");
+      if (!tituloId) continue;
+      if (!parcelasByTituloId[tituloId]) parcelasByTituloId[tituloId] = [];
+      parcelasByTituloId[tituloId].push(parcela);
+    }
+
+    const next: Record<string, PagamentoMeta> = {};
+    for (const row of rows) {
+      next[String(row.id)] = computePagamentoMeta(
+        row,
+        titulosByDocumentoId[String(row.id)] ?? [],
+        parcelasByTituloId
+      );
+    }
+    return next;
+  };
+
   const fetchDocs = async (offset: number) => {
     if (!ready) return { rows: [] as DocumentoFiscalRow[], more: false };
 
@@ -177,7 +383,9 @@ export default function NfeList() {
       supabase
         .schema("f")
         .from("documento_fiscal")
-        .select("id,operacao,emissao_date,modelo,serie,numero,chave_acesso,cliente_id,fornecedor_id,valor_total,nfe_status,created_at")
+        .select(
+          "id,operacao,emissao_date,modelo,serie,numero,chave_acesso,cliente_id,fornecedor_id,valor_total,nfe_status,created_at"
+        )
         .eq("operacao", "SAIDA")
         .eq("natureza", "PRODUTO")
         .or("modelo.is.null,modelo.neq.NFSE")
@@ -203,13 +411,18 @@ export default function NfeList() {
     setError(null);
     try {
       const { rows, more } = await fetchDocs(0);
+      const [pagamentos] = await Promise.all([
+        loadPagamentos(rows),
+        resolveClientes(rows),
+        resolveFornecedores(rows),
+      ]);
       setDocs(rows);
+      setPagamentosByDocId(pagamentos);
       setHasMore(more);
-      await resolveClientes(rows);
-      await resolveFornecedores(rows);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NF-e.");
       setDocs([]);
+      setPagamentosByDocId({});
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -226,10 +439,14 @@ export default function NfeList() {
     try {
       const offset = docs.length;
       const { rows, more } = await fetchDocs(offset);
+      const [pagamentos] = await Promise.all([
+        loadPagamentos(rows),
+        resolveClientes(rows),
+        resolveFornecedores(rows),
+      ]);
       setDocs((prev) => [...prev, ...rows]);
+      setPagamentosByDocId((prev) => ({ ...prev, ...pagamentos }));
       setHasMore(more);
-      await resolveClientes(rows);
-      await resolveFornecedores(rows);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro inesperado ao carregar mais NF-e.");
     } finally {
@@ -245,9 +462,13 @@ export default function NfeList() {
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return docs;
 
     return docs.filter((r) => {
+      const pagamento = pagamentosByDocId[String(r.id)] ?? buildPagamentoFallback(r);
+      if (!matchesPagamentoFiltro(pagamento.status, pagamentoFiltro)) return false;
+
+      if (!term) return true;
+
       const numero = String(r.numero ?? "").toLowerCase();
       const modelo = String(r.modelo ?? "").toLowerCase();
       const serie = String(r.serie ?? "").toLowerCase();
@@ -259,10 +480,10 @@ export default function NfeList() {
         clienteNome.includes(term) ||
         fornecedorNome.includes(term) ||
         chave.includes(term) ||
-        `${modelo} ${serie} ${numero}`.replace(/\\s+/g, " ").trim().includes(term)
+        `${modelo} ${serie} ${numero}`.replace(/\s+/g, " ").trim().includes(term)
       );
     });
-  }, [clientesById, docs, fornecedoresById, search]);
+  }, [clientesById, docs, fornecedoresById, pagamentoFiltro, pagamentosByDocId, search]);
 
   const headerRight = canImportXmlFaturamento ? (
     <button
@@ -275,12 +496,16 @@ export default function NfeList() {
   ) : null;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="w-full px-4 py-6">
       <NfeImportModal
         open={importOpen}
         onClose={() => {
           setImportOpen(false);
-          if (searchParams.get("import")) router.replace("/faturamento/nfe");
+          if (!searchParams.get("import")) return;
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("import");
+          const nextUrl = params.toString() ? `/faturamento/nfe?${params.toString()}` : "/faturamento/nfe";
+          router.replace(nextUrl, { scroll: false });
         }}
       />
       <div className="flex items-center justify-between gap-4">
@@ -291,21 +516,50 @@ export default function NfeList() {
         {headerRight}
       </div>
 
-      <div className="mt-4">
-        <label className="block text-xs font-medium text-zinc-400">Buscar</label>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Número, chave de acesso ou parceiro"
-          className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-700"
-        />
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <label className="block text-xs font-medium text-zinc-400">Buscar</label>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Numero, chave de acesso ou parceiro"
+            className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-700"
+          />
+        </div>
+
+        <div className="lg:min-w-[360px]">
+          <label className="block text-xs font-medium text-zinc-400">Pagamento</label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {[
+              { value: "TODOS" as const, label: "Todos" },
+              { value: "PAGOS" as const, label: "Pagos" },
+              { value: "A_PAGAR" as const, label: "A pagar" },
+              { value: "ATRASADOS" as const, label: "Atrasados" },
+            ].map((option) => {
+              const active = pagamentoFiltro === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPagamentoFiltro(option.value)}
+                  className={[
+                    "rounded-md border px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900",
+                  ].join(" ")}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-          <div className="text-sm text-zinc-200">
-            {loading ? "Carregando..." : `${filtered.length} registro(s)`}
-          </div>
+      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+          <div className="text-sm text-zinc-200">{loading ? "Carregando..." : `${filtered.length} registro(s)`}</div>
           <button
             type="button"
             onClick={() => void reload()}
@@ -322,52 +576,73 @@ export default function NfeList() {
           <table className="min-w-full text-sm">
             <thead className="bg-zinc-950/60 text-zinc-400">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Operação</th>
-                <th className="px-4 py-3 text-left font-medium">Emissão</th>
+                <th className="px-4 py-3 text-left font-medium">Operacao</th>
+                <th className="px-4 py-3 text-left font-medium">Emissao</th>
                 <th className="px-4 py-3 text-left font-medium">Modelo</th>
-                <th className="px-4 py-3 text-left font-medium">Série</th>
-                <th className="px-4 py-3 text-left font-medium">Número</th>
+                <th className="px-4 py-3 text-left font-medium">Serie</th>
+                <th className="px-4 py-3 text-left font-medium">Numero</th>
                 <th className="px-4 py-3 text-left font-medium">Parceiro</th>
                 <th className="px-4 py-3 text-left font-medium">Chave</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Status NF-e</th>
+                <th className="px-4 py-3 text-left font-medium">Pagamento</th>
+                <th className="px-4 py-3 text-right font-medium">Pago</th>
+                <th className="px-4 py-3 text-right font-medium">A pagar</th>
                 <th className="px-4 py-3 text-right font-medium">Valor</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {!loading && filtered.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={9}>
+                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={12}>
                     Nenhum registro encontrado.
                   </td>
                 </tr>
               ) : null}
 
-              {filtered.map((r) => (
-                <tr
-                  key={r.id}
-                  className="hover:bg-zinc-900/40 cursor-pointer"
-                  onClick={() => router.push(`/faturamento/nfe/${r.id}`)}
-                >
-                  <td className="px-4 py-3 text-zinc-200">{String(r.operacao ?? "").toUpperCase() || "—"}</td>
-                  <td className="px-4 py-3 text-zinc-200 whitespace-nowrap">{formatDateBR(r.emissao_date) || "—"}</td>
-                  <td className="px-4 py-3 text-zinc-200">{r.modelo ?? "—"}</td>
-                  <td className="px-4 py-3 text-zinc-200">{r.serie ?? "—"}</td>
-                  <td className="px-4 py-3 text-zinc-200 tabular-nums">{r.numero ?? "—"}</td>
-                  <td className="px-4 py-3 text-zinc-200">
-                    {typeof r.cliente_id === "number" ? clientesById[String(r.cliente_id)] ?? `ID ${r.cliente_id}` : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-200 font-mono text-xs" title={r.chave_acesso}>
-                    {shortKey(r.chave_acesso)}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-200">{r.nfe_status ? String(r.nfe_status) : "—"}</td>
-                  <td className="px-4 py-3 text-right text-zinc-200 tabular-nums">{formatMoneyBR(n(r.valor_total))}</td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const pagamento = pagamentosByDocId[String(r.id)] ?? buildPagamentoFallback(r);
+                return (
+                  <tr
+                    key={r.id}
+                    className={`${pagamentoRowClass(pagamento.status)} cursor-pointer transition-colors`}
+                    onClick={() => router.push(`/faturamento/nfe/${r.id}`)}
+                  >
+                    <td className="px-4 py-3 text-zinc-200">{String(r.operacao ?? "").toUpperCase() || "-"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-zinc-200">{formatDateBR(r.emissao_date) || "-"}</td>
+                    <td className="px-4 py-3 text-zinc-200">{r.modelo ?? "-"}</td>
+                    <td className="px-4 py-3 text-zinc-200">{r.serie ?? "-"}</td>
+                    <td className="px-4 py-3 tabular-nums text-zinc-200">{r.numero ?? "-"}</td>
+                    <td className="px-4 py-3 text-zinc-200">
+                      {typeof r.cliente_id === "number" ? clientesById[String(r.cliente_id)] ?? `ID ${r.cliente_id}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-zinc-200" title={r.chave_acesso}>
+                      {shortKey(r.chave_acesso)}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-200">{r.nfe_status ? String(r.nfe_status) : "-"}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${pagamentoStatusBadgeClass(
+                          pagamento.status
+                        )}`}
+                      >
+                        {pagamentoStatusLabel(pagamento.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-zinc-200">
+                      {formatMoneyBR(pagamento.pago)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-zinc-200">
+                      {formatMoneyBR(pagamento.aPagar)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatMoneyBR(n(r.valor_total))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        <div className="px-4 py-3 border-t border-zinc-800 flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
           <div className="text-xs text-zinc-500">{docs.length} carregado(s)</div>
           {hasMore ? (
             <button
