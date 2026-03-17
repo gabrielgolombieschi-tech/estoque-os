@@ -308,6 +308,8 @@ export default function OrcamentoPage() {
   );
   const isInlineTokenGenerico = useCallback((value: string) => /^[#@$]/.test(String(value ?? "").trim()), []);
   const inlineFormRef = useRef<HTMLDivElement | null>(null);
+  const inlineCodigoInputRef = useRef<HTMLInputElement | null>(null);
+  const inlineQuantidadeInputRef = useRef<HTMLInputElement | null>(null);
   const inlineItemReqRef = useRef(0);
 
   const [estoqueByItemId, setEstoqueByItemId] = useState<Record<number, number>>({});
@@ -987,6 +989,10 @@ export default function OrcamentoPage() {
         setInlineErr(null);
         setInlineDescricaoLivre(textoLivre);
         if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+        window.requestAnimationFrame(() => {
+          inlineQuantidadeInputRef.current?.focus();
+          inlineQuantidadeInputRef.current?.select();
+        });
       } catch (e: unknown) {
         if (reqId !== inlineItemReqRef.current) return;
         setInlineItem(null);
@@ -1013,6 +1019,10 @@ export default function OrcamentoPage() {
         setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
       }
       if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+      window.requestAnimationFrame(() => {
+        inlineQuantidadeInputRef.current?.focus();
+        inlineQuantidadeInputRef.current?.select();
+      });
     } catch (e: unknown) {
       if (reqId !== inlineItemReqRef.current) return;
       setInlineItem(null);
@@ -1275,6 +1285,10 @@ export default function OrcamentoPage() {
     setInlineDesconto("0");
     setInlineDescricaoLivre("");
     setInlineErr(null);
+    window.requestAnimationFrame(() => {
+      inlineCodigoInputRef.current?.focus();
+      inlineCodigoInputRef.current?.select();
+    });
   }, []);
 
   const submitInlineItem = useCallback(async () => {
@@ -1383,6 +1397,8 @@ export default function OrcamentoPage() {
       // Move focus to the inline form.
       setTimeout(() => {
         inlineFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        inlineQuantidadeInputRef.current?.focus();
+        inlineQuantidadeInputRef.current?.select();
       }, 0);
     },
     [canWrite, readOnly]
@@ -1905,6 +1921,7 @@ export default function OrcamentoPage() {
                 <label className="block text-xs text-zinc-400">
                   Codigo
                   <input
+                    ref={inlineCodigoInputRef}
                     value={inlineItemId}
                     disabled={readOnly || !canWrite || inlineBusy || inlineMode === "edit"}
                     onChange={(e) => setInlineItemId(e.target.value)}
@@ -1922,9 +1939,16 @@ export default function OrcamentoPage() {
                 <label className="block text-xs text-zinc-400">
                   Quantidade
                   <input
+                    ref={inlineQuantidadeInputRef}
                     value={inlineQuantidade}
                     disabled={readOnly || !canWrite || inlineBusy}
                     onChange={(e) => setInlineQuantidade(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (!inlineBusy) void submitInlineItem();
+                      }
+                    }}
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
                   />
                 </label>

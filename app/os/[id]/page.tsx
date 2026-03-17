@@ -8,10 +8,10 @@ import { parseDecimalBR, formatDecimalBR } from "../../../lib/decimal";
 import MaoObraCard from "../../components/os/MaoObraCard";
 import RelatorioHHSection from "./components/RelatorioHHSection";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant } from "@/lib/db/scopes";
+import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { getOsDetailAccess } from "@/lib/auth/osAccess";
-import { calcHhPedidoTotal } from "@/lib/hh/hhLancamentosCalc";
+import { calcHhPedidoTotal, getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 
@@ -70,6 +70,8 @@ type ItemLookupBaseRow = ItemPick & {
   fornecedores?: { nome?: string | null } | null;
 };
 
+type AddMode = "item" | "despesa";
+
 type MovRow = {
   item_id: number;
   data_movimentacao: string;
@@ -92,6 +94,44 @@ type HhLancamentoCalcRow = {
   valor_total: number | null;
 };
 
+type HhPrintRow = HhLancamentoCalcRow & {
+  id: number | string;
+  data: string | null;
+  colaborador_id: string | null;
+  observacao: string | null;
+  percentual_aplicado?: number | null;
+  hh_especialidade_id?: string | null;
+  hh_servico_id?: string | null;
+  colaborador_nome?: string | null;
+  especialidade_descricao?: string | null;
+};
+
+type ApontamentoPrintBaseRow = {
+  id: string;
+  os_id: number;
+  colaborador_id: string;
+  data: string;
+  horas: number | null;
+  tipo_hora_id: string | null;
+  fator_aplicado?: number | null;
+  descricao: string | null;
+  status: string;
+  criado_em: string;
+  entrada_1?: string | null;
+  saida_1?: string | null;
+  entrada_2?: string | null;
+  saida_2?: string | null;
+};
+
+type ApontamentoPrintRow = ApontamentoPrintBaseRow & {
+  colaborador_nome: string;
+  tipo_hora_codigo: string | null;
+  tipo_hora_descricao: string | null;
+  fator: number;
+  valor_hora: number;
+  custo_lancamento: number;
+};
+
 type SortValue = string | number | null;
 
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
@@ -103,6 +143,14 @@ const statusBadge: Record<string, string> = {
   concluida: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   cancelada: "bg-red-500/15 text-red-300 border-red-500/30",
 };
+
+const DESPESA_ITEM_ID_MIN = 1;
+const DESPESA_ITEM_ID_MAX = 99;
+
+function isDespesaItemId(itemId: number | null | undefined) {
+  const value = Number(itemId ?? NaN);
+  return Number.isFinite(value) && value >= DESPESA_ITEM_ID_MIN && value <= DESPESA_ITEM_ID_MAX;
+}
 
 type GestaoTipo = "projeto" | "execucao";
 type GestaoArea = "eletrico" | "mecanico" | "seguranca" | "software";
@@ -134,6 +182,66 @@ const gestaoOrder = gestaoDefs.map((d) => gestaoKey(d));
 function orderGestaoItems(items: GestaoItem[]): GestaoItem[] {
   const map = new Map(items.map((it) => [gestaoKey(it), it]));
   return gestaoOrder.map((key) => map.get(key)).filter(Boolean) as GestaoItem[];
+}
+
+function formatHoursBR(value: number | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "0,00";
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatTimeHHMM(value: string | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/^\d{2}:\d{2}/.test(raw)) return raw.slice(0, 5);
+  return raw;
+}
+
+function formatDateBR(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "-";
+  const iso = raw.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [year, month, day] = iso.split("-");
+    return `${day}/${month}/${year}`;
+  }
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString("pt-BR");
+}
+
+function formatPeriodoHH(row: HhLancamentoCalcRow) {
+  const entrada1 = formatTimeHHMM(row.entrada_1) || formatTimeHHMM(row.hora_entrada);
+  const saida1 = formatTimeHHMM(row.saida_1) || formatTimeHHMM(row.hora_saida);
+  const entrada2 = formatTimeHHMM(row.entrada_2);
+  const saida2 = formatTimeHHMM(row.saida_2);
+  const periodos: string[] = [];
+
+  if (entrada1 || saida1) periodos.push(`${entrada1 || "--"}-${saida1 || "--"}`);
+  if (entrada2 || saida2) periodos.push(`${entrada2 || "--"}-${saida2 || "--"}`);
+
+  return periodos.length > 0 ? periodos.join(" / ") : "-";
+}
+
+function roundMoney(value: number) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function formatPeriodoApontamento(row: {
+  entrada_1?: string | null;
+  saida_1?: string | null;
+  entrada_2?: string | null;
+  saida_2?: string | null;
+}) {
+  const entrada1 = formatTimeHHMM(row.entrada_1);
+  const saida1 = formatTimeHHMM(row.saida_1);
+  const entrada2 = formatTimeHHMM(row.entrada_2);
+  const saida2 = formatTimeHHMM(row.saida_2);
+  const periodos: string[] = [];
+
+  if (entrada1 || saida1) periodos.push(`${entrada1 || "--"}-${saida1 || "--"}`);
+  if (entrada2 || saida2) periodos.push(`${entrada2 || "--"}-${saida2 || "--"}`);
+
+  return periodos.length > 0 ? periodos.join(" / ") : "-";
 }
 
 export default function OsDetailPage() {
@@ -179,6 +287,7 @@ export default function OsDetailPage() {
   const [editItemSaving, setEditItemSaving] = useState(false);
   const [editItemErr, setEditItemErr] = useState<string | null>(null);
   const [printingItens, setPrintingItens] = useState(false);
+  const [printingOs, setPrintingOs] = useState(false);
   const [isConcluding, setIsConcluding] = useState(false);
   const [showGestaoModal, setShowGestaoModal] = useState(false);
   const [temGestao, setTemGestao] = useState(false);
@@ -205,6 +314,7 @@ export default function OsDetailPage() {
   const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"itens" | "hh">("itens");
+  const [addMode, setAddMode] = useState<AddMode>("item");
 
   // adicionar item
   const [q, setQ] = useState("");
@@ -224,7 +334,27 @@ export default function OsDetailPage() {
   const [lookupErr, setLookupErr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const isMateriaPrima = (pick?.finalidade ?? "") === "materia_prima";
+  const isDespesaMode = addMode === "despesa";
+  const isMateriaPrimaBase = (pick?.finalidade ?? "") === "materia_prima";
+  const isMateriaPrima = isDespesaMode || isMateriaPrimaBase;
+  const isDespesaPick = isDespesaItemId(pick?.id) || String(pick?.tipo ?? "").toLowerCase() === "despesa";
+  const canAddPickedItem = isDespesaMode ? isDespesaPick : isMateriaPrima;
+  const addSectionTitle = isDespesaMode ? "Adicionar despesa" : "Adicionar item";
+  const addSectionDescription = isDespesaMode
+    ? "Selecione despesas cadastradas entre os itens 1 e 99. O preco pode ser ajustado na inclusao."
+    : 'Inclusao sem baixa por padrao. Marque "Baixa direta" para baixar no ato quando houver saldo.';
+  const addSearchLabel = isDespesaMode ? "Buscar despesa" : "Buscar item";
+  const addSearchPlaceholder = isDespesaMode
+    ? "ID da despesa (1 a 99). Enter abre localizacao se nao souber."
+    : "ID do item (ex: 123). Enter abre localizacao se nao souber.";
+  const lookupTitle = isDespesaMode ? "Localizar despesa" : "Localizar item";
+  const lookupDescription = isDespesaMode
+    ? "Filtre por nome, codigo ou fornecedor para localizar despesas entre os itens 1 e 99."
+    : "Filtre por nome, codigo ou fabricante para localizar o ID.";
+  const isDespesaRow = useCallback(
+    (row: OsItemRow) => isDespesaItemId(row.item_id) || String(row.itens?.tipo ?? "").toLowerCase() === "despesa",
+    []
+  );
 
   const locked = readOnly || os?.status === "concluida" || os?.status === "cancelada";
   const formatMoney = (v: number) =>
@@ -319,6 +449,565 @@ export default function OsDetailPage() {
     }
   }
 
+  async function loadHhRowsForPrint(): Promise<HhPrintRow[]> {
+    const result = await applyTenantEmpresa(
+      supabase
+        .from("hh_lancamentos")
+        .select(
+          "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
+        )
+        .eq("os_id", osId)
+        .order("data", { ascending: true })
+        .order("id", { ascending: true }),
+      effectiveTenantId,
+      effectiveEmpresaId
+    );
+
+    if (result.error) throw result.error;
+
+    const baseRows = Array.isArray(result.data) ? (result.data as unknown as HhPrintRow[]) : [];
+    if (baseRows.length === 0) return [];
+
+    const colaboradorIds = Array.from(
+      new Set(baseRows.map((row) => String(row.colaborador_id ?? "").trim()).filter(Boolean))
+    );
+    const servicoIds = Array.from(
+      new Set(
+        baseRows
+          .map((row) => {
+            const servicoId = String(row.hh_servico_id ?? "").trim();
+            if (/^\d+$/.test(servicoId)) return servicoId;
+            const especialidadeId = String(row.hh_especialidade_id ?? "").trim();
+            return /^\d+$/.test(especialidadeId) ? especialidadeId : "";
+          })
+          .filter(Boolean)
+      )
+    );
+
+    const colaboradorMap = new Map<string, string>();
+    if (colaboradorIds.length > 0) {
+      const colaboradoresResult = await applyTenantEmpresa(
+        supabase.from("colaboradores").select("id,nome").in("id", colaboradorIds),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+
+      if (colaboradoresResult.error) {
+        console.warn("[OS detail] colaboradores print", colaboradoresResult.error);
+      } else {
+        ((colaboradoresResult.data ?? []) as Array<{ id: string; nome: string }>).forEach((colaborador) => {
+          colaboradorMap.set(String(colaborador.id), colaborador.nome);
+        });
+      }
+    }
+
+    const servicoMap = new Map<string, string>();
+    if (servicoIds.length > 0) {
+      const servicosResult = await applyTenantEmpresa(
+        supabase.from("cliente_hh_servicos").select("id,nome").in("id", servicoIds),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+
+      if (servicosResult.error) {
+        console.warn("[OS detail] servicos HH print", servicosResult.error);
+      } else {
+        ((servicosResult.data ?? []) as Array<{ id: string; nome: string }>).forEach((servico) => {
+          servicoMap.set(String(servico.id), servico.nome);
+        });
+      }
+    }
+
+    return baseRows.map((row) => {
+      const servicoId = String(row.hh_servico_id ?? "").trim();
+      const especialidadeId = String(row.hh_especialidade_id ?? "").trim();
+      const lookupId = /^\d+$/.test(servicoId) ? servicoId : /^\d+$/.test(especialidadeId) ? especialidadeId : "";
+
+      return {
+        ...row,
+        colaborador_nome: colaboradorMap.get(String(row.colaborador_id ?? "")) ?? "-",
+        especialidade_descricao: lookupId ? servicoMap.get(lookupId) ?? "-" : "-",
+      };
+    });
+  }
+
+  async function loadApontamentosRowsForPrint(): Promise<ApontamentoPrintRow[]> {
+    const result = await applyTenantEmpresa(
+      supabase
+        .from("apontamentos_horas")
+        .select(
+          "id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,entrada_1:hora_entrada_1,saida_1:hora_saida_1,entrada_2:hora_entrada_2,saida_2:hora_saida_2"
+        )
+        .eq("os_id", osId)
+        .order("data", { ascending: true })
+        .order("criado_em", { ascending: true }),
+      effectiveTenantId,
+      effectiveEmpresaId
+    );
+
+    if (result.error) throw result.error;
+
+    const baseRows = Array.isArray(result.data) ? (result.data as unknown as ApontamentoPrintBaseRow[]) : [];
+    if (baseRows.length === 0) return [];
+
+    const apontamentoIds = baseRows.map((row) => String(row.id));
+    const custosMap = new Map<
+      string,
+      {
+        colaborador_nome: string | null;
+        tipo_hora_codigo: string | null;
+        tipo_hora_descricao: string | null;
+        fator: number | null;
+        valor_hora: number | null;
+        custo_lancamento: number | null;
+      }
+    >();
+
+    const custosResult = await supabase
+      .from("vw_apontamentos_horas_custo")
+      .select(
+        "apontamento_id,colaborador_nome,tipo_hora_codigo,tipo_hora_descricao,fator,valor_hora,custo_lancamento"
+      )
+      .in("apontamento_id", apontamentoIds);
+
+    if (!custosResult.error) {
+      (
+        (custosResult.data ?? []) as Array<{
+          apontamento_id: string;
+          colaborador_nome: string | null;
+          tipo_hora_codigo: string | null;
+          tipo_hora_descricao: string | null;
+          fator: number | null;
+          valor_hora: number | null;
+          custo_lancamento: number | null;
+        }>
+      ).forEach((row) => {
+        custosMap.set(String(row.apontamento_id), row);
+      });
+    } else {
+      console.warn("[OS detail] apontamentos custo print", custosResult.error);
+    }
+
+    const missingRows = baseRows.filter((row) => !custosMap.has(String(row.id)));
+    if (missingRows.length === 0) {
+      return baseRows.map((row) => {
+        const custo = custosMap.get(String(row.id));
+        return {
+          ...row,
+          colaborador_nome: String(custo?.colaborador_nome ?? "-").trim() || "-",
+          tipo_hora_codigo: custo?.tipo_hora_codigo ?? null,
+          tipo_hora_descricao: custo?.tipo_hora_descricao ?? null,
+          fator: Number(custo?.fator ?? row.fator_aplicado ?? 1) || 1,
+          valor_hora: Number(custo?.valor_hora ?? 0) || 0,
+          custo_lancamento: roundMoney(Number(custo?.custo_lancamento ?? 0)),
+        };
+      });
+    }
+
+    const colaboradorIds = Array.from(new Set(baseRows.map((row) => String(row.colaborador_id)).filter(Boolean)));
+    const tipoHoraIds = Array.from(new Set(baseRows.map((row) => String(row.tipo_hora_id ?? "")).filter(Boolean)));
+
+    const [colaboradoresResult, tiposResult, taxasResult] = await Promise.all([
+      colaboradorIds.length > 0
+        ? applyTenantEmpresa(
+            supabase.from("colaboradores").select("id,nome").in("id", colaboradorIds),
+            effectiveTenantId,
+            effectiveEmpresaId
+          )
+        : Promise.resolve({ data: [], error: null }),
+      tipoHoraIds.length > 0
+        ? applyTenantEmpresa(
+            supabase.from("tipos_horas").select("id,codigo,descricao,fator").in("id", tipoHoraIds),
+            effectiveTenantId,
+            effectiveEmpresaId
+          )
+        : Promise.resolve({ data: [], error: null }),
+      colaboradorIds.length > 0
+        ? applyTenantEmpresa(
+            supabase
+              .from("colaborador_taxas")
+              .select("colaborador_id,valor_hora,vigencia_inicio,vigencia_fim,criado_em")
+              .in("colaborador_id", colaboradorIds)
+              .order("vigencia_inicio", { ascending: false })
+              .order("criado_em", { ascending: false }),
+            effectiveTenantId,
+            effectiveEmpresaId
+          )
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (colaboradoresResult.error) console.warn("[OS detail] colaboradores apontamentos print", colaboradoresResult.error);
+    if (tiposResult.error) console.warn("[OS detail] tipos horas print", tiposResult.error);
+    if (taxasResult.error) console.warn("[OS detail] taxas print", taxasResult.error);
+
+    const colaboradoresMap = new Map<string, string>();
+    ((colaboradoresResult.data ?? []) as Array<{ id: string; nome: string }>).forEach((row) => {
+      colaboradoresMap.set(String(row.id), row.nome);
+    });
+
+    const tiposMap = new Map<string, { codigo: string | null; descricao: string | null; fator: number | null }>();
+    ((tiposResult.data ?? []) as Array<{ id: string; codigo: string | null; descricao: string | null; fator: number | null }>).forEach(
+      (row) => {
+        tiposMap.set(String(row.id), {
+          codigo: row.codigo ?? null,
+          descricao: row.descricao ?? null,
+          fator: row.fator ?? null,
+        });
+      }
+    );
+
+    const taxasByColaborador = new Map<
+      string,
+      Array<{ valor_hora: number; vigencia_inicio: string; vigencia_fim: string | null; criado_em: string }>
+    >();
+    (
+      (taxasResult.data ?? []) as Array<{
+        colaborador_id: string;
+        valor_hora: number;
+        vigencia_inicio: string;
+        vigencia_fim: string | null;
+        criado_em: string;
+      }>
+    ).forEach((row) => {
+      const key = String(row.colaborador_id);
+      const list = taxasByColaborador.get(key) ?? [];
+      list.push(row);
+      taxasByColaborador.set(key, list);
+    });
+
+    const pickValorHora = (colaboradorId: string, dataISO: string) => {
+      const taxas = taxasByColaborador.get(colaboradorId) ?? [];
+      const dataRef = String(dataISO ?? "").slice(0, 10);
+      const found = taxas.find((row) => {
+        const inicio = String(row.vigencia_inicio ?? "").slice(0, 10);
+        const fim = row.vigencia_fim ? String(row.vigencia_fim).slice(0, 10) : null;
+        return inicio <= dataRef && (!fim || dataRef <= fim);
+      });
+      return Number(found?.valor_hora ?? 0) || 0;
+    };
+
+    return baseRows.map((row) => {
+      const cached = custosMap.get(String(row.id));
+      if (cached) {
+        return {
+          ...row,
+          colaborador_nome: String(cached.colaborador_nome ?? "-").trim() || "-",
+          tipo_hora_codigo: cached.tipo_hora_codigo ?? null,
+          tipo_hora_descricao: cached.tipo_hora_descricao ?? null,
+          fator: Number(cached.fator ?? row.fator_aplicado ?? 1) || 1,
+          valor_hora: Number(cached.valor_hora ?? 0) || 0,
+          custo_lancamento: roundMoney(Number(cached.custo_lancamento ?? 0)),
+        };
+      }
+
+      const tipo = row.tipo_hora_id ? tiposMap.get(String(row.tipo_hora_id)) : null;
+      const fator = Number(row.fator_aplicado ?? tipo?.fator ?? 1) || 1;
+      const valorHora = pickValorHora(String(row.colaborador_id), row.data);
+      const horas = Number(row.horas ?? 0) || 0;
+
+      return {
+        ...row,
+        colaborador_nome: colaboradoresMap.get(String(row.colaborador_id)) ?? "-",
+        tipo_hora_codigo: tipo?.codigo ?? null,
+        tipo_hora_descricao: tipo?.descricao ?? null,
+        fator,
+        valor_hora: valorHora,
+        custo_lancamento: roundMoney(horas * valorHora * fator),
+      };
+    });
+  }
+
+  async function printOsCompleta() {
+    if (!os) return;
+    setErr(null);
+    setPrintingOs(true);
+
+    try {
+      const apontamentosRows = await loadApontamentosRowsForPrint();
+      const hhRows = apontamentosRows.length === 0 ? await loadHhRowsForPrint() : [];
+      const hasItens = rows.length > 0;
+      const hasApontamentos = apontamentosRows.length > 0;
+      const hasHoras = hasApontamentos || hhRows.length > 0;
+
+      if (!hasItens && !hasHoras) {
+        setErr("Esta OS nao tem itens nem horas para imprimir.");
+        return;
+      }
+
+      const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+      const autoTable = autoTableMod.default;
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const marginX = 40;
+      let y = 42;
+
+      const itensOrdenados = [...rows].sort((a, b) => a.id - b.id);
+      const itensMateriais = itensOrdenados.filter((row) => !isDespesaRow(row));
+      const itensDespesas = itensOrdenados.filter((row) => isDespesaRow(row));
+      const hasItensMateriais = itensMateriais.length > 0;
+      const hasItensDespesas = itensDespesas.length > 0;
+      const totalMaterial = roundMoney(totais.materiais);
+      const totalDespesas = roundMoney(totais.despesas);
+      const totalHoras = hasApontamentos
+        ? roundMoney(apontamentosRows.reduce((sum, row) => sum + Number(row.horas ?? 0), 0))
+        : roundMoney(hhRows.reduce((sum, row) => sum + getHorasTrabalhadasEfetivas(row), 0));
+      const totalHorasValor = hasApontamentos
+        ? roundMoney(apontamentosRows.reduce((sum, row) => sum + Number(row.custo_lancamento ?? 0), 0))
+        : calcHhPedidoTotal(hhRows);
+      const valorHorasResumo = hhEnabled ? roundMoney(totalHorasValor) : roundMoney(Number(maoObraExtra || totalHorasValor || 0));
+      const totalImpostos = roundMoney(totais.impostos);
+      const totalGeral = roundMoney(totais.total);
+      const valorPedido = Number(os.orcado ?? 0);
+      const margem = roundMoney(valorPedido - totalGeral);
+      const margemLabel = margem >= 0 ? "Margem de lucro" : "Margem de prejuizo";
+      const formatSignedMoney = (value: number) =>
+        value < 0 ? `-R$ ${formatMoney(Math.abs(value))}` : `R$ ${formatMoney(value)}`;
+
+      doc.setFontSize(14);
+      doc.text(`OS ${os.numero_os ?? os.id}`, marginX, y);
+      y += 16;
+
+      doc.setFontSize(10);
+      doc.text(`Cliente: ${os.cliente_nome ?? "-"}`, marginX, y);
+      y += 14;
+
+      doc.text(`Emissao: ${new Date().toLocaleString("pt-BR")}`, marginX, y);
+      y += 14;
+
+      const descricao = String(os.descricao_servico ?? "").trim();
+      if (descricao) {
+        const descricaoLinhas = doc.splitTextToSize(`Servico: ${descricao}`, 515);
+        doc.text(descricaoLinhas, marginX, y);
+        y += descricaoLinhas.length * 12;
+      }
+
+      doc.setFontSize(11);
+      doc.text("Itens", marginX, y);
+
+      if (hasItensMateriais) {
+        const itensBody = itensMateriais.map((row) => {
+          const codigo = row.itens?.codigo_interno ?? "";
+          const nome = row.itens?.nome ?? "";
+          const quantidade = formatDecimalBR(Number(row.quantidade ?? 0), 3);
+          const valorUnitario = formatMoney(Number(row.valor_unitario ?? 0));
+          const total = formatMoney(Number(row.valor_total ?? 0));
+          return [
+            String(row.item_id ?? ""),
+            String(codigo),
+            String(nome),
+            String(quantidade),
+            String(valorUnitario),
+            String(total),
+          ];
+        });
+
+        autoTable(doc, {
+          startY: y + 12,
+          margin: { left: marginX, right: marginX },
+          head: [["Item ID", "Codigo", "Nome", "Qtd", "V.Unit", "Total"]],
+          body: itensBody,
+          styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak" },
+          headStyles: { fillColor: [30, 41, 59] },
+          columnStyles: {
+            0: { cellWidth: 56 },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 240 },
+            3: { cellWidth: 50, halign: "right" },
+            4: { cellWidth: 60, halign: "right" },
+            5: { cellWidth: 60, halign: "right" },
+          },
+        });
+      } else {
+        doc.setFontSize(10);
+        doc.text("Nenhum item lancado nesta OS.", marginX, y + 16);
+      }
+
+      const itensFinalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
+      let nextY = typeof itensFinalY === "number" ? itensFinalY + 22 : y + 36;
+
+      doc.setFontSize(11);
+      doc.text("Despesas", marginX, nextY);
+
+      if (hasItensDespesas) {
+        const despesasBody = itensDespesas.map((row) => {
+          const codigo = row.itens?.codigo_interno ?? "";
+          const nome = row.itens?.nome ?? "";
+          const quantidade = formatDecimalBR(Number(row.quantidade ?? 0), 3);
+          const valorUnitario = formatMoney(Number(row.valor_unitario ?? 0));
+          const total = formatMoney(Number(row.valor_total ?? 0));
+          return [
+            String(row.item_id ?? ""),
+            String(codigo),
+            String(nome),
+            String(quantidade),
+            String(valorUnitario),
+            String(total),
+          ];
+        });
+
+        autoTable(doc, {
+          startY: nextY + 12,
+          margin: { left: marginX, right: marginX },
+          head: [["Item ID", "Codigo", "Despesa", "Qtd", "V.Unit", "Total"]],
+          body: despesasBody,
+          styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak" },
+          headStyles: { fillColor: [30, 41, 59] },
+          columnStyles: {
+            0: { cellWidth: 56 },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 240 },
+            3: { cellWidth: 50, halign: "right" },
+            4: { cellWidth: 60, halign: "right" },
+            5: { cellWidth: 60, halign: "right" },
+          },
+        });
+        const despesasFinalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
+        nextY = typeof despesasFinalY === "number" ? despesasFinalY + 22 : nextY + 36;
+      } else {
+        doc.setFontSize(10);
+        doc.text("Nenhuma despesa lancada nesta OS.", marginX, nextY + 16);
+        nextY += 36;
+      }
+
+      doc.setFontSize(11);
+      doc.text("Horas lancadas", marginX, nextY);
+
+      if (hasApontamentos) {
+        const horasBody = apontamentosRows.map((row) => {
+          const colaborador = String(row.colaborador_nome ?? "-").trim() || "-";
+          const descricao = String(row.descricao ?? "").trim();
+          const pessoa = descricao ? `${colaborador}\n${descricao}` : colaborador;
+          const tipo =
+            String(row.tipo_hora_codigo ?? "").trim() ||
+            String(row.tipo_hora_descricao ?? "").trim() ||
+            (Number(row.fator ?? 1) !== 1 ? `Fator ${formatDecimalBR(Number(row.fator ?? 1), 3)}` : "NORMAL");
+
+          return [
+            formatDateBR(row.data),
+            pessoa,
+            formatPeriodoApontamento(row),
+            tipo,
+            formatHoursBR(Number(row.horas ?? 0)),
+            formatMoney(Number(row.valor_hora ?? 0)),
+            formatMoney(Number(row.custo_lancamento ?? 0)),
+          ];
+        });
+
+        autoTable(doc, {
+          startY: nextY + 12,
+          margin: { left: marginX, right: marginX },
+          head: [["Data", "Colaborador / Descricao", "Horario", "Tipo", "Horas", "V.Hora", "Total"]],
+          body: horasBody,
+          styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak", valign: "top" },
+          headStyles: { fillColor: [30, 41, 59] },
+          columnStyles: {
+            0: { cellWidth: 52 },
+            1: { cellWidth: 160 },
+            2: { cellWidth: 78 },
+            3: { cellWidth: 70 },
+            4: { cellWidth: 42, halign: "right" },
+            5: { cellWidth: 50, halign: "right" },
+            6: { cellWidth: 52, halign: "right" },
+          },
+        });
+        const horasFinalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
+        nextY = typeof horasFinalY === "number" ? horasFinalY + 22 : nextY + 36;
+      } else if (hasHoras) {
+        const horasBody = hhRows.map((row) => {
+          const colaborador = String(row.colaborador_nome ?? "-").trim() || "-";
+          const funcao = String(row.especialidade_descricao ?? "-").trim() || "-";
+          const horas = getHorasTrabalhadasEfetivas(row);
+          const total = getValorTotalEfetivo(row, horas);
+          const pessoa = funcao && funcao !== "-" ? `${colaborador}\n${funcao}` : colaborador;
+
+          return [
+            formatDateBR(row.data),
+            pessoa,
+            formatPeriodoHH(row),
+            formatHoursBR(horas),
+            formatMoney(Number(row.valor_hora ?? 0)),
+            formatMoney(total),
+          ];
+        });
+
+        autoTable(doc, {
+          startY: nextY + 12,
+          margin: { left: marginX, right: marginX },
+          head: [["Data", "Colaborador / Funcao", "Horario", "Horas", "V.Hora", "Total"]],
+          body: horasBody,
+          styles: { fontSize: 9, cellPadding: 4, overflow: "linebreak", valign: "top" },
+          headStyles: { fillColor: [30, 41, 59] },
+          columnStyles: {
+            0: { cellWidth: 58 },
+            1: { cellWidth: 205 },
+            2: { cellWidth: 110 },
+            3: { cellWidth: 50, halign: "right" },
+            4: { cellWidth: 60, halign: "right" },
+            5: { cellWidth: 60, halign: "right" },
+          },
+        });
+        const horasFinalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
+        nextY = typeof horasFinalY === "number" ? horasFinalY + 22 : nextY + 36;
+      } else {
+        doc.setFontSize(10);
+        doc.text("Nenhuma hora lancada nesta OS.", marginX, nextY + 16);
+        nextY += 36;
+      }
+
+      autoTable(doc, {
+        startY: nextY,
+        margin: { left: marginX, right: marginX },
+        head: [["Resumo", "Valor"]],
+        body: [
+          ["Total horas", `${formatHoursBR(totalHoras)} h`],
+          ["Valor horas", `R$ ${formatMoney(valorHorasResumo)}`],
+          ["Total material", `R$ ${formatMoney(totalMaterial)}`],
+          ["Total despesas", `R$ ${formatMoney(totalDespesas)}`],
+          ["Impostos", `R$ ${formatMoney(totalImpostos)}`],
+          ["Total geral", `R$ ${formatMoney(totalGeral)}`],
+        ],
+        styles: { fontSize: 10, cellPadding: 4 },
+        headStyles: { fillColor: [30, 41, 59] },
+        columnStyles: {
+          0: { cellWidth: 220 },
+          1: { cellWidth: 140, halign: "right" },
+        },
+      });
+
+      const resumoFinalY = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY;
+      const analiticoStartY = typeof resumoFinalY === "number" ? resumoFinalY + 18 : nextY + 90;
+
+      autoTable(doc, {
+        startY: analiticoStartY,
+        margin: { left: marginX, right: marginX },
+        head: [["Analitico", "Valor"]],
+        body: [
+          ["Valor pedido", `R$ ${formatMoney(valorPedido)}`],
+          ["Valor execucao", `R$ ${formatMoney(totalGeral)}`],
+          [margemLabel, formatSignedMoney(margem)],
+        ],
+        styles: { fontSize: 10, cellPadding: 4 },
+        headStyles: { fillColor: [30, 41, 59] },
+        columnStyles: {
+          0: { cellWidth: 220 },
+          1: { cellWidth: 140, halign: "right" },
+        },
+      });
+
+      doc.autoPrint();
+      const url = doc.output("bloburl");
+      const w = window.open(url, "_blank");
+      if (!w) {
+        doc.save(`OS_${os.numero_os ?? os.id}_completa.pdf`);
+      }
+    } catch (e) {
+      console.error(e);
+      setErr("Falha ao gerar impressao da OS.");
+    } finally {
+      setPrintingOs(false);
+    }
+  }
+
   const editClienteHabilitaHH = useMemo(() => {
     if (!clienteId) return false;
     const found = clientes.find((c) => c.id === clienteId);
@@ -334,12 +1023,27 @@ export default function OsDetailPage() {
     }
   }, [activeTab, hhEnabled]);
 
+  useEffect(() => {
+    setFound([]);
+    setPick(null);
+    setQ("");
+    setQty("1");
+    setVunit(0);
+    setEstoqueAtual(null);
+    setBaixaDireta(false);
+    setErr(null);
+  }, [addMode]);
+
   const orcado = toNum(os?.orcado);
   const hhPedidoTotal = Number(hhPedido || 0) || Number(hhTotal || 0);
 
   const totais = (() => {
+    const despesas = rows
+      .filter((r) => isDespesaRow(r))
+      .reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
+
     const materiais = rows
-      .filter((r) => r.itens?.tipo === "produto")
+      .filter((r) => !isDespesaRow(r) && r.itens?.tipo === "produto")
       .reduce((sum, r) => sum + Number(r.valor_total ?? 0), 0);
 
     // Mão de obra é CUSTO (vw_custo_mao_obra_os)
@@ -356,21 +1060,21 @@ export default function OsDetailPage() {
     if (hhEnabled) {
       // HH: 19% sobre o total de HH
       impostos = hhPedidoTotal * 0.15;
-      total = hhPedidoTotal;
+      total = hhPedidoTotal + despesas;
     } else if (tipoPedidoAtual === "material") {
       // Tem material: 21% sobre material
       impostos = orcado * 0.27;
-      total = materiais + maoObra + impostos;
+      total = materiais + despesas + maoObra + impostos;
     } else {
       // Serviço normal: 19% sobre total (material + mão de obra)
       impostos = orcado * 0.15;
-      total = materiais + maoObra + impostos;
+      total = materiais + despesas + maoObra + impostos;
     }
 
     // Total:
     // - Se HH habilitado: total de HH (que já inclui mão de obra HH)
-    // - Senão: Material + Mão de obra + Impostos
-    return { materiais, maoObra, impostos, total };
+    // - Senão: Material + Despesas + Mão de obra + Impostos
+    return { materiais, despesas, maoObra, impostos, total };
   })();
 
   const totalAlert = !hhEnabled && orcado > 0 && totais.total >= orcado * 0.9;
@@ -936,12 +1640,20 @@ export default function OsDetailPage() {
 
     let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 
+    if (isDespesaMode) {
+      query = query.gte("id", DESPESA_ITEM_ID_MIN).lte("id", DESPESA_ITEM_ID_MAX);
+    }
+
     if (nomeTerm) {
       query = query.or(`nome.ilike.%${nomeTerm}%,codigo_interno.ilike.%${nomeTerm}%`);
     }
     if (fornecedorTerm) query = query.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
 
-    const { data, error } = await query.order("nome", { ascending: true }).limit(50);
+    const { data, error } = await applyTenantEmpresa(
+      query.order("nome", { ascending: true }).limit(50),
+      effectiveTenantId,
+      effectiveEmpresaId
+    );
 
     if (error) {
       setLookupErr(error.message);
@@ -956,13 +1668,17 @@ export default function OsDetailPage() {
 
     const stockMap = new Map<number, number>();
 
-    if (ids.length > 0) {
-      const { data: movData, error: movErr } = await supabase
-        .from("movimentacoes")
-        .select("item_id,data_movimentacao")
-        .eq("tipo", "entrada")
-        .in("item_id", ids)
-        .order("data_movimentacao", { ascending: false });
+    if (ids.length > 0 && !isDespesaMode) {
+      const { data: movData, error: movErr } = await applyTenantEmpresa(
+        supabase
+          .from("movimentacoes")
+          .select("item_id,data_movimentacao")
+          .eq("tipo", "entrada")
+          .in("item_id", ids)
+          .order("data_movimentacao", { ascending: false }),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
 
       if (!movErr) {
         const movRows = (movData ?? []) as MovRow[];
@@ -971,10 +1687,11 @@ export default function OsDetailPage() {
         });
       }
 
-      const { data: estData } = await supabase
-        .from("estoque")
-        .select("item_id,quantidade_atual")
-        .in("item_id", ids);
+      const { data: estData } = await applyTenantEmpresa(
+        supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", ids),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
       const estoqueRows = (estData ?? []) as EstoqueRow[];
       estoqueRows.forEach((e) => {
         stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
@@ -1167,18 +1884,33 @@ export default function OsDetailPage() {
       return;
     }
 
+    if (isDespesaMode && !isDespesaItemId(id)) {
+      setErr(`Selecione uma despesa entre os itens ${DESPESA_ITEM_ID_MIN} e ${DESPESA_ITEM_ID_MAX}.`);
+      openLookupModal(term);
+      return;
+    }
+
     setSearching(true);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("itens")
       .select("id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque")
-      .eq("id", id)
-      .maybeSingle();
+      .eq("id", id);
+
+    if (isDespesaMode) {
+      query = query.gte("id", DESPESA_ITEM_ID_MIN).lte("id", DESPESA_ITEM_ID_MAX);
+    }
+
+    const { data, error } = await applyTenantEmpresa(query.maybeSingle(), effectiveTenantId, effectiveEmpresaId);
 
     setSearching(false);
 
     if (error || !data) {
-      setErr("Item nao encontrado pelo ID informado. Use a busca por nome/fabricante.");
+      setErr(
+        isDespesaMode
+          ? "Despesa nao encontrada pelo ID informado. Use a busca por nome/fornecedor."
+          : "Item nao encontrado pelo ID informado. Use a busca por nome/fabricante."
+      );
       openLookupModal();
       return;
     }
@@ -1192,18 +1924,23 @@ export default function OsDetailPage() {
     setQ(`${it.codigo_interno} - ${it.nome}`);
     setQty("1");
     setVunit(calculateUnitPriceWithTaxes(it));
-    setEstoqueAtual(
-      typeof (it as ItemLookupRow).estoque_atual === "number"
-        ? Number((it as ItemLookupRow).estoque_atual ?? 0)
-        : null
-    );
-    if (Number.isFinite(it.id) && it.id > 0) {
+    if (isDespesaMode) {
+      setEstoqueAtual(null);
+      setBaixaDireta(false);
+    } else {
+      setEstoqueAtual(
+        typeof (it as ItemLookupRow).estoque_atual === "number"
+          ? Number((it as ItemLookupRow).estoque_atual ?? 0)
+          : null
+      );
+    }
+    if (!isDespesaMode && Number.isFinite(it.id) && it.id > 0) {
       void (async () => {
-        const { data } = await supabase
-          .from("estoque")
-          .select("quantidade_atual")
-          .eq("item_id", it.id)
-          .maybeSingle();
+        const { data } = await applyTenantEmpresa(
+          supabase.from("estoque").select("quantidade_atual").eq("item_id", it.id).maybeSingle(),
+          effectiveTenantId,
+          effectiveEmpresaId
+        );
         setEstoqueAtual(data?.quantidade_atual ?? null);
       })();
     }
@@ -1214,13 +1951,19 @@ export default function OsDetailPage() {
   }
 
   async function addItem() {
-    if (!pick) return setErr("Selecione um item.");
+    if (!pick) return setErr(isDespesaMode ? "Selecione uma despesa." : "Selecione um item.");
     if (!empresaId) return setErr("Selecione uma empresa antes de adicionar itens.");
-    if ((pick.finalidade ?? "") !== "materia_prima") return setErr("Apenas itens de materia-prima podem ser adicionados.");
+    if (isDespesaMode) {
+      if (!isDespesaItemId(pick.id)) {
+        return setErr(`Selecione uma despesa entre os itens ${DESPESA_ITEM_ID_MIN} e ${DESPESA_ITEM_ID_MAX}.`);
+      }
+    } else if ((pick.finalidade ?? "") !== "materia_prima") {
+      return setErr("Apenas itens de materia-prima podem ser adicionados.");
+    }
     const qtyNumber = parseDecimalBR(qty);
     if (!Number.isFinite(qtyNumber) || qtyNumber <= 0) return setErr("Quantidade invalida.");
     if (vunit < 0) return setErr("Valor unitario invalido.");
-    const baixaNaInclusao = baixaDireta && Boolean(pick.controla_estoque);
+    const baixaNaInclusao = !isDespesaMode && baixaDireta && Boolean(pick.controla_estoque);
 
     if (baixaNaInclusao) {
       let saldo = typeof estoqueAtual === "number" ? Number(estoqueAtual ?? 0) : null;
@@ -1254,7 +1997,11 @@ export default function OsDetailPage() {
       p_valor_unitario: Number(vunit),
       p_baixa_estoque: baixaNaInclusao,
       p_realizado_por: userEmail,
-      p_motivo: baixaNaInclusao ? "Adicao pela tela da OS (baixa imediata)" : "Adicao pela tela da OS (sem baixa)",
+      p_motivo: baixaNaInclusao
+        ? "Adicao pela tela da OS (baixa imediata)"
+        : isDespesaMode
+          ? "Adicao de despesa pela tela da OS"
+          : "Adicao pela tela da OS (sem baixa)",
       p_empresa_id: empresaId,
     });
 
@@ -1391,6 +2138,10 @@ export default function OsDetailPage() {
                   <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.maoObra)}`}</span>
                 </span>
                 <span>
+                  - Despesas:{" "}
+                  <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.despesas)}`}</span>
+                </span>
+                <span>
                   - Impostos:{" "}
                   <span className="text-zinc-200 tabular-nums">{hideTotais ? "—" : `R$ ${formatMoney(totais.impostos)}`}</span>
                 </span>
@@ -1487,29 +2238,56 @@ export default function OsDetailPage() {
 
       {!hhEnabled && (
         <>
-          {/* Adicionar item */}
+          {/* Adicionar item / despesa */}
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
+        <div className="mb-4 flex items-end gap-2 border-b border-zinc-800">
+          <button
+            type="button"
+            onClick={() => setAddMode("item")}
+            className={[
+              "px-4 py-2 rounded-t-md border border-b-0 text-sm font-medium transition-colors",
+              !isDespesaMode
+                ? "border-zinc-700 bg-zinc-900 text-zinc-100"
+                : "border-transparent bg-transparent text-zinc-400 hover:text-zinc-200",
+            ].join(" ")}
+          >
+            Adicionar item
+          </button>
+          <button
+            type="button"
+            onClick={() => setAddMode("despesa")}
+            className={[
+              "px-4 py-2 rounded-t-md border border-b-0 text-sm font-medium transition-colors",
+              isDespesaMode
+                ? "border-zinc-700 bg-zinc-900 text-zinc-100"
+                : "border-transparent bg-transparent text-zinc-400 hover:text-zinc-200",
+            ].join(" ")}
+          >
+            Adicionar despesa
+          </button>
+        </div>
+
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <div className="font-medium">Adicionar item</div>
-            <div className="text-sm text-zinc-400 mt-1">
-              Inclusao sem baixa por padrao. Marque &quot;Baixa direta&quot; para baixar no ato quando houver saldo.
-            </div>
+            <div className="font-medium">{addSectionTitle}</div>
+            <div className="text-sm text-zinc-400 mt-1">{addSectionDescription}</div>
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-2 text-sm text-zinc-200 select-none">
-              <input
-                type="checkbox"
-                checked={baixaDireta}
-                onChange={(e) => setBaixaDireta(e.target.checked)}
-                disabled={locked}
-              />
-              Baixa direta
-            </label>
+            {!isDespesaMode && (
+              <label className="inline-flex items-center gap-2 text-sm text-zinc-200 select-none">
+                <input
+                  type="checkbox"
+                  checked={baixaDireta}
+                  onChange={(e) => setBaixaDireta(e.target.checked)}
+                  disabled={locked}
+                />
+                Baixa direta
+              </label>
+            )}
             <button
               onClick={addItem}
-              disabled={busy || locked || !isMateriaPrima}
+              disabled={busy || locked || !canAddPickedItem}
               className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
             >
               {busy ? "Aguarde..." : "Adicionar"}
@@ -1524,18 +2302,28 @@ export default function OsDetailPage() {
             >
               {printingItens ? "Imprimindo..." : "Imprimir itens"}
             </button>
+
+            <button
+              type="button"
+              onClick={() => void printOsCompleta()}
+              disabled={printingOs || !os}
+              className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 font-medium"
+              title={!os ? "Carregando OS" : "Imprimir OS completa"}
+            >
+              {printingOs ? "Imprimindo OS..." : "Imprimir OS"}
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mt-4">
-          <div className="md:col-span-3 space-y-1 relative">
-            <div className="text-xs text-zinc-400">Buscar item</div>
+          <div className={`space-y-1 relative ${isDespesaMode ? "md:col-span-4" : "md:col-span-3"}`}>
+            <div className="text-xs text-zinc-400">{addSearchLabel}</div>
             <div className="flex gap-2">
               <input
                 className="w-full px-3 py-2"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="ID do item (ex: 123). Enter abre localizacao se nao souber."
+                placeholder={addSearchPlaceholder}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -1543,8 +2331,8 @@ export default function OsDetailPage() {
                   }
                 }}
                 disabled={locked}
-                aria-label="Buscar item"
-                title="Buscar item"
+                aria-label={addSearchLabel}
+                title={addSearchLabel}
               />
               <button
                 onClick={searchItems}
@@ -1589,8 +2377,8 @@ export default function OsDetailPage() {
                 }
               }}
               disabled={locked}
-              aria-label="Quantidade do item"
-              title="Quantidade do item"
+              aria-label="Quantidade"
+              title="Quantidade"
             />
           </div>
 
@@ -1612,17 +2400,22 @@ export default function OsDetailPage() {
             )}
           </div>
 
-          <div className="md:col-span-1 space-y-1">
-            <div className="text-xs text-zinc-400">Estoque</div>
-            <div className="w-full px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-200">
-              {typeof estoqueAtual === "number" ? formatDecimalBR(estoqueAtual, 3) : "-"}
+          {!isDespesaMode && (
+            <div className="md:col-span-1 space-y-1">
+              <div className="text-xs text-zinc-400">Estoque</div>
+              <div className="w-full px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-200">
+                {typeof estoqueAtual === "number" ? formatDecimalBR(estoqueAtual, 3) : "-"}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {pick && (
           <div className="text-sm text-zinc-300 mt-3">
-            Selecionado: <b>[{pick.codigo_interno}] {pick.nome}</b> ({pick.tipo})
+            Selecionado: <b>[{pick.codigo_interno}] {pick.nome}</b> ({isDespesaMode ? "despesa" : pick.tipo})
+            {isDespesaMode && !isDespesaPick && (
+              <span className="text-amber-300"> | Apenas despesas entre os itens 1 e 99</span>
+            )}
             {!isMateriaPrima && <span className="text-amber-300"> · Apenas materia-prima</span>}
           </div>
         )}
@@ -1881,8 +2674,8 @@ export default function OsDetailPage() {
                 <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-lg font-semibold">Localizar item</div>
-                  <div className="text-sm text-zinc-400">Filtre por nome, codigo ou fabricante para localizar o ID.</div>
+                      <div className="text-lg font-semibold">{lookupTitle}</div>
+                      <div className="text-sm text-zinc-400">{lookupDescription}</div>
                     </div>
                     <button
                       onClick={() => setShowLookup(false)}
