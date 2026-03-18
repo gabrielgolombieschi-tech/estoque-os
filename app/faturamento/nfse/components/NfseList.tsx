@@ -46,6 +46,7 @@ type PagamentoMeta = {
   status: PagamentoStatus;
   pago: number;
   aPagar: number;
+  atrasado: number;
 };
 
 type ClienteRow = { id: number; nome: string };
@@ -153,9 +154,9 @@ function pagamentoRowClass(status: PagamentoStatus): string {
 function buildPagamentoFallback(row: DocumentoFiscalRow): PagamentoMeta {
   const total = Math.max(0, n(row.valor_total));
   if (total <= PAYMENT_EPSILON) {
-    return { status: "PAGO", pago: 0, aPagar: 0 };
+    return { status: "PAGO", pago: 0, aPagar: 0, atrasado: 0 };
   }
-  return { status: "A_PAGAR", pago: 0, aPagar: total };
+  return { status: "A_PAGAR", pago: 0, aPagar: total, atrasado: 0 };
 }
 
 function computePagamentoMeta(
@@ -173,11 +174,31 @@ function computePagamentoMeta(
 
   const pago = Math.max(0, totalTitulos - totalAberto);
   const aPagar = Math.max(0, totalAberto);
-  const atrasado = aPagar > PAYMENT_EPSILON && parcelasEmAberto.some((parcela) => isPastDue(parcela.vencimento_date));
+  const valorAtrasado = parcelasEmAberto.reduce(
+    (sum, parcela) => (isPastDue(parcela.vencimento_date) ? sum + Math.max(0, n(parcela.valor_aberto)) : sum),
+    0
+  );
   const status: PagamentoStatus =
-    aPagar <= PAYMENT_EPSILON ? "PAGO" : atrasado ? "ATRASADO" : "A_PAGAR";
+    aPagar <= PAYMENT_EPSILON ? "PAGO" : valorAtrasado > PAYMENT_EPSILON ? "ATRASADO" : "A_PAGAR";
 
-  return { status, pago, aPagar };
+  return { status, pago, aPagar, atrasado: Math.max(0, valorAtrasado) };
+}
+
+function pagamentoResumoLabel(filtro: PagamentoFiltro): string {
+  if (filtro === "PAGOS") return "Total pago";
+  if (filtro === "A_PAGAR") return "Total a receber";
+  if (filtro === "ATRASADOS") return "Total em atraso";
+  return "Valor total filtrado";
+}
+
+function pagamentoResumoValor(
+  filtro: PagamentoFiltro,
+  totals: { valor: number; pago: number; aPagar: number; atrasado: number }
+): number {
+  if (filtro === "PAGOS") return totals.pago;
+  if (filtro === "A_PAGAR") return totals.aPagar;
+  if (filtro === "ATRASADOS") return totals.atrasado;
+  return totals.valor;
 }
 
 export default function NfseList() {
@@ -444,6 +465,26 @@ export default function NfseList() {
     });
   }, [clientesById, docs, pagamentoFiltro, pagamentosByDocId, search, status]);
 
+  const resumoFiltro = useMemo(() => {
+    const totals = filtered.reduce(
+      (acc, row) => {
+        const pagamento = pagamentosByDocId[String(row.id)] ?? buildPagamentoFallback(row);
+        acc.valor += Math.max(0, n(row.valor_total));
+        acc.pago += pagamento.pago;
+        acc.aPagar += pagamento.aPagar;
+        acc.atrasado += pagamento.atrasado;
+        return acc;
+      },
+      { valor: 0, pago: 0, aPagar: 0, atrasado: 0 }
+    );
+
+    return {
+      label: pagamentoResumoLabel(pagamentoFiltro),
+      value: pagamentoResumoValor(pagamentoFiltro, totals),
+      ...totals,
+    };
+  }, [filtered, pagamentoFiltro, pagamentosByDocId]);
+
   const headerRight = (
     <div className="flex items-center gap-2">
       <button
@@ -537,6 +578,32 @@ export default function NfseList() {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-4">
+        <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Resumo</div>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="text-sm text-zinc-400">{resumoFiltro.label}</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-100">
+              {formatMoneyBR(resumoFiltro.value)}
+            </div>
+          </div>
+          <div className="grid gap-2 text-right sm:grid-cols-3 sm:gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Pago</div>
+              <div className="text-sm font-medium tabular-nums text-emerald-300">{formatMoneyBR(resumoFiltro.pago)}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">A receber</div>
+              <div className="text-sm font-medium tabular-nums text-amber-200">{formatMoneyBR(resumoFiltro.aPagar)}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Em atraso</div>
+              <div className="text-sm font-medium tabular-nums text-rose-300">{formatMoneyBR(resumoFiltro.atrasado)}</div>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
+import { isNfseSerieCompatible, normalizeNfseNumeroIdentity } from "@/lib/nfse/identity";
 import NfseItensEditor, { type NfseServicoForm } from "./NfseItensEditor";
 import NfseIssCard from "./NfseIssCard";
 
@@ -52,6 +53,14 @@ type ImpostoRow = {
 };
 
 type ClienteRow = { id: number; nome: string };
+
+type DuplicateNfseRow = {
+  id: string;
+  emissao_date: string | null;
+  serie: string | null;
+  numero: string | null;
+  chave_acesso: string | null;
+};
 
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -352,6 +361,62 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
     return null;
   };
 
+  const findDuplicateForNewDoc = async ({
+    clienteIdToCheck,
+    emissao,
+    serieValue,
+    numeroValue,
+    chaveValue,
+  }: {
+    clienteIdToCheck: number | null;
+    emissao: string;
+    serieValue: string;
+    numeroValue: string;
+    chaveValue: string;
+  }) => {
+    if (!clienteIdToCheck) return null;
+
+    const year = emissao.slice(0, 4);
+    if (!/^\d{4}$/.test(year)) return null;
+
+    const numeroIdentidade = normalizeNfseNumeroIdentity(numeroValue, emissao);
+    if (!numeroIdentidade) return null;
+
+    const supabase = supabaseBrowser();
+    const { data, error } = await applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("documento_fiscal")
+        .select("id,emissao_date,serie,numero,chave_acesso")
+        .eq("operacao", "SAIDA")
+        .eq("natureza", "SERVICO")
+        .eq("modelo", "NFSE")
+        .eq("cliente_id", clienteIdToCheck)
+        .gte("emissao_date", `${year}-01-01`)
+        .lte("emissao_date", `${year}-12-31`)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      tenantId,
+      empresaId
+    ).returns<DuplicateNfseRow[]>();
+    if (error) throw error;
+
+    return (
+      (data ?? []).find((row) => {
+        if (!row?.id) return false;
+
+        const existingKey = String(row.chave_acesso ?? "").trim();
+        if (existingKey && existingKey === chaveValue) return true;
+
+        const existingNumeroIdentidade = normalizeNfseNumeroIdentity(row.numero, row.emissao_date);
+        if (!existingNumeroIdentidade || existingNumeroIdentidade !== numeroIdentidade) return false;
+
+        return isNfseSerieCompatible(row.serie, serieValue);
+      }) ?? null
+    );
+  };
+
   const buildPayload = (forceStatus: string) => {
     const serieTrim = serie.trim();
     const numeroTrim = numero.trim();
@@ -451,6 +516,21 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
 
     try {
       const { docPayload, itemsPayload, issPayload } = buildPayload(forceStatus);
+
+      if (!docId) {
+        const duplicate = await findDuplicateForNewDoc({
+          clienteIdToCheck: clienteId,
+          emissao: String(docPayload.emissao_date ?? ""),
+          serieValue: String(docPayload.serie ?? ""),
+          numeroValue: String(docPayload.numero ?? ""),
+          chaveValue: String(docPayload.chave_acesso ?? ""),
+        });
+        if (duplicate) {
+          const serieDup = String(duplicate.serie ?? "").trim() || "-";
+          const numeroDup = String(duplicate.numero ?? "").trim() || "-";
+          throw new Error(`Ja existe uma NFS-e potencialmente duplicada: ${serieDup}/${numeroDup} (ID ${duplicate.id}).`);
+        }
+      }
 
       const baseDoc = supabase.schema("f").from("documento_fiscal");
       const qDoc = docId

@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
+import { digitsOnly, isNfseSerieCompatible, normalizeNfseNumeroIdentity } from "@/lib/nfse/identity";
 import { parseNfseXml, type ParsedNfse } from "@/lib/nfse/parseNfseXml";
-
-function digitsOnly(value: string | null | undefined): string {
-  return String(value ?? "").replace(/\D/g, "");
-}
 
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -45,6 +42,18 @@ type ImportResultRow = {
   status: string | null;
   message: string | null;
   documento_fiscal_id: string | null;
+};
+
+type ClienteDocRow = {
+  id: number;
+};
+
+type DuplicateNfseRow = {
+  id: string;
+  emissao_date: string | null;
+  serie: string | null;
+  numero: string | null;
+  chave_acesso: string | null;
 };
 
 type ParcelaForm = {
@@ -141,7 +150,61 @@ export default function ImportNfseXmlModal({
     return `NFSE:${prestador}:${p.serie}:${p.numero}`;
   };
 
-  const checkDuplicate = async (key: string) => {
+  const findPotentialDuplicate = async (p: ParsedNfse, key: string) => {
+    const year = String(p.data_emissao ?? "").slice(0, 4);
+    if (!/^\d{4}$/.test(year)) return null;
+
+    const numeroIdentidade = normalizeNfseNumeroIdentity(p.numero, p.data_emissao);
+    const tomadorDocumento = digitsOnly(p.tomador_documento);
+    if (!numeroIdentidade || !tomadorDocumento) return null;
+
+    const supabase = supabaseBrowser();
+
+    const { data: clientes, error: cliErr } = await applyTenantEmpresa(
+      supabase.from("clientes").select("id").eq("documento", tomadorDocumento).limit(10),
+      tenantId,
+      empresaId
+    ).returns<ClienteDocRow[]>();
+    if (cliErr) throw cliErr;
+
+    const clienteIds = Array.from(new Set((clientes ?? []).map((row) => row.id).filter((id) => Number.isFinite(id))));
+    if (!clienteIds.length) return null;
+
+    const { data: docs, error: docsErr } = await applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("documento_fiscal")
+        .select("id,emissao_date,serie,numero,chave_acesso")
+        .eq("operacao", "SAIDA")
+        .eq("natureza", "SERVICO")
+        .eq("modelo", "NFSE")
+        .in("cliente_id", clienteIds)
+        .gte("emissao_date", `${year}-01-01`)
+        .lte("emissao_date", `${year}-12-31`)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      tenantId,
+      empresaId
+    ).returns<DuplicateNfseRow[]>();
+    if (docsErr) throw docsErr;
+
+    return (
+      (docs ?? []).find((row) => {
+        if (!row?.id) return false;
+
+        const existingKey = String(row.chave_acesso ?? "").trim();
+        if (existingKey && existingKey === key) return true;
+
+        const existingNumeroIdentidade = normalizeNfseNumeroIdentity(row.numero, row.emissao_date);
+        if (!existingNumeroIdentidade || existingNumeroIdentidade !== numeroIdentidade) return false;
+
+        return isNfseSerieCompatible(row.serie, p.serie);
+      }) ?? null
+    );
+  };
+
+  const checkDuplicate = async (key: string, p: ParsedNfse) => {
     if (!ready) return;
     if (!tenantId) return;
 
@@ -168,6 +231,13 @@ export default function ImportNfseXmlModal({
       if (data?.id) {
         setAlreadyImportedId(String(data.id));
         setOk("Este XML ja foi importado. Reimportacao bloqueada.");
+        return;
+      }
+
+      const duplicate = await findPotentialDuplicate(p, key);
+      if (duplicate?.id) {
+        setAlreadyImportedId(String(duplicate.id));
+        setOk("Ja existe uma NFS-e potencialmente equivalente cadastrada. Revise antes de importar novamente.");
       }
     } catch {
       setAlreadyImportedId("");
@@ -203,7 +273,7 @@ export default function ImportNfseXmlModal({
 
       const chave = buildChave(p);
       setChaveAcesso(chave);
-      await checkDuplicate(chave);
+      await checkDuplicate(chave, p);
     } catch (e: unknown) {
       setError(getErrorMessage(e, "Falha ao ler XML."));
     }
@@ -235,7 +305,7 @@ export default function ImportNfseXmlModal({
     if (!file) return setError("Selecione um arquivo XML.");
     if (!parsed) return setError("Nao foi possivel interpretar o XML.");
     if (!tenantId || !empresaId) return setError("Contexto de tenant/empresa incompleto.");
-    if (alreadyImportedId) return setError("Este XML ja foi importado. Reimportacao bloqueada.");
+    if (alreadyImportedId) return setError(ok ?? "Ja existe uma NFS-e equivalente cadastrada. Importacao bloqueada.");
     if (qtdPagamentos < 1) return setError("Informe ao menos 1 pagamento.");
 
     const pagamentos = parcelas.slice(0, qtdPagamentos).map((p, idx) => {
