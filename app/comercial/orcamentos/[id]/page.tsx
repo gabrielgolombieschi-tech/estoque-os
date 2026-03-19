@@ -1766,7 +1766,7 @@ export default function OrcamentoPage() {
                 onClick={() => {
                   if (!orc?.codigo && !orc?.id) return;
                   const idOrCodigo = encodeURIComponent(String(orc.codigo || orc.id));
-                  const url = `/comercial/orcamentos/${idOrCodigo}/imprimir?auto=1`;
+                  const url = `/comercial/orcamentos/${idOrCodigo}/imprimir`;
                   const w = window.open(url, "_blank", "noopener,noreferrer");
                   if (!w) router.push(url);
                 }}

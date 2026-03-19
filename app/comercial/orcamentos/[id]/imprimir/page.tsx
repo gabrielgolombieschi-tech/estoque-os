@@ -93,6 +93,25 @@ function formatEnderecoCliente(cli: ClienteRow | null) {
   return joinNonEmpty([linha1 || null, linha2 || null, cep || null], " | ") || "-";
 }
 
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string | null>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchImageAsDataUrl(src: string) {
+  try {
+    const res = await fetch(src, { cache: "force-cache" });
+    if (!res.ok) return null;
+    return await blobToDataUrl(await res.blob());
+  } catch {
+    return null;
+  }
+}
+
 export default function OrcamentoImprimirPage() {
   const params = useParams();
   const rawId = (params as Record<string, string | string[] | undefined>)?.id;
@@ -123,6 +142,8 @@ export default function OrcamentoImprimirPage() {
   const [condicaoNome, setCondicaoNome] = useState<string | null>(null);
   const [itemMetaById, setItemMetaById] = useState<Record<number, ItemMetaRow>>({});
   const [estoqueByItemId, setEstoqueByItemId] = useState<Record<number, number>>({});
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfErr, setPdfErr] = useState<string | null>(null);
 
   const didAutoPrintRef = useRef(false);
 
@@ -300,19 +321,267 @@ export default function OrcamentoImprimirPage() {
   const frete = n(orc?.valor_frete);
   const totalProposta = n(orc?.total_liquido);
 
+  async function handleDownloadPdf() {
+    if (!orc) return;
+
+    setPdfErr(null);
+    setDownloadingPdf(true);
+    try {
+      const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+      const autoTable = autoTableMod.default;
+
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      doc.setProperties({
+        title: joinNonEmpty([upperTrim(orc.codigo), upperTrim(orc.titulo) || "ORCAMENTO"], " - ") || "Orcamento",
+        subject: "Orcamento comercial",
+        author: empresa?.razao_social ?? "SEGAU",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pageWidth - margin * 2;
+
+      const card = (x: number, y: number, w: number, h: number) => {
+        doc.setDrawColor(154, 154, 154);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(x, y, w, h, 2.5, 2.5, "S");
+      };
+
+      const writeLabelValue = (label: string, value: string, xLabel: number, xValue: number, y: number, valueWidth: number) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(102, 102, 102);
+        doc.text(label, xLabel, y);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(17, 17, 17);
+        const lines = doc.splitTextToSize(value || "-", valueWidth) as string[];
+        doc.text(lines, xValue, y);
+      };
+
+      const codigoTitulo = joinNonEmpty([upperTrim(orc.codigo), upperTrim(orc.titulo) || "ORCAMENTO"], " - ");
+      const clienteNome = cliente ? upperTrim(cliente.razao_social || cliente.nome) : "-";
+      const clienteContato = joinNonEmpty([cliente?.telefone, cliente?.email], " | ") || "-";
+      const clienteEndereco = formatEnderecoCliente(cliente);
+      const empresaLinha = joinNonEmpty([empresa?.cnpj ? `CNPJ: ${empresa.cnpj}` : null, empresa?.ie ? `IE: ${empresa.ie}` : null], " | ") || "-";
+      const empresaRodape =
+        joinNonEmpty(
+          [empresa?.endereco, joinNonEmpty([empresa?.cidade, empresa?.uf], " - "), vendedor?.email ? `Contato comercial: ${vendedor.email}` : null],
+          " | "
+        ) || "-";
+      const safeFileBase = (upperTrim(orc.codigo) || `orcamento-${idParam}` || "orcamento")
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const logoDataUrl = await fetchImageAsDataUrl("/Segau2.png");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(17, 17, 17);
+      doc.text(codigoTitulo || "ORCAMENTO", pageWidth / 2, 11.5, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(80, 80, 80);
+      doc.text("Pagina:", pageWidth - margin - 18, 9.5, { align: "right" });
+      doc.text("Data:", pageWidth - margin - 18, 13.5, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(17, 17, 17);
+      doc.text("1", pageWidth - margin, 9.5, { align: "right" });
+      doc.text(formatDateBR(orc.emissao_date), pageWidth - margin, 13.5, { align: "right" });
+
+      const topY = 16;
+      const topH = 37;
+      card(margin, topY, contentWidth, topH);
+
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, "PNG", margin + 4, topY + 3, 30, 9);
+        } catch {
+          // ignora falha do logo e segue com o PDF
+        }
+      } else {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text("SEGAU", margin + 4, topY + 8);
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(empresa?.razao_social ?? "SEGAU", margin + 4, topY + 15);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(51, 51, 51);
+      doc.text(doc.splitTextToSize(upperTrim(orc.codigo) || "-", 95) as string[], margin + 4, topY + 19);
+      doc.text(doc.splitTextToSize(empresaLinha, 95) as string[], margin + 4, topY + 24);
+      doc.text(doc.splitTextToSize(empresaRodape, contentWidth - 8) as string[], margin + 4, topY + 33.5);
+
+      doc.setDrawColor(229, 229, 229);
+      doc.line(pageWidth - margin - 88, topY + 3, pageWidth - margin - 88, topY + topH - 6);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(102, 102, 102);
+      doc.text("Dados da Proposta", pageWidth - margin - 4, topY + 6, { align: "right" });
+
+      writeLabelValue("Codigo/Numero", joinNonEmpty([orc.codigo, orc.numero ? `N${orc.numero}` : null], " | ") || "-", pageWidth - margin - 84, pageWidth - margin - 46, topY + 10.5, 42);
+      writeLabelValue("Data", formatDateBR(orc.emissao_date), pageWidth - margin - 84, pageWidth - margin - 46, topY + 15.5, 42);
+      writeLabelValue("Usuario", vendedor?.nome ?? vendedor?.email ?? String(orc.vendedor_usuario_id ?? "-"), pageWidth - margin - 84, pageWidth - margin - 46, topY + 20.5, 42);
+      writeLabelValue("Validade", validade, pageWidth - margin - 84, pageWidth - margin - 46, topY + 25.5, 42);
+      writeLabelValue("Condicao", condicaoNome ?? "(sem)", pageWidth - margin - 84, pageWidth - margin - 46, topY + 30.5, 42);
+      writeLabelValue("Garantia", garantia, pageWidth - margin - 84, pageWidth - margin - 46, topY + 35.5, 42);
+
+      const clienteY = 57;
+      const clienteH = 24;
+      card(margin, clienteY, contentWidth, clienteH);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(17, 17, 17);
+      doc.text("Cliente", margin + 4, clienteY + 6);
+      writeLabelValue("Razao/Nome", clienteNome, margin + 4, margin + 28, clienteY + 11, 110);
+      writeLabelValue("CPF/CNPJ", cliente?.documento ?? "-", margin + 4, margin + 28, clienteY + 16, 110);
+      writeLabelValue("Contato", clienteContato, margin + 4, margin + 28, clienteY + 21, 110);
+      writeLabelValue("Endereco", clienteEndereco, margin + 150, margin + 168, clienteY + 11, 108);
+
+      const body = itens.length
+        ? itens.map((it) => {
+            const meta = itemMetaById[Number(it.item_id)];
+            const codigo = upperTrim(String(it.item_codigo_interno ?? "")) || upperTrim(String(meta?.codigo_interno ?? "")) || "-";
+            const marca = upperTrim(String(meta?.fabricante ?? "")) || "-";
+            const ncm = upperTrim(String(meta?.ncm ?? "")) || "-";
+            const unid = upperTrim(String(it.unidade ?? "")) || upperTrim(String(meta?.unidade_medida ?? "")) || "UN";
+            const itemId = Number(it.item_id);
+            const qtdSolicitada = n(it.quantidade);
+            const estoqueAtual = Number(estoqueByItemId[itemId] ?? 0);
+            const prazoLinha =
+              Number.isFinite(itemId) && Number.isFinite(qtdSolicitada) && estoqueAtual >= qtdSolicitada ? "ENTREGA IMEDIATA" : "A CONFIRMAR";
+
+            return [
+              codigo,
+              upperTrim(String(it.item_nome ?? "")) || "-",
+              marca,
+              unid,
+              ncm,
+              formatDecimalBR(n(it.quantidade)),
+              formatMoneyBR(n(it.valor_unitario_liquido)),
+              formatMoneyBR(n(it.valor_total)),
+              prazoLinha,
+            ];
+          })
+        : [["-", "Nenhum item no orcamento.", "-", "-", "-", "-", "-", "-", "-"]];
+
+      autoTable(doc, {
+        startY: 85,
+        margin: { left: margin, right: margin, top: 85, bottom: 34 },
+        head: [["Codigo", "Produto/Servico", "Marca", "Unid", "NCM", "Qtd", "Valor Unit.", "Valor Total", "Prazo"]],
+        body,
+        theme: "grid",
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.8,
+          overflow: "linebreak",
+          lineColor: [199, 199, 199],
+          lineWidth: 0.15,
+          textColor: [17, 17, 17],
+          valign: "middle",
+        },
+        headStyles: {
+          fillColor: [233, 233, 233],
+          textColor: [17, 17, 17],
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 75 },
+          2: { cellWidth: 24 },
+          3: { cellWidth: 12 },
+          4: { cellWidth: 16 },
+          5: { cellWidth: 12, halign: "right" },
+          6: { cellWidth: 20, halign: "right" },
+          7: { cellWidth: 21, halign: "right" },
+          8: { cellWidth: 24 },
+        },
+      });
+
+      let footerY = ((doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 85) + 4;
+      if (footerY > pageHeight - 34) {
+        doc.addPage();
+        footerY = 18;
+      }
+
+      const footerLeftW = 152;
+      const footerRightW = contentWidth - footerLeftW - 4;
+      const footerH = 28;
+
+      card(margin, footerY, footerLeftW, footerH);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.text("Observacoes", margin + 4, footerY + 6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text(doc.splitTextToSize(upperTrim(String(orc.observacoes ?? "")) || "-", footerLeftW - 8) as string[], margin + 4, footerY + 11);
+
+      card(margin + footerLeftW + 4, footerY, footerRightW, footerH);
+      const totalXLabel = margin + footerLeftW + 8;
+      const totalXValue = margin + footerLeftW + footerRightW;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text("Valor total dos produtos", totalXLabel, footerY + 7);
+      doc.text("Frete", totalXLabel, footerY + 12);
+      doc.setFont("helvetica", "bold");
+      doc.text(formatMoneyBR(totalProdutos), totalXValue - 4, footerY + 7, { align: "right" });
+      doc.text(formatMoneyBR(frete), totalXValue - 4, footerY + 12, { align: "right" });
+      doc.setDrawColor(199, 199, 199);
+      doc.line(margin + footerLeftW + 8, footerY + 16, totalXValue - 4, footerY + 16);
+      doc.text("Total proposta", totalXLabel, footerY + 22);
+      doc.setFontSize(10);
+      doc.text(formatMoneyBR(totalProposta), totalXValue - 4, footerY + 22, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text("Impostos inclusos.", totalXLabel, footerY + 26);
+
+      const pages = doc.getNumberOfPages();
+      for (let i = 1; i <= pages; i += 1) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(90, 90, 90);
+        doc.text(`Pagina ${i} de ${pages}`, pageWidth - margin, pageHeight - 4, { align: "right" });
+      }
+
+      doc.save(`${safeFileBase || "orcamento"}.pdf`);
+    } catch (e: unknown) {
+      console.error(e);
+      setPdfErr(e instanceof Error ? e.message : "Falha ao gerar PDF.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   return (
     <div className="orc-imp-root">
       <style jsx global>{`
         @page {
-          size: A4 landscape;
-          /* Zerar margens do @page evita qualquer "faixa" herdada do tema dark no entorno. */
-          margin: 0;
+          /* Dimensoes fisicas evitam PDF salvo como A4 retrato com metadata de rotacao. */
+          size: 297mm 210mm;
+          page-orientation: upright;
+          margin: 10mm;
         }
 
         html,
         body {
           background: #fff !important;
           color: #111 !important;
+          height: auto !important;
+        }
+        body {
+          margin: 0 !important;
         }
         :root {
           /* Evita o navegador aplicar heuristicas de tema escuro no print. */
@@ -344,12 +613,23 @@ export default function OrcamentoImprimirPage() {
             background: #fff !important;
             color: #111 !important;
           }
+          .orc-imp-sheet {
+            width: auto !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+          }
+          .orc-imp-tableCard {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
         }
 
         .orc-imp-sheet {
+          width: 277mm;
           max-width: 277mm;
           margin: 0 auto;
-          /* Reintroduz a "margem" visual sem depender do @page margin. */
+          /* Em tela mantemos a moldura visual equivalente a uma folha A4. */
           padding: 10mm;
           box-sizing: border-box;
           font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -602,10 +882,17 @@ export default function OrcamentoImprimirPage() {
           border-collapse: collapse;
           table-layout: fixed;
           font-size: 11px;
+          break-inside: auto;
+          page-break-inside: auto;
         }
 
         .orc-imp-items thead {
           display: table-header-group;
+        }
+
+        .orc-imp-items tbody {
+          break-inside: auto;
+          page-break-inside: auto;
         }
 
         .orc-imp-items th {
@@ -697,11 +984,19 @@ export default function OrcamentoImprimirPage() {
           <Link className="orc-imp-btn" href={`/comercial/orcamentos/${encodeURIComponent(String(orc?.codigo || idParam))}`}>
             Voltar
           </Link>
-          <button type="button" className="orc-imp-btn orc-imp-btnPrimary" onClick={() => window.print()} disabled={loading || !!err}>
+          <button type="button" className="orc-imp-btn" onClick={() => void handleDownloadPdf()} disabled={loading || !!err || downloadingPdf}>
+            {downloadingPdf ? "Gerando PDF..." : "Baixar PDF"}
+          </button>
+          <button type="button" className="orc-imp-btn orc-imp-btnPrimary" onClick={() => window.print()} disabled={loading || !!err || downloadingPdf}>
             Imprimir
           </button>
         </div>
       </div>
+      {pdfErr ? (
+        <div className="orc-imp-muted" style={{ padding: "8px 14px 0 14px", color: "#991b1b" }}>
+          {pdfErr}
+        </div>
+      ) : null}
 
       <div className="orc-imp-sheet">
         {err ? (
@@ -804,7 +1099,7 @@ export default function OrcamentoImprimirPage() {
 
             <div className="orc-imp-spacer" />
 
-            <div className="orc-imp-card">
+            <div className="orc-imp-card orc-imp-tableCard">
               <table className="orc-imp-items">
                 <thead>
                   <tr>
