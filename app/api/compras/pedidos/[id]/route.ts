@@ -1,8 +1,18 @@
 import { NextRequest } from "next/server";
 import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../_lib";
+import { getAllowedEmpresas } from "@/lib/auth/empresa";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PEDIDO_LOOKUP_ALLOWED_ROLES = new Set([
+  "ADMIN",
+  "FINANCEIRO",
+  "COORDENACAO",
+  "COMPRAS",
+  "ALMOXARIFADO",
+  "APONTAMENTO_RH",
+]);
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthSupabase(req);
@@ -13,9 +23,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const ctx = await resolveTenantEmpresa(supabase, undefined, req.nextUrl.searchParams);
   if (!ctx) return jsonError(400, "Tenant/empresa nao carregados.");
-  if (!(await canCompras(supabase, "read"))) return jsonError(403, "Sem permissao (compras.read).");
 
-  const { data: pedido, error: pedidoErr } = await supabase
+  const canReadCompras = await canCompras(supabase, "read");
+  let canLookupByRole = false;
+  if (!canReadCompras) {
+    try {
+      const allowed = await getAllowedEmpresas(supabase, ctx.tenantId);
+      const empresa = allowed.find((e) => String(e.id) === ctx.empresaId);
+      const role = String(empresa?.papel ?? "").trim().toUpperCase();
+      canLookupByRole = PEDIDO_LOOKUP_ALLOWED_ROLES.has(role);
+    } catch {
+      canLookupByRole = false;
+    }
+  }
+
+  if (!canReadCompras && !canLookupByRole) return jsonError(403, "Sem permissao (compras.read).");
+  const db = canReadCompras ? supabase : supabaseAdmin();
+
+  const { data: pedido, error: pedidoErr } = await db
     .schema("m")
     .from("pedido_compra")
     .select("*")
@@ -30,7 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   let solicitanteNome = "";
   const fornecedorId = Number((pedido as Record<string, unknown>).fornecedor_id);
   if (Number.isFinite(fornecedorId) && fornecedorId > 0) {
-    const { data: fornecedor, error: fornecedorErr } = await supabase
+    const { data: fornecedor, error: fornecedorErr } = await db
       .from("fornecedores")
       .select("id,nome")
       .eq("tenant_id", ctx.tenantId)
@@ -42,7 +67,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   const solicitanteId = String((pedido as Record<string, unknown>).solicitante_usuario_id ?? "").trim();
   if (solicitanteId && UUID_RE.test(solicitanteId)) {
-    const { data: solicitante } = await supabase
+    const { data: solicitante } = await db
       .schema("a")
       .from("usuario")
       .select("id,nome,email")
@@ -57,7 +82,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const [itensRes, eventosRes, recebRes] = await Promise.all([
-    supabase
+    db
       .schema("m")
       .from("pedido_compra_item")
       .select("*")
@@ -66,7 +91,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .eq("empresa_id", ctx.empresaId)
       .is("deleted_at", null)
       .order("seq", { ascending: true }),
-    supabase
+    db
       .schema("m")
       .from("pedido_compra_evento")
       .select("*")
@@ -74,7 +99,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .eq("tenant_id", ctx.tenantId)
       .eq("empresa_id", ctx.empresaId)
       .order("created_at", { ascending: false }),
-    supabase
+    db
       .schema("m")
       .from("pedido_compra_recebimento")
       .select("*")
@@ -106,7 +131,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   );
   const codigoByItemId = new Map<number, string>();
   if (itemIds.length > 0) {
-    const { data: itensCatalogo, error: itensCatalogoErr } = await supabase
+    const { data: itensCatalogo, error: itensCatalogoErr } = await db
       .from("itens")
       .select("id,codigo_interno")
       .eq("tenant_id", ctx.tenantId)
@@ -122,14 +147,43 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const origemResumoByPedidoItemId = new Map<string, string>();
   const origemOsByPedidoItemId = new Map<string, number>();
+  const documentoRefsByPedidoItemId = new Map<string, Set<string>>();
   for (const it of itens) {
     const pedidoItemId = String(it.id ?? "").trim();
     const osId = Number(it.origem_os_id ?? 0);
     if (pedidoItemId && Number.isFinite(osId) && osId > 0) origemOsByPedidoItemId.set(pedidoItemId, osId);
   }
+  const recebimentos = Array.isArray(recebRes.data) ? (recebRes.data as Array<Record<string, unknown>>) : [];
+  const recebimentoById = new Map<string, Record<string, unknown>>();
+  for (const row of recebimentos) {
+    const recebimentoId = String(row.id ?? "").trim();
+    if (recebimentoId) recebimentoById.set(recebimentoId, row);
+  }
+  if (pedidoItemIds.length > 0 && recebimentoById.size > 0) {
+    const { data: recebItemRows, error: recebItemErr } = await db
+      .schema("m")
+      .from("pedido_compra_recebimento_item")
+      .select("pedido_compra_item_id,recebimento_id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("deleted_at", null)
+      .in("pedido_compra_item_id", pedidoItemIds);
+    if (recebItemErr) return jsonError(400, recebItemErr.message);
+
+    for (const row of Array.isArray(recebItemRows) ? (recebItemRows as Array<Record<string, unknown>>) : []) {
+      const pedidoItemId = String(row.pedido_compra_item_id ?? "").trim();
+      const recebimentoId = String(row.recebimento_id ?? "").trim();
+      if (!pedidoItemId || !recebimentoId) continue;
+      const recebimento = recebimentoById.get(recebimentoId);
+      const documentoRef = String(recebimento?.documento_ref ?? "").trim();
+      if (!documentoRef) continue;
+      if (!documentoRefsByPedidoItemId.has(pedidoItemId)) documentoRefsByPedidoItemId.set(pedidoItemId, new Set<string>());
+      documentoRefsByPedidoItemId.get(pedidoItemId)?.add(documentoRef);
+    }
+  }
   const osLabelById = new Map<number, string>();
   if (pedidoItemIds.length > 0) {
-    const { data: origensRows, error: origensErr } = await supabase
+    const { data: origensRows, error: origensErr } = await db
       .schema("m")
       .from("pedido_compra_item_origem")
       .select("pedido_compra_item_id,pendencia_id")
@@ -150,7 +204,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const pendenciaById = new Map<string, { origemTipo: string; origemOsId: number | null }>();
     if (pendenciaIds.length > 0) {
-      const { data: pendenciasRows, error: pendenciasErr } = await supabase
+      const { data: pendenciasRows, error: pendenciasErr } = await db
         .schema("m")
         .from("compra_pendencia")
         .select("id,origem_tipo,origem_os_id")
@@ -181,7 +235,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const osIdsManual = Array.from(new Set(Array.from(origemOsByPedidoItemId.values())));
     const osIdsTotal = Array.from(new Set([...osIds, ...osIdsManual]));
     if (osIdsTotal.length > 0) {
-      const { data: osRows, error: osErr } = await supabase
+      const { data: osRows, error: osErr } = await db
         .from("ordens_servico")
         .select("id,numero_os,os_num")
         .eq("tenant_id", ctx.tenantId)
@@ -238,7 +292,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const origemOsId = origemOsByPedidoItemId.get(pedidoItemId) ?? null;
     const origemFromManualOs = origemOsId ? (osLabelById.get(origemOsId) ?? `OS ${origemOsId}`) : null;
     const origemResumo = origemFromPendencia ?? origemFromManualOs ?? null;
-    return { ...it, item_codigo: itemCodigo || null, origem_resumo: origemResumo };
+    const documentoRefResumo = Array.from(documentoRefsByPedidoItemId.get(pedidoItemId) ?? []).join(", ");
+    return {
+      ...it,
+      item_codigo: itemCodigo || null,
+      origem_resumo: origemResumo,
+      documento_ref_resumo: documentoRefResumo || null,
+    };
   });
 
   return Response.json({

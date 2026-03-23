@@ -895,11 +895,12 @@ export default function ImportarXmlPage() {
         const token = sess.session?.access_token ?? null;
         if (!token) throw new Error("Sessao expirada. Faca login novamente.");
         const fornecedorFiltroId = fornecedorIdBase ?? fornecedorId ?? null;
+        const allowedPedidoStatuses = new Set(["ENVIADO", "PARCIAL_RECEBIDO"]);
 
         const qs = new URLSearchParams({
           tenant_id: tenantId,
           empresa_id: empresaId,
-          status: "ENVIADO",
+          status: "ANDAMENTO",
         });
         if (fornecedorFiltroId) qs.set("fornecedorId", String(fornecedorFiltroId));
 
@@ -928,7 +929,7 @@ export default function ImportarXmlPage() {
               typeof row.total_geral === "number" || typeof row.total_geral === "string" ? row.total_geral : null,
           }))
           .filter((row) => Boolean(row.id))
-          .filter((row) => String(row.status ?? "").toUpperCase() === "ENVIADO")
+          .filter((row) => allowedPedidoStatuses.has(String(row.status ?? "").toUpperCase()))
           .filter((row) => {
             if (!normalized) return true;
             const code = String(row.codigo ?? "").toLowerCase();

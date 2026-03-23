@@ -72,6 +72,7 @@ type PedidoItem = {
   item_codigo?: string | null;
   origem_resumo?: string | null;
   origem_os_id?: number | null;
+  documento_ref_resumo?: string | null;
   item_nome: string;
   unidade: string;
   quantidade: number;
@@ -268,12 +269,20 @@ function itemRecebimentoLabel(item: Pick<PedidoItem, "quantidade" | "quantidade_
   return { label: "RECEBIDO PARCIAL", cls: "text-sky-300" };
 }
 
-export default function ComprasPedidosClient() {
+function getSaldoReceberItem(item: Pick<PedidoItem, "quantidade" | "quantidade_recebida">) {
+  return Math.max(0, Number(item.quantidade ?? 0) - Number(item.quantidade_recebida ?? 0));
+}
+
+type ComprasPedidosClientProps = {
+  readOnly?: boolean;
+};
+
+export default function ComprasPedidosClient({ readOnly = false }: ComprasPedidosClientProps) {
   const te = useTenantEmpresa();
   const tenantId = te.tenantId ?? "";
   const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
 
-  const [tab, setTab] = useState<"comprar" | "pedidos" | "avulso">("comprar");
+  const [tab, setTab] = useState<"comprar" | "pedidos" | "avulso">(readOnly ? "pedidos" : "comprar");
   const [modo, setModo] = useState<"DETALHADO" | "AGRUPADO">("AGRUPADO");
   const [fornecedores, setFornecedores] = useState<FornPend[]>([]);
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
@@ -314,6 +323,11 @@ export default function ComprasPedidosClient() {
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }>>({});
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nome: string } | null>(null);
+  const [recebimentoTarget, setRecebimentoTarget] = useState<{ id: string; nome: string; saldo: number } | null>(null);
+  const [recebimentoDate, setRecebimentoDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [recebimentoDocumentoRef, setRecebimentoDocumentoRef] = useState("");
+  const [recebimentoQuantidade, setRecebimentoQuantidade] = useState("");
+  const [recebimentoObservacoes, setRecebimentoObservacoes] = useState("");
   const [autoScanTried, setAutoScanTried] = useState(false);
   const [usuariosSolicitantes, setUsuariosSolicitantes] = useState<UsuarioSolicitante[]>([]);
   const [pedidoSolicitanteId, setPedidoSolicitanteId] = useState("");
@@ -337,10 +351,20 @@ export default function ComprasPedidosClient() {
 
   const canReadByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
   const canWriteByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
+  const canReadEstoqueByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO"].includes(empresaRole);
 
   const canRead =
     te.has("compras.read") || te.has("compras.write") || te.has("compras.approve") || te.has("compras.receive") || canReadByRole;
-  const canWrite = te.has("compras.write") || canWriteByRole;
+  const canReadOnlyPedidos =
+    readOnly &&
+    (te.has("estoque.read") ||
+      te.has("estoque.write") ||
+      te.has("os.read") ||
+      te.has("os.write") ||
+      canReadEstoqueByRole);
+  const effectiveCanRead = canRead || canReadOnlyPedidos;
+  const canWrite = !readOnly && (te.has("compras.write") || canWriteByRole);
+  const canReconcileRecebimento = readOnly && (te.has("compras.receive") || te.has("estoque.write"));
 
   const rowKey = useCallback((r: AgrRow) => `${String(r.fornecedor_id ?? "null")}:${String(r.item_id ?? "null")}`, []);
 
@@ -362,7 +386,7 @@ export default function ComprasPedidosClient() {
         setDetVlrConfirmById(zeradosConfirm);
       };
 
-      if (!tenantId || !empresaId || !canRead || fornecedorId == null) {
+      if (!tenantId || !empresaId || !effectiveCanRead || fornecedorId == null) {
         aplicarZerados();
         return;
       }
@@ -400,35 +424,35 @@ export default function ComprasPedidosClient() {
         aplicarZerados();
       }
     },
-    [canRead, empresaId, fornecedorId, tenantId]
+    [effectiveCanRead, empresaId, fornecedorId, tenantId]
   );
 
   const loadFornecedores = useCallback(async () => {
-    if (!tenantId || !empresaId || !canRead) return;
+    if (!tenantId || !empresaId || !effectiveCanRead) return;
     const json = await authedFetch(`/api/compras/fornecedores-pendentes?${ctxQuery}`);
     const rows = (json.data as FornPend[]) ?? [];
     setFornecedores(rows);
     if (rows.length && fornecedorId == null) setFornecedorId(rows[0].fornecedor_id);
-  }, [canRead, ctxQuery, empresaId, fornecedorId, tenantId]);
+  }, [ctxQuery, effectiveCanRead, empresaId, fornecedorId, tenantId]);
 
   const loadFornecedoresAvulso = useCallback(async () => {
-    if (!tenantId || !empresaId || !canRead) return;
+    if (!tenantId || !empresaId || !effectiveCanRead) return;
     const json = await authedFetch(`/api/compras/fornecedores?${ctxQuery}`);
     const rows = ((json.data as FornecedorBase[]) ?? []).filter((f) => Number.isFinite(Number(f.id)));
     setAvulsoFornecedores(rows);
     if (avulsoFornecedorId == null && rows.length > 0) setAvulsoFornecedorId(Number(rows[0].id));
-  }, [avulsoFornecedorId, canRead, ctxQuery, empresaId, tenantId]);
+  }, [avulsoFornecedorId, ctxQuery, effectiveCanRead, empresaId, tenantId]);
 
   const loadUsuariosSolicitantes = useCallback(async () => {
-    if (!tenantId || !empresaId || !canRead) return;
+    if (!tenantId || !empresaId || !effectiveCanRead) return;
     const qp = `tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`;
     const json = await authedFetch(`/api/estoque/usuarios-solicitantes?${qp}`);
     const rows = ((json.usuarios as UsuarioSolicitante[]) ?? []).filter((u) => u?.id);
     setUsuariosSolicitantes(rows);
-  }, [canRead, empresaId, tenantId]);
+  }, [effectiveCanRead, empresaId, tenantId]);
 
   const loadPendencias = useCallback(async () => {
-    if (!tenantId || !empresaId || !canRead || fornecedorId == null) return;
+    if (!tenantId || !empresaId || !effectiveCanRead || fornecedorId == null) return;
     const base = `/api/compras/pendencias?${ctxQuery}&modo=${modo}&fornecedorId=${fornecedorId}`;
     const json = await authedFetch(base);
     if (modo === "DETALHADO") {
@@ -452,19 +476,19 @@ export default function ComprasPedidosClient() {
       setMetaByRowKey(init);
       setDetRows([]);
     }
-  }, [canRead, ctxQuery, empresaId, fornecedorId, loadUltimosValoresDetalhado, modo, rowKey, tenantId]);
+  }, [ctxQuery, effectiveCanRead, empresaId, fornecedorId, loadUltimosValoresDetalhado, modo, rowKey, tenantId]);
 
   const loadPedidos = useCallback(async () => {
-    if (!tenantId || !empresaId || !canRead) return;
+    if (!tenantId || !empresaId || !effectiveCanRead) return;
     const statusQ = statusFiltro ? `&status=${encodeURIComponent(statusFiltro)}` : "";
     const json = await authedFetch(`/api/compras/pedidos?${ctxQuery}${statusQ}&_ts=${Date.now()}`);
     const rows = (json.data as Pedido[]) ?? [];
     setPedidos(rows);
     if (!manualPedidoId && rows[0]?.id) setManualPedidoId(rows[0].id);
-  }, [canRead, ctxQuery, empresaId, manualPedidoId, statusFiltro, tenantId]);
+  }, [ctxQuery, effectiveCanRead, empresaId, manualPedidoId, statusFiltro, tenantId]);
 
   const loadPedidoItens = useCallback(async () => {
-    if (!tenantId || !empresaId || !canRead || !manualPedidoId) {
+    if (!tenantId || !empresaId || !effectiveCanRead || !manualPedidoId) {
       setPedidoItens([]);
       setItemDrafts({});
       setManualOsNumero("");
@@ -488,7 +512,7 @@ export default function ComprasPedidosClient() {
     }
     setItemDrafts(nextDrafts);
     setManualOsNumero(lastOsNumero);
-  }, [canRead, ctxQuery, empresaId, manualPedidoId, tenantId]);
+  }, [ctxQuery, effectiveCanRead, empresaId, manualPedidoId, tenantId]);
 
   const pedidosFiltrados = useMemo(() => {
     const termoFornecedor = normalizeFilterText(fornecedorFiltro);
@@ -507,7 +531,7 @@ export default function ComprasPedidosClient() {
     const st = String(selectedPedido?.status ?? "").toUpperCase();
     return ["RASCUNHO", "AGUARDANDO_APROVACAO", "REPROVADO"].includes(st);
   }, [selectedPedido?.status]);
-  const canEditPedidoItems = canWrite && canEditManualItems && pedidoEditMode;
+  const canEditPedidoItems = !readOnly && canWrite && canEditManualItems && pedidoEditMode;
   const sortedLookupRows = useMemo(
     () => sortLookupRows(lookupRows, lookupSortKey, lookupSortDir),
     [lookupRows, lookupSortDir, lookupSortKey]
@@ -943,6 +967,74 @@ export default function ComprasPedidosClient() {
     [ctxQuery, empresaId, loadPedidos, tenantId]
   );
 
+  const abrirRecebimentoItem = useCallback((item: PedidoItem) => {
+    const saldo = getSaldoReceberItem(item);
+    setRecebimentoTarget({ id: item.id, nome: item.item_nome, saldo });
+    setRecebimentoDate(new Date().toISOString().slice(0, 10));
+    setRecebimentoDocumentoRef("");
+    setRecebimentoQuantidade(formatEditableNumber(saldo, 3));
+    setRecebimentoObservacoes("");
+  }, []);
+
+  const registrarRecebimentoItem = useCallback(async () => {
+    if (!recebimentoTarget) return;
+    if (!manualPedidoId) {
+      setErr("Selecione um pedido.");
+      return;
+    }
+
+    const qtd = parseNum(recebimentoQuantidade, 0);
+    const documentoRef = recebimentoDocumentoRef.trim();
+    if (!documentoRef) {
+      setErr("Informe a NF/documento do recebimento.");
+      return;
+    }
+    if (qtd <= 0) {
+      setErr("Quantidade de recebimento invalida.");
+      return;
+    }
+    if (qtd - recebimentoTarget.saldo > 1e-9) {
+      setErr("Quantidade informada excede o saldo pendente do item.");
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+    setOk(null);
+    try {
+      await authedFetch(`/api/compras/pedidos/${manualPedidoId}/receber`, {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          recebimentoDate,
+          documentoRef,
+          observacoes: recebimentoObservacoes.trim() || null,
+          skipStockMovement: true,
+          itens: [{ pedidoItemId: recebimentoTarget.id, quantidade: qtd }],
+        }),
+      });
+      setRecebimentoTarget(null);
+      setOk(`Recebimento conciliado para ${recebimentoTarget.nome}.`);
+      await Promise.all([loadPedidos(), loadPedidoItens()]);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Erro ao conciliar recebimento do item.");
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    empresaId,
+    loadPedidoItens,
+    loadPedidos,
+    manualPedidoId,
+    recebimentoDate,
+    recebimentoDocumentoRef,
+    recebimentoObservacoes,
+    recebimentoQuantidade,
+    recebimentoTarget,
+    tenantId,
+  ]);
+
   const addManualItem = useCallback(async () => {
     if (!manualPedidoId) {
       setErr("Selecione um pedido.");
@@ -1191,15 +1283,21 @@ export default function ComprasPedidosClient() {
   }, [empresaId, tenantId]);
 
   if (!tenantId || !empresaId) return <div className="text-zinc-400">Carregando contexto...</div>;
-  if (!canRead) return <div className="text-zinc-400">Sem permissao para Compras.</div>;
+  if (!effectiveCanRead) return <div className="text-zinc-400">Sem permissao para visualizar pedidos.</div>;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <button className={tab === "comprar" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("comprar")}>Comprar por Fornecedor</button>
-        <button className={tab === "avulso" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("avulso")}>Compra Avulsa</button>
-        <button className={tab === "pedidos" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("pedidos")}>Pedidos</button>
-      </div>
+      {readOnly ? (
+        <div className="flex items-center gap-2">
+          <div className="px-3 py-2 rounded bg-zinc-100 text-zinc-900">Pedidos</div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button className={tab === "comprar" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("comprar")}>Comprar por Fornecedor</button>
+          <button className={tab === "avulso" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("avulso")}>Compra Avulsa</button>
+          <button className={tab === "pedidos" ? "px-3 py-2 rounded bg-zinc-100 text-zinc-900" : "px-3 py-2 rounded border border-zinc-800"} onClick={() => setTab("pedidos")}>Pedidos</button>
+        </div>
+      )}
 
       {err && <div className="text-red-400 text-sm">{err}</div>}
       {ok && <div className="text-emerald-400 text-sm">{ok}</div>}
@@ -1686,34 +1784,42 @@ export default function ComprasPedidosClient() {
                     <div className="ml-auto text-sm font-medium">{fmtMoney(Number(selectedPedido.total_geral ?? 0))}</div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <label className="text-xs text-zinc-400">Solicitante</label>
-                    <select
-                      className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-sm min-w-[280px]"
-                      value={pedidoSolicitanteId}
-                      onChange={(e) => setPedidoSolicitanteId(e.target.value)}
-                      disabled={busy || !canWrite}
-                    >
-                      <option value="">Selecione...</option>
-                      {usuariosSolicitantes.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nome} - {u.email}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
-                      onClick={() => void salvarSolicitantePedido()}
-                      disabled={busy || !canWrite}
-                    >
-                      Salvar solicitante
-                    </button>
-                    {selectedPedido.solicitante_nome ? (
-                      <span className="text-xs text-zinc-500">Atual: {selectedPedido.solicitante_nome}</span>
-                    ) : null}
-                  </div>
+                  {readOnly ? (
+                    selectedPedido.solicitante_nome ? (
+                      <div className="text-xs text-zinc-500">Solicitante: {selectedPedido.solicitante_nome}</div>
+                    ) : null
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="text-xs text-zinc-400">Solicitante</label>
+                      <select
+                        className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-sm min-w-[280px]"
+                        value={pedidoSolicitanteId}
+                        onChange={(e) => setPedidoSolicitanteId(e.target.value)}
+                        disabled={busy || !canWrite}
+                      >
+                        <option value="">Selecione...</option>
+                        {usuariosSolicitantes.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nome} - {u.email}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                        onClick={() => void salvarSolicitantePedido()}
+                        disabled={busy || !canWrite}
+                      >
+                        Salvar solicitante
+                      </button>
+                      {selectedPedido.solicitante_nome ? (
+                        <span className="text-xs text-zinc-500">Atual: {selectedPedido.solicitante_nome}</span>
+                      ) : null}
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-1 flex-wrap">
+                    {!readOnly && (
+                      <>
                     <button
                       className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
                       onClick={() => setPedidoEditMode((prev) => !prev)}
@@ -1727,10 +1833,13 @@ export default function ComprasPedidosClient() {
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "enviar")}>Enviar</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void receberTotal(selectedPedido.id)}>Receber</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "cancelar", { motivo: "Cancelado via tela" })}>Cancelar</button>
+                      </>
+                    )}
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => imprimirPedido(selectedPedido.id)}>Imprimir PDF</button>
                   </div>
 
-                  <div className="rounded border border-zinc-800 p-3 space-y-2">
+                  {!readOnly && (
+                    <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Adicionar item no pedido</div>
                     <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
                       <label className="space-y-1">
@@ -1810,7 +1919,8 @@ export default function ComprasPedidosClient() {
                         Clique em <strong>Editar</strong> para alterar ou excluir itens.
                       </div>
                     ) : null}
-                  </div>
+                    </div>
+                  )}
 
                   {showLookup && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
@@ -1958,7 +2068,7 @@ export default function ComprasPedidosClient() {
                   <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Itens do pedido selecionado</div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm min-w-[940px]">
+                      <table className="w-full text-sm min-w-[1100px]">
                         <thead>
                           <tr className="text-left text-zinc-300">
                             <th className="py-2">Tipo</th>
@@ -1970,6 +2080,7 @@ export default function ComprasPedidosClient() {
                             <th>OS</th>
                             <th>Qtd</th>
                             <th>Receb.</th>
+                            <th>NF</th>
                             <th>Status item</th>
                             <th>Vlr unit</th>
                             <th className="text-center min-w-[130px] px-3">Total</th>
@@ -1979,6 +2090,7 @@ export default function ComprasPedidosClient() {
                         <tbody>
                           {pedidoItens.map((it) => {
                             const isManual = it.item_id == null;
+                            const saldoReceber = getSaldoReceberItem(it);
                             const draft = itemDrafts[it.id] ?? {
                               item_nome: it.item_nome,
                               unidade: it.unidade,
@@ -2038,6 +2150,9 @@ export default function ComprasPedidosClient() {
                                 <td className="tabular-nums">
                                   {Number(it.quantidade_recebida ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}
                                 </td>
+                                <td className="text-xs text-zinc-300 whitespace-nowrap">
+                                  {String(it.documento_ref_resumo ?? "").trim() || "-"}
+                                </td>
                                 <td>
                                   {(() => {
                                     const st = itemRecebimentoLabel(it);
@@ -2068,7 +2183,16 @@ export default function ComprasPedidosClient() {
                                       </button>
                                     </div>
                                   ) : (
-                                    <div className="text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                      {canReconcileRecebimento ? (
+                                        <button
+                                          className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                                          disabled={busy || saldoReceber <= 0}
+                                          onClick={() => abrirRecebimentoItem(it)}
+                                        >
+                                          Editar
+                                        </button>
+                                      ) : null}
                                       <span className="text-xs text-zinc-500">{isManual ? "Item manual" : "Item de pendencia"}</span>
                                     </div>
                                   )}
@@ -2078,7 +2202,7 @@ export default function ComprasPedidosClient() {
                           })}
                           {!pedidoItens.length && (
                             <tr>
-                              <td className="py-3 text-zinc-500" colSpan={13}>Nenhum item no pedido selecionado.</td>
+                              <td className="py-3 text-zinc-500" colSpan={14}>Nenhum item no pedido selecionado.</td>
                             </tr>
                           )}
                         </tbody>
@@ -2117,6 +2241,82 @@ export default function ComprasPedidosClient() {
                 disabled={busy}
               >
                 Confirmar exclusao
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {recebimentoTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-zinc-800 bg-zinc-950 p-4 space-y-4">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold">Editar recebimento do item</div>
+              <div className="text-sm text-zinc-300">{recebimentoTarget.nome}</div>
+              <div className="text-xs text-zinc-500">
+                Esta acao concilia o item com uma NF ja recebida, sem gerar nova entrada no estoque. Saldo pendente:{" "}
+                {recebimentoTarget.saldo.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="space-y-1">
+                <div className="text-xs text-zinc-400">Data do recebimento</div>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950"
+                  value={recebimentoDate}
+                  onChange={(e) => setRecebimentoDate(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label className="space-y-1">
+                <div className="text-xs text-zinc-400">Quantidade</div>
+                <input
+                  className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950"
+                  value={recebimentoQuantidade}
+                  onChange={(e) => setRecebimentoQuantidade(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+            </div>
+
+            <label className="space-y-1 block">
+              <div className="text-xs text-zinc-400">NF / documento</div>
+              <input
+                className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950"
+                placeholder="Ex.: NF 1056 ou chave de acesso"
+                value={recebimentoDocumentoRef}
+                onChange={(e) => setRecebimentoDocumentoRef(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+
+            <label className="space-y-1 block">
+              <div className="text-xs text-zinc-400">Observacoes</div>
+              <textarea
+                className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950 min-h-[96px]"
+                placeholder="Detalhe opcional sobre a conciliacao do recebimento"
+                value={recebimentoObservacoes}
+                onChange={(e) => setRecebimentoObservacoes(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-2 rounded border border-zinc-800"
+                onClick={() => setRecebimentoTarget(null)}
+                disabled={busy}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-3 py-2 rounded border border-zinc-800 disabled:opacity-50"
+                onClick={() => void registrarRecebimentoItem()}
+                disabled={busy}
+              >
+                Salvar recebimento
               </button>
             </div>
           </div>

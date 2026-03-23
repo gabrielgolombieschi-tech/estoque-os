@@ -35,6 +35,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/faturamento/nfse" ||
     pathname === "/os/analitico" ||
     pathname === "/compras/pedidos" ||
+    pathname === "/estoque/pedidos" ||
     pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname === "/estoque/relatorios" ||
     pathname === "/comercial/orcamentos" ||
@@ -384,6 +385,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         {can("estoque.read") && (
                           <Link href="/mov" className="block px-3 py-2 hover:bg-zinc-900">
                             Movimentacoes
+                          </Link>
+                        )}
+                        {canSeeEstoqueMenu && (
+                          <Link href="/estoque/pedidos" className="block px-3 py-2 hover:bg-zinc-900">
+                            Pedidos
                           </Link>
                         )}
                         {can("estoque.read") && (

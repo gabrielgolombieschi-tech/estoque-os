@@ -210,6 +210,28 @@ function emptyFiscalForm(): FiscalForm {
   };
 }
 
+function normalizeFiscalForm(value: FiscalForm) {
+  const numOrNull = (input: number | null | undefined) => (Number.isFinite(input as number) ? Number(input) : null);
+  return {
+    ncm: value.ncm.trim(),
+    cst_icms: value.cst_icms.trim(),
+    cst_pis: value.cst_pis.trim(),
+    cst_cofins: value.cst_cofins.trim(),
+    aliq_icms: numOrNull(value.aliq_icms),
+    aliq_ipi: numOrNull(value.aliq_ipi),
+    aliq_pis: numOrNull(value.aliq_pis),
+    aliq_cofins: numOrNull(value.aliq_cofins),
+    credita_icms: !!value.credita_icms,
+    ipi_entra_no_custo: !!value.ipi_entra_no_custo,
+    credita_pis: !!value.credita_pis,
+    credita_cofins: !!value.credita_cofins,
+  };
+}
+
+function serializeFiscalForm(value: FiscalForm) {
+  return JSON.stringify(normalizeFiscalForm(value));
+}
+
 export default function ItensPage() {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -269,6 +291,7 @@ export default function ItensPage() {
   // form (criar/editar)
   const [form, setForm] = useState<ItemForm>(emptyForm());
   const [fiscalForm, setFiscalForm] = useState<FiscalForm>(emptyFiscalForm());
+  const [initialFiscalSnapshot, setInitialFiscalSnapshot] = useState(() => serializeFiscalForm(emptyFiscalForm()));
   const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -624,7 +647,11 @@ export default function ItensPage() {
     }
     setEditingId(null);
     setForm(emptyForm());
-    setFiscalForm(emptyFiscalForm());
+    {
+      const emptyFiscal = emptyFiscalForm();
+      setFiscalForm(emptyFiscal);
+      setInitialFiscalSnapshot(serializeFiscalForm(emptyFiscal));
+    }
     setActiveTab("geral");
     setShowForm(true);
   }
@@ -665,7 +692,7 @@ export default function ItensPage() {
       ativo: !!r.ativo,
     });
     const fiscal = r.fiscal_itens;
-    setFiscalForm({
+    const nextFiscalForm = {
       ncm: fiscal?.ncm ?? "",
       cst_icms: fiscal?.cst_icms ?? "",
       cst_pis: fiscal?.cst_pis ?? "",
@@ -678,7 +705,9 @@ export default function ItensPage() {
       ipi_entra_no_custo: fiscal?.ipi_entra_no_custo ?? true,
       credita_pis: !!fiscal?.credita_pis,
       credita_cofins: !!fiscal?.credita_cofins,
-    });
+    };
+    setFiscalForm(nextFiscalForm);
+    setInitialFiscalSnapshot(serializeFiscalForm(nextFiscalForm));
     setActiveTab("geral");
   }
 
@@ -686,7 +715,11 @@ export default function ItensPage() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm());
-    setFiscalForm(emptyFiscalForm());
+    {
+      const emptyFiscal = emptyFiscalForm();
+      setFiscalForm(emptyFiscal);
+      setInitialFiscalSnapshot(serializeFiscalForm(emptyFiscal));
+    }
     setActiveTab("geral");
   }
 
@@ -822,7 +855,8 @@ export default function ItensPage() {
       return setErr("Falha ao salvar: id do item nao retornado.");
     }
 
-    if (canEditFiscal) {
+    const fiscalChanged = serializeFiscalForm(fiscalForm) !== initialFiscalSnapshot;
+    if (canEditFiscal && fiscalChanged) {
       const fiscalError = await saveFiscal(itemId);
       if (fiscalError) {
         setBusy(false);
