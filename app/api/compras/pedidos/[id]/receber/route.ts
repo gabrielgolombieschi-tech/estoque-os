@@ -236,7 +236,8 @@ async function registrarRecebimentoSemMovimentacao(opts: {
       return ligados.every((row) => {
         const itemId = String(row.pedido_compra_item_id ?? "").trim();
         const status = itemStatusById.get(itemId);
-        return Boolean(status) && status.quantidade_recebida + 1e-9 >= status.quantidade;
+        if (!status) return false;
+        return status.quantidade_recebida + 1e-9 >= status.quantidade;
       });
     });
 
