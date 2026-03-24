@@ -351,7 +351,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
 
   const canReadByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
   const canWriteByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
-  const canReadEstoqueByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO"].includes(empresaRole);
+  const canReadOnlyPedidosByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO", "APONTAMENTO_RH"].includes(empresaRole);
 
   const canRead =
     te.has("compras.read") || te.has("compras.write") || te.has("compras.approve") || te.has("compras.receive") || canReadByRole;
@@ -361,7 +361,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       te.has("estoque.write") ||
       te.has("os.read") ||
       te.has("os.write") ||
-      canReadEstoqueByRole);
+      canReadOnlyPedidosByRole);
   const effectiveCanRead = canRead || canReadOnlyPedidos;
   const canWrite = !readOnly && (te.has("compras.write") || canWriteByRole);
   const canReconcileRecebimento = readOnly && (te.has("compras.receive") || te.has("estoque.write"));
@@ -428,28 +428,31 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   );
 
   const loadFornecedores = useCallback(async () => {
+    if (readOnly) return;
     if (!tenantId || !empresaId || !effectiveCanRead) return;
     const json = await authedFetch(`/api/compras/fornecedores-pendentes?${ctxQuery}`);
     const rows = (json.data as FornPend[]) ?? [];
     setFornecedores(rows);
     if (rows.length && fornecedorId == null) setFornecedorId(rows[0].fornecedor_id);
-  }, [ctxQuery, effectiveCanRead, empresaId, fornecedorId, tenantId]);
+  }, [ctxQuery, effectiveCanRead, empresaId, fornecedorId, readOnly, tenantId]);
 
   const loadFornecedoresAvulso = useCallback(async () => {
+    if (readOnly) return;
     if (!tenantId || !empresaId || !effectiveCanRead) return;
     const json = await authedFetch(`/api/compras/fornecedores?${ctxQuery}`);
     const rows = ((json.data as FornecedorBase[]) ?? []).filter((f) => Number.isFinite(Number(f.id)));
     setAvulsoFornecedores(rows);
     if (avulsoFornecedorId == null && rows.length > 0) setAvulsoFornecedorId(Number(rows[0].id));
-  }, [avulsoFornecedorId, ctxQuery, effectiveCanRead, empresaId, tenantId]);
+  }, [avulsoFornecedorId, ctxQuery, effectiveCanRead, empresaId, readOnly, tenantId]);
 
   const loadUsuariosSolicitantes = useCallback(async () => {
+    if (readOnly) return;
     if (!tenantId || !empresaId || !effectiveCanRead) return;
     const qp = `tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`;
     const json = await authedFetch(`/api/estoque/usuarios-solicitantes?${qp}`);
     const rows = ((json.usuarios as UsuarioSolicitante[]) ?? []).filter((u) => u?.id);
     setUsuariosSolicitantes(rows);
-  }, [effectiveCanRead, empresaId, tenantId]);
+  }, [effectiveCanRead, empresaId, readOnly, tenantId]);
 
   const loadPendencias = useCallback(async () => {
     if (!tenantId || !empresaId || !effectiveCanRead || fornecedorId == null) return;

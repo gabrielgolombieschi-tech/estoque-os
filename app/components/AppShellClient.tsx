@@ -227,11 +227,16 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const empresaPapel = String(effectiveEmpresa?.papel ?? "")
     .trim()
     .toUpperCase();
+  const canSeeEstoquePedidosMenuByEmpresaPapel = Boolean(
+    empresaPapel &&
+      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH"].includes(empresaPapel)
+  );
   const canSeeEstoqueMenuByEmpresaPapel = Boolean(
     empresaPapel &&
       ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH"].includes(empresaPapel)
   );
   const canSeeEstoqueMenu = canAccessEstoque || canSeeEstoqueMenuByEmpresaPapel;
+  const canSeeEstoquePedidosMenu = canSeeEstoqueMenu || canSeeEstoquePedidosMenuByEmpresaPapel;
   const canSeeCadastroItensMenu = canAccessCadastroItens || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeAjusteEstoqueMenu = can("estoque.read") || can("estoque.write") || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeImobilizadoMenu = can("imobilizado.read") === true;
@@ -387,7 +392,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             Movimentacoes
                           </Link>
                         )}
-                        {canSeeEstoqueMenu && (
+                        {canSeeEstoquePedidosMenu && (
                           <Link href="/estoque/pedidos" className="block px-3 py-2 hover:bg-zinc-900">
                             Pedidos
                           </Link>
