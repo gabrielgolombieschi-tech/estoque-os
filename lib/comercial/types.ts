@@ -85,6 +85,7 @@ export type ConfigOrcamentoRow = {
   margem_lucro_padrao_percent: number | string;
   desconto_max_percent: number | string;
   condicao_pagamento_padrao_id: string | null;
+  conjunto_categorias: string[] | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

@@ -1,5 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ConfigOrcamentoRow } from "@/lib/comercial/types";
+import { upperTrim } from "@/lib/comercial/utils";
+
+export const DEFAULT_CONJUNTO_CATEGORIAS = ["PAINEIS AUTOPORTANTE", "PAINEIS DE COMANDO"] as const;
+
+export function normalizeConjuntoCategorias(input: Iterable<unknown> | null | undefined): string[] {
+  const uniq = new Set<string>();
+
+  for (const raw of input ?? []) {
+    const value = upperTrim(String(raw ?? ""));
+    if (value) uniq.add(value);
+  }
+
+  if (uniq.size === 0) {
+    DEFAULT_CONJUNTO_CATEGORIAS.forEach((value) => uniq.add(value));
+  }
+
+  return Array.from(uniq);
+}
+
+export function getConjuntoCategorias(cfg: Pick<ConfigOrcamentoRow, "conjunto_categorias"> | null | undefined): string[] {
+  return normalizeConjuntoCategorias(cfg?.conjunto_categorias ?? null);
+}
 
 export async function getConfig(
   supabase: SupabaseClient,
@@ -40,12 +62,13 @@ export async function updateConfig(
     id: string;
     patch: Pick<
       ConfigOrcamentoRow,
-      "margem_lucro_padrao_percent" | "desconto_max_percent" | "condicao_pagamento_padrao_id"
+      "margem_lucro_padrao_percent" | "desconto_max_percent" | "condicao_pagamento_padrao_id" | "conjunto_categorias"
     >;
   }
 ): Promise<void> {
   const payload: Partial<ConfigOrcamentoRow> & { updated_at: string } = {
     ...params.patch,
+    conjunto_categorias: normalizeConjuntoCategorias(params.patch.conjunto_categorias ?? null),
     updated_at: new Date().toISOString(),
   };
 

@@ -30,6 +30,51 @@ export type ConjuntoItemRow = {
   deleted_at: string | null;
 };
 
+type ConjuntoWritePayload = Pick<ConjuntoRow, "codigo" | "nome" | "categoria" | "precificacao" | "preco_fixo" | "ativo" | "descricao" | "observacoes">;
+
+function parseConjuntoCodigoNumero(codigo: string, prefixo: string): number | null {
+  const normalized = String(codigo ?? "").trim().toUpperCase();
+  const re = new RegExp(`^${prefixo}(\\d+)$`);
+  const match = re.exec(normalized);
+  if (!match) return null;
+  const numero = Number.parseInt(match[1] ?? "", 10);
+  return Number.isFinite(numero) && numero > 0 ? numero : null;
+}
+
+function isCodigoConjuntoUniqueViolation(error: unknown): boolean {
+  const candidate = error as { code?: string; message?: string; details?: string; hint?: string } | null;
+  if (!candidate) return false;
+  const text = [candidate.message, candidate.details, candidate.hint].filter(Boolean).join(" ").toLowerCase();
+  return candidate.code === "23505" && text.includes("uq_conjunto__tenant_empresa_codigo");
+}
+
+export async function getNextConjuntoCodigo(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; prefixo?: string }
+): Promise<string> {
+  const prefixo = String(params.prefixo ?? "C").trim().toUpperCase() || "C";
+
+  const { data, error } = await supabase
+    .schema("c")
+    .from("conjunto")
+    .select("codigo")
+    .eq("tenant_id", params.tenantId)
+    .eq("empresa_id", params.empresaId)
+    .ilike("codigo", `${prefixo}%`)
+    .limit(10000)
+    .returns<Array<Pick<ConjuntoRow, "codigo">>>();
+
+  if (error) throw error;
+
+  let maiorNumero = 0;
+  for (const row of data ?? []) {
+    const numero = parseConjuntoCodigoNumero(String(row.codigo ?? ""), prefixo);
+    if (numero && numero > maiorNumero) maiorNumero = numero;
+  }
+
+  return `${prefixo}${maiorNumero + 1}`;
+}
+
 export async function listConjuntos(
   supabase: SupabaseClient,
   params: {
@@ -85,32 +130,44 @@ export async function createConjunto(
   params: {
     tenantId: string;
     empresaId: string;
-    payload: Pick<ConjuntoRow, "codigo" | "nome" | "categoria" | "precificacao" | "preco_fixo" | "ativo" | "descricao" | "observacoes">;
+    payload: ConjuntoWritePayload;
   }
 ): Promise<ConjuntoRow> {
-  const now = new Date().toISOString();
-  const row: Omit<ConjuntoRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { updated_at: string } = {
-    tenant_id: params.tenantId,
-    empresa_id: params.empresaId,
-    codigo: params.payload.codigo ?? null,
-    nome: params.payload.nome ?? null,
-    categoria: params.payload.categoria ?? null,
-    precificacao: params.payload.precificacao ?? null,
-    preco_fixo: params.payload.preco_fixo ?? null,
-    ativo: params.payload.ativo ?? true,
-    descricao: params.payload.descricao ?? null,
-    observacoes: params.payload.observacoes ?? null,
-    updated_at: now,
-  };
+  const codigoInformado = String(params.payload.codigo ?? "").trim() || null;
+  const autoGerarCodigo = !codigoInformado;
 
-  const { data, error } = await supabase
-    .schema("c")
-    .from("conjunto")
-    .insert(row)
-    .select("*")
-    .single<ConjuntoRow>();
-  if (error) throw error;
-  return data as ConjuntoRow;
+  for (let tentativa = 0; tentativa < (autoGerarCodigo ? 3 : 1); tentativa += 1) {
+    const now = new Date().toISOString();
+    const codigo = autoGerarCodigo
+      ? await getNextConjuntoCodigo(supabase, { tenantId: params.tenantId, empresaId: params.empresaId })
+      : codigoInformado;
+
+    const row: Omit<ConjuntoRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { updated_at: string } = {
+      tenant_id: params.tenantId,
+      empresa_id: params.empresaId,
+      codigo,
+      nome: params.payload.nome ?? null,
+      categoria: params.payload.categoria ?? null,
+      precificacao: params.payload.precificacao ?? null,
+      preco_fixo: params.payload.preco_fixo ?? null,
+      ativo: params.payload.ativo ?? true,
+      descricao: params.payload.descricao ?? null,
+      observacoes: params.payload.observacoes ?? null,
+      updated_at: now,
+    };
+
+    const { data, error } = await supabase
+      .schema("c")
+      .from("conjunto")
+      .insert(row)
+      .select("*")
+      .single<ConjuntoRow>();
+
+    if (!error) return data as ConjuntoRow;
+    if (!autoGerarCodigo || !isCodigoConjuntoUniqueViolation(error) || tentativa >= 2) throw error;
+  }
+
+  throw new Error("Nao foi possivel gerar codigo automatico para o conjunto.");
 }
 
 export async function updateConjunto(
@@ -119,7 +176,7 @@ export async function updateConjunto(
     tenantId: string;
     empresaId: string;
     id: string;
-    patch: Pick<ConjuntoRow, "codigo" | "nome" | "categoria" | "precificacao" | "preco_fixo" | "ativo" | "descricao" | "observacoes">;
+    patch: ConjuntoWritePayload;
   }
 ): Promise<void> {
   const payload: Partial<ConjuntoRow> & { updated_at: string } = {

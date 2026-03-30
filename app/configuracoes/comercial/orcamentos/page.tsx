@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { mapOrcamentoError, n, toSupabaseErrorLike } from "@/lib/comercial/utils";
-import { getConfig, ensureConfig, updateConfig } from "@/src/services/configOrcamento";
+import { DEFAULT_CONJUNTO_CATEGORIAS, ensureConfig, getConfig, getConjuntoCategorias, normalizeConjuntoCategorias, updateConfig } from "@/src/services/configOrcamento";
 import { list as listCondicoesPagamento } from "@/src/services/condicaoPagamento";
 
 function hasAny(caps: Capabilities | null, keys: CapabilityKey[]): boolean {
@@ -19,6 +18,7 @@ type ConfigForm = {
   margem_lucro_padrao_percent: string;
   desconto_max_percent: string;
   condicao_pagamento_padrao_id: string | null;
+  conjunto_categorias_text: string;
 };
 
 export default function ConfigOrcamentosPage() {
@@ -44,6 +44,7 @@ export default function ConfigOrcamentosPage() {
     margem_lucro_padrao_percent: "53",
     desconto_max_percent: "25",
     condicao_pagamento_padrao_id: null,
+    conjunto_categorias_text: DEFAULT_CONJUNTO_CATEGORIAS.join("\n"),
   });
 
   const load = useCallback(async () => {
@@ -73,6 +74,7 @@ export default function ConfigOrcamentosPage() {
         margem_lucro_padrao_percent: String(cfg.margem_lucro_padrao_percent ?? "53"),
         desconto_max_percent: String(cfg.desconto_max_percent ?? "25"),
         condicao_pagamento_padrao_id: cfg.condicao_pagamento_padrao_id ?? null,
+        conjunto_categorias_text: getConjuntoCategorias(cfg).join("\n"),
       });
       setCondicoes(cps.map((c) => ({ id: c.id, nome: c.nome ?? null })));
     } catch (e: unknown) {
@@ -93,6 +95,7 @@ export default function ConfigOrcamentosPage() {
 
       const margem = n(form.margem_lucro_padrao_percent);
       const descontoMax = n(form.desconto_max_percent);
+      const conjuntoCategorias = normalizeConjuntoCategorias(form.conjunto_categorias_text.split(/\r?\n/g));
       if (margem < 0 || margem > 100) {
         setErr("Margem padrão deve estar entre 0 e 100.");
         return;
@@ -114,6 +117,7 @@ export default function ConfigOrcamentosPage() {
             margem_lucro_padrao_percent: margem,
             desconto_max_percent: descontoMax,
             condicao_pagamento_padrao_id: form.condicao_pagamento_padrao_id ?? null,
+            conjunto_categorias: conjuntoCategorias,
           },
         });
 
@@ -201,6 +205,16 @@ export default function ConfigOrcamentosPage() {
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="block text-xs text-zinc-400 md:col-span-3">
+              Categorias fixas dos conjuntos
+              <textarea
+                value={form.conjunto_categorias_text}
+                onChange={(e) => setForm((p) => ({ ...p, conjunto_categorias_text: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm min-h-[120px]"
+                placeholder={"Uma categoria por linha\nPAINEIS AUTOPORTANTE\nPAINEIS DE COMANDO"}
+              />
+              <div className="mt-1 text-[11px] text-zinc-500">Essas categorias serao usadas como lista fixa no cadastro de conjuntos.</div>
             </label>
           </div>
 

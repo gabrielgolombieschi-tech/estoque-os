@@ -59,6 +59,8 @@ type ConjuntoCatalogoRow = {
   preco_sugerido: number | null;
 };
 
+type ConjuntoInsertMode = "EXPANDIR_ITENS" | "ITEM_UNICO";
+
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
 type SortDir = "asc" | "desc";
 type SortValue = string | number | null;
@@ -183,6 +185,13 @@ function formatDateBR(iso?: string | null) {
 function truncateText(value: string, max = 90): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1)}...`;
+}
+
+function formatConjuntoSingleLineDescription(conjunto: ConjuntoCatalogoRow): string {
+  const codigo = upperTrim(String(conjunto.codigo ?? ""));
+  const nome = upperTrim(String(conjunto.nome ?? ""));
+  const details = [codigo, nome].filter(Boolean).join(" - ");
+  return details ? `CONJUNTO ${details}` : "CONJUNTO";
 }
 
 function statusBadgeClass(status: string): string {
@@ -362,7 +371,14 @@ export default function OrcamentoPage() {
 
   const [addConjunto, setAddConjunto] = useState<
     | { open: false }
-    | { open: true; conjunto: ConjuntoCatalogoRow; quantidade: string; busy: boolean; error: string | null }
+    | {
+        open: true;
+        conjunto: ConjuntoCatalogoRow;
+        quantidade: string;
+        modo: ConjuntoInsertMode;
+        busy: boolean;
+        error: string | null;
+      }
   >({ open: false });
   const [statusDialog, setStatusDialog] = useState<{ open: false } | { open: true; status: OrcamentoStatusCanonical }>({
     open: false,
@@ -902,6 +918,38 @@ export default function OrcamentoPage() {
 
     setAddConjunto((p) => (p.open ? { ...p, busy: true, error: null } : p));
     try {
+      if (addConjunto.modo === "ITEM_UNICO") {
+        const itemGenerico = await getItemByCodigo(supabase, { tenantId, empresaId, codigo: "9999" });
+        if (!itemGenerico?.id) {
+          throw new Error("Nao foi possivel resolver o item generico 9999 para inserir o conjunto.");
+        }
+
+        const valorUnitario = Number(addConjunto.conjunto.preco_sugerido ?? 0);
+        const valorSeguro = Number.isFinite(valorUnitario) && valorUnitario >= 0 ? Number(valorUnitario.toFixed(2)) : 0;
+        const descricao = formatConjuntoSingleLineDescription(addConjunto.conjunto);
+
+        await addItem(supabase, {
+          tenantId,
+          empresaId,
+          orcamentoId: orc.id,
+          itemId: itemGenerico.id,
+          quantidade: qtd,
+          valorUnitario: valorSeguro,
+          descontoItemPercent: 0,
+          observacoes: descricao,
+        });
+
+        const totalEstimado = Number((qtd * valorSeguro).toFixed(2));
+
+        setAddConjunto({ open: false });
+        setShowLookup(false);
+        await reload();
+        setOk(
+          `Conjunto inserido como item unico: ${formatDecimalBR(qtd)} x R$ ${formatMoneyBR(valorSeguro)} = R$ ${formatMoneyBR(totalEstimado)}.`
+        );
+        return;
+      }
+
       const { data, error } = await supabase.schema("m").rpc("fn_orcamento_adicionar_conjunto", {
         p_orcamento_id: orc.id,
         p_conjunto_id: addConjunto.conjunto.conjunto_id,
@@ -926,9 +974,9 @@ export default function OrcamentoPage() {
       await reload();
 
       if (itensInseridos > 0 || totalEstimado > 0) {
-        setOk(`Conjunto inserido: ${itensInseridos} itens, total estimado R$ ${formatMoneyBR(totalEstimado)}.`);
+        setOk(`Conjunto expandido em itens: ${itensInseridos} itens, total estimado R$ ${formatMoneyBR(totalEstimado)}.`);
       } else {
-        setOk("Conjunto inserido.");
+        setOk("Conjunto expandido em itens.");
       }
     } catch (e: unknown) {
       setAddConjunto((p) =>
@@ -1676,7 +1724,16 @@ export default function OrcamentoPage() {
                         <tr
                           key={c.conjunto_id}
                           className="hover:bg-zinc-900/40 cursor-pointer"
-                          onClick={() => setAddConjunto({ open: true, conjunto: c, quantidade: "1", busy: false, error: null })}
+                          onClick={() =>
+                            setAddConjunto({
+                              open: true,
+                              conjunto: c,
+                              quantidade: "1",
+                              modo: "EXPANDIR_ITENS",
+                              busy: false,
+                              error: null,
+                            })
+                          }
                         >
                           <td className="px-4 py-3 whitespace-nowrap">{c.codigo ?? "-"}</td>
                           <td className="px-4 py-3 whitespace-normal break-words">{c.nome ?? "-"}</td>
@@ -1724,6 +1781,31 @@ export default function OrcamentoPage() {
                           className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                         />
                       </label>
+                      <div className="space-y-2">
+                        <div className="text-xs text-zinc-400">Modo de inclusao</div>
+                        <label className="flex items-start gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-200">
+                          <input
+                            type="radio"
+                            name="modo-conjunto"
+                            checked={addConjunto.modo === "EXPANDIR_ITENS"}
+                            onChange={() =>
+                              setAddConjunto((p) => (p.open ? { ...p, modo: "EXPANDIR_ITENS", error: null } : p))
+                            }
+                            disabled={addConjunto.busy}
+                          />
+                          <span>Adicionar todos os itens do conjunto para editar quantidades depois.</span>
+                        </label>
+                        <label className="flex items-start gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-200">
+                          <input
+                            type="radio"
+                            name="modo-conjunto"
+                            checked={addConjunto.modo === "ITEM_UNICO"}
+                            onChange={() => setAddConjunto((p) => (p.open ? { ...p, modo: "ITEM_UNICO", error: null } : p))}
+                            disabled={addConjunto.busy}
+                          />
+                          <span>Adicionar uma unica linha no orcamento com o preco sugerido do conjunto.</span>
+                        </label>
+                      </div>
                       {addConjunto.error && <div className="text-sm text-red-400">{addConjunto.error}</div>}
                       <div className="flex items-center justify-end gap-2">
                         <button

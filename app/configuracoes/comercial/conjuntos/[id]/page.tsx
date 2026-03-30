@@ -1,17 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
+import { getItemByCodigo, getItemById } from "@/lib/comercial/orcamentos.service";
 import { mapOrcamentoError, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import { formatMoneyBR, parseMoneyBR, parseDecimalBR } from "@/lib/decimal";
+import { ensureConfig, getConfig, getConjuntoCategorias } from "@/src/services/configOrcamento";
 import type { ConjuntoItemRow, ConjuntoRow } from "@/src/services/conjunto";
 import {
   createConjunto,
+  getNextConjuntoCodigo,
   getConjunto,
   insertConjuntoItem,
   listConjuntoItens,
@@ -42,9 +45,13 @@ type ItemFormRow = {
   id?: string;
   ordem: string;
   item_id: string;
+  item_codigo: string;
+  item_nome: string;
   item_label: string;
   quantidade: string;
 };
+
+const INLINE_LOOKUP_KEY = "__inline_lookup__";
 
 function emptyForm(): FormState {
   return {
@@ -63,16 +70,41 @@ function rowKey(): string {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function normalizePrecificacao(v: string): string {
-  const up = String(v ?? "").trim().toUpperCase();
-  if (up === "PRECO_FIXO") return "PRECO_FIXO";
-  if (up === "SOMA_COMPONENTES") return "SOMA_COMPONENTES";
-  if (up === "SOMA_ITENS") return "SOMA_ITENS";
-  return up;
+function nextItemOrder(rows: ItemFormRow[]): string {
+  const maxOrdem = rows.reduce((acc, row) => {
+    const ordem = Number(String(row.ordem ?? "").trim());
+    if (!Number.isInteger(ordem) || ordem < 0) return acc;
+    return Math.max(acc, ordem);
+  }, 0);
+  return String(maxOrdem + 1);
 }
 
-export default function ConjuntoEditPage({ params }: { params: { id: string } }) {
-  const idParam = String(params.id ?? "");
+function buildItemLabel(codigo: string, nome: string, id: number): string {
+  return [codigo, nome].filter(Boolean).join(" - ") || String(id);
+}
+
+function up(v: string): string {
+  return String(v ?? "").toUpperCase();
+}
+
+function normalizePrecificacao(v: string): string {
+  const normalized = String(v ?? "").trim().toUpperCase();
+  if (normalized === "PRECO_FIXO") return "PRECO_FIXO";
+  if (normalized === "SOMA_COMPONENTES") return "SOMA_COMPONENTES";
+  if (normalized === "SOMA_ITENS") return "SOMA_ITENS";
+  return normalized;
+}
+
+function mergeCategoriaOptions(options: string[], currentValue: string): string[] {
+  const current = upperTrim(currentValue);
+  if (!current) return options;
+  return options.includes(current) ? options : [...options, current];
+}
+
+export default function ConjuntoEditPage() {
+  const params = useParams();
+  const rawId = (params as Record<string, string | string[] | undefined>)?.id;
+  const idParam = String(Array.isArray(rawId) ? rawId[0] : rawId ?? "");
   const isNew = idParam === "novo";
   const router = useRouter();
 
@@ -93,15 +125,32 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
   const [ok, setOk] = useState<string | null>(null);
 
   const [conjunto, setConjunto] = useState<ConjuntoRow | null>(null);
+  const [categoriaOptions, setCategoriaOptions] = useState<string[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [itens, setItens] = useState<ItemFormRow[]>([]);
   const removedItemIdsRef = useRef<Set<string>>(new Set());
-
-  const [suggestBusyKey, setSuggestBusyKey] = useState<string | null>(null);
+  const [inlineMode, setInlineMode] = useState<"add" | "edit">("add");
+  const [inlineEditingKey, setInlineEditingKey] = useState<string | null>(null);
+  const [inlineOrdem, setInlineOrdem] = useState("1");
+  const [inlineItemToken, setInlineItemToken] = useState("");
+  const [inlineItemId, setInlineItemId] = useState("");
+  const [inlineItemCodigo, setInlineItemCodigo] = useState("");
+  const [inlineItemNome, setInlineItemNome] = useState("");
+  const [inlineItemLabel, setInlineItemLabel] = useState("");
+  const [inlineQuantidade, setInlineQuantidade] = useState("1");
+  const [inlineErr, setInlineErr] = useState<string | null>(null);
+  const inlineCodigoInputRef = useRef<HTMLInputElement | null>(null);
+  const inlineQuantidadeInputRef = useRef<HTMLInputElement | null>(null);
   const [suggestKey, setSuggestKey] = useState<string | null>(null);
-  const [suggestTerm, setSuggestTerm] = useState<string>("");
+  const [suggestTerm, setSuggestTerm] = useState("");
   const [suggestRows, setSuggestRows] = useState<ItemSuggest[]>([]);
-  const suggestReqRef = useRef(0);
+  const suggestBusyKey: string | null = null;
+  const [showLookup, setShowLookup] = useState(false);
+  const [lookupTargetKey, setLookupTargetKey] = useState<string | null>(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupErr, setLookupErr] = useState<string | null>(null);
+  const [lookupTerm, setLookupTerm] = useState("");
+  const [lookupRows, setLookupRows] = useState<ItemSuggest[]>([]);
 
   const load = useCallback(async () => {
     setErr(null);
@@ -116,12 +165,50 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
       return;
     }
 
-    if (isNew) {
+    if (!idParam) {
       setLoading(false);
+      setErr("Identificador do conjunto nao informado.");
       setConjunto(null);
-      setForm(emptyForm());
       setItens([]);
-      removedItemIdsRef.current = new Set();
+      return;
+    }
+
+    let categorias = ["PAINEIS AUTOPORTANTE", "PAINEIS DE COMANDO"];
+    try {
+      let cfg = await getConfig(supabase, { tenantId, empresaId });
+      if (!cfg) {
+        cfg = await ensureConfig(supabase, { tenantId, empresaId });
+      }
+      categorias = getConjuntoCategorias(cfg);
+    } catch {
+      // Se a configuracao falhar, usa o fallback padrao para nao bloquear a tela.
+    }
+    setCategoriaOptions(categorias);
+
+    if (isNew) {
+      setLoading(true);
+      setConjunto(null);
+      try {
+        const nextCodigo = await getNextConjuntoCodigo(supabase, { tenantId, empresaId });
+        setForm({ ...emptyForm(), codigo: nextCodigo, categoria: categorias[0] ?? "" });
+        setItens([]);
+        setInlineMode("add");
+        setInlineEditingKey(null);
+        setInlineOrdem("1");
+        setInlineItemToken("");
+        setInlineItemId("");
+        setInlineItemCodigo("");
+        setInlineItemNome("");
+        setInlineItemLabel("");
+        setInlineQuantidade("1");
+        setInlineErr(null);
+        removedItemIdsRef.current = new Set();
+      } catch (e: unknown) {
+        setForm(emptyForm());
+        setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao gerar codigo automatico do conjunto."));
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -129,6 +216,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
     try {
       const c = await getConjunto(supabase, { tenantId, empresaId, id: idParam });
       setConjunto(c);
+      setCategoriaOptions(mergeCategoriaOptions(categorias, c?.categoria ?? ""));
       setForm({
         codigo: c?.codigo ?? "",
         nome: c?.nome ?? "",
@@ -147,6 +235,8 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
         const { data: itemRows } = await supabase
           .from("itens")
           .select("id,codigo_interno,nome")
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
           .in("id", ids)
           .limit(5000);
         const typedRows = (itemRows ?? []) as ItemSuggest[];
@@ -155,23 +245,37 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
           if (!Number.isFinite(id) || id <= 0) return;
           const codigo = String(it.codigo_interno ?? "").trim();
           const nome = String(it.nome ?? "").trim();
-          labelMap.set(id, [codigo, nome].filter(Boolean).join(" — ") || String(id));
+          labelMap.set(id, buildItemLabel(codigo, nome, id));
         });
       }
 
-      setItens(
-        its.map((r) => {
-          const itemIdNum = Number(r.item_id);
-          return {
-            localKey: rowKey(),
-            id: r.id,
-            ordem: r.ordem === null || r.ordem === undefined ? "" : String(r.ordem),
-            item_id: String(r.item_id ?? ""),
-            item_label: labelMap.get(itemIdNum) ?? "",
-            quantidade: r.quantidade === null || r.quantidade === undefined ? "" : String(r.quantidade),
-          } satisfies ItemFormRow;
-        })
-      );
+      const loadedItems = its.map((r) => {
+        const itemIdNum = Number(r.item_id);
+        const itemLabel = labelMap.get(itemIdNum) ?? "";
+        const parts = itemLabel.split(" - ");
+        return {
+          localKey: rowKey(),
+          id: r.id,
+          ordem: r.ordem === null || r.ordem === undefined ? "" : String(r.ordem),
+          item_id: String(r.item_id ?? ""),
+          item_codigo: parts.length > 1 ? parts[0] : "",
+          item_nome: parts.length > 1 ? parts.slice(1).join(" - ") : itemLabel,
+          item_label: itemLabel,
+          quantidade: r.quantidade === null || r.quantidade === undefined ? "" : String(r.quantidade),
+        } satisfies ItemFormRow;
+      });
+
+      setItens(loadedItems);
+      setInlineMode("add");
+      setInlineEditingKey(null);
+      setInlineOrdem(nextItemOrder(loadedItems));
+      setInlineItemToken("");
+      setInlineItemId("");
+      setInlineItemCodigo("");
+      setInlineItemNome("");
+      setInlineItemLabel("");
+      setInlineQuantidade("1");
+      setInlineErr(null);
       removedItemIdsRef.current = new Set();
     } catch (e: unknown) {
       setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar conjunto."));
@@ -186,63 +290,142 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
     void load();
   }, [load]);
 
-  // autocomplete suggestions for a specific row
-  useEffect(() => {
-    if (!supabase) return;
-    const key = suggestKey;
-    if (!key) return;
-    const term = suggestTerm.trim();
-    const reqId = ++suggestReqRef.current;
+  const resolveItemByCodigoOrId = useCallback(
+    async (rawValue: string) => {
+      const raw = String(rawValue ?? "").trim();
+      if (!supabase || !tenantId || !empresaId || !raw) return null;
 
-    const t = setTimeout(async () => {
-      if (!term) {
-        if (reqId === suggestReqRef.current) setSuggestRows([]);
-        return;
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        const byId = await getItemById(supabase, { tenantId, empresaId, id: parsed });
+        if (byId?.id) return byId;
       }
-      setSuggestBusyKey(key);
-      try {
-        let q = supabase.from("itens").select("id,codigo_interno,nome").eq("ativo", true);
-        q = q.or(`codigo_interno.ilike.%${term}%,nome.ilike.%${term}%`);
-        const { data, error } = await q.order("nome", { ascending: true }).limit(15);
-        if (reqId !== suggestReqRef.current) return;
-        if (error) {
-          setSuggestRows([]);
-        } else {
-          setSuggestRows((data ?? []) as ItemSuggest[]);
-        }
-      } finally {
-        if (reqId === suggestReqRef.current) setSuggestBusyKey(null);
-      }
-    }, 250);
 
-    return () => clearTimeout(t);
-  }, [suggestKey, suggestTerm, supabase]);
+      return getItemByCodigo(supabase, { tenantId, empresaId, codigo: raw });
+    },
+    [empresaId, supabase, tenantId]
+  );
+
+
+  function closeLookupModal() {
+    setShowLookup(false);
+    setLookupTargetKey(null);
+    setLookupBusy(false);
+    setLookupErr(null);
+    setLookupRows([]);
+  }
+
+  async function handleLookupSearch(nextTerm?: string) {
+    if (!supabase || !tenantId || !empresaId) return;
+
+    const term = String(nextTerm ?? lookupTerm).trim();
+    setLookupBusy(true);
+    setLookupErr(null);
+
+    try {
+      let q = supabase
+        .from("itens")
+        .select("id,codigo_interno,nome")
+        .eq("tenant_id", tenantId)
+        .eq("empresa_id", empresaId)
+        .eq("ativo", true)
+        .in("tipo", ["produto", "servico"]);
+
+      if (term) {
+        const parsed = Number(term);
+        const like = `%${term}%`;
+        q =
+          Number.isFinite(parsed) && parsed > 0
+            ? q.or(`id.eq.${parsed},codigo_interno.ilike.${like},nome.ilike.${like}`)
+            : q.or(`codigo_interno.ilike.${like},nome.ilike.${like}`);
+      }
+
+      const { data, error } = await q.order("nome", { ascending: true }).limit(50);
+      if (error) throw error;
+      setLookupRows((data ?? []) as ItemSuggest[]);
+    } catch (e: unknown) {
+      setLookupRows([]);
+      setLookupErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao buscar itens."));
+    } finally {
+      setLookupBusy(false);
+    }
+  }
+
+  function openLookupModal(localKey: string, initialTerm = "") {
+    const nextTerm = String(initialTerm ?? "").trim();
+    setLookupTargetKey(localKey);
+    setLookupTerm(nextTerm);
+    setShowLookup(true);
+    setLookupErr(null);
+    setLookupRows([]);
+    void handleLookupSearch(nextTerm);
+  }
+
+  const resetInlineForm = useCallback(
+    (rows: ItemFormRow[] = itens) => {
+      setInlineMode("add");
+      setInlineEditingKey(null);
+      setInlineOrdem(nextItemOrder(rows));
+      setInlineItemToken("");
+      setInlineItemId("");
+      setInlineItemCodigo("");
+      setInlineItemNome("");
+      setInlineItemLabel("");
+      setInlineQuantidade("1");
+      setInlineErr(null);
+      window.requestAnimationFrame(() => {
+        inlineCodigoInputRef.current?.focus();
+        inlineCodigoInputRef.current?.select();
+      });
+    },
+    [itens]
+  );
 
   const addItemRow = useCallback(() => {
-    setItens((p) => [
-      ...p,
-      {
-        localKey: rowKey(),
-        ordem: String(p.length + 1),
-        item_id: "",
-        item_label: "",
-        quantidade: "1",
-      },
-    ]);
+    // Mantido apenas para compatibilidade com o bloco legado escondido.
   }, []);
 
-  const removeItemRow = useCallback((localKey: string) => {
-    setItens((p) => {
-      const row = p.find((x) => x.localKey === localKey);
-      if (row?.id) removedItemIdsRef.current.add(row.id);
-      return p.filter((x) => x.localKey !== localKey);
-    });
-    if (suggestKey === localKey) {
-      setSuggestKey(null);
-      setSuggestTerm("");
-      setSuggestRows([]);
-    }
-  }, [suggestKey]);
+  const removeItemRow = useCallback(() => {
+    // Mantido apenas para compatibilidade com o bloco legado escondido.
+  }, []);
+
+  const startInlineEdit = useCallback(
+    (localKey: string) => {
+      const row = itens.find((it) => it.localKey === localKey);
+      if (!row) return;
+
+      setInlineMode("edit");
+      setInlineEditingKey(localKey);
+      setInlineOrdem(row.ordem || "");
+      setInlineItemToken(row.item_codigo || row.item_id);
+      setInlineItemId(row.item_id);
+      setInlineItemCodigo(row.item_codigo);
+      setInlineItemNome(row.item_nome);
+      setInlineItemLabel(row.item_label);
+      setInlineQuantidade(row.quantidade || "1");
+      setInlineErr(null);
+      window.requestAnimationFrame(() => {
+        inlineCodigoInputRef.current?.focus();
+        inlineCodigoInputRef.current?.select();
+      });
+    },
+    [itens]
+  );
+
+  const applyPickedItem = useCallback((localKey: string, it: ItemSuggest) => {
+    const id = Number(it.id);
+    const codigo = String(it.codigo_interno ?? "").trim();
+    const nome = String(it.nome ?? "").trim();
+    const label = [codigo, nome].filter(Boolean).join(" â€” ") || String(id);
+    setItens((p) => p.map((r) => (r.localKey === localKey ? { ...r, item_id: String(id), item_label: label } : r)));
+    setSuggestKey(null);
+    setSuggestTerm("");
+    setSuggestRows([]);
+    setShowLookup(false);
+    setLookupTargetKey(null);
+    setLookupErr(null);
+    setLookupRows([]);
+  }, []);
 
   const pickSuggestion = useCallback((localKey: string, it: ItemSuggest) => {
     const id = Number(it.id);
@@ -255,6 +438,160 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
     setSuggestRows([]);
   }, []);
 
+  async function handleItemTokenEnter(localKey: string, rawValue: string) {
+    const raw = String(rawValue ?? "").trim();
+    if (!raw) {
+      openLookupModal(localKey, "");
+      return;
+    }
+
+    try {
+      const item = await resolveItemByCodigoOrId(raw);
+      if (item?.id) {
+        applyPickedItem(localKey, {
+          id: item.id,
+          codigo_interno: item.codigo_interno ?? null,
+          nome: item.nome ?? null,
+        });
+        return;
+      }
+    } catch {
+      // Se a resolucao direta falhar, segue para a busca modal.
+    }
+
+    openLookupModal(localKey, raw);
+  }
+
+  const applyInlinePickedItem = useCallback((it: ItemSuggest) => {
+    const id = Number(it.id);
+    const codigo = String(it.codigo_interno ?? "").trim();
+    const nome = String(it.nome ?? "").trim();
+    const label = buildItemLabel(codigo, nome, id);
+    setInlineItemToken(codigo || String(id));
+    setInlineItemId(String(id));
+    setInlineItemCodigo(codigo);
+    setInlineItemNome(nome);
+    setInlineItemLabel(label);
+    setInlineErr(null);
+    window.requestAnimationFrame(() => {
+      inlineQuantidadeInputRef.current?.focus();
+      inlineQuantidadeInputRef.current?.select();
+    });
+  }, []);
+
+  const applyLookupSelection = useCallback(
+    (it: ItemSuggest) => {
+      if (!lookupTargetKey) return;
+      if (lookupTargetKey === INLINE_LOOKUP_KEY) {
+        applyInlinePickedItem(it);
+      } else {
+        applyPickedItem(lookupTargetKey, it);
+      }
+      setShowLookup(false);
+      setLookupTargetKey(null);
+      setLookupErr(null);
+      setLookupRows([]);
+    },
+    [applyInlinePickedItem, applyPickedItem, lookupTargetKey]
+  );
+
+  const cancelInlineEdit = useCallback(() => {
+    resetInlineForm();
+  }, [resetInlineForm]);
+
+  const removeInlineItemRow = useCallback(
+    (localKey: string) => {
+      const row = itens.find((it) => it.localKey === localKey);
+      if (row?.id) removedItemIdsRef.current.add(row.id);
+
+      const nextRows = itens.filter((it) => it.localKey !== localKey);
+      setItens(nextRows);
+
+      if (inlineMode === "edit" && inlineEditingKey === localKey) {
+        resetInlineForm(nextRows);
+        return;
+      }
+
+      if (inlineMode === "add") {
+        setInlineOrdem(nextItemOrder(nextRows));
+      }
+    },
+    [inlineEditingKey, inlineMode, itens, resetInlineForm]
+  );
+
+  const submitInlineItem = useCallback(() => {
+    const itemIdNum = Number(String(inlineItemId ?? "").trim());
+    if (!Number.isFinite(itemIdNum) || itemIdNum <= 0) {
+      setInlineErr("Informe um item valido.");
+      window.requestAnimationFrame(() => {
+        inlineCodigoInputRef.current?.focus();
+        inlineCodigoInputRef.current?.select();
+      });
+      return;
+    }
+
+    const qtd = parseDecimalBR(String(inlineQuantidade ?? "").trim());
+    if (!Number.isFinite(qtd) || qtd <= 0) {
+      setInlineErr("Quantidade deve ser maior que 0.");
+      window.requestAnimationFrame(() => {
+        inlineQuantidadeInputRef.current?.focus();
+        inlineQuantidadeInputRef.current?.select();
+      });
+      return;
+    }
+
+    const ordem = String(inlineOrdem ?? "").trim();
+    const ordemNum = ordem ? Number(ordem) : null;
+    if (ordem && (!Number.isInteger(ordemNum) || (ordemNum as number) < 0)) {
+      setInlineErr("Ordem deve ser um inteiro maior ou igual a 0.");
+      return;
+    }
+
+    const existingId = inlineMode === "edit" ? itens.find((it) => it.localKey === inlineEditingKey)?.id : undefined;
+    const nextRow = {
+      localKey: inlineEditingKey ?? rowKey(),
+      id: existingId,
+      ordem: ordemNum === null ? "" : String(ordemNum),
+      item_id: String(itemIdNum),
+      item_codigo: inlineItemCodigo,
+      item_nome: inlineItemNome,
+      item_label: inlineItemLabel || buildItemLabel(inlineItemCodigo, inlineItemNome, itemIdNum),
+      quantidade: String(inlineQuantidade ?? "").trim(),
+    } satisfies ItemFormRow;
+
+    const nextRows =
+      inlineMode === "edit" && inlineEditingKey
+        ? itens.map((it) => (it.localKey === inlineEditingKey ? nextRow : it))
+        : [...itens, nextRow];
+
+    setItens(nextRows);
+    resetInlineForm(nextRows);
+  }, [inlineEditingKey, inlineItemCodigo, inlineItemId, inlineItemLabel, inlineItemNome, inlineMode, inlineOrdem, inlineQuantidade, itens, resetInlineForm]);
+
+  async function handleInlineItemTokenEnter(rawValue: string) {
+    const raw = String(rawValue ?? "").trim();
+    if (!raw) {
+      openLookupModal(INLINE_LOOKUP_KEY, "");
+      return;
+    }
+
+    try {
+      const item = await resolveItemByCodigoOrId(raw);
+      if (item?.id) {
+        applyInlinePickedItem({
+          id: item.id,
+          codigo_interno: item.codigo_interno ?? null,
+          nome: item.nome ?? null,
+        });
+        return;
+      }
+    } catch {
+      // Se a resolucao direta falhar, segue para a busca modal.
+    }
+
+    openLookupModal(INLINE_LOOKUP_KEY, raw);
+  }
+
   const save = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -262,7 +599,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
 
       const codigo = upperTrim(form.codigo);
       const nome = String(form.nome ?? "").trim();
-      if (!codigo) {
+      if (!codigo && !isNew) {
         setErr("Informe o código.");
         return;
       }
@@ -307,7 +644,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
             tenantId,
             empresaId,
             payload: {
-              codigo,
+              codigo: codigo || null,
               nome,
               categoria: form.categoria.trim() ? upperTrim(form.categoria) : null,
               precificacao,
@@ -424,8 +761,10 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                 <input
                   value={form.codigo}
                   onChange={(e) => setForm((p) => ({ ...p, codigo: up(e.target.value) }))}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                  disabled={isNew}
+                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
                 />
+                {isNew && <div className="mt-1 text-[11px] text-zinc-500">Gerado automaticamente no padrao C1.</div>}
               </label>
 
               <label className="block text-xs text-zinc-400 md:col-span-2">
@@ -441,11 +780,17 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <label className="block text-xs text-zinc-400">
                 Categoria
-                <input
+                <select
                   value={form.categoria}
-                  onChange={(e) => setForm((p) => ({ ...p, categoria: up(e.target.value) }))}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
-                />
+                  onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
+                >
+                  {categoriaOptions.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="block text-xs text-zinc-400">
@@ -468,7 +813,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                   disabled={normalizePrecificacao(form.precificacao) !== "PRECO_FIXO"}
                 />
-                {normalizePrecificacao(form.precificacao) === "PRECO_FIXO" && (
+                {false && normalizePrecificacao(form.precificacao) === "PRECO_FIXO" && (
                   <div className="text-[11px] text-zinc-500 mt-1">Sugestão: {formatMoneyBR(parseMoneyBR(form.preco_fixo) || 0)}</div>
                 )}
               </label>
@@ -506,6 +851,159 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
             </div>
           </div>
 
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+            <div className="px-4 py-3 border-b border-zinc-800">
+              <div className="font-medium">Itens do Conjunto</div>
+              <div className="text-sm text-zinc-400 mt-1">Informe codigo ou ID, pressione Enter e adicione o componente.</div>
+            </div>
+
+            <div className="p-4 border-b border-zinc-800">
+              {inlineErr && <div className="text-sm text-red-400 mb-3">{inlineErr}</div>}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <label className="block text-xs text-zinc-400">
+                  Codigo
+                  <input
+                    ref={inlineCodigoInputRef}
+                    value={inlineItemToken}
+                    onChange={(e) => {
+                      setInlineItemToken(e.target.value);
+                      setInlineItemId("");
+                      setInlineItemCodigo("");
+                      setInlineItemNome("");
+                      setInlineItemLabel("");
+                      setInlineErr(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleInlineItemTokenEnter(e.currentTarget.value);
+                      }
+                    }}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Ex.: 109 ou 162"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Quantidade
+                  <input
+                    ref={inlineQuantidadeInputRef}
+                    value={inlineQuantidade}
+                    onChange={(e) => setInlineQuantidade(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        submitInlineItem();
+                      }
+                    }}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Ordem
+                  <input
+                    value={inlineOrdem}
+                    onChange={(e) => setInlineOrdem(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="block text-xs text-zinc-400">
+                  ID
+                  <input
+                    value={inlineItemId || "-"}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Item
+                  <input
+                    value={inlineItemLabel}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                    placeholder="Pressione Enter para localizar o item"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center justify-end gap-2">
+                {inlineMode === "edit" && (
+                  <button
+                    type="button"
+                    onClick={cancelInlineEdit}
+                    className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
+                  >
+                    Cancelar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={submitInlineItem}
+                  className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                >
+                  {inlineMode === "edit" ? "Salvar" : "Adicionar"}
+                </button>
+              </div>
+            </div>
+
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-900/70">
+                <tr className="text-zinc-200">
+                  <th className="px-3 py-3 text-left whitespace-nowrap">Ordem</th>
+                  <th className="px-3 py-3 text-left whitespace-nowrap">ID</th>
+                  <th className="px-3 py-3 text-left whitespace-nowrap">Codigo</th>
+                  <th className="px-3 py-3 text-left">Item</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">Quantidade</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">Acoes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800">
+                {itens.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-zinc-400">
+                      Nenhum componente adicionado.
+                    </td>
+                  </tr>
+                )}
+
+                {itens.map((r) => (
+                  <tr key={r.localKey}>
+                    <td className="px-3 py-3 whitespace-nowrap">{r.ordem || "-"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{r.item_id || "-"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{r.item_codigo || "-"}</td>
+                    <td className="px-3 py-3">{r.item_nome || r.item_label || "-"}</td>
+                    <td className="px-3 py-3 text-right whitespace-nowrap">{r.quantidade || "-"}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(r.localKey)}
+                          className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeInlineItemRow(r.localKey)}
+                          className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {false && (
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
@@ -552,7 +1050,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                         </td>
                         <td className="px-3 py-2">
                           <div className="space-y-1 relative">
-                            <div className="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_auto] gap-2">
                               <input
                                 value={r.item_id}
                                 onChange={(e) =>
@@ -562,8 +1060,14 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                                     )
                                   )
                                 }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    void handleItemTokenEnter(r.localKey, e.currentTarget.value);
+                                  }
+                                }}
                                 className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2"
-                                placeholder="item_id"
+                                placeholder="ID ou codigo"
                               />
                               <input
                                 value={suggestKey === r.localKey ? suggestTerm : ""}
@@ -575,6 +1079,12 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                                   setSuggestKey(r.localKey);
                                   setSuggestTerm("");
                                   setSuggestRows([]);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    void handleItemTokenEnter(r.localKey, e.currentTarget.value);
+                                  }
                                 }}
                                 className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2"
                                 placeholder="Buscar item por código/nome"
@@ -633,6 +1143,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
               </div>
             </div>
           </div>
+          )}
 
           <div className="flex items-center gap-2">
             <button
@@ -650,6 +1161,109 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
             </Link>
           </div>
         </form>
+      )}
+
+      {showLookup && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 md:items-center"
+          onClick={(e) => e.target === e.currentTarget && closeLookupModal()}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Localizar item"
+            className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40 flex items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold text-zinc-100">Localizar item</div>
+                <div className="text-xs text-zinc-400 mt-1">Busque por ID, codigo ou nome e selecione o componente do conjunto.</div>
+              </div>
+              <button
+                type="button"
+                onClick={closeLookupModal}
+                className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-sm"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <input
+                  value={lookupTerm}
+                  onChange={(e) => setLookupTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleLookupSearch(e.currentTarget.value);
+                    }
+                  }}
+                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                  placeholder="Buscar item por ID, codigo ou nome"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleLookupSearch(lookupTerm)}
+                  className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                  disabled={lookupBusy}
+                >
+                  Buscar
+                </button>
+              </div>
+
+              {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
+
+              <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
+                <div className="overflow-auto max-h-[60dvh]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                      <tr className="text-zinc-200">
+                        <th className="px-4 py-3 text-left whitespace-nowrap w-24">ID</th>
+                        <th className="px-4 py-3 text-left whitespace-nowrap w-40">Codigo</th>
+                        <th className="px-4 py-3 text-left">Nome</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800">
+                      {lookupBusy && (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-6 text-zinc-400 text-center">
+                            Buscando...
+                          </td>
+                        </tr>
+                      )}
+
+                      {!lookupBusy &&
+                        lookupRows.map((it) => (
+                          <tr
+                            key={it.id}
+                            className="hover:bg-zinc-900/40 cursor-pointer"
+                            onClick={() => {
+                              applyLookupSelection(it);
+                            }}
+                          >
+                            <td className="px-4 py-3 whitespace-nowrap">{it.id}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno ?? "-"}</td>
+                            <td className="px-4 py-3">{it.nome ?? "-"}</td>
+                          </tr>
+                        ))}
+
+                      {!lookupBusy && lookupRows.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-6 text-zinc-400 text-center">
+                            Nenhum item encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
