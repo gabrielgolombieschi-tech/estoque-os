@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
+import { upper, upperOrNull, upperTrim } from "@/lib/text";
 
 type Cliente = {
   id: number;
@@ -122,12 +123,12 @@ export default function ClientesPage() {
   function editar(r: Cliente) {
     setEditingId(r.id);
     setForm({
-      nome: r.nome ?? "",
-      documento: r.documento ?? "",
-      email: r.email ?? "",
-      telefone: r.telefone ?? "",
-      endereco: r.endereco ?? "",
-      observacoes: r.observacoes ?? "",
+      nome: upper(r.nome),
+      documento: upper(r.documento),
+      email: upper(r.email),
+      telefone: upper(r.telefone),
+      endereco: upper(r.endereco),
+      observacoes: upper(r.observacoes),
       ativo: !!r.ativo,
       habilita_hh: !!r.habilita_hh,
     });
@@ -147,12 +148,12 @@ export default function ClientesPage() {
     setBusy(true);
 
     const payload: ClientePayload = {
-      nome: form.nome.trim(),
-      documento: form.documento.trim() || null,
-      email: form.email.trim() || null,
-      telefone: form.telefone.trim() || null,
-      endereco: form.endereco.trim() || null,
-      observacoes: form.observacoes.trim() || null,
+      nome: upperTrim(form.nome),
+      documento: upperOrNull(form.documento),
+      email: upperOrNull(form.email),
+      telefone: upperOrNull(form.telefone),
+      endereco: upperOrNull(form.endereco),
+      observacoes: upperOrNull(form.observacoes),
       ativo: !!form.ativo,      habilita_hh: form.habilita_hh,      atualizado_em: new Date().toISOString(),
     };
 
@@ -260,27 +261,27 @@ export default function ClientesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
             <div className="md:col-span-2 space-y-1">
               <div className="text-xs text-zinc-400">Nome *</div>
-              <input className="w-full px-3 py-2" value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))} />
+              <input className="w-full px-3 py-2" value={form.nome} onChange={(e) => setForm((s) => ({ ...s, nome: upper(e.target.value) }))} />
             </div>
             <div className="space-y-1">
               <div className="text-xs text-zinc-400">CPF/CNPJ</div>
-              <input className="w-full px-3 py-2" value={form.documento} onChange={(e) => setForm((s) => ({ ...s, documento: e.target.value }))} />
+              <input className="w-full px-3 py-2" value={form.documento} onChange={(e) => setForm((s) => ({ ...s, documento: upper(e.target.value) }))} />
             </div>
             <div className="space-y-1">
               <div className="text-xs text-zinc-400">Telefone</div>
-              <input className="w-full px-3 py-2" value={form.telefone} onChange={(e) => setForm((s) => ({ ...s, telefone: e.target.value }))} />
+              <input className="w-full px-3 py-2" value={form.telefone} onChange={(e) => setForm((s) => ({ ...s, telefone: upper(e.target.value) }))} />
             </div>
             <div className="md:col-span-2 space-y-1">
               <div className="text-xs text-zinc-400">Email</div>
-              <input className="w-full px-3 py-2" value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} />
+              <input className="w-full px-3 py-2" value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: upper(e.target.value) }))} />
             </div>
             <div className="md:col-span-2 space-y-1">
               <div className="text-xs text-zinc-400">Endereço</div>
-              <input className="w-full px-3 py-2" value={form.endereco} onChange={(e) => setForm((s) => ({ ...s, endereco: e.target.value }))} />
+              <input className="w-full px-3 py-2" value={form.endereco} onChange={(e) => setForm((s) => ({ ...s, endereco: upper(e.target.value) }))} />
             </div>
             <div className="md:col-span-2 space-y-1">
               <div className="text-xs text-zinc-400">Observações</div>
-              <textarea className="w-full px-3 py-2 min-h-[70px]" value={form.observacoes} onChange={(e) => setForm((s) => ({ ...s, observacoes: e.target.value }))} />
+              <textarea className="w-full px-3 py-2 min-h-[70px]" value={form.observacoes} onChange={(e) => setForm((s) => ({ ...s, observacoes: upper(e.target.value) }))} />
             </div>
 
             <div className="md:col-span-2 flex items-center justify-between border border-zinc-800 rounded-lg p-3">

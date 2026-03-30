@@ -1,0 +1,595 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "clientes_total": 48,
+  "ordens_total": 149,
+  "exact_duplicates": [
+    {
+      "name": "ARCELORMITTAL BRASIL S/A",
+      "ids": [
+        42,
+        71
+      ]
+    },
+    {
+      "name": "MOHAWK REVESTIMENTOS COCAL DO SUL LTDA",
+      "ids": [
+        4,
+        8
+      ]
+    }
+  ],
+  "canonical_duplicates": [
+    {
+      "canonical": "ARCELORMITTAL BRASIL S A",
+      "ids": [
+        42,
+        71
+      ],
+      "names": [
+        "ARCELORMITTAL BRASIL S/A"
+      ]
+    },
+    {
+      "canonical": "CREMER S A",
+      "ids": [
+        178,
+        96
+      ],
+      "names": [
+        "CREMER S.A",
+        "CREMER S.A."
+      ]
+    },
+    {
+      "canonical": "MOHAWK REVESTIMENTOS COCAL DO SUL LTDA",
+      "ids": [
+        4,
+        8
+      ],
+      "names": [
+        "MOHAWK REVESTIMENTOS COCAL DO SUL LTDA"
+      ]
+    },
+    {
+      "canonical": "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA",
+      "ids": [
+        36,
+        185
+      ],
+      "names": [
+        "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA",
+        "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA."
+      ]
+    }
+  ],
+  "os_sem_cliente_cadastrado": [
+    {
+      "id": 12,
+      "numero_os": "12",
+      "cliente_id": null,
+      "cliente_nome": "Cremer",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "CREMER",
+      "candidatos": []
+    },
+    {
+      "id": 122,
+      "numero_os": "103",
+      "cliente_id": null,
+      "cliente_nome": "ELETROFORTE",
+      "status": "em_andamento",
+      "data_abertura": "2026-02-20T16:29:21.94402",
+      "criado_por": "diogo@segau.com.br",
+      "canonical": "ELETROFORTE",
+      "candidatos": []
+    },
+    {
+      "id": 70,
+      "numero_os": "56",
+      "cliente_id": null,
+      "cliente_nome": "Segau",
+      "status": "concluida",
+      "data_abertura": "2026-01-12T19:12:34.969614",
+      "criado_por": "gabriel@segau.com.br",
+      "canonical": "SEGAU",
+      "candidatos": []
+    },
+    {
+      "id": 82,
+      "numero_os": "68",
+      "cliente_id": null,
+      "cliente_nome": "SEGAU",
+      "status": "concluida",
+      "data_abertura": "2026-01-26T11:39:55.230427",
+      "criado_por": "douglas@segau.com.br",
+      "canonical": "SEGAU",
+      "candidatos": []
+    },
+    {
+      "id": 27,
+      "numero_os": "27",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 26,
+      "numero_os": "26",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 25,
+      "numero_os": "25",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 17,
+      "numero_os": "17",
+      "cliente_id": null,
+      "cliente_nome": "Riosulense",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "RIOSULENSE",
+      "candidatos": [
+        {
+          "id": 85,
+          "nome": "RIOSULENSE"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "numero_os": "22",
+      "cliente_id": null,
+      "cliente_nome": "Krona",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "KRONA",
+      "candidatos": []
+    },
+    {
+      "id": 50,
+      "numero_os": "50",
+      "cliente_id": null,
+      "cliente_nome": "Vizinho",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Gabriel",
+      "canonical": "VIZINHO",
+      "candidatos": []
+    },
+    {
+      "id": 39,
+      "numero_os": "39",
+      "cliente_id": null,
+      "cliente_nome": "Dexco",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Marcelo",
+      "canonical": "DEXCO",
+      "candidatos": []
+    },
+    {
+      "id": 40,
+      "numero_os": "40",
+      "cliente_id": null,
+      "cliente_nome": "Dexco",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Marcelo",
+      "canonical": "DEXCO",
+      "candidatos": []
+    },
+    {
+      "id": 9,
+      "numero_os": "9",
+      "cliente_id": null,
+      "cliente_nome": "Incepa",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Vagner",
+      "canonical": "INCEPA",
+      "candidatos": []
+    },
+    {
+      "id": 51,
+      "numero_os": "51",
+      "cliente_id": null,
+      "cliente_nome": "Ciser",
+      "status": "em_andamento",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Clarice",
+      "canonical": "CISER",
+      "candidatos": [
+        {
+          "id": 101,
+          "nome": "CISER"
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "numero_os": "54",
+      "cliente_id": null,
+      "cliente_nome": "Dexco",
+      "status": "concluida",
+      "data_abertura": "2026-01-08T17:44:11.311456",
+      "criado_por": "gabriel@segau.com.br",
+      "canonical": "DEXCO",
+      "candidatos": []
+    },
+    {
+      "id": 20,
+      "numero_os": "20",
+      "cliente_id": null,
+      "cliente_nome": "Riosulense",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "RIOSULENSE",
+      "candidatos": [
+        {
+          "id": 85,
+          "nome": "RIOSULENSE"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "numero_os": "42",
+      "cliente_id": null,
+      "cliente_nome": "Weg",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Gabriel",
+      "canonical": "WEG",
+      "candidatos": []
+    },
+    {
+      "id": 74,
+      "numero_os": "60",
+      "cliente_id": null,
+      "cliente_nome": "Inoxsul",
+      "status": "concluida",
+      "data_abertura": "2026-01-15T11:34:18.852122",
+      "criado_por": "clarice@segau.com.br",
+      "canonical": "INOXSUL",
+      "candidatos": []
+    },
+    {
+      "id": 19,
+      "numero_os": "19",
+      "cliente_id": null,
+      "cliente_nome": "Riosulense",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "RIOSULENSE",
+      "candidatos": [
+        {
+          "id": 85,
+          "nome": "RIOSULENSE"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "numero_os": "11",
+      "cliente_id": null,
+      "cliente_nome": "Cremer",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "CREMER",
+      "candidatos": []
+    },
+    {
+      "id": 97,
+      "numero_os": "83",
+      "cliente_id": null,
+      "cliente_nome": "Mebius Com. de Máquinas Industriais",
+      "status": "concluida",
+      "data_abertura": "2026-02-05T15:11:44.698032",
+      "criado_por": "clarice@segau.com.br",
+      "canonical": "MEBIUS COM DE MAQUINAS INDUSTRIAIS",
+      "candidatos": []
+    },
+    {
+      "id": 18,
+      "numero_os": "18",
+      "cliente_id": null,
+      "cliente_nome": "Riosulense",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "RIOSULENSE",
+      "candidatos": [
+        {
+          "id": 85,
+          "nome": "RIOSULENSE"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "numero_os": "8",
+      "cliente_id": null,
+      "cliente_nome": "Regonal Telhas",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Gabriel",
+      "canonical": "REGONAL TELHAS",
+      "candidatos": []
+    },
+    {
+      "id": 15,
+      "numero_os": "15",
+      "cliente_id": null,
+      "cliente_nome": "Riosulense",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "RIOSULENSE",
+      "candidatos": [
+        {
+          "id": 85,
+          "nome": "RIOSULENSE"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "numero_os": "16",
+      "cliente_id": null,
+      "cliente_nome": "Riosulense",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "RIOSULENSE",
+      "candidatos": [
+        {
+          "id": 85,
+          "nome": "RIOSULENSE"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "numero_os": "38",
+      "cliente_id": null,
+      "cliente_nome": "Dexco",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Marcelo",
+      "canonical": "DEXCO",
+      "candidatos": []
+    },
+    {
+      "id": 37,
+      "numero_os": "37",
+      "cliente_id": null,
+      "cliente_nome": "Dexco",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Marcelo",
+      "canonical": "DEXCO",
+      "candidatos": []
+    },
+    {
+      "id": 13,
+      "numero_os": "13",
+      "cliente_id": null,
+      "cliente_nome": "Cremer",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "CREMER",
+      "candidatos": []
+    },
+    {
+      "id": 14,
+      "numero_os": "14",
+      "cliente_id": null,
+      "cliente_nome": "Cremer",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "CREMER",
+      "candidatos": []
+    },
+    {
+      "id": 36,
+      "numero_os": "36",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 35,
+      "numero_os": "35",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 34,
+      "numero_os": "34",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 33,
+      "numero_os": "33",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 32,
+      "numero_os": "32",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 31,
+      "numero_os": "31",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 30,
+      "numero_os": "30",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 28,
+      "numero_os": "28",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 73,
+      "numero_os": "59",
+      "cliente_id": null,
+      "cliente_nome": "Inoxsul",
+      "status": "concluida",
+      "data_abertura": "2026-01-14T20:18:43.631905",
+      "criado_por": "diogo@segau.com.br",
+      "canonical": "INOXSUL",
+      "candidatos": []
+    },
+    {
+      "id": 29,
+      "numero_os": "29",
+      "cliente_id": null,
+      "cliente_nome": "Arcelormittal",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Diogo",
+      "canonical": "ARCELORMITTAL",
+      "candidatos": []
+    },
+    {
+      "id": 49,
+      "numero_os": "49",
+      "cliente_id": null,
+      "cliente_nome": "Eletromw",
+      "status": "concluida",
+      "data_abertura": "2025-12-31T00:01:49.978905",
+      "criado_por": "Gabriel",
+      "canonical": "ELETROMW",
+      "candidatos": []
+    }
+  ],
+  "safe_matches": [
+    {
+      "os_id": 17,
+      "numero_os": "17",
+      "cliente_nome_atual": "Riosulense",
+      "cliente_destino_id": 85,
+      "cliente_destino_nome": "RIOSULENSE"
+    },
+    {
+      "os_id": 51,
+      "numero_os": "51",
+      "cliente_nome_atual": "Ciser",
+      "cliente_destino_id": 101,
+      "cliente_destino_nome": "CISER"
+    },
+    {
+      "os_id": 20,
+      "numero_os": "20",
+      "cliente_nome_atual": "Riosulense",
+      "cliente_destino_id": 85,
+      "cliente_destino_nome": "RIOSULENSE"
+    },
+    {
+      "os_id": 19,
+      "numero_os": "19",
+      "cliente_nome_atual": "Riosulense",
+      "cliente_destino_id": 85,
+      "cliente_destino_nome": "RIOSULENSE"
+    },
+    {
+      "os_id": 18,
+      "numero_os": "18",
+      "cliente_nome_atual": "Riosulense",
+      "cliente_destino_id": 85,
+      "cliente_destino_nome": "RIOSULENSE"
+    },
+    {
+      "os_id": 15,
+      "numero_os": "15",
+      "cliente_nome_atual": "Riosulense",
+      "cliente_destino_id": 85,
+      "cliente_destino_nome": "RIOSULENSE"
+    },
+    {
+      "os_id": 16,
+      "numero_os": "16",
+      "cliente_nome_atual": "Riosulense",
+      "cliente_destino_id": 85,
+      "cliente_destino_nome": "RIOSULENSE"
+    }
+  ],
+  "ambiguous_matches": []
+}

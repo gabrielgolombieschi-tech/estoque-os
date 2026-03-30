@@ -6,6 +6,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
+import { upper, upperOrNull, upperTrim } from "@/lib/text";
 
 type Cliente = {
   id: number;
@@ -158,12 +159,12 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
   const [form, setForm] = useState<ClienteForm>(() => {
     if (mode === "edit" && initial) {
       return {
-        nome: initial.nome ?? "",
-        documento: initial.documento ?? "",
-        email: initial.email ?? "",
-        telefone: initial.telefone ?? "",
-        endereco: initial.endereco ?? "",
-        observacoes: initial.observacoes ?? "",
+        nome: upper(initial.nome),
+        documento: upper(initial.documento),
+        email: upper(initial.email),
+        telefone: upper(initial.telefone),
+        endereco: upper(initial.endereco),
+        observacoes: upper(initial.observacoes),
         ativo: !!initial.ativo,
         habilita_hh: !!initial.habilita_hh,
       };
@@ -189,7 +190,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
       return;
     }
 
-    const nome = form.nome.trim();
+    const nome = upperTrim(form.nome);
     if (!nome) {
       setErr("Nome é obrigatório.");
       return;
@@ -209,11 +210,11 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
     await onSave({
       ...form,
       nome,
-      documento: form.documento.trim(),
-      email: form.email.trim(),
-      telefone: form.telefone.trim(),
-      endereco: form.endereco.trim(),
-      observacoes: form.observacoes.trim(),
+      documento: upperTrim(form.documento),
+      email: upperTrim(form.email),
+      telefone: upperTrim(form.telefone),
+      endereco: upperTrim(form.endereco),
+      observacoes: upperTrim(form.observacoes),
     }).catch((e2: unknown) => {
       const msg = e2 instanceof Error ? e2.message : "Erro ao salvar.";
       setErr(msg);
@@ -270,7 +271,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
                 aria-label="Nome"
                 className="w-full px-3 py-2"
                 value={form.nome}
-                onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, nome: upper(e.target.value) }))}
               />
             </div>
 
@@ -280,7 +281,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
                 aria-label="Documento"
                 className="w-full px-3 py-2"
                 value={form.documento}
-                onChange={(e) => setForm((s) => ({ ...s, documento: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, documento: upper(e.target.value) }))}
                 placeholder="Somente números ou formatado"
               />
               <div className="text-[11px] text-zinc-500">Normalizado: {normalizeDigits(form.documento) || "-"}</div>
@@ -292,7 +293,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
                 aria-label="E-mail"
                 className="w-full px-3 py-2"
                 value={form.email}
-                onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, email: upper(e.target.value) }))}
                 placeholder="cliente@empresa.com"
               />
             </div>
@@ -303,7 +304,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
                 aria-label="Telefone"
                 className="w-full px-3 py-2"
                 value={form.telefone}
-                onChange={(e) => setForm((s) => ({ ...s, telefone: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, telefone: upper(e.target.value) }))}
                 placeholder="(xx) xxxxx-xxxx"
               />
             </div>
@@ -314,7 +315,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
                 aria-label="Endereço"
                 className="w-full px-3 py-2 min-h-[70px]"
                 value={form.endereco}
-                onChange={(e) => setForm((s) => ({ ...s, endereco: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, endereco: upper(e.target.value) }))}
               />
             </div>
 
@@ -324,7 +325,7 @@ function ClienteDialog({ open, mode, initial, busy, canEdit, onClose, onSave }: 
                 aria-label="Observações"
                 className="w-full px-3 py-2 min-h-[90px]"
                 value={form.observacoes}
-                onChange={(e) => setForm((s) => ({ ...s, observacoes: e.target.value }))}
+                onChange={(e) => setForm((s) => ({ ...s, observacoes: upper(e.target.value) }))}
               />
             </div>
           </div>
@@ -486,12 +487,12 @@ export default function ClientesPage() {
 
     try {
       const payload = {
-        nome: form.nome.trim(),
-        documento: form.documento.trim() || null,
-        email: form.email.trim() || null,
-        telefone: form.telefone.trim() || null,
-        endereco: form.endereco.trim() || null,
-        observacoes: form.observacoes.trim() || null,
+        nome: upperTrim(form.nome),
+        documento: upperOrNull(form.documento),
+        email: upperOrNull(form.email),
+        telefone: upperOrNull(form.telefone),
+        endereco: upperOrNull(form.endereco),
+        observacoes: upperOrNull(form.observacoes),
         ativo: !!form.ativo,
         atualizado_em: new Date().toISOString(),
       };

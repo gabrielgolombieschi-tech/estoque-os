@@ -166,6 +166,10 @@ function money(n: number | null | undefined) {
   return `R$ ${v.toFixed(2)}`;
 }
 
+function upper(value: string | null | undefined) {
+  return String(value ?? "").toUpperCase();
+}
+
 function emptyForm(): ItemForm {
   return {
     codigo_interno: "",
@@ -668,19 +672,19 @@ export default function ItensPage() {
 
     setForm({
       id: r.id,
-      codigo_interno: r.codigo_interno ?? "",
-      codigo_barras: r.codigo_barras ?? "",
-      nome: r.nome ?? "",
-      descricao: r.descricao ?? "",
+      codigo_interno: upper(r.codigo_interno),
+      codigo_barras: upper(r.codigo_barras),
+      nome: upper(r.nome),
+      descricao: upper(r.descricao),
       tipo: r.tipo,
-      categoria: r.categoria ?? "",
-      subcategoria: r.subcategoria ?? "",
+      categoria: upper(r.categoria),
+      subcategoria: upper(r.subcategoria),
 
-      fabricante: r.fabricante ?? "",
+      fabricante: upper(r.fabricante),
       finalidade: r.finalidade ? String(r.finalidade) : "",
       motivo_compra_id: r.motivo_compra_id ? String(r.motivo_compra_id) : "",
 
-      unidade_medida: r.unidade_medida ?? "UN",
+      unidade_medida: upper(r.unidade_medida || "UN"),
       controla_estoque: !!r.controla_estoque,
       estoque_minimo: Number(r.estoque_minimo ?? 0),
       estoque_maximo: Number(r.estoque_maximo ?? 0),
@@ -771,19 +775,19 @@ export default function ItensPage() {
     setBusy(true);
 
     const payload: ItemPayload = {
-      codigo_interno: form.codigo_interno.trim(),
-      codigo_barras: form.codigo_barras.trim() || null,
-      nome: form.nome.trim(),
-      descricao: form.descricao.trim() || null,
+      codigo_interno: upper(form.codigo_interno).trim(),
+      codigo_barras: upper(form.codigo_barras).trim() || null,
+      nome: upper(form.nome).trim(),
+      descricao: upper(form.descricao).trim() || null,
       tipo: form.tipo,
-      categoria: form.categoria.trim() || null,
-      subcategoria: form.subcategoria.trim() || null,
+      categoria: upper(form.categoria).trim() || null,
+      subcategoria: upper(form.subcategoria).trim() || null,
 
-      fabricante: form.fabricante.trim() || null,
+      fabricante: upper(form.fabricante).trim() || null,
       finalidade: form.finalidade.trim() || null,
       motivo_compra_id: supportsMotivoCompra ? form.motivo_compra_id.trim() || null : null,
 
-      unidade_medida: (form.unidade_medida || "UN").trim().toUpperCase(),
+      unidade_medida: upper(form.unidade_medida || "UN").trim(),
       controla_estoque: controlaEstoque,
       estoque_minimo: controlaEstoque ? Number(form.estoque_minimo ?? 0) : 0,
       estoque_maximo: controlaEstoque ? Number(form.estoque_maximo ?? 0) : 0,
@@ -1407,7 +1411,7 @@ export default function ItensPage() {
                         aria-label="Código interno"
                         className="w-full px-3 py-2"
                         value={form.codigo_interno}
-                        onChange={(e) => setForm((s) => ({ ...s, codigo_interno: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, codigo_interno: upper(e.target.value) }))}
                       />
                     </div>
 
@@ -1417,7 +1421,7 @@ export default function ItensPage() {
                         aria-label="Código de barras"
                         className="w-full px-3 py-2"
                         value={form.codigo_barras}
-                        onChange={(e) => setForm((s) => ({ ...s, codigo_barras: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, codigo_barras: upper(e.target.value) }))}
                       />
                     </div>
 
@@ -1427,7 +1431,7 @@ export default function ItensPage() {
                         aria-label="Nome"
                         className="w-full px-3 py-2"
                         value={form.nome}
-                        onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, nome: upper(e.target.value) }))}
                       />
                     </div>
 
@@ -1454,7 +1458,7 @@ export default function ItensPage() {
                         aria-label="Descrição"
                         className="w-full px-3 py-2 min-h-[70px]"
                         value={form.descricao}
-                        onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, descricao: upper(e.target.value) }))}
                       />
                     </div>
                   </div>
@@ -1518,7 +1522,7 @@ export default function ItensPage() {
 
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Unidade</div>
-                      <input className="w-full px-3 py-2" value={form.unidade_medida} onChange={(e) => setForm((s) => ({ ...s, unidade_medida: e.target.value }))} placeholder="UN, KG, LT..." />
+                      <input className="w-full px-3 py-2" value={form.unidade_medida} onChange={(e) => setForm((s) => ({ ...s, unidade_medida: upper(e.target.value) }))} placeholder="UN, KG, LT..." />
                     </div>
 
                     <div className="space-y-1">
@@ -1527,7 +1531,7 @@ export default function ItensPage() {
                         aria-label="Categoria"
                         className="w-full px-3 py-2"
                         value={form.categoria}
-                        onChange={(e) => setForm((s) => ({ ...s, categoria: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, categoria: upper(e.target.value) }))}
                       />
                     </div>
                   </div>
@@ -1539,7 +1543,7 @@ export default function ItensPage() {
                         aria-label="Fabricante"
                         className="w-full px-3 py-2"
                         value={form.fabricante}
-                        onChange={(e) => setForm((s) => ({ ...s, fabricante: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, fabricante: upper(e.target.value) }))}
                         placeholder="Ex: WEG, Siemens..."
                       />
                     </div>
@@ -1552,7 +1556,7 @@ export default function ItensPage() {
                         aria-label="Subcategoria"
                         className="w-full px-3 py-2"
                         value={form.subcategoria}
-                        onChange={(e) => setForm((s) => ({ ...s, subcategoria: e.target.value }))}
+                        onChange={(e) => setForm((s) => ({ ...s, subcategoria: upper(e.target.value) }))}
                       />
                     </div>
 

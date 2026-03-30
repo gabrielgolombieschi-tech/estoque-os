@@ -157,8 +157,8 @@ export default function MotivosCompraClient() {
     if (canWrite !== true) return;
     setMode("editar");
     setSelectedId(r.id);
-    setFormCodigo(r.codigo);
-    setFormNome(r.nome);
+    setFormCodigo(upper(r.codigo));
+    setFormNome(upper(r.nome));
     setFormRequiresText(Boolean(r.requires_text));
     setFormRequiresOs(Boolean(r.requires_os));
     setFormAtivo(Boolean(r.ativo));
@@ -169,8 +169,8 @@ export default function MotivosCompraClient() {
     if (canWrite !== true) return;
     if (!te.tenantId) return;
 
-    const codigo = normalize(formCodigo);
-    const nome = normalize(formNome);
+    const codigo = upper(formCodigo);
+    const nome = upper(formNome);
 
     if (!codigo) {
       setError("Código é obrigatório.");
@@ -573,7 +573,7 @@ export default function MotivosCompraClient() {
                 Código
                 <input
                   value={formCodigo}
-                  onChange={(e) => setFormCodigo(e.target.value)}
+                  onChange={(e) => setFormCodigo(upper(e.target.value))}
                   aria-label="Código"
                   placeholder="Ex: MAT_PROD"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -583,7 +583,7 @@ export default function MotivosCompraClient() {
                 Nome
                 <input
                   value={formNome}
-                  onChange={(e) => setFormNome(e.target.value)}
+                  onChange={(e) => setFormNome(upper(e.target.value))}
                   aria-label="Nome"
                   placeholder="Ex: Materiais para produção"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"

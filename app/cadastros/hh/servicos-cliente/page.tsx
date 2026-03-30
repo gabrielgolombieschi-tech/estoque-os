@@ -6,6 +6,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { parseDecimalBR, formatDecimalBR } from "@/lib/decimal";
+import { upper, upperOrNull, upperTrim } from "@/lib/text";
 
 type Cliente = { id: number; nome: string };
 type ServicoHH = {
@@ -122,8 +123,8 @@ export default function ServicosClientePage() {
     setForm({
       id: s.id,
       cliente_id: s.cliente_id,
-      nome: s.nome,
-      descricao: s.descricao ?? "",
+      nome: upper(s.nome),
+      descricao: upper(s.descricao ?? ""),
       preco_base: s.preco_base,
       preco_50: s.preco_50,
       preco_100: s.preco_100,
@@ -147,8 +148,8 @@ export default function ServicosClientePage() {
 
     const payload = {
       cliente_id: form.cliente_id,
-      nome: form.nome.trim(),
-      descricao: form.descricao.trim() || null,
+      nome: upperTrim(form.nome),
+      descricao: upperOrNull(form.descricao),
       preco_base: form.preco_base,
       preco_50: form.preco_50,
       preco_100: form.preco_100,
@@ -362,7 +363,7 @@ export default function ServicosClientePage() {
                   aria-label="Nome do Serviço"
                   className="w-full px-3 py-2"
                   value={form.nome}
-                  onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, nome: upper(e.target.value) }))}
                   placeholder="Ex: MAO-DE-OBRA ELETRICISTA HH NIVEL I"
                 />
               </div>
@@ -373,7 +374,7 @@ export default function ServicosClientePage() {
                   aria-label="Descrição"
                   className="w-full px-3 py-2 min-h-[60px]"
                   value={form.descricao}
-                  onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, descricao: upper(e.target.value) }))}
                 />
               </div>
 

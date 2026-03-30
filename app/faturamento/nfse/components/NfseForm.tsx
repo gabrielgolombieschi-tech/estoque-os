@@ -54,6 +54,13 @@ type ImpostoRow = {
 
 type ClienteRow = { id: number; nome: string };
 
+type LinkedTituloRow = {
+  id: string;
+  status: string | null;
+  valor_total: number | string | null;
+  valor_aberto: number | string | null;
+};
+
 type DuplicateNfseRow = {
   id: string;
   emissao_date: string | null;
@@ -176,6 +183,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
   const [loading, setLoading] = useState<boolean>(mode === "edit");
   const [saving, setSaving] = useState<boolean>(false);
   const [emitting, setEmitting] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -653,15 +661,155 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
     }
   };
 
+  const removeDoc = async () => {
+    if (!ready || mode !== "edit" || !docId) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Excluir esta NFS-e e o contas a receber vinculado? Depois sera possivel reimportar.")
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    setOk(null);
+
+    const nowIso = new Date().toISOString();
+    const supabase = supabaseBrowser();
+
+    try {
+      const { data: titulos, error: titErr } = await applyTenantEmpresa(
+        supabase
+          .schema("f")
+          .from("titulo")
+          .select("id,status,valor_total,valor_aberto")
+          .eq("documento_fiscal_id", docId)
+          .eq("tipo", "AR")
+          .is("deleted_at", null),
+        tenantId,
+        empresaId
+      ).returns<LinkedTituloRow[]>();
+      if (titErr) throw titErr;
+
+      const linkedTitulos = titulos ?? [];
+      const hasRecebimento = linkedTitulos.some((titulo) => {
+        const statusTitulo = String(titulo.status ?? "").trim().toUpperCase();
+        if (statusTitulo === "PAGO") return true;
+        return Math.abs(round2(n(titulo.valor_total)) - round2(n(titulo.valor_aberto))) > 0.009;
+      });
+
+      if (hasRecebimento) {
+        throw new Error("A NFS-e possui recebimento/baixa no financeiro. Estorne primeiro o contas a receber.");
+      }
+
+      const tituloIds = linkedTitulos.map((titulo) => String(titulo.id)).filter(Boolean);
+
+      if (tituloIds.length) {
+        const [agendamentoRes, parcelaRes, rateioRes, tituloRes] = await Promise.all([
+          applyTenantEmpresa(
+            supabase
+              .schema("f")
+              .from("titulo_agendamento")
+              .update({ deleted_at: nowIso, updated_at: nowIso })
+              .in("titulo_id", tituloIds)
+              .is("deleted_at", null),
+            tenantId,
+            empresaId
+          ),
+          applyTenantEmpresa(
+            supabase
+              .schema("f")
+              .from("titulo_parcela")
+              .update({ valor_aberto: 0, deleted_at: nowIso, updated_at: nowIso })
+              .in("titulo_id", tituloIds)
+              .is("deleted_at", null),
+            tenantId,
+            empresaId
+          ),
+          applyTenantEmpresa(
+            supabase
+              .schema("f")
+              .from("titulo_rateio")
+              .update({ deleted_at: nowIso, updated_at: nowIso })
+              .in("titulo_id", tituloIds)
+              .is("deleted_at", null),
+            tenantId,
+            empresaId
+          ),
+          applyTenantEmpresa(
+            supabase
+              .schema("f")
+              .from("titulo")
+              .update({ status: "CANCELADO", valor_aberto: 0, deleted_at: nowIso, updated_at: nowIso })
+              .in("id", tituloIds)
+              .is("deleted_at", null),
+            tenantId,
+            empresaId
+          ),
+        ]);
+
+        if (agendamentoRes.error) throw agendamentoRes.error;
+        if (parcelaRes.error) throw parcelaRes.error;
+        if (rateioRes.error) throw rateioRes.error;
+        if (tituloRes.error) throw tituloRes.error;
+      }
+
+      const [xmlRes, docRes] = await Promise.all([
+        applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("documento_fiscal_xml")
+            .update({ deleted_at: nowIso })
+            .eq("documento_fiscal_id", docId)
+            .is("deleted_at", null),
+          tenantId,
+          empresaId
+        ),
+        applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("documento_fiscal")
+            .update({ nfse_status: "CANCELADA", deleted_at: nowIso, updated_at: nowIso })
+            .eq("id", docId)
+            .eq("operacao", "SAIDA")
+            .eq("natureza", "SERVICO")
+            .is("deleted_at", null),
+          tenantId,
+          empresaId
+        ),
+      ]);
+
+      if (xmlRes.error) throw xmlRes.error;
+      const docErr = docRes.error;
+      if (docErr) throw docErr;
+
+      router.replace("/faturamento/nfse");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro inesperado ao excluir NFS-e.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const headerRight = (
     <div className="flex items-center gap-2">
       <Link href="/faturamento/nfse" className="text-sm text-zinc-300 hover:text-zinc-100">
         Voltar
       </Link>
+      {mode === "edit" && docId ? (
+        <button
+          type="button"
+          onClick={() => void removeDoc()}
+          disabled={!ready || saving || emitting || deleting || loading}
+          className="rounded-md bg-rose-900/70 px-3 py-2 text-sm text-rose-100 hover:bg-rose-800 disabled:opacity-50"
+        >
+          {deleting ? "Excluindo..." : "Excluir"}
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => void saveAll(String(status || "RASCUNHO").toUpperCase() === "EMITIDA" ? "EMITIDA" : "RASCUNHO")}
-        disabled={!ready || saving || emitting || loading || readOnly}
+        disabled={!ready || saving || emitting || deleting || loading || readOnly}
         className="rounded-md bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700 disabled:opacity-50"
       >
         {saving ? "Salvando..." : "Salvar"}
@@ -669,7 +817,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       <button
         type="button"
         onClick={() => void emit()}
-        disabled={!ready || saving || emitting || loading || readOnly}
+        disabled={!ready || saving || emitting || deleting || loading || readOnly}
         className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white hover:bg-emerald-600 disabled:opacity-50"
       >
         {emitting ? "Emitindo..." : "Emitir"}

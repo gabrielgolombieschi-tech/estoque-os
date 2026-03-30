@@ -313,8 +313,8 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
               precificacao,
               preco_fixo: precificacao === "PRECO_FIXO" ? precoFixo : null,
               ativo: Boolean(form.ativo),
-              descricao: form.descricao.trim() ? String(form.descricao).trim() : null,
-              observacoes: form.observacoes.trim() ? String(form.observacoes).trim() : null,
+              descricao: form.descricao.trim() ? upperTrim(form.descricao) : null,
+              observacoes: form.observacoes.trim() ? upperTrim(form.observacoes) : null,
             },
           });
           currentId = created.id;
@@ -331,8 +331,8 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
               precificacao,
               preco_fixo: precificacao === "PRECO_FIXO" ? precoFixo : null,
               ativo: Boolean(form.ativo),
-              descricao: form.descricao.trim() ? String(form.descricao).trim() : null,
-              observacoes: form.observacoes.trim() ? String(form.observacoes).trim() : null,
+              descricao: form.descricao.trim() ? upperTrim(form.descricao) : null,
+              observacoes: form.observacoes.trim() ? upperTrim(form.observacoes) : null,
             },
           });
         }
@@ -423,7 +423,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                 Código
                 <input
                   value={form.codigo}
-                  onChange={(e) => setForm((p) => ({ ...p, codigo: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, codigo: up(e.target.value) }))}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </label>
@@ -432,7 +432,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                 Nome
                 <input
                   value={form.nome}
-                  onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, nome: up(e.target.value) }))}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </label>
@@ -443,7 +443,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                 Categoria
                 <input
                   value={form.categoria}
-                  onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, categoria: up(e.target.value) }))}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                 />
               </label>
@@ -490,7 +490,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                 Descrição
                 <textarea
                   value={form.descricao}
-                  onChange={(e) => setForm((p) => ({ ...p, descricao: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, descricao: up(e.target.value) }))}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm min-h-[96px]"
                 />
               </label>
@@ -499,7 +499,7 @@ export default function ConjuntoEditPage({ params }: { params: { id: string } })
                 Observações
                 <textarea
                   value={form.observacoes}
-                  onChange={(e) => setForm((p) => ({ ...p, observacoes: e.target.value }))}
+                  onChange={(e) => setForm((p) => ({ ...p, observacoes: up(e.target.value) }))}
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm min-h-[96px]"
                 />
               </label>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant } from "@/lib/db/scopes";
+import { upper, upperTrim } from "@/lib/text";
 
 type Fornecedor = {
   id: number;
@@ -70,7 +71,7 @@ export default function FornecedoresPage() {
     const documentoNormalizado = normalizeDocumento(documento);
     const payload: FornecedorPayload = {
       tenant_id: effectiveTenantId,
-      nome: nome.trim(),
+      nome: upperTrim(nome),
       documento: documentoNormalizado || null,
       ativo: true,
     };
@@ -119,13 +120,13 @@ export default function FornecedoresPage() {
           className="flex-1 px-3 py-2"
           placeholder="Nome do fornecedor"
           value={nome}
-          onChange={(e) => setNome(e.target.value)}
+          onChange={(e) => setNome(upper(e.target.value))}
         />
         <input
           className="w-56 px-3 py-2"
           placeholder="Documento (CNPJ/CPF)"
           value={documento}
-          onChange={(e) => setDocumento(e.target.value)}
+          onChange={(e) => setDocumento(upper(e.target.value))}
         />
         <button
           onClick={criar}

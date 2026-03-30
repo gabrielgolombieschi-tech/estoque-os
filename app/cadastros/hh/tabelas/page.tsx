@@ -7,6 +7,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
+import { upper, upperTrim } from "@/lib/text";
 
 type Cliente = { id: number; nome: string; ativo: boolean };
 
@@ -143,7 +144,7 @@ export default function TabelasHHPage() {
     setForm({
       cliente_id: r.cliente_id,
       ano: r.ano,
-      nome: r.nome,
+      nome: upper(r.nome),
       vigencia_inicio: r.vigencia_inicio.slice(0, 10),
       vigencia_fim: r.vigencia_fim.slice(0, 10),
       ativo: r.ativo,
@@ -182,7 +183,7 @@ export default function TabelasHHPage() {
     const payload = {
       cliente_id: form.cliente_id,
       ano: form.ano,
-      nome: form.nome.trim(),
+      nome: upperTrim(form.nome),
       vigencia_inicio: form.vigencia_inicio,
       vigencia_fim: form.vigencia_fim,
       ativo: form.ativo,
@@ -453,7 +454,7 @@ export default function TabelasHHPage() {
                   aria-label="Nome"
                   className="w-full px-3 py-2"
                   value={form.nome}
-                  onChange={(e) => setForm((s) => ({ ...s, nome: e.target.value }))}
+                  onChange={(e) => setForm((s) => ({ ...s, nome: upper(e.target.value) }))}
                   placeholder="Ex: SEGAU 2024/2025"
                 />
               </div>

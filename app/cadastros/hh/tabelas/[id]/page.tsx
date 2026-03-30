@@ -8,6 +8,7 @@ import { applyTenant } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { parseDecimalBR } from "@/lib/decimal";
+import { upperTrim } from "@/lib/text";
 
 type Tabela = {
   id: number;
@@ -281,7 +282,7 @@ export default function TabelaDetalheHHPage() {
         continue;
       }
 
-      const descricao = parts[0];
+      const descricao = upperTrim(parts[0]);
       const precoStr = parts[1];
 
       if (!descricao) {

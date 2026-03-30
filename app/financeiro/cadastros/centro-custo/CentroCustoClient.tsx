@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
+import { upper, upperTrim } from "@/lib/text";
 
 type CentroCustoRow = {
   id: string;
@@ -36,10 +37,6 @@ const INDENTS = [
 function indentClass(depth: number) {
   const idx = Math.max(0, Math.min(depth, INDENTS.length - 1));
   return INDENTS[idx];
-}
-
-function normalize(s: unknown): string {
-  return String(s ?? "").trim();
 }
 
 function buildFlatTree(rows: CentroCustoRow[], opts: { includeInativos: boolean; q: string; empresaId: string | null }) {
@@ -211,8 +208,8 @@ export default function CentroCustoClient() {
     if (canWrite !== true) return;
     setMode("editar");
     setSelectedId(r.id);
-    setFormCodigo(r.codigo);
-    setFormNome(r.nome);
+    setFormCodigo(upper(r.codigo));
+    setFormNome(upper(r.nome));
     setFormParentId(r.parent_id ?? "");
     setFormAtivo(Boolean(r.ativo));
     setOpen(true);
@@ -226,8 +223,8 @@ export default function CentroCustoClient() {
       return;
     }
 
-    const codigo = normalize(formCodigo);
-    const nome = normalize(formNome);
+    const codigo = upperTrim(formCodigo);
+    const nome = upperTrim(formNome);
 
     if (!codigo) {
       setError("Código é obrigatório.");
@@ -557,7 +554,7 @@ export default function CentroCustoClient() {
                 Código
                 <input
                   value={formCodigo}
-                  onChange={(e) => setFormCodigo(e.target.value)}
+                  onChange={(e) => setFormCodigo(upper(e.target.value))}
                   aria-label="Código"
                   placeholder="Ex: 01.01"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -567,7 +564,7 @@ export default function CentroCustoClient() {
                 Nome
                 <input
                   value={formNome}
-                  onChange={(e) => setFormNome(e.target.value)}
+                  onChange={(e) => setFormNome(upper(e.target.value))}
                   aria-label="Nome"
                   placeholder="Ex: Administrativo"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"

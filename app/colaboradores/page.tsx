@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { upper, upperOrNull, upperTrim } from "@/lib/text";
 
 type RowView = {
   id: string;
@@ -144,8 +145,8 @@ export default function ColaboradoresPage() {
 
   function abrirEditar(r: RowView) {
     setEditId(r.id);
-    setNome(r.nome);
-    setCargo(r.cargo ?? "");
+    setNome(upper(r.nome));
+    setCargo(upper(r.cargo ?? ""));
     setAtivo(!!r.ativo);
 
     setValorHoraOriginal(r.valor_hora ?? null);
@@ -257,8 +258,8 @@ export default function ColaboradoresPage() {
           .from("colaboradores")
           .insert([{ 
             tenant_id: tenantId, 
-            nome: nome.trim(), 
-            cargo: cargo.trim() || null, 
+            nome: upperTrim(nome), 
+            cargo: upperOrNull(cargo), 
             ativo
           }])
           .select("id")
@@ -282,8 +283,8 @@ export default function ColaboradoresPage() {
         const { error } = await supabase
           .from("colaboradores")
           .update({ 
-            nome: nome.trim(), 
-            cargo: cargo.trim() || null, 
+            nome: upperTrim(nome), 
+            cargo: upperOrNull(cargo), 
             ativo
           })
           .eq("id", editId);
@@ -454,7 +455,7 @@ export default function ColaboradoresPage() {
                 </label>
                 <input
                   value={nome}
-                  onChange={(e) => setNome(e.target.value)}
+                  onChange={(e) => setNome(upper(e.target.value))}
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
                   aria-label="Nome do colaborador"
                 />
@@ -466,7 +467,7 @@ export default function ColaboradoresPage() {
                 </label>
                 <select
                   value={cargo}
-                  onChange={(e) => setCargo(e.target.value)}
+                  onChange={(e) => setCargo(upper(e.target.value))}
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
                   aria-label="Cargo do colaborador"
                 >
@@ -553,5 +554,4 @@ export default function ColaboradoresPage() {
     </div>
   );
 }
-
 

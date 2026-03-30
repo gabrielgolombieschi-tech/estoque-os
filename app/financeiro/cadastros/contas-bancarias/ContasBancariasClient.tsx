@@ -174,13 +174,13 @@ export default function ContasBancariasClient() {
     if (canWrite !== true) return;
     setMode("editar");
     setSelectedId(r.id);
-    setFormCodigo(r.codigo);
-    setFormNome(r.nome);
+    setFormCodigo(upper(r.codigo));
+    setFormNome(upper(r.nome));
     setFormTipo(upper(r.tipo) === "CAIXA" ? "CAIXA" : "BANCO");
-    setFormBanco(r.banco ?? "");
-    setFormAgencia(r.agencia ?? "");
-    setFormConta(r.conta ?? "");
-    setFormPix(r.pix_chave ?? "");
+    setFormBanco(upper(r.banco ?? ""));
+    setFormAgencia(upper(r.agencia ?? ""));
+    setFormConta(upper(r.conta ?? ""));
+    setFormPix(upper(r.pix_chave ?? ""));
     setFormAtivo(Boolean(r.ativo));
     setOpen(true);
   };
@@ -193,12 +193,12 @@ export default function ContasBancariasClient() {
       return;
     }
 
-    const codigo = normalize(formCodigo);
-    const nome = normalize(formNome);
-    const banco = normalize(formBanco) || null;
-    const agencia = normalize(formAgencia) || null;
-    const conta = normalize(formConta) || null;
-    const pix_chave = normalize(formPix) || null;
+    const codigo = upper(formCodigo);
+    const nome = upper(formNome);
+    const banco = upper(formBanco) || null;
+    const agencia = upper(formAgencia) || null;
+    const conta = upper(formConta) || null;
+    const pix_chave = upper(formPix) || null;
 
     if (!codigo) {
       setError("Código é obrigatório.");
@@ -575,7 +575,7 @@ export default function ContasBancariasClient() {
                 Código
                 <input
                   value={formCodigo}
-                  onChange={(e) => setFormCodigo(e.target.value)}
+                  onChange={(e) => setFormCodigo(upper(e.target.value))}
                   aria-label="Código"
                   placeholder="Ex: ITAU-001"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -585,7 +585,7 @@ export default function ContasBancariasClient() {
                 Nome
                 <input
                   value={formNome}
-                  onChange={(e) => setFormNome(e.target.value)}
+                  onChange={(e) => setFormNome(upper(e.target.value))}
                   aria-label="Nome"
                   placeholder="Ex: Itaú PJ - Principal"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -609,7 +609,7 @@ export default function ContasBancariasClient() {
                 Banco (texto)
                 <input
                   value={formBanco}
-                  onChange={(e) => setFormBanco(e.target.value)}
+                  onChange={(e) => setFormBanco(upper(e.target.value))}
                   aria-label="Banco"
                   placeholder="Ex: Itaú"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -620,7 +620,7 @@ export default function ContasBancariasClient() {
                 Agência
                 <input
                   value={formAgencia}
-                  onChange={(e) => setFormAgencia(e.target.value)}
+                  onChange={(e) => setFormAgencia(upper(e.target.value))}
                   aria-label="Agência"
                   placeholder="Ex: 1234"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -630,7 +630,7 @@ export default function ContasBancariasClient() {
                 Conta
                 <input
                   value={formConta}
-                  onChange={(e) => setFormConta(e.target.value)}
+                  onChange={(e) => setFormConta(upper(e.target.value))}
                   aria-label="Conta"
                   placeholder="Ex: 12345-6"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
@@ -641,7 +641,7 @@ export default function ContasBancariasClient() {
                 Chave PIX
                 <input
                   value={formPix}
-                  onChange={(e) => setFormPix(e.target.value)}
+                  onChange={(e) => setFormPix(upper(e.target.value))}
                   aria-label="Chave PIX"
                   placeholder="Ex: cnpj@banco.com / telefone / EVP"
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"

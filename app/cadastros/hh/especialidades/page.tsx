@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { parseDecimalBR } from "@/lib/decimal";
+import { upper, upperTrim } from "@/lib/text";
 
 type HHPreco = {
   id: number;
@@ -113,7 +113,7 @@ export default function EspecialidadesPage() {
     }
     setEditingId(r.id);
     setForm({
-      descricao: r.descricao,
+      descricao: upper(r.descricao),
       nivel: r.nivel,
       categoria: r.categoria,
       preco_base: Number(r.preco_base),
@@ -152,7 +152,7 @@ export default function EspecialidadesPage() {
     setBusy(true);
 
     const payload = {
-      descricao: form.descricao.trim(),
+      descricao: upperTrim(form.descricao),
       nivel: form.nivel,
       categoria: form.categoria,
       preco_base: Number(form.preco_base),
@@ -385,7 +385,7 @@ export default function EspecialidadesPage() {
                   aria-label="Descrição"
                   className="w-full px-3 py-2"
                   value={form.descricao}
-                  onChange={(e) => setForm((s) => ({ ...s, descricao: e.target.value }))}
+                  onChange={(e) => setForm((s) => ({ ...s, descricao: upper(e.target.value) }))}
                   placeholder="Ex: MAO-DE-OBRA ELETRICISTA MONTADOR HH (NIVEL I)"
                 />
               </div>

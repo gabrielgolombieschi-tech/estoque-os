@@ -22,7 +22,6 @@ import {
   getOrcamentoConfig,
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
-  listVendedores,
   searchClientes,
   updateItem,
   updateOrcamento,
@@ -74,6 +73,42 @@ type ConfirmOptions = {
 
 function hasAny(caps: Capabilities | null, keys: CapabilityKey[]): boolean {
   return requireAny(caps, keys);
+}
+
+type VendedoresApiResponse = {
+  vendedores?: Array<{ id?: string | null; nome?: string | null; email?: string | null }>;
+  error?: string;
+};
+
+async function fetchVendedores(
+  supabase: ReturnType<typeof supabaseBrowser>,
+  tenantId: string,
+  empresaId: string
+): Promise<UsuarioLookupRow[]> {
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token ?? null;
+  if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+  const res = await fetch(`/api/comercial/vendedores?tenantId=${tenantId}&empresaId=${empresaId}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+  const json = (await res.json().catch(() => null)) as VendedoresApiResponse | null;
+  if (!res.ok) {
+    throw new Error(typeof json?.error === "string" ? json.error : "Erro ao carregar vendedores.");
+  }
+
+  return (Array.isArray(json?.vendedores) ? json.vendedores : [])
+    .map((row) => {
+      const id = String(row?.id ?? "").trim();
+      const nome = String(row?.nome ?? "").trim();
+      const email = String(row?.email ?? "").trim();
+      return {
+        id,
+        nome: nome || email || null,
+      } satisfies UsuarioLookupRow;
+    })
+    .filter((row) => row.id && row.nome);
 }
 
 function useConfirmDialog() {
@@ -357,7 +392,7 @@ export default function OrcamentoPage() {
       const [cfg, cps, vends] = await Promise.all([
         getOrcamentoConfig(supabase, { tenantId, empresaId }),
         listCondicoesPagamentoAtivas(supabase, { tenantId, empresaId }),
-        listVendedores(supabase),
+        fetchVendedores(supabase, tenantId, empresaId),
       ]);
       setCfgDescontoMax(n(cfg.desconto_max_percent));
       setCfgCondPadraoId(cfg.condicao_pagamento_padrao_id ?? null);

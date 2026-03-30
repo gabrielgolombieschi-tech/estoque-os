@@ -22,7 +22,8 @@ function normalizeDocumento(value: string | null | undefined): string | null {
 function normalizeText(value: unknown, maxLen: number): string | null {
   const v = String(value ?? "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .toUpperCase();
   if (!v) return null;
   return v.slice(0, maxLen);
 }

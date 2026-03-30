@@ -12,6 +12,14 @@ import { getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLa
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh: boolean };
 
+type UsuarioVendedor = {
+  id: string;
+  nome: string;
+  email: string;
+};
+
+type UsuariosSolicitantesApiResponse = { usuarios?: UsuarioVendedor[]; error?: string };
+
 type OS = {
   id: number;
   numero_os: string;
@@ -63,7 +71,21 @@ type OsClienteRow = {
   cliente_nome: string | null;
 };
 
+type OsClienteFiltroRow = {
+  cliente_nome: string | null;
+  tipo_pedido?: string | null;
+  usa_relatorio_hh?: boolean | null;
+};
+
 type TipoFiltro = "todos_sem_hh" | "todas" | "hh" | "servico" | "material";
+
+function normalizeSearchTerm(s: unknown) {
+  return String(s ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
@@ -147,10 +169,13 @@ export default function OsListPage() {
   const osReqIdRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [usuariosVendedores, setUsuariosVendedores] = useState<UsuarioVendedor[]>([]);
+  const [usuariosVendedoresLoading, setUsuariosVendedoresLoading] = useState(false);
+  const [usuariosVendedoresError, setUsuariosVendedoresError] = useState<string | null>(null);
   const [rows, setRows] = useState<OS[]>([]);
   const [status, setStatus] = useState("em_andamento");
   const [clienteFiltro, setClienteFiltro] = useState<string>("");
-  const [clienteFiltroNomesLivres, setClienteFiltroNomesLivres] = useState<string[]>([]);
+  const [clienteFiltroOptions, setClienteFiltroOptions] = useState<string[]>([]);
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("todos_sem_hh");
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -163,7 +188,6 @@ export default function OsListPage() {
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [clienteId, setClienteId] = useState<number | null>(null);
-  const [clienteNomeLivre, setClienteNomeLivre] = useState("");
   const [descricao, setDescricao] = useState("");
   const [pedidoCompra, setPedidoCompra] = useState("");
   const [tipoPedido, setTipoPedido] = useState<"servico" | "material">("servico");
@@ -180,14 +204,6 @@ export default function OsListPage() {
     if (!clienteId) return false;
     return Boolean(clientes.find((c) => c.id === clienteId)?.habilita_hh);
   }, [clienteId, clientes]);
-
-  const clientesById = useMemo(() => {
-    const map: Record<number, Cliente> = {};
-    clientes.forEach((c) => {
-      map[c.id] = c;
-    });
-    return map;
-  }, [clientes]);
 
   const logDebug = (...args: unknown[]) => {
     if (debugEnabled) console.debug(...args);
@@ -232,12 +248,10 @@ export default function OsListPage() {
       }
 
       const unique = new Map<number, Cliente>();
-      const nomesLivres = new Set<string>();
       ((osData ?? []) as unknown as OsClienteRow[]).forEach((r) => {
         const id = r.cliente_id;
         const nome = (r.cliente_nome ?? "").trim();
         if (!id) {
-          if (nome) nomesLivres.add(nome);
           return;
         }
         if (!unique.has(id)) {
@@ -251,10 +265,8 @@ export default function OsListPage() {
       });
 
       const list = Array.from(unique.values()).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-      const nomeList = Array.from(nomesLivres.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
       logDebug("[OS] loadClientes:fallback:ok", { count: list.length });
       setClientes(list);
-      setClienteFiltroNomesLivres(nomeList);
     };
 
     const { data, error } = await applyTenantEmpresa(
@@ -281,9 +293,37 @@ export default function OsListPage() {
     }
 
     setClientes(next);
-    // Se o usuário tem acesso a clientes, ainda assim podem existir OS antigas com nome livre.
-    // Não tentamos inferir aqui; o fallback via OS cobre quando necessário.
-    setClienteFiltroNomesLivres([]);
+  }
+
+  async function loadClienteFiltroOptions() {
+    if (!sessionReady || !session?.access_token) return;
+
+    let query = applyTenantEmpresa(
+      supabase
+        .from("ordens_servico")
+        .select("cliente_nome,tipo_pedido,usa_relatorio_hh")
+        .order("cliente_nome", { ascending: true }),
+      effectiveTenantId,
+      effectiveEmpresaId
+    );
+
+    if (status !== "todas") query = query.eq("status", status);
+
+    const { data, error } = await query;
+    if (error) {
+      logDebug("[OS] loadClienteFiltroOptions:error", { message: error.message });
+      return;
+    }
+
+    const options = new Set<string>();
+    ((data ?? []) as unknown as OsClienteFiltroRow[])
+      .filter((row) => shouldShowRowForTipoFiltro(row as OS, tipoFiltro))
+      .forEach((row) => {
+        const nome = String(row.cliente_nome ?? "").trim();
+        if (nome) options.add(nome);
+      });
+
+    setClienteFiltroOptions(Array.from(options.values()).sort((a, b) => a.localeCompare(b, "pt-BR")));
   }
 
   async function load() {
@@ -330,25 +370,19 @@ export default function OsListPage() {
     if (tipoFiltro === "hh") q = q.eq("usa_relatorio_hh", true);
     if (tipoFiltro === "servico") q = q.eq("tipo_pedido", "servico");
     if (tipoFiltro === "material") q = q.eq("tipo_pedido", "material");
-    if (clienteFiltro) {
-      if (clienteFiltro.startsWith("id:")) {
-        const id = Number(clienteFiltro.slice(3));
-        if (Number.isFinite(id)) {
-          const selectedName = (clientesById[id]?.nome ?? "").trim();
-          if (selectedName) {
-            const quoted = `"${selectedName.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-            q = q.or(`cliente_id.eq.${id},cliente_nome.ilike.${quoted}`);
-          } else {
-            q = q.eq("cliente_id", id);
-          }
-        }
-      } else if (clienteFiltro.startsWith("name:")) {
-        const raw = clienteFiltro.slice(5).trim();
-        if (raw) {
-          const quoted = `"${raw.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-          q = q.ilike("cliente_nome", quoted);
-        }
+    const clienteTerm = clienteFiltro.trim();
+    if (clienteTerm) {
+      const normalizedTerm = normalizeSearchTerm(clienteTerm);
+      const matchingClienteIds = clientes
+        .filter((c) => normalizeSearchTerm(c.nome).includes(normalizedTerm))
+        .map((c) => c.id)
+        .filter((id) => Number.isFinite(id));
+
+      const clauses = [`cliente_nome.ilike.%${clienteTerm}%`];
+      if (matchingClienteIds.length > 0) {
+        clauses.unshift(`cliente_id.in.(${matchingClienteIds.join(",")})`);
       }
+      q = q.or(clauses.join(","));
     }
 
     const { data, error } = await q;
@@ -501,14 +535,75 @@ export default function OsListPage() {
     if (!canView) return;
 
     logDebug("[OS] useEffect:calling loadClientes and load");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadClientes();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadClienteFiltroOptions();
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canView, tenantId, empresaId, sessionReady, session?.access_token, status, clienteFiltro, tipoFiltro]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    let active = true;
+
+    const run = async () => {
+      if (!sessionReady || !session?.access_token || !canWriteOs) {
+        if (!active) return;
+        setUsuariosVendedores([]);
+        setUsuariosVendedoresError(null);
+        setUsuariosVendedoresLoading(false);
+        return;
+      }
+
+      setUsuariosVendedoresLoading(true);
+      setUsuariosVendedoresError(null);
+
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token ?? null;
+        if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+        const query = `tenantId=${encodeURIComponent(effectiveTenantId)}&empresaId=${encodeURIComponent(effectiveEmpresaId)}`;
+        const res = await fetch(`/api/estoque/usuarios-solicitantes?${query}`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
+
+        const json = (await res.json().catch(() => null)) as UsuariosSolicitantesApiResponse | null;
+        if (!active) return;
+
+        if (!res.ok) {
+          const msg = typeof json?.error === "string" ? json.error : "Erro ao carregar usuarios.";
+          setUsuariosVendedores([]);
+          setUsuariosVendedoresError(msg);
+          setUsuariosVendedoresLoading(false);
+          return;
+        }
+
+        const next = (Array.isArray(json?.usuarios) ? json.usuarios : [])
+          .map((row) => ({
+            id: String(row.id ?? ""),
+            nome: String(row.nome ?? "").trim(),
+            email: String(row.email ?? "").trim(),
+          }))
+          .filter((row) => row.id && row.nome);
+
+        setUsuariosVendedores(next);
+        setUsuariosVendedoresLoading(false);
+        setVendedor((prev) => (prev && !next.some((row) => row.nome === prev) ? "" : prev));
+      } catch (e: unknown) {
+        if (!active) return;
+        const message = e instanceof Error ? e.message : "Erro ao carregar usuarios.";
+        setUsuariosVendedores([]);
+        setUsuariosVendedoresError(message);
+        setUsuariosVendedoresLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [canWriteOs, effectiveEmpresaId, effectiveTenantId, session?.access_token, sessionReady, supabase]);
+
+  useEffect(() => {
     if (!canGestaoWrite && temGestao) setTemGestao(false);
   }, [canGestaoWrite, temGestao]);
 
@@ -529,7 +624,7 @@ export default function OsListPage() {
     setOkMsg(null);
 
     if (!canWriteOs) return setErr("Sem permissão para criar OS.");
-    if (!clienteId && !clienteNomeLivre.trim()) return setErr("Selecione um cliente ou informe um nome.");
+    if (!clienteId) return setErr("Selecione um cliente.");
 
     const orcadoValor = Number(orcado || 0);
     if (!Number.isFinite(orcadoValor) || orcadoValor < 0) return setErr("Informe um valor orcado valido.");
@@ -561,8 +656,13 @@ export default function OsListPage() {
     const { data: sess } = await supabase.auth.getSession();
     const userEmail = sess.session?.user?.email ?? null;
 
-    const clienteNomeFinal =
-      clienteId ? (clientes.find((c) => c.id === clienteId)?.nome ?? clienteNomeLivre.trim()) : clienteNomeLivre.trim();
+    const clienteSelecionado = clientes.find((c) => c.id === clienteId) ?? null;
+    const clienteNomeFinal = (clienteSelecionado?.nome ?? "").trim();
+    if (!clienteNomeFinal) {
+      setCreating(false);
+      setErr("Cliente selecionado invalido.");
+      return;
+    }
 
     if (tenantLoading) {
       setCreating(false);
@@ -627,7 +727,6 @@ export default function OsListPage() {
 
     setOkMsg("OS criada!");
     setClienteId(null);
-    setClienteNomeLivre("");
     setDescricao("");
     setPedidoCompra("");
     setTipoPedido("servico");
@@ -741,27 +840,20 @@ export default function OsListPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <select
+          <input
+            list="os-cliente-options"
             value={clienteFiltro}
-            onChange={(e) => {
-              setClienteFiltro(e.target.value);
-            }}
+            onChange={(e) => setClienteFiltro(e.target.value)}
             className="px-3 py-2 min-w-[220px]"
             aria-label="Filtrar por cliente"
             title="Filtrar por cliente"
-          >
-            <option value="">Todos os clientes</option>
-            {clientes.map((c) => (
-              <option key={`id:${c.id}`} value={`id:${c.id}`}>
-                {c.nome}
-              </option>
+            placeholder="Todos os clientes"
+          />
+          <datalist id="os-cliente-options">
+            {clienteFiltroOptions.map((nome) => (
+              <option key={nome} value={nome} />
             ))}
-            {clienteFiltroNomesLivres.map((n) => (
-              <option key={`name:${n}`} value={`name:${n}`}>
-                {n}
-              </option>
-            ))}
-          </select>
+          </datalist>
 
           <select
             value={tipoFiltro}
@@ -1010,18 +1102,6 @@ export default function OsListPage() {
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <div className="text-xs text-zinc-400">Cliente (nome livre)</div>
-                <input
-                  className="w-full px-3 py-2"
-                  value={clienteNomeLivre}
-                  onChange={(e) => setClienteNomeLivre(e.target.value)}
-                  placeholder="Se nao estiver cadastrado"
-                  aria-label="Cliente (nome livre)"
-                  title="Cliente (nome livre)"
-                />
-              </div>
-
               {clienteId && (clienteHabilitaHH || isApontamentoRh) && (
                 <div className="md:col-span-3 border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
                   <label className="flex items-center gap-2 text-sm">
@@ -1039,13 +1119,29 @@ export default function OsListPage() {
 
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Vendedor</div>
-                <input
+                <select
                   className="w-full px-3 py-2"
                   value={vendedor}
                   onChange={(e) => setVendedor(e.target.value)}
+                  disabled={creating || usuariosVendedoresLoading}
                   aria-label="Vendedor"
                   title="Vendedor"
-                />
+                >
+                  <option value="">
+                    {usuariosVendedoresLoading
+                      ? "Carregando usuarios..."
+                      : usuariosVendedoresError
+                        ? "Erro ao carregar usuarios"
+                        : "-"}
+                  </option>
+                  {usuariosVendedores.map((usuario) => (
+                    <option key={usuario.id} value={usuario.nome}>
+                      {usuario.nome}
+                      {usuario.email ? ` (${usuario.email})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {usuariosVendedoresError && <div className="text-xs text-amber-300">{usuariosVendedoresError}</div>}
               </div>
 
               <div className="space-y-1">

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import type { CondicaoPagamentoRow } from "@/lib/comercial/types";
@@ -390,7 +389,7 @@ export default function CondicoesPagamentoPage() {
                   Código
                   <input
                     value={form.codigo}
-                    onChange={(e) => setForm((p) => ({ ...p, codigo: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, codigo: e.target.value.toUpperCase() }))}
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                   />
                 </label>
@@ -411,7 +410,7 @@ export default function CondicoesPagamentoPage() {
                   Nome
                   <input
                     value={form.nome}
-                    onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value.toUpperCase() }))}
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                   />
                 </label>
