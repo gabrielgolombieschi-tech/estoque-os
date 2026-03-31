@@ -421,10 +421,6 @@ export default function ConjuntoEditPage() {
     // Mantido apenas para compatibilidade com o bloco legado escondido.
   }, []);
 
-  const removeItemRow = useCallback(() => {
-    // Mantido apenas para compatibilidade com o bloco legado escondido.
-  }, []);
-
   const startInlineEdit = useCallback(
     (localKey: string) => {
       const row = itens.find((it) => it.localKey === localKey);
@@ -585,6 +581,14 @@ export default function ConjuntoEditPage() {
       }
     },
     [inlineEditingKey, inlineMode, itens, resetInlineForm]
+  );
+
+  const removeItemRow = useCallback(
+    (localKey?: string) => {
+      if (!localKey) return;
+      removeInlineItemRow(localKey);
+    },
+    [removeInlineItemRow]
   );
 
   const submitInlineItem = useCallback(() => {
