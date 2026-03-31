@@ -10,7 +10,7 @@ import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/ca
 import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import type { OrcamentoItemRow, OrcamentoRow, OrcamentoStatus, UsuarioLookupRow } from "@/lib/comercial/types";
 import { getOrcamentoStatusLabel, normalizeOrcamentoStatus, type OrcamentoStatusCanonical } from "@/lib/comercial/status";
-import { isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
+import { getSuggestedOrcamentoUnitPrice, isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
   addItem,
   atualizarStatusOrcamento,
@@ -200,19 +200,6 @@ function statusBadgeClass(status: string): string {
   if (s === "FECHADO") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
   if (s === "PERDIDO") return "bg-red-500/15 text-red-300 border-red-500/30";
   return "bg-zinc-500/10 text-zinc-300 border-zinc-500/30";
-}
-
-function getSuggestedOrcamentoUnitPrice(params: {
-  custoUltimaCompra?: number | string | null;
-  precoUnitario?: number | string | null;
-  margemLucroPadraoPercent?: number | string | null;
-}): number {
-  const margem = Math.max(0, n(params.margemLucroPadraoPercent));
-  const custo = n(params.custoUltimaCompra);
-  const preco = n(params.precoUnitario);
-  const base = Number.isFinite(custo) && custo > 0 ? custo : preco;
-  if (!Number.isFinite(base) || base <= 0) return 0;
-  return Number((base * (1 + margem / 100)).toFixed(2));
 }
 
 type OrcamentoForm = {

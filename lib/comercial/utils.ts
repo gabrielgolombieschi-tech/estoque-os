@@ -21,6 +21,19 @@ export function n(value: unknown): number {
   return 0;
 }
 
+export function getSuggestedOrcamentoUnitPrice(params: {
+  custoUltimaCompra?: number | string | null;
+  precoUnitario?: number | string | null;
+  margemLucroPadraoPercent?: number | string | null;
+}): number {
+  const margem = Math.max(0, n(params.margemLucroPadraoPercent));
+  const custo = n(params.custoUltimaCompra);
+  const preco = n(params.precoUnitario);
+  const base = Number.isFinite(custo) && custo > 0 ? custo : preco;
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  return Number((base * (1 + margem / 100)).toFixed(2));
+}
+
 export function upperTrim(v: string): string {
   return String(v ?? "")
     .trim()

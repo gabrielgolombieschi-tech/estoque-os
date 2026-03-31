@@ -8,7 +8,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { getItemByCodigo, getItemById } from "@/lib/comercial/orcamentos.service";
-import { mapOrcamentoError, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
+import { getSuggestedOrcamentoUnitPrice, mapOrcamentoError, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import { formatMoneyBR, parseMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import { ensureConfig, getConfig, getConjuntoCategorias } from "@/src/services/configOrcamento";
 import type { ConjuntoItemRow, ConjuntoRow } from "@/src/services/conjunto";
@@ -38,7 +38,13 @@ type FormState = {
   observacoes: string;
 };
 
-type ItemSuggest = { id: number; codigo_interno: string | null; nome: string | null };
+type ItemSuggest = {
+  id: number;
+  codigo_interno: string | null;
+  nome: string | null;
+  preco_unitario?: number | string | null;
+  custo_ultima_compra?: number | string | null;
+};
 
 type ItemFormRow = {
   localKey: string;
@@ -48,6 +54,7 @@ type ItemFormRow = {
   item_codigo: string;
   item_nome: string;
   item_label: string;
+  item_preco_unitario: number | null;
   quantidade: string;
 };
 
@@ -81,6 +88,22 @@ function nextItemOrder(rows: ItemFormRow[]): string {
 
 function buildItemLabel(codigo: string, nome: string, id: number): string {
   return [codigo, nome].filter(Boolean).join(" - ") || String(id);
+}
+
+function toFiniteNumber(v: unknown): number | null {
+  const parsed = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getSuggestedConjuntoItemUnitPrice(params: {
+  custoUltimaCompra?: number | string | null;
+  precoUnitario?: number | string | null;
+  margemLucroPadraoPercent?: number | string | null;
+}): number | null {
+  const custo = toFiniteNumber(params.custoUltimaCompra);
+  const preco = toFiniteNumber(params.precoUnitario);
+  if ((custo ?? 0) <= 0 && (preco ?? 0) <= 0) return null;
+  return getSuggestedOrcamentoUnitPrice(params);
 }
 
 function up(v: string): string {
@@ -126,6 +149,7 @@ export default function ConjuntoEditPage() {
 
   const [conjunto, setConjunto] = useState<ConjuntoRow | null>(null);
   const [categoriaOptions, setCategoriaOptions] = useState<string[]>([]);
+  const [cfgMargemLucroPadraoPercent, setCfgMargemLucroPadraoPercent] = useState<number>(0);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [itens, setItens] = useState<ItemFormRow[]>([]);
   const removedItemIdsRef = useRef<Set<string>>(new Set());
@@ -137,6 +161,7 @@ export default function ConjuntoEditPage() {
   const [inlineItemCodigo, setInlineItemCodigo] = useState("");
   const [inlineItemNome, setInlineItemNome] = useState("");
   const [inlineItemLabel, setInlineItemLabel] = useState("");
+  const [inlineItemPrecoUnitario, setInlineItemPrecoUnitario] = useState<number | null>(null);
   const [inlineQuantidade, setInlineQuantidade] = useState("1");
   const [inlineErr, setInlineErr] = useState<string | null>(null);
   const inlineCodigoInputRef = useRef<HTMLInputElement | null>(null);
@@ -174,16 +199,19 @@ export default function ConjuntoEditPage() {
     }
 
     let categorias = ["PAINEIS AUTOPORTANTE", "PAINEIS DE COMANDO"];
+    let margemLucroPadraoPercent = 0;
     try {
       let cfg = await getConfig(supabase, { tenantId, empresaId });
       if (!cfg) {
         cfg = await ensureConfig(supabase, { tenantId, empresaId });
       }
       categorias = getConjuntoCategorias(cfg);
+      margemLucroPadraoPercent = toFiniteNumber(cfg?.margem_lucro_padrao_percent) ?? 0;
     } catch {
       // Se a configuracao falhar, usa o fallback padrao para nao bloquear a tela.
     }
     setCategoriaOptions(categorias);
+    setCfgMargemLucroPadraoPercent(margemLucroPadraoPercent);
 
     if (isNew) {
       setLoading(true);
@@ -200,6 +228,7 @@ export default function ConjuntoEditPage() {
         setInlineItemCodigo("");
         setInlineItemNome("");
         setInlineItemLabel("");
+        setInlineItemPrecoUnitario(null);
         setInlineQuantidade("1");
         setInlineErr(null);
         removedItemIdsRef.current = new Set();
@@ -230,11 +259,11 @@ export default function ConjuntoEditPage() {
 
       const its = await listConjuntoItens(supabase, { tenantId, empresaId, conjuntoId: idParam });
       const ids = its.map((r) => Number(r.item_id)).filter((n) => Number.isFinite(n) && n > 0);
-      const labelMap = new Map<number, string>();
+      const itemMap = new Map<number, ItemSuggest>();
       if (ids.length > 0) {
         const { data: itemRows } = await supabase
           .from("itens")
-          .select("id,codigo_interno,nome")
+          .select("id,codigo_interno,nome,preco_unitario,custo_ultima_compra")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
           .in("id", ids)
@@ -243,24 +272,29 @@ export default function ConjuntoEditPage() {
         typedRows.forEach((it) => {
           const id = Number(it.id);
           if (!Number.isFinite(id) || id <= 0) return;
-          const codigo = String(it.codigo_interno ?? "").trim();
-          const nome = String(it.nome ?? "").trim();
-          labelMap.set(id, buildItemLabel(codigo, nome, id));
+          itemMap.set(id, it);
         });
       }
 
       const loadedItems = its.map((r) => {
         const itemIdNum = Number(r.item_id);
-        const itemLabel = labelMap.get(itemIdNum) ?? "";
-        const parts = itemLabel.split(" - ");
+        const item = itemMap.get(itemIdNum);
+        const itemCodigo = String(item?.codigo_interno ?? "").trim();
+        const itemNome = String(item?.nome ?? "").trim();
+        const itemLabel = item ? buildItemLabel(itemCodigo, itemNome, itemIdNum) : "";
         return {
           localKey: rowKey(),
           id: r.id,
           ordem: r.ordem === null || r.ordem === undefined ? "" : String(r.ordem),
           item_id: String(r.item_id ?? ""),
-          item_codigo: parts.length > 1 ? parts[0] : "",
-          item_nome: parts.length > 1 ? parts.slice(1).join(" - ") : itemLabel,
+          item_codigo: itemCodigo,
+          item_nome: itemNome,
           item_label: itemLabel,
+          item_preco_unitario: getSuggestedConjuntoItemUnitPrice({
+            custoUltimaCompra: item?.custo_ultima_compra,
+            precoUnitario: item?.preco_unitario,
+            margemLucroPadraoPercent: margemLucroPadraoPercent,
+          }),
           quantidade: r.quantidade === null || r.quantidade === undefined ? "" : String(r.quantidade),
         } satisfies ItemFormRow;
       });
@@ -274,6 +308,7 @@ export default function ConjuntoEditPage() {
       setInlineItemCodigo("");
       setInlineItemNome("");
       setInlineItemLabel("");
+      setInlineItemPrecoUnitario(null);
       setInlineQuantidade("1");
       setInlineErr(null);
       removedItemIdsRef.current = new Set();
@@ -325,7 +360,7 @@ export default function ConjuntoEditPage() {
     try {
       let q = supabase
         .from("itens")
-        .select("id,codigo_interno,nome")
+        .select("id,codigo_interno,nome,preco_unitario,custo_ultima_compra")
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
         .eq("ativo", true)
@@ -371,6 +406,7 @@ export default function ConjuntoEditPage() {
       setInlineItemCodigo("");
       setInlineItemNome("");
       setInlineItemLabel("");
+      setInlineItemPrecoUnitario(null);
       setInlineQuantidade("1");
       setInlineErr(null);
       window.requestAnimationFrame(() => {
@@ -402,6 +438,7 @@ export default function ConjuntoEditPage() {
       setInlineItemCodigo(row.item_codigo);
       setInlineItemNome(row.item_nome);
       setInlineItemLabel(row.item_label);
+      setInlineItemPrecoUnitario(row.item_preco_unitario);
       setInlineQuantidade(row.quantidade || "1");
       setInlineErr(null);
       window.requestAnimationFrame(() => {
@@ -417,7 +454,18 @@ export default function ConjuntoEditPage() {
     const codigo = String(it.codigo_interno ?? "").trim();
     const nome = String(it.nome ?? "").trim();
     const label = [codigo, nome].filter(Boolean).join(" â€” ") || String(id);
-    setItens((p) => p.map((r) => (r.localKey === localKey ? { ...r, item_id: String(id), item_label: label } : r)));
+    const precoUnitario = getSuggestedConjuntoItemUnitPrice({
+      custoUltimaCompra: it.custo_ultima_compra,
+      precoUnitario: it.preco_unitario,
+      margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+    });
+    setItens((p) =>
+      p.map((r) =>
+        r.localKey === localKey
+          ? { ...r, item_id: String(id), item_codigo: codigo, item_nome: nome, item_label: label, item_preco_unitario: precoUnitario }
+          : r
+      )
+    );
     setSuggestKey(null);
     setSuggestTerm("");
     setSuggestRows([]);
@@ -425,18 +473,29 @@ export default function ConjuntoEditPage() {
     setLookupTargetKey(null);
     setLookupErr(null);
     setLookupRows([]);
-  }, []);
+  }, [cfgMargemLucroPadraoPercent]);
 
   const pickSuggestion = useCallback((localKey: string, it: ItemSuggest) => {
     const id = Number(it.id);
     const codigo = String(it.codigo_interno ?? "").trim();
     const nome = String(it.nome ?? "").trim();
     const label = [codigo, nome].filter(Boolean).join(" — ") || String(id);
-    setItens((p) => p.map((r) => (r.localKey === localKey ? { ...r, item_id: String(id), item_label: label } : r)));
+    const precoUnitario = getSuggestedConjuntoItemUnitPrice({
+      custoUltimaCompra: it.custo_ultima_compra,
+      precoUnitario: it.preco_unitario,
+      margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+    });
+    setItens((p) =>
+      p.map((r) =>
+        r.localKey === localKey
+          ? { ...r, item_id: String(id), item_codigo: codigo, item_nome: nome, item_label: label, item_preco_unitario: precoUnitario }
+          : r
+      )
+    );
     setSuggestKey(null);
     setSuggestTerm("");
     setSuggestRows([]);
-  }, []);
+  }, [cfgMargemLucroPadraoPercent]);
 
   async function handleItemTokenEnter(localKey: string, rawValue: string) {
     const raw = String(rawValue ?? "").trim();
@@ -452,6 +511,8 @@ export default function ConjuntoEditPage() {
           id: item.id,
           codigo_interno: item.codigo_interno ?? null,
           nome: item.nome ?? null,
+          custo_ultima_compra: item.custo_ultima_compra ?? null,
+          preco_unitario: item.preco_unitario ?? null,
         });
         return;
       }
@@ -472,12 +533,19 @@ export default function ConjuntoEditPage() {
     setInlineItemCodigo(codigo);
     setInlineItemNome(nome);
     setInlineItemLabel(label);
+    setInlineItemPrecoUnitario(
+      getSuggestedConjuntoItemUnitPrice({
+        custoUltimaCompra: it.custo_ultima_compra,
+        precoUnitario: it.preco_unitario,
+        margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+      })
+    );
     setInlineErr(null);
     window.requestAnimationFrame(() => {
       inlineQuantidadeInputRef.current?.focus();
       inlineQuantidadeInputRef.current?.select();
     });
-  }, []);
+  }, [cfgMargemLucroPadraoPercent]);
 
   const applyLookupSelection = useCallback(
     (it: ItemSuggest) => {
@@ -556,6 +624,7 @@ export default function ConjuntoEditPage() {
       item_codigo: inlineItemCodigo,
       item_nome: inlineItemNome,
       item_label: inlineItemLabel || buildItemLabel(inlineItemCodigo, inlineItemNome, itemIdNum),
+      item_preco_unitario: inlineItemPrecoUnitario,
       quantidade: String(inlineQuantidade ?? "").trim(),
     } satisfies ItemFormRow;
 
@@ -566,7 +635,7 @@ export default function ConjuntoEditPage() {
 
     setItens(nextRows);
     resetInlineForm(nextRows);
-  }, [inlineEditingKey, inlineItemCodigo, inlineItemId, inlineItemLabel, inlineItemNome, inlineMode, inlineOrdem, inlineQuantidade, itens, resetInlineForm]);
+  }, [inlineEditingKey, inlineItemCodigo, inlineItemId, inlineItemLabel, inlineItemNome, inlineItemPrecoUnitario, inlineMode, inlineOrdem, inlineQuantidade, itens, resetInlineForm]);
 
   async function handleInlineItemTokenEnter(rawValue: string) {
     const raw = String(rawValue ?? "").trim();
@@ -582,6 +651,8 @@ export default function ConjuntoEditPage() {
           id: item.id,
           codigo_interno: item.codigo_interno ?? null,
           nome: item.nome ?? null,
+          custo_ultima_compra: item.custo_ultima_compra ?? null,
+          preco_unitario: item.preco_unitario ?? null,
         });
         return;
       }
@@ -591,6 +662,32 @@ export default function ConjuntoEditPage() {
 
     openLookupModal(INLINE_LOOKUP_KEY, raw);
   }
+
+  const totalComponentes = useMemo(() => {
+    return itens.reduce((acc, row) => {
+      const quantidade = parseDecimalBR(String(row.quantidade ?? "").trim());
+      const precoUnitario = toFiniteNumber(row.item_preco_unitario);
+      if (!Number.isFinite(quantidade) || quantidade <= 0 || precoUnitario === null) return acc;
+      return acc + quantidade * precoUnitario;
+    }, 0);
+  }, [itens]);
+
+  const itensSemPreco = useMemo(() => {
+    return itens.reduce((acc, row) => {
+      const itemId = Number(String(row.item_id ?? "").trim());
+      if (!Number.isFinite(itemId) || itemId <= 0) return acc;
+      return row.item_preco_unitario === null ? acc + 1 : acc;
+    }, 0);
+  }, [itens]);
+
+  const precoAplicadoConjunto = useMemo(() => {
+    const precificacao = normalizePrecificacao(form.precificacao);
+    if (precificacao === "PRECO_FIXO") {
+      const precoFixo = parseMoneyBR(form.preco_fixo);
+      return Number.isFinite(precoFixo) ? precoFixo : 0;
+    }
+    return totalComponentes;
+  }, [form.preco_fixo, form.precificacao, totalComponentes]);
 
   const save = useCallback(
     async (e: FormEvent) => {
@@ -778,6 +875,23 @@ export default function ConjuntoEditPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-3">
+                <div className="text-[11px] uppercase tracking-wide text-zinc-500">Total dos componentes</div>
+                <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">R$ {formatMoneyBR(totalComponentes)}</div>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-3">
+                <div className="text-[11px] uppercase tracking-wide text-zinc-500">Preco do conjunto</div>
+                <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">R$ {formatMoneyBR(precoAplicadoConjunto)}</div>
+                <div className="mt-1 text-[11px] text-zinc-500">{normalizePrecificacao(form.precificacao) === "PRECO_FIXO" ? "Origem: preco fixo" : "Origem: soma dos componentes"}</div>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-3">
+                <div className="text-[11px] uppercase tracking-wide text-zinc-500">Itens sem preco</div>
+                <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">{itensSemPreco}</div>
+                <div className="mt-1 text-[11px] text-zinc-500">Componentes sem `preco_unitario` nao entram na soma.</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <label className="block text-xs text-zinc-400">
                 Categoria
                 <select
@@ -813,6 +927,11 @@ export default function ConjuntoEditPage() {
                   className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                   disabled={normalizePrecificacao(form.precificacao) !== "PRECO_FIXO"}
                 />
+                <div className="text-[11px] text-zinc-500 mt-1">
+                  {normalizePrecificacao(form.precificacao) === "PRECO_FIXO"
+                    ? `Preco aplicado ao conjunto: R$ ${formatMoneyBR(precoAplicadoConjunto)}`
+                    : `Total calculado pelos componentes: R$ ${formatMoneyBR(totalComponentes)}`}
+                </div>
                 {false && normalizePrecificacao(form.precificacao) === "PRECO_FIXO" && (
                   <div className="text-[11px] text-zinc-500 mt-1">Sugestão: {formatMoneyBR(parseMoneyBR(form.preco_fixo) || 0)}</div>
                 )}
@@ -872,6 +991,7 @@ export default function ConjuntoEditPage() {
                       setInlineItemCodigo("");
                       setInlineItemNome("");
                       setInlineItemLabel("");
+                      setInlineItemPrecoUnitario(null);
                       setInlineErr(null);
                     }}
                     onKeyDown={(e) => {
@@ -911,7 +1031,7 @@ export default function ConjuntoEditPage() {
                 </label>
               </div>
 
-              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                 <label className="block text-xs text-zinc-400">
                   ID
                   <input
@@ -928,6 +1048,15 @@ export default function ConjuntoEditPage() {
                     disabled
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
                     placeholder="Pressione Enter para localizar o item"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Preco unitario
+                  <input
+                    value={inlineItemPrecoUnitario === null ? "-" : `R$ ${formatMoneyBR(inlineItemPrecoUnitario)}`}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-right tabular-nums disabled:opacity-60"
                   />
                 </label>
               </div>
@@ -960,13 +1089,15 @@ export default function ConjuntoEditPage() {
                   <th className="px-3 py-3 text-left whitespace-nowrap">Codigo</th>
                   <th className="px-3 py-3 text-left">Item</th>
                   <th className="px-3 py-3 text-right whitespace-nowrap">Quantidade</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">Preco unitario</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">Total</th>
                   <th className="px-3 py-3 text-right whitespace-nowrap">Acoes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
                 {itens.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-zinc-400">
+                    <td colSpan={8} className="px-3 py-6 text-zinc-400">
                       Nenhum componente adicionado.
                     </td>
                   </tr>
@@ -979,6 +1110,16 @@ export default function ConjuntoEditPage() {
                     <td className="px-3 py-3 whitespace-nowrap">{r.item_codigo || "-"}</td>
                     <td className="px-3 py-3">{r.item_nome || r.item_label || "-"}</td>
                     <td className="px-3 py-3 text-right whitespace-nowrap">{r.quantidade || "-"}</td>
+                    <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
+                      {r.item_preco_unitario === null ? "-" : `R$ ${formatMoneyBR(r.item_preco_unitario)}`}
+                    </td>
+                    <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums">
+                      {(() => {
+                        const quantidade = parseDecimalBR(String(r.quantidade ?? "").trim());
+                        if (!Number.isFinite(quantidade) || quantidade <= 0 || r.item_preco_unitario === null) return "-";
+                        return `R$ ${formatMoneyBR(quantidade * r.item_preco_unitario)}`;
+                      })()}
+                    </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
