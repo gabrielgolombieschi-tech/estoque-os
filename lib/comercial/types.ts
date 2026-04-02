@@ -26,6 +26,20 @@ export type OrcamentoListaRow = {
   updated_at: string;
 };
 
+export type OrcamentoAnaliticoRow = {
+  id: string;
+  codigo: string;
+  titulo: string;
+  status: OrcamentoStatus | string;
+  emissao_date: string;
+  cliente_id: number | null;
+  cliente_nome: string | null;
+  vendedor_usuario_id: string | null;
+  vendedor_nome: string | null;
+  total_liquido: number | string | null;
+  updated_at: string;
+};
+
 export type OrcamentoRow = {
   id: string;
   tenant_id: string;

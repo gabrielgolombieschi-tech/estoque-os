@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getOrcamentoStatusFilterValues } from "@/lib/comercial/status";
 import type {
+  OrcamentoAnaliticoRow,
   ClienteLookupRow,
   ConfigOrcamentoRow,
   ItemLookupRow,
@@ -96,6 +97,57 @@ export async function listOrcamentos(
   const { data, error, count } = await query.returns<OrcamentoListaRow[]>();
   if (error) throw error;
   return { rows: (data ?? []) as OrcamentoListaRow[], count: typeof count === "number" ? count : 0 };
+}
+
+export async function listOrcamentosAnalitico(
+  supabase: SupabaseClient,
+  filters: { tenantId: string; empresaId: string; from?: string; to?: string }
+): Promise<OrcamentoAnaliticoRow[]> {
+  const rows: OrcamentoAnaliticoRow[] = [];
+  let offset = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    let query = applyTenantEmpresa(
+      supabase
+        .schema("r")
+        .from("r_orcamento_lista")
+        .select(
+          [
+            "id",
+            "codigo",
+            "titulo",
+            "status",
+            "emissao_date",
+            "cliente_id",
+            "cliente_nome",
+            "vendedor_usuario_id",
+            "vendedor_nome",
+            "total_liquido",
+            "updated_at",
+          ].join(",")
+        )
+        .order("emissao_date", { ascending: true, nullsFirst: false })
+        .order("numero", { ascending: true })
+        .range(offset, offset + pageSize - 1),
+      filters.tenantId,
+      filters.empresaId
+    );
+
+    const from = String(filters.from ?? "").trim();
+    const to = String(filters.to ?? "").trim();
+    if (from) query = query.gte("emissao_date", from);
+    if (to) query = query.lte("emissao_date", to);
+
+    const { data, error } = await query.returns<OrcamentoAnaliticoRow[]>();
+    if (error) throw error;
+
+    rows.push(...((data ?? []) as OrcamentoAnaliticoRow[]));
+    if ((data ?? []).length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return rows;
 }
 
 export async function getOrcamento(

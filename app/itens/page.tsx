@@ -214,6 +214,50 @@ function emptyFiscalForm(): FiscalForm {
   };
 }
 
+function buildFormFromItem(r: Item): ItemForm {
+  return {
+    id: r.id,
+    codigo_interno: upper(r.codigo_interno),
+    codigo_barras: upper(r.codigo_barras),
+    nome: upper(r.nome),
+    descricao: upper(r.descricao),
+    tipo: r.tipo,
+    categoria: upper(r.categoria),
+    subcategoria: upper(r.subcategoria),
+    fabricante: upper(r.fabricante),
+    finalidade: r.finalidade ? String(r.finalidade) : "",
+    motivo_compra_id: r.motivo_compra_id ? String(r.motivo_compra_id) : "",
+    unidade_medida: upper(r.unidade_medida || "UN"),
+    controla_estoque: !!r.controla_estoque,
+    estoque_minimo: Number(r.estoque_minimo ?? 0),
+    estoque_maximo: Number(r.estoque_maximo ?? 0),
+    estoque_ideal: Number(r.estoque_ideal ?? 0),
+    custo_ultima_compra: Number(r.custo_ultima_compra ?? 0),
+    custo_medio: Number(r.custo_medio ?? 0),
+    preco_unitario: Number(r.preco_unitario ?? 0),
+    fornecedor_id: r.fornecedor_id ?? null,
+    ativo: !!r.ativo,
+  };
+}
+
+function buildFiscalFormFromItem(r: Item): FiscalForm {
+  const fiscal = r.fiscal_itens;
+  return {
+    ncm: fiscal?.ncm ?? "",
+    cst_icms: fiscal?.cst_icms ?? "",
+    cst_pis: fiscal?.cst_pis ?? "",
+    cst_cofins: fiscal?.cst_cofins ?? "",
+    aliq_icms: fiscal?.aliq_icms ?? null,
+    aliq_ipi: fiscal?.aliq_ipi ?? null,
+    aliq_pis: fiscal?.aliq_pis ?? null,
+    aliq_cofins: fiscal?.aliq_cofins ?? null,
+    credita_icms: !!fiscal?.credita_icms,
+    ipi_entra_no_custo: fiscal?.ipi_entra_no_custo ?? true,
+    credita_pis: !!fiscal?.credita_pis,
+    credita_cofins: !!fiscal?.credita_cofins,
+  };
+}
+
 function normalizeFiscalForm(value: FiscalForm) {
   const numOrNull = (input: number | null | undefined) => (Number.isFinite(input as number) ? Number(input) : null);
   return {
@@ -660,6 +704,17 @@ export default function ItensPage() {
     setShowForm(true);
   }
 
+  function openEditorForItem(r: Item, nextEditingId: number) {
+    setEditingId(nextEditingId);
+    setShowForm(true);
+    setForm(buildFormFromItem({ ...r, id: nextEditingId }));
+
+    const nextFiscalForm = buildFiscalFormFromItem(r);
+    setFiscalForm(nextFiscalForm);
+    setInitialFiscalSnapshot(serializeFiscalForm(nextFiscalForm));
+    setActiveTab("geral");
+  }
+
   function startEdit(r: Item) {
     setOk(null);
     setErr(null);
@@ -667,52 +722,7 @@ export default function ItensPage() {
       setErr("Sem permissao para editar itens.");
       return;
     }
-    setEditingId(r.id);
-    setShowForm(true);
-
-    setForm({
-      id: r.id,
-      codigo_interno: upper(r.codigo_interno),
-      codigo_barras: upper(r.codigo_barras),
-      nome: upper(r.nome),
-      descricao: upper(r.descricao),
-      tipo: r.tipo,
-      categoria: upper(r.categoria),
-      subcategoria: upper(r.subcategoria),
-
-      fabricante: upper(r.fabricante),
-      finalidade: r.finalidade ? String(r.finalidade) : "",
-      motivo_compra_id: r.motivo_compra_id ? String(r.motivo_compra_id) : "",
-
-      unidade_medida: upper(r.unidade_medida || "UN"),
-      controla_estoque: !!r.controla_estoque,
-      estoque_minimo: Number(r.estoque_minimo ?? 0),
-      estoque_maximo: Number(r.estoque_maximo ?? 0),
-      estoque_ideal: Number(r.estoque_ideal ?? 0),
-      custo_ultima_compra: Number(r.custo_ultima_compra ?? 0),
-      custo_medio: Number(r.custo_medio ?? 0),
-      preco_unitario: Number(r.preco_unitario ?? 0),
-      fornecedor_id: r.fornecedor_id ?? null,
-      ativo: !!r.ativo,
-    });
-    const fiscal = r.fiscal_itens;
-    const nextFiscalForm = {
-      ncm: fiscal?.ncm ?? "",
-      cst_icms: fiscal?.cst_icms ?? "",
-      cst_pis: fiscal?.cst_pis ?? "",
-      cst_cofins: fiscal?.cst_cofins ?? "",
-      aliq_icms: fiscal?.aliq_icms ?? null,
-      aliq_ipi: fiscal?.aliq_ipi ?? null,
-      aliq_pis: fiscal?.aliq_pis ?? null,
-      aliq_cofins: fiscal?.aliq_cofins ?? null,
-      credita_icms: !!fiscal?.credita_icms,
-      ipi_entra_no_custo: fiscal?.ipi_entra_no_custo ?? true,
-      credita_pis: !!fiscal?.credita_pis,
-      credita_cofins: !!fiscal?.credita_cofins,
-    };
-    setFiscalForm(nextFiscalForm);
-    setInitialFiscalSnapshot(serializeFiscalForm(nextFiscalForm));
-    setActiveTab("geral");
+    openEditorForItem(r, r.id);
   }
 
   function closeForm() {
@@ -756,6 +766,153 @@ export default function ItensPage() {
       empresaId
     );
     return error;
+  }
+
+  async function generateCopyCodigo(baseCodigo: string) {
+    if (!tenantId) throw new Error("Tenant nao carregado.");
+
+    const normalizedBase = upper(baseCodigo).trim() || "ITEM";
+    for (let copyIndex = 1; copyIndex <= 999; copyIndex += 1) {
+      const suffix = copyIndex === 1 ? "-COPIA" : `-COPIA-${copyIndex}`;
+      const baseMaxLength = Math.max(1, 50 - suffix.length);
+      const candidateBase = normalizedBase.slice(0, baseMaxLength).trim() || normalizedBase.slice(0, baseMaxLength);
+      const candidate = `${candidateBase}${suffix}`;
+
+      const { data, error } = await applyTenant(
+        supabase.from("itens").select("id").eq("codigo_interno", candidate).limit(1),
+        tenantId
+      );
+
+      if (error) throw error;
+      if (!Array.isArray(data) || data.length === 0) return candidate;
+    }
+
+    throw new Error("Nao foi possivel gerar um codigo interno unico para a copia.");
+  }
+
+  async function duplicateItem(r: Item) {
+    setOk(null);
+    setErr(null);
+
+    if (!canEdit) {
+      setErr("Sem permissao para copiar itens.");
+      return;
+    }
+
+    if (!tenantId || !empresaId) {
+      setErr("Contexto de tenant/empresa nao carregado.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const copiedCodigoInterno = await generateCopyCodigo(r.codigo_interno);
+      const copiedAt = new Date().toISOString();
+      const { data: sess } = await supabase.auth.getSession();
+      const userEmail = sess.session?.user?.email ?? null;
+      const isProduto = r.tipo === "produto";
+      const controlaEstoque = isProduto ? !!r.controla_estoque : false;
+
+      const payload = {
+        tenant_id: tenantId,
+        empresa_id: empresaId,
+        codigo_interno: copiedCodigoInterno,
+        codigo_barras: null,
+        nome: upper(r.nome).trim(),
+        descricao: upper(r.descricao).trim() || null,
+        tipo: r.tipo,
+        categoria: upper(r.categoria).trim() || null,
+        subcategoria: upper(r.subcategoria).trim() || null,
+        fabricante: upper(r.fabricante).trim() || null,
+        finalidade: r.finalidade ? String(r.finalidade) : null,
+        motivo_compra_id: supportsMotivoCompra ? r.motivo_compra_id ?? null : null,
+        unidade_medida: upper(r.unidade_medida || "UN").trim(),
+        controla_estoque: controlaEstoque,
+        estoque_minimo: controlaEstoque ? Number(r.estoque_minimo ?? 0) : 0,
+        estoque_maximo: controlaEstoque ? Number(r.estoque_maximo ?? 0) : 0,
+        estoque_ideal: controlaEstoque ? Number(r.estoque_ideal ?? 0) : 0,
+        custo_ultima_compra: Number(r.custo_ultima_compra ?? 0),
+        custo_medio: Number(r.custo_medio ?? 0),
+        preco_unitario: Number(r.preco_unitario ?? 0),
+        fornecedor_id: r.fornecedor_id ?? null,
+        ativo: !!r.ativo,
+        criado_por: userEmail,
+        criado_em: copiedAt,
+        atualizado_em: copiedAt,
+      };
+
+      const { data: insertedItem, error: insertError } = await supabase.from("itens").insert(payload).select("id").single();
+
+      if (insertError) throw insertError;
+
+      const newItemId = Number(insertedItem?.id ?? 0);
+      if (!Number.isFinite(newItemId) || newItemId <= 0) {
+        throw new Error("Falha ao copiar item: id nao retornado.");
+      }
+
+      let fiscalCopyError: string | null = null;
+      let copiedFiscal: FiscalItem | null = null;
+
+      if (canEditFiscal && r.fiscal_itens) {
+        const fiscalPayload: FiscalPayload = {
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          item_id: newItemId,
+          ncm: r.fiscal_itens.ncm ?? null,
+          cst_icms: r.fiscal_itens.cst_icms ?? null,
+          cst_pis: r.fiscal_itens.cst_pis ?? null,
+          cst_cofins: r.fiscal_itens.cst_cofins ?? null,
+          aliq_icms: r.fiscal_itens.aliq_icms ?? null,
+          aliq_ipi: r.fiscal_itens.aliq_ipi ?? null,
+          aliq_pis: r.fiscal_itens.aliq_pis ?? null,
+          aliq_cofins: r.fiscal_itens.aliq_cofins ?? null,
+          credita_icms: !!r.fiscal_itens.credita_icms,
+          ipi_entra_no_custo: !!r.fiscal_itens.ipi_entra_no_custo,
+          credita_pis: !!r.fiscal_itens.credita_pis,
+          credita_cofins: !!r.fiscal_itens.credita_cofins,
+          atualizado_em: copiedAt,
+        };
+
+        const { error: fiscalError } = await applyTenantEmpresa(
+          supabase.from("fiscal_itens").upsert(fiscalPayload, { onConflict: "tenant_id,empresa_id,item_id" }),
+          tenantId,
+          empresaId
+        );
+
+        if (fiscalError) {
+          fiscalCopyError = fiscalError.message ?? "Erro ao copiar os dados fiscais.";
+        } else {
+          copiedFiscal = { ...r.fiscal_itens, item_id: newItemId };
+        }
+      }
+
+      openEditorForItem(
+        {
+          ...r,
+          id: newItemId,
+          codigo_interno: copiedCodigoInterno,
+          codigo_barras: null,
+          fiscal_itens: copiedFiscal,
+          criado_em: copiedAt,
+          atualizado_em: copiedAt,
+        },
+        newItemId
+      );
+
+      await load();
+
+      if (fiscalCopyError) {
+        setErr(`Item copiado para o ID ${newItemId}, mas os dados fiscais nao foram copiados: ${fiscalCopyError}`);
+      } else {
+        setOk(`Item copiado para o ID ${newItemId}. Codigo de barras limpo para evitar duplicidade.`);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erro ao copiar item.";
+      setErr(msg);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function save() {
@@ -1331,6 +1488,15 @@ export default function ItensPage() {
                             className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                           >
                             Editar
+                          </button>
+                        </Can>
+                        <Can perm="cad_itens.write">
+                          <button
+                            onClick={() => void duplicateItem(r)}
+                            disabled={busy}
+                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
+                          >
+                            Copiar
                           </button>
                         </Can>
                         <Can perm="cad_itens.write">

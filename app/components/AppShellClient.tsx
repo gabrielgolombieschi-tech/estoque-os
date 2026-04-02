@@ -38,6 +38,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/estoque/pedidos" ||
     pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname === "/estoque/relatorios" ||
+    pathname === "/comercial/analitico" ||
     pathname === "/comercial/orcamentos" ||
     pathname?.startsWith("/comercial/orcamentos/") && pathname?.endsWith("/imprimir") ||
     pathname === "/financeiro/contas-pagar/aprovacoes" ||
@@ -656,6 +657,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
 
                         <div className="border-t border-zinc-800 my-2" />
                         <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Configurações</div>
+                        <Link href="/comercial/analitico" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Analitico
+                        </Link>
                         <Link
                           href="/configuracoes/comercial/orcamentos"
                           className="block px-5 py-2 hover:bg-zinc-900 text-sm"
