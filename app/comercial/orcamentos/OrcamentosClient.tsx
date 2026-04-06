@@ -13,7 +13,7 @@ import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getOrcamentoStatusLabel } from "@/lib/comercial/status";
 import { mapOrcamentoError, n, toSupabaseErrorLike } from "@/lib/comercial/utils";
 import { atualizarStatusOrcamento, listOrcamentos } from "@/lib/comercial/orcamentos.service";
-import OrcamentoStatusDialog from "./OrcamentoStatusDialog";
+import OrcamentoStatusDialog, { type OrcamentoStatusDialogPayload } from "./OrcamentoStatusDialog";
 
 const PAGE_SIZE = 50;
 const STATUS_OPTIONS: Array<{ value: OrcamentoStatus | "TODOS"; label: string }> = [
@@ -50,6 +50,7 @@ export default function OrcamentosClient() {
 
   const canView = hasAny(capabilities, ["financeiro.read", "financeiro.write", "os.read", "os.write"]);
   const canWrite = hasAny(capabilities, ["financeiro.write", "os.write"]);
+  const canOpenOs = hasAny(capabilities, ["os.write"]);
 
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -137,7 +138,7 @@ export default function OrcamentosClient() {
   }, [busy]);
 
   const submitStatusDialog = useCallback(
-    async (payload: { status: OrcamentoStatusCanonical; followup: string }) => {
+    async (payload: OrcamentoStatusDialogPayload) => {
       if (!statusDialog.open) return;
       if (!canWrite || !supabase || !tenantId || !empresaId) return;
 
@@ -149,19 +150,51 @@ export default function OrcamentosClient() {
       setErr(null);
       setOk(null);
 
-      setRows((prev) => prev.map((row) => (row.id === targetRowId ? { ...row, status: payload.status } : row)));
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === targetRowId
+            ? {
+                ...row,
+                status: payload.status,
+                observacoes: payload.followup,
+                valor_fechado: payload.status === "FECHADO" ? payload.valorFechado : row.valor_fechado,
+              }
+            : row
+        )
+      );
       setUltimoFollowupById((prev) => ({ ...prev, [targetRowId]: payload.followup }));
 
       try {
-        await atualizarStatusOrcamento(supabase, {
+        const result = await atualizarStatusOrcamento(supabase, {
           tenantId,
           empresaId,
           id: targetRowId,
           status: payload.status,
           followup: payload.followup,
+          valorFechado: payload.valorFechado,
+          abrirOs: payload.abrirOs,
+          importarItensOs: payload.importarItensOs,
         });
-        setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
+        setRows((prev) =>
+          prev.map((row) =>
+            row.id === targetRowId
+              ? {
+                  ...row,
+                  status: payload.status,
+                  observacoes: payload.followup,
+                  valor_fechado: payload.status === "FECHADO" ? result.valorFechado : row.valor_fechado,
+                  os_id: result.osId ?? row.os_id,
+                  os_itens_importados_at: payload.importarItensOs ? new Date().toISOString() : row.os_itens_importados_at,
+                }
+              : row
+          )
+        );
         setStatusDialog({ open: false });
+        if (payload.abrirOs && result.osId) {
+          router.push(`/os/${result.osId}`);
+          return;
+        }
+        setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
       } catch (e: unknown) {
         setRows(prevRows);
         setUltimoFollowupById((prev) => {
@@ -175,7 +208,7 @@ export default function OrcamentosClient() {
         setBusy(false);
       }
     },
-    [canWrite, empresaId, rows, statusDialog, supabase, tenantId, ultimoFollowupById]
+    [canWrite, empresaId, router, rows, statusDialog, supabase, tenantId, ultimoFollowupById]
   );
 
   if (!ready && permissionsLoading) {
@@ -327,7 +360,7 @@ export default function OrcamentosClient() {
                 </tr>
               )}
               {rows.map((r) => {
-                const followup = ultimoFollowupById[r.id] ?? "";
+                const followup = String(ultimoFollowupById[r.id] ?? r.observacoes ?? "").trim();
                 return (
                   <tr
                     key={r.id}
@@ -432,6 +465,10 @@ export default function OrcamentosClient() {
           open={statusDialog.open}
           status={statusDialog.status}
           loading={busy}
+          initialFollowup={statusDialog.row.observacoes}
+          initialValorFechado={statusDialog.row.valor_fechado}
+          valorOrcado={statusDialog.row.total_liquido}
+          canOpenOs={canOpenOs}
           onCancel={closeStatusDialog}
           onSave={submitStatusDialog}
         />

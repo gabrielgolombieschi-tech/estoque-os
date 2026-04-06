@@ -7,6 +7,8 @@ import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { digitsOnly, isNfseSerieCompatible, normalizeNfseNumeroIdentity } from "@/lib/nfse/identity";
 import { parseNfseXml, type ParsedNfse } from "@/lib/nfse/parseNfseXml";
+import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
+import type { OsSelection } from "@/lib/os-vinculo";
 
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -100,6 +102,7 @@ export default function ImportNfseXmlModal({
   const [parsed, setParsed] = useState<ParsedNfse | null>(null);
   const [chaveAcesso, setChaveAcesso] = useState<string>("");
   const [alreadyImportedId, setAlreadyImportedId] = useState<string>("");
+  const [osSelection, setOsSelection] = useState<OsSelection | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
@@ -137,6 +140,7 @@ export default function ImportNfseXmlModal({
     setParsed(null);
     setChaveAcesso("");
     setAlreadyImportedId("");
+    setOsSelection(null);
     setError(null);
     setOk(null);
     setBusy(false);
@@ -251,6 +255,7 @@ export default function ImportNfseXmlModal({
     setParsed(null);
     setChaveAcesso("");
     setAlreadyImportedId("");
+    setOsSelection(null);
     setError(null);
     setOk(null);
 
@@ -339,11 +344,12 @@ export default function ImportNfseXmlModal({
       const supabase = supabaseBrowser();
       const nfsePayload = { ...parsed, pagamentos };
 
-      const { data, error: rpcErr } = await supabase.rpc("import_nfse_saida", {
+      const { data, error: rpcErr } = await supabase.rpc("import_nfse_saida_com_os", {
         p_tenant_id: tenantId,
         p_empresa_id: empresaId,
         p_nfse_json: nfsePayload,
         p_xml_raw: raw,
+        p_os_id: osSelection?.id ?? null,
       });
 
       if (rpcErr) throw rpcErr;
@@ -456,6 +462,17 @@ export default function ImportNfseXmlModal({
               )}
             </div>
           </div>
+
+          {parsed ? (
+            <OsVinculoField
+              tenantId={tenantId}
+              empresaId={empresaId}
+              value={osSelection}
+              onChange={setOsSelection}
+              disabled={busy || checkingDuplicate || !ready}
+              helperText="Opcional. O valor desta NFS-e sera abatido da carteira da OS vinculada."
+            />
+          ) : null}
 
           {parsed ? (
             <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3 space-y-3">

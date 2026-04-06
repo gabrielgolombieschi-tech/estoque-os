@@ -29,6 +29,9 @@ type OrcamentoAnalitico = {
   vendedorKey: string;
   vendedorNome: string;
   valor: number;
+  valorOrcado: number;
+  valorFechado: number;
+  descontoValor: number;
 };
 
 type AnoResumo = {
@@ -183,6 +186,12 @@ function mapRow(row: OrcamentoAnaliticoRow): OrcamentoAnalitico | null {
     vendedorKey: getVendorKey(row),
     vendedorNome: getVendorName(row),
     valor: n(row.total_liquido),
+    valorOrcado: n(row.total_liquido),
+    valorFechado: normalized === "FECHADO" ? n(row.valor_fechado ?? row.total_liquido) : 0,
+    descontoValor:
+      normalized === "FECHADO"
+        ? n(row.desconto_fechamento_valor ?? n(row.total_liquido) - n(row.valor_fechado ?? row.total_liquido))
+        : 0,
   };
 }
 
@@ -419,6 +428,21 @@ export default function AnaliticoOrcamentosClient() {
   const clientesAtivos = useMemo(() => new Set(filteredRows.map((row) => row.clienteKey)).size, [filteredRows]);
   const vendedoresAtivos = useMemo(() => new Set(filteredRows.map((row) => row.vendedorKey)).size, [filteredRows]);
   const ticketMedio = totalOrcamentos > 0 ? totalValor / totalOrcamentos : 0;
+  const fechadosFiltrados = useMemo(() => filteredRows.filter((row) => row.status === "FECHADO"), [filteredRows]);
+  const totalFechadoOrcado = useMemo(
+    () => fechadosFiltrados.reduce((acc, row) => acc + row.valorOrcado, 0),
+    [fechadosFiltrados]
+  );
+  const totalFechadoReal = useMemo(
+    () => fechadosFiltrados.reduce((acc, row) => acc + row.valorFechado, 0),
+    [fechadosFiltrados]
+  );
+  const totalDescontoFechamento = useMemo(
+    () => fechadosFiltrados.reduce((acc, row) => acc + row.descontoValor, 0),
+    [fechadosFiltrados]
+  );
+  const descontoFechamentoPercent =
+    totalFechadoOrcado > 0 ? (totalDescontoFechamento / totalFechadoOrcado) * 100 : null;
 
   const decisoesQtd = summaryByStatus.FECHADO.quantidade + summaryByStatus.PERDIDO.quantidade;
   const decisoesValor = summaryByStatus.FECHADO.valor + summaryByStatus.PERDIDO.valor;
@@ -765,6 +789,24 @@ export default function AnaliticoOrcamentosClient() {
           title="Conversao"
           value={formatPercent(conversaoQtd)}
           subtitle={`Valor: ${formatPercent(conversaoValor)} | Base: ${decisoesQtd} decididos`}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <StatCard
+          title="Valor orcado fechado"
+          value={formatMoneyBR(totalFechadoOrcado)}
+          subtitle={`${formatCount(fechadosFiltrados.length)} | Base fechada dentro do filtro`}
+        />
+        <StatCard
+          title="Valor fechado"
+          value={formatMoneyBR(totalFechadoReal)}
+          subtitle={`${formatCount(fechadosFiltrados.length)} | Valor real informado no fechamento`}
+        />
+        <StatCard
+          title="Desconto fechamento"
+          value={formatMoneyBR(totalDescontoFechamento)}
+          subtitle={`Percentual agregado: ${formatPercent(descontoFechamentoPercent)}`}
         />
       </div>
 

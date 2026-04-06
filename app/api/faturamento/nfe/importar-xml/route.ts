@@ -395,8 +395,11 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get("file");
     const clienteIdRaw = String(form.get("cliente_id") ?? "").trim();
+    const osIdRaw = String(form.get("os_id") ?? "").trim();
     if (!clienteIdRaw) return jerr(422, "cliente_id é obrigatório.");
     const clienteIdNum = Number(clienteIdRaw);
+    const osIdNum = osIdRaw ? Number(osIdRaw) : null;
+    if (osIdRaw && (!Number.isFinite(osIdNum) || Number(osIdNum) <= 0)) return jerr(400, "os_id invalido.");
     if (!Number.isFinite(clienteIdNum) || clienteIdNum <= 0) return jerr(400, "cliente_id inválido.");
 
     if (!file || typeof file !== "object" || !("text" in file)) return jerr(422, "Arquivo XML é obrigatório (file).");
@@ -447,6 +450,17 @@ export async function POST(req: NextRequest) {
       }
     }
     if (!empresaId) return jerr(400, "Empresa não carregada.");
+
+    if (osIdNum) {
+      const { data: osRow, error: osErr } = await applyTenantEmpresa(
+        supabase.from("ordens_servico").select("id").eq("id", osIdNum).limit(1),
+        tenantId,
+        empresaId
+      ).maybeSingle<{ id: number }>();
+
+      if (osErr) return jerr(400, osErr.message ?? "Erro ao validar OS.");
+      if (!osRow?.id) return jerr(422, `OS nao encontrada para este tenant/empresa: ${osIdNum}.`);
+    }
 
     // Permissions source: align with client by using the same full permissions JSON.
     // Authorize if user has ANY of the required keys.
@@ -625,7 +639,7 @@ export async function POST(req: NextRequest) {
         p_xml_raw: xmlRaw,
         p_gerar_contas_pagar: false,
         p_parcelas_json: null,
-        p_os_id: null,
+        p_os_id: osIdNum,
         p_baixar_os: false,
         p_motivo_compra_id: motivoCompraId,
         p_solicitante_usuario_id: solicitanteUsuarioId,
@@ -721,6 +735,7 @@ export async function POST(req: NextRequest) {
           nfe_status: "EMITIDA",
           competencia_date: competenciaDate,
           chave_acesso: chaveDigits,
+          os_id_import: osIdNum,
           updated_at: nowIso,
         })
         .eq("id", documentoFiscalId)

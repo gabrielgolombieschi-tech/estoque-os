@@ -10,6 +10,8 @@ import { formatMoneyBR } from "@/lib/decimal";
 import { isNfseSerieCompatible, normalizeNfseNumeroIdentity } from "@/lib/nfse/identity";
 import NfseItensEditor, { type NfseServicoForm } from "./NfseItensEditor";
 import NfseIssCard from "./NfseIssCard";
+import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
+import { fetchOsSelectionById, type OsSelection } from "@/lib/os-vinculo";
 
 type DocumentoFiscalRow = {
   id: string;
@@ -25,6 +27,7 @@ type DocumentoFiscalRow = {
   nfse_status: string | null;
   material_percent: number | string | null;
   material_valor: number | string | null;
+  os_id_import: number | null;
   created_at: string;
 };
 
@@ -162,6 +165,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
   const [clienteNome, setClienteNome] = useState<string>("");
   const [clienteQ, setClienteQ] = useState<string>("");
   const [clienteResults, setClienteResults] = useState<ClienteRow[]>([]);
+  const [osSelection, setOsSelection] = useState<OsSelection | null>(null);
 
   const [servico, setServico] = useState<NfseServicoForm>({
     descricao: "Prestação de serviço",
@@ -182,6 +186,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
 
   const [loading, setLoading] = useState<boolean>(mode === "edit");
   const [saving, setSaving] = useState<boolean>(false);
+  const [savingOsLink, setSavingOsLink] = useState<boolean>(false);
   const [emitting, setEmitting] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -244,7 +249,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       const { data: doc, error: docErr } = await applyTenantEmpresa(
         base
           .select(
-            "id,emissao_date,competencia_date,modelo,serie,numero,chave_acesso,cliente_id,valor_total,valor_servicos,nfse_status,material_percent,material_valor,created_at"
+            "id,emissao_date,competencia_date,modelo,serie,numero,chave_acesso,cliente_id,valor_total,valor_servicos,nfse_status,material_percent,material_valor,os_id_import,created_at"
           )
           .eq("id", docIdToLoad)
           .eq("operacao", "SAIDA")
@@ -264,6 +269,18 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
 
       const cId = doc.cliente_id === null || doc.cliente_id === undefined ? null : Number(doc.cliente_id) || null;
       setClienteId(cId);
+      const osIdImport = doc.os_id_import === null || doc.os_id_import === undefined ? null : Number(doc.os_id_import) || null;
+      if (osIdImport) {
+        const resolvedOs = await fetchOsSelectionById({
+          supabase,
+          tenantId,
+          empresaId,
+          osId: osIdImport,
+        });
+        setOsSelection(resolvedOs);
+      } else {
+        setOsSelection(null);
+      }
 
       const vServ = n(doc.valor_servicos);
       const mVal = round2(n(doc.material_valor));
@@ -451,6 +468,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       emissao_date: emissao,
       competencia_date: competencia,
       cliente_id: clienteId ?? null,
+      os_id_import: osSelection?.id ?? null,
       valor_servicos: round2Str(baseOriginal),
       valor_total: round2Str(baseOriginal),
       material_percent: round4Str(materialPercent || 0),
@@ -658,6 +676,41 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       setError(e instanceof Error ? e.message : "Erro inesperado ao emitir NFS-e.");
     } finally {
       setEmitting(false);
+    }
+  };
+
+  const saveOsLink = async () => {
+    if (!ready || mode !== "edit" || !docId) return;
+
+    setSavingOsLink(true);
+    setError(null);
+    setOk(null);
+
+    try {
+      const supabase = supabaseBrowser();
+      const nowIso = new Date().toISOString();
+      const { error: updErr } = await applyTenantEmpresa(
+        supabase
+          .schema("f")
+          .from("documento_fiscal")
+          .update({
+            os_id_import: osSelection?.id ?? null,
+            updated_at: nowIso,
+          })
+          .eq("id", docId)
+          .eq("operacao", "SAIDA")
+          .eq("natureza", "SERVICO")
+          .is("deleted_at", null),
+        tenantId,
+        empresaId
+      );
+
+      if (updErr) throw updErr;
+      setOk(osSelection ? "OS vinculada atualizada." : "Vinculo com OS removido.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro inesperado ao salvar a OS vinculada.");
+    } finally {
+      setSavingOsLink(false);
     }
   };
 
@@ -955,6 +1008,33 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
                 Selecionado:{" "}
                 <span className="ml-2 text-zinc-200">{clienteId ? `${clienteNome || "—"} (ID ${clienteId})` : "—"}</span>
               </div>
+            </div>
+          </div>
+
+          <div className="border-t border-zinc-800 px-4 py-4">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+              <OsVinculoField
+                tenantId={tenantId}
+                empresaId={empresaId}
+                value={osSelection}
+                onChange={(next) => {
+                  setOsSelection(next);
+                  setOk(null);
+                }}
+                disabled={!ready || loading || deleting || saving || emitting || savingOsLink}
+                helperText="Opcional. Para OS em andamento, este vinculo faz o analitico considerar apenas o saldo a faturar."
+              />
+
+              {mode === "edit" && readOnly ? (
+                <button
+                  type="button"
+                  onClick={() => void saveOsLink()}
+                  disabled={!ready || loading || deleting || saving || emitting || savingOsLink}
+                  className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  {savingOsLink ? "Salvando OS..." : "Salvar OS"}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { parseNfeXml } from "@/lib/nfe/parseNfeXml";
+import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
+import type { OsSelection } from "@/lib/os-vinculo";
 
 function normalizeDigits(value: string | null | undefined): string {
   return String(value ?? "").replace(/\D/g, "");
@@ -71,6 +73,7 @@ export default function NfeImportModal({
   const [clienteCnpj, setClienteCnpj] = useState<string>("");
   const [chaveAcesso, setChaveAcesso] = useState<string>("");
   const [alreadyImportedId, setAlreadyImportedId] = useState<string>("");
+  const [osSelection, setOsSelection] = useState<OsSelection | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [detectingCliente, setDetectingCliente] = useState(false);
@@ -83,6 +86,7 @@ export default function NfeImportModal({
     setError(null);
     setOk(null);
     setAlreadyImportedId("");
+    setOsSelection(null);
   }, [open]);
 
   const onPickFile = async (f: File | null) => {
@@ -94,6 +98,7 @@ export default function NfeImportModal({
     setClienteCnpj("");
     setChaveAcesso("");
     setAlreadyImportedId("");
+    setOsSelection(null);
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".xml")) {
       setError("Selecione um arquivo .xml");
@@ -242,6 +247,7 @@ export default function NfeImportModal({
       // Optional hints (server can also resolve via RPC current_*).
       if (tenantId) fd.append("tenant_id", tenantId);
       if (empresaId) fd.append("empresa_id", empresaId);
+      if (osSelection?.id) fd.append("os_id", String(osSelection.id));
 
       const res = await fetch("/api/faturamento/nfe/importar-xml", {
         method: "POST",
@@ -334,6 +340,17 @@ export default function NfeImportModal({
             {detectingCliente ? <div className="mt-1 text-xs text-zinc-400">Lendo XML e conferindo cliente...</div> : null}
             {checkingDuplicate ? <div className="mt-1 text-xs text-zinc-400">Verificando se já foi importado...</div> : null}
           </div>
+
+          {file ? (
+            <OsVinculoField
+              tenantId={tenantId}
+              empresaId={empresaId}
+              value={osSelection}
+              onChange={setOsSelection}
+              disabled={busy || detectingCliente || checkingDuplicate || !ready}
+              helperText="Opcional. O valor desta NF-e sera abatido da carteira da OS vinculada."
+            />
+          ) : null}
 
           {error ? <div className="rounded-md border border-rose-900/60 bg-rose-950/20 px-3 py-2 text-sm text-rose-200">{error}</div> : null}
           {ok ? <div className="rounded-md border border-emerald-900/60 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-200">{ok}</div> : null}

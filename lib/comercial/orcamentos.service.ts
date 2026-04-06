@@ -61,6 +61,12 @@ export async function listOrcamentos(
           "total_bruto",
           "total_desconto_global",
           "total_liquido",
+          "valor_fechado",
+          "desconto_fechamento_valor",
+          "desconto_fechamento_percent",
+          "observacoes",
+          "os_id",
+          "os_itens_importados_at",
           "created_at",
           "updated_at",
         ].join(","),
@@ -124,6 +130,9 @@ export async function listOrcamentosAnalitico(
             "vendedor_usuario_id",
             "vendedor_nome",
             "total_liquido",
+            "valor_fechado",
+            "desconto_fechamento_valor",
+            "desconto_fechamento_percent",
             "updated_at",
           ].join(",")
         )
@@ -352,17 +361,48 @@ export async function atualizarStatusOrcamento(
     id: string;
     status: OrcamentoStatusCanonical;
     followup: string;
+    valorFechado?: number | null;
+    abrirOs?: boolean;
+    importarItensOs?: boolean;
   }
-) {
-  await updateOrcamento(supabase, {
-    tenantId: params.tenantId,
-    empresaId: params.empresaId,
-    id: params.id,
-    patch: {
-      status: params.status,
-      observacoes: params.followup,
-    },
+): Promise<{
+  osId: number | null;
+  numeroOs: string | null;
+  valorOrcado: number;
+  valorFechado: number;
+  descontoValor: number;
+  itensImportados: boolean;
+}> {
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_atualizar_status", {
+    p_orcamento_id: params.id,
+    p_status: params.status,
+    p_followup: params.followup,
+    p_valor_fechado: params.status === "FECHADO" ? params.valorFechado ?? null : null,
+    p_abrir_os: params.abrirOs ?? false,
+    p_importar_itens_os: params.importarItensOs ?? false,
   });
+
+  if (error) throw error;
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        os_id?: number | null;
+        numero_os?: string | null;
+        valor_orcado?: number | string | null;
+        valor_fechado?: number | string | null;
+        desconto_valor?: number | string | null;
+        itens_importados?: boolean | null;
+      }
+    | null;
+
+  return {
+    osId: typeof row?.os_id === "number" ? row.os_id : null,
+    numeroOs: row?.numero_os ? String(row.numero_os) : null,
+    valorOrcado: Number(row?.valor_orcado ?? 0) || 0,
+    valorFechado: Number(row?.valor_fechado ?? 0) || 0,
+    descontoValor: Number(row?.desconto_valor ?? 0) || 0,
+    itensImportados: row?.itens_importados === true,
+  };
 }
 
 export async function deleteOrcamento(

@@ -7,6 +7,8 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
+import { fetchOsSelectionById } from "@/lib/os-vinculo";
+import PeriodoMesAnoFilter, { buildPeriodoMesAnoRange } from "@/app/faturamento/components/PeriodoMesAnoFilter";
 import ImportNfseXmlModal from "./ImportNfseXmlModal";
 
 type DocumentoFiscalRow = {
@@ -17,6 +19,7 @@ type DocumentoFiscalRow = {
   numero: string | null;
   chave_acesso: string;
   cliente_id: number | null;
+  os_id_import: number | null;
   valor_total: number | string | null;
   nfse_status: "RASCUNHO" | "EMITIDA" | "CANCELADA" | "SUBSTITUIDA" | string | null;
   created_at: string;
@@ -228,6 +231,7 @@ export default function NfseList() {
 
   const [docs, setDocs] = useState<DocumentoFiscalRow[]>([]);
   const [clientesById, setClientesById] = useState<Record<string, string>>({});
+  const [osNumeroById, setOsNumeroById] = useState<Record<string, string>>({});
   const [pagamentosByDocId, setPagamentosByDocId] = useState<Record<string, PagamentoMeta>>({});
 
   const [loading, setLoading] = useState(true);
@@ -245,6 +249,7 @@ export default function NfseList() {
     canFinanceiro === true;
 
   const pagamentoFiltro = normalizePagamentoFiltro(searchParams.get("pagamento"));
+  const periodo = useMemo(() => buildPeriodoMesAnoRange(searchParams), [searchParams]);
 
   const setPagamentoFiltro = (filtro: PagamentoFiltro) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -362,6 +367,39 @@ export default function NfseList() {
     return next;
   };
 
+  const resolveOrdensServico = async (rows: DocumentoFiscalRow[]) => {
+    if (!te.tenantId) return;
+
+    const ids = Array.from(
+      new Set(
+        rows
+          .map((r) => (typeof r.os_id_import === "number" ? r.os_id_import : null))
+          .filter((v): v is number => typeof v === "number")
+      )
+    );
+    const missing = ids.filter((id) => !(String(id) in osNumeroById));
+    if (!missing.length) return;
+
+    const supabase = supabaseBrowser();
+    const tenantId = te.tenantId;
+    const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
+
+    const resolved = await Promise.all(
+      missing.map(async (osId) => {
+        const selection = await fetchOsSelectionById({ supabase, tenantId, empresaId, osId });
+        return { osId, numeroOs: selection?.numeroOs ?? "" };
+      })
+    );
+
+    setOsNumeroById((prev) => {
+      const next = { ...prev };
+      for (const item of resolved) {
+        next[String(item.osId)] = item.numeroOs;
+      }
+      return next;
+    });
+  };
+
   const fetchDocs = async (offset: number) => {
     if (!ready) return { rows: [] as DocumentoFiscalRow[], more: false };
 
@@ -369,11 +407,11 @@ export default function NfseList() {
     const tenantId = te.tenantId!;
     const empresaId = te.empresaId ?? te.empresas[0]!.id;
 
-    const query = applyTenantEmpresa(
+    let query = applyTenantEmpresa(
       supabase
         .schema("f")
         .from("documento_fiscal")
-        .select("id,emissao_date,modelo,serie,numero,chave_acesso,cliente_id,valor_total,nfse_status,created_at")
+        .select("id,emissao_date,modelo,serie,numero,chave_acesso,cliente_id,os_id_import,valor_total,nfse_status,created_at")
         .eq("operacao", "SAIDA")
         .eq("natureza", "SERVICO")
         .is("deleted_at", null),
@@ -383,6 +421,13 @@ export default function NfseList() {
       .order("emissao_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
+
+    if (periodo.startDate) {
+      query = query.gte("emissao_date", periodo.startDate);
+    }
+    if (periodo.endDate) {
+      query = query.lte("emissao_date", periodo.endDate);
+    }
 
     const { data, error: qErr } = await query;
     if (qErr) throw qErr;
@@ -398,13 +443,18 @@ export default function NfseList() {
     setError(null);
     try {
       const { rows, more } = await fetchDocs(0);
-      const [pagamentos] = await Promise.all([loadPagamentos(rows), resolveClientes(rows)]);
+      const [pagamentos] = await Promise.all([
+        loadPagamentos(rows),
+        resolveClientes(rows),
+        resolveOrdensServico(rows),
+      ]);
       setDocs(rows);
       setPagamentosByDocId(pagamentos);
       setHasMore(more);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NFS-e.");
       setDocs([]);
+      setOsNumeroById({});
       setPagamentosByDocId({});
       setHasMore(false);
     } finally {
@@ -422,7 +472,11 @@ export default function NfseList() {
     try {
       const offset = docs.length;
       const { rows, more } = await fetchDocs(offset);
-      const [pagamentos] = await Promise.all([loadPagamentos(rows), resolveClientes(rows)]);
+      const [pagamentos] = await Promise.all([
+        loadPagamentos(rows),
+        resolveClientes(rows),
+        resolveOrdensServico(rows),
+      ]);
       setDocs((prev) => [...prev, ...rows]);
       setPagamentosByDocId((prev) => ({ ...prev, ...pagamentos }));
       setHasMore(more);
@@ -437,7 +491,7 @@ export default function NfseList() {
     if (!ready) return;
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, canFinanceiro, te.sessionUserId, te.tenantId, te.empresaId, te.empresas.length]);
+  }, [ready, canFinanceiro, te.sessionUserId, te.tenantId, te.empresaId, te.empresas.length, periodo.startDate, periodo.endDate]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -581,6 +635,8 @@ export default function NfseList() {
         </div>
       </div>
 
+      <PeriodoMesAnoFilter basePath="/faturamento/nfse" />
+
       <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-4">
         <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Resumo</div>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
@@ -631,6 +687,7 @@ export default function NfseList() {
                 <th className="px-4 py-3 text-left font-medium">Serie</th>
                 <th className="px-4 py-3 text-left font-medium">Numero</th>
                 <th className="px-4 py-3 text-left font-medium">Cliente</th>
+                <th className="px-4 py-3 text-left font-medium">OS vinculada</th>
                 <th className="px-4 py-3 text-left font-medium">Status NFS-e</th>
                 <th className="px-4 py-3 text-left font-medium">Pagamento</th>
                 <th className="px-4 py-3 text-right font-medium">Pago</th>
@@ -641,7 +698,7 @@ export default function NfseList() {
             <tbody className="divide-y divide-zinc-800">
               {!loading && filtered.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={10}>
+                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={11}>
                     Nenhum registro encontrado.
                   </td>
                 </tr>
@@ -661,6 +718,11 @@ export default function NfseList() {
                     <td className="px-4 py-3 tabular-nums text-zinc-200">{r.numero ?? "-"}</td>
                     <td className="px-4 py-3 text-zinc-200">
                       {typeof r.cliente_id === "number" ? clientesById[String(r.cliente_id)] ?? `ID ${r.cliente_id}` : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-200">
+                      {typeof r.os_id_import === "number"
+                        ? osNumeroById[String(r.os_id_import)] || `ID ${r.os_id_import}`
+                        : "-"}
                     </td>
                     <td className="px-4 py-3 text-zinc-200">
                       <StatusPill status={r.nfse_status} />

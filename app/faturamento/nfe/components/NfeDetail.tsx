@@ -8,6 +8,8 @@ import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
 import type { CapabilityKey } from "@/lib/auth/capabilities";
+import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
+import { fetchOsSelectionById, type OsSelection } from "@/lib/os-vinculo";
 
 type DocumentoFiscalRow = {
   id: string;
@@ -21,6 +23,7 @@ type DocumentoFiscalRow = {
   valor_total: number | string | null;
   fornecedor_id: number | null;
   cliente_id: number | null;
+  os_id_import?: number | null;
   created_at: string;
   source_nf_entrada_id?: number | null;
 };
@@ -157,9 +160,12 @@ export default function NfeDetail({
   const [parcelas, setParcelas] = useState<ParcelaRow[]>([]);
   const [clienteNome, setClienteNome] = useState<string>("");
   const [fornecedorNome, setFornecedorNome] = useState<string>("");
+  const [osSelection, setOsSelection] = useState<OsSelection | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [osSaving, setOsSaving] = useState(false);
+  const [osFeedback, setOsFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -178,7 +184,7 @@ export default function NfeDetail({
             .schema("f")
             .from("documento_fiscal")
             .select(
-              "id,operacao,natureza,modelo,serie,numero,chave_acesso,emissao_date,valor_total,fornecedor_id,cliente_id,created_at,source_nf_entrada_id"
+              "id,operacao,natureza,modelo,serie,numero,chave_acesso,emissao_date,valor_total,fornecedor_id,cliente_id,os_id_import,created_at,source_nf_entrada_id"
             )
             .eq("id", id)
             .is("deleted_at", null),
@@ -269,6 +275,13 @@ export default function NfeDetail({
 
         // Fallback: importador de NF-e (entrada/saída) grava itens em public.nf_entrada_itens.
         // f.documento_fiscal_item pode não existir para esses documentos.
+        const osSelectionLoaded = await fetchOsSelectionById({
+          supabase,
+          tenantId,
+          empresaId,
+          osId: docRow.os_id_import ?? null,
+        });
+
         let resolvedItens: ItemRow[] = itensData ?? [];
         if (!resolvedItens.length && docRow.source_nf_entrada_id) {
           const { data: nfItens, error: nfItensErr } = await applyTenantEmpresa(
@@ -316,6 +329,7 @@ export default function NfeDetail({
         setParcelas(parcelasVisiveis);
         setClienteNome(cliNome);
         setFornecedorNome(fornNome);
+        setOsSelection(osSelectionLoaded);
       } catch (e: unknown) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NF-e.");
@@ -326,6 +340,7 @@ export default function NfeDetail({
         setParcelas([]);
         setClienteNome("");
         setFornecedorNome("");
+        setOsSelection(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -350,6 +365,43 @@ export default function NfeDetail({
 
   const hasAR = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AR"), [titulos]);
   const hasAP = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AP"), [titulos]);
+  const canEditOsLink = doc?.operacao === "SAIDA" && doc?.natureza === "PRODUTO";
+
+  const saveOsLink = async () => {
+    if (!ready || !doc?.id || !canEditOsLink) return;
+
+    setOsSaving(true);
+    setOsFeedback(null);
+    setError(null);
+
+    try {
+      const supabase = supabaseBrowser();
+      const nowIso = new Date().toISOString();
+      const { error: updErr } = await applyTenantEmpresa(
+        supabase
+          .schema("f")
+          .from("documento_fiscal")
+          .update({
+            os_id_import: osSelection?.id ?? null,
+            updated_at: nowIso,
+          })
+          .eq("id", doc.id)
+          .eq("operacao", "SAIDA")
+          .eq("natureza", "PRODUTO")
+          .is("deleted_at", null),
+        tenantId,
+        empresaId
+      );
+
+      if (updErr) throw updErr;
+      setDoc((prev) => (prev ? { ...prev, os_id_import: osSelection?.id ?? null } : prev));
+      setOsFeedback(osSelection ? "OS vinculada atualizada." : "Vinculo com OS removido.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro inesperado ao salvar a OS vinculada.");
+    } finally {
+      setOsSaving(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -418,6 +470,35 @@ export default function NfeDetail({
               </div>
             </div>
           </div>
+
+          {canEditOsLink ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <OsVinculoField
+                  tenantId={tenantId}
+                  empresaId={empresaId}
+                  value={osSelection}
+                  onChange={(next) => {
+                    setOsSelection(next);
+                    setOsFeedback(null);
+                  }}
+                  disabled={loading || osSaving || !ready}
+                  helperText="Opcional. O valor desta NF-e sera abatido da carteira da OS vinculada."
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void saveOsLink()}
+                  disabled={loading || osSaving || !ready}
+                  className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  {osSaving ? "Salvando OS..." : "Salvar OS"}
+                </button>
+              </div>
+
+              {osFeedback ? <div className="mt-3 text-sm text-emerald-300">{osFeedback}</div> : null}
+            </div>
+          ) : null}
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-800 text-sm font-medium text-zinc-100">Itens</div>

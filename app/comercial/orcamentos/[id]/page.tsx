@@ -26,7 +26,7 @@ import {
   updateItem,
   updateOrcamento,
 } from "@/lib/comercial/orcamentos.service";
-import OrcamentoStatusDialog from "../OrcamentoStatusDialog";
+import OrcamentoStatusDialog, { type OrcamentoStatusDialogPayload } from "../OrcamentoStatusDialog";
 
 import type { ItemByIdRow } from "@/lib/comercial/orcamentos.service";
 
@@ -298,6 +298,7 @@ export default function OrcamentoPage() {
 
   const canView = hasAny(capabilities, ["financeiro.read", "financeiro.write", "os.read", "os.write"]);
   const canWrite = hasAny(capabilities, ["financeiro.write", "os.write"]);
+  const canOpenOs = hasAny(capabilities, ["os.write"]);
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -1262,7 +1263,7 @@ export default function OrcamentoPage() {
   }, [busy]);
 
   const saveStatusDialog = useCallback(
-    async (payload: { status: OrcamentoStatusCanonical; followup: string }) => {
+    async (payload: OrcamentoStatusDialogPayload) => {
       if (!orc?.id) return;
       if (!statusDialog.open) return;
       if (!supabase || !tenantId || !empresaId) return;
@@ -1274,18 +1275,33 @@ export default function OrcamentoPage() {
       setErr(null);
       setOk(null);
       setOrc((current) =>
-        current ? { ...current, status: payload.status, observacoes: payload.followup, updated_at: new Date().toISOString() } : current
+        current
+          ? {
+              ...current,
+              status: payload.status,
+              observacoes: payload.followup,
+              valor_fechado: payload.status === "FECHADO" ? payload.valorFechado : current.valor_fechado,
+              updated_at: new Date().toISOString(),
+            }
+          : current
       );
       try {
-        await atualizarStatusOrcamento(supabase, {
+        const result = await atualizarStatusOrcamento(supabase, {
           tenantId,
           empresaId,
           id: orc.id,
           status: payload.status,
           followup: payload.followup,
+          valorFechado: payload.valorFechado,
+          abrirOs: payload.abrirOs,
+          importarItensOs: payload.importarItensOs,
         });
-        setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
         setStatusDialog({ open: false });
+        if (payload.abrirOs && result.osId) {
+          router.push(`/os/${result.osId}`);
+          return;
+        }
+        setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
         await reload();
       } catch (e: unknown) {
         setOrc(prevOrc);
@@ -1294,7 +1310,7 @@ export default function OrcamentoPage() {
         setBusy(false);
       }
     },
-    [busy, canWrite, empresaId, orc, reload, statusDialog.open, supabase, tenantId]
+    [busy, canWrite, empresaId, orc, reload, router, statusDialog.open, supabase, tenantId]
   );
 
   const closeItemDialog = useCallback(() => setItemDialog(closedItemDialog()), []);
@@ -2253,6 +2269,20 @@ export default function OrcamentoPage() {
                 <span className="text-zinc-400 font-medium">Total liquido</span>
                 <span className="tabular-nums font-semibold">{formatMoneyBR(n(orc.total_liquido))}</span>
               </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-zinc-400">Valor fechado</span>
+                <span className="tabular-nums">
+                  {orc.valor_fechado === null || orc.valor_fechado === undefined ? "-" : formatMoneyBR(n(orc.valor_fechado))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-zinc-400">Desconto fechamento</span>
+                <span className="tabular-nums">
+                  {orc.valor_fechado === null || orc.valor_fechado === undefined
+                    ? "-"
+                    : formatMoneyBR(n(orc.total_liquido) - n(orc.valor_fechado))}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -2564,6 +2594,10 @@ export default function OrcamentoPage() {
           open={statusDialog.open}
           status={statusDialog.status}
           loading={busy}
+          initialFollowup={orc?.observacoes}
+          initialValorFechado={orc?.valor_fechado}
+          valorOrcado={orc?.total_liquido}
+          canOpenOs={canOpenOs}
           onCancel={closeStatusDialog}
           onSave={saveStatusDialog}
         />

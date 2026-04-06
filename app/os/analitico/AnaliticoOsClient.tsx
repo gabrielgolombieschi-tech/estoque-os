@@ -50,6 +50,14 @@ type HhCalcRow = {
   valor_total: number | null;
 };
 
+type DocumentoFaturadoRow = {
+  os_id_import: number | null;
+  valor_total: number | string | null;
+  modelo: string | null;
+  nfe_status: string | null;
+  nfse_status: string | null;
+};
+
 type OsAnalitico = {
   id: number;
   clientKey: string;
@@ -123,6 +131,10 @@ const statusBadge: Record<OsAnalitico["status"], string> = {
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
   return Number.isFinite(num) ? num : 0;
+}
+
+function round2(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function formatCount(value: number): string {
@@ -200,6 +212,16 @@ function pickPreferredClientName(options: Map<string, { count: number; total: nu
 
       return left[0].localeCompare(right[0], "pt-BR");
     })[0]?.[0] ?? "(Sem cliente)";
+}
+
+function shouldIncludeFaturamentoDocumento(row: DocumentoFaturadoRow): boolean {
+  const modelo = String(row.modelo ?? "").trim().toUpperCase();
+  const nfseStatus = String(row.nfse_status ?? "").trim().toUpperCase();
+  const nfeStatus = String(row.nfe_status ?? "").trim().toUpperCase();
+
+  if (modelo === "NFSE") return nfseStatus === "EMITIDA";
+  if (!nfeStatus) return true;
+  return nfeStatus === "EMITIDA";
 }
 
 async function fetchClientesByIds(params: {
@@ -294,6 +316,48 @@ async function fetchHhPedidoTotals(params: {
       const total = getValorTotalEfetivo(row, horasEfetivas);
       out[osId] = Math.round(((out[osId] ?? 0) + total) * 100) / 100;
     }
+  }
+
+  return out;
+}
+
+async function fetchFaturadoByOs(params: {
+  supabase: ReturnType<typeof supabaseBrowser>;
+  tenantId: string;
+  empresaId: string;
+}): Promise<Record<number, number>> {
+  const out: Record<number, number> = {};
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await applyTenantEmpresa(
+      params.supabase
+        .schema("f")
+        .from("documento_fiscal")
+        .select("os_id_import,valor_total,modelo,nfe_status,nfse_status")
+        .eq("operacao", "SAIDA")
+        .not("os_id_import", "is", null)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(offset, offset + FETCH_BATCH_SIZE - 1),
+      params.tenantId,
+      params.empresaId
+    ).returns<DocumentoFaturadoRow[]>();
+
+    if (error) throw error;
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      if (!shouldIncludeFaturamentoDocumento(row)) continue;
+
+      const osId = Number(row.os_id_import);
+      if (!Number.isFinite(osId) || osId <= 0) continue;
+
+      out[osId] = round2((out[osId] ?? 0) + n(row.valor_total));
+    }
+
+    if (rows.length < FETCH_BATCH_SIZE) break;
+    offset += FETCH_BATCH_SIZE;
   }
 
   return out;
@@ -449,6 +513,7 @@ export default function AnaliticoOsClient() {
   const [clientesById, setClientesById] = useState<Record<number, string>>({});
   const [hhFallbackByOs, setHhFallbackByOs] = useState<Record<number, number>>({});
   const [hhPedidoByOs, setHhPedidoByOs] = useState<Record<number, number>>({});
+  const [faturadoByOs, setFaturadoByOs] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -560,7 +625,7 @@ export default function AnaliticoOsClient() {
           )
         );
 
-        const [nextHhFallbackByOs, nextHhPedidoByOs, nextClientesById] = await Promise.all([
+        const [nextHhFallbackByOs, nextHhPedidoByOs, nextClientesById, nextFaturadoByOs] = await Promise.all([
           hhOsIds.length ? fetchHhFallbackTotals({ supabase, ids: hhOsIds }) : Promise.resolve({}),
           hhOsIds.length
             ? fetchHhPedidoTotals({
@@ -578,6 +643,13 @@ export default function AnaliticoOsClient() {
                 ids: clienteIds,
               }).catch(() => ({}))
             : Promise.resolve({}),
+          statusScope === "concluida"
+            ? Promise.resolve({})
+            : fetchFaturadoByOs({
+                supabase,
+                tenantId: effectiveTenantId,
+                empresaId: effectiveEmpresaId,
+              }),
         ]);
 
         if (cancelled) return;
@@ -586,12 +658,14 @@ export default function AnaliticoOsClient() {
         setClientesById(nextClientesById);
         setHhFallbackByOs(nextHhFallbackByOs);
         setHhPedidoByOs(nextHhPedidoByOs);
+        setFaturadoByOs(nextFaturadoByOs);
       } catch (loadError: unknown) {
         if (cancelled) return;
         setRows([]);
         setClientesById({});
         setHhFallbackByOs({});
         setHhPedidoByOs({});
+        setFaturadoByOs({});
         setError(loadError instanceof Error ? loadError.message : "Erro ao carregar o analitico de OS.");
       } finally {
         if (!cancelled) setLoading(false);
@@ -621,7 +695,11 @@ export default function AnaliticoOsClient() {
         const clienteNomeCadastro =
           typeof row.cliente_id === "number" && Number.isFinite(row.cliente_id) ? clientesById[row.cliente_id] : undefined;
         const clienteNome = clienteNomeCadastro || String(row.cliente_nome ?? "").trim() || "(Sem cliente)";
-        const valor = row.usa_relatorio_hh ? hhPedidoByOs[row.id] ?? hhFallbackByOs[row.id] ?? 0 : n(row.orcado);
+        const valorBase = row.usa_relatorio_hh ? hhPedidoByOs[row.id] ?? hhFallbackByOs[row.id] ?? 0 : n(row.orcado);
+        const valorFaturado = round2(faturadoByOs[row.id] ?? 0);
+        const valor = row.status === "em_andamento" ? Math.max(0, round2(valorBase - valorFaturado)) : valorBase;
+
+        if (row.status === "em_andamento" && valor <= 0.009) return null;
 
         return {
           id: row.id,
@@ -656,7 +734,7 @@ export default function AnaliticoOsClient() {
       ...row,
       clienteNome: preferredNameByKey.get(row.clientKey) ?? row.clienteNome,
     }));
-  }, [clientesById, fromYear, hhFallbackByOs, hhPedidoByOs, rows, toYear]);
+  }, [clientesById, faturadoByOs, fromYear, hhFallbackByOs, hhPedidoByOs, rows, toYear]);
 
   const filteredClientTerm = clientQuery.trim().toLowerCase();
   const activeClientTerm = view === "mes-cliente" || view === "ano-cliente" ? filteredClientTerm : "";
@@ -673,6 +751,11 @@ export default function AnaliticoOsClient() {
   const totalOs = ordens.length;
   const clientesAtivos = useMemo(() => new Set(ordens.map((row) => row.clientKey)).size, [ordens]);
   const ticketMedio = totalOs > 0 ? totalValor / totalOs : 0;
+  const valorResumoTitulo = statusScope === "em_andamento" ? "Valor a faturar no periodo" : "Valor total no periodo";
+  const valorResumoSubtitulo =
+    statusScope === "em_andamento"
+      ? `${statusScopeLabels[statusScope]} | ${fromYear} ate ${toYear} | faturamento vinculado descontado`
+      : `${statusScopeLabels[statusScope]} | ${fromYear} ate ${toYear}`;
 
   const rankingsBase = useMemo<ClienteRanking[]>(() => {
     const byClient = new Map<string, ClienteRanking>();
@@ -911,6 +994,7 @@ export default function AnaliticoOsClient() {
           <h1 className="mt-1 text-2xl font-semibold text-zinc-100">Analitico</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Valor considerado: OS comuns usam o valor orcado; OS com relatorio HH usam o total efetivo dos lancamentos.
+            Para OS em andamento, o faturamento vinculado a OS e descontado do saldo a faturar.
           </p>
           <p className="mt-1 text-xs text-zinc-500">{getDateBasisLabel(statusScope)}</p>
           {hideValorPedido ? (
@@ -1043,9 +1127,9 @@ export default function AnaliticoOsClient() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
-          title="Valor total no periodo"
+          title={valorResumoTitulo}
           value={hideValorPedido ? "-" : formatMoneyBR(totalValor)}
-          subtitle={`${statusScopeLabels[statusScope]} | ${fromYear} ate ${toYear}`}
+          subtitle={valorResumoSubtitulo}
         />
         <StatCard
           title="Quantidade de OS"

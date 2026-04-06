@@ -22,6 +22,12 @@ export type OrcamentoListaRow = {
   total_bruto: number | string | null;
   total_desconto_global: number | string | null;
   total_liquido: number | string | null;
+  valor_fechado: number | string | null;
+  desconto_fechamento_valor: number | string | null;
+  desconto_fechamento_percent: number | string | null;
+  observacoes: string | null;
+  os_id: number | null;
+  os_itens_importados_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -37,6 +43,9 @@ export type OrcamentoAnaliticoRow = {
   vendedor_usuario_id: string | null;
   vendedor_nome: string | null;
   total_liquido: number | string | null;
+  valor_fechado: number | string | null;
+  desconto_fechamento_valor: number | string | null;
+  desconto_fechamento_percent: number | string | null;
   updated_at: string;
 };
 
@@ -61,10 +70,13 @@ export type OrcamentoRow = {
   total_bruto: number | string;
   total_desconto_global: number | string;
   total_liquido: number | string;
+  valor_fechado: number | string | null;
   prazo_entrega: string | null;
   garantia: string | null;
   validade_proposta: string | null;
   observacoes: string | null;
+  os_id: number | null;
+  os_itens_importados_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
