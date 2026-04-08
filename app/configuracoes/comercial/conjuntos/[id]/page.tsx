@@ -44,7 +44,29 @@ type ItemSuggest = {
   nome: string | null;
   preco_unitario?: number | string | null;
   custo_ultima_compra?: number | string | null;
+  preco_sugerido?: number | null;
+  fornecedor?: string | null;
+  ultima_entrada?: string | null;
+  estoque_atual?: number | null;
 };
+
+type ItemLookupBaseRow = ItemSuggest & {
+  fornecedores?: { nome?: string | null } | null;
+};
+
+type MovRow = {
+  item_id: number;
+  data_movimentacao: string;
+};
+
+type EstoqueRow = {
+  item_id: number;
+  quantidade_atual: number | null;
+};
+
+type SortValue = string | number | null;
+type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
+type SortDir = "asc" | "desc";
 
 type ItemFormRow = {
   localKey: string;
@@ -93,6 +115,23 @@ function buildItemLabel(codigo: string, nome: string, id: number): string {
 function toFiniteNumber(v: unknown): number | null {
   const parsed = typeof v === "number" ? v : Number(v);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDateBR(value?: string | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "-";
+  const iso = raw.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [year, month, day] = iso.split("-");
+    return `${day}/${month}/${year}`;
+  }
+  return raw;
+}
+
+function formatNumberBR(value?: number | string | null): string {
+  const parsed = Number(value ?? 0);
+  if (!Number.isFinite(parsed)) return "0";
+  return parsed.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 }
 
 function getSuggestedConjuntoItemUnitPrice(params: {
@@ -175,7 +214,10 @@ export default function ConjuntoEditPage() {
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupErr, setLookupErr] = useState<string | null>(null);
   const [lookupTerm, setLookupTerm] = useState("");
+  const [lookupFornecedor, setLookupFornecedor] = useState("");
   const [lookupRows, setLookupRows] = useState<ItemSuggest[]>([]);
+  const [sortKey, setSortKey] = useState<SortKey>("id");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const load = useCallback(async () => {
     setErr(null);
@@ -347,20 +389,26 @@ export default function ConjuntoEditPage() {
     setLookupTargetKey(null);
     setLookupBusy(false);
     setLookupErr(null);
+    setLookupFornecedor("");
     setLookupRows([]);
   }
 
-  async function handleLookupSearch(nextTerm?: string) {
+  async function handleLookupSearch(nextTerm?: string, nextFornecedor?: string) {
     if (!supabase || !tenantId || !empresaId) return;
 
     const term = String(nextTerm ?? lookupTerm).trim();
+    const fornecedorTerm = String(nextFornecedor ?? lookupFornecedor).trim();
     setLookupBusy(true);
     setLookupErr(null);
 
     try {
+      const baseSelect = fornecedorTerm
+        ? "id,codigo_interno,nome,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
+        : "id,codigo_interno,nome,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
+
       let q = supabase
         .from("itens")
-        .select("id,codigo_interno,nome,preco_unitario,custo_ultima_compra")
+        .select(baseSelect)
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
         .eq("ativo", true)
@@ -374,10 +422,60 @@ export default function ConjuntoEditPage() {
             ? q.or(`id.eq.${parsed},codigo_interno.ilike.${like},nome.ilike.${like}`)
             : q.or(`codigo_interno.ilike.${like},nome.ilike.${like}`);
       }
+      if (fornecedorTerm) q = q.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
 
       const { data, error } = await q.order("nome", { ascending: true }).limit(50);
       if (error) throw error;
-      setLookupRows((data ?? []) as ItemSuggest[]);
+
+      const baseRows = (data ?? []) as ItemLookupBaseRow[];
+      const ids = baseRows.map((row) => row.id);
+      const ultimaMap = new Map<number, string>();
+      const stockMap = new Map<number, number>();
+
+      if (ids.length > 0) {
+        const { data: movData, error: movErr } = await supabase
+          .from("movimentacoes")
+          .select("item_id,data_movimentacao")
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
+          .eq("tipo", "entrada")
+          .in("item_id", ids)
+          .order("data_movimentacao", { ascending: false });
+
+        if (!movErr) {
+          const movRows = (movData ?? []) as MovRow[];
+          movRows.forEach((row) => {
+            if (!ultimaMap.has(row.item_id)) ultimaMap.set(row.item_id, row.data_movimentacao);
+          });
+        }
+
+        const { data: estData } = await supabase
+          .from("estoque")
+          .select("item_id,quantidade_atual")
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
+          .in("item_id", ids);
+
+        const estoqueRows = (estData ?? []) as EstoqueRow[];
+        estoqueRows.forEach((row) => {
+          stockMap.set(row.item_id, Number(row.quantidade_atual ?? 0));
+        });
+      }
+
+      setLookupRows(
+        baseRows.map((row) => ({
+          ...row,
+          fornecedor: row.fornecedores?.nome ?? null,
+          ultima_entrada: ultimaMap.get(row.id) ?? null,
+          estoque_atual: stockMap.has(row.id) ? stockMap.get(row.id)! : null,
+          preco_sugerido:
+            getSuggestedConjuntoItemUnitPrice({
+              custoUltimaCompra: row.custo_ultima_compra,
+              precoUnitario: row.preco_unitario,
+              margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+            }) ?? 0,
+        }))
+      );
     } catch (e: unknown) {
       setLookupRows([]);
       setLookupErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao buscar itens."));
@@ -390,11 +488,63 @@ export default function ConjuntoEditPage() {
     const nextTerm = String(initialTerm ?? "").trim();
     setLookupTargetKey(localKey);
     setLookupTerm(nextTerm);
+    setLookupFornecedor("");
     setShowLookup(true);
     setLookupErr(null);
     setLookupRows([]);
-    void handleLookupSearch(nextTerm);
+    setSortKey("id");
+    setSortDir("asc");
+    void handleLookupSearch(nextTerm, "");
   }
+
+  function handleSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDir("asc");
+  }
+
+  const sortedLookupRows = useMemo(() => {
+    const rows = [...lookupRows];
+    const getValue = (row: ItemSuggest): SortValue => {
+      switch (sortKey) {
+        case "id":
+          return Number(row.id ?? 0);
+        case "codigo":
+          return row.codigo_interno ?? "";
+        case "descricao":
+          return row.nome ?? "";
+        case "fornecedor":
+          return row.fornecedor ?? "";
+        case "ultima":
+          return row.ultima_entrada ?? "";
+        case "preco":
+          return Number(row.preco_sugerido ?? 0);
+        case "estoque":
+          return Number(row.estoque_atual ?? 0);
+        default:
+          return "";
+      }
+    };
+
+    rows.sort((a, b) => {
+      const av = getValue(a);
+      const bv = getValue(b);
+      let result = 0;
+
+      if (typeof av === "number" && typeof bv === "number") {
+        result = av - bv;
+      } else {
+        result = String(av ?? "").localeCompare(String(bv ?? ""), "pt-BR", { numeric: true, sensitivity: "base" });
+      }
+
+      return sortDir === "asc" ? result : -result;
+    });
+
+    return rows;
+  }, [lookupRows, sortDir, sortKey]);
 
   const resetInlineForm = useCallback(
     (rows: ItemFormRow[] = itens) => {
@@ -1318,13 +1468,13 @@ export default function ConjuntoEditPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Localizar item"
-            className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+            className="w-full max-w-7xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40 flex items-center justify-between gap-3">
               <div>
                 <div className="font-semibold text-zinc-100">Localizar item</div>
-                <div className="text-xs text-zinc-400 mt-1">Busque por ID, codigo ou nome e selecione o componente do conjunto.</div>
+                <div className="text-xs text-zinc-400 mt-1">Filtre por nome, codigo ou fabricante para localizar o ID.</div>
               </div>
               <button
                 type="button"
@@ -1336,26 +1486,62 @@ export default function ConjuntoEditPage() {
             </div>
 
             <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Nome/Codigo</div>
+                  <input
+                    value={lookupTerm}
+                    onChange={(e) => setLookupTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleLookupSearch(e.currentTarget.value, lookupFornecedor);
+                      }
+                    }}
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    aria-label="Buscar item por nome ou codigo"
+                    title="Buscar item por nome ou codigo"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Fornecedor</div>
+                  <input
+                    value={lookupFornecedor}
+                    onChange={(e) => setLookupFornecedor(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleLookupSearch(lookupTerm, e.currentTarget.value);
+                      }
+                    }}
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    aria-label="Buscar item por fornecedor"
+                    title="Buscar item por fornecedor"
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center gap-2">
-                <input
-                  value={lookupTerm}
-                  onChange={(e) => setLookupTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleLookupSearch(e.currentTarget.value);
-                    }
-                  }}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
-                  placeholder="Buscar item por ID, codigo ou nome"
-                />
                 <button
                   type="button"
-                  onClick={() => void handleLookupSearch(lookupTerm)}
+                  onClick={() => void handleLookupSearch()}
                   className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
                   disabled={lookupBusy}
                 >
                   Buscar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLookupTerm("");
+                    setLookupFornecedor("");
+                    setLookupRows([]);
+                    setLookupErr(null);
+                    void handleLookupSearch("", "");
+                  }}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                >
+                  Limpar
                 </button>
               </div>
 
@@ -1363,25 +1549,52 @@ export default function ConjuntoEditPage() {
 
               <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
                 <div className="overflow-auto max-h-[60dvh]">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm table-fixed">
+                    <colgroup>
+                      <col className="w-16" />
+                      <col className="w-36" />
+                      <col className="w-[34%]" />
+                      <col className="w-[22%]" />
+                      <col className="w-32" />
+                      <col className="w-28" />
+                      <col className="w-20" />
+                    </colgroup>
                     <thead className="bg-zinc-900/70 sticky top-0 z-10">
                       <tr className="text-zinc-200">
-                        <th className="px-4 py-3 text-left whitespace-nowrap w-24">ID</th>
-                        <th className="px-4 py-3 text-left whitespace-nowrap w-40">Codigo</th>
-                        <th className="px-4 py-3 text-left">Nome</th>
+                        <th className="px-4 py-3 text-left cursor-pointer whitespace-nowrap" onClick={() => handleSort("id")}>
+                          ID {sortKey === "id" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
+                        <th className="px-4 py-3 text-left cursor-pointer whitespace-nowrap" onClick={() => handleSort("codigo")}>
+                          Codigo {sortKey === "codigo" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
+                        <th className="px-4 py-3 text-left cursor-pointer" onClick={() => handleSort("descricao")}>
+                          Descricao {sortKey === "descricao" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
+                        <th className="px-4 py-3 text-left cursor-pointer" onClick={() => handleSort("fornecedor")}>
+                          Fornecedor {sortKey === "fornecedor" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
+                        <th className="px-4 py-3 text-left cursor-pointer whitespace-nowrap" onClick={() => handleSort("ultima")}>
+                          Ultima entrada {sortKey === "ultima" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
+                        <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("preco")}>
+                          Preco sugerido {sortKey === "preco" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
+                        <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
+                          Saldo {sortKey === "estoque" && (sortDir === "asc" ? "^" : "v")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
                       {lookupBusy && (
                         <tr>
-                          <td colSpan={3} className="px-4 py-6 text-zinc-400 text-center">
+                          <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
                             Buscando...
                           </td>
                         </tr>
                       )}
 
                       {!lookupBusy &&
-                        lookupRows.map((it) => (
+                        sortedLookupRows.map((it) => (
                           <tr
                             key={it.id}
                             className="hover:bg-zinc-900/40 cursor-pointer"
@@ -1391,13 +1604,21 @@ export default function ConjuntoEditPage() {
                           >
                             <td className="px-4 py-3 whitespace-nowrap">{it.id}</td>
                             <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno ?? "-"}</td>
-                            <td className="px-4 py-3">{it.nome ?? "-"}</td>
+                            <td className="px-4 py-3 break-words">{it.nome ?? "-"}</td>
+                            <td className="px-4 py-3 break-words">{it.fornecedor ?? "-"}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{formatDateBR(it.ultima_entrada)}</td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                              {formatMoneyBR(Number(it.preco_sugerido ?? 0))}
+                            </td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                              {formatNumberBR(it.estoque_atual)}
+                            </td>
                           </tr>
                         ))}
 
                       {!lookupBusy && lookupRows.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="px-4 py-6 text-zinc-400 text-center">
+                          <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
                             Nenhum item encontrado.
                           </td>
                         </tr>

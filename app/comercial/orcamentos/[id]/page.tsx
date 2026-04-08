@@ -1362,6 +1362,14 @@ export default function OrcamentoPage() {
     return Number.isFinite(net) ? net : 0;
   }, [form?.desconto_global_percent, inlineAcrescimoCondPagPercent, inlineDesconto, inlineQuantidade, inlineValorUnitario]);
 
+  const totalDespesas = useMemo(
+    () =>
+      itens.reduce((sum, item) => {
+        return String(item.item_tipo ?? "").toUpperCase() === "DESPESA" ? sum + n(item.valor_total) : sum;
+      }, 0),
+    [itens]
+  );
+
   const cancelInlineEdit = useCallback(() => {
     setInlineEditingItemId(null);
     setInlineItemId("");
@@ -2252,6 +2260,10 @@ export default function OrcamentoPage() {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-zinc-400">Total servicos</span>
                 <span className="tabular-nums">{formatMoneyBR(n(orc.total_servicos))}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-zinc-400">Total despesas</span>
+                <span className="tabular-nums">{formatMoneyBR(totalDespesas)}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-zinc-400">Total bruto</span>

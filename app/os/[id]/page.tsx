@@ -2222,7 +2222,13 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {!hideCustos && <MaoObraCard osId={osId} />}
+      {!hideCustos && (
+        <MaoObraCard
+          osId={osId}
+          effectiveTenantId={effectiveTenantId}
+          effectiveEmpresaId={effectiveEmpresaId}
+        />
+      )}
 
       {err && <div className="text-sm text-red-400">{err}</div>}
       {okMsg && <div className="text-sm text-emerald-300">{okMsg}</div>}

@@ -68,9 +68,17 @@ function getInitialValorFechadoText(params: {
   valorOrcado?: number | string | null;
 }) {
   if (params.status !== "FECHADO") return "";
-  const base = Number.isFinite(Number(params.initialValorFechado))
-    ? Number(params.initialValorFechado)
-    : Number(params.valorOrcado ?? 0);
+  const hasValorFechado =
+    params.initialValorFechado !== null &&
+    params.initialValorFechado !== undefined &&
+    String(params.initialValorFechado).trim() !== "";
+  const parsedValorFechado = hasValorFechado ? Number(params.initialValorFechado) : NaN;
+  const parsedValorOrcado = Number(params.valorOrcado ?? 0);
+  const base = Number.isFinite(parsedValorFechado)
+    ? parsedValorFechado
+    : Number.isFinite(parsedValorOrcado)
+      ? parsedValorOrcado
+      : 0;
   return formatMoneyBR(base);
 }
 
