@@ -612,7 +612,7 @@ export default function AnaliticoFaturamentoClient() {
         let offset = 0;
 
         while (true) {
-          const query = applyTenantEmpresa(
+          let query = applyTenantEmpresa(
             supabase
               .schema("f")
               .from("documento_fiscal")
