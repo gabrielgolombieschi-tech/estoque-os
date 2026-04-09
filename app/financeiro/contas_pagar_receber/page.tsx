@@ -23,6 +23,7 @@ type UnifiedRow = {
   valor: number;
   valorAberto: number;
   tituloStatus: string;
+  formaPagamentoResumo: string | null;
 };
 
 type MotivoCompra = {
@@ -54,6 +55,76 @@ type PagamentoAplicado = {
     valor: number;
   };
 };
+
+function normalizeFormaPagamentoLabel(value: unknown): string | null {
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_")
+    .toUpperCase();
+
+  if (!normalized) return null;
+  if (normalized === "PIX") return "PIX";
+  if (normalized === "BOLETO") return "Boleto";
+  if (normalized === "TRANSFERENCIA" || normalized === "TRANSFERÊNCIA") return "Transferência";
+  if (normalized === "DINHEIRO") return "Dinheiro";
+  if (normalized === "CARTAO" || normalized === "CARTÃO") return "Cartão";
+  if (normalized === "FATURADO") return "Faturado";
+  if (normalized === "A_VISTA" || normalized === "AVISTA" || normalized === "A_VISTA") return "À vista";
+  if (normalized === "OUTROS") return "Outros";
+  return String(value ?? "").trim() || null;
+}
+
+function readPagamentoImportEntries(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) {
+    return value.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null);
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const pagamentos = record.pagamentos;
+    if (Array.isArray(pagamentos)) {
+      return pagamentos.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null);
+    }
+    const parcelas = record.parcelas;
+    if (Array.isArray(parcelas)) {
+      return parcelas.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null);
+    }
+  }
+  return [];
+}
+
+function summarizeFormaPagamentoLabels(values: unknown[]): string | null {
+  const labels = Array.from(
+    new Set(
+      values
+        .map((value) => normalizeFormaPagamentoLabel(value))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  if (labels.length === 0) return null;
+  if (labels.length === 1) return labels[0];
+  return labels.join(" + ");
+}
+
+function buildFormaPagamentoResumo({
+  aplicada,
+  agendada,
+  importada,
+  parcelasNoTitulo,
+}: {
+  aplicada: string | null;
+  agendada: string | null;
+  importada: string | null;
+  parcelasNoTitulo: number;
+}): string | null {
+  const principal = aplicada ?? agendada ?? importada;
+  if (principal) {
+    if (parcelasNoTitulo > 1 && !principal.includes(" + ")) return `${principal} - ${parcelasNoTitulo}x`;
+    return principal;
+  }
+  if (parcelasNoTitulo > 1) return `${parcelasNoTitulo}x`;
+  return null;
+}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (!error) return fallback;
@@ -415,6 +486,7 @@ export default function ContasPagarReceberPage() {
         valor: Number(r.valor_parcela ?? 0),
         valorAberto: Number(r.valor_aberto ?? 0),
         tituloStatus: String(r.status ?? ""),
+        formaPagamentoResumo: null,
       }));
 
       type ApParcelaPaidRow = {
@@ -506,6 +578,7 @@ export default function ContasPagarReceberPage() {
           valor: Number(r.valor ?? 0),
           valorAberto: Number(r.valor_aberto ?? 0),
           tituloStatus: String(r?.titulo?.status ?? ""),
+          formaPagamentoResumo: null,
         };
       });
 
@@ -520,12 +593,13 @@ export default function ContasPagarReceberPage() {
       // Enrich AP rows with emissao_date from f.titulo (works for manual + XML titles).
       const emissaoByTituloId = new Map<string, string | null>();
       const nfByTituloId = new Map<string, string | null>();
+      const pagamentoImportByTituloId = new Map<string, unknown>();
       if (apTituloIds.length) {
         try {
           const { data: titulos, error: titErr } = await supabase
             .schema("f")
             .from("titulo")
-            .select("id,emissao_date,documento_fiscal:documento_fiscal_id(numero)")
+            .select("id,emissao_date,documento_fiscal:documento_fiscal_id(numero,pagamento_import_json)")
             .in("id", apTituloIds)
             .is("deleted_at", null);
 
@@ -533,13 +607,14 @@ export default function ContasPagarReceberPage() {
             const tituloRows = (titulos ?? []) as Array<{
               id: unknown;
               emissao_date: unknown;
-              documento_fiscal?: { numero?: unknown } | null;
+              documento_fiscal?: { numero?: unknown; pagamento_import_json?: unknown } | null;
             }>;
             for (const t of tituloRows) {
               const id = t?.id ? String(t.id) : "";
               if (!id) continue;
               emissaoByTituloId.set(id, t?.emissao_date ? String(t.emissao_date) : null);
               nfByTituloId.set(id, t?.documento_fiscal?.numero ? String(t.documento_fiscal.numero) : null);
+              pagamentoImportByTituloId.set(id, t?.documento_fiscal?.pagamento_import_json ?? null);
             }
           }
         } catch {
@@ -659,6 +734,7 @@ export default function ContasPagarReceberPage() {
           valor: Number(r.valor ?? 0),
           valorAberto: Number(r.valor_aberto ?? 0),
           tituloStatus: String(r?.titulo?.status ?? ""),
+          formaPagamentoResumo: null,
         };
       });
 
@@ -667,15 +743,19 @@ export default function ContasPagarReceberPage() {
         const { data: arTitulos, error: arTitErr } = await supabase
           .schema("f")
           .from("titulo")
-          .select("id,documento_fiscal:documento_fiscal_id(numero)")
+          .select("id,documento_fiscal:documento_fiscal_id(numero,pagamento_import_json)")
           .in("id", arTituloIds)
           .is("deleted_at", null);
         if (!arTitErr) {
-          const arTituloRows = (arTitulos ?? []) as Array<{ id: unknown; documento_fiscal?: { numero?: unknown } | null }>;
+          const arTituloRows = (arTitulos ?? []) as Array<{
+            id: unknown;
+            documento_fiscal?: { numero?: unknown; pagamento_import_json?: unknown } | null;
+          }>;
           for (const t of arTituloRows) {
             const id = t?.id ? String(t.id) : "";
             if (!id) continue;
             nfByTituloId.set(id, t?.documento_fiscal?.numero ? String(t.documento_fiscal.numero) : null);
+            pagamentoImportByTituloId.set(id, t?.documento_fiscal?.pagamento_import_json ?? null);
           }
         }
       }
@@ -685,13 +765,106 @@ export default function ContasPagarReceberPage() {
         nfNumero: nfByTituloId.get(r.tituloId) ?? null,
       }));
 
-      const merged = [...apRowsEnriched, ...arRowsEnriched].sort((a, b) => {
+      const parcelaCountByTituloId = new Map<string, number>();
+      const formaAplicadaByParcelaId = new Map<string, string | null>();
+      const formaAgendadaByTituloId = new Map<string, string | null>();
+      const formaImportadaByTituloId = new Map<string, string | null>();
+
+      const mergedBase = [...apRowsEnriched, ...arRowsEnriched];
+      const allTituloIds = Array.from(new Set(mergedBase.map((r) => r.tituloId)));
+      const allParcelaIds = Array.from(new Set(mergedBase.map((r) => r.parcelaId)));
+
+      if (allTituloIds.length) {
+        const [{ data: parcelasMeta }, { data: pagamentoItems }, { data: agendamentos }] = await Promise.all([
+          supabase
+            .schema("f")
+            .from("titulo_parcela")
+            .select("id,titulo_id")
+            .in("titulo_id", allTituloIds)
+            .is("deleted_at", null),
+          allParcelaIds.length
+            ? supabase
+                .schema("f")
+                .from("pagamento_item")
+                .select("titulo_parcela_id,pagamento:pagamento_id(id,forma_pagamento)")
+                .in("titulo_parcela_id", allParcelaIds)
+                .is("deleted_at", null)
+            : Promise.resolve({ data: [], error: null }),
+          apTituloIds.length
+            ? supabase
+                .schema("f")
+                .from("titulo_agendamento")
+                .select("titulo_id,forma_pagamento")
+                .in("titulo_id", apTituloIds)
+                .is("deleted_at", null)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        type ParcelaMetaRow = { titulo_id: unknown };
+        for (const parcela of (parcelasMeta ?? []) as ParcelaMetaRow[]) {
+          const tituloId = parcela?.titulo_id ? String(parcela.titulo_id) : "";
+          if (!tituloId) continue;
+          parcelaCountByTituloId.set(tituloId, (parcelaCountByTituloId.get(tituloId) ?? 0) + 1);
+        }
+
+        type PagamentoItemMetaRow = {
+          titulo_parcela_id: unknown;
+          pagamento?: { id?: unknown; forma_pagamento?: unknown } | null;
+        };
+        const appliedFormsByParcelaId = new Map<string, string[]>();
+        for (const item of (pagamentoItems ?? []) as PagamentoItemMetaRow[]) {
+          const parcelaId = item?.titulo_parcela_id ? String(item.titulo_parcela_id) : "";
+          const forma = normalizeFormaPagamentoLabel(item?.pagamento?.forma_pagamento);
+          if (!parcelaId || !forma) continue;
+          const current = appliedFormsByParcelaId.get(parcelaId) ?? [];
+          current.push(forma);
+          appliedFormsByParcelaId.set(parcelaId, current);
+        }
+        for (const [parcelaId, labels] of appliedFormsByParcelaId) {
+          formaAplicadaByParcelaId.set(parcelaId, summarizeFormaPagamentoLabels(labels) ?? null);
+        }
+
+        type AgendamentoMetaRow = { titulo_id: unknown; forma_pagamento: unknown };
+        const agendamentoFormsByTituloId = new Map<string, string[]>();
+        for (const agendamento of (agendamentos ?? []) as AgendamentoMetaRow[]) {
+          const tituloId = agendamento?.titulo_id ? String(agendamento.titulo_id) : "";
+          const forma = normalizeFormaPagamentoLabel(agendamento?.forma_pagamento);
+          if (!tituloId || !forma) continue;
+          const current = agendamentoFormsByTituloId.get(tituloId) ?? [];
+          current.push(forma);
+          agendamentoFormsByTituloId.set(tituloId, current);
+        }
+        for (const [tituloId, labels] of agendamentoFormsByTituloId) {
+          formaAgendadaByTituloId.set(tituloId, summarizeFormaPagamentoLabels(labels) ?? null);
+        }
+      }
+
+      for (const [tituloId, pagamentoImport] of pagamentoImportByTituloId) {
+        const entries = readPagamentoImportEntries(pagamentoImport);
+        const labels = entries
+          .map((entry) => entry.forma_pagamento ?? entry.forma ?? entry.modo ?? null)
+          .filter((value) => value !== null && value !== undefined);
+        formaImportadaByTituloId.set(tituloId, summarizeFormaPagamentoLabels(labels) ?? null);
+      }
+
+      const merged = mergedBase
+        .map((row) => ({
+          ...row,
+          formaPagamentoResumo: buildFormaPagamentoResumo({
+            aplicada: formaAplicadaByParcelaId.get(row.parcelaId) ?? null,
+            agendada: formaAgendadaByTituloId.get(row.tituloId) ?? null,
+            importada: formaImportadaByTituloId.get(row.tituloId) ?? null,
+            parcelasNoTitulo: parcelaCountByTituloId.get(row.tituloId) ?? 1,
+          }),
+        }))
+        .sort((a, b) => {
           const av = a.vencimento.localeCompare(b.vencimento);
           if (av !== 0) return av;
           if (a.kind !== b.kind) return a.kind === "AP" ? -1 : 1;
           return a.pessoaNome.localeCompare(b.pessoaNome);
         });
 
+      if (requestIdRef.current !== reqId) return;
       setRows(merged);
     } catch (e: unknown) {
       if (requestIdRef.current !== reqId) return;
@@ -929,7 +1102,8 @@ export default function ContasPagarReceberPage() {
         r.pessoaNome.toLowerCase().includes(query) ||
         (r.descricao ?? "").toLowerCase().includes(query) ||
         (r.motivoNome ?? "").toLowerCase().includes(query) ||
-        (r.aprovadoPorNome ?? "").toLowerCase().includes(query)
+        (r.aprovadoPorNome ?? "").toLowerCase().includes(query) ||
+        (r.formaPagamentoResumo ?? "").toLowerCase().includes(query)
       );
       const matchNf = !nfTerm || (r.nfNumero ?? "").toLowerCase().includes(nfTerm);
       return matchText && matchNf;
@@ -1682,6 +1856,7 @@ export default function ContasPagarReceberPage() {
               <th className="px-3 py-2">Motivo</th>
               <th className="px-3 py-2">Aprovado por</th>
               <th className="px-3 py-2">Parcela</th>
+              <th className="px-3 py-2">Forma pgto</th>
               <th className="px-3 py-2">Emissão</th>
               <th className="px-3 py-2">Vencimento</th>
               <th className="px-3 py-2 text-right">Valor</th>
@@ -1705,6 +1880,7 @@ export default function ContasPagarReceberPage() {
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.motivoNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero)}</td>
+                  <td className="px-3 py-2 text-zinc-200">{r.formaPagamentoResumo ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.emissao ? formatDateBR(r.emissao) : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{formatDateBR(r.vencimento)}</td>
                   <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valor)}</td>
@@ -1719,7 +1895,7 @@ export default function ContasPagarReceberPage() {
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={12} className="px-3 py-6 text-center text-zinc-400">
                   Nenhum item neste período.
                 </td>
               </tr>
@@ -1745,6 +1921,9 @@ export default function ContasPagarReceberPage() {
               <div>
                 <div className="text-sm text-zinc-400">{selected.kind === "AP" ? "Conta a pagar" : "Conta a receber"}</div>
                 <div className="text-lg font-semibold text-zinc-100">{selected.pessoaNome}</div>
+                {selected.formaPagamentoResumo ? (
+                  <div className="text-sm text-zinc-400">Forma: {selected.formaPagamentoResumo}</div>
+                ) : null}
                 <div className="text-sm text-zinc-400">
                   {fmtParcela(selected.parcelaNumero)} • Venc: {selected.vencimento} • Aberto: {formatMoneyBR(selected.valorAberto)}
                 </div>

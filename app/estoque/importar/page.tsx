@@ -162,6 +162,7 @@ type ParcelaPayload = {
   numero: string;
   vencimento: string;
   valor: number;
+  forma_pagamento?: string | null;
 };
 
 type PagamentoModoImportacao = "seguir_nota" | "cartao" | "dinheiro" | "faturado";
@@ -257,7 +258,7 @@ function parseMoneyInput(raw: string): number {
 
 function buildParcelasDinheiro(total: number, dataEmissao: string | null | undefined): ParcelaPayload[] {
   const emissao = toDateOnly(dataEmissao) ?? toDateOnly(new Date().toISOString()) ?? formatIsoDateLocal(new Date());
-  return [{ numero: "001", vencimento: emissao, valor: Number(total.toFixed(2)) }];
+  return [{ numero: "001", vencimento: emissao, valor: Number(total.toFixed(2)), forma_pagamento: "DINHEIRO" }];
 }
 
 function buildParcelasCartao(total: number, parcelas: number, dataEmissao: string | null | undefined): ParcelaPayload[] {
@@ -271,6 +272,7 @@ function buildParcelasCartao(total: number, parcelas: number, dataEmissao: strin
     numero: String(idx + 1).padStart(3, "0"),
     vencimento: formatIsoDateLocal(addMonthsKeepingDay(primeiroVencimento, idx, 9)),
     valor,
+    forma_pagamento: "CARTAO",
   }));
 }
 
@@ -317,7 +319,7 @@ function buildParcelasPorPagamento(
     return buildParcelasCartao(total, config.quantidade, nfe.dataEmissao);
   }
   if (modo === "faturado" && config?.modo === "faturado") {
-    return config.parcelas;
+    return config.parcelas.map((parcela) => ({ ...parcela, forma_pagamento: parcela.forma_pagamento ?? "FATURADO" }));
   }
   return null;
 }
