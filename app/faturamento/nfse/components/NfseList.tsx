@@ -9,6 +9,7 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
 import { fetchOsSelectionById } from "@/lib/os-vinculo";
 import PeriodoMesAnoFilter, { buildPeriodoMesAnoRange } from "@/app/faturamento/components/PeriodoMesAnoFilter";
+import { buildEmpresaDisplayById, fetchTenantEmpresas, mergeEmpresaInfos } from "@/app/faturamento/components/empresaDisplay";
 import ImportNfseXmlModal from "./ImportNfseXmlModal";
 
 type DocumentoFiscalRow = {
@@ -18,6 +19,7 @@ type DocumentoFiscalRow = {
   serie: string | null;
   numero: string | null;
   chave_acesso: string;
+  empresa_id: string | null;
   cliente_id: number | null;
   os_id_import: number | null;
   valor_total: number | string | null;
@@ -233,6 +235,7 @@ export default function NfseList() {
   const [clientesById, setClientesById] = useState<Record<string, string>>({});
   const [osNumeroById, setOsNumeroById] = useState<Record<string, string>>({});
   const [pagamentosByDocId, setPagamentosByDocId] = useState<Record<string, PagamentoMeta>>({});
+  const [empresaCatalog, setEmpresaCatalog] = useState(te.empresas);
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -241,12 +244,37 @@ export default function NfseList() {
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<NfseStatusFilter>("");
-
+  const empresasById = useMemo(() => buildEmpresaDisplayById(empresaCatalog), [empresaCatalog]);
   const ready =
     typeof te.sessionUserId === "string" &&
     Boolean(te.tenantId) &&
     (Boolean(te.empresaId) || te.empresas.length === 1) &&
     canFinanceiro === true;
+
+  useEffect(() => {
+    setEmpresaCatalog((prev) => mergeEmpresaInfos(prev, te.empresas));
+  }, [te.empresas]);
+
+  useEffect(() => {
+    if (!ready || !te.tenantId) return;
+
+    let cancelled = false;
+
+    const loadEmpresas = async () => {
+      try {
+        const empresas = await fetchTenantEmpresas(supabaseBrowser(), te.tenantId!);
+        if (!cancelled) setEmpresaCatalog((prev) => mergeEmpresaInfos(prev, empresas));
+      } catch {
+        // keep current catalog if tenant-wide lookup is not available
+      }
+    };
+
+    void loadEmpresas();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, te.tenantId]);
 
   const pagamentoFiltro = normalizePagamentoFiltro(searchParams.get("pagamento"));
   const periodo = useMemo(() => buildPeriodoMesAnoRange(searchParams), [searchParams]);
@@ -411,7 +439,7 @@ export default function NfseList() {
       supabase
         .schema("f")
         .from("documento_fiscal")
-        .select("id,emissao_date,modelo,serie,numero,chave_acesso,cliente_id,os_id_import,valor_total,nfse_status,created_at")
+        .select("id,emissao_date,modelo,serie,numero,chave_acesso,empresa_id,cliente_id,os_id_import,valor_total,nfse_status,created_at")
         .eq("operacao", "SAIDA")
         .eq("natureza", "SERVICO")
         .is("deleted_at", null),
@@ -511,13 +539,15 @@ export default function NfseList() {
       const modelo = String(r.modelo ?? "").toLowerCase();
       const serie = String(r.serie ?? "").toLowerCase();
       const clienteNome = r.cliente_id ? String(clientesById[String(r.cliente_id)] ?? "").toLowerCase() : "";
+      const empresaNome = r.empresa_id ? empresasById[String(r.empresa_id)]?.searchText ?? "" : "";
       return (
         numero.includes(term) ||
         clienteNome.includes(term) ||
+        empresaNome.includes(term) ||
         `${modelo} ${serie} ${numero}`.replace(/\s+/g, " ").trim().includes(term)
       );
     });
-  }, [clientesById, docs, pagamentoFiltro, pagamentosByDocId, search, status]);
+  }, [clientesById, docs, empresasById, pagamentoFiltro, pagamentosByDocId, search, status]);
 
   const resumoFiltro = useMemo(() => {
     const totals = filtered.reduce(
@@ -683,6 +713,7 @@ export default function NfseList() {
             <thead className="bg-zinc-950/60 text-zinc-400">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Emissao</th>
+                <th className="px-4 py-3 text-left font-medium">Empresa</th>
                 <th className="px-4 py-3 text-left font-medium">Modelo</th>
                 <th className="px-4 py-3 text-left font-medium">Serie</th>
                 <th className="px-4 py-3 text-left font-medium">Numero</th>
@@ -698,7 +729,7 @@ export default function NfseList() {
             <tbody className="divide-y divide-zinc-800">
               {!loading && filtered.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={11}>
+                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={12}>
                     Nenhum registro encontrado.
                   </td>
                 </tr>
@@ -713,6 +744,9 @@ export default function NfseList() {
                     onClick={() => router.push(`/faturamento/nfse/${r.id}`)}
                   >
                     <td className="whitespace-nowrap px-4 py-3 text-zinc-200">{formatDateBR(r.emissao_date) || "-"}</td>
+                    <td className="px-4 py-3 text-zinc-200" title={r.empresa_id ? empresasById[String(r.empresa_id)]?.fullName ?? "" : ""}>
+                      {r.empresa_id ? empresasById[String(r.empresa_id)]?.label ?? "Sem empresa" : "-"}
+                    </td>
                     <td className="px-4 py-3 text-zinc-200">{r.modelo ?? "-"}</td>
                     <td className="px-4 py-3 text-zinc-200">{r.serie ?? "-"}</td>
                     <td className="px-4 py-3 tabular-nums text-zinc-200">{r.numero ?? "-"}</td>

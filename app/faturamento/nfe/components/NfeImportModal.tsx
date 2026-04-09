@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
-import { parseNfeXml } from "@/lib/nfe/parseNfeXml";
+import { parseNfeXml, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
 import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
 import type { OsSelection } from "@/lib/os-vinculo";
 
@@ -32,6 +32,39 @@ function getErrorMessage(err: unknown, fallback: string) {
   }
   return fallback;
 }
+
+function n(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const normalized = String(value ?? "").trim().replace(/\s/g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function splitTotal(total: number, parts: number): number[] {
+  const safeParts = Math.max(1, Math.trunc(parts));
+  const safeTotal = Math.max(0, Math.round(total * 100) / 100);
+  const totalCents = Math.round(safeTotal * 100);
+  const base = Math.floor(totalCents / safeParts);
+  const rest = totalCents - base * safeParts;
+  return Array.from({ length: safeParts }, (_, idx) => (base + (idx < rest ? 1 : 0)) / 100);
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toDateOnly(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  return null;
+}
+
+type ParcelaForm = {
+  numero: string;
+  valor: string;
+  vencimento: string;
+};
 
 export default function NfeImportModal({
   open,
@@ -68,6 +101,7 @@ export default function NfeImportModal({
   }, [te]);
 
   const [file, setFile] = useState<File | null>(null);
+  const [parsedNfe, setParsedNfe] = useState<ParsedNfe | null>(null);
   const [clienteId, setClienteId] = useState<string>("");
   const [clienteLabel, setClienteLabel] = useState<string>("");
   const [clienteCnpj, setClienteCnpj] = useState<string>("");
@@ -80,17 +114,90 @@ export default function NfeImportModal({
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [qtdPagamentos, setQtdPagamentos] = useState<number>(1);
+  const [parcelas, setParcelas] = useState<ParcelaForm[]>([{ numero: "001", valor: "", vencimento: todayIso() }]);
+
+  const parsedTotal = useMemo(() => Math.max(0, n(parsedNfe?.valorTotal ?? 0)), [parsedNfe]);
+
+  const rebuildParcelas = (nextQtd: number, baseDate: string, total: number, previous?: ParcelaForm[]) => {
+    const safeQtd = Math.max(1, Math.min(24, Math.trunc(nextQtd)));
+    const split = splitTotal(total, safeQtd);
+    const prev = previous ?? [];
+    return Array.from({ length: safeQtd }, (_, idx) => {
+      const existing = prev[idx];
+      return {
+        numero: String(idx + 1).padStart(3, "0"),
+        valor: existing?.valor ?? split[idx].toFixed(2),
+        vencimento: existing?.vencimento ?? baseDate,
+      };
+    });
+  };
+
+  const buildInitialParcelas = (parsed: ParsedNfe) => {
+    const xmlParcelas = Array.isArray(parsed.parcelas)
+      ? parsed.parcelas.filter((p) => Number.isFinite(n(p.valor)) && n(p.valor) > 0 && Boolean(toDateOnly(p.vencimento)))
+      : [];
+    if (xmlParcelas.length > 0) {
+      return {
+        qtd: xmlParcelas.length,
+        parcelas: xmlParcelas.map((p, idx) => ({
+          numero: String(p.numero ?? "").trim() || String(idx + 1).padStart(3, "0"),
+          valor: n(p.valor).toFixed(2),
+          vencimento: toDateOnly(p.vencimento) ?? todayIso(),
+        })),
+      };
+    }
+
+    const total = Math.max(0, n(parsed.valorTotal ?? 0));
+    const baseDate = toDateOnly(parsed.dataEmissao) ?? todayIso();
+    return {
+      qtd: 1,
+      parcelas: rebuildParcelas(1, baseDate, total),
+    };
+  };
+
+  const onChangeQtdPagamentos = (raw: string) => {
+    const nextQtd = Math.max(1, Math.min(24, Math.trunc(n(raw) || 1)));
+    const baseDate = toDateOnly(parsedNfe?.dataEmissao) ?? todayIso();
+    setQtdPagamentos(nextQtd);
+    setParcelas((prev) => rebuildParcelas(nextQtd, baseDate, parsedTotal, prev));
+  };
+
+  const onChangeParcela = (index: number, field: "valor" | "vencimento", value: string) => {
+    setParcelas((prev) =>
+      prev.map((parcela, idx) =>
+        idx === index
+          ? {
+              ...parcela,
+              [field]: value,
+            }
+          : parcela
+      )
+    );
+  };
 
   useEffect(() => {
     if (!open) return;
+    setFile(null);
+    setClienteId("");
+    setClienteLabel("");
+    setClienteCnpj("");
+    setChaveAcesso("");
     setError(null);
     setOk(null);
+    setBusy(false);
+    setDetectingCliente(false);
+    setCheckingDuplicate(false);
+    setParsedNfe(null);
     setAlreadyImportedId("");
     setOsSelection(null);
+    setQtdPagamentos(1);
+    setParcelas([{ numero: "001", valor: "", vencimento: todayIso() }]);
   }, [open]);
 
   const onPickFile = async (f: File | null) => {
     setFile(f);
+    setParsedNfe(null);
     setError(null);
     setOk(null);
     setClienteId("");
@@ -111,6 +218,10 @@ export default function NfeImportModal({
     try {
       const raw = await f.text();
       const parsed = parseNfeXml(raw);
+      setParsedNfe(parsed.nfe);
+      const initialParcelas = buildInitialParcelas(parsed.nfe);
+      setQtdPagamentos(initialParcelas.qtd);
+      setParcelas(initialParcelas.parcelas);
       const chave = normalizeChaveNfe(parsed.nfe.chave);
       if (chave) setChaveAcesso(chave);
       const documento = normalizeDocumento(parsed.nfe.documentoDestinatario);
@@ -231,6 +342,30 @@ export default function NfeImportModal({
     if (alreadyImportedId) return setError("Este XML já foi importado. Reimportação bloqueada.");
     if (!clienteId) return setError("Cliente não resolvido a partir do XML.");
 
+    if (qtdPagamentos < 1) return setError("Informe ao menos 1 pagamento.");
+
+    const pagamentos = parcelas.slice(0, qtdPagamentos).map((parcela, idx) => {
+      const numero = String(parcela.numero ?? "").trim() || String(idx + 1).padStart(3, "0");
+      const vencimento = String(parcela.vencimento ?? "").trim();
+      const valor = Math.round(n(parcela.valor) * 100) / 100;
+      return { numero, vencimento, valor };
+    });
+
+    if (pagamentos.length !== qtdPagamentos) {
+      return setError("Nao foi possivel montar as parcelas de pagamento.");
+    }
+
+    for (let i = 0; i < pagamentos.length; i += 1) {
+      const pagamento = pagamentos[i];
+      if (!pagamento.vencimento) return setError(`Parcela ${i + 1}: informe a data.`);
+      if (pagamento.valor <= 0) return setError(`Parcela ${i + 1}: valor deve ser maior que zero.`);
+    }
+
+    const somaPagamentos = Math.round(pagamentos.reduce((acc, pagamento) => acc + pagamento.valor, 0) * 100) / 100;
+    if (parsedTotal > 0 && Math.abs(somaPagamentos - parsedTotal) > 0.05) {
+      return setError(`Soma das parcelas (R$ ${somaPagamentos.toFixed(2)}) difere do total da NF-e (R$ ${parsedTotal.toFixed(2)}).`);
+    }
+
     setBusy(true);
     setError(null);
     setOk(null);
@@ -248,6 +383,7 @@ export default function NfeImportModal({
       if (tenantId) fd.append("tenant_id", tenantId);
       if (empresaId) fd.append("empresa_id", empresaId);
       if (osSelection?.id) fd.append("os_id", String(osSelection.id));
+      fd.append("pagamentos_json", JSON.stringify(pagamentos));
 
       const res = await fetch("/api/faturamento/nfe/importar-xml", {
         method: "POST",
@@ -350,6 +486,61 @@ export default function NfeImportModal({
               disabled={busy || detectingCliente || checkingDuplicate || !ready}
               helperText="Opcional. O valor desta NF-e sera abatido da carteira da OS vinculada."
             />
+          ) : null}
+
+          {parsedNfe ? (
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3 space-y-3">
+              <div className="text-xs font-medium text-zinc-300">Pagamentos (Contas a Receber)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                <label className="block text-xs text-zinc-400">
+                  Quantidade de pagamentos
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={qtdPagamentos}
+                    onChange={(e) => onChangeQtdPagamentos(e.target.value)}
+                    disabled={busy}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
+                  />
+                </label>
+                <div className="sm:col-span-2 text-xs text-zinc-500">
+                  Revise valor e vencimento de cada parcela antes de importar.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {parcelas.slice(0, qtdPagamentos).map((parcela, idx) => (
+                  <div key={parcela.numero} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/30 px-2 py-2 text-sm text-zinc-200">
+                      Parcela {idx + 1}
+                    </div>
+                    <label className="block text-xs text-zinc-400">
+                      Valor
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={parcela.valor}
+                        onChange={(e) => onChangeParcela(idx, "valor", e.target.value)}
+                        disabled={busy}
+                        className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block text-xs text-zinc-400">
+                      Data
+                      <input
+                        type="date"
+                        value={parcela.vencimento}
+                        onChange={(e) => onChangeParcela(idx, "vencimento", e.target.value)}
+                        disabled={busy}
+                        className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : null}
 
           {error ? <div className="rounded-md border border-rose-900/60 bg-rose-950/20 px-3 py-2 text-sm text-rose-200">{error}</div> : null}

@@ -2363,10 +2363,14 @@ export async function POST(req: NextRequest) {
 
     // Mandatory post-condition: import must end with AP title + parcelas consistent.
     const parcelasArray = Array.isArray(body.parcelasJson) ? body.parcelasJson : null;
+    const forceParcelasRegen = parcelasArray !== null;
 
     const { data: tituloIdRaw, error: ensureErr } = await admin.rpc("fn_ensure_titulo_ap_from_nf_entrada", {
       p_nf_entrada_id: nfEntradaId,
-      p_force_regen_parcelas: false,
+      // O import cria AP/parcela pelo fluxo padrao do XML. Quando o popup enviou
+      // parcelas explicitas (cartao, dinheiro, faturado ou override do XML),
+      // precisamos sobrescrever o que foi gerado antes para refletir a escolha do usuario.
+      p_force_regen_parcelas: forceParcelasRegen,
       p_parcelas_json: parcelasArray,
     });
     if (ensureErr) {

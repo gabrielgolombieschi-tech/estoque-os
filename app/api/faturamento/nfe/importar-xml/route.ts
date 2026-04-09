@@ -396,13 +396,36 @@ export async function POST(req: NextRequest) {
     const file = form.get("file");
     const clienteIdRaw = String(form.get("cliente_id") ?? "").trim();
     const osIdRaw = String(form.get("os_id") ?? "").trim();
+    const pagamentosRaw = String(form.get("pagamentos_json") ?? "").trim();
     if (!clienteIdRaw) return jerr(422, "cliente_id é obrigatório.");
     const clienteIdNum = Number(clienteIdRaw);
     const osIdNum = osIdRaw ? Number(osIdRaw) : null;
+    let pagamentos: Array<{ numero: string; vencimento: string; valor: number }> | null = null;
     if (osIdRaw && (!Number.isFinite(osIdNum) || Number(osIdNum) <= 0)) return jerr(400, "os_id invalido.");
     if (!Number.isFinite(clienteIdNum) || clienteIdNum <= 0) return jerr(400, "cliente_id inválido.");
 
     if (!file || typeof file !== "object" || !("text" in file)) return jerr(422, "Arquivo XML é obrigatório (file).");
+    if (pagamentosRaw) {
+      try {
+        const pagamentosUnknown = JSON.parse(pagamentosRaw) as unknown;
+        if (!Array.isArray(pagamentosUnknown) || pagamentosUnknown.length === 0) {
+          return jerr(422, "pagamentos_json invalido.");
+        }
+
+        pagamentos = pagamentosUnknown.map((row, idx) => {
+          const obj = row && typeof row === "object" ? (row as Record<string, unknown>) : {};
+          const numero = String(obj.numero ?? "").trim() || String(idx + 1).padStart(3, "0");
+          const vencimento = toDateOnly(String(obj.vencimento ?? obj.data ?? "").trim());
+          const valor = Math.round(toNum(String(obj.valor ?? 0)) * 100) / 100;
+          if (!vencimento) throw new Error(`Parcela ${idx + 1}: vencimento invalido.`);
+          if (valor <= 0) throw new Error(`Parcela ${idx + 1}: valor invalido.`);
+          return { numero, vencimento, valor };
+        });
+      } catch (parseErr: unknown) {
+        return jerr(422, getErrorMessage(parseErr, "pagamentos_json invalido."));
+      }
+    }
+
     const xmlRaw = await (file as File).text();
     if (!xmlRaw.trim()) return jerr(422, "XML vazio.");
 
@@ -513,6 +536,14 @@ export async function POST(req: NextRequest) {
     const parsed = parseNfeXmlServer(xmlRaw);
     const info = parsed.nfe;
     if (!info.chave) return jerr(422, "Chave não encontrada no XML.");
+
+    if (pagamentos && pagamentos.length > 0) {
+      const somaPagamentos = Math.round(pagamentos.reduce((acc, pagamento) => acc + pagamento.valor, 0) * 100) / 100;
+      const totalDocumento = Math.round((Number(info.valorTotal ?? 0) || 0) * 100) / 100;
+      if (totalDocumento > 0 && Math.abs(somaPagamentos - totalDocumento) > 0.05) {
+        return jerr(422, `Soma das parcelas (R$ ${somaPagamentos.toFixed(2)}) difere do total da NF-e (R$ ${totalDocumento.toFixed(2)}).`);
+      }
+    }
 
     // Prevent duplicate imports: if a documento_fiscal with the same chave already exists,
     // block this request (client can redirect to the existing document).
@@ -750,6 +781,21 @@ export async function POST(req: NextRequest) {
       .rpc("nfe_gravar_impostos_do_documento", { p_documento_fiscal_id: documentoFiscalId });
     if (impErr) {
       return Response.json({ error: "Falha ao gravar impostos do documento.", details: impErr.message }, { status: 500 });
+    }
+
+    if (pagamentos && pagamentos.length > 0) {
+      const { error: parcelasErr } = await supabase.rpc("faturamento_sync_titulo_ar_parcelas", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_documento_fiscal_id: documentoFiscalId,
+        p_parcelas_json: pagamentos,
+      });
+      if (parcelasErr) {
+        return Response.json(
+          { error: "Falha ao sincronizar parcelas do contas a receber.", details: parcelasErr.message },
+          { status: 422 }
+        );
+      }
     }
 
     const { data: arRow } = await applyTenantEmpresa(

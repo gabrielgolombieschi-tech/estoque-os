@@ -57,13 +57,6 @@ type ImpostoRow = {
 
 type ClienteRow = { id: number; nome: string };
 
-type LinkedTituloRow = {
-  id: string;
-  status: string | null;
-  valor_total: number | string | null;
-  valor_aberto: number | string | null;
-};
-
 type DuplicateNfseRow = {
   id: string;
   emissao_date: string | null;
@@ -727,114 +720,15 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
     setError(null);
     setOk(null);
 
-    const nowIso = new Date().toISOString();
     const supabase = supabaseBrowser();
 
     try {
-      const { data: titulos, error: titErr } = await applyTenantEmpresa(
-        supabase
-          .schema("f")
-          .from("titulo")
-          .select("id,status,valor_total,valor_aberto")
-          .eq("documento_fiscal_id", docId)
-          .eq("tipo", "AR")
-          .is("deleted_at", null),
-        tenantId,
-        empresaId
-      ).returns<LinkedTituloRow[]>();
-      if (titErr) throw titErr;
-
-      const linkedTitulos = titulos ?? [];
-      const hasRecebimento = linkedTitulos.some((titulo) => {
-        const statusTitulo = String(titulo.status ?? "").trim().toUpperCase();
-        if (statusTitulo === "PAGO") return true;
-        return Math.abs(round2(n(titulo.valor_total)) - round2(n(titulo.valor_aberto))) > 0.009;
+      const { error: rpcErr } = await supabase.rpc("faturamento_excluir_documento_saida", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_documento_fiscal_id: docId,
       });
-
-      if (hasRecebimento) {
-        throw new Error("A NFS-e possui recebimento/baixa no financeiro. Estorne primeiro o contas a receber.");
-      }
-
-      const tituloIds = linkedTitulos.map((titulo) => String(titulo.id)).filter(Boolean);
-
-      if (tituloIds.length) {
-        const [agendamentoRes, parcelaRes, rateioRes, tituloRes] = await Promise.all([
-          applyTenantEmpresa(
-            supabase
-              .schema("f")
-              .from("titulo_agendamento")
-              .update({ deleted_at: nowIso, updated_at: nowIso })
-              .in("titulo_id", tituloIds)
-              .is("deleted_at", null),
-            tenantId,
-            empresaId
-          ),
-          applyTenantEmpresa(
-            supabase
-              .schema("f")
-              .from("titulo_parcela")
-              .update({ valor_aberto: 0, deleted_at: nowIso, updated_at: nowIso })
-              .in("titulo_id", tituloIds)
-              .is("deleted_at", null),
-            tenantId,
-            empresaId
-          ),
-          applyTenantEmpresa(
-            supabase
-              .schema("f")
-              .from("titulo_rateio")
-              .update({ deleted_at: nowIso, updated_at: nowIso })
-              .in("titulo_id", tituloIds)
-              .is("deleted_at", null),
-            tenantId,
-            empresaId
-          ),
-          applyTenantEmpresa(
-            supabase
-              .schema("f")
-              .from("titulo")
-              .update({ status: "CANCELADO", valor_aberto: 0, deleted_at: nowIso, updated_at: nowIso })
-              .in("id", tituloIds)
-              .is("deleted_at", null),
-            tenantId,
-            empresaId
-          ),
-        ]);
-
-        if (agendamentoRes.error) throw agendamentoRes.error;
-        if (parcelaRes.error) throw parcelaRes.error;
-        if (rateioRes.error) throw rateioRes.error;
-        if (tituloRes.error) throw tituloRes.error;
-      }
-
-      const [xmlRes, docRes] = await Promise.all([
-        applyTenantEmpresa(
-          supabase
-            .schema("f")
-            .from("documento_fiscal_xml")
-            .update({ deleted_at: nowIso })
-            .eq("documento_fiscal_id", docId)
-            .is("deleted_at", null),
-          tenantId,
-          empresaId
-        ),
-        applyTenantEmpresa(
-          supabase
-            .schema("f")
-            .from("documento_fiscal")
-            .update({ nfse_status: "CANCELADA", deleted_at: nowIso, updated_at: nowIso })
-            .eq("id", docId)
-            .eq("operacao", "SAIDA")
-            .eq("natureza", "SERVICO")
-            .is("deleted_at", null),
-          tenantId,
-          empresaId
-        ),
-      ]);
-
-      if (xmlRes.error) throw xmlRes.error;
-      const docErr = docRes.error;
-      if (docErr) throw docErr;
+      if (rpcErr) throw rpcErr;
 
       router.replace("/faturamento/nfse");
     } catch (e: unknown) {

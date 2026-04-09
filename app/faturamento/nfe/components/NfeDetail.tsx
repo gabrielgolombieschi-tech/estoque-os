@@ -166,6 +166,7 @@ export default function NfeDetail({
   const [error, setError] = useState<string | null>(null);
   const [osSaving, setOsSaving] = useState(false);
   const [osFeedback, setOsFeedback] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -366,6 +367,7 @@ export default function NfeDetail({
   const hasAR = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AR"), [titulos]);
   const hasAP = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AP"), [titulos]);
   const canEditOsLink = doc?.operacao === "SAIDA" && doc?.natureza === "PRODUTO";
+  const canDeleteDoc = access === "financeiro" && doc?.operacao === "SAIDA" && doc?.natureza === "PRODUTO";
 
   const saveOsLink = async () => {
     if (!ready || !doc?.id || !canEditOsLink) return;
@@ -403,6 +405,36 @@ export default function NfeDetail({
     }
   };
 
+  const removeDoc = async () => {
+    if (!ready || !doc?.id || !canDeleteDoc) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Excluir esta NF-e e os titulos financeiros vinculados? Depois sera possivel reimportar.")
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    setOsFeedback(null);
+
+    try {
+      const supabase = supabaseBrowser();
+      const { error: rpcErr } = await supabase.rpc("faturamento_excluir_documento_saida", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_documento_fiscal_id: doc.id,
+      });
+      if (rpcErr) throw rpcErr;
+
+      router.replace("/faturamento/nfe");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro inesperado ao excluir NF-e.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <div className="flex items-start justify-between gap-4">
@@ -422,9 +454,24 @@ export default function NfeDetail({
             ) : null}
           </div>
         </div>
-        <Link href={backHref} className="rounded-md bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700">
-          Voltar
-        </Link>
+        <div className="flex items-center gap-2">
+          {canDeleteDoc ? (
+            <button
+              type="button"
+              onClick={() => void removeDoc()}
+              disabled={loading || deleting || osSaving || !ready}
+              className="rounded-md bg-rose-700 px-3 py-2 text-sm text-zinc-100 hover:bg-rose-600 disabled:opacity-50"
+            >
+              {deleting ? "Excluindo..." : "Excluir"}
+            </button>
+          ) : null}
+          <Link
+            href={backHref}
+            className="rounded-md bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700"
+          >
+            Voltar
+          </Link>
+        </div>
       </div>
 
       {loading ? <div className="mt-4 text-sm text-zinc-400">Carregando...</div> : null}
@@ -482,14 +529,14 @@ export default function NfeDetail({
                     setOsSelection(next);
                     setOsFeedback(null);
                   }}
-                  disabled={loading || osSaving || !ready}
+                  disabled={loading || osSaving || deleting || !ready}
                   helperText="Opcional. O valor desta NF-e sera abatido da carteira da OS vinculada."
                 />
 
                 <button
                   type="button"
                   onClick={() => void saveOsLink()}
-                  disabled={loading || osSaving || !ready}
+                  disabled={loading || osSaving || deleting || !ready}
                   className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900 disabled:opacity-50"
                 >
                   {osSaving ? "Salvando OS..." : "Salvar OS"}

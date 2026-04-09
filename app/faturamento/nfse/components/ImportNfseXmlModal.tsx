@@ -365,7 +365,7 @@ export default function ImportNfseXmlModal({
         throw new Error(message || "Importado, mas nao foi possivel identificar o documento fiscal.");
       }
 
-      const { error: parcelaErr } = await supabase.rpc("nfse_sync_titulo_ar_parcelas", {
+      const { error: parcelaErr } = await supabase.rpc("faturamento_sync_titulo_ar_parcelas", {
         p_tenant_id: tenantId,
         p_empresa_id: empresaId,
         p_documento_fiscal_id: docId,

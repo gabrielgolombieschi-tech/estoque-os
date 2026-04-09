@@ -7,6 +7,7 @@ import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
+import { buildEmpresaDisplayOptions, fetchTenantEmpresas, mergeEmpresaInfos } from "@/app/faturamento/components/empresaDisplay";
 import { manualHistoricalEntries, manualHistoricalYears } from "./historicoManual";
 
 type ViewMode = "mes" | "mes-cliente" | "ano" | "ano-cliente";
@@ -15,6 +16,7 @@ type DocumentoFiscalRow = {
   id: string;
   emissao_date: string | null;
   competencia_date: string | null;
+  empresa_id: string | null;
   cliente_id: number | null;
   valor_total: number | string | null;
   modelo: string | null;
@@ -166,6 +168,15 @@ function parsePositiveInt(value: string | null, fallback: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeSelectedEmpresaIds(selectedIds: string[], availableIds: string[]): string[] {
+  if (!availableIds.length) return [];
+
+  const availableSet = new Set(availableIds);
+  const selectedSet = new Set(selectedIds.filter((id) => availableSet.has(id)));
+  if (!selectedSet.size) return availableIds;
+  return availableIds.filter((id) => selectedSet.has(id));
 }
 
 function getReferenceDate(row: DocumentoFiscalRow): string | null {
@@ -439,11 +450,25 @@ export default function AnaliticoFaturamentoClient() {
   const [focusYear, setFocusYear] = useState<number>(initialFocusYear);
   const [clientQuery, setClientQuery] = useState<string>(searchParams.get("cliente") ?? "");
   const [topN, setTopN] = useState<number>(clamp(parsePositiveInt(searchParams.get("top"), DEFAULT_TOP_N), 5, 200));
+  const [empresaCatalog, setEmpresaCatalog] = useState(te.empresas);
 
   const [rows, setRows] = useState<DocumentoFiscalRow[]>([]);
   const [clientesById, setClientesById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const empresaOptions = useMemo(() => buildEmpresaDisplayOptions(empresaCatalog), [empresaCatalog]);
+  const allEmpresaIds = useMemo(() => empresaOptions.map((empresa) => empresa.id), [empresaOptions]);
+  const selectedEmpresaIds = useMemo(
+    () => normalizeSelectedEmpresaIds(searchParams.getAll("empresa"), allEmpresaIds),
+    [allEmpresaIds, searchParams]
+  );
+  const selectedEmpresaIdSet = useMemo(() => new Set(selectedEmpresaIds), [selectedEmpresaIds]);
+  const hasPendingEmpresaSelection = allEmpresaIds.length === 0 && searchParams.getAll("empresa").length > 0;
+  const hasEmpresaFilter = allEmpresaIds.length > 0 && selectedEmpresaIds.length < allEmpresaIds.length;
+  const selectedEmpresaLabels = useMemo(
+    () => empresaOptions.filter((empresa) => selectedEmpresaIdSet.has(empresa.id)).map((empresa) => empresa.label),
+    [empresaOptions, selectedEmpresaIdSet]
+  );
 
   const empresaRole = useMemo(() => {
     const role = te.empresa?.papel ?? te.empresas.find((empresa) => empresa.id === te.empresaId)?.papel ?? null;
@@ -467,6 +492,31 @@ export default function AnaliticoFaturamentoClient() {
   const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id ?? null : null);
   const ready = typeof te.sessionUserId === "string" && Boolean(tenantId) && Boolean(empresaId) && canFinanceiro === true;
 
+  useEffect(() => {
+    setEmpresaCatalog((prev) => mergeEmpresaInfos(prev, te.empresas));
+  }, [te.empresas]);
+
+  useEffect(() => {
+    if (!tenantId || canFinanceiro !== true) return;
+
+    let cancelled = false;
+
+    const loadEmpresas = async () => {
+      try {
+        const empresas = await fetchTenantEmpresas(getSupabaseBrowser(), tenantId);
+        if (!cancelled) setEmpresaCatalog((prev) => mergeEmpresaInfos(prev, empresas));
+      } catch {
+        // keep current catalog if tenant-wide lookup is not available
+      }
+    };
+
+    void loadEmpresas();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canFinanceiro, tenantId]);
+
   const yearOptions = useMemo(() => {
     const years: number[] = [];
     for (let year = currentYear; year >= BASE_YEAR; year -= 1) years.push(year);
@@ -485,6 +535,8 @@ export default function AnaliticoFaturamentoClient() {
   }, [focusYear, fromYear, toYear]);
 
   useEffect(() => {
+    if (hasPendingEmpresaSelection) return;
+
     const params = new URLSearchParams();
     params.set("view", view);
     params.set("from", String(fromYear));
@@ -492,13 +544,54 @@ export default function AnaliticoFaturamentoClient() {
     if (view === "mes-cliente") params.set("focus", String(focusYear));
     if (clientQuery.trim()) params.set("cliente", clientQuery.trim());
     if (topN !== DEFAULT_TOP_N) params.set("top", String(topN));
+    if (hasEmpresaFilter) {
+      for (const empresa of empresaOptions) {
+        if (selectedEmpresaIdSet.has(empresa.id)) params.append("empresa", empresa.id);
+      }
+    }
 
     const nextQuery = params.toString();
     const currentQuery = searchParams.toString();
     if (nextQuery !== currentQuery) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
     }
-  }, [clientQuery, focusYear, fromYear, pathname, router, searchParams, toYear, topN, view]);
+  }, [
+    clientQuery,
+    empresaOptions,
+    focusYear,
+    fromYear,
+    hasEmpresaFilter,
+    pathname,
+    router,
+    searchParams,
+    hasPendingEmpresaSelection,
+    selectedEmpresaIdSet,
+    toYear,
+    topN,
+    view,
+  ]);
+
+  const toggleEmpresa = (empresaIdToToggle: string) => {
+    const nextSelected = new Set(selectedEmpresaIds);
+    if (nextSelected.has(empresaIdToToggle)) {
+      nextSelected.delete(empresaIdToToggle);
+      if (!nextSelected.size) {
+        for (const empresaId of allEmpresaIds) nextSelected.add(empresaId);
+      }
+    } else {
+      nextSelected.add(empresaIdToToggle);
+    }
+
+    const normalizedSelection = allEmpresaIds.filter((empresaId) => nextSelected.has(empresaId));
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("empresa");
+    if (normalizedSelection.length < allEmpresaIds.length) {
+      for (const empresaId of normalizedSelection) params.append("empresa", empresaId);
+    }
+
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  };
 
   useEffect(() => {
     if (!ready || !tenantId || !empresaId) return;
@@ -519,11 +612,11 @@ export default function AnaliticoFaturamentoClient() {
         let offset = 0;
 
         while (true) {
-          const { data, error: queryError } = await applyTenantEmpresa(
+          const query = applyTenantEmpresa(
             supabase
               .schema("f")
               .from("documento_fiscal")
-              .select("id,emissao_date,competencia_date,cliente_id,valor_total,modelo,nfe_status,nfse_status,created_at")
+              .select("id,emissao_date,competencia_date,empresa_id,cliente_id,valor_total,modelo,nfe_status,nfse_status,created_at")
               .eq("operacao", "SAIDA")
               .is("deleted_at", null)
               .gte("emissao_date", startDate)
@@ -533,7 +626,12 @@ export default function AnaliticoFaturamentoClient() {
               .range(offset, offset + FETCH_BATCH_SIZE - 1),
             tenantId,
             empresaId
-          ).returns<DocumentoFiscalRow[]>();
+          );
+          if (hasEmpresaFilter && selectedEmpresaIds.length) {
+            query = query.in("empresa_id", selectedEmpresaIds);
+          }
+
+          const { data, error: queryError } = await query.returns<DocumentoFiscalRow[]>();
 
           if (queryError) throw queryError;
 
@@ -571,34 +669,38 @@ export default function AnaliticoFaturamentoClient() {
     return () => {
       cancelled = true;
     };
-  }, [currentYear, empresaId, fromYear, ready, tenantId, toYear]);
+  }, [currentYear, empresaId, fromYear, hasEmpresaFilter, ready, selectedEmpresaIds, tenantId, toYear]);
 
   const rawDocumentos = useMemo<DocumentoAnalitico[]>(() => {
     const liveRows = rows
+      .filter((row) => !hasEmpresaFilter || (row.empresa_id ? selectedEmpresaIdSet.has(row.empresa_id) : false))
       .filter(shouldIncludeDocumento)
       .map((row) => mapLiveDocumento(row, clientesById, { fromYear, toYear }))
       .filter((row): row is DocumentoAnalitico => Boolean(row));
 
-    const manualRows = manualHistoricalEntries
-      .filter((entry) => entry.year >= fromYear && entry.year <= toYear)
-      .map((entry, index) => ({
-        id: `manual-${entry.year}-${entry.month}-${index}`,
-        year: entry.year,
-        month: entry.month,
-        valor: entry.amount,
-        clienteNome: entry.clientName,
-      }));
+    const manualRows = hasEmpresaFilter
+      ? []
+      : manualHistoricalEntries
+          .filter((entry) => entry.year >= fromYear && entry.year <= toYear)
+          .map((entry, index) => ({
+            id: `manual-${entry.year}-${entry.month}-${index}`,
+            year: entry.year,
+            month: entry.month,
+            valor: entry.amount,
+            clienteNome: entry.clientName,
+          }));
 
     return [...manualRows, ...liveRows];
-  }, [clientesById, fromYear, rows, toYear]);
+  }, [clientesById, fromYear, hasEmpresaFilter, rows, selectedEmpresaIdSet, toYear]);
 
   const referenceDocumentos = useMemo<DocumentoAnalitico[]>(
     () =>
       rows
+        .filter((row) => !hasEmpresaFilter || (row.empresa_id ? selectedEmpresaIdSet.has(row.empresa_id) : false))
         .filter(shouldIncludeDocumento)
         .map((row) => mapLiveDocumento(row, clientesById, { fromYear: currentYear, toYear: currentYear }))
         .filter((row): row is DocumentoAnalitico => Boolean(row)),
-    [clientesById, currentYear, rows]
+    [clientesById, currentYear, hasEmpresaFilter, rows, selectedEmpresaIdSet]
   );
 
   const canonicalClientNames = useMemo(() => {
@@ -850,13 +952,42 @@ export default function AnaliticoFaturamentoClient() {
               sistema. Para os controles antigos, os totais seguem o historico enviado.
             </p>
           ) : null}
+          {hasEmpresaFilter ? (
+            <p className="mt-1 text-xs text-amber-200">
+              Filtro por empresa ativo para {selectedEmpresaLabels.join(" + ")}. O historico manual consolidado do
+              grupo fica oculto neste modo.
+            </p>
+          ) : null}
         </div>
-        <Link
-          href="/faturamento/nfse"
-          className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
-        >
-          Voltar para Faturamento
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/faturamento/nfse"
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
+          >
+            Voltar para Faturamento
+          </Link>
+          {empresaOptions.length > 1
+            ? empresaOptions.map((empresa) => {
+                const active = selectedEmpresaIdSet.has(empresa.id);
+                return (
+                  <button
+                    key={empresa.id}
+                    type="button"
+                    onClick={() => toggleEmpresa(empresa.id)}
+                    className={[
+                      "rounded-md border px-3 py-2 text-sm transition-colors",
+                      active
+                        ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
+                        : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900",
+                    ].join(" ")}
+                    title={empresa.fullName}
+                  >
+                    {empresa.label}
+                  </button>
+                );
+              })
+            : null}
+        </div>
       </div>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
