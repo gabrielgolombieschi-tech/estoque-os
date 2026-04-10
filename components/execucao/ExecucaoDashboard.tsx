@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type ThHTMLAttributes } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 
@@ -12,8 +12,7 @@ type DashRow = {
   item_tipo: "execucao";
   area: Area;
   habilitado: boolean;
-  responsavel_id: string | null;
-  data_prevista: string;
+  data_prevista: string | null;
   progresso_percent: number;
   numero_os: string;
   cliente_nome: string;
@@ -26,28 +25,42 @@ type Props = {
   emptyMessage?: string;
 };
 
-type SortDir = "asc" | "desc";
+type GroupedRow = {
+  os_id: number;
+  numero_os: string;
+  cliente_nome: string;
+  descricao_servico: string | null;
+  status: DashRow["status"];
+  executionItems: DashRow[];
+};
 
-const formatPercent = (v: number) =>
-  `${(Number(v || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+const DEFAULT_ROW_HEIGHT = 69;
+const PAGE_ROTATION_MS = 20_000;
+const AREA_ORDER: Record<Area, number> = {
+  eletrico: 0,
+  mecanico: 1,
+};
 
-function firstWord(value: string | null | undefined): string {
-  const s = String(value ?? "").trim();
-  if (!s) return "-";
-  return s.split(/\s+/)[0] ?? "-";
+function executionLabel(area: Area) {
+  return area === "eletrico" ? "ELE" : "Mec";
 }
 
-function clampPercent(v: unknown): number {
-  const n = Number(v ?? 0);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(100, n));
+function executionBadgeClass(area: Area, overdue: boolean) {
+  if (overdue) {
+    return "border border-[color:var(--red-danger)]/40 bg-[color:var(--red-danger)]/18 text-[color:var(--red-danger)]";
+  }
+
+  if (area === "eletrico") {
+    return "border border-amber-400/30 bg-amber-400/12 text-amber-200";
+  }
+
+  return "border border-sky-400/30 bg-sky-400/12 text-sky-200";
 }
 
-function resolveProgressColor(opts: { overdue: boolean; percent: number }) {
-  if (opts.overdue) return "progress-bar--danger";
-  if (opts.percent >= 100) return "progress-bar--ok";
-  if (opts.percent === 0) return "progress-bar--muted";
-  return "progress-bar--info";
+function parseDateValue(value: string | null): number {
+  if (!value) return Number.MAX_SAFE_INTEGER;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
 }
 
 function Icon({ kind, className = "" }: { kind: "list" | "check" | "play" | "alert"; className?: string }) {
@@ -93,11 +106,16 @@ function isOverdue(row: DashRow, today: Date) {
   return progress < 100 && date < today;
 }
 
+function groupIsOverdue(row: GroupedRow, today: Date) {
+  return row.executionItems.some((item) => isOverdue(item, today));
+}
+
+function groupSortDate(row: GroupedRow) {
+  return row.executionItems.reduce((earliest, item) => Math.min(earliest, parseDateValue(item.data_prevista)), Number.MAX_SAFE_INTEGER);
+}
+
 export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) {
   const te = useTenantEmpresa();
-  const areaOrder: Area[] = ["eletrico", "mecanico"];
-  const [areaIndex, setAreaIndex] = useState(0);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
     return supabaseBrowser();
@@ -107,10 +125,15 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
     return typeof papel === "string" && papel.trim().toUpperCase() === "PAINEL_TV";
   }, [te.empresa?.papel]);
   const [rows, setRows] = useState<DashRow[]>(initialRows);
-  const [selected, setSelected] = useState<DashRow | null>(null);
-  const [progressValue, setProgressValue] = useState<string>("0");
+  const [selected, setSelected] = useState<GroupedRow | null>(null);
+  const [progressValues, setProgressValues] = useState<Partial<Record<Area, string>>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [rowsPerPage, setRowsPerPage] = useState(8);
+  const [pageIndex, setPageIndex] = useState(0);
+  const tableViewportRef = useRef<HTMLDivElement | null>(null);
+  const tableHeadRef = useRef<HTMLTableSectionElement | null>(null);
+  const sampleRowRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
     setRows(initialRows);
@@ -122,74 +145,140 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
     return d;
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setAreaIndex((prev) => (prev + 1) % areaOrder.length);
-    }, 30000);
-    return () => clearInterval(id);
-  }, [areaOrder.length]);
-
-  const areaAtual = areaOrder[areaIndex % areaOrder.length];
-
-  const rowsBase = useMemo(() => {
-    const base = rows.filter((r) => r.habilitado && r.item_tipo === "execucao" && r.area === areaAtual);
-    return base;
-  }, [areaAtual, rows]);
-
-  const anoVigente = today.getFullYear();
-
   const tableRows = useMemo(
-    () => rowsBase.filter((r) => r.data_prevista && Number(r.progresso_percent ?? 0) < 100),
-    [rowsBase]
-  );
-
-  const sortedTable = useMemo(() => {
-    return [...tableRows].sort((a, b) => {
-      const da = a.data_prevista ? new Date(a.data_prevista).getTime() : null;
-      const db = b.data_prevista ? new Date(b.data_prevista).getTime() : null;
-      const daOk = da !== null && !Number.isNaN(da);
-      const dbOk = db !== null && !Number.isNaN(db);
-      if (!daOk && !dbOk) return 0;
-      if (!daOk) return 1;
-      if (!dbOk) return -1;
-      return sortDir === "asc" ? (da as number) - (db as number) : (db as number) - (da as number);
-    });
-  }, [sortDir, tableRows]);
-
-
-  // KPIs continuam considerando todos (concluídos inclusos, mas apenas concluidos do ano vigente contam no KPI de concluidos)
-  const rowsConcluidosAno = useMemo(
     () =>
-      rowsBase.filter((r) => {
-        if (!r.data_prevista) return false;
-        const year = new Date(r.data_prevista).getFullYear();
-        return Number(r.progresso_percent ?? 0) === 100 && year === anoVigente;
+      rows.filter((row) => {
+        const progress = Number(row.progresso_percent ?? 0);
+        return (
+          row.habilitado &&
+          row.item_tipo === "execucao" &&
+          (row.area === "eletrico" || row.area === "mecanico") &&
+          progress < 100 &&
+          row.status !== "concluida" &&
+          row.status !== "cancelada"
+        );
       }),
-    [rowsBase, anoVigente]
+    [rows]
   );
+
+  const groupedTable = useMemo(() => {
+    const grouped = new Map<number, GroupedRow>();
+
+    for (const row of tableRows) {
+      const current = grouped.get(row.os_id);
+      if (current) {
+        current.executionItems.push(row);
+        continue;
+      }
+
+      grouped.set(row.os_id, {
+        os_id: row.os_id,
+        numero_os: row.numero_os,
+        cliente_nome: row.cliente_nome,
+        descricao_servico: row.descricao_servico,
+        status: row.status,
+        executionItems: [row],
+      });
+    }
+
+    return Array.from(grouped.values())
+      .map((row) => ({
+        ...row,
+        executionItems: [...row.executionItems].sort((a, b) => AREA_ORDER[a.area] - AREA_ORDER[b.area]),
+      }))
+      .sort((a, b) => {
+        const overdueDelta = Number(groupIsOverdue(b, today)) - Number(groupIsOverdue(a, today));
+        if (overdueDelta !== 0) return overdueDelta;
+
+        const dateDelta = groupSortDate(a) - groupSortDate(b);
+        if (dateDelta !== 0) return dateDelta;
+
+        return a.numero_os.localeCompare(b.numero_os, "pt-BR", { numeric: true });
+      });
+  }, [tableRows, today]);
 
   const kpis = useMemo(() => {
-    const total = rowsBase.length;
-    const concluidos = rowsConcluidosAno.length;
-    const andamento = rowsBase.filter((r) => {
-      const p = Number(r.progresso_percent ?? 0);
-      return p > 0 && p < 100;
-    }).length;
-    const atrasados = rowsBase.filter((r) => isOverdue(r, today)).length;
-    return { total, concluidos, andamento, atrasados };
-  }, [rowsBase, rowsConcluidosAno.length, today]);
+    const emAndamento = groupedTable.length;
+    const eletricas = tableRows.filter((row) => row.area === "eletrico").length;
+    const mecanicas = tableRows.filter((row) => row.area === "mecanico").length;
+    const atrasadas = groupedTable.filter((row) => groupIsOverdue(row, today)).length;
+    return { emAndamento, eletricas, mecanicas, atrasadas };
+  }, [groupedTable, tableRows, today]);
 
-  const toggleSort = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  const recomputeRowsPerPage = useCallback(() => {
+    const viewportHeight = tableViewportRef.current?.clientHeight ?? 0;
+    if (viewportHeight <= 0) return;
 
-  const handleRowClick = (row: DashRow) => {
+    const headerHeight = tableHeadRef.current?.getBoundingClientRect().height ?? 0;
+    const rowHeight = sampleRowRef.current?.getBoundingClientRect().height ?? DEFAULT_ROW_HEIGHT;
+    const availableHeight = Math.max(viewportHeight - headerHeight, rowHeight);
+    const nextRowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight));
+
+    setRowsPerPage((current) => (current === nextRowsPerPage ? current : nextRowsPerPage));
+  }, []);
+
+  useEffect(() => {
+    recomputeRowsPerPage();
+  }, [recomputeRowsPerPage, groupedTable.length, pageIndex]);
+
+  useEffect(() => {
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => recomputeRowsPerPage());
+
+    if (tableViewportRef.current) observer?.observe(tableViewportRef.current);
+    if (tableHeadRef.current) observer?.observe(tableHeadRef.current);
+    if (sampleRowRef.current) observer?.observe(sampleRowRef.current);
+
+    window.addEventListener("resize", recomputeRowsPerPage);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", recomputeRowsPerPage);
+    };
+  }, [recomputeRowsPerPage, groupedTable.length, pageIndex]);
+
+  const totalPages = useMemo(() => {
+    if (groupedTable.length === 0) return 1;
+    return Math.max(1, Math.ceil(groupedTable.length / rowsPerPage));
+  }, [groupedTable.length, rowsPerPage]);
+
+  useEffect(() => {
+    setPageIndex((current) => (current >= totalPages ? 0 : current));
+  }, [totalPages]);
+
+  useEffect(() => {
+    if (totalPages <= 1) {
+      setPageIndex(0);
+      return;
+    }
+
+    const id = window.setInterval(() => {
+      setPageIndex((current) => (current + 1) % totalPages);
+    }, PAGE_ROTATION_MS);
+
+    return () => window.clearInterval(id);
+  }, [totalPages]);
+
+  const pageRows = useMemo(() => {
+    const start = pageIndex * rowsPerPage;
+    return groupedTable.slice(start, start + rowsPerPage);
+  }, [groupedTable, pageIndex, rowsPerPage]);
+
+  const handleRowClick = (row: GroupedRow) => {
+    if (isPainelTv) return;
     setSelected(row);
-    setProgressValue(String(Math.max(0, Math.min(100, Math.trunc(Number(row.progresso_percent ?? 0))))));
+    setProgressValues(
+      row.executionItems.reduce<Partial<Record<Area, string>>>((acc, item) => {
+        acc[item.area] = String(Math.max(0, Math.min(100, Math.trunc(Number(item.progresso_percent ?? 0)))));
+        return acc;
+      }, {})
+    );
     setSaveError(null);
   };
 
   const closeModal = () => {
     if (saving) return;
     setSelected(null);
+    setProgressValues({});
     setSaveError(null);
   };
 
@@ -199,194 +288,225 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
     setSaving(true);
     setSaveError(null);
 
-    const progressNum = Math.max(0, Math.min(100, Math.trunc(Number(progressValue))));
+    const appliedUpdates: Array<{ area: Area; progressNum: number }> = [];
 
-    const { error } = await supabase
-      .from("os_gestao_itens")
-      .update({ progresso_percent: progressNum })
-      .eq("os_id", selected.os_id)
-      .eq("item_tipo", selected.item_tipo)
-      .eq("area", selected.area);
+    for (const item of selected.executionItems) {
+      const progressNum = Math.max(0, Math.min(100, Math.trunc(Number(progressValues[item.area] ?? item.progresso_percent ?? 0))));
 
-    setSaving(false);
+      const { error } = await supabase
+        .from("os_gestao_itens")
+        .update({ progresso_percent: progressNum })
+        .eq("os_id", item.os_id)
+        .eq("item_tipo", item.item_tipo)
+        .eq("area", item.area);
 
-    if (error) {
-      setSaveError(error.message);
-      return;
+      if (error) {
+        if (appliedUpdates.length > 0) {
+          const appliedMap = new Map(appliedUpdates.map((update) => [update.area, update.progressNum]));
+
+          setRows((prev) =>
+            prev.map((row) =>
+              row.os_id === selected.os_id && appliedMap.has(row.area)
+                ? { ...row, progresso_percent: appliedMap.get(row.area) ?? row.progresso_percent }
+                : row
+            )
+          );
+        }
+
+        setSaving(false);
+        setSaveError(error.message);
+        return;
+      }
+
+      appliedUpdates.push({ area: item.area, progressNum });
     }
 
+    const appliedMap = new Map(appliedUpdates.map((update) => [update.area, update.progressNum]));
+
     setRows((prev) =>
-      prev.map((r) =>
-        r.os_id === selected.os_id && r.area === selected.area && r.item_tipo === selected.item_tipo
-          ? { ...r, progresso_percent: progressNum }
-          : r
+      prev.map((row) =>
+        row.os_id === selected.os_id && appliedMap.has(row.area)
+          ? { ...row, progresso_percent: appliedMap.get(row.area) ?? row.progresso_percent }
+          : row
       )
     );
+
+    setSaving(false);
     setSelected(null);
+    setProgressValues({});
   };
 
   const rootClassName = isPainelTv ? "tv-mode" : "";
-  const tableWrapClass = isPainelTv ? "overflow-x-hidden" : "overflow-x-auto";
+  const pageLabel = totalPages > 1 ? `Pagina ${pageIndex + 1} de ${totalPages}` : "Pagina unica";
 
   return (
-    <div className={`space-y-5 ${rootClassName}`}>
-      <header className="rounded-2xl shadow-[0_12px_30px_rgba(15,23,42,0.55)] bg-[color:var(--bg-banner)] text-[color:var(--text-banner)]">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Execução {areaAtual === "eletrico" ? "Elétrica" : "Mecânica"}</h1>
-            <div className="text-xs opacity-70 mt-1">Alternando área a cada 30s</div>
+    <div className={`h-[calc(100dvh-3rem)] overflow-hidden ${rootClassName}`}>
+      <div className="flex h-full flex-col gap-4 px-4 py-4 md:px-6 md:py-6">
+        <header className="shrink-0 rounded-2xl shadow-[0_12px_30px_rgba(15,23,42,0.55)] bg-[color:var(--bg-banner)] text-[color:var(--text-banner)]">
+          <div className="flex items-center justify-between gap-4 px-6 py-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Execucao</h1>
+              <div className="mt-1 text-xs opacity-70">Rotacao automatica de paginas a cada 20s</div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden text-right text-xs text-[color:var(--text-banner)]/75 md:block">
+                <div>{pageLabel}</div>
+                <div>{groupedTable.length} OS em andamento</div>
+              </div>
+              <div className="relative h-14 w-40">
+                <Image src="/Segau2.png" alt="Segau" fill className="object-contain" />
+              </div>
+            </div>
           </div>
-          <div className="relative w-40 h-14">
-            <Image src="/Segau2.png" alt="Segau" fill className="object-contain" />
-          </div>
+        </header>
+
+        <div className="grid shrink-0 grid-cols-2 gap-4 xl:grid-cols-4">
+          <KpiCard label="Em andamento" value={kpis.emAndamento} icon="play" accent="text-[color:var(--blue-info)]" />
+          <KpiCard label="Eletricas" value={kpis.eletricas} icon="list" accent="text-amber-200" />
+          <KpiCard label="Mecanicas" value={kpis.mecanicas} icon="check" accent="text-sky-200" />
+          <KpiCard label="Atrasadas" value={kpis.atrasadas} icon="alert" accent="text-[color:var(--red-danger)]" />
         </div>
-      </header>
 
-      <div className="kpi-row flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
-        <KpiCard label="Quantidade" value={kpis.total} icon="list" accent="text-purple-300" />
-        <KpiCard label="Concluídas" value={kpis.concluidos} icon="check" accent="text-[color:var(--green-ok)]" />
-        <KpiCard label="Em andamento" value={kpis.andamento} icon="play" accent="text-[color:var(--blue-info)]" />
-        <KpiCard label="Atrasadas" value={kpis.atrasados} icon="alert" accent="text-[color:var(--red-danger)]" />
-      </div>
+        <div className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--bg-card)] shadow-[0_16px_40px_rgba(15,23,42,0.55)]">
+          <div className="shrink-0 flex items-center justify-between border-b border-white/10 px-4 py-3 text-sm text-[color:var(--text-muted)]">
+            <div>Quadro de execucao sem rolagem</div>
+            <div>{pageLabel}</div>
+          </div>
 
-      <div className="rounded-2xl overflow-hidden bg-[color:var(--bg-card)] border border-white/10 shadow-[0_16px_40px_rgba(15,23,42,0.55)]">
-        <div className={`${tableWrapClass} overflow-y-auto max-h-[calc(100dvh-320px)]`}>
-          <table className="w-full table-fixed text-base">
-            <thead className="bg-[color:var(--bg-card)]">
-              <tr className="text-left sticky top-0 z-10">
-                <Th>OS</Th>
-                <Th>Cliente</Th>
-                <Th>Descricao</Th>
-                <Th>Responsavel</Th>
-                <Th onClick={toggleSort} className="cursor-pointer select-none">
-                  Data de entrega {sortDir === "asc" ? "(asc)" : "(desc)"}
-                </Th>
-                <Th className="text-right pr-4">Progresso</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTable.map((r, idx) => {
-                const overdue = isOverdue(r, today);
-                const dateBg = overdue
-                  ? "bg-[color:var(--red-danger)]/30 text-[color:var(--text-main)]"
-                  : "bg-[color:var(--green-ok)]/12 text-[color:var(--text-main)]";
-                const dateCell =
-                  r.data_prevista && !Number.isNaN(new Date(r.data_prevista).getTime())
-                    ? new Date(r.data_prevista).toLocaleDateString("pt-BR")
-                    : "-";
-                const percent = clampPercent(r.progresso_percent);
-                const barColor = resolveProgressColor({ overdue, percent });
-                const zebra = idx % 2 === 0 ? "bg-[color:var(--bg-card)]" : "";
-                return (
-                  <tr
-                    key={`${r.os_id}-${r.area}-${idx}`}
-                    className={`transition-all duration-200 ${overdue ? "overdue-row overdue-blink" : zebra} ${isPainelTv ? "" : "hover:bg-[color:var(--bg-hover)] cursor-pointer"}`}
-                    onClick={() => handleRowClick(r)}
-                  >
-                    <Td className="w-[90px] whitespace-nowrap">{r.numero_os}</Td>
-                    <Td className="w-[210px] truncate">{firstWord(r.cliente_nome)}</Td>
-                    <Td className="truncate">{r.descricao_servico || "Sem descricao"}</Td>
-                    <Td className="w-[160px] truncate">{r.responsavel_id || "-"}</Td>
-                    <Td className={`w-[170px] whitespace-nowrap ${dateBg}`}>{dateCell}</Td>
-                    <Td className="w-[240px] pr-4">
-                      <div className="flex items-center justify-end gap-3">
-                        <progress
-                          className={`progress-bar w-[140px] h-3 ${barColor}`}
-                          value={percent}
-                          max={100}
-                          aria-label="Progresso"
-                        />
-                        <div className="text-right tabular-nums text-sm text-[color:var(--text-muted)] min-w-[64px]">
-                          {formatPercent(percent)}
+          <div ref={tableViewportRef} className="min-h-0 flex-1 overflow-hidden">
+            <table className="w-full table-fixed text-base">
+              <thead ref={tableHeadRef} className="bg-[color:var(--bg-card)]">
+                <tr className="text-left">
+                  <Th className="w-[110px]">OS</Th>
+                  <Th className="w-[240px]">Cliente</Th>
+                  <Th>Descricao</Th>
+                  <Th className="w-[220px] text-center">Execucao</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((row, idx) => {
+                  const overdue = groupIsOverdue(row, today);
+                  const zebra = idx % 2 === 0 ? "bg-[color:var(--bg-card)]" : "bg-white/[0.02]";
+                  const rowClassName = overdue ? "bg-[color:var(--red-danger)]/6" : zebra;
+                  return (
+                    <tr
+                      key={`${row.os_id}-${idx}`}
+                      ref={idx === 0 ? sampleRowRef : null}
+                      className={`h-[69px] border-t border-white/5 transition-colors ${rowClassName} ${
+                        isPainelTv ? "" : "cursor-pointer hover:bg-[color:var(--bg-hover)]"
+                      }`}
+                      onClick={isPainelTv ? undefined : () => handleRowClick(row)}
+                    >
+                      <Td className="w-[110px] whitespace-nowrap font-semibold">{row.numero_os}</Td>
+                      <Td className="w-[240px] truncate">{row.cliente_nome || "-"}</Td>
+                      <Td className="truncate">{row.descricao_servico || "Sem descricao"}</Td>
+                      <Td className="w-[220px] text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {row.executionItems.map((item) => {
+                            const itemOverdue = isOverdue(item, today);
+
+                            return (
+                              <span
+                                key={`${row.os_id}-${item.area}`}
+                                className={`inline-flex min-w-[64px] items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold tracking-[0.14em] ${executionBadgeClass(item.area, itemOverdue)}`}
+                              >
+                                {executionLabel(item.area)}
+                              </span>
+                            );
+                          })}
                         </div>
-                      </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
+
+                {pageRows.length === 0 && (
+                  <tr>
+                    <Td colSpan={4} className="py-8 text-center text-zinc-400">
+                      {emptyMessage ?? "Nenhuma execucao em aberto."}
                     </Td>
                   </tr>
-                );
-              })}
-
-              {tableRows.length === 0 && (
-                <tr>
-                  <Td colSpan={6} className="text-center py-6 text-zinc-400">
-                    {emptyMessage ?? "Nenhuma execução em aberto."}
-                  </Td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {selected && (
+      {selected && !isPainelTv && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
           <div
-            className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl flex flex-col max-h-[calc(100dvh-2rem)] min-h-0 overflow-hidden"
+            className="flex min-h-0 max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-3 shrink-0">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-800 px-5 py-4">
               <div>
                 <div className="text-lg font-semibold text-zinc-100">Atualizar status da OS {selected.numero_os}</div>
                 <div className="text-sm text-zinc-400">
-                  {selected.cliente_nome} • {selected.area.toUpperCase()}
+                  {selected.cliente_nome} | {selected.executionItems.map((item) => executionLabel(item.area)).join(" / ")}
                 </div>
               </div>
               <button
                 onClick={closeModal}
-                className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm hover:bg-zinc-800"
                 disabled={saving}
               >
                 Fechar
               </button>
             </div>
 
-            <div className="px-5 py-4 overflow-y-auto min-h-0">
+            <div className="min-h-0 overflow-y-auto px-5 py-4">
               <div className="space-y-2 text-sm">
                 <div>
-                  <div className="text-zinc-400 uppercase text-[11px]">Descrição</div>
-                  <div className="text-zinc-100 whitespace-pre-wrap">{selected.descricao_servico || "Sem descrição"}</div>
+                  <div className="text-[11px] uppercase text-zinc-400">Descricao</div>
+                  <div className="whitespace-pre-wrap text-zinc-100">{selected.descricao_servico || "Sem descricao"}</div>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="text-zinc-400 uppercase text-[11px]">Status - {selected.area.toUpperCase()}</div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={progressValue}
-                    onChange={(e) => setProgressValue(e.target.value)}
-                    disabled={saving || isPainelTv}
-                    className="w-full rounded-md bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100"
-                    placeholder="0 a 100%"
-                  />
-                </div>
+                {selected.executionItems.map((item) => (
+                  <div key={`status-${item.area}`} className="space-y-1">
+                    <div className="text-[11px] uppercase text-zinc-400">Status - {executionLabel(item.area)}</div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={progressValues[item.area] ?? ""}
+                      onChange={(e) =>
+                        setProgressValues((prev) => ({
+                          ...prev,
+                          [item.area]: e.target.value,
+                        }))
+                      }
+                      disabled={saving}
+                      className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-zinc-100"
+                      placeholder="0 a 100%"
+                    />
+                  </div>
+                ))}
 
                 {saveError && <div className="text-sm text-red-400">{saveError}</div>}
-                {isPainelTv && <div className="text-xs text-zinc-400">Somente leitura (PAINEL_TV).</div>}
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-zinc-800 flex items-center justify-end gap-2 shrink-0">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-5 py-4">
               <button
                 onClick={closeModal}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 hover:bg-zinc-800"
                 disabled={saving}
               >
                 Cancelar
               </button>
-              {!isPainelTv && (
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-4 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
-                >
-                  {saving ? "Salvando..." : "Salvar"}
-                </button>
-              )}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="rounded-md bg-emerald-300 px-4 py-2 font-medium text-emerald-950 hover:bg-emerald-200"
+              >
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
             </div>
           </div>
         </div>
@@ -407,21 +527,21 @@ function KpiCard({
   icon: "list" | "check" | "play" | "alert";
 }) {
   return (
-    <div className="kpi-card relative flex-none min-w-[260px] rounded-2xl bg-[color:var(--bg-card)] border border-white/10 shadow-[0_14px_34px_rgba(15,23,42,0.55)] p-5 overflow-hidden">
+    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--bg-card)] p-5 shadow-[0_14px_34px_rgba(15,23,42,0.55)]">
       <div className="absolute right-4 top-4 opacity-70">
         <Icon kind={icon} className={`${accent ?? "text-[color:var(--text-muted)]"}`} />
       </div>
 
-      <div className="text-xs tracking-wide uppercase text-[color:var(--text-muted)]">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-[color:var(--text-muted)]">{label}</div>
       <div className={`mt-2 text-4xl font-semibold ${accent ?? "text-[color:var(--text-main)]"}`}>{value}</div>
-      <div className="mt-4 h-1 w-full rounded-full bg-slate-900/30 overflow-hidden">
+      <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-slate-900/30">
         <div className={`h-1 w-1/3 ${accent ?? "bg-[color:var(--blue-info)]"} opacity-35`} />
       </div>
     </div>
   );
 }
 
-type ThProps = React.ThHTMLAttributes<HTMLTableCellElement> & { children: React.ReactNode };
+type ThProps = ThHTMLAttributes<HTMLTableCellElement> & { children: ReactNode };
 
 function Th({ children, className = "", ...rest }: ThProps) {
   return (
@@ -439,7 +559,7 @@ function Td({
   className,
   colSpan,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   colSpan?: number;
 }) {

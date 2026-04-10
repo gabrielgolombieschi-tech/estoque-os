@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { applyTenant } from "@/lib/db/scopes";
-import ExecucaoDashboard from "../../components/execucao/ExecucaoDashboard";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import ExecucaoDashboard from "../../components/execucao/ExecucaoDashboard";
 
 type DashRow = {
   os_id: number;
   item_tipo: "execucao";
   area: "eletrico" | "mecanico";
   habilitado: boolean;
-  responsavel_id: string | null;
-  data_prevista: string;
+  data_prevista: string | null;
   progresso_percent: number;
   numero_os: string;
   cliente_nome: string;
@@ -25,8 +24,7 @@ type OsGestaoRow = {
   item_tipo: "execucao";
   area: DashRow["area"];
   habilitado: boolean | null;
-  responsavel_id: string | null;
-  data_prevista: string;
+  data_prevista: string | null;
   progresso_percent: number | null;
 };
 
@@ -35,7 +33,7 @@ export default function ExecucaoPage() {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
     return supabaseBrowser();
   }, []);
-  const { tenantId } = useTenantEmpresa();
+  const { tenantId, empresaId } = useTenantEmpresa();
   const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
   const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
   const [rows, setRows] = useState<DashRow[]>([]);
@@ -43,6 +41,8 @@ export default function ExecucaoPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (tenantId && !empresaId) return;
+
     let active = true;
 
     (async () => {
@@ -61,19 +61,29 @@ export default function ExecucaoPage() {
         return;
       }
 
-      const { data, error } = await applyTenant(
+      if (empresaId) {
+        const { error: empresaErr } = await supabase.rpc("set_current_empresa", {
+          p_empresa_id: empresaId,
+        });
+
+        if (empresaErr) {
+          console.error("Erro ao definir empresa atual:", empresaErr.message ?? empresaErr);
+        }
+      }
+
+      const { data, error } = await applyTenantEmpresa(
         supabase.from("os_gestao_itens").select(
           `
             os_id,
             item_tipo,
             area,
             habilitado,
-            responsavel_id,
             data_prevista,
             progresso_percent
           `
         ),
-        effectiveTenantId
+        effectiveTenantId,
+        empresaId ?? ""
       )
         .eq("habilitado", true)
         .eq("item_tipo", "execucao");
@@ -92,15 +102,20 @@ export default function ExecucaoPage() {
       const osIds = Array.from(new Set(gestaoRows.map((row) => row.os_id)));
       const osMap = new Map<
         number,
-        { numero_os?: string | null; cliente_nome?: string | null; descricao_servico?: string | null; status?: DashRow["status"] | null }
+        {
+          numero_os?: string | null;
+          cliente_nome?: string | null;
+          descricao_servico?: string | null;
+          status?: DashRow["status"] | null;
+        }
       >();
 
       if (osIds.length > 0) {
-        const { data: osData, error: osErr } = await applyTenant(
+        const { data: osData, error: osErr } = await applyTenantEmpresa(
           supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
-          effectiveTenantId
-        )
-          .in("id", osIds);
+          effectiveTenantId,
+          empresaId ?? ""
+        ).in("id", osIds);
 
         if (osErr) {
           console.error("Erro ao carregar ordens_servico:", osErr.message ?? osErr);
@@ -125,8 +140,7 @@ export default function ExecucaoPage() {
           os_id: row.os_id,
           item_tipo: "execucao" as const,
           area: row.area,
-          habilitado: !!row.habilitado,
-          responsavel_id: row.responsavel_id,
+          habilitado: Boolean(row.habilitado),
           data_prevista: row.data_prevista,
           progresso_percent: Number(row.progresso_percent ?? 0),
           numero_os: osMap.get(row.os_id)?.numero_os ?? String(row.os_id),
@@ -134,7 +148,7 @@ export default function ExecucaoPage() {
           descricao_servico: osMap.get(row.os_id)?.descricao_servico ?? null,
           status: osMap.get(row.os_id)?.status ?? null,
         }))
-        .filter((r) => !!r.data_prevista && (r.area === "eletrico" || r.area === "mecanico"));
+        .filter((row) => row.area === "eletrico" || row.area === "mecanico");
 
       setRows(mapped);
       setLoading(false);
@@ -143,7 +157,7 @@ export default function ExecucaoPage() {
     return () => {
       active = false;
     };
-  }, [supabase, tenantId, effectiveTenantId]);
+  }, [supabase, tenantId, empresaId, effectiveTenantId]);
 
   if (loading) {
     return (
