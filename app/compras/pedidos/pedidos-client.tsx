@@ -62,6 +62,9 @@ type Pedido = {
   fornecedor_nome?: string | null;
   solicitante_usuario_id?: string | null;
   solicitante_nome?: string | null;
+  previsao_entrega_date?: string | null;
+  condicao_pagamento_id?: string | null;
+  condicao_pagamento_nome?: string | null;
   created_at: string;
   total_geral: number;
 };
@@ -85,6 +88,15 @@ type UsuarioSolicitante = {
   id: string;
   nome: string;
   email: string;
+};
+
+type CondicaoPagamentoOption = {
+  id: string;
+  codigo: string | null;
+  nome: string | null;
+  dias: number | null;
+  acrescimo_percent?: number | string | null;
+  ativo?: boolean | null;
 };
 
 type LookupItemRow = {
@@ -185,6 +197,20 @@ function fmtDate(v: string) {
   const d = new Date(v);
   if (!Number.isFinite(d.getTime())) return "-";
   return d.toLocaleDateString("pt-BR");
+}
+
+function formatCondicaoPagamentoLabel(value: {
+  nome?: string | null;
+  codigo?: string | null;
+  dias?: number | null;
+}) {
+  const nome = String(value.nome ?? "").trim();
+  const codigo = String(value.codigo ?? "").trim();
+  const dias = typeof value.dias === "number" && Number.isFinite(value.dias) ? value.dias : null;
+  const base = nome || codigo || "-";
+  if (dias === null) return base;
+  if (dias === 0) return `${base} | imediato`;
+  return `${base} | ${dias} dia${dias === 1 ? "" : "s"}`;
 }
 
 function fmtLookupSaldo(v: number | null) {
@@ -330,7 +356,13 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [recebimentoObservacoes, setRecebimentoObservacoes] = useState("");
   const [autoScanTried, setAutoScanTried] = useState(false);
   const [usuariosSolicitantes, setUsuariosSolicitantes] = useState<UsuarioSolicitante[]>([]);
+  const [condicoesPagamento, setCondicoesPagamento] = useState<CondicaoPagamentoOption[]>([]);
+  const [avulsoSolicitanteId, setAvulsoSolicitanteId] = useState("");
+  const [avulsoPrevisaoEntregaDate, setAvulsoPrevisaoEntregaDate] = useState("");
+  const [avulsoCondicaoPagamentoId, setAvulsoCondicaoPagamentoId] = useState("");
   const [pedidoSolicitanteId, setPedidoSolicitanteId] = useState("");
+  const [pedidoPrevisaoEntregaDate, setPedidoPrevisaoEntregaDate] = useState("");
+  const [pedidoCondicaoPagamentoId, setPedidoCondicaoPagamentoId] = useState("");
   const manualQtdInputRef = useRef<HTMLInputElement | null>(null);
 
   const [busy, setBusy] = useState(false);
@@ -454,6 +486,19 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     setUsuariosSolicitantes(rows);
   }, [effectiveCanRead, empresaId, readOnly, tenantId]);
 
+  const loadCondicoesPagamento = useCallback(async () => {
+    if (readOnly) return;
+    if (!tenantId || !empresaId || !effectiveCanRead) return;
+    try {
+      const json = await authedFetch(`/api/compras/condicoes-pagamento?${ctxQuery}`);
+      const rows = ((json.data as CondicaoPagamentoOption[]) ?? []).filter((row) => row?.id);
+      setCondicoesPagamento(rows);
+    } catch (e: unknown) {
+      setCondicoesPagamento([]);
+      setErr(e instanceof Error ? e.message : "Erro ao carregar condicoes de pagamento.");
+    }
+  }, [ctxQuery, effectiveCanRead, empresaId, readOnly, tenantId]);
+
   const loadPendencias = useCallback(async () => {
     if (!tenantId || !empresaId || !effectiveCanRead || fornecedorId == null) return;
     const base = `/api/compras/pendencias?${ctxQuery}&modo=${modo}&fornecedorId=${fornecedorId}`;
@@ -530,11 +575,42 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     () => pedidosFiltrados.find((p) => p.id === manualPedidoId) ?? null,
     [manualPedidoId, pedidosFiltrados]
   );
+  const defaultSolicitanteId = useMemo(() => {
+    const sessionEmail = String(te.sessionEmail ?? "").trim().toLowerCase();
+    if (!sessionEmail) return "";
+    return usuariosSolicitantes.find((u) => String(u.email ?? "").trim().toLowerCase() === sessionEmail)?.id ?? "";
+  }, [te.sessionEmail, usuariosSolicitantes]);
   const canEditManualItems = useMemo(() => {
     const st = String(selectedPedido?.status ?? "").toUpperCase();
     return ["RASCUNHO", "AGUARDANDO_APROVACAO", "REPROVADO"].includes(st);
   }, [selectedPedido?.status]);
   const canEditPedidoItems = !readOnly && canWrite && canEditManualItems && pedidoEditMode;
+  const pedidoCabecalhoDirty = useMemo(() => {
+    if (!selectedPedido) return false;
+    return (
+      String(selectedPedido.solicitante_usuario_id ?? "") !== pedidoSolicitanteId ||
+      String(selectedPedido.previsao_entrega_date ?? "") !== pedidoPrevisaoEntregaDate ||
+      String(selectedPedido.condicao_pagamento_id ?? "") !== pedidoCondicaoPagamentoId
+    );
+  }, [
+    pedidoCondicaoPagamentoId,
+    pedidoPrevisaoEntregaDate,
+    pedidoSolicitanteId,
+    selectedPedido,
+  ]);
+  const pedidoCabecalhoCompleto = Boolean(
+    pedidoSolicitanteId.trim() && pedidoPrevisaoEntregaDate.trim() && pedidoCondicaoPagamentoId.trim()
+  );
+  const bloqueioFluxoPedido = useMemo(() => {
+    if (!selectedPedido) return null;
+    if (!pedidoCabecalhoCompleto) {
+      return "Preencha solicitante, data de entrega e condicao de pagamento antes de solicitar aprovacao, aprovar ou enviar.";
+    }
+    if (pedidoCabecalhoDirty) {
+      return "Salve os dados do pedido antes de continuar o fluxo.";
+    }
+    return null;
+  }, [pedidoCabecalhoCompleto, pedidoCabecalhoDirty, selectedPedido]);
   const sortedLookupRows = useMemo(
     () => sortLookupRows(lookupRows, lookupSortKey, lookupSortDir),
     [lookupRows, lookupSortDir, lookupSortKey]
@@ -624,8 +700,32 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   }, [loadUsuariosSolicitantes]);
 
   useEffect(() => {
-    setPedidoSolicitanteId(String(selectedPedido?.solicitante_usuario_id ?? ""));
-  }, [selectedPedido?.solicitante_usuario_id]);
+    void loadCondicoesPagamento();
+  }, [loadCondicoesPagamento]);
+
+  useEffect(() => {
+    if (!defaultSolicitanteId) return;
+    setAvulsoSolicitanteId((prev) => (prev ? prev : defaultSolicitanteId));
+  }, [defaultSolicitanteId]);
+
+  useEffect(() => {
+    if (!selectedPedido) {
+      setPedidoSolicitanteId(defaultSolicitanteId);
+      setPedidoPrevisaoEntregaDate("");
+      setPedidoCondicaoPagamentoId("");
+      return;
+    }
+    setPedidoSolicitanteId(String(selectedPedido.solicitante_usuario_id ?? defaultSolicitanteId ?? ""));
+    setPedidoPrevisaoEntregaDate(String(selectedPedido.previsao_entrega_date ?? ""));
+    setPedidoCondicaoPagamentoId(String(selectedPedido.condicao_pagamento_id ?? ""));
+  }, [
+    defaultSolicitanteId,
+    selectedPedido,
+    selectedPedido?.condicao_pagamento_id,
+    selectedPedido?.id,
+    selectedPedido?.previsao_entrega_date,
+    selectedPedido?.solicitante_usuario_id,
+  ]);
 
   useEffect(() => {
     if (tab !== "pedidos") return;
@@ -705,6 +805,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
           tenant_id: tenantId,
           empresa_id: empresaId,
           fornecedorId,
+          solicitanteUsuarioId: defaultSolicitanteId || null,
           pendenciaIds: selPendencias,
           quantidadeOverrides,
           valorUnitOverrides,
@@ -720,7 +821,17 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     } finally {
       setBusy(false);
     }
-  }, [detQtdConfirmById, detVlrConfirmById, empresaId, fornecedorId, loadPendencias, loadPedidos, selPendencias, tenantId]);
+  }, [
+    defaultSolicitanteId,
+    detQtdConfirmById,
+    detVlrConfirmById,
+    empresaId,
+    fornecedorId,
+    loadPendencias,
+    loadPedidos,
+    selPendencias,
+    tenantId,
+  ]);
 
   const adicionarLinhaDetalhada = useCallback(() => {
     if (modo !== "DETALHADO") return;
@@ -1216,7 +1327,9 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
           tenant_id: tenantId,
           empresa_id: empresaId,
           fornecedorId: avulsoFornecedorId,
-          solicitanteUsuarioId: pedidoSolicitanteId || null,
+          solicitanteUsuarioId: avulsoSolicitanteId || null,
+          previsaoEntregaDate: avulsoPrevisaoEntregaDate || null,
+          condicaoPagamentoId: avulsoCondicaoPagamentoId || null,
           osReferencia: avulsoOsReferencia.trim() || null,
           observacoes: avulsoObservacoes.trim() || null,
         }),
@@ -1232,6 +1345,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       setManualQtd("1");
       setManualValor("0");
       setManualOsNumero("");
+      setAvulsoPrevisaoEntregaDate("");
+      setAvulsoCondicaoPagamentoId("");
 
       await loadPedidos();
       setTab("pedidos");
@@ -1243,16 +1358,18 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     }
   }, [
     avulsoFornecedorId,
+    avulsoCondicaoPagamentoId,
     avulsoObservacoes,
     avulsoOsReferencia,
+    avulsoPrevisaoEntregaDate,
+    avulsoSolicitanteId,
     canWrite,
     empresaId,
     loadPedidos,
     tenantId,
-    pedidoSolicitanteId,
   ]);
 
-  const salvarSolicitantePedido = useCallback(async () => {
+  const salvarDadosPedido = useCallback(async () => {
     if (!manualPedidoId) return;
     setBusy(true);
     setErr(null);
@@ -1264,16 +1381,27 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
           tenant_id: tenantId,
           empresa_id: empresaId,
           solicitanteUsuarioId: pedidoSolicitanteId || null,
+          previsaoEntregaDate: pedidoPrevisaoEntregaDate || null,
+          condicaoPagamentoId: pedidoCondicaoPagamentoId || null,
         }),
       });
-      setOk("Solicitante do pedido atualizado.");
-      await loadPedidos();
+      setOk("Dados do pedido atualizados.");
+      await Promise.all([loadPedidos(), loadPedidoItens()]);
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Erro ao atualizar solicitante.");
+      setErr(e instanceof Error ? e.message : "Erro ao atualizar dados do pedido.");
     } finally {
       setBusy(false);
     }
-  }, [empresaId, loadPedidos, manualPedidoId, pedidoSolicitanteId, tenantId]);
+  }, [
+    empresaId,
+    loadPedidoItens,
+    loadPedidos,
+    manualPedidoId,
+    pedidoCondicaoPagamentoId,
+    pedidoPrevisaoEntregaDate,
+    pedidoSolicitanteId,
+    tenantId,
+  ]);
 
   const imprimirPedido = useCallback((pedidoId: string) => {
     const id = String(pedidoId ?? "").trim();
@@ -1614,7 +1742,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <label className="text-sm space-y-1">
               <div className="text-zinc-300">Fornecedor</div>
               <select
@@ -1632,16 +1760,43 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
             </label>
 
             <label className="text-sm space-y-1">
-              <div className="text-zinc-300">Solicitante (opcional)</div>
+              <div className="text-zinc-300">Solicitante</div>
               <select
                 className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
-                value={pedidoSolicitanteId}
-                onChange={(e) => setPedidoSolicitanteId(e.target.value)}
+                value={avulsoSolicitanteId}
+                onChange={(e) => setAvulsoSolicitanteId(e.target.value)}
               >
                 <option value="">Selecione...</option>
                 {usuariosSolicitantes.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.nome} - {u.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm space-y-1">
+              <div className="text-zinc-300">Data de entrega</div>
+              <input
+                type="date"
+                className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
+                value={avulsoPrevisaoEntregaDate}
+                onChange={(e) => setAvulsoPrevisaoEntregaDate(e.target.value)}
+              />
+              <div className="text-[11px] text-zinc-500">Clique no campo para abrir o calendario.</div>
+            </label>
+
+            <label className="text-sm space-y-1">
+              <div className="text-zinc-300">Condicao de pagamento</div>
+              <select
+                className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950"
+                value={avulsoCondicaoPagamentoId}
+                onChange={(e) => setAvulsoCondicaoPagamentoId(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {condicoesPagamento.map((condicao) => (
+                  <option key={condicao.id} value={condicao.id}>
+                    {formatCondicaoPagamentoLabel(condicao)}
                   </option>
                 ))}
               </select>
@@ -1677,7 +1832,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
               Criar Pedido Avulso
             </button>
             <span className="text-xs text-zinc-500">
-              Depois de criar, use a aba Pedidos para incluir, editar e remover itens livres.
+              Solicitante ja vem sugerido com o usuario logado. Depois de criar, use a aba Pedidos para incluir, editar e remover itens livres.
             </span>
           </div>
         </div>
@@ -1728,6 +1883,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                     <tr className="text-left text-zinc-300 border-b border-zinc-800">
                       <th className="py-2 px-3">Codigo</th>
                       <th className="py-2 px-3">Fornecedor</th>
+                      <th className="py-2 px-3">Data de entrega</th>
+                      <th className="py-2 px-3">Condicoes de pagamento</th>
                       <th className="py-2 px-3">Status</th>
                       <th className="py-2 px-3 text-right">Valor</th>
                     </tr>
@@ -1750,6 +1907,12 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                           <td className="py-2 px-3 text-zinc-200">
                             {String(p.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR"}
                           </td>
+                          <td className="py-2 px-3 text-zinc-300 whitespace-nowrap">
+                            {p.previsao_entrega_date ? fmtDate(String(p.previsao_entrega_date)) : "-"}
+                          </td>
+                          <td className="py-2 px-3 text-zinc-300">
+                            {String(p.condicao_pagamento_nome ?? "").trim() || "-"}
+                          </td>
                           <td className="py-2 px-3">
                             <span className={`inline-flex rounded px-2 py-0.5 text-xs ${statusBadgeClass(String(p.status ?? ""))}`}>
                               {statusLabel(String(p.status ?? ""))}
@@ -1761,7 +1924,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                     })}
                     {!pedidosFiltrados.length && (
                       <tr>
-                        <td className="py-6 px-3 text-zinc-500 text-center" colSpan={4}>
+                        <td className="py-6 px-3 text-zinc-500 text-center" colSpan={6}>
                           Nenhum pedido encontrado.
                         </td>
                       </tr>
@@ -1788,35 +1951,87 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                   </div>
 
                   {readOnly ? (
-                    selectedPedido.solicitante_nome ? (
-                      <div className="text-xs text-zinc-500">Solicitante: {selectedPedido.solicitante_nome}</div>
-                    ) : null
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+                        <div className="text-[11px] uppercase tracking-wide text-zinc-500">Solicitante</div>
+                        <div className="text-sm text-zinc-200">{selectedPedido.solicitante_nome || "-"}</div>
+                      </div>
+                      <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+                        <div className="text-[11px] uppercase tracking-wide text-zinc-500">Data de entrega</div>
+                        <div className="text-sm text-zinc-200">
+                          {selectedPedido.previsao_entrega_date ? fmtDate(String(selectedPedido.previsao_entrega_date)) : "-"}
+                        </div>
+                      </div>
+                      <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+                        <div className="text-[11px] uppercase tracking-wide text-zinc-500">Condicao de pagamento</div>
+                        <div className="text-sm text-zinc-200">{selectedPedido.condicao_pagamento_nome || "-"}</div>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <label className="text-xs text-zinc-400">Solicitante</label>
-                      <select
-                        className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-sm min-w-[280px]"
-                        value={pedidoSolicitanteId}
-                        onChange={(e) => setPedidoSolicitanteId(e.target.value)}
-                        disabled={busy || !canWrite}
-                      >
-                        <option value="">Selecione...</option>
-                        {usuariosSolicitantes.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.nome} - {u.email}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
-                        onClick={() => void salvarSolicitantePedido()}
-                        disabled={busy || !canWrite}
-                      >
-                        Salvar solicitante
-                      </button>
-                      {selectedPedido.solicitante_nome ? (
-                        <span className="text-xs text-zinc-500">Atual: {selectedPedido.solicitante_nome}</span>
-                      ) : null}
+                    <div className="rounded border border-zinc-800 p-3 space-y-3">
+                      <div className="text-sm font-medium">Dados do pedido</div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <label className="space-y-1 text-sm">
+                          <div className="text-zinc-300">Solicitante</div>
+                          <select
+                            className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                            value={pedidoSolicitanteId}
+                            onChange={(e) => setPedidoSolicitanteId(e.target.value)}
+                            disabled={busy || !canWrite}
+                          >
+                            <option value="">Selecione...</option>
+                            {usuariosSolicitantes.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.nome} - {u.email}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="space-y-1 text-sm">
+                          <div className="text-zinc-300">Data de entrega</div>
+                          <input
+                            type="date"
+                            className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                            value={pedidoPrevisaoEntregaDate}
+                            onChange={(e) => setPedidoPrevisaoEntregaDate(e.target.value)}
+                            disabled={busy || !canWrite}
+                          />
+                          <div className="text-[11px] text-zinc-500">Clique no campo para abrir o calendario.</div>
+                        </label>
+
+                        <label className="space-y-1 text-sm">
+                          <div className="text-zinc-300">Condicao de pagamento</div>
+                          <select
+                            className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                            value={pedidoCondicaoPagamentoId}
+                            onChange={(e) => setPedidoCondicaoPagamentoId(e.target.value)}
+                            disabled={busy || !canWrite}
+                          >
+                            <option value="">Selecione...</option>
+                            {condicoesPagamento.map((condicao) => (
+                              <option key={condicao.id} value={condicao.id}>
+                                {formatCondicaoPagamentoLabel(condicao)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                          onClick={() => void salvarDadosPedido()}
+                          disabled={busy || !canWrite || !pedidoCabecalhoDirty}
+                        >
+                          Salvar dados do pedido
+                        </button>
+                        {!pedidoCabecalhoDirty ? (
+                          <span className="text-xs text-zinc-500">Dados sincronizados com o pedido.</span>
+                        ) : (
+                          <span className="text-xs text-amber-300">Ha alteracoes pendentes de salvamento.</span>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1830,16 +2045,37 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                     >
                       {pedidoEditMode ? "Fechar edição" : "Editar"}
                     </button>
-                    <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "enviar-aprovacao")}>Solic. Aprov.</button>
-                    <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "aprovar")}>Aprovar</button>
+                    <button
+                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                      onClick={() => void transicionarPedido(selectedPedido.id, "enviar-aprovacao")}
+                      disabled={busy || Boolean(bloqueioFluxoPedido)}
+                    >
+                      Solic. Aprov.
+                    </button>
+                    <button
+                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                      onClick={() => void transicionarPedido(selectedPedido.id, "aprovar")}
+                      disabled={busy || Boolean(bloqueioFluxoPedido)}
+                    >
+                      Aprovar
+                    </button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "reprovar", { motivo: "Reprovado via tela" })}>Reprovar</button>
-                    <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "enviar")}>Enviar</button>
+                    <button
+                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
+                      onClick={() => void transicionarPedido(selectedPedido.id, "enviar")}
+                      disabled={busy || Boolean(bloqueioFluxoPedido)}
+                    >
+                      Enviar
+                    </button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void receberTotal(selectedPedido.id)}>Receber</button>
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "cancelar", { motivo: "Cancelado via tela" })}>Cancelar</button>
                       </>
                     )}
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => imprimirPedido(selectedPedido.id)}>Imprimir PDF</button>
                   </div>
+                  {!readOnly && bloqueioFluxoPedido ? (
+                    <div className="text-xs text-amber-300">{bloqueioFluxoPedido}</div>
+                  ) : null}
 
                   {!readOnly && (
                     <div className="rounded border border-zinc-800 p-3 space-y-2">

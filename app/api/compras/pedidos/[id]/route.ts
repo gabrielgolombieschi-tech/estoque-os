@@ -1,10 +1,18 @@
 import { NextRequest } from "next/server";
-import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../_lib";
+import {
+  canCompras,
+  getAuthSupabase,
+  jsonError,
+  resolveCondicaoPagamento,
+  resolvePedidoSolicitanteUsuarioId,
+  resolveTenantEmpresa,
+} from "../../_lib";
 import { getAllowedEmpresas } from "@/lib/auth/empresa";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PEDIDO_LOOKUP_ALLOWED_ROLES = new Set([
   "ADMIN",
   "FINANCEIRO",
@@ -13,6 +21,14 @@ const PEDIDO_LOOKUP_ALLOWED_ROLES = new Set([
   "ALMOXARIFADO",
   "APONTAMENTO_RH",
 ]);
+
+function parseIsoDate(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!ISO_DATE_RE.test(raw)) return undefined;
+  const date = new Date(`${raw}T00:00:00`);
+  return Number.isFinite(date.getTime()) ? raw : undefined;
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthSupabase(req);
@@ -38,7 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   if (!canReadCompras && !canLookupByRole) return jsonError(403, "Sem permissao (compras.read).");
-  const db = canReadCompras ? supabase : supabaseAdmin();
+  const db = supabaseAdmin();
 
   const { data: pedido, error: pedidoErr } = await db
     .schema("m")
@@ -53,6 +69,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   let fornecedorNome = "SEM FORNECEDOR";
   let solicitanteNome = "";
+  let condicaoPagamentoNome = "";
   const fornecedorId = Number((pedido as Record<string, unknown>).fornecedor_id);
   if (Number.isFinite(fornecedorId) && fornecedorId > 0) {
     const { data: fornecedor, error: fornecedorErr } = await db
@@ -78,6 +95,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       const nome = String((solicitante as Record<string, unknown>).nome ?? "").trim();
       const email = String((solicitante as Record<string, unknown>).email ?? "").trim();
       solicitanteNome = nome || email;
+    }
+  }
+  const condicaoPagamentoId = String((pedido as Record<string, unknown>).condicao_pagamento_id ?? "").trim();
+  if (condicaoPagamentoId && UUID_RE.test(condicaoPagamentoId)) {
+    const { data: condicaoPagamento, error: condicaoPagamentoErr } = await db
+      .schema("c")
+      .from("condicao_pagamento")
+      .select("id,nome,codigo")
+      .eq("id", condicaoPagamentoId)
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (condicaoPagamentoErr) return jsonError(400, condicaoPagamentoErr.message);
+    if (condicaoPagamento) {
+      const nome = String((condicaoPagamento as Record<string, unknown>).nome ?? "").trim();
+      const codigo = String((condicaoPagamento as Record<string, unknown>).codigo ?? "").trim();
+      condicaoPagamentoNome = nome || codigo;
     }
   }
 
@@ -307,6 +342,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(pedido as Record<string, unknown>),
         fornecedor_nome: fornecedorNome,
         solicitante_nome: solicitanteNome || null,
+        condicao_pagamento_nome: condicaoPagamentoNome || null,
       },
       itens: itensEnriquecidos,
       eventos: eventosRes.data ?? [],
@@ -318,7 +354,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthSupabase(req);
   if ("error" in auth) return auth.error;
-  const { supabase } = auth;
+  const { supabase, user } = auth;
   const { id } = await params;
   if (!id) return jsonError(400, "id obrigatorio.");
 
@@ -327,9 +363,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!ctx) return jsonError(400, "Tenant/empresa nao carregados.");
   if (!(await canCompras(supabase, "write"))) return jsonError(403, "Sem permissao (compras.write).");
 
-  const solicitanteRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
-  const solicitante = solicitanteRaw ? (UUID_RE.test(solicitanteRaw) ? solicitanteRaw : null) : null;
-  if (solicitanteRaw && !solicitante) return jsonError(400, "Solicitante invalido.");
+  const hasSolicitanteField =
+    Object.prototype.hasOwnProperty.call(body, "solicitanteUsuarioId") ||
+    Object.prototype.hasOwnProperty.call(body, "solicitante_usuario_id");
+  const hasPrevisaoEntregaField =
+    Object.prototype.hasOwnProperty.call(body, "previsaoEntregaDate") ||
+    Object.prototype.hasOwnProperty.call(body, "previsao_entrega_date");
+  const hasCondicaoPagamentoField =
+    Object.prototype.hasOwnProperty.call(body, "condicaoPagamentoId") ||
+    Object.prototype.hasOwnProperty.call(body, "condicao_pagamento_id");
+
+  if (!hasSolicitanteField && !hasPrevisaoEntregaField && !hasCondicaoPagamentoField) {
+    return jsonError(400, "Nenhum campo informado para atualizacao.");
+  }
 
   const { data: pedido } = await supabase
     .schema("m")
@@ -342,15 +388,53 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle();
   if (!pedido) return jsonError(404, "Pedido nao encontrado.");
 
+  const patch: Record<string, unknown> = { updated_by: null };
+
+  if (hasSolicitanteField) {
+    const solicitanteRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
+    if (!solicitanteRaw) {
+      patch.solicitante_usuario_id = null;
+    } else {
+      const solicitanteResult = await resolvePedidoSolicitanteUsuarioId({
+        authUserId: user.id,
+        empresaId: ctx.empresaId,
+        requestedId: solicitanteRaw,
+      });
+      if (solicitanteResult.error) return jsonError(400, solicitanteResult.error);
+      patch.solicitante_usuario_id = solicitanteResult.id;
+    }
+  }
+
+  if (hasPrevisaoEntregaField) {
+    const previsaoEntregaDate = parseIsoDate(body.previsaoEntregaDate ?? body.previsao_entrega_date);
+    if (previsaoEntregaDate === undefined) return jsonError(400, "Data de entrega invalida.");
+    patch.previsao_entrega_date = previsaoEntregaDate ?? null;
+  }
+
+  if (hasCondicaoPagamentoField) {
+    const condicaoPagamentoIdRaw = String(body.condicaoPagamentoId ?? body.condicao_pagamento_id ?? "").trim();
+    if (!condicaoPagamentoIdRaw) {
+      patch.condicao_pagamento_id = null;
+    } else {
+      const condicaoPagamentoResult = await resolveCondicaoPagamento({
+        tenantId: ctx.tenantId,
+        empresaId: ctx.empresaId,
+        condicaoPagamentoId: condicaoPagamentoIdRaw,
+      });
+      if (condicaoPagamentoResult.error) return jsonError(400, condicaoPagamentoResult.error);
+      patch.condicao_pagamento_id = condicaoPagamentoResult.row?.id ?? null;
+    }
+  }
+
   const { data, error } = await supabase
     .schema("m")
     .from("pedido_compra")
-    .update({ solicitante_usuario_id: solicitante, updated_by: null })
+    .update(patch)
     .eq("id", id)
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
     .is("deleted_at", null)
-    .select("id,solicitante_usuario_id")
+    .select("id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id")
     .single();
   if (error) return jsonError(400, error.message);
 

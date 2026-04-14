@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type AuthedSupabase = ReturnType<typeof supabaseFromAuthHeader>;
@@ -114,6 +115,89 @@ export async function canCompras(
 ) {
   const { data } = await supabase.rpc("can", { p_resource: "compras", p_action: action });
   return Boolean(data);
+}
+
+type UsuarioIdRow = { id: string };
+type UsuarioEmpresaAtivaRow = { usuario_id: string };
+type CondicaoPagamentoLookupRow = { id: string; nome: string | null; codigo: string | null };
+
+async function usuarioAtivoNaEmpresa(admin: ReturnType<typeof supabaseAdmin>, empresaId: string, usuarioId: string) {
+  const { data, error } = await admin
+    .schema("a")
+    .from("usuario_empresa")
+    .select("usuario_id")
+    .eq("empresa_id", empresaId)
+    .eq("usuario_id", usuarioId)
+    .eq("ativo", true)
+    .is("deleted_at", null)
+    .maybeSingle<UsuarioEmpresaAtivaRow>();
+
+  if (error) throw error;
+  return Boolean(data?.usuario_id);
+}
+
+export async function resolvePedidoSolicitanteUsuarioId(opts: {
+  authUserId?: string | null;
+  empresaId: string;
+  requestedId?: string | null;
+}): Promise<{ id: string | null; error: string | null }> {
+  const admin = supabaseAdmin();
+  const requestedId = String(opts.requestedId ?? "").trim();
+
+  if (requestedId) {
+    if (!UUID_RE.test(requestedId)) return { id: null, error: "Solicitante invalido." };
+    const ativoNaEmpresa = await usuarioAtivoNaEmpresa(admin, opts.empresaId, requestedId);
+    return ativoNaEmpresa
+      ? { id: requestedId, error: null }
+      : { id: null, error: "Solicitante invalido para esta empresa." };
+  }
+
+  const authUserId = String(opts.authUserId ?? "").trim();
+  if (!UUID_RE.test(authUserId)) return { id: null, error: null };
+
+  const { data: usuario, error: usuarioErr } = await admin
+    .schema("a")
+    .from("usuario")
+    .select("id")
+    .eq("auth_user_id", authUserId)
+    .eq("ativo", true)
+    .is("deleted_at", null)
+    .maybeSingle<UsuarioIdRow>();
+
+  if (usuarioErr) throw usuarioErr;
+  const usuarioId = String(usuario?.id ?? "").trim();
+  if (!UUID_RE.test(usuarioId)) return { id: null, error: null };
+
+  const ativoNaEmpresa = await usuarioAtivoNaEmpresa(admin, opts.empresaId, usuarioId);
+  return ativoNaEmpresa ? { id: usuarioId, error: null } : { id: null, error: null };
+}
+
+export async function resolveCondicaoPagamento(opts: {
+  tenantId: string;
+  empresaId: string;
+  condicaoPagamentoId?: string | null;
+  onlyActive?: boolean;
+}): Promise<{ row: CondicaoPagamentoLookupRow | null; error: string | null }> {
+  const condicaoPagamentoId = String(opts.condicaoPagamentoId ?? "").trim();
+  if (!condicaoPagamentoId) return { row: null, error: null };
+  if (!UUID_RE.test(condicaoPagamentoId)) return { row: null, error: "Condicao de pagamento invalida." };
+
+  const admin = supabaseAdmin();
+  let q = admin
+    .schema("c")
+    .from("condicao_pagamento")
+    .select("id,nome,codigo")
+    .eq("id", condicaoPagamentoId)
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .is("deleted_at", null);
+
+  if (opts.onlyActive !== false) q = q.eq("ativo", true);
+
+  const { data, error } = await q.maybeSingle<CondicaoPagamentoLookupRow>();
+  if (error) throw error;
+  if (!data?.id) return { row: null, error: "Condicao de pagamento invalida para esta empresa." };
+  return { row: data, error: null };
 }
 
 function roundMoney(value: number) {

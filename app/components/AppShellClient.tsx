@@ -626,6 +626,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         <Link href="/compras/pedidos" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Pedidos
                         </Link>
+                        <Link href="/compras/configuracao" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Configuração
+                        </Link>
                       </div>
                     )}
                   </div>

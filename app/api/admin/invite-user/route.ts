@@ -9,6 +9,7 @@ function jerr(status: number, error: string) {
 export const runtime = "nodejs";
 
 type EmpresaVinculo = { empresa_id: string; papel: string; ativo: boolean };
+type AdminErrorLike = { message?: string | null; code?: string | null; status?: number | null };
 
 type Body = {
   tenantId?: string;
@@ -63,6 +64,64 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function getAdminErrorText(error: unknown) {
+  if (!error || typeof error !== "object") return String(error ?? "");
+  const e = error as AdminErrorLike;
+  return `${String(e.message ?? "")} ${String(e.code ?? "")}`.trim().toLowerCase();
+}
+
+function isDuplicateEmailError(error: unknown) {
+  const text = getAdminErrorText(error);
+  return (
+    text.includes("already been registered") ||
+    text.includes("already registered") ||
+    text.includes("already exists") ||
+    text.includes("email_exists") ||
+    text.includes("user already registered") ||
+    text.includes("duplicate")
+  );
+}
+
+async function findAuthUserIdByEmail(
+  admin: ReturnType<typeof supabaseAdmin>,
+  email: string
+): Promise<string | null> {
+  const normalizedEmail = normalizeEmail(email);
+
+  try {
+    const { data, error } = await admin
+      .schema("auth")
+      .from("users")
+      .select("id,email")
+      .eq("email", normalizedEmail)
+      .maybeSingle<{ id: string; email: string | null }>();
+
+    if (!error && data?.id) {
+      return String(data.id);
+    }
+  } catch {
+    // Fallback below via Auth Admin API.
+  }
+
+  let page = 1;
+  const perPage = 1000;
+
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) break;
+
+    const users = Array.isArray(data?.users) ? data.users : [];
+    const found = users.find((user) => normalizeEmail(String(user.email ?? "")) === normalizedEmail);
+    if (found?.id) return String(found.id);
+
+    const lastPage = typeof data?.lastPage === "number" ? data.lastPage : page;
+    if (page >= lastPage || users.length === 0) break;
+    page += 1;
+  }
+
+  return null;
+}
+
 const TENANT_ROLES = new Set(["OWNER", "ADMIN", "CONTADOR", "GESTOR"]);
 const EMPRESA_ROLES = new Set([
   "ADMIN",
@@ -114,17 +173,7 @@ export async function POST(req: NextRequest) {
     const admin = supabaseAdmin();
 
     // Best-effort: if the user already exists, reuse it.
-    let authUserId: string | null = null;
-    const { data: existingAuth, error: existingAuthErr } = await admin
-      .schema("auth")
-      .from("users")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (!existingAuthErr && existingAuth?.id) {
-      authUserId = String(existingAuth.id);
-    }
+    let authUserId: string | null = await findAuthUserIdByEmail(admin, email);
 
     if (!authUserId) {
       const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -132,14 +181,26 @@ export async function POST(req: NextRequest) {
       });
 
       if (inviteErr) {
-        // Fallback: try createUser (some environments disable invites)
-        const { data: created, error: createErr } = await admin.auth.admin.createUser({
-          email,
-          email_confirm: false,
-          user_metadata: { nome },
-        });
-        if (createErr) return jerr(400, createErr.message);
-        authUserId = created.user?.id ? String(created.user.id) : null;
+        if (isDuplicateEmailError(inviteErr)) {
+          authUserId = await findAuthUserIdByEmail(admin, email);
+        } else {
+          // Fallback: try createUser (some environments disable invites)
+          const { data: created, error: createErr } = await admin.auth.admin.createUser({
+            email,
+            email_confirm: false,
+            user_metadata: { nome },
+          });
+
+          if (createErr) {
+            if (isDuplicateEmailError(createErr)) {
+              authUserId = await findAuthUserIdByEmail(admin, email);
+            } else {
+              return jerr(400, createErr.message);
+            }
+          } else {
+            authUserId = created.user?.id ? String(created.user.id) : null;
+          }
+        }
       } else {
         authUserId = inviteData.user?.id ? String(inviteData.user.id) : null;
       }
@@ -147,7 +208,7 @@ export async function POST(req: NextRequest) {
 
     if (!authUserId) return jerr(400, "Nao foi possivel criar/convidar o usuario no Auth.");
 
-    const { error: finalizeErr } = await admin.rpc("admin_finalize_invited_user", {
+    const { error: finalizeErr } = await ctx.supabase.rpc("admin_finalize_invited_user", {
       p_tenant_id: tenantId,
       p_auth_user_id: authUserId,
       p_email: email,
@@ -167,4 +228,3 @@ export async function POST(req: NextRequest) {
     return jerr(500, message);
   }
 }
-

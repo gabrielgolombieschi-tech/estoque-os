@@ -11,6 +11,8 @@ type Pedido = {
   codigo: string;
   status: string;
   fornecedor_nome?: string | null;
+  previsao_entrega_date?: string | null;
+  condicao_pagamento_nome?: string | null;
   created_at?: string | null;
   total_geral?: number | null;
   observacoes?: string | null;
@@ -176,6 +178,14 @@ export default function ComprasPedidoImprimirPage() {
               </div>
               <div>
                 <span className="text-zinc-600">Pedido ID:</span> <span className="font-mono">{data.pedido.id}</span>
+              </div>
+              <div>
+                <span className="text-zinc-600">Condições de pagamento:</span>{" "}
+                <strong>{String(data.pedido.condicao_pagamento_nome ?? "").trim() || "-"}</strong>
+              </div>
+              <div>
+                <span className="text-zinc-600">Prazo de entrega:</span>{" "}
+                <strong>{data.pedido.previsao_entrega_date ? fmtDate(data.pedido.previsao_entrega_date) : "-"}</strong>
               </div>
               {String(data.pedido.observacoes ?? "").trim() ? (
                 <div className="col-span-2">

@@ -1,12 +1,28 @@
 import { NextRequest } from "next/server";
-import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../_lib";
+import {
+  canCompras,
+  getAuthSupabase,
+  jsonError,
+  resolveCondicaoPagamento,
+  resolvePedidoSolicitanteUsuarioId,
+  resolveTenantEmpresa,
+} from "../../_lib";
 
 export const runtime = "nodejs";
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseIsoDate(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!ISO_DATE_RE.test(raw)) return undefined;
+  const date = new Date(`${raw}T00:00:00`);
+  return Number.isFinite(date.getTime()) ? raw : undefined;
+}
 
 export async function POST(req: NextRequest) {
   const auth = await getAuthSupabase(req);
   if ("error" in auth) return auth.error;
-  const { supabase } = auth;
+  const { supabase, user } = auth;
 
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const ctx = await resolveTenantEmpresa(supabase, body, req.nextUrl.searchParams);
@@ -17,10 +33,25 @@ export async function POST(req: NextRequest) {
   const osReferencia = String(body.osReferencia ?? body.os_referencia ?? "").trim();
   const observacoesInput = String(body.observacoes ?? "").trim();
   const solicitanteUsuarioIdRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
-  const solicitanteUsuarioId =
-    solicitanteUsuarioIdRaw && /^[0-9a-f-]{36}$/i.test(solicitanteUsuarioIdRaw) ? solicitanteUsuarioIdRaw : null;
+  const previsaoEntregaDate = parseIsoDate(body.previsaoEntregaDate ?? body.previsao_entrega_date);
+  const condicaoPagamentoIdRaw = String(body.condicaoPagamentoId ?? body.condicao_pagamento_id ?? "").trim();
 
   if (!Number.isFinite(fornecedorId) || fornecedorId <= 0) return jsonError(400, "fornecedorId invalido.");
+  if (previsaoEntregaDate === undefined) return jsonError(400, "Data de entrega invalida.");
+
+  const solicitanteResult = await resolvePedidoSolicitanteUsuarioId({
+    authUserId: user.id,
+    empresaId: ctx.empresaId,
+    requestedId: solicitanteUsuarioIdRaw || null,
+  });
+  if (solicitanteResult.error) return jsonError(400, solicitanteResult.error);
+
+  const condicaoPagamentoResult = await resolveCondicaoPagamento({
+    tenantId: ctx.tenantId,
+    empresaId: ctx.empresaId,
+    condicaoPagamentoId: condicaoPagamentoIdRaw || null,
+  });
+  if (condicaoPagamentoResult.error) return jsonError(400, condicaoPagamentoResult.error);
 
   const { data: fornecedor, error: fornecedorErr } = await supabase
     .from("fornecedores")
@@ -47,9 +78,11 @@ export async function POST(req: NextRequest) {
       fornecedor_id: fornecedorId,
       status: "RASCUNHO",
       observacoes,
-      solicitante_usuario_id: solicitanteUsuarioId,
+      solicitante_usuario_id: solicitanteResult.id,
+      previsao_entrega_date: previsaoEntregaDate ?? null,
+      condicao_pagamento_id: condicaoPagamentoResult.row?.id ?? null,
     })
-    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,created_at,total_geral")
+    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,created_at,total_geral")
     .single();
 
   if (error) return jsonError(400, error.message);

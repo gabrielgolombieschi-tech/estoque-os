@@ -111,6 +111,9 @@ function getErrorText(err: unknown) {
 
 function getFriendlyRoleError(err: unknown): string | null {
   const t = getErrorText(err).toLowerCase();
+  if (t.includes("not_allowed")) {
+    return "Seu usuário não tem permissão efetiva para gerenciar usuários neste tenant. Verifique o vínculo ADMIN/OWNER e a permissão admin.manage_users.";
+  }
   if (t.includes("invalid_tenant_role")) {
     return "Papel do tenant inválido. Use: OWNER, ADMIN, CONTADOR, GESTOR.";
   }

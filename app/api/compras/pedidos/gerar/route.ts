@@ -1,10 +1,26 @@
 import { NextRequest } from "next/server";
-import { canCompras, getAuthSupabase, jsonError, resolveTenantEmpresa } from "../../_lib";
+import {
+  canCompras,
+  getAuthSupabase,
+  jsonError,
+  resolveCondicaoPagamento,
+  resolvePedidoSolicitanteUsuarioId,
+  resolveTenantEmpresa,
+} from "../../_lib";
 
 export const runtime = "nodejs";
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function normText(v: unknown) {
   return String(v ?? "").trim().toUpperCase();
+}
+
+function parseIsoDate(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (!ISO_DATE_RE.test(raw)) return undefined;
+  const date = new Date(`${raw}T00:00:00`);
+  return Number.isFinite(date.getTime()) ? raw : undefined;
 }
 
 function parseItemId(v: unknown): number | null {
@@ -26,7 +42,7 @@ function pickPositivePrice(
 export async function POST(req: NextRequest) {
   const auth = await getAuthSupabase(req);
   if ("error" in auth) return auth.error;
-  const { supabase } = auth;
+  const { supabase, user } = auth;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   const ctx = await resolveTenantEmpresa(supabase, body, req.nextUrl.searchParams);
@@ -36,12 +52,27 @@ export async function POST(req: NextRequest) {
   const fornecedorId = Number(body.fornecedorId ?? body.fornecedor_id ?? 0);
   const pendenciaIds = (Array.isArray(body.pendenciaIds) ? body.pendenciaIds : body.pendencia_ids) as unknown[];
   const solicitanteUsuarioIdRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
-  const solicitanteUsuarioId =
-    solicitanteUsuarioIdRaw && /^[0-9a-f-]{36}$/i.test(solicitanteUsuarioIdRaw) ? solicitanteUsuarioIdRaw : null;
+  const previsaoEntregaDate = parseIsoDate(body.previsaoEntregaDate ?? body.previsao_entrega_date);
+  const condicaoPagamentoIdRaw = String(body.condicaoPagamentoId ?? body.condicao_pagamento_id ?? "").trim();
   const quantidadeOverridesRaw = body.quantidadeOverrides ?? body.quantidade_overrides;
   const valorUnitOverridesRaw = body.valorUnitOverrides ?? body.valor_unit_overrides;
   if (!Number.isFinite(fornecedorId) || fornecedorId <= 0) return jsonError(400, "fornecedorId invalido.");
   if (!Array.isArray(pendenciaIds) || pendenciaIds.length === 0) return jsonError(400, "pendenciaIds obrigatorio.");
+  if (previsaoEntregaDate === undefined) return jsonError(400, "Data de entrega invalida.");
+
+  const solicitanteResult = await resolvePedidoSolicitanteUsuarioId({
+    authUserId: user.id,
+    empresaId: ctx.empresaId,
+    requestedId: solicitanteUsuarioIdRaw || null,
+  });
+  if (solicitanteResult.error) return jsonError(400, solicitanteResult.error);
+
+  const condicaoPagamentoResult = await resolveCondicaoPagamento({
+    tenantId: ctx.tenantId,
+    empresaId: ctx.empresaId,
+    condicaoPagamentoId: condicaoPagamentoIdRaw || null,
+  });
+  if (condicaoPagamentoResult.error) return jsonError(400, condicaoPagamentoResult.error);
 
   const pendenciaSet = new Set(pendenciaIds.map((id) => String(id)));
   const quantidadeOverrides: Array<{ id: string; quantidade: number }> = [];
@@ -112,11 +143,16 @@ export async function POST(req: NextRequest) {
   const pedidoId = data ? String(data) : null;
   if (!pedidoId) return Response.json({ pedido_id: null });
 
-  if (solicitanteUsuarioId) {
+  if (solicitanteResult.id || previsaoEntregaDate || condicaoPagamentoResult.row?.id) {
     const { error: solErr } = await supabase
       .schema("m")
       .from("pedido_compra")
-      .update({ solicitante_usuario_id: solicitanteUsuarioId, updated_by: null })
+      .update({
+        solicitante_usuario_id: solicitanteResult.id,
+        previsao_entrega_date: previsaoEntregaDate ?? null,
+        condicao_pagamento_id: condicaoPagamentoResult.row?.id ?? null,
+        updated_by: null,
+      })
       .eq("id", pedidoId)
       .eq("tenant_id", ctx.tenantId)
       .eq("empresa_id", ctx.empresaId)
