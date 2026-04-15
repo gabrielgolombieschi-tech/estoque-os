@@ -318,6 +318,7 @@ export default function OrcamentoImprimirPage() {
   }, [orc?.updated_at]);
 
   const totalProdutos = n(orc?.total_produtos);
+  const totalMaoDeObra = n(orc?.total_servicos);
   const frete = n(orc?.valor_frete);
   const totalProposta = n(orc?.total_liquido);
 
@@ -393,7 +394,7 @@ export default function OrcamentoImprimirPage() {
       doc.text(formatDateBR(orc.emissao_date), pageWidth - margin, 13.5, { align: "right" });
 
       const topY = 16;
-      const topH = 37;
+      const topH = 39;
       card(margin, topY, contentWidth, topH);
 
       if (logoDataUrl) {
@@ -410,29 +411,47 @@ export default function OrcamentoImprimirPage() {
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9.5);
-      doc.text(empresa?.razao_social ?? "SEGAU", margin + 4, topY + 15);
+      doc.text(empresa?.razao_social ?? "SEGAU", margin + 4, topY + 17);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
       doc.setTextColor(51, 51, 51);
-      doc.text(doc.splitTextToSize(upperTrim(orc.codigo) || "-", 95) as string[], margin + 4, topY + 19);
-      doc.text(doc.splitTextToSize(empresaLinha, 95) as string[], margin + 4, topY + 24);
-      doc.text(doc.splitTextToSize(empresaRodape, contentWidth - 8) as string[], margin + 4, topY + 33.5);
+      doc.text(doc.splitTextToSize(upperTrim(orc.codigo) || "-", 95) as string[], margin + 4, topY + 21);
+      doc.text(doc.splitTextToSize(empresaLinha, 95) as string[], margin + 4, topY + 26);
+      doc.text(doc.splitTextToSize(empresaRodape, contentWidth - 8) as string[], margin + 4, topY + 35.5);
 
+      const proposalSplitX = pageWidth - margin - 96;
+      const proposalLabelX = proposalSplitX + 4;
+      const proposalValueX = proposalSplitX + 42;
+      const proposalValueWidth = 46;
       doc.setDrawColor(229, 229, 229);
-      doc.line(pageWidth - margin - 88, topY + 3, pageWidth - margin - 88, topY + topH - 6);
+      doc.line(proposalSplitX, topY + 3, proposalSplitX, topY + topH - 6);
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
       doc.setTextColor(102, 102, 102);
       doc.text("Dados da Proposta", pageWidth - margin - 4, topY + 6, { align: "right" });
 
-      writeLabelValue("Codigo/Numero", joinNonEmpty([orc.codigo, orc.numero ? `N${orc.numero}` : null], " | ") || "-", pageWidth - margin - 84, pageWidth - margin - 46, topY + 10.5, 42);
-      writeLabelValue("Data", formatDateBR(orc.emissao_date), pageWidth - margin - 84, pageWidth - margin - 46, topY + 15.5, 42);
-      writeLabelValue("Usuario", vendedor?.nome ?? vendedor?.email ?? String(orc.vendedor_usuario_id ?? "-"), pageWidth - margin - 84, pageWidth - margin - 46, topY + 20.5, 42);
-      writeLabelValue("Validade", validade, pageWidth - margin - 84, pageWidth - margin - 46, topY + 25.5, 42);
-      writeLabelValue("Condicao", condicaoNome ?? "(sem)", pageWidth - margin - 84, pageWidth - margin - 46, topY + 30.5, 42);
-      writeLabelValue("Garantia", garantia, pageWidth - margin - 84, pageWidth - margin - 46, topY + 35.5, 42);
+      writeLabelValue(
+        "Codigo/Numero",
+        joinNonEmpty([orc.codigo, orc.numero ? `N${orc.numero}` : null], " | ") || "-",
+        proposalLabelX,
+        proposalValueX,
+        topY + 10.5,
+        proposalValueWidth
+      );
+      writeLabelValue("Data", formatDateBR(orc.emissao_date), proposalLabelX, proposalValueX, topY + 15.5, proposalValueWidth);
+      writeLabelValue(
+        "Usuario",
+        vendedor?.nome ?? vendedor?.email ?? String(orc.vendedor_usuario_id ?? "-"),
+        proposalLabelX,
+        proposalValueX,
+        topY + 20.5,
+        proposalValueWidth
+      );
+      writeLabelValue("Validade", validade, proposalLabelX, proposalValueX, topY + 25.5, proposalValueWidth);
+      writeLabelValue("Condicao", condicaoNome ?? "(sem)", proposalLabelX, proposalValueX, topY + 30.5, proposalValueWidth);
+      writeLabelValue("Garantia", garantia, proposalLabelX, proposalValueX, topY + 35.5, proposalValueWidth);
 
       const clienteY = 57;
       const clienteH = 24;
@@ -497,27 +516,27 @@ export default function OrcamentoImprimirPage() {
           fillColor: [245, 245, 245],
         },
         columnStyles: {
-          0: { cellWidth: 22 },
-          1: { cellWidth: 75 },
-          2: { cellWidth: 24 },
-          3: { cellWidth: 12 },
-          4: { cellWidth: 16 },
-          5: { cellWidth: 12, halign: "right" },
-          6: { cellWidth: 20, halign: "right" },
-          7: { cellWidth: 21, halign: "right" },
-          8: { cellWidth: 24 },
+          0: { cellWidth: 24 },
+          1: { cellWidth: 96 },
+          2: { cellWidth: 26 },
+          3: { cellWidth: 14 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 15, halign: "right" },
+          6: { cellWidth: 24, halign: "right" },
+          7: { cellWidth: 24, halign: "right" },
+          8: { cellWidth: 32 },
         },
       });
 
       let footerY = ((doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 85) + 4;
-      if (footerY > pageHeight - 34) {
+      if (footerY > pageHeight - 40) {
         doc.addPage();
         footerY = 18;
       }
 
       const footerLeftW = 152;
       const footerRightW = contentWidth - footerLeftW - 4;
-      const footerH = 28;
+      const footerH = 34;
 
       card(margin, footerY, footerLeftW, footerH);
       doc.setFont("helvetica", "bold");
@@ -533,18 +552,20 @@ export default function OrcamentoImprimirPage() {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.text("Valor total dos produtos", totalXLabel, footerY + 7);
-      doc.text("Frete", totalXLabel, footerY + 12);
+      doc.text("Valor mao de obra", totalXLabel, footerY + 12);
+      doc.text("Frete", totalXLabel, footerY + 17);
       doc.setFont("helvetica", "bold");
       doc.text(formatMoneyBR(totalProdutos), totalXValue - 4, footerY + 7, { align: "right" });
-      doc.text(formatMoneyBR(frete), totalXValue - 4, footerY + 12, { align: "right" });
+      doc.text(formatMoneyBR(totalMaoDeObra), totalXValue - 4, footerY + 12, { align: "right" });
+      doc.text(formatMoneyBR(frete), totalXValue - 4, footerY + 17, { align: "right" });
       doc.setDrawColor(199, 199, 199);
-      doc.line(margin + footerLeftW + 8, footerY + 16, totalXValue - 4, footerY + 16);
-      doc.text("Total proposta", totalXLabel, footerY + 22);
+      doc.line(margin + footerLeftW + 8, footerY + 21, totalXValue - 4, footerY + 21);
+      doc.text("Total proposta", totalXLabel, footerY + 27);
       doc.setFontSize(10);
-      doc.text(formatMoneyBR(totalProposta), totalXValue - 4, footerY + 22, { align: "right" });
+      doc.text(formatMoneyBR(totalProposta), totalXValue - 4, footerY + 27, { align: "right" });
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.text("Impostos inclusos.", totalXLabel, footerY + 26);
+      doc.text("Impostos inclusos.", totalXLabel, footerY + 31);
 
       const pages = doc.getNumberOfPages();
       for (let i = 1; i <= pages; i += 1) {
@@ -693,7 +714,7 @@ export default function OrcamentoImprimirPage() {
           grid-template-columns: 1fr 1fr 220px;
           align-items: center;
           gap: 10px;
-          margin-bottom: 8px;
+          margin-bottom: 16px;
         }
 
         .headerCenterTitle {
@@ -730,7 +751,7 @@ export default function OrcamentoImprimirPage() {
 
         .headerTopGrid {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 320px;
+          grid-template-columns: minmax(0, 1fr) 344px;
           gap: 12px;
           align-items: start;
         }
@@ -1173,6 +1194,10 @@ export default function OrcamentoImprimirPage() {
                 <div className="orc-imp-totalRow">
                   <span className="orc-imp-totalLabel">Valor total dos produtos</span>
                   <span className="orc-imp-totalValue">{formatMoneyBR(totalProdutos)}</span>
+                </div>
+                <div className="orc-imp-totalRow">
+                  <span className="orc-imp-totalLabel">Valor mao de obra</span>
+                  <span className="orc-imp-totalValue">{formatMoneyBR(totalMaoDeObra)}</span>
                 </div>
                 <div className="orc-imp-totalRow">
                   <span className="orc-imp-totalLabel">Frete</span>

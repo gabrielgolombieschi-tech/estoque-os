@@ -48,15 +48,22 @@ export async function GET(req: NextRequest) {
 
   const onlyActiveParam = String(req.nextUrl.searchParams.get("onlyActive") ?? "1").trim().toLowerCase();
   const onlyActive = onlyActiveParam !== "0" && onlyActiveParam !== "false";
-  const admin = supabaseAdmin();
-
+  let admin: ReturnType<typeof supabaseAdmin> | null = null;
   try {
-    await ensureCondicoesPagamentoDefaults(admin, { tenantId: ctx.tenantId, empresaId: ctx.empresaId });
-  } catch (error: unknown) {
-    return jsonError(400, error instanceof Error ? error.message : "Erro ao preparar condicoes de pagamento.");
+    admin = supabaseAdmin();
+  } catch {
+    admin = null;
   }
 
-  let q = admin
+  if (admin) {
+    try {
+      await ensureCondicoesPagamentoDefaults(admin, { tenantId: ctx.tenantId, empresaId: ctx.empresaId });
+    } catch {
+      // Seed de apoio; se falhar, ainda tentamos listar o que já existe.
+    }
+  }
+
+  let q = (admin ?? supabase)
     .schema("c")
     .from("condicao_pagamento")
     .select("id,codigo,nome,dias,acrescimo_percent,ativo")
