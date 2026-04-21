@@ -764,8 +764,16 @@ export default function AjusteNomePage() {
         </div>
       )}
 
-      <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
-        <table className="w-full text-sm">
+      <div className="border border-zinc-800 rounded-xl overflow-x-auto bg-zinc-950">
+        <table className="w-full min-w-[1120px] table-fixed text-sm">
+          <colgroup>
+            <col style={{ width: "60px" }} />
+            <col style={{ width: "140px" }} />
+            <col style={{ width: "44%" }} />
+            <col style={{ width: "24%" }} />
+            <col style={{ width: "90px" }} />
+            <col style={{ width: "110px" }} />
+          </colgroup>
           <thead className="bg-zinc-900/70">
             <tr className="text-zinc-200">
               <th className="px-4 py-3 text-left">ID</th>
@@ -787,7 +795,7 @@ export default function AjusteNomePage() {
                 <tr key={row.id} className="hover:bg-zinc-900/40">
                   <td className="px-4 py-3 text-zinc-300">{row.id}</td>
                   <td className="px-4 py-3 font-medium">{String(row.codigo_interno ?? row.codigo_barras ?? "-")}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 align-top">
                     <InlineTextInput
                       ariaLabel={`Nome item ${row.id}`}
                       value={String(row.nome ?? "")}
@@ -799,7 +807,7 @@ export default function AjusteNomePage() {
                     />
                     <div className="text-xs text-zinc-400 mt-1">{String(row.unidade_medida ?? "UN")}</div>
                   </td>
-                  <td className="px-4 py-3 text-zinc-200">{fornecedorNome}</td>
+                  <td className="px-4 py-3 align-top text-zinc-200 break-words">{fornecedorNome}</td>
                   <td className="px-4 py-3 text-center">{row.ativo === false ? "Inativo" : "Ativo"}</td>
                   <td className="px-4 py-3 text-center">
                     <button
