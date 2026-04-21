@@ -41,6 +41,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (empresas.length === 1) return empresas[0];
     return null;
   }, [empresaId, empresas]);
+  const empresaRole = String(effectiveEmpresa?.papel ?? "")
+    .trim()
+    .toUpperCase();
 
   useEffect(() => {
     if (te.sessionUserId === undefined) return;
@@ -91,6 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const canAccessApontamentos = can("apontamentos.read");
   const canAccessEstoque = can("estoque.read") || can("estoque.write");
   const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
+  const canSeeAjusteNomeMenu = Boolean(empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(empresaRole));
   const canImportXml = can("xml_import.execute");
   const canAccessFinanceiro = can("financeiro.read");
   const canAccessAdmin = can("admin.manage_users");
@@ -215,6 +219,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         {can("estoque.read") && (
                           <Link href="/estoque" className="block px-3 py-2 hover:bg-zinc-900">
                             Ajuste Estoque
+                          </Link>
+                        )}
+                        {canSeeAjusteNomeMenu && (
+                          <Link href="/estoque/ajuste-nome" className="block px-3 py-2 hover:bg-zinc-900">
+                            Ajuste Nome
                           </Link>
                         )}
                         {canAccessCadastroItens && (

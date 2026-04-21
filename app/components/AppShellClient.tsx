@@ -240,6 +240,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canSeeEstoquePedidosMenu = canSeeEstoqueMenu || canSeeEstoquePedidosMenuByEmpresaPapel;
   const canSeeCadastroItensMenu = canAccessCadastroItens || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeAjusteEstoqueMenu = can("estoque.read") || can("estoque.write") || canSeeEstoqueMenuByEmpresaPapel;
+  const canSeeAjusteNomeMenu = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(empresaPapel));
   const canSeeImobilizadoMenu = can("imobilizado.read") === true;
 
   useEffect(() => {
@@ -376,6 +377,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         {canSeeAjusteEstoqueMenu && (
                           <Link href="/estoque" className="block px-3 py-2 hover:bg-zinc-900">
                             Ajuste Estoque
+                          </Link>
+                        )}
+                        {canSeeAjusteNomeMenu && (
+                          <Link href="/estoque/ajuste-nome" className="block px-3 py-2 hover:bg-zinc-900">
+                            Ajuste Nome
                           </Link>
                         )}
                         {canSeeCadastroItensMenu && (

@@ -31,12 +31,14 @@ export type SaldoEmEstoqueRow = {
   item_nome: string;
   unidade_medida: string | null;
   quantidade_atual: number;
+  preco_unitario: number | string | null;
   custo_medio: number | string | null;
   valor_estoque: number | string | null;
   fornecedor_id: number | null;
   fornecedor_nome: string | null;
   estoque_minimo: number | string | null;
   estoque_ideal: number | string | null;
+  estoque_maximo: number | string | null;
   localizacao: string | null;
   finalidade: string | null;
   controla_estoque: boolean | null;
@@ -46,6 +48,141 @@ export type SaldoEmEstoqueRow = {
 function safeNumber(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+function pickPositiveUnitValue(values: unknown[]): number {
+  for (const value of values) {
+    const parsed = safeNumber(value);
+    if (parsed > 0) return parsed;
+  }
+  return 0;
+}
+
+function normalizeNullableText(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed ? trimmed : null;
+}
+
+function compareText(a: string, b: string) {
+  return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
+}
+
+function sortSaldoRows(rows: SaldoEmEstoqueRow[], sort: { key: SaldoEmEstoqueSortKey; dir: SortDir }) {
+  const factor = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const primary =
+      sort.key === "codigo"
+        ? compareText(String(a.codigo_interno ?? ""), String(b.codigo_interno ?? ""))
+        : compareText(String(a.item_nome ?? ""), String(b.item_nome ?? ""));
+    if (primary !== 0) return primary * factor;
+    return (safeNumber(a.item_id) - safeNumber(b.item_id)) * factor;
+  });
+}
+
+function mapSaldoRowFromEstoqueRecord(r: unknown): SaldoEmEstoqueRow {
+  const row = r as {
+    item_id?: unknown;
+    quantidade_atual?: unknown;
+    localizacao?: unknown;
+    itens?: unknown;
+  };
+
+  const itensRaw = row.itens ?? null;
+  const itens = Array.isArray(itensRaw) ? itensRaw[0] ?? null : itensRaw;
+
+  const fornRaw = itens?.fornecedores ?? null;
+  const forn = Array.isArray(fornRaw) ? fornRaw[0] ?? null : fornRaw;
+
+  const saldo = safeNumber(row.quantidade_atual);
+  const precoUnitario = itens?.preco_unitario ?? null;
+  const custo = itens?.custo_medio ?? null;
+  const valorUnitario = pickPositiveUnitValue([precoUnitario, custo]);
+  const valor = saldo * valorUnitario;
+  const estoqueMin = itens?.estoque_minimo ?? null;
+  const abaixoMin = saldo < safeNumber(estoqueMin);
+
+  return {
+    item_id: safeNumber(itens?.id ?? row.item_id),
+    codigo_interno: String(itens?.codigo_interno ?? ""),
+    item_nome: String(itens?.nome ?? ""),
+    unidade_medida: itens?.unidade_medida ?? null,
+    quantidade_atual: saldo,
+    preco_unitario: precoUnitario,
+    custo_medio: custo,
+    valor_estoque: valor,
+    fornecedor_id: itens?.fornecedor_id ?? null,
+    fornecedor_nome: forn?.nome ? String(forn.nome) : null,
+    estoque_minimo: itens?.estoque_minimo ?? null,
+    estoque_ideal: null,
+    estoque_maximo: itens?.estoque_maximo ?? null,
+    localizacao: typeof row.localizacao === "string" ? row.localizacao : null,
+    finalidade: itens?.finalidade ?? null,
+    controla_estoque: itens?.controla_estoque ?? null,
+    abaixo_minimo: abaixoMin,
+  };
+}
+
+function mapSaldoRowFromItemRecord(r: unknown): SaldoEmEstoqueRow {
+  const row = r as {
+    id?: unknown;
+    codigo_interno?: unknown;
+    nome?: unknown;
+    unidade_medida?: unknown;
+    preco_unitario?: unknown;
+    custo_medio?: unknown;
+    estoque_minimo?: unknown;
+    estoque_maximo?: unknown;
+    fornecedor_id?: unknown;
+    finalidade?: unknown;
+    controla_estoque?: unknown;
+    fornecedores?: unknown;
+    estoque?: unknown;
+  };
+
+  const fornecedorRaw = row.fornecedores ?? null;
+  const fornecedor = Array.isArray(fornecedorRaw) ? fornecedorRaw[0] ?? null : fornecedorRaw;
+  const estoqueRows = Array.isArray(row.estoque) ? row.estoque : [];
+
+  const saldo = estoqueRows.reduce((acc, estoqueRow) => {
+    const current = estoqueRow as { quantidade_atual?: unknown };
+    return acc + safeNumber(current.quantidade_atual);
+  }, 0);
+
+  const localizacoes = Array.from(
+    new Set(
+      estoqueRows
+        .map((estoqueRow) => normalizeNullableText((estoqueRow as { localizacao?: unknown }).localizacao))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  const precoUnitario = row.preco_unitario ?? null;
+  const custo = row.custo_medio ?? null;
+  const valorUnitario = pickPositiveUnitValue([precoUnitario, custo]);
+  const valor = saldo * valorUnitario;
+  const estoqueMin = row.estoque_minimo ?? null;
+  const abaixoMin = saldo < safeNumber(estoqueMin);
+
+  return {
+    item_id: safeNumber(row.id),
+    codigo_interno: String(row.codigo_interno ?? ""),
+    item_nome: String(row.nome ?? ""),
+    unidade_medida: row.unidade_medida ?? null,
+    quantidade_atual: saldo,
+    preco_unitario: precoUnitario,
+    custo_medio: custo,
+    valor_estoque: valor,
+    fornecedor_id: row.fornecedor_id ?? null,
+    fornecedor_nome: fornecedor?.nome ? String(fornecedor.nome) : null,
+    estoque_minimo: row.estoque_minimo ?? null,
+    estoque_ideal: null,
+    estoque_maximo: row.estoque_maximo ?? null,
+    localizacao: localizacoes.length ? localizacoes.join(", ") : null,
+    finalidade: row.finalidade ?? null,
+    controla_estoque: row.controla_estoque ?? null,
+    abaixo_minimo: abaixoMin,
+  };
 }
 
 function splitOrEmpty(s: string): string[] {
@@ -134,6 +271,74 @@ export async function listSaldoEmEstoque(
     return { rows: [], count: 0 };
   }
 
+  if (filters.abaixoMinimo) {
+    let itensQb = applyTenantEmpresa(
+      supabase
+        .from("itens")
+        .select(
+          [
+            "id",
+            "codigo_interno",
+            "nome",
+            "unidade_medida",
+            "preco_unitario",
+            "custo_medio",
+            "estoque_minimo",
+            "estoque_maximo",
+            "fornecedor_id",
+            "finalidade",
+            "controla_estoque",
+            "fornecedores!itens_tenant_empresa_fornecedor_fk(nome)",
+            "estoque!estoque_item_id_fkey(quantidade_atual,localizacao)",
+          ].join(",")
+        ),
+      tenantId,
+      empresaId
+    );
+
+    itensQb = itensQb.eq("controla_estoque", true);
+
+    if (filters.finalidade && filters.finalidade !== "todas") itensQb = itensQb.eq("finalidade", filters.finalidade);
+
+    const busca = filters.busca.trim();
+    if (busca) {
+      itensQb = itensQb.or([`nome.ilike.%${busca}%`, `codigo_interno.ilike.%${busca}%`].join(","));
+    }
+
+    if (resolvedFornecedorIds.length && filters.semFornecedor) {
+      itensQb = itensQb.or([`fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "fornecedor_id.is.null"].join(","));
+    } else if (resolvedFornecedorIds.length) {
+      itensQb = itensQb.in("fornecedor_id", resolvedFornecedorIds);
+    } else if (filters.semFornecedor) {
+      itensQb = itensQb.is("fornecedor_id", null);
+    }
+
+    const chunkSize = 1000;
+    let offset = 0;
+    const allRows: SaldoEmEstoqueRow[] = [];
+
+    while (true) {
+      const { data, error } = await itensQb.range(offset, offset + chunkSize - 1);
+      if (error) throw error;
+
+      const typedRows = Array.isArray(data) ? data : [];
+      allRows.push(...typedRows.map(mapSaldoRowFromItemRecord));
+
+      if (typedRows.length < chunkSize) break;
+      offset += chunkSize;
+    }
+
+    const localizacaoBusca = filters.localizacao.trim().toLowerCase();
+    const filtered = allRows.filter((row) => {
+      if (!row.abaixo_minimo) return false;
+      if (!localizacaoBusca) return true;
+      return String(row.localizacao ?? "").toLowerCase().includes(localizacaoBusca);
+    });
+
+    const sorted = sortSaldoRows(filtered, args.sort);
+    return { rows: sorted.slice(from, to + 1), count: sorted.length };
+  }
+
   let qb = applyTenantEmpresa(
     supabase
       .from("estoque")
@@ -143,7 +348,7 @@ export async function listSaldoEmEstoque(
           "quantidade_atual",
           "localizacao",
           "empresa_id",
-          "itens:itens!estoque_item_id_fkey(id,codigo_interno,nome,unidade_medida,custo_medio,estoque_minimo,fornecedor_id,finalidade,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome))",
+          "itens:itens!estoque_item_id_fkey!inner(id,codigo_interno,nome,unidade_medida,preco_unitario,custo_medio,estoque_minimo,estoque_maximo,fornecedor_id,finalidade,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome))",
         ].join(","),
         { count: "exact" }
       )
@@ -161,11 +366,11 @@ export async function listSaldoEmEstoque(
 
   const busca = filters.busca.trim();
   if (busca) {
-    qb = qb.or([`itens.nome.ilike.%${busca}%`, `itens.codigo_interno.ilike.%${busca}%`].join(","));
+    qb = qb.or([`nome.ilike.%${busca}%`, `codigo_interno.ilike.%${busca}%`].join(","), { foreignTable: "itens" });
   }
 
   if (resolvedFornecedorIds.length && filters.semFornecedor) {
-    qb = qb.or([`itens.fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "itens.fornecedor_id.is.null"].join(","));
+    qb = qb.or([`fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "fornecedor_id.is.null"].join(","), { foreignTable: "itens" });
   } else if (resolvedFornecedorIds.length) {
     qb = qb.in("itens.fornecedor_id", resolvedFornecedorIds);
   } else if (filters.semFornecedor) {
@@ -181,44 +386,7 @@ export async function listSaldoEmEstoque(
   const { data, error, count } = await qb.range(from, to);
   if (error) throw error;
 
-  const mapped: SaldoEmEstoqueRow[] = (data ?? []).map((r: unknown) => {
-    const row = r as {
-      item_id?: unknown;
-      quantidade_atual?: unknown;
-      localizacao?: unknown;
-      itens?: unknown;
-    };
-
-    const itensRaw = row.itens ?? null;
-    const itens = Array.isArray(itensRaw) ? itensRaw[0] ?? null : itensRaw;
-
-    const fornRaw = itens?.fornecedores ?? null;
-    const forn = Array.isArray(fornRaw) ? fornRaw[0] ?? null : fornRaw;
-
-    const saldo = safeNumber(row.quantidade_atual);
-    const custo = itens?.custo_medio ?? null;
-    const valor = saldo * safeNumber(custo);
-    const estoqueMin = itens?.estoque_minimo ?? null;
-    const abaixoMin = saldo < safeNumber(estoqueMin);
-
-    return {
-      item_id: safeNumber(itens?.id ?? row.item_id),
-      codigo_interno: String(itens?.codigo_interno ?? ""),
-      item_nome: String(itens?.nome ?? ""),
-      unidade_medida: itens?.unidade_medida ?? null,
-      quantidade_atual: saldo,
-      custo_medio: custo,
-      valor_estoque: valor,
-      fornecedor_id: itens?.fornecedor_id ?? null,
-      fornecedor_nome: forn?.nome ? String(forn.nome) : null,
-      estoque_minimo: itens?.estoque_minimo ?? null,
-      estoque_ideal: null,
-      localizacao: typeof row.localizacao === "string" ? row.localizacao : null,
-      finalidade: itens?.finalidade ?? null,
-      controla_estoque: itens?.controla_estoque ?? null,
-      abaixo_minimo: abaixoMin,
-    };
-  });
+  const mapped: SaldoEmEstoqueRow[] = (data ?? []).map(mapSaldoRowFromEstoqueRecord);
 
   const filtered = filters.abaixoMinimo ? mapped.filter((x) => x.abaixo_minimo) : mapped;
 

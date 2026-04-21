@@ -222,6 +222,7 @@ export default function EstoquePage() {
 
       const { error } = await supabase.from("movimentacoes").insert({
         tenant_id: tenantId,
+        empresa_id: empresaId,
         item_id: itemId,
         tipo: tipoMov,
         quantidade: qtdMov,
@@ -354,6 +355,7 @@ export default function EstoquePage() {
           const tipo = saldoAtual > 0 ? "saida" : "entrada";
           return {
             tenant_id: tenantId,
+            empresa_id: empresaId,
             item_id: r.item_id,
             tipo,
             quantidade: Math.abs(saldoAtual),
@@ -473,6 +475,7 @@ export default function EstoquePage() {
 
         const { error } = await supabase.from("movimentacoes").insert({
           tenant_id: tenantId,
+          empresa_id: empresaId,
           item_id: idParsed,
           tipo: tipoMov,
           quantidade: qtdMov,

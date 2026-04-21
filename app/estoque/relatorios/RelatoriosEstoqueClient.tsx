@@ -111,6 +111,32 @@ function formatDateTimeBR(iso: string | null | undefined) {
   return d.toLocaleString("pt-BR");
 }
 
+function toFiniteNumberOrNull(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const normalized = trimmed.includes(",")
+    ? trimmed.replace(/\./g, "").replace(",", ".")
+    : trimmed;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toFiniteNumber(value: unknown): number {
+  return toFiniteNumberOrNull(value) ?? 0;
+}
+
+function pickPositiveUnitValue(values: unknown[]): number {
+  for (const value of values) {
+    const parsed = toFiniteNumber(value);
+    if (parsed > 0) return parsed;
+  }
+  return 0;
+}
+
 export default function RelatoriosEstoqueClient() {
   const te = useTenantEmpresa();
   const router = useRouter();
@@ -287,9 +313,12 @@ export default function RelatoriosEstoqueClient() {
   const saldoRows = useMemo(() => {
     const mapped = rowsA.map((r) => {
       const fornecedorLabel = String(r.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR";
-      const saldoNumero = Number(r.quantidade_atual ?? 0);
-      const valorUnitario = Number(r.custo_medio ?? 0);
-      return { ...r, fornecedorLabel, saldoNumero, valorUnitario, valorTotal: saldoNumero * valorUnitario };
+      const saldoNumero = toFiniteNumber(r.quantidade_atual);
+      const estoqueMinimoNumero = toFiniteNumber(r.estoque_minimo);
+      const estoqueMaximoNumero = toFiniteNumber(r.estoque_maximo);
+      const valorUnitario = pickPositiveUnitValue([r.preco_unitario, r.custo_medio]);
+      const valorTotal = toFiniteNumberOrNull(r.valor_estoque) ?? saldoNumero * valorUnitario;
+      return { ...r, fornecedorLabel, saldoNumero, estoqueMinimoNumero, estoqueMaximoNumero, valorUnitario, valorTotal };
     });
     if (!appliedA.separarPorFornecedor) return mapped;
     return mapped.sort((a, b) => {
@@ -319,8 +348,19 @@ export default function RelatoriosEstoqueClient() {
   const [printingSaldoPdf, setPrintingSaldoPdf] = useState(false);
 
   const exportSaldoCsv = () => {
-    const header = ["id", "codigo", "item", "fornecedor", "und", "saldo", "val_uni", "valor_total"];
-    const rows = saldoRows.map((r) => [String(r.item_id ?? ""), String(r.codigo_interno ?? ""), String(r.item_nome ?? ""), String(r.fornecedorLabel), String(r.unidade_medida ?? ""), String(r.saldoNumero), String(r.valorUnitario), String(r.valorTotal)]);
+    const header = ["id", "codigo", "item", "fornecedor", "und", "saldo", "est_min", "est_max", "val_uni", "valor_total"];
+    const rows = saldoRows.map((r) => [
+      String(r.item_id ?? ""),
+      String(r.codigo_interno ?? ""),
+      String(r.item_nome ?? ""),
+      String(r.fornecedorLabel),
+      String(r.unidade_medida ?? ""),
+      String(r.saldoNumero),
+      String(r.estoqueMinimoNumero),
+      String(r.estoqueMaximoNumero),
+      String(r.valorUnitario),
+      String(r.valorTotal),
+    ]);
     downloadCsv(`saldo_estoque_p${aPage}.csv`, header, rows);
   };
   const printSaldoPdf = async () => {
@@ -360,9 +400,12 @@ export default function RelatoriosEstoqueClient() {
 
       const mapped = allRows.map((r) => {
         const fornecedorLabel = String(r.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR";
-        const saldoNumero = Number(r.quantidade_atual ?? 0);
-        const valorUnitario = Number(r.custo_medio ?? 0);
-        return { ...r, fornecedorLabel, saldoNumero, valorUnitario, valorTotal: saldoNumero * valorUnitario };
+        const saldoNumero = toFiniteNumber(r.quantidade_atual);
+        const estoqueMinimoNumero = toFiniteNumber(r.estoque_minimo);
+        const estoqueMaximoNumero = toFiniteNumber(r.estoque_maximo);
+        const valorUnitario = pickPositiveUnitValue([r.preco_unitario, r.custo_medio]);
+        const valorTotal = toFiniteNumberOrNull(r.valor_estoque) ?? saldoNumero * valorUnitario;
+        return { ...r, fornecedorLabel, saldoNumero, estoqueMinimoNumero, estoqueMaximoNumero, valorUnitario, valorTotal };
       });
 
       const finalRows = appliedA.separarPorFornecedor
@@ -413,11 +456,11 @@ export default function RelatoriosEstoqueClient() {
           const r = finalRows[i];
           if (r.fornecedorLabel !== fornecedorAtual) {
             if (fornecedorAtual) {
-              body.push(["", "", `Subtotal ${fornecedorAtual}`, "", "", "", formatMoneyBR(subtotal)]);
+              body.push(["", "", `Subtotal ${fornecedorAtual}`, "", "", "", "", "", formatMoneyBR(subtotal)]);
             }
             fornecedorAtual = r.fornecedorLabel;
             subtotal = 0;
-            body.push(["", "", `Fornecedor: ${fornecedorAtual}`, "", "", "", ""]);
+            body.push(["", "", `Fornecedor: ${fornecedorAtual}`, "", "", "", "", "", ""]);
           }
           subtotal += r.valorTotal;
           body.push([
@@ -426,11 +469,13 @@ export default function RelatoriosEstoqueClient() {
             String(r.item_nome ?? ""),
             String(r.unidade_medida ?? "-"),
             formatDecimalBR(r.saldoNumero, 3),
+            formatDecimalBR(r.estoqueMinimoNumero, 3),
+            formatDecimalBR(r.estoqueMaximoNumero, 3),
             formatMoneyBR(r.valorUnitario),
             formatMoneyBR(r.valorTotal),
           ]);
           if (i === finalRows.length - 1) {
-            body.push(["", "", `Subtotal ${fornecedorAtual}`, "", "", "", formatMoneyBR(subtotal)]);
+            body.push(["", "", `Subtotal ${fornecedorAtual}`, "", "", "", "", "", formatMoneyBR(subtotal)]);
           }
         }
       } else {
@@ -441,6 +486,8 @@ export default function RelatoriosEstoqueClient() {
             String(r.item_nome ?? ""),
             String(r.unidade_medida ?? "-"),
             formatDecimalBR(r.saldoNumero, 3),
+            formatDecimalBR(r.estoqueMinimoNumero, 3),
+            formatDecimalBR(r.estoqueMaximoNumero, 3),
             formatMoneyBR(r.valorUnitario),
             formatMoneyBR(r.valorTotal),
           ]);
@@ -449,7 +496,7 @@ export default function RelatoriosEstoqueClient() {
 
       autoTable(doc, {
         startY: 98,
-        head: [["ID", "Codigo", "Item", "Und", "Saldo", "Val. uni.", "Valor total"]],
+        head: [["ID", "Codigo", "Item", "Und", "Saldo", "Est. Min", "Est. Max", "Val. uni.", "Valor total"]],
         body,
         // Reserva a mesma altura do cabecalho em todas as paginas.
         margin: { left: margin, right: margin, top: 98, bottom: 28 },
@@ -457,13 +504,15 @@ export default function RelatoriosEstoqueClient() {
         headStyles: { fillColor: [28, 28, 30], textColor: 255, fontStyle: "bold" },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         columnStyles: {
-          0: { cellWidth: 42 },
-          1: { cellWidth: 92 },
-          2: { cellWidth: 310 },
-          3: { cellWidth: 42 },
-          4: { cellWidth: 70, halign: "right" },
-          5: { cellWidth: 80, halign: "right" },
-          6: { cellWidth: 90, halign: "right" },
+          0: { cellWidth: 38 },
+          1: { cellWidth: 86 },
+          2: { cellWidth: 260 },
+          3: { cellWidth: 40 },
+          4: { cellWidth: 64, halign: "right" },
+          5: { cellWidth: 64, halign: "right" },
+          6: { cellWidth: 64, halign: "right" },
+          7: { cellWidth: 74, halign: "right" },
+          8: { cellWidth: 80, halign: "right" },
         },
         didDrawPage: () => {
           header();
@@ -625,7 +674,7 @@ export default function RelatoriosEstoqueClient() {
           {errorA ? <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-4 text-red-200">{errorA}</div> : null}
 
           <div className="print-report border border-zinc-800 rounded-xl bg-zinc-950 overflow-x-auto">
-            <table className="w-full text-sm min-w-[1150px]">
+            <table className="w-full text-sm min-w-[1320px]">
               <thead className="text-zinc-300">
                 <tr className="border-b border-zinc-800">
                   <th className="px-3 py-2 text-left">ID</th>
@@ -634,20 +683,22 @@ export default function RelatoriosEstoqueClient() {
                   <th className="px-3 py-2 text-left">Fornecedor</th>
                   <th className="px-3 py-2 text-left">Und</th>
                   <th className="px-3 py-2 text-right">Saldo</th>
+                  <th className="px-3 py-2 text-right">Est. Min</th>
+                  <th className="px-3 py-2 text-right">Est. Max</th>
                   <th className="px-3 py-2 text-right">Val. uni.</th>
                   <th className="px-3 py-2 text-right">Valor total</th>
                 </tr>
               </thead>
               {loadingA ? (
-                <tbody><tr><td colSpan={8} className="px-3 py-8 text-center text-zinc-300">Carregando...</td></tr></tbody>
+                <tbody><tr><td colSpan={10} className="px-3 py-8 text-center text-zinc-300">Carregando...</td></tr></tbody>
               ) : saldoRows.length === 0 ? (
-                <tbody><tr><td colSpan={8} className="px-3 py-10 text-center text-zinc-400">Nenhum resultado.</td></tr></tbody>
+                <tbody><tr><td colSpan={10} className="px-3 py-10 text-center text-zinc-400">Nenhum resultado.</td></tr></tbody>
               ) : appliedA.separarPorFornecedor ? (
                 <>
                   {saldoGroups.map((g, idx) => (
                     <tbody key={`g-${g.fornecedorNome}-${idx}`}>
                       <tr className={idx > 0 ? "print-group bg-zinc-900/60 border-y border-zinc-700" : "bg-zinc-900/60 border-y border-zinc-700"}>
-                        <td colSpan={8} className="px-3 py-2 text-zinc-100 font-medium">{g.fornecedorNome} - Itens: {g.itens} - Total do fornecedor: {formatMoneyBR(g.total)}</td>
+                        <td colSpan={10} className="px-3 py-2 text-zinc-100 font-medium">{g.fornecedorNome} - Itens: {g.itens} - Total do fornecedor: {formatMoneyBR(g.total)}</td>
                       </tr>
                       {g.rows.map((r) => (
                         <tr key={`${r.fornecedorLabel}-${r.item_id}`} className="border-b border-zinc-900">
@@ -657,11 +708,13 @@ export default function RelatoriosEstoqueClient() {
                           <td className="px-3 py-2 text-left">{r.fornecedorLabel}</td>
                           <td className="px-3 py-2 text-left">{r.unidade_medida ?? "-"}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.saldoNumero, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.estoqueMinimoNumero, 3)}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.estoqueMaximoNumero, 3)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorUnitario)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorTotal)}</td>
                         </tr>
                       ))}
-                      <tr className="border-b border-zinc-700 bg-zinc-900/40"><td colSpan={7} className="px-3 py-2 text-right">Subtotal do fornecedor</td><td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(g.total)}</td></tr>
+                      <tr className="border-b border-zinc-700 bg-zinc-900/40"><td colSpan={9} className="px-3 py-2 text-right">Subtotal do fornecedor</td><td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(g.total)}</td></tr>
                     </tbody>
                   ))}
                 </>
@@ -675,6 +728,8 @@ export default function RelatoriosEstoqueClient() {
                       <td className="px-3 py-2 text-left">{r.fornecedorLabel}</td>
                       <td className="px-3 py-2 text-left">{r.unidade_medida ?? "-"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.saldoNumero, 3)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.estoqueMinimoNumero, 3)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(r.estoqueMaximoNumero, 3)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorUnitario)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(r.valorTotal)}</td>
                     </tr>
@@ -682,7 +737,7 @@ export default function RelatoriosEstoqueClient() {
                 </tbody>
               )}
               {!loadingA && saldoRows.length > 0 ? (
-                <tfoot><tr className="border-t border-zinc-700 bg-zinc-900/50"><td colSpan={6} className="px-3 py-2">Total de itens: {saldoTotalItens}</td><td className="px-3 py-2 text-right">Total em estoque</td><td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(saldoTotalEstoque)}</td></tr></tfoot>
+                <tfoot><tr className="border-t border-zinc-700 bg-zinc-900/50"><td colSpan={8} className="px-3 py-2">Total de itens: {saldoTotalItens}</td><td className="px-3 py-2 text-right">Total em estoque</td><td className="px-3 py-2 text-right tabular-nums">{formatMoneyBR(saldoTotalEstoque)}</td></tr></tfoot>
               ) : null}
             </table>
           </div>

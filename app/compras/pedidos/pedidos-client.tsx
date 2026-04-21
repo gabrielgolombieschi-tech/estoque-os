@@ -519,7 +519,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       const init: Record<string, "MIN" | "IDEAL" | "MAX"> = {};
       for (const r of rows) {
         const k = rowKey(r);
-        init[k] = r.estoque_meta_atual ?? "IDEAL";
+        void r;
+        init[k] = "MAX";
       }
       setMetaByRowKey(init);
       setDetRows([]);
@@ -971,7 +972,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
         return;
       }
       const k = rowKey(r);
-      const meta = metaByRowKey[k] ?? "IDEAL";
+      const meta = metaByRowKey[k] ?? "MAX";
       const sugestao =
         meta === "MIN" ? parseNum(r.sugestao_min) :
         meta === "IDEAL" ? parseNum(r.sugestao_ideal) :
@@ -1460,7 +1461,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
               <button className={modo === "AGRUPADO" ? "px-2 py-1 rounded bg-zinc-100 text-zinc-900" : "px-2 py-1 rounded border border-zinc-800"} onClick={() => { setModo("AGRUPADO"); setSelPendencias([]); }}>AGRUPADO</button>
               <button className={modo === "DETALHADO" ? "px-2 py-1 rounded bg-zinc-100 text-zinc-900" : "px-2 py-1 rounded border border-zinc-800"} onClick={() => { setModo("DETALHADO"); setSelPendencias([]); }}>DETALHADO</button>
               <button className="px-3 py-1 rounded border border-zinc-800" onClick={() => void executarVarredura()} disabled={busy || !canWrite}>
-                Varrer OS + Estoque MIN
+                Varrer OS + Estoque MAX
               </button>
               <button className="ml-auto px-3 py-1 rounded border border-zinc-800" onClick={() => void loadPendencias()}>Atualizar</button>
             </div>
@@ -1487,7 +1488,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                       const k = rowKey(r);
                       const ids = rowPendencias(r);
                       const checked = ids.length > 0 && ids.every((id) => selPendencias.includes(id));
-                      const metaSel = metaByRowKey[k] ?? "IDEAL";
+                      const metaSel = metaByRowKey[k] ?? "MAX";
                       return (
                         <tr key={`${k}:${idx}`} className="border-t border-zinc-900">
                           <td className="py-2">
