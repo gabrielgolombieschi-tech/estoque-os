@@ -3,6 +3,7 @@ import {
   canCompras,
   getAuthSupabase,
   jsonError,
+  resolvePedidoTransporte,
   resolveCondicaoPagamento,
   resolvePedidoSolicitanteUsuarioId,
   resolveTenantEmpresa,
@@ -35,9 +36,17 @@ export async function POST(req: NextRequest) {
   const solicitanteUsuarioIdRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
   const previsaoEntregaDate = parseIsoDate(body.previsaoEntregaDate ?? body.previsao_entrega_date);
   const condicaoPagamentoIdRaw = String(body.condicaoPagamentoId ?? body.condicao_pagamento_id ?? "").trim();
+  const transporteResult = resolvePedidoTransporte({
+    hasTransporteField: Object.prototype.hasOwnProperty.call(body, "transporteTipo") || Object.prototype.hasOwnProperty.call(body, "transporte_tipo"),
+    hasTransportadoraField:
+      Object.prototype.hasOwnProperty.call(body, "transportadoraNome") || Object.prototype.hasOwnProperty.call(body, "transportadora_nome"),
+    transporteTipo: body.transporteTipo ?? body.transporte_tipo,
+    transportadoraNome: body.transportadoraNome ?? body.transportadora_nome,
+  });
 
   if (!Number.isFinite(fornecedorId) || fornecedorId <= 0) return jsonError(400, "fornecedorId invalido.");
   if (previsaoEntregaDate === undefined) return jsonError(400, "Data de entrega invalida.");
+  if (transporteResult.error) return jsonError(400, transporteResult.error);
 
   const solicitanteResult = await resolvePedidoSolicitanteUsuarioId({
     authUserId: user.id,
@@ -81,8 +90,10 @@ export async function POST(req: NextRequest) {
       solicitante_usuario_id: solicitanteResult.id,
       previsao_entrega_date: previsaoEntregaDate ?? null,
       condicao_pagamento_id: condicaoPagamentoResult.row?.id ?? null,
+      transporte_tipo: transporteResult.transporteTipo,
+      transportadora_nome: transporteResult.transportadoraNome,
     })
-    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,created_at,total_geral")
+    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome,created_at,total_geral")
     .single();
 
   if (error) return jsonError(400, error.message);

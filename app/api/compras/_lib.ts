@@ -120,6 +120,63 @@ export async function canCompras(
 type UsuarioIdRow = { id: string };
 type UsuarioEmpresaAtivaRow = { usuario_id: string };
 type CondicaoPagamentoLookupRow = { id: string; nome: string | null; codigo: string | null };
+export type PedidoTransporteTipo = "CIF" | "FOB";
+
+export function parsePedidoTransporteTipo(value: unknown): PedidoTransporteTipo | null | undefined {
+  const raw = String(value ?? "").trim().toUpperCase();
+  if (!raw) return null;
+  if (raw === "CIF" || raw === "FOB") return raw;
+  return undefined;
+}
+
+export function normalizeNullableText(value: unknown) {
+  const raw = String(value ?? "").trim();
+  return raw ? raw : null;
+}
+
+export function resolvePedidoTransporte(opts: {
+  hasTransporteField?: boolean;
+  hasTransportadoraField?: boolean;
+  transporteTipo?: unknown;
+  transportadoraNome?: unknown;
+  currentTransporteTipo?: unknown;
+  currentTransportadoraNome?: unknown;
+}): { transporteTipo: PedidoTransporteTipo | null; transportadoraNome: string | null; error: string | null } {
+  const currentTransporteParsed = parsePedidoTransporteTipo(opts.currentTransporteTipo);
+  const nextTransporteParsed = parsePedidoTransporteTipo(opts.transporteTipo);
+  if (nextTransporteParsed === undefined) {
+    return { transporteTipo: null, transportadoraNome: null, error: "Transporte invalido. Use CIF ou FOB." };
+  }
+
+  const transporteTipo = opts.hasTransporteField
+    ? (nextTransporteParsed ?? null)
+    : currentTransporteParsed === undefined
+      ? null
+      : (currentTransporteParsed ?? null);
+
+  let transportadoraNome = opts.hasTransportadoraField
+    ? normalizeNullableText(opts.transportadoraNome)
+    : normalizeNullableText(opts.currentTransportadoraNome);
+
+  if (opts.hasTransportadoraField && transportadoraNome && transporteTipo !== "CIF") {
+    return {
+      transporteTipo,
+      transportadoraNome,
+      error: "Selecione transporte CIF para informar a transportadora.",
+    };
+  }
+
+  if (transporteTipo !== "CIF") transportadoraNome = null;
+  if (transporteTipo === "CIF" && !transportadoraNome) {
+    return {
+      transporteTipo,
+      transportadoraNome,
+      error: "Informe a transportadora quando o transporte for CIF.",
+    };
+  }
+
+  return { transporteTipo, transportadoraNome, error: null };
+}
 
 async function usuarioAtivoNaEmpresa(admin: ReturnType<typeof supabaseAdmin>, empresaId: string, usuarioId: string) {
   const { data, error } = await admin

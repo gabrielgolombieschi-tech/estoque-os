@@ -3,6 +3,7 @@ import {
   canCompras,
   getAuthSupabase,
   jsonError,
+  resolvePedidoTransporte,
   resolveCondicaoPagamento,
   resolvePedidoSolicitanteUsuarioId,
   resolveTenantEmpresa,
@@ -54,11 +55,19 @@ export async function POST(req: NextRequest) {
   const solicitanteUsuarioIdRaw = String(body.solicitanteUsuarioId ?? body.solicitante_usuario_id ?? "").trim();
   const previsaoEntregaDate = parseIsoDate(body.previsaoEntregaDate ?? body.previsao_entrega_date);
   const condicaoPagamentoIdRaw = String(body.condicaoPagamentoId ?? body.condicao_pagamento_id ?? "").trim();
+  const transporteResult = resolvePedidoTransporte({
+    hasTransporteField: Object.prototype.hasOwnProperty.call(body, "transporteTipo") || Object.prototype.hasOwnProperty.call(body, "transporte_tipo"),
+    hasTransportadoraField:
+      Object.prototype.hasOwnProperty.call(body, "transportadoraNome") || Object.prototype.hasOwnProperty.call(body, "transportadora_nome"),
+    transporteTipo: body.transporteTipo ?? body.transporte_tipo,
+    transportadoraNome: body.transportadoraNome ?? body.transportadora_nome,
+  });
   const quantidadeOverridesRaw = body.quantidadeOverrides ?? body.quantidade_overrides;
   const valorUnitOverridesRaw = body.valorUnitOverrides ?? body.valor_unit_overrides;
   if (!Number.isFinite(fornecedorId) || fornecedorId <= 0) return jsonError(400, "fornecedorId invalido.");
   if (!Array.isArray(pendenciaIds) || pendenciaIds.length === 0) return jsonError(400, "pendenciaIds obrigatorio.");
   if (previsaoEntregaDate === undefined) return jsonError(400, "Data de entrega invalida.");
+  if (transporteResult.error) return jsonError(400, transporteResult.error);
 
   const solicitanteResult = await resolvePedidoSolicitanteUsuarioId({
     authUserId: user.id,
@@ -143,7 +152,13 @@ export async function POST(req: NextRequest) {
   const pedidoId = data ? String(data) : null;
   if (!pedidoId) return Response.json({ pedido_id: null });
 
-  if (solicitanteResult.id || previsaoEntregaDate || condicaoPagamentoResult.row?.id) {
+  if (
+    solicitanteResult.id ||
+    previsaoEntregaDate ||
+    condicaoPagamentoResult.row?.id ||
+    transporteResult.transporteTipo ||
+    transporteResult.transportadoraNome
+  ) {
     const { error: solErr } = await supabase
       .schema("m")
       .from("pedido_compra")
@@ -151,6 +166,8 @@ export async function POST(req: NextRequest) {
         solicitante_usuario_id: solicitanteResult.id,
         previsao_entrega_date: previsaoEntregaDate ?? null,
         condicao_pagamento_id: condicaoPagamentoResult.row?.id ?? null,
+        transporte_tipo: transporteResult.transporteTipo,
+        transportadora_nome: transporteResult.transportadoraNome,
         updated_by: null,
       })
       .eq("id", pedidoId)

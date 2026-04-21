@@ -793,7 +793,9 @@ export default function AjusteNomePage() {
                       value={String(row.nome ?? "")}
                       disabled={busy}
                       placeholder="Nome do item"
-                      onCommit={(nextValue) => saveItemName(row.id, nextValue, String(row.nome ?? ""))}
+                      onCommit={async (nextValue) => {
+                        await saveItemName(row.id, nextValue, String(row.nome ?? ""));
+                      }}
                     />
                     <div className="text-xs text-zinc-400 mt-1">{String(row.unidade_medida ?? "UN")}</div>
                   </td>

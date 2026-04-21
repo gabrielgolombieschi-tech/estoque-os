@@ -13,6 +13,8 @@ type Pedido = {
   fornecedor_nome?: string | null;
   previsao_entrega_date?: string | null;
   condicao_pagamento_nome?: string | null;
+  transporte_tipo?: "CIF" | "FOB" | null;
+  transportadora_nome?: string | null;
   created_at?: string | null;
   total_geral?: number | null;
   observacoes?: string | null;
@@ -186,6 +188,18 @@ export default function ComprasPedidoImprimirPage() {
               <div>
                 <span className="text-zinc-600">Prazo de entrega:</span>{" "}
                 <strong>{data.pedido.previsao_entrega_date ? fmtDate(data.pedido.previsao_entrega_date) : "-"}</strong>
+              </div>
+              <div>
+                <span className="text-zinc-600">Transporte:</span>{" "}
+                <strong>{String(data.pedido.transporte_tipo ?? "").trim() || "-"}</strong>
+              </div>
+              <div>
+                <span className="text-zinc-600">Transportadora:</span>{" "}
+                <strong>
+                  {String(data.pedido.transporte_tipo ?? "").trim().toUpperCase() === "CIF"
+                    ? String(data.pedido.transportadora_nome ?? "").trim() || "-"
+                    : "-"}
+                </strong>
               </div>
               {String(data.pedido.observacoes ?? "").trim() ? (
                 <div className="col-span-2">

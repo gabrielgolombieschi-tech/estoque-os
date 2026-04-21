@@ -3,6 +3,7 @@ import {
   canCompras,
   getAuthSupabase,
   jsonError,
+  resolvePedidoTransporte,
   resolveCondicaoPagamento,
   resolvePedidoSolicitanteUsuarioId,
   resolveTenantEmpresa,
@@ -372,15 +373,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const hasCondicaoPagamentoField =
     Object.prototype.hasOwnProperty.call(body, "condicaoPagamentoId") ||
     Object.prototype.hasOwnProperty.call(body, "condicao_pagamento_id");
+  const hasTransporteField =
+    Object.prototype.hasOwnProperty.call(body, "transporteTipo") ||
+    Object.prototype.hasOwnProperty.call(body, "transporte_tipo");
+  const hasTransportadoraField =
+    Object.prototype.hasOwnProperty.call(body, "transportadoraNome") ||
+    Object.prototype.hasOwnProperty.call(body, "transportadora_nome");
 
-  if (!hasSolicitanteField && !hasPrevisaoEntregaField && !hasCondicaoPagamentoField) {
+  if (!hasSolicitanteField && !hasPrevisaoEntregaField && !hasCondicaoPagamentoField && !hasTransporteField && !hasTransportadoraField) {
     return jsonError(400, "Nenhum campo informado para atualizacao.");
   }
 
   const { data: pedido } = await supabase
     .schema("m")
     .from("pedido_compra")
-    .select("id,status")
+    .select("id,status,transporte_tipo,transportadora_nome")
     .eq("id", id)
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
@@ -426,6 +433,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  if (hasTransporteField || hasTransportadoraField) {
+    const transporteResult = resolvePedidoTransporte({
+      hasTransporteField,
+      hasTransportadoraField,
+      transporteTipo: body.transporteTipo ?? body.transporte_tipo,
+      transportadoraNome: body.transportadoraNome ?? body.transportadora_nome,
+      currentTransporteTipo: (pedido as Record<string, unknown>).transporte_tipo,
+      currentTransportadoraNome: (pedido as Record<string, unknown>).transportadora_nome,
+    });
+    if (transporteResult.error) return jsonError(400, transporteResult.error);
+    patch.transporte_tipo = transporteResult.transporteTipo;
+    patch.transportadora_nome = transporteResult.transportadoraNome;
+  }
+
   const { data, error } = await supabase
     .schema("m")
     .from("pedido_compra")
@@ -434,7 +455,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
     .is("deleted_at", null)
-    .select("id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id")
+    .select("id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome")
     .single();
   if (error) return jsonError(400, error.message);
 

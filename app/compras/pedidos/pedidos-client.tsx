@@ -65,6 +65,8 @@ type Pedido = {
   previsao_entrega_date?: string | null;
   condicao_pagamento_id?: string | null;
   condicao_pagamento_nome?: string | null;
+  transporte_tipo?: "CIF" | "FOB" | null;
+  transportadora_nome?: string | null;
   created_at: string;
   total_geral: number;
 };
@@ -113,6 +115,12 @@ type LookupItemRow = {
 type LookupSortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "saldo";
 type LookupSortDir = "asc" | "desc";
 type LookupSortValue = string | number | null;
+type PedidoTransporteTipo = "" | "CIF" | "FOB";
+
+function normalizePedidoTransporteTipo(value: unknown): PedidoTransporteTipo {
+  const raw = String(value ?? "").trim().toUpperCase();
+  return raw === "CIF" || raw === "FOB" ? raw : "";
+}
 
 async function authedFetch(path: string, init?: RequestInit) {
   const supabase = supabaseBrowser();
@@ -363,6 +371,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [pedidoSolicitanteId, setPedidoSolicitanteId] = useState("");
   const [pedidoPrevisaoEntregaDate, setPedidoPrevisaoEntregaDate] = useState("");
   const [pedidoCondicaoPagamentoId, setPedidoCondicaoPagamentoId] = useState("");
+  const [pedidoTransporteTipo, setPedidoTransporteTipo] = useState<PedidoTransporteTipo>("");
+  const [pedidoTransportadoraNome, setPedidoTransportadoraNome] = useState("");
   const manualQtdInputRef = useRef<HTMLInputElement | null>(null);
 
   const [busy, setBusy] = useState(false);
@@ -591,27 +601,47 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     return (
       String(selectedPedido.solicitante_usuario_id ?? "") !== pedidoSolicitanteId ||
       String(selectedPedido.previsao_entrega_date ?? "") !== pedidoPrevisaoEntregaDate ||
-      String(selectedPedido.condicao_pagamento_id ?? "") !== pedidoCondicaoPagamentoId
+      String(selectedPedido.condicao_pagamento_id ?? "") !== pedidoCondicaoPagamentoId ||
+      normalizePedidoTransporteTipo(selectedPedido.transporte_tipo) !== pedidoTransporteTipo ||
+      String(selectedPedido.transportadora_nome ?? "").trim() !== pedidoTransportadoraNome.trim()
     );
   }, [
     pedidoCondicaoPagamentoId,
     pedidoPrevisaoEntregaDate,
     pedidoSolicitanteId,
+    pedidoTransportadoraNome,
+    pedidoTransporteTipo,
     selectedPedido,
   ]);
   const pedidoCabecalhoCompleto = Boolean(
-    pedidoSolicitanteId.trim() && pedidoPrevisaoEntregaDate.trim() && pedidoCondicaoPagamentoId.trim()
+    pedidoSolicitanteId.trim() &&
+      pedidoPrevisaoEntregaDate.trim() &&
+      pedidoCondicaoPagamentoId.trim() &&
+      pedidoTransporteTipo &&
+      (pedidoTransporteTipo !== "CIF" || pedidoTransportadoraNome.trim())
   );
   const bloqueioFluxoPedido = useMemo(() => {
     if (!selectedPedido) return null;
     if (!pedidoCabecalhoCompleto) {
-      return "Preencha solicitante, data de entrega e condicao de pagamento antes de solicitar aprovacao, aprovar ou enviar.";
+      return "Preencha solicitante, data de entrega, condicao de pagamento e transporte. Quando o transporte for CIF, informe tambem a transportadora.";
     }
     if (pedidoCabecalhoDirty) {
       return "Salve os dados do pedido antes de continuar o fluxo.";
     }
     return null;
   }, [pedidoCabecalhoCompleto, pedidoCabecalhoDirty, selectedPedido]);
+  const transporteCarrierVisible = pedidoTransporteTipo === "CIF";
+  const transporteTipoLabel = useMemo(() => {
+    if (!selectedPedido) return "-";
+    const tipo = normalizePedidoTransporteTipo(selectedPedido.transporte_tipo);
+    return tipo || "-";
+  }, [selectedPedido]);
+  const transportadoraNomeLabel = useMemo(() => {
+    if (!selectedPedido) return "-";
+    const tipo = normalizePedidoTransporteTipo(selectedPedido.transporte_tipo);
+    if (tipo !== "CIF") return "-";
+    return String(selectedPedido.transportadora_nome ?? "").trim() || "-";
+  }, [selectedPedido]);
   const sortedLookupRows = useMemo(
     () => sortLookupRows(lookupRows, lookupSortKey, lookupSortDir),
     [lookupRows, lookupSortDir, lookupSortKey]
@@ -714,11 +744,15 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       setPedidoSolicitanteId(defaultSolicitanteId);
       setPedidoPrevisaoEntregaDate("");
       setPedidoCondicaoPagamentoId("");
+      setPedidoTransporteTipo("");
+      setPedidoTransportadoraNome("");
       return;
     }
     setPedidoSolicitanteId(String(selectedPedido.solicitante_usuario_id ?? defaultSolicitanteId ?? ""));
     setPedidoPrevisaoEntregaDate(String(selectedPedido.previsao_entrega_date ?? ""));
     setPedidoCondicaoPagamentoId(String(selectedPedido.condicao_pagamento_id ?? ""));
+    setPedidoTransporteTipo(normalizePedidoTransporteTipo(selectedPedido.transporte_tipo));
+    setPedidoTransportadoraNome(String(selectedPedido.transportadora_nome ?? ""));
   }, [
     defaultSolicitanteId,
     selectedPedido,
@@ -726,6 +760,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     selectedPedido?.id,
     selectedPedido?.previsao_entrega_date,
     selectedPedido?.solicitante_usuario_id,
+    selectedPedido?.transportadora_nome,
+    selectedPedido?.transporte_tipo,
   ]);
 
   useEffect(() => {
@@ -1384,6 +1420,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
           solicitanteUsuarioId: pedidoSolicitanteId || null,
           previsaoEntregaDate: pedidoPrevisaoEntregaDate || null,
           condicaoPagamentoId: pedidoCondicaoPagamentoId || null,
+          transporteTipo: pedidoTransporteTipo || null,
+          transportadoraNome: pedidoTransporteTipo === "CIF" ? pedidoTransportadoraNome.trim() || null : null,
         }),
       });
       setOk("Dados do pedido atualizados.");
@@ -1401,6 +1439,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     pedidoCondicaoPagamentoId,
     pedidoPrevisaoEntregaDate,
     pedidoSolicitanteId,
+    pedidoTransportadoraNome,
+    pedidoTransporteTipo,
     tenantId,
   ]);
 
@@ -1952,7 +1992,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                   </div>
 
                   {readOnly ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                       <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
                         <div className="text-[11px] uppercase tracking-wide text-zinc-500">Solicitante</div>
                         <div className="text-sm text-zinc-200">{selectedPedido.solicitante_nome || "-"}</div>
@@ -1967,12 +2007,20 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                         <div className="text-[11px] uppercase tracking-wide text-zinc-500">Condicao de pagamento</div>
                         <div className="text-sm text-zinc-200">{selectedPedido.condicao_pagamento_nome || "-"}</div>
                       </div>
+                      <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+                        <div className="text-[11px] uppercase tracking-wide text-zinc-500">Transporte</div>
+                        <div className="text-sm text-zinc-200">{transporteTipoLabel}</div>
+                      </div>
+                      <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
+                        <div className="text-[11px] uppercase tracking-wide text-zinc-500">Transportadora</div>
+                        <div className="text-sm text-zinc-200">{transportadoraNomeLabel}</div>
+                      </div>
                     </div>
                   ) : (
                     <div className="rounded border border-zinc-800 p-3 space-y-3">
                       <div className="text-sm font-medium">Dados do pedido</div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <label className="space-y-1 text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <label className="space-y-1 text-sm md:col-span-2">
                           <div className="text-zinc-300">Solicitante</div>
                           <select
                             className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
@@ -2017,6 +2065,38 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                             ))}
                           </select>
                         </label>
+
+                        <label className="space-y-1 text-sm">
+                          <div className="text-zinc-300">Transporte</div>
+                          <select
+                            className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                            value={pedidoTransporteTipo}
+                            onChange={(e) => {
+                              const next = normalizePedidoTransporteTipo(e.target.value);
+                              setPedidoTransporteTipo(next);
+                              if (next !== "CIF") setPedidoTransportadoraNome("");
+                            }}
+                            disabled={busy || !canWrite}
+                          >
+                            <option value="">Selecione...</option>
+                            <option value="FOB">FOB</option>
+                            <option value="CIF">CIF</option>
+                          </select>
+                        </label>
+
+                        {transporteCarrierVisible ? (
+                          <label className="space-y-1 text-sm md:col-span-3">
+                            <div className="text-zinc-300">Transportadora</div>
+                            <input
+                              type="text"
+                              className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                              value={pedidoTransportadoraNome}
+                              onChange={(e) => setPedidoTransportadoraNome(e.target.value)}
+                              disabled={busy || !canWrite}
+                              placeholder="Nome da transportadora"
+                            />
+                          </label>
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">

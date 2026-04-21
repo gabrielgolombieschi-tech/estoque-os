@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   let q = db
     .schema("m")
     .from("pedido_compra")
-    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,created_at,total_geral")
+    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome,created_at,total_geral")
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
     .is("deleted_at", null);

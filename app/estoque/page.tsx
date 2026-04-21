@@ -283,13 +283,6 @@ export default function EstoquePage() {
     }, 0);
   }
 
-  function focusCodigo() {
-    setTimeout(() => {
-      codigoInputRef.current?.focus();
-      codigoInputRef.current?.select?.();
-    }, 0);
-  }
-
   function focusAjusteId() {
     setTimeout(() => {
       ajusteItemIdRef.current?.focus();

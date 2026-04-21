@@ -64,6 +64,24 @@ function normalizeNullableText(v: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function normalizeNumberOrString(v: unknown): number | string | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string") {
+    const trimmed = v.trim();
+    return trimmed ? trimmed : null;
+  }
+  return null;
+}
+
+function normalizeNullableNumber(v: unknown): number | null {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeNullableBoolean(v: unknown): boolean | null {
+  return typeof v === "boolean" ? v : null;
+}
+
 function compareText(a: string, b: string) {
   return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
 }
@@ -157,30 +175,30 @@ function mapSaldoRowFromItemRecord(r: unknown): SaldoEmEstoqueRow {
     )
   );
 
-  const precoUnitario = row.preco_unitario ?? null;
-  const custo = row.custo_medio ?? null;
+  const precoUnitario = normalizeNumberOrString(row.preco_unitario);
+  const custo = normalizeNumberOrString(row.custo_medio);
   const valorUnitario = pickPositiveUnitValue([precoUnitario, custo]);
   const valor = saldo * valorUnitario;
-  const estoqueMin = row.estoque_minimo ?? null;
+  const estoqueMin = normalizeNumberOrString(row.estoque_minimo);
   const abaixoMin = saldo < safeNumber(estoqueMin);
 
   return {
     item_id: safeNumber(row.id),
     codigo_interno: String(row.codigo_interno ?? ""),
     item_nome: String(row.nome ?? ""),
-    unidade_medida: row.unidade_medida ?? null,
+    unidade_medida: normalizeNullableText(row.unidade_medida),
     quantidade_atual: saldo,
     preco_unitario: precoUnitario,
     custo_medio: custo,
     valor_estoque: valor,
-    fornecedor_id: row.fornecedor_id ?? null,
+    fornecedor_id: normalizeNullableNumber(row.fornecedor_id),
     fornecedor_nome: fornecedor?.nome ? String(fornecedor.nome) : null,
-    estoque_minimo: row.estoque_minimo ?? null,
+    estoque_minimo: estoqueMin,
     estoque_ideal: null,
-    estoque_maximo: row.estoque_maximo ?? null,
+    estoque_maximo: normalizeNumberOrString(row.estoque_maximo),
     localizacao: localizacoes.length ? localizacoes.join(", ") : null,
-    finalidade: row.finalidade ?? null,
-    controla_estoque: row.controla_estoque ?? null,
+    finalidade: normalizeNullableText(row.finalidade),
+    controla_estoque: normalizeNullableBoolean(row.controla_estoque),
     abaixo_minimo: abaixoMin,
   };
 }
