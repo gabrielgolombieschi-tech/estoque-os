@@ -404,10 +404,34 @@ export default function AjusteNomePage() {
   }) {
     const { ariaLabel, value, disabled, placeholder, onCommit } = props;
     const [text, setText] = useState<string>(String(value ?? ""));
+    const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+
+    const syncHeight = useCallback(() => {
+      const el = textAreaRef.current;
+      if (!el) return;
+
+      el.style.height = "0px";
+      const computed = window.getComputedStyle(el);
+      const lineHeight = Number.parseFloat(computed.lineHeight) || 18;
+      const paddingTop = Number.parseFloat(computed.paddingTop) || 0;
+      const paddingBottom = Number.parseFloat(computed.paddingBottom) || 0;
+      const borderTop = Number.parseFloat(computed.borderTopWidth) || 0;
+      const borderBottom = Number.parseFloat(computed.borderBottomWidth) || 0;
+      const baseHeight = lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
+      const maxHeight = lineHeight * 2 + paddingTop + paddingBottom + borderTop + borderBottom;
+      const nextHeight = Math.min(Math.max(el.scrollHeight, baseHeight), maxHeight);
+
+      el.style.height = `${nextHeight}px`;
+    }, []);
 
     useEffect(() => {
       setText(String(value ?? ""));
     }, [value]);
+
+    useEffect(() => {
+      const frame = window.requestAnimationFrame(syncHeight);
+      return () => window.cancelAnimationFrame(frame);
+    }, [syncHeight, text]);
 
     const reset = () => setText(String(value ?? ""));
 
@@ -423,10 +447,11 @@ export default function AjusteNomePage() {
     };
 
     return (
-      <input
+      <textarea
+        ref={textAreaRef}
         aria-label={ariaLabel}
-        type="text"
-        className="w-full px-2 py-1 rounded-md border border-zinc-700 bg-zinc-900/40 text-left"
+        rows={1}
+        className="w-full resize-none overflow-hidden rounded-md border border-zinc-700 bg-zinc-900/40 px-2 py-1.5 text-left leading-tight"
         value={text}
         placeholder={placeholder}
         disabled={disabled}
