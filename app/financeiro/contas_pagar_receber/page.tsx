@@ -429,15 +429,21 @@ export default function ContasPagarReceberPage() {
           .select(
             "titulo_id,parcela_id,parcela_numero,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,valor_parcela,valor_aberto,status"
           )
+          .eq("tenant_id", te.tenantId)
+          .eq("empresa_id", te.empresaId)
           .gte("vencimento_date", ini)
           .lte("vencimento_date", fim),
         supabase
           .schema("f")
           .from("titulo_parcela")
           .select(
-            "id,titulo_id,numero,vencimento_date,valor,valor_aberto,titulo:titulo_id!inner(id,tipo,status,fornecedor_id,motivo_compra_id)"
+            "id,titulo_id,numero,vencimento_date,valor,valor_aberto,deleted_at,titulo:titulo_id!inner(id,tipo,status,fornecedor_id,motivo_compra_id,empresa_id,deleted_at)"
           )
+          .eq("tenant_id", te.tenantId)
           .eq("titulo.tipo", "AP")
+          .eq("titulo.empresa_id", te.empresaId)
+          .is("deleted_at", null)
+          .is("titulo.deleted_at", null)
           .eq("valor_aberto", 0)
           .gte("vencimento_date", ini)
           .lte("vencimento_date", fim),
@@ -445,9 +451,13 @@ export default function ContasPagarReceberPage() {
           .schema("f")
           .from("titulo_parcela")
           .select(
-            "id,titulo_id,numero,vencimento_date,valor,valor_aberto,titulo:titulo_id!inner(id,tipo,status,cliente_id,descricao)"
+            "id,titulo_id,numero,vencimento_date,valor,valor_aberto,deleted_at,titulo:titulo_id!inner(id,tipo,status,cliente_id,descricao,empresa_id,deleted_at)"
           )
+          .eq("tenant_id", te.tenantId)
           .eq("titulo.tipo", "AR")
+          .eq("titulo.empresa_id", te.empresaId)
+          .is("deleted_at", null)
+          .is("titulo.deleted_at", null)
           .gte("vencimento_date", ini)
           .lte("vencimento_date", fim),
       ]);
@@ -496,10 +506,13 @@ export default function ContasPagarReceberPage() {
         vencimento_date: unknown;
         valor: unknown;
         valor_aberto: unknown;
+        deleted_at?: unknown;
         titulo?: {
           fornecedor_id?: unknown;
           motivo_compra_id?: unknown;
           status?: unknown;
+          empresa_id?: unknown;
+          deleted_at?: unknown;
         } | null;
       };
 
@@ -683,10 +696,13 @@ export default function ContasPagarReceberPage() {
         vencimento_date: unknown;
         valor: unknown;
         valor_aberto: unknown;
+        deleted_at?: unknown;
         titulo?: {
           cliente_id?: unknown;
           descricao?: unknown;
           status?: unknown;
+          empresa_id?: unknown;
+          deleted_at?: unknown;
         } | null;
       };
 
