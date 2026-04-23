@@ -21,11 +21,31 @@ export function parseMoneyBR(value: string | number | null | undefined): number 
   const trimmed = value.trim();
   if (!trimmed) return NaN;
 
-  const normalized = trimmed
+  const cleaned = trimmed
     .replace(/^R\$\s*/i, "")
-    .replace(/\./g, "")
     .replace(/\s+/g, "")
-    .replace(",", ".");
+    .replace(/[^\d,.-]/g, "");
+
+  if (!cleaned) return NaN;
+
+  const negative = cleaned.startsWith("-");
+  const unsigned = cleaned.replace(/-/g, "");
+  const lastComma = unsigned.lastIndexOf(",");
+  const lastDot = unsigned.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  let normalized = unsigned.replace(/[.,]/g, "");
+
+  if (decimalIndex >= 0) {
+    const decimalDigits = unsigned.length - decimalIndex - 1;
+    if (decimalDigits > 0 && decimalDigits <= 2) {
+      const integerPart = unsigned.slice(0, decimalIndex).replace(/[.,]/g, "");
+      const fractionPart = unsigned.slice(decimalIndex + 1).replace(/[.,]/g, "");
+      normalized = `${integerPart || "0"}.${fractionPart}`;
+    }
+  }
+
+  if (negative) normalized = `-${normalized}`;
 
   const n = Number(normalized);
   return Number.isFinite(n) ? n : NaN;

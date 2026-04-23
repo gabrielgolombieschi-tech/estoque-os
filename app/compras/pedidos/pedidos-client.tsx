@@ -788,6 +788,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     if (!tenantId || !empresaId) return;
 
     setAutoScanTried(true);
+    setBusy(true);
     void (async () => {
       try {
         await authedFetch("/api/compras/pendencias/varredura", {
@@ -804,7 +805,9 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       } catch {
         // mensagem principal já é tratada nos fluxos manuais
       }
-    })();
+    })().finally(() => {
+      setBusy(false);
+    });
   }, [autoScanTried, busy, canWrite, empresaId, fornecedores.length, loadFornecedores, loadPendencias, tab, tenantId]);
 
   useEffect(() => {

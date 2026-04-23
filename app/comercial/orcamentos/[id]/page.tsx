@@ -34,6 +34,7 @@ type ItemLookupBaseRow = {
   id: number;
   codigo_interno: string | null;
   nome: string | null;
+  fabricante: string | null;
   preco_unitario: number | null;
   custo_ultima_compra: number | null;
   fornecedores?: { nome?: string | null } | null;
@@ -73,8 +74,46 @@ type ConfirmOptions = {
   destructive?: boolean;
 };
 
+type LookupSearchTerm = {
+  raw: string;
+  normalized: string;
+};
+
+const LOOKUP_FETCH_LIMIT = 150;
+const LOOKUP_RESULT_LIMIT = 50;
+
 function hasAny(caps: Capabilities | null, keys: CapabilityKey[]): boolean {
   return requireAny(caps, keys);
+}
+
+function normalizeLookupText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function parseLookupTerms(value: string | null | undefined): LookupSearchTerm[] {
+  return String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((raw) => ({
+      raw,
+      normalized: normalizeLookupText(raw),
+    }))
+    .filter((term) => term.normalized.length > 0);
+}
+
+function pickLookupSeedTerm(terms: LookupSearchTerm[]): string {
+  return [...terms].sort((a, b) => b.normalized.length - a.normalized.length)[0]?.raw ?? "";
+}
+
+function matchesLookupTerms(values: Array<string | null | undefined>, terms: LookupSearchTerm[]): boolean {
+  if (terms.length === 0) return true;
+  const haystack = values.map((value) => normalizeLookupText(value)).join(" ");
+  return terms.every((term) => haystack.includes(term.normalized));
 }
 
 type VendedoresApiResponse = {
@@ -768,127 +807,154 @@ export default function OrcamentoPage() {
 
     const nomeTerm = (nextNome ?? lookupNome).trim();
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
+    const nomeTerms = parseLookupTerms(nomeTerm);
+    const fornecedorTerms = parseLookupTerms(fornecedorTerm);
+    const nomeSeedTerm = pickLookupSeedTerm(nomeTerms);
+    const fornecedorSeedTerm = pickLookupSeedTerm(fornecedorTerms);
 
-    if (lookupBuscarConjuntos) {
-      try {
-        let q = supabase
-          .schema("r")
-          .from("r_orcamento_catalogo_busca")
-          .select("*")
-          .eq("origem", "CONJUNTO");
+    try {
+      if (lookupBuscarConjuntos) {
+        const buildConjuntoQuery = (field: "codigo" | "nome" | null) => {
+          let q = supabase
+            .schema("r")
+            .from("r_orcamento_catalogo_busca")
+            .select("*")
+            .eq("origem", "CONJUNTO");
 
-        if (nomeTerm) {
-          const like = `%${nomeTerm}%`;
-          q = q.or(`codigo.ilike.${like},nome.ilike.${like}`);
-        }
+          if (field && nomeSeedTerm) q = q.ilike(field, `%${nomeSeedTerm}%`);
+          return q.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT);
+        };
 
-        const { data, error } = await q.order("nome", { ascending: true }).limit(50);
-        if (error) {
-          setLookupErr(error.message);
+        const conjuntoResponses = nomeSeedTerm
+          ? await Promise.all([buildConjuntoQuery("codigo"), buildConjuntoQuery("nome")])
+          : [await buildConjuntoQuery(null)];
+
+        const conjuntoError = conjuntoResponses.find((response) => response.error)?.error;
+        if (conjuntoError) {
+          setLookupErr(conjuntoError.message);
           setLookupConjuntoRows([]);
           setLookupRows([]);
-          setLookupBusy(false);
           return;
         }
 
-        const rows = (data ?? []) as Array<Record<string, unknown>>;
-        setLookupConjuntoRows(
-          rows
-            .map((r) => {
-              const conjuntoId = r.conjunto_id ? String(r.conjunto_id) : "";
-              if (!conjuntoId) return null;
-              const codigo = typeof r.codigo === "string" ? r.codigo : r.codigo ? String(r.codigo) : null;
-              const nome = typeof r.nome === "string" ? r.nome : r.nome ? String(r.nome) : null;
-              const preco = Number(r.preco_sugerido);
-              return {
-                conjunto_id: conjuntoId,
-                codigo,
-                nome,
-                preco_sugerido: Number.isFinite(preco) ? preco : null,
-              } satisfies ConjuntoCatalogoRow;
-            })
-            .filter(Boolean) as ConjuntoCatalogoRow[]
-        );
+        const conjuntoMap = new Map<string, ConjuntoCatalogoRow>();
+        conjuntoResponses.forEach((response) => {
+          const rows = (response.data ?? []) as Array<Record<string, unknown>>;
+          rows.forEach((r) => {
+            const conjuntoId = r.conjunto_id ? String(r.conjunto_id) : "";
+            if (!conjuntoId || conjuntoMap.has(conjuntoId)) return;
+            const codigo = typeof r.codigo === "string" ? r.codigo : r.codigo ? String(r.codigo) : null;
+            const nome = typeof r.nome === "string" ? r.nome : r.nome ? String(r.nome) : null;
+            const preco = Number(r.preco_sugerido);
+            conjuntoMap.set(conjuntoId, {
+              conjunto_id: conjuntoId,
+              codigo,
+              nome,
+              preco_sugerido: Number.isFinite(preco) ? preco : null,
+            });
+          });
+        });
 
+        const conjuntoRows = Array.from(conjuntoMap.values())
+          .filter((row) => matchesLookupTerms([row.codigo, row.nome], nomeTerms))
+          .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
+          .slice(0, LOOKUP_RESULT_LIMIT);
+
+        setLookupConjuntoRows(conjuntoRows);
         setLookupRows([]);
-        setLookupBusy(false);
-        return;
-      } catch (e: unknown) {
-        setLookupErr(e instanceof Error ? e.message : "Erro ao buscar conjuntos.");
-        setLookupConjuntoRows([]);
-        setLookupRows([]);
-        setLookupBusy(false);
         return;
       }
-    }
 
-    setLookupConjuntoRows([]);
+      setLookupConjuntoRows([]);
 
-    const baseSelect = fornecedorTerm
-      ? "id,codigo_interno,nome,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
-      : "id,codigo_interno,nome,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
+      const baseSelect = fornecedorSeedTerm
+        ? "id,codigo_interno,nome,fabricante,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
+        : "id,codigo_interno,nome,fabricante,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
 
-    let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
+      const buildItemQuery = (field: "nome" | "codigo_interno" | "fabricante" | null) => {
+        let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
+        if (field && nomeSeedTerm) query = query.ilike(field, `%${nomeSeedTerm}%`);
+        if (fornecedorSeedTerm) query = query.ilike("fornecedores.nome", `%${fornecedorSeedTerm}%`);
+        return query.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT);
+      };
 
-    if (nomeTerm) {
-      const like = `%${nomeTerm}%`;
-      query = query.or(`nome.ilike.${like},codigo_interno.ilike.${like}`);
-    }
-    if (fornecedorTerm) query = query.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
+      const itemResponses = nomeSeedTerm
+        ? await Promise.all([
+            buildItemQuery("nome"),
+            buildItemQuery("codigo_interno"),
+            buildItemQuery("fabricante"),
+          ])
+        : [await buildItemQuery(null)];
 
-    const { data, error } = await query.order("nome", { ascending: true }).limit(50);
+      const itemError = itemResponses.find((response) => response.error)?.error;
+      if (itemError) {
+        setLookupErr(itemError.message);
+        setLookupRows([]);
+        return;
+      }
 
-    if (error) {
-      setLookupErr(error.message);
-      setLookupRows([]);
-      setLookupBusy(false);
-      return;
-    }
+      const baseMap = new Map<number, ItemLookupBaseRow>();
+      itemResponses.forEach((response) => {
+        const rows = (response.data ?? []) as ItemLookupBaseRow[];
+        rows.forEach((row) => {
+          if (!baseMap.has(row.id)) baseMap.set(row.id, row);
+        });
+      });
 
-    const baseRows = (data ?? []) as ItemLookupBaseRow[];
-    const ids = baseRows.map((r) => r.id);
-    const ultimaMap = new Map<number, string>();
-    const stockMap = new Map<number, number>();
+      const baseRows = Array.from(baseMap.values())
+        .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
+        .filter((row) => matchesLookupTerms([row.fornecedores?.nome ?? null], fornecedorTerms))
+        .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
+        .slice(0, LOOKUP_RESULT_LIMIT);
 
-    if (ids.length > 0) {
-      const { data: movData, error: movErr } = await supabase
-        .from("movimentacoes")
-        .select("item_id,data_movimentacao")
-        .eq("tipo", "entrada")
-        .in("item_id", ids)
-        .order("data_movimentacao", { ascending: false });
+      const ids = baseRows.map((r) => r.id);
+      const ultimaMap = new Map<number, string>();
+      const stockMap = new Map<number, number>();
 
-      if (!movErr) {
-        const movRows = (movData ?? []) as MovRow[];
-        movRows.forEach((m) => {
-          if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao);
+      if (ids.length > 0) {
+        const { data: movData, error: movErr } = await supabase
+          .from("movimentacoes")
+          .select("item_id,data_movimentacao")
+          .eq("tipo", "entrada")
+          .in("item_id", ids)
+          .order("data_movimentacao", { ascending: false });
+
+        if (!movErr) {
+          const movRows = (movData ?? []) as MovRow[];
+          movRows.forEach((m) => {
+            if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao);
+          });
+        }
+
+        const { data: estData } = await supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", ids);
+        const estoqueRows = (estData ?? []) as EstoqueRow[];
+        estoqueRows.forEach((e) => {
+          stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
         });
       }
 
-      const { data: estData } = await supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", ids);
-      const estoqueRows = (estData ?? []) as EstoqueRow[];
-      estoqueRows.forEach((e) => {
-        stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
-      });
+      setLookupRows(
+        baseRows.map((r) => ({
+          id: r.id,
+          codigo_interno: r.codigo_interno,
+          nome: r.nome,
+          fornecedor: r.fornecedores?.nome ?? null,
+          ultima_entrada: ultimaMap.get(r.id) ?? null,
+          preco_unitario: getSuggestedOrcamentoUnitPrice({
+            custoUltimaCompra: r.custo_ultima_compra,
+            precoUnitario: r.preco_unitario,
+            margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+          }),
+          estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
+        }))
+      );
+    } catch (e: unknown) {
+      setLookupErr(e instanceof Error ? e.message : "Erro ao buscar itens.");
+      setLookupRows([]);
+      setLookupConjuntoRows([]);
+    } finally {
+      setLookupBusy(false);
     }
-
-    setLookupRows(
-      baseRows.map((r) => ({
-        id: r.id,
-        codigo_interno: r.codigo_interno,
-        nome: r.nome,
-        fornecedor: r.fornecedores?.nome ?? null,
-        ultima_entrada: ultimaMap.get(r.id) ?? null,
-        preco_unitario: getSuggestedOrcamentoUnitPrice({
-          custoUltimaCompra: r.custo_ultima_compra,
-          precoUnitario: r.preco_unitario,
-          margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
-        }),
-        estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
-      }))
-    );
-
-    setLookupBusy(false);
   }
 
   async function handleAddConjuntoConfirm() {
