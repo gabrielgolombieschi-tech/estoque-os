@@ -74,6 +74,7 @@ const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "S
 const MANUAL_HISTORICAL_YEAR_SET = new Set(manualHistoricalYears);
 const CLIENT_NAME_NOISE_TOKENS = new Set(["SA", "LTDA", "EIRELI", "ME", "EPP", "MATRIZ", "FILIAL", "FAB", "FABRICA"]);
 const CLIENT_NAME_FAMILY_CANONICAL: Partial<Record<string, string>> = {
+  ARCELORMITTAL: "ARCELORMITTAL",
   CREMER: "CREMER",
   TUPY: "TUPY",
   EMBRACO: "EMBRACO",
@@ -88,18 +89,43 @@ const CLIENT_NAME_FAMILY_CANONICAL: Partial<Record<string, string>> = {
   INCEPA: "INCEPA",
   "FOCUS SUL": "FOCUS SUL",
   FAMOSSUL: "FAMOSSUL",
+  FORTLEV: "FORTLEV",
+  "CT SERVICES": "CT SERVICES",
+  MEBIUS: "MEBIUS",
   SIEMENS: "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA.",
   KRONA: "KRONA",
+  MOHAWK: "MOHAWK",
+  RIOSULENSE: "RIOSULENSE",
 };
 const CLIENT_NAME_EXACT_CANONICAL: Partial<Record<string, string>> = {
+  ARCELORMITTAL: "ARCELORMITTAL",
+  "ARCELORMITTAL BRASIL SA": "ARCELORMITTAL",
+  "CT SERVICES": "CT SERVICES",
+  "CT SERVICES SOLUCOES EM AUTOMACAO LTDA": "CT SERVICES",
   "FAMOS SUL": "FAMOSSUL",
+  FAMOSSUL: "FAMOSSUL",
+  "FAMOSSUL MADEIRAS NORDESTE LTDA": "FAMOSSUL",
+  "FAMOSSUL MADEIRAS SA MADEIRAS": "FAMOSSUL",
+  FORTLEV: "FORTLEV",
+  "FORTLEV INDUS E COMERC DE PLASTICO LTDA": "FORTLEV",
   FOCUSSUL: "FOCUS SUL",
   "INCEPA REVESTIMENTOS CERAMICOS LTDA": "INCEPA",
+  KRONA: "KRONA",
+  "KRONA TUBOS E CONEXOES LTDA": "KRONA",
+  MEBIUS: "MEBIUS",
+  "MEBIUS COMERCIO DE MAQUINAS INDUSTRIAIS LTDA": "MEBIUS",
+  "METALURGICA RIOSULENSE SA": "RIOSULENSE",
+  MOHAWK: "MOHAWK",
+  "MOHAWK REVESTIMENTOS COCAL DO SUL LTDA": "MOHAWK",
+  RIOSULENSE: "RIOSULENSE",
   SIEMENS: "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA.",
   "SIEMENS HEALTHC": "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA.",
   "SIEMENS HEALTHCARE": "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA.",
   "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA": "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA.",
   "SIEMENS PERINI": "SIEMENS HEALTHCARE DIAGNOSTICOS LTDA.",
+  TUPER: "TUPER",
+  "TUPER SA DIV TUBOS": "TUPER",
+  "WEG TINTAS": "WEG TINTAS",
   "WEG TINTAS LTDA": "WEG TINTAS",
 };
 const CLIENT_NAME_BASE_NOISE_TOKENS = new Set([
@@ -258,6 +284,7 @@ function getClientNameSignature(value: string): ClientNameSignature {
   const baseTokens = cleanTokens.filter((token) => token && !CLIENT_NAME_BASE_NOISE_TOKENS.has(token));
   const baseKey = baseTokens.join(" ");
   const hasWegFamily = baseTokens.includes("WEG") && (baseTokens.includes("TINTAS") || baseTokens.includes("PAUMAR") || baseTokens.length === 1);
+  const hasArcelorFamily = baseTokens.includes("ARCELORMITTAL");
   const hasCremerFamily = baseTokens.includes("CREMER");
   const hasTupyFamily = baseTokens.includes("TUPY");
   const hasEmbracoFamily = baseTokens.includes("EMBRACO");
@@ -271,15 +298,22 @@ function getClientNameSignature(value: string): ClientNameSignature {
   const hasIncepaFamily = baseTokens.includes("INCEPA");
   const hasFocusSulFamily = baseTokens.includes("FOCUSSUL") || (baseTokens.includes("FOCUS") && baseTokens.includes("SUL"));
   const hasFamossulFamily = baseTokens.includes("FAMOSSUL") || (baseTokens.includes("FAMOS") && baseTokens.includes("SUL"));
+  const hasFortlevFamily = baseTokens.includes("FORTLEV");
+  const hasCtServicesFamily = baseTokens.includes("CT") && baseTokens.includes("SERVICES");
+  const hasMebiusFamily = baseTokens.includes("MEBIUS");
   const hasSiemensFamily = baseTokens.includes("SIEMENS");
   const hasKronaFamily = baseTokens.includes("KRONA");
+  const hasMohawkFamily = baseTokens.includes("MOHAWK");
+  const hasRiosulenseFamily = baseTokens.includes("RIOSULENSE");
 
   return {
     fullKey,
     cleanKey,
     baseKey,
-    familyKey: hasCremerFamily
-      ? "CREMER"
+    familyKey: hasArcelorFamily
+      ? "ARCELORMITTAL"
+      : hasCremerFamily
+        ? "CREMER"
       : hasTupyFamily
         ? "TUPY"
       : hasEmbracoFamily
@@ -304,14 +338,39 @@ function getClientNameSignature(value: string): ClientNameSignature {
             ? "FOCUS SUL"
           : hasFamossulFamily
             ? "FAMOSSUL"
+          : hasFortlevFamily
+            ? "FORTLEV"
+          : hasCtServicesFamily
+            ? "CT SERVICES"
+          : hasMebiusFamily
+            ? "MEBIUS"
           : hasSiemensFamily
             ? "SIEMENS"
           : hasKronaFamily
             ? "KRONA"
+          : hasMohawkFamily
+            ? "MOHAWK"
+          : hasRiosulenseFamily
+            ? "RIOSULENSE"
           : hasWegFamily
             ? "WEG_TINTAS"
             : null,
   };
+}
+
+function resolveExactCanonicalClientName(value: string): string {
+  let current = value;
+  const seen = new Set<string>();
+
+  while (true) {
+    const signature = getClientNameSignature(current);
+    if (!signature.fullKey || seen.has(signature.fullKey)) return current;
+    seen.add(signature.fullKey);
+
+    const next = CLIENT_NAME_EXACT_CANONICAL[signature.fullKey];
+    if (!next || next === current) return current;
+    current = next;
+  }
 }
 
 function pickPreferredReferenceName(names: string[], totals: Map<string, number>): string | null {
@@ -765,7 +824,7 @@ export default function AnaliticoFaturamentoClient() {
         (signature.baseKey ? baseLookup.get(signature.baseKey) : undefined) ??
         (signature.familyKey ? CLIENT_NAME_FAMILY_CANONICAL[signature.familyKey] ?? familyLookup.get(signature.familyKey) : undefined) ??
         clientName;
-      resolved.set(clientName, canonicalName);
+      resolved.set(clientName, resolveExactCanonicalClientName(canonicalName));
     }
 
     return resolved;

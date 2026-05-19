@@ -1616,8 +1616,32 @@ async function syncPedidoMateriaisToOs(opts: {
   const rows = opts.osVinculos.filter((r) => r.os_id > 0 && r.item_id > 0 && r.quantidade > 0);
   if (!rows.length) return;
 
+  const osIds = Array.from(new Set(rows.map((r) => Number(r.os_id)).filter((id) => Number.isFinite(id) && id > 0)));
+  const osLabelById = new Map<number, string>();
+  if (osIds.length) {
+    const { data: osRows, error: osErr } = await admin
+      .from("ordens_servico")
+      .select("id,numero_os,os_num")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .in("id", osIds)
+      .returns<Array<{ id: number; numero_os: string | null; os_num: number | null }>>();
+    if (osErr) throw new Error(osErr.message);
+
+    for (const os of Array.isArray(osRows) ? osRows : []) {
+      const id = Number(os.id ?? 0);
+      if (!Number.isFinite(id) || id <= 0) continue;
+      const numeroOs = String(os.numero_os ?? "").trim();
+      const osNum = Number(os.os_num ?? 0);
+      osLabelById.set(id, numeroOs || (Number.isFinite(osNum) && osNum > 0 ? String(osNum) : String(id)));
+    }
+  }
+
   for (const row of rows) {
-    const observacoesImportacao = `Importacao XML NF ${opts.nfEntradaId} [OS ${row.os_id}]`;
+    const osLabel = osLabelById.get(row.os_id) ?? String(row.os_id);
+    const observacoesImportacao = `Importacao XML NF ${opts.nfEntradaId} [OS ${osLabel}]`;
+    const observacoesImportacaoLegada = `Importacao XML NF ${opts.nfEntradaId} [OS ${row.os_id}]`;
+    const observacoesPossiveis = Array.from(new Set([observacoesImportacao, observacoesImportacaoLegada]));
     const [{ data: movExists }, { data: importedRow }] = await Promise.all([
       admin
         .from("movimentacoes")
@@ -1637,7 +1661,7 @@ async function syncPedidoMateriaisToOs(opts: {
         .eq("empresa_id", opts.empresaId)
         .eq("os_id", row.os_id)
         .eq("item_id", row.item_id)
-        .eq("observacoes", observacoesImportacao)
+        .in("observacoes", observacoesPossiveis)
         .limit(1)
         .maybeSingle<{ id: number }>(),
     ]);
@@ -1673,7 +1697,7 @@ async function syncPedidoMateriaisToOs(opts: {
     }
 
     if (!movExists?.id) {
-      const motivo = `Baixa automatica via XML NF ${opts.nfEntradaId} [OS ${row.os_id}]`;
+      const motivo = `Baixa automatica via XML NF ${opts.nfEntradaId} [OS ${osLabel}]`;
       await admin.from("movimentacoes").insert({
         tenant_id: opts.tenantId,
         empresa_id: opts.empresaId,

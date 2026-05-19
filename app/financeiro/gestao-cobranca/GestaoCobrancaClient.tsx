@@ -1,172 +1,422 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
-import { formatDecimalBR } from "@/lib/decimal";
+import { formatMoneyBR } from "@/lib/decimal";
+import PeriodoMesAnoFilter, { buildPeriodoMesAnoRange } from "@/app/faturamento/components/PeriodoMesAnoFilter";
 
-type CobrancaStatus = "PENDENTE" | "FATURADO" | "RECEBIDO" | "CANCELADO";
+type SupabaseBrowser = ReturnType<typeof getSupabaseBrowser>;
 
-type Row = {
-  tenant_id: string;
-  empresa_id: string;
-  os_id: number;
-  numero_os: string | null;
-  os_num: number | null;
-  cliente_nome: string | null;
-  descricao_servico: string | null;
-  data_conclusao: string | null;
+type DocumentoFiscalRow = {
+  id: string;
+  emissao_date: string | null;
+  modelo: string | null;
+  serie: string | null;
+  numero: string | null;
+  chave_acesso: string | null;
+  natureza: "PRODUTO" | "SERVICO" | string | null;
+  cliente_id: number | null;
   valor_total: number | string | null;
-  valor_pedido: number | string | null;
-  pedido_compra_os: string | null;
-  cobranca_id: string | null;
-  cobranca_status: CobrancaStatus | null;
-  pedido_compra_cliente: string | null;
-  pedido_recebido_em: string | null;
-  faturado_em: string | null;
-  proximo_contato_date: string | null;
-  responsavel_id: string | null;
-  responsavel_cliente_nome: string | null;
-  observacao: string | null;
-  documento_fiscal_id: string | null;
-  doc_modelo: string | null;
-  doc_serie: string | null;
-  doc_numero: string | null;
-  doc_emissao_date: string | null;
-  doc_status: string | null;
-  titulo_ar_id: string | null;
-  ar_status: string | null;
-  ar_valor_total: number | string | null;
-  ar_valor_aberto: number | string | null;
-  dias_desde_conclusao: number | null;
+  created_at: string;
 };
 
-type StatusFilter = "TODOS" | "PENDENTE" | "FATURADO";
-type SortKey = "dias_desc" | "dias_asc" | "conclusao_desc" | "conclusao_asc" | "valor_desc" | "valor_asc";
-type ResponsavelOption = { id: string; nome: string };
-
-type EditState = {
-  open: boolean;
-  row: Row | null;
-  status: CobrancaStatus;
-  pedidoCompraCliente: string;
-  pedidoRecebidoEm: string;
-  proximoContatoDate: string;
-  responsavelId: string;
-  responsavelClienteNome: string;
-  observacao: string;
-  busy: boolean;
-  error: string | null;
+type TituloFinanceiroRow = {
+  id: string;
+  documento_fiscal_id: string;
+  tipo: string | null;
+  status: string | null;
+  valor_total: number | string | null;
+  valor_aberto: number | string | null;
 };
 
-function toNumber(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
+type ParcelaFinanceiraRow = {
+  id: string;
+  titulo_id: string;
+  vencimento_date: string | null;
+  valor: number | string | null;
+  valor_aberto: number | string | null;
+};
+
+type ClienteRow = {
+  id: number;
+  nome: string | null;
+};
+
+type PagamentoFiltro = "TODOS" | "PAGOS" | "A_PAGAR" | "ATRASADOS";
+
+type PagamentoMeta = {
+  pago: number;
+  aReceber: number;
+  emAtraso: number;
+};
+
+type ClienteResumo = {
+  key: string;
+  clienteId: number | null;
+  clienteNome: string;
+  pago: number;
+  aReceber: number;
+  emAtraso: number;
+  total: number;
+  searchText: string;
+};
+
+const BASE_PATH = "/financeiro/gestao-cobranca";
+const FETCH_BATCH_SIZE = 1000;
+const IN_BATCH_SIZE = 400;
+const PAYMENT_EPSILON = 0.009;
+
+function n(value: unknown): number {
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : 0;
 }
 
-function fmtMoney(value: unknown): string {
-  return `R$ ${formatDecimalBR(toNumber(value), 2)}`;
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
-function getValorPedido(row: Row): number {
-  return toNumber(row.valor_pedido ?? row.valor_total ?? 0);
+function todayIsoDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function fmtDateBR(iso: string | null | undefined): string {
-  if (!iso) return "-";
-  const datePart = String(iso).slice(0, 10);
-  const [y, m, d] = datePart.split("-");
-  if (!y || !m || !d) return String(iso);
-  return `${d}/${m}/${y}`;
+function isPastDue(vencimentoDate?: string | null): boolean {
+  const normalized = String(vencimentoDate ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return false;
+  return normalized < todayIsoDate();
 }
 
-function todayISO(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+function normalizePagamentoFiltro(value: string | null): PagamentoFiltro {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/-/g, "_");
+
+  switch (normalized) {
+    case "PAGOS":
+    case "PAGO":
+      return "PAGOS";
+    case "A_PAGAR":
+    case "APAGAR":
+    case "EM_ABERTO":
+      return "A_PAGAR";
+    case "ATRASADOS":
+    case "ATRASADO":
+      return "ATRASADOS";
+    default:
+      return "TODOS";
+  }
 }
 
-function docLabel(row: Row): string {
-  if (!row.doc_numero) return "-";
-  const serie = row.doc_serie ? `/${row.doc_serie}` : "";
-  const status = row.doc_status ? ` (${row.doc_status})` : "";
-  return `${row.doc_numero}${serie}${status}`;
+function buildPagamentoFallback(row: DocumentoFiscalRow): PagamentoMeta {
+  const total = Math.max(0, n(row.valor_total));
+  if (total <= PAYMENT_EPSILON) return { pago: 0, aReceber: 0, emAtraso: 0 };
+  return { pago: 0, aReceber: total, emAtraso: 0 };
 }
 
-function effectiveStatus(row: Row): CobrancaStatus {
-  if ((row.doc_status ?? "").toUpperCase() === "EMITIDA") return "FATURADO";
-  return row.cobranca_status ?? "PENDENTE";
-}
+function computePagamentoMeta(
+  row: DocumentoFiscalRow,
+  titulos: TituloFinanceiroRow[],
+  parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]>
+): PagamentoMeta {
+  if (!titulos.length) return buildPagamentoFallback(row);
 
-function statusBadge(status: CobrancaStatus) {
-  if (status === "FATURADO") return "bg-blue-500/15 text-blue-300 border-blue-500/30";
-  if (status === "RECEBIDO") return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-  if (status === "CANCELADO") return "bg-red-500/15 text-red-300 border-red-500/30";
-  return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-}
-
-function StatCard({ title, value, subtitle }: { title: string; value: string; subtitle?: string }) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="text-xs text-zinc-400">{title}</div>
-      <div className="mt-2 text-2xl font-semibold text-zinc-100 tabular-nums">{value}</div>
-      {subtitle ? <div className="mt-1 text-xs text-zinc-500">{subtitle}</div> : null}
-    </div>
+  const totalTitulos = titulos.reduce((sum, titulo) => sum + n(titulo.valor_total), 0);
+  const totalAberto = titulos.reduce((sum, titulo) => sum + n(titulo.valor_aberto), 0);
+  const parcelasEmAberto = titulos.flatMap((titulo) =>
+    (parcelasByTituloId[String(titulo.id)] ?? []).filter((parcela) => n(parcela.valor_aberto) > PAYMENT_EPSILON)
   );
+  const emAtraso = parcelasEmAberto.reduce(
+    (sum, parcela) => (isPastDue(parcela.vencimento_date) ? sum + Math.max(0, n(parcela.valor_aberto)) : sum),
+    0
+  );
+
+  return {
+    pago: Math.max(0, totalTitulos - totalAberto),
+    aReceber: Math.max(0, totalAberto - emAtraso),
+    emAtraso: Math.max(0, emAtraso),
+  };
+}
+
+function matchesPagamentoFiltro(row: ClienteResumo, filtro: PagamentoFiltro): boolean {
+  if (filtro === "PAGOS") return row.pago > PAYMENT_EPSILON;
+  if (filtro === "A_PAGAR") return row.aReceber > PAYMENT_EPSILON;
+  if (filtro === "ATRASADOS") return row.emAtraso > PAYMENT_EPSILON;
+  return true;
+}
+
+function pagamentoResumoLabel(filtro: PagamentoFiltro): string {
+  if (filtro === "PAGOS") return "Total pago";
+  if (filtro === "A_PAGAR") return "Total a receber";
+  if (filtro === "ATRASADOS") return "Total em atraso";
+  return "Valor total filtrado";
+}
+
+function pagamentoResumoValor(
+  filtro: PagamentoFiltro,
+  totals: { total: number; pago: number; aReceber: number; emAtraso: number }
+): number {
+  if (filtro === "PAGOS") return totals.pago;
+  if (filtro === "A_PAGAR") return totals.aReceber;
+  if (filtro === "ATRASADOS") return totals.emAtraso;
+  return totals.total;
+}
+
+async function fetchAllDocumentos(
+  supabase: SupabaseBrowser,
+  tenantId: string,
+  empresaId: string,
+  periodo: { startDate: string | null; endDate: string | null }
+): Promise<DocumentoFiscalRow[]> {
+  const rows: DocumentoFiscalRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    let query = applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("documento_fiscal")
+        .select("id,emissao_date,modelo,serie,numero,chave_acesso,natureza,cliente_id,valor_total,created_at")
+        .eq("operacao", "SAIDA")
+        .in("natureza", ["PRODUTO", "SERVICO"])
+        .is("deleted_at", null),
+      tenantId,
+      empresaId
+    )
+      .order("emissao_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + FETCH_BATCH_SIZE - 1);
+
+    if (periodo.startDate) {
+      query = query.gte("emissao_date", periodo.startDate);
+    }
+    if (periodo.endDate) {
+      query = query.lte("emissao_date", periodo.endDate);
+    }
+
+    const { data, error } = await query.returns<DocumentoFiscalRow[]>();
+    if (error) throw error;
+
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < FETCH_BATCH_SIZE) break;
+    offset += FETCH_BATCH_SIZE;
+  }
+
+  return rows;
+}
+
+async function fetchClientesById(
+  supabase: SupabaseBrowser,
+  tenantId: string,
+  empresaId: string,
+  clienteIds: number[]
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+  const uniqueIds = Array.from(new Set(clienteIds.filter((id) => Number.isFinite(id))));
+
+  for (const ids of chunk(uniqueIds, IN_BATCH_SIZE)) {
+    const { data, error } = await applyTenantEmpresa(
+      supabase.from("clientes").select("id,nome").in("id", ids),
+      tenantId,
+      empresaId
+    ).returns<ClienteRow[]>();
+    if (error) throw error;
+
+    for (const cliente of data ?? []) {
+      if (typeof cliente.id !== "number") continue;
+      const nome = String(cliente.nome ?? "").trim();
+      result[String(cliente.id)] = nome || `Cliente ID ${cliente.id}`;
+    }
+  }
+
+  return result;
+}
+
+async function fetchPagamentosByDocumentoId(
+  supabase: SupabaseBrowser,
+  tenantId: string,
+  empresaId: string,
+  documentos: DocumentoFiscalRow[]
+): Promise<Record<string, PagamentoMeta>> {
+  const documentoIds = Array.from(new Set(documentos.map((row) => String(row.id)).filter(Boolean)));
+  if (!documentoIds.length) return {};
+
+  const titulos: TituloFinanceiroRow[] = [];
+  for (const ids of chunk(documentoIds, IN_BATCH_SIZE)) {
+    const { data, error } = await applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("titulo")
+        .select("id,documento_fiscal_id,tipo,status,valor_total,valor_aberto")
+        .in("documento_fiscal_id", ids)
+        .is("deleted_at", null),
+      tenantId,
+      empresaId
+    ).returns<TituloFinanceiroRow[]>();
+    if (error) throw error;
+
+    titulos.push(
+      ...((data ?? []).filter((titulo) => {
+        const tipo = String(titulo.tipo ?? "").trim().toUpperCase();
+        const status = String(titulo.status ?? "").trim().toUpperCase();
+        return tipo === "AR" && status !== "CANCELADO";
+      }) as TituloFinanceiroRow[])
+    );
+  }
+
+  const tituloIds = titulos.map((titulo) => String(titulo.id)).filter(Boolean);
+  const parcelas: ParcelaFinanceiraRow[] = [];
+  for (const ids of chunk(tituloIds, IN_BATCH_SIZE)) {
+    const { data, error } = await applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("titulo_parcela")
+        .select("id,titulo_id,vencimento_date,valor,valor_aberto")
+        .in("titulo_id", ids)
+        .is("deleted_at", null),
+      tenantId,
+      empresaId
+    ).returns<ParcelaFinanceiraRow[]>();
+    if (error) throw error;
+    parcelas.push(...(data ?? []));
+  }
+
+  const titulosByDocumentoId: Record<string, TituloFinanceiroRow[]> = {};
+  for (const titulo of titulos) {
+    const documentoId = String(titulo.documento_fiscal_id ?? "");
+    if (!documentoId) continue;
+    if (!titulosByDocumentoId[documentoId]) titulosByDocumentoId[documentoId] = [];
+    titulosByDocumentoId[documentoId].push(titulo);
+  }
+
+  const parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]> = {};
+  for (const parcela of parcelas) {
+    const tituloId = String(parcela.titulo_id ?? "");
+    if (!tituloId) continue;
+    if (!parcelasByTituloId[tituloId]) parcelasByTituloId[tituloId] = [];
+    parcelasByTituloId[tituloId].push(parcela);
+  }
+
+  const result: Record<string, PagamentoMeta> = {};
+  for (const documento of documentos) {
+    result[String(documento.id)] = computePagamentoMeta(
+      documento,
+      titulosByDocumentoId[String(documento.id)] ?? [],
+      parcelasByTituloId
+    );
+  }
+
+  return result;
+}
+
+function buildClienteResumoRows(
+  documentos: DocumentoFiscalRow[],
+  clientesById: Record<string, string>,
+  pagamentosByDocumentoId: Record<string, PagamentoMeta>
+): ClienteResumo[] {
+  const rowsByCliente = new Map<string, ClienteResumo>();
+
+  for (const documento of documentos) {
+    const clienteId = typeof documento.cliente_id === "number" ? documento.cliente_id : null;
+    const key = clienteId === null ? "sem-cliente" : `cliente-${clienteId}`;
+    const clienteNome = clienteId === null ? "Sem cliente" : clientesById[String(clienteId)] ?? `Cliente ID ${clienteId}`;
+    const pagamento = pagamentosByDocumentoId[String(documento.id)] ?? buildPagamentoFallback(documento);
+    const current =
+      rowsByCliente.get(key) ??
+      ({
+        key,
+        clienteId,
+        clienteNome,
+        pago: 0,
+        aReceber: 0,
+        emAtraso: 0,
+        total: 0,
+        searchText: clienteNome.toLowerCase(),
+      } satisfies ClienteResumo);
+
+    current.pago += pagamento.pago;
+    current.aReceber += pagamento.aReceber;
+    current.emAtraso += pagamento.emAtraso;
+    current.total = current.pago + current.aReceber + current.emAtraso;
+    current.searchText = `${current.searchText} ${documento.numero ?? ""} ${documento.chave_acesso ?? ""} ${
+      documento.modelo ?? ""
+    } ${documento.serie ?? ""}`.toLowerCase();
+
+    rowsByCliente.set(key, current);
+  }
+
+  return Array.from(rowsByCliente.values()).sort((a, b) => {
+    const totalDiff = b.total - a.total;
+    if (Math.abs(totalDiff) > PAYMENT_EPSILON) return totalDiff;
+    return a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
+  });
 }
 
 export default function GestaoCobrancaClient() {
   const te = useTenantEmpresa();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => getSupabaseBrowser(), []);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [responsaveis, setResponsaveis] = useState<ResponsavelOption[]>([]);
+  const [rows, setRows] = useState<ClienteResumo[]>([]);
+  const [search, setSearch] = useState("");
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("PENDENTE");
-  const [clienteQ, setClienteQ] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [onlyContatoVencido, setOnlyContatoVencido] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("dias_desc");
+  const empresaRole = useMemo(() => {
+    const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
+    return typeof role === "string" ? role.trim().toUpperCase() : "";
+  }, [te.empresa?.papel, te.empresaId, te.empresas]);
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
 
-  const [edit, setEdit] = useState<EditState>({
-    open: false,
-    row: null,
-    status: "PENDENTE",
-    pedidoCompraCliente: "",
-    pedidoRecebidoEm: "",
-    proximoContatoDate: "",
-    responsavelId: "",
-    responsavelClienteNome: "",
-    observacao: "",
-    busy: false,
-    error: null,
-  });
-
-  const canRead = useMemo(() => {
+  const canFinanceiro = useMemo(() => {
     const r = te.has("financeiro.read");
     const w = te.has("financeiro.write");
+    if (isFinanceiroEmpresaRole) return true;
     if (r === undefined || w === undefined) return undefined;
     return Boolean(r || w);
-  }, [te]);
-
-  const canWrite = useMemo(() => {
-    const w = te.has("financeiro.write");
-    return Boolean(w);
-  }, [te]);
+  }, [isFinanceiroEmpresaRole, te]);
 
   const tenantId = te.tenantId ?? null;
   const empresaId = te.empresaId ?? (te.empresas.length === 1 ? te.empresas[0]?.id ?? null : null);
+  const ready =
+    typeof te.sessionUserId === "string" &&
+    Boolean(tenantId) &&
+    Boolean(empresaId) &&
+    canFinanceiro === true;
 
-  const ready = typeof te.sessionUserId === "string" && Boolean(tenantId) && Boolean(empresaId) && canRead === true;
+  const pagamentoFiltro = normalizePagamentoFiltro(searchParams.get("pagamento"));
+  const periodo = useMemo(() => buildPeriodoMesAnoRange(searchParams), [searchParams]);
+
+  useEffect(() => {
+    if (canFinanceiro === false) router.replace("/forbidden");
+  }, [canFinanceiro, router]);
+
+  const setPagamentoFiltro = useCallback(
+    (filtro: PagamentoFiltro) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (filtro === "TODOS") {
+        params.delete("pagamento");
+      } else {
+        params.set("pagamento", filtro.toLowerCase());
+      }
+      const nextUrl = params.toString() ? `${BASE_PATH}?${params.toString()}` : BASE_PATH;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const load = useCallback(async () => {
     if (!ready || !tenantId || !empresaId) return;
@@ -175,515 +425,203 @@ export default function GestaoCobrancaClient() {
     setError(null);
 
     try {
-      const [rowsResult, cobrancaMetaResult] = await Promise.all([
-        applyTenantEmpresa(
-          supabase.schema("r").from("r_gestao_cobranca_os").select("*"),
-          tenantId,
-          empresaId
-        ).order("dias_desde_conclusao", { ascending: false, nullsFirst: false }),
-        applyTenantEmpresa(
-          supabase.schema("f").from("gestao_cobranca_os").select("os_id,responsavel_cliente_nome"),
-          tenantId,
-          empresaId
-        ).is("deleted_at", null),
+      const documentos = await fetchAllDocumentos(supabase, tenantId, empresaId, {
+        startDate: periodo.startDate,
+        endDate: periodo.endDate,
+      });
+      const clienteIds = documentos
+        .map((documento) => documento.cliente_id)
+        .filter((id): id is number => typeof id === "number");
+
+      const [clientesById, pagamentosByDocumentoId] = await Promise.all([
+        fetchClientesById(supabase, tenantId, empresaId, clienteIds),
+        fetchPagamentosByDocumentoId(supabase, tenantId, empresaId, documentos),
       ]);
 
-      if (rowsResult.error) throw rowsResult.error;
-
-      const responsavelClienteByOs = new Map<number, string | null>();
-      if (!cobrancaMetaResult.error) {
-        for (const item of (cobrancaMetaResult.data ?? []) as Array<{ os_id: number; responsavel_cliente_nome: string | null }>) {
-          responsavelClienteByOs.set(Number(item.os_id), item.responsavel_cliente_nome ?? null);
-        }
-      }
-
-      const osIds = Array.from(
-        new Set(
-          ((rowsResult.data ?? []) as Row[])
-            .map((row) => Number(row.os_id ?? 0))
-            .filter((osId) => Number.isFinite(osId) && osId > 0)
-        )
-      );
-      const valorPedidoByOs = new Map<number, number>();
-      if (osIds.length > 0) {
-        const { data: osData, error: osErr } = await applyTenantEmpresa(
-          supabase.from("ordens_servico").select("id,orcado").in("id", osIds),
-          tenantId,
-          empresaId
-        );
-        if (osErr) throw osErr;
-
-        for (const item of (osData ?? []) as Array<{ id: number; orcado: number | string | null }>) {
-          valorPedidoByOs.set(Number(item.id), toNumber(item.orcado));
-        }
-      }
-
-      const mergedRows = ((rowsResult.data ?? []) as Row[]).map((row) => ({
-        ...row,
-        valor_pedido: valorPedidoByOs.get(Number(row.os_id)) ?? row.valor_total ?? null,
-        responsavel_cliente_nome: responsavelClienteByOs.get(Number(row.os_id)) ?? row.responsavel_cliente_nome ?? null,
-      }));
-
-      setRows(mergedRows);
+      setRows(buildClienteResumoRows(documentos, clientesById, pagamentosByDocumentoId));
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Erro ao carregar gestão de cobrança.";
-      setError(message);
+      setError(e instanceof Error ? e.message : "Erro ao carregar gestao de cobrancas.");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [ready, tenantId, empresaId, supabase]);
-
-  const loadResponsaveis = useCallback(async () => {
-    if (!ready || !empresaId) return;
-    try {
-      const { data, error: qErr } = await supabase
-        .schema("a")
-        .from("usuario_empresa")
-        .select("usuario_id,papel,usuario:usuario_id(id,nome)")
-        .eq("empresa_id", empresaId)
-        .eq("ativo", true)
-        .is("deleted_at", null);
-
-      if (qErr) throw qErr;
-
-      const mapped = ((data ?? []) as Array<{
-        usuario_id?: string | null;
-        papel?: string | null;
-        usuario?: { id?: string | null; nome?: string | null } | null;
-      }>)
-        .map((r) => ({
-          id: String(r.usuario?.id ?? r.usuario_id ?? "").trim(),
-          nome: String(r.usuario?.nome ?? "").trim() || String(r.usuario_id ?? "").trim(),
-          papel: String(r.papel ?? "").trim().toUpperCase(),
-        }))
-        .filter((r) => r.id !== "")
-        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-
-      const unique = new Map<string, ResponsavelOption>();
-      for (const row of mapped) {
-        if (!unique.has(row.id)) unique.set(row.id, { id: row.id, nome: row.nome });
-      }
-      setResponsaveis(Array.from(unique.values()));
-    } catch {
-      setResponsaveis([]);
-    }
-  }, [ready, empresaId, supabase]);
-
-  useEffect(() => {
-    if (canRead === false) router.replace("/forbidden");
-  }, [canRead, router]);
+  }, [empresaId, periodo.endDate, periodo.startDate, ready, supabase, tenantId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    void loadResponsaveis();
-  }, [loadResponsaveis]);
+  const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return rows
+      .filter((row) => matchesPagamentoFiltro(row, pagamentoFiltro))
+      .filter((row) => (term ? row.searchText.includes(term) : true));
+  }, [pagamentoFiltro, rows, search]);
 
-  const today = todayISO();
+  const resumoFiltro = useMemo(() => {
+    const totals = filteredRows.reduce(
+      (acc, row) => {
+        acc.pago += row.pago;
+        acc.aReceber += row.aReceber;
+        acc.emAtraso += row.emAtraso;
+        acc.total += row.total;
+        return acc;
+      },
+      { total: 0, pago: 0, aReceber: 0, emAtraso: 0 }
+    );
 
-  const baseFilteredRows = useMemo(() => {
-    const q = clienteQ.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (q) {
-        const hay = `${row.cliente_nome ?? ""} ${row.descricao_servico ?? ""} ${row.numero_os ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-
-      if (dateFrom && (row.data_conclusao ? String(row.data_conclusao).slice(0, 10) < dateFrom : true)) return false;
-      if (dateTo && (row.data_conclusao ? String(row.data_conclusao).slice(0, 10) > dateTo : true)) return false;
-
-      if (onlyContatoVencido) {
-        const contato = row.proximo_contato_date ? String(row.proximo_contato_date).slice(0, 10) : null;
-        if (!contato || contato >= today) return false;
-      }
-
-      return true;
-    });
-  }, [rows, clienteQ, dateFrom, dateTo, onlyContatoVencido, today]);
-
-  const kpis = useMemo(() => {
-    let pendentes = 0;
-    let faturados = 0;
-    let pendentes7 = 0;
-    let pendentes15 = 0;
-    let totalAberto = 0;
-
-    for (const row of baseFilteredRows) {
-      const status = effectiveStatus(row);
-      if (status === "PENDENTE") {
-        pendentes += 1;
-        const dias = Number(row.dias_desde_conclusao ?? 0);
-        if (dias > 7) pendentes7 += 1;
-        if (dias > 15) pendentes15 += 1;
-      }
-      if (status === "FATURADO") faturados += 1;
-
-      totalAberto += toNumber(row.ar_valor_aberto ?? getValorPedido(row));
-    }
-
-    return { pendentes, faturados, pendentes7, pendentes15, totalAberto };
-  }, [baseFilteredRows]);
-
-  const tableRows = useMemo(() => {
-    const filtered = baseFilteredRows.filter((row) => {
-      if (statusFilter === "TODOS") return true;
-      return effectiveStatus(row) === statusFilter;
-    });
-
-    const sorted = [...filtered];
-    sorted.sort((a, b) => {
-      if (sortKey === "dias_desc") return Number(b.dias_desde_conclusao ?? -99999) - Number(a.dias_desde_conclusao ?? -99999);
-      if (sortKey === "dias_asc") return Number(a.dias_desde_conclusao ?? 99999) - Number(b.dias_desde_conclusao ?? 99999);
-      if (sortKey === "conclusao_desc") return String(b.data_conclusao ?? "").localeCompare(String(a.data_conclusao ?? ""));
-      if (sortKey === "conclusao_asc") return String(a.data_conclusao ?? "").localeCompare(String(b.data_conclusao ?? ""));
-      if (sortKey === "valor_desc") return getValorPedido(b) - getValorPedido(a);
-      return getValorPedido(a) - getValorPedido(b);
-    });
-
-    return sorted;
-  }, [baseFilteredRows, statusFilter, sortKey]);
-
-  const openEdit = useCallback((row: Row) => {
-    setEdit({
-      open: true,
-      row,
-      status: row.cobranca_status ?? effectiveStatus(row),
-      pedidoCompraCliente: row.pedido_compra_cliente ?? "",
-      pedidoRecebidoEm: row.pedido_recebido_em ? String(row.pedido_recebido_em).slice(0, 10) : "",
-      proximoContatoDate: row.proximo_contato_date ? String(row.proximo_contato_date).slice(0, 10) : "",
-      responsavelId: row.responsavel_id ?? "",
-      responsavelClienteNome: row.responsavel_cliente_nome ?? "",
-      observacao: row.observacao ?? "",
-      busy: false,
-      error: null,
-    });
-  }, []);
-
-  const closeEdit = useCallback(() => {
-    setEdit((prev) => ({ ...prev, open: false, row: null, error: null, busy: false }));
-  }, []);
-
-  const saveEdit = useCallback(async () => {
-    if (!edit.row || !tenantId || !empresaId) return;
-    const responsavel = edit.responsavelId.trim();
-
-    setEdit((p) => ({ ...p, busy: true, error: null }));
-
-    const faturadoEmBase = edit.row.faturado_em ? String(edit.row.faturado_em).slice(0, 10) : "";
-    const faturadoEm = edit.status === "FATURADO" ? faturadoEmBase || todayISO() : null;
-
-    const payload = {
-      tenant_id: tenantId,
-      empresa_id: empresaId,
-      os_id: edit.row.os_id,
-      status: edit.status,
-      pedido_compra_cliente: edit.pedidoCompraCliente.trim() || null,
-      pedido_recebido_em: edit.pedidoRecebidoEm || null,
-      faturado_em: faturadoEm,
-      documento_fiscal_id: edit.row.documento_fiscal_id ?? null,
-      titulo_ar_id: edit.row.titulo_ar_id ?? null,
-      responsavel_id: responsavel || null,
-      responsavel_cliente_nome: edit.responsavelClienteNome.trim() || null,
-      proximo_contato_date: edit.proximoContatoDate || null,
-      observacao: edit.observacao.trim() || null,
-      deleted_at: null as string | null,
+    return {
+      label: pagamentoResumoLabel(pagamentoFiltro),
+      value: pagamentoResumoValor(pagamentoFiltro, totals),
+      ...totals,
     };
-
-    const { error: upsertErr } = await supabase
-      .schema("f")
-      .from("gestao_cobranca_os")
-      .upsert(payload, { onConflict: "tenant_id,empresa_id,os_id" });
-
-    if (upsertErr) {
-      setEdit((p) => ({ ...p, busy: false, error: upsertErr.message }));
-      return;
-    }
-
-    closeEdit();
-    await load();
-  }, [edit, tenantId, empresaId, supabase, closeEdit, load]);
+  }, [filteredRows, pagamentoFiltro]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-semibold">Gestão Cobrança</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <Link href="/financeiro" className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm">
+    <div className="w-full px-4 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-100">Gestao de cobrancas</h1>
+          <p className="text-sm text-zinc-400">Resumo por cliente de notas de material e servico.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/financeiro"
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"
+          >
             Financeiro
           </Link>
           <button
             type="button"
             onClick={() => void load()}
-            className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm"
+            disabled={loading || !ready}
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900 disabled:opacity-50"
           >
             Atualizar
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-        <StatCard title="Pendentes" value={String(kpis.pendentes)} />
-        <StatCard title="Faturados" value={String(kpis.faturados)} />
-        <StatCard title="Pendentes > 7 dias" value={String(kpis.pendentes7)} />
-        <StatCard title="Pendentes > 15 dias" value={String(kpis.pendentes15)} />
-        <StatCard title="Total em aberto" value={fmtMoney(kpis.totalAberto)} />
-      </div>
-
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
-          <label className="text-xs text-zinc-400">
-            Status
-            <select className="mt-1 w-full px-3 py-2" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-              <option value="TODOS">Todos</option>
-              <option value="PENDENTE">PENDENTE</option>
-              <option value="FATURADO">FATURADO</option>
-            </select>
-          </label>
-
-          <label className="text-xs text-zinc-400 xl:col-span-2">
-            Cliente (busca)
-            <input
-              className="mt-1 w-full px-3 py-2"
-              value={clienteQ}
-              onChange={(e) => setClienteQ(e.target.value)}
-              placeholder="Nome, descrição ou OS"
-            />
-          </label>
-
-          <label className="text-xs text-zinc-400">
-            Conclusão de
-            <input type="date" className="mt-1 w-full px-3 py-2" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </label>
-
-          <label className="text-xs text-zinc-400">
-            Conclusão até
-            <input type="date" className="mt-1 w-full px-3 py-2" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </label>
-
-          <label className="text-xs text-zinc-400">
-            Ordenação
-            <select className="mt-1 w-full px-3 py-2" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
-              <option value="dias_desc">Dias (maior primeiro)</option>
-              <option value="dias_asc">Dias (menor primeiro)</option>
-              <option value="conclusao_desc">Conclusão (mais recente)</option>
-              <option value="conclusao_asc">Conclusão (mais antiga)</option>
-              <option value="valor_desc">Valor (maior)</option>
-              <option value="valor_asc">Valor (menor)</option>
-            </select>
-          </label>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <label className="block text-xs font-medium text-zinc-400">Buscar</label>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cliente, numero, chave de acesso ou parceiro"
+            className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-700"
+          />
         </div>
 
-        <label className="inline-flex items-center gap-2 text-sm text-zinc-200">
-          <input
-            type="checkbox"
-            className="h-4 w-4"
-            checked={onlyContatoVencido}
-            onChange={(e) => setOnlyContatoVencido(e.target.checked)}
-          />
-          Somente com última cobrança anterior a hoje
-        </label>
+        <div className="lg:min-w-[360px]">
+          <label className="block text-xs font-medium text-zinc-400">Pagamento</label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {[
+              { value: "TODOS" as const, label: "Todos" },
+              { value: "PAGOS" as const, label: "Pagos" },
+              { value: "A_PAGAR" as const, label: "A pagar" },
+              { value: "ATRASADOS" as const, label: "Atrasados" },
+            ].map((option) => {
+              const active = pagamentoFiltro === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPagamentoFiltro(option.value)}
+                  className={[
+                    "rounded-md border px-3 py-2 text-sm transition-colors",
+                    active
+                      ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900",
+                  ].join(" ")}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {error ? <div className="text-sm text-red-300">{error}</div> : null}
+      <PeriodoMesAnoFilter basePath={BASE_PATH} />
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-auto">
-        <table className="w-full min-w-[1450px] text-sm">
-          <thead className="bg-zinc-900/70">
-            <tr className="text-zinc-200">
-              <th className="px-3 py-3 text-left">OS</th>
-              <th className="px-3 py-3 text-left">Cliente</th>
-              <th className="px-3 py-3 text-left">Descrição</th>
-              <th className="px-3 py-3 text-left">Concluída em</th>
-              <th className="px-3 py-3 text-right">Dias</th>
-              <th className="px-3 py-3 text-right">Valor</th>
-              <th className="px-3 py-3 text-left">Pedido</th>
-              <th className="px-3 py-3 text-left">NF</th>
-              <th className="px-3 py-3 text-right">A Receber</th>
-              <th className="px-3 py-3 text-left">Status</th>
-              <th className="px-3 py-3 text-left">Data ultima cobrança</th>
-              <th className="px-3 py-3 text-left">Responsavel Cliente</th>
-              <th className="px-3 py-3 text-left">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {loading ? (
-              <tr>
-                <td colSpan={13} className="px-3 py-6 text-zinc-400">
-                  Carregando...
-                </td>
-              </tr>
-            ) : tableRows.length === 0 ? (
-              <tr>
-                <td colSpan={13} className="px-3 py-6 text-zinc-400">
-                  Nenhuma OS concluída para os filtros selecionados.
-                </td>
-              </tr>
-            ) : (
-              tableRows.map((row) => {
-                const status = effectiveStatus(row);
-                const pedido = row.pedido_compra_cliente?.trim() ? row.pedido_compra_cliente : row.pedido_compra_os ?? "-";
-                const observacao = String(row.observacao ?? "").trim();
-                const responsavelClienteNome = String(row.responsavel_cliente_nome ?? "").trim() || "-";
-                return (
-                  <tr key={`${row.tenant_id}-${row.empresa_id}-${row.os_id}`} className="hover:bg-zinc-900/40">
-                    <td className="px-3 py-3 text-zinc-200">{row.numero_os ?? row.os_num ?? row.os_id}</td>
-                    <td className="px-3 py-3 text-zinc-200">{row.cliente_nome ?? "-"}</td>
-                    <td className="px-3 py-3 text-zinc-300">
-                      <div className="text-zinc-200">{row.descricao_servico ?? "-"}</div>
-                      {observacao ? <div className="mt-1 text-xs leading-5 text-zinc-500 whitespace-pre-wrap">{observacao}</div> : null}
-                    </td>
-                    <td className="px-3 py-3 text-zinc-300">{fmtDateBR(row.data_conclusao)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-300">{row.dias_desde_conclusao ?? "-"}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(getValorPedido(row))}</td>
-                    <td className="px-3 py-3 text-zinc-300">{pedido}</td>
-                    <td className="px-3 py-3 text-zinc-300">{docLabel(row)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-200">{fmtMoney(row.ar_valor_aberto ?? getValorPedido(row))}</td>
-                    <td className="px-3 py-3">
-                      <span className={["inline-flex items-center px-2 py-1 rounded-md border text-xs", statusBadge(status)].join(" ")}>{status}</span>
-                    </td>
-                    <td className="px-3 py-3 text-zinc-300">{fmtDateBR(row.proximo_contato_date)}</td>
-                    <td className="px-3 py-3 text-zinc-300">{responsavelClienteNome}</td>
-                    <td className="px-3 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(row)}
-                        disabled={!canWrite}
-                        className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50"
-                      >
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {edit.open && edit.row ? (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeEdit}>
-          <div className="w-full max-w-2xl rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <div className="text-lg font-semibold">Editar Cobrança - OS {edit.row.numero_os ?? edit.row.os_id}</div>
-                <div className="text-sm text-zinc-400">Atualize o acompanhamento da cobrança.</div>
-              </div>
-              <button type="button" onClick={closeEdit} className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                Fechar
-              </button>
+      <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-4">
+        <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Resumo</div>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="text-sm text-zinc-400">{resumoFiltro.label}</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-100">
+              {formatMoneyBR(resumoFiltro.value)}
             </div>
-
-            <div className="p-5 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="text-xs text-zinc-400">
-                  Status
-                  <select
-                    className="mt-1 w-full px-3 py-2"
-                    value={edit.status}
-                    onChange={(e) => setEdit((p) => ({ ...p, status: e.target.value as CobrancaStatus }))}
-                    disabled={!canWrite || edit.busy}
-                  >
-                    <option value="PENDENTE">PENDENTE</option>
-                    <option value="FATURADO">FATURADO</option>
-                    <option value="RECEBIDO">RECEBIDO</option>
-                    <option value="CANCELADO">CANCELADO</option>
-                  </select>
-                </label>
-
-                <label className="text-xs text-zinc-400">
-                  Pedido compra cliente
-                  <input
-                    className="mt-1 w-full px-3 py-2"
-                    value={edit.pedidoCompraCliente}
-                    onChange={(e) => setEdit((p) => ({ ...p, pedidoCompraCliente: e.target.value }))}
-                    disabled={!canWrite || edit.busy}
-                  />
-                </label>
-
-                <label className="text-xs text-zinc-400">
-                  Pedido recebido em
-                  <input
-                    type="date"
-                    className="mt-1 w-full px-3 py-2"
-                    value={edit.pedidoRecebidoEm}
-                    onChange={(e) => setEdit((p) => ({ ...p, pedidoRecebidoEm: e.target.value }))}
-                    disabled={!canWrite || edit.busy}
-                  />
-                </label>
-
-                <label className="text-xs text-zinc-400">
-                  Data ultima cobrança
-                  <input
-                    type="date"
-                    className="mt-1 w-full px-3 py-2"
-                    value={edit.proximoContatoDate}
-                    onChange={(e) => setEdit((p) => ({ ...p, proximoContatoDate: e.target.value }))}
-                    disabled={!canWrite || edit.busy}
-                  />
-                </label>
-
-                <label className="text-xs text-zinc-400">
-                  Responsável cliente
-                  <input
-                    className="mt-1 w-full px-3 py-2"
-                    value={edit.responsavelClienteNome}
-                    onChange={(e) => setEdit((p) => ({ ...p, responsavelClienteNome: e.target.value }))}
-                    disabled={!canWrite || edit.busy}
-                    placeholder="Nome de quem responde pela dívida"
-                  />
-                </label>
-
-                <label className="text-xs text-zinc-400 md:col-span-2">
-                  Responsável interno
-                  <select
-                    className="mt-1 w-full px-3 py-2"
-                    value={edit.responsavelId}
-                    onChange={(e) => setEdit((p) => ({ ...p, responsavelId: e.target.value }))}
-                    disabled={!canWrite || edit.busy}
-                  >
-                    <option value="">(Não definido)</option>
-                    {responsaveis.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nome}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="text-xs text-zinc-400 md:col-span-2">
-                  Observação
-                  <textarea
-                    className="mt-1 w-full px-3 py-2 min-h-[90px]"
-                    value={edit.observacao}
-                    onChange={(e) => setEdit((p) => ({ ...p, observacao: e.target.value }))}
-                    disabled={!canWrite || edit.busy}
-                  />
-                </label>
-              </div>
-
-              {edit.error ? <div className="text-sm text-red-300">{edit.error}</div> : null}
+          </div>
+          <div className="grid gap-2 text-right sm:grid-cols-3 sm:gap-4">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Pago</div>
+              <div className="text-sm font-medium tabular-nums text-emerald-300">{formatMoneyBR(resumoFiltro.pago)}</div>
             </div>
-
-            <div className="px-5 py-4 border-t border-zinc-800 flex justify-end gap-2">
-              <button type="button" onClick={closeEdit} className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void saveEdit()}
-                disabled={!canWrite || edit.busy}
-                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white disabled:opacity-60"
-              >
-                {edit.busy ? "Salvando..." : "Salvar"}
-              </button>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">A receber</div>
+              <div className="text-sm font-medium tabular-nums text-amber-200">{formatMoneyBR(resumoFiltro.aReceber)}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wide text-zinc-500">Em atraso</div>
+              <div className="text-sm font-medium tabular-nums text-rose-300">{formatMoneyBR(resumoFiltro.emAtraso)}</div>
             </div>
           </div>
         </div>
-      ) : null}
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+          <div className="text-sm text-zinc-200">{loading ? "Carregando..." : `${filteredRows.length} cliente(s)`}</div>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="text-sm text-zinc-300 hover:text-zinc-100 disabled:opacity-50"
+            disabled={loading || !ready}
+          >
+            Recarregar
+          </button>
+        </div>
+
+        {error ? <div className="px-4 py-3 text-sm text-rose-200">{error}</div> : null}
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-zinc-950/60 text-zinc-400">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Cliente</th>
+                <th className="px-4 py-3 text-right font-medium">Pago</th>
+                <th className="px-4 py-3 text-right font-medium">A receber</th>
+                <th className="px-4 py-3 text-right font-medium">Em atraso</th>
+                <th className="px-4 py-3 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {!loading && filteredRows.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-center text-zinc-500" colSpan={5}>
+                    Nenhum cliente encontrado.
+                  </td>
+                </tr>
+              ) : null}
+
+              {filteredRows.map((row) => (
+                <tr key={row.key} className="hover:bg-zinc-900/40">
+                  <td className="px-4 py-3 text-left text-zinc-100">
+                    <div className="font-medium">{row.clienteNome}</div>
+                    {row.clienteId === null ? <div className="mt-1 text-xs text-zinc-500">Sem cliente vinculado</div> : null}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-emerald-300">{formatMoneyBR(row.pago)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-200">{formatMoneyBR(row.aReceber)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-rose-300">{formatMoneyBR(row.emAtraso)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium text-zinc-100">{formatMoneyBR(row.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

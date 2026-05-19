@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { formatDecimalBR } from "../../lib/decimal";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny } from "@/lib/auth/capabilities";
 
@@ -22,6 +22,14 @@ type NfImportadoresApiResponse = {
   error?: string;
 };
 
+type OsLookupRow = {
+  id: number;
+  numero_os: string | null;
+  os_num: number | null;
+  cliente_nome: string | null;
+  descricao_servico: string | null;
+};
+
 type MovRow = {
   id: number;
   item_id: number;
@@ -31,6 +39,8 @@ type MovRow = {
   realizado_por: string | null;
   data_movimentacao: string;
   origem_nf_entrada_id: number | null;
+  origem_os_id: number | null;
+  os?: OsLookupRow | null;
   itens: {
     codigo_interno: string;
     nome: string;
@@ -90,6 +100,43 @@ export default function MovimentacoesPage() {
     return motivo.includes("nf-e") || motivo.includes("importacao xml") || motivo.includes("backfill");
   }
 
+  function osNumeroExibicao(r: MovRow): string {
+    const numeroOs = String(r.os?.numero_os ?? "").trim();
+    if (numeroOs) return numeroOs;
+
+    const osNum = Number(r.os?.os_num ?? 0);
+    if (Number.isFinite(osNum) && osNum > 0) return String(osNum);
+
+    const origemOsId = Number(r.origem_os_id ?? 0);
+    if (Number.isFinite(origemOsId) && origemOsId > 0) return String(origemOsId);
+
+    return "";
+  }
+
+  function motivoExibicao(r: MovRow): string {
+    const motivo = String(r.motivo ?? "").trim();
+    if (!motivo) return "";
+
+    const osNumero = osNumeroExibicao(r);
+    if (!osNumero) return motivo;
+
+    if (/\s*\[OS\s+[^\]]+\]\s*$/i.test(motivo)) {
+      return motivo.replace(/\s*\[OS\s+[^\]]+\]\s*$/i, ` [OS ${osNumero}]`);
+    }
+
+    return motivo.replace(/\bOS\s+\d+\b/i, `OS ${osNumero}`);
+  }
+
+  function osTextoBusca(r: MovRow): string {
+    const numeroOs = osNumeroExibicao(r);
+    if (!numeroOs) return "";
+    return [
+      `OS ${numeroOs}`,
+      r.os?.cliente_nome ?? "",
+      r.os?.descricao_servico ?? "",
+    ].join(" ");
+  }
+
   function usuarioExibicao(r: MovRow, importadoresMap?: Map<number, string>): string {
     const realizadoPor = String(r.realizado_por ?? "").trim();
     if (realizadoPor && realizadoPor.toLowerCase() !== "system-backfill") return realizadoPor;
@@ -106,8 +153,13 @@ export default function MovimentacoesPage() {
 
   async function loadFornecedores() {
     if (tenantEmpresaLoading) return;
-    if (!tenantId) return;
-    const { data, error } = await applyTenant(supabase.from("fornecedores").select("id,nome,ativo"), tenantId)
+    if (!tenantId || !empresaId) return;
+    const { data, error } = await applyTenantEmpresa(
+      supabase.from("fornecedores").select("id,nome,ativo"),
+      tenantId,
+      empresaId
+    )
+      .eq("empresa_id", empresaId)
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .limit(500);
@@ -163,17 +215,46 @@ export default function MovimentacoesPage() {
       supabase
         .from("movimentacoes")
         .select(
-          "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,origem_nf_entrada_id,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida),nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(criado_em,fornecedor_id,numero,serie,chave,fornecedores(nome))"
+          "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,origem_nf_entrada_id,origem_os_id,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida),nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(criado_em,fornecedor_id,numero,serie,chave,fornecedores(nome))"
         ),
       tenantId,
       empresaId
     )
+      .eq("empresa_id", empresaId)
       .order("id", { ascending: false })
       .limit(1000);
 
     if (error) return setErr(error.message);
 
     let list = (data ?? []) as unknown as MovRow[];
+    const osIds = Array.from(
+      new Set(
+        list
+          .map((r) => Number(r.origem_os_id ?? 0))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      )
+    );
+
+    if (osIds.length) {
+      const { data: osRows, error: osErr } = await applyTenantEmpresa(
+        supabase.from("ordens_servico").select("id,numero_os,os_num,cliente_nome,descricao_servico"),
+        tenantId,
+        empresaId
+      )
+        .eq("empresa_id", empresaId)
+        .in("id", osIds);
+
+      if (osErr) return setErr(osErr.message);
+
+      const osById = new Map<number, OsLookupRow>();
+      for (const os of (osRows ?? []) as unknown as OsLookupRow[]) {
+        osById.set(Number(os.id), os);
+      }
+      list = list.map((r) => ({ ...r, os: osById.get(Number(r.origem_os_id ?? 0)) ?? null }));
+    } else {
+      list = list.map((r) => ({ ...r, os: null }));
+    }
+
     const importadoresMap = await loadNfImportadores(
       list
         .map((r) => Number(r.origem_nf_entrada_id ?? 0))
@@ -197,9 +278,10 @@ export default function MovimentacoesPage() {
       list = list.filter((r) => {
         const cod = (r.itens?.codigo_interno ?? "").toLowerCase();
         const nome = (r.itens?.nome ?? "").toLowerCase();
-        const mot = (r.motivo ?? "").toLowerCase();
+        const mot = motivoExibicao(r).toLowerCase();
         const forn = (r.nf?.fornecedores?.nome ?? "").toLowerCase();
-        return cod.includes(term) || nome.includes(term) || mot.includes(term) || forn.includes(term);
+        const os = osTextoBusca(r).toLowerCase();
+        return cod.includes(term) || nome.includes(term) || mot.includes(term) || forn.includes(term) || os.includes(term);
       });
     }
 
@@ -207,7 +289,7 @@ export default function MovimentacoesPage() {
 
     const motTerm = motivoFiltro.trim().toLowerCase();
     if (motTerm) {
-      list = list.filter((r) => (r.motivo ?? "").toLowerCase().includes(motTerm));
+      list = list.filter((r) => motivoExibicao(r).toLowerCase().includes(motTerm));
     }
 
     const usuarioTerm = usuarioFiltro.trim().toLowerCase();
@@ -238,7 +320,7 @@ export default function MovimentacoesPage() {
     const nfTermDigits = nfTermRaw.replace(/\D+/g, "");
     if (nfTermRaw) {
       list = list.filter((r) => {
-        const motivo = (r.motivo ?? "").toLowerCase();
+        const motivo = motivoExibicao(r).toLowerCase();
         const numero = String(r.nf?.numero ?? "").toLowerCase();
         const serie = String(r.nf?.serie ?? "").toLowerCase();
         const chave = String(r.nf?.chave ?? "");
@@ -275,7 +357,7 @@ export default function MovimentacoesPage() {
   useEffect(() => {
     void loadFornecedores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, tenantEmpresaLoading]);
+  }, [tenantId, empresaId, tenantEmpresaLoading]);
 
   if (!ready && permissionsLoading) {
     return (
@@ -489,8 +571,12 @@ export default function MovimentacoesPage() {
           </thead>
 
           <tbody className="divide-y divide-zinc-800">
-            {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-zinc-900/40">
+            {rows.map((r) => {
+              const osNumero = osNumeroExibicao(r);
+              const motivo = motivoExibicao(r);
+
+              return (
+                <tr key={r.id} className="hover:bg-zinc-900/40">
                 <td className="px-4 py-3 text-zinc-300">
                   {new Date(dataReferencia(r)).toLocaleString("pt-BR")}
                 </td>
@@ -528,7 +614,18 @@ export default function MovimentacoesPage() {
                         importacao NF-e
                       </div>
                     )}
-                    <div>{r.motivo ?? "—"}</div>
+                    {osNumero && (
+                      <div className="inline-flex items-center px-2 py-0.5 rounded text-[11px] border border-amber-500/40 bg-amber-500/10 text-amber-200">
+                        OS {osNumero}
+                      </div>
+                    )}
+                    <div>{motivo || "—"}</div>
+                    {osNumero && (
+                      <div className="text-[11px] text-zinc-400">
+                        Vinculo: OS {osNumero}
+                        {r.os?.cliente_nome ? ` - ${r.os.cliente_nome}` : ""}
+                      </div>
+                    )}
                     {isNfImportacao(r) && (
                       <div className="text-[11px] text-zinc-400">
                         NF {r.nf?.numero ?? "?"}/{r.nf?.serie ?? "?"} | ID {r.origem_nf_entrada_id}
@@ -538,8 +635,9 @@ export default function MovimentacoesPage() {
                 </td>
 
                 <td className="px-4 py-3 text-zinc-400">{usuarioExibicao(r)}</td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
 
             {rows.length === 0 && (
               <tr>
