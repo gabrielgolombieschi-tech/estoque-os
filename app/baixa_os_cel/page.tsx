@@ -148,9 +148,7 @@ export default function BaixaOsCelPage() {
   }, []);
   const { tenantId, empresaId } = useTenantEmpresa();
   const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
-  const fixedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
   const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
-  const effectiveEmpresaId = useMemo(() => empresaId ?? fixedEmpresaId, [empresaId]);
   const [tenantValidated, setTenantValidated] = useState(false);
 
   const [os, setOs] = useState("");
@@ -822,25 +820,14 @@ export default function BaixaOsCelPage() {
       });
     }
 
-    const insuficiente = validItems.find((r) => {
+    const hasBaixaParcial = validItems.some((r) => {
       const precisaBaixa = (r.finalidade ?? "") === "materia_prima" && r.controlaEstoque !== false;
       if (!precisaBaixa || r.itemId === null) return false;
       const saldo = estoqueMap.has(r.itemId) ? estoqueMap.get(r.itemId)! : 0;
-      return Number(r.quantidade ?? 0) > saldo;
+      const quantidade = Number(r.quantidade ?? 0);
+      estoqueMap.set(r.itemId, Math.max(0, saldo - quantidade));
+      return quantidade > saldo;
     });
-
-    if (insuficiente) {
-      const saldo =
-        insuficiente.itemId !== null && estoqueMap.has(insuficiente.itemId)
-          ? estoqueMap.get(insuficiente.itemId)!
-          : 0;
-      setError(
-        `Sem saldo suficiente para o item ${insuficiente.codigo || insuficiente.descricao}. Saldo atual: ${saldo.toLocaleString(
-          "pt-BR"
-        )}`
-      );
-      return;
-    }
 
     setSubmitting(true);
 
@@ -868,7 +855,11 @@ export default function BaixaOsCelPage() {
     }
 
     setSubmitting(false);
-    setSuccess("Itens baixados e registrados na OS.");
+    setSuccess(
+      hasBaixaParcial
+        ? "Itens registrados na OS. Quando faltou saldo, a baixa ficou parcial."
+        : "Itens baixados e registrados na OS."
+    );
     setRows([createEmptyRow()]);
   };
 

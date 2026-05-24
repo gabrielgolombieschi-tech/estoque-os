@@ -1673,6 +1673,7 @@ async function syncPedidoMateriaisToOs(opts: {
       valor_unitario: Number.isFinite(valorUnit) ? valorUnit : 0,
       valor_total: Number.isFinite(valorTotal) ? valorTotal : 0,
       baixa_estoque: true,
+      quantidade_baixada: row.quantidade,
       observacoes: observacoesImportacao,
     };
 
