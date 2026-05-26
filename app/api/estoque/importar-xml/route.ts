@@ -1767,7 +1767,7 @@ async function syncPedidoMateriaisToOs(opts: {
       if (movInsErr) throw new Error(movInsErr.message);
     }
 
-    const { data: baixaRow, error: baixaErr } = await admin
+    const { data: baixaUpdateRow, error: baixaErr } = await admin
       .from("os_itens")
       .update({
         baixa_estoque: true,
@@ -1779,6 +1779,27 @@ async function syncPedidoMateriaisToOs(opts: {
       .select("id,baixa_estoque,quantidade_baixada")
       .maybeSingle<{ id: number; baixa_estoque: boolean | null; quantidade_baixada: number | null }>();
     if (baixaErr) throw new Error(baixaErr.message);
+
+    let baixaRow = baixaUpdateRow;
+    if (!baixaRow?.id) {
+      const { data: baixaFallbackRows, error: baixaFallbackErr } = await admin
+        .from("os_itens")
+        .select("id,baixa_estoque,quantidade_baixada,observacoes")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("os_id", row.os_id)
+        .eq("item_id", row.item_id)
+        .not("observacoes", "is", null)
+        .order("id", { ascending: true })
+        .returns<Array<{ id: number; baixa_estoque: boolean | null; quantidade_baixada: number | null; observacoes: string | null }>>();
+      if (baixaFallbackErr) throw new Error(baixaFallbackErr.message);
+
+      baixaRow =
+        (Array.isArray(baixaFallbackRows) ? baixaFallbackRows : []).find((candidate) => {
+          const observacoes = String(candidate.observacoes ?? "").trim();
+          return observacoesPossiveis.includes(observacoes) || legacyObservacoes.has(observacoes);
+        }) ?? null;
+    }
 
     const quantidadeBaixada = toNum(baixaRow?.quantidade_baixada);
     if (!baixaRow?.baixa_estoque || Math.abs(quantidadeBaixada - row.quantidade) > 0.0005) {
@@ -1840,6 +1861,144 @@ async function buildDirectOsVinculosFromNfEntrada(opts: {
     });
   }
   return vinculos;
+}
+
+async function reconcileDirectOsXmlImportRows(opts: {
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+  osId: number;
+}) {
+  const admin = supabaseAdmin();
+  const { data: nfRow, error: nfErr } = await admin
+    .from("nf_entrada")
+    .select("id,chave")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.nfEntradaId)
+    .maybeSingle<{ id: number; chave: string | null }>();
+  if (nfErr) throw new Error(nfErr.message);
+  if (!nfRow?.id) return;
+
+  const { data: osRow, error: osErr } = await admin
+    .from("ordens_servico")
+    .select("id,numero_os,os_num")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.osId)
+    .maybeSingle<{ id: number; numero_os: string | null; os_num: number | null }>();
+  if (osErr) throw new Error(osErr.message);
+  if (!osRow?.id) return;
+
+  const osLabel =
+    String(osRow.numero_os ?? "").trim() ||
+    (Number(osRow.os_num ?? 0) > 0 ? String(Number(osRow.os_num)) : String(opts.osId));
+  const finalObservacoes = `Importacao XML NF ${opts.nfEntradaId} [OS ${osLabel}]`;
+  const directObservacoes = new Set([finalObservacoes, `Importacao XML NF ${opts.nfEntradaId} [OS ${opts.osId}]`]);
+
+  const { data: nfItens, error: nfItensErr } = await admin
+    .from("nf_entrada_itens")
+    .select("id,item_id,qtd,v_unit,v_prod")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("nf_entrada_id", opts.nfEntradaId)
+    .returns<Array<{ id: number; item_id: number | null; qtd: number | null; v_unit: number | null; v_prod: number | null }>>();
+  if (nfItensErr) throw new Error(nfItensErr.message);
+
+  const grouped = new Map<number, { quantidade: number; valor_unitario: number; valor_total: number; legacyObs: Set<string> }>();
+  for (const row of Array.isArray(nfItens) ? nfItens : []) {
+    const itemId = Number(row.item_id ?? 0);
+    const qtd = Math.max(0, toNum(row.qtd));
+    if (!Number.isFinite(itemId) || itemId <= 0 || qtd <= 0) continue;
+
+    const current = grouped.get(itemId) ?? { quantidade: 0, valor_unitario: 0, valor_total: 0, legacyObs: new Set<string>() };
+    const vUnit = toNum(row.v_unit);
+    current.quantidade += qtd;
+    current.valor_unitario = vUnit > 0 ? vUnit : current.valor_unitario;
+    current.valor_total += toNum(row.v_prod) > 0 ? toNum(row.v_prod) : qtd * vUnit;
+    const nfChave = String(nfRow.chave ?? "").trim();
+    const nfItemId = Number(row.id ?? 0);
+    if (nfChave && nfItemId > 0) current.legacyObs.add(`IMPORT XML NF ${nfChave} NF_ITEM ${nfItemId}`);
+    grouped.set(itemId, current);
+  }
+
+  for (const [itemId, item] of grouped.entries()) {
+    const { data: osRows, error: osRowsErr } = await admin
+      .from("os_itens")
+      .select("id,observacoes")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("os_id", opts.osId)
+      .eq("item_id", itemId)
+      .not("observacoes", "is", null)
+      .order("id", { ascending: true })
+      .returns<Array<{ id: number; observacoes: string | null }>>();
+    if (osRowsErr) throw new Error(osRowsErr.message);
+
+    const candidates = (Array.isArray(osRows) ? osRows : []).filter((row) => {
+      const obs = String(row.observacoes ?? "").trim();
+      return item.legacyObs.has(obs) || directObservacoes.has(obs);
+    });
+    if (!candidates.length) continue;
+
+    const keep = candidates.find((row) => item.legacyObs.has(String(row.observacoes ?? "").trim())) ?? candidates[0];
+    const keepId = Number(keep.id);
+    if (!Number.isFinite(keepId) || keepId <= 0) continue;
+
+    const valorTotal = item.valor_total > 0 ? item.valor_total : item.quantidade * item.valor_unitario;
+    const { error: updateErr } = await admin
+      .from("os_itens")
+      .update({
+        quantidade: item.quantidade,
+        valor_unitario: item.valor_unitario,
+        valor_total: valorTotal,
+        baixa_estoque: true,
+        quantidade_baixada: item.quantidade,
+        observacoes: finalObservacoes,
+      })
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("id", keepId);
+    if (updateErr) throw new Error(updateErr.message);
+
+    const duplicateIds = candidates.map((row) => Number(row.id)).filter((id) => Number.isFinite(id) && id > 0 && id !== keepId);
+    if (duplicateIds.length > 0) {
+      const { error: deleteErr } = await admin
+        .from("os_itens")
+        .delete()
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("os_id", opts.osId)
+        .in("id", duplicateIds);
+      if (deleteErr) throw new Error(deleteErr.message);
+    }
+  }
+
+  const { data: totalRows, error: totalErr } = await admin
+    .from("os_itens")
+    .select("valor_total")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("os_id", opts.osId)
+    .returns<Array<{ valor_total: number | null }>>();
+  if (totalErr) throw new Error(totalErr.message);
+
+  const valorTotalOs = (Array.isArray(totalRows) ? totalRows : []).reduce((sum, row) => sum + toNum(row.valor_total), 0);
+  const { error: osUpdateErr } = await admin
+    .from("ordens_servico")
+    .update({ valor_total: Math.round(valorTotalOs * 100) / 100, atualizado_em: new Date().toISOString() })
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.osId);
+  if (osUpdateErr) throw new Error(osUpdateErr.message);
+
+  const { error: nfUpdateErr } = await admin
+    .from("nf_entrada")
+    .update({ baixa_os_automatica: true, updated_at: new Date().toISOString() })
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.nfEntradaId);
+  if (nfUpdateErr) throw new Error(nfUpdateErr.message);
 }
 
 async function getCurrentUsuarioId(opts: { authUserId: string }): Promise<string | null> {
@@ -2569,6 +2728,12 @@ export async function POST(req: NextRequest) {
           nfEntradaId,
           realizadoPor: userData.user.email ?? userData.user.id ?? "sistema",
           osVinculos: osVinculosDireto,
+        });
+        await reconcileDirectOsXmlImportRows({
+          tenantId,
+          empresaId,
+          nfEntradaId,
+          osId: Number(osId),
         });
       } catch (osDirectSyncErr) {
         const detalhe = osDirectSyncErr instanceof Error ? osDirectSyncErr.message : "erro desconhecido";
