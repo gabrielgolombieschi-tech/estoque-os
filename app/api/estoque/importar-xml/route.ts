@@ -1616,6 +1616,39 @@ async function syncPedidoMateriaisToOs(opts: {
   const rows = opts.osVinculos.filter((r) => r.os_id > 0 && r.item_id > 0 && r.quantidade > 0);
   if (!rows.length) return;
 
+  const { data: nfRow, error: nfErr } = await admin
+    .from("nf_entrada")
+    .select("id,chave")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.nfEntradaId)
+    .maybeSingle<{ id: number; chave: string | null }>();
+  if (nfErr) throw new Error(nfErr.message);
+
+  const nfChave = String(nfRow?.chave ?? "").trim();
+  const itemIds = Array.from(new Set(rows.map((r) => Number(r.item_id)).filter((id) => Number.isFinite(id) && id > 0)));
+  const legacyObservacoesByItemId = new Map<number, Set<string>>();
+  if (nfChave && itemIds.length > 0) {
+    const { data: nfItemRows, error: nfItemErr } = await admin
+      .from("nf_entrada_itens")
+      .select("id,item_id")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("nf_entrada_id", opts.nfEntradaId)
+      .in("item_id", itemIds)
+      .returns<Array<{ id: number; item_id: number | null }>>();
+    if (nfItemErr) throw new Error(nfItemErr.message);
+
+    for (const nfItem of Array.isArray(nfItemRows) ? nfItemRows : []) {
+      const itemId = Number(nfItem.item_id ?? 0);
+      const nfItemId = Number(nfItem.id ?? 0);
+      if (!Number.isFinite(itemId) || itemId <= 0 || !Number.isFinite(nfItemId) || nfItemId <= 0) continue;
+      const set = legacyObservacoesByItemId.get(itemId) ?? new Set<string>();
+      set.add(`IMPORT XML NF ${nfChave} NF_ITEM ${nfItemId}`);
+      legacyObservacoesByItemId.set(itemId, set);
+    }
+  }
+
   const osIds = Array.from(new Set(rows.map((r) => Number(r.os_id)).filter((id) => Number.isFinite(id) && id > 0)));
   const osLabelById = new Map<number, string>();
   if (osIds.length) {
@@ -1642,64 +1675,84 @@ async function syncPedidoMateriaisToOs(opts: {
     const observacoesImportacao = `Importacao XML NF ${opts.nfEntradaId} [OS ${osLabel}]`;
     const observacoesImportacaoLegada = `Importacao XML NF ${opts.nfEntradaId} [OS ${row.os_id}]`;
     const observacoesPossiveis = Array.from(new Set([observacoesImportacao, observacoesImportacaoLegada]));
-    const [{ data: movExists }, { data: importedRow }] = await Promise.all([
-      admin
-        .from("movimentacoes")
-        .select("id")
-        .eq("tenant_id", opts.tenantId)
-        .eq("empresa_id", opts.empresaId)
-        .eq("tipo", "saida")
-        .eq("origem_nf_entrada_id", opts.nfEntradaId)
-        .eq("origem_os_id", row.os_id)
-        .eq("item_id", row.item_id)
-        .limit(1)
-        .maybeSingle<{ id: number }>(),
-      admin
-        .from("os_itens")
-        .select("id")
-        .eq("tenant_id", opts.tenantId)
-        .eq("empresa_id", opts.empresaId)
-        .eq("os_id", row.os_id)
-        .eq("item_id", row.item_id)
-        .in("observacoes", observacoesPossiveis)
-        .limit(1)
-        .maybeSingle<{ id: number }>(),
-    ]);
+    const legacyObservacoes = legacyObservacoesByItemId.get(row.item_id) ?? new Set<string>();
+
+    const { data: movExists, error: movExistsErr } = await admin
+      .from("movimentacoes")
+      .select("id")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("tipo", "saida")
+      .eq("origem_nf_entrada_id", opts.nfEntradaId)
+      .eq("origem_os_id", row.os_id)
+      .eq("item_id", row.item_id)
+      .limit(1)
+      .maybeSingle<{ id: number }>();
+    if (movExistsErr) throw new Error(movExistsErr.message);
+
+    const { data: osItemCandidates, error: osItemCandidatesErr } = await admin
+      .from("os_itens")
+      .select("id,observacoes")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("os_id", row.os_id)
+      .eq("item_id", row.item_id)
+      .not("observacoes", "is", null)
+      .order("id", { ascending: true })
+      .returns<Array<{ id: number; observacoes: string | null }>>();
+    if (osItemCandidatesErr) throw new Error(osItemCandidatesErr.message);
+
+    const importedRow = (Array.isArray(osItemCandidates) ? osItemCandidates : []).find((candidate) => {
+      const observacoes = String(candidate.observacoes ?? "").trim();
+      return observacoesPossiveis.includes(observacoes) || legacyObservacoes.has(observacoes);
+    });
 
     const valorUnit = toNum(row.valor_unitario);
     const valorTotal = row.quantidade * valorUnit;
-    const osItemPayload = {
+    const osItemPayload: Record<string, unknown> = {
       quantidade: row.quantidade,
       valor_unitario: Number.isFinite(valorUnit) ? valorUnit : 0,
       valor_total: Number.isFinite(valorTotal) ? valorTotal : 0,
-      baixa_estoque: true,
-      quantidade_baixada: row.quantidade,
       observacoes: observacoesImportacao,
     };
 
-    // Mantem a quantidade importada em uma linha dedicada da OS para nao misturar
-    // materiais antigos sem baixa com a baixa automatica desta NF.
+    let osItemId = Number(importedRow?.id ?? 0);
+
+    // Reusa a linha criada pelo vinculo da NF quando ela existir; isso evita
+    // duplicar item na OS no fluxo direto sem pedido de compra.
     if (importedRow?.id) {
-      await admin
+      const { error: updErr } = await admin
         .from("os_itens")
         .update(osItemPayload)
         .eq("tenant_id", opts.tenantId)
         .eq("empresa_id", opts.empresaId)
         .eq("id", importedRow.id);
+      if (updErr) throw new Error(updErr.message);
     } else {
-      await admin.from("os_itens").insert({
-        tenant_id: opts.tenantId,
-        empresa_id: opts.empresaId,
-        os_id: row.os_id,
-        item_id: row.item_id,
-        ...osItemPayload,
-        criado_em: new Date().toISOString(),
-      });
+      const { data: insertedRow, error: insertErr } = await admin
+        .from("os_itens")
+        .insert({
+          tenant_id: opts.tenantId,
+          empresa_id: opts.empresaId,
+          os_id: row.os_id,
+          item_id: row.item_id,
+          baixa_estoque: false,
+          ...osItemPayload,
+          criado_em: new Date().toISOString(),
+        })
+        .select("id")
+        .single<{ id: number }>();
+      if (insertErr) throw new Error(insertErr.message);
+      osItemId = Number(insertedRow?.id ?? 0);
+    }
+
+    if (!Number.isFinite(osItemId) || osItemId <= 0) {
+      throw new Error(`Nao foi possivel localizar/criar item da OS ${row.os_id} para item ${row.item_id}.`);
     }
 
     if (!movExists?.id) {
       const motivo = `Baixa automatica via XML NF ${opts.nfEntradaId} [OS ${osLabel}]`;
-      await admin.from("movimentacoes").insert({
+      const { error: movInsErr } = await admin.from("movimentacoes").insert({
         tenant_id: opts.tenantId,
         empresa_id: opts.empresaId,
         item_id: row.item_id,
@@ -1711,8 +1764,38 @@ async function syncPedidoMateriaisToOs(opts: {
         origem_nf_entrada_id: opts.nfEntradaId,
         origem_os_id: row.os_id,
       });
+      if (movInsErr) throw new Error(movInsErr.message);
+    }
+
+    const { data: baixaRow, error: baixaErr } = await admin
+      .from("os_itens")
+      .update({
+        baixa_estoque: true,
+        quantidade_baixada: row.quantidade,
+      })
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("id", osItemId)
+      .select("id,baixa_estoque,quantidade_baixada")
+      .maybeSingle<{ id: number; baixa_estoque: boolean | null; quantidade_baixada: number | null }>();
+    if (baixaErr) throw new Error(baixaErr.message);
+
+    const quantidadeBaixada = toNum(baixaRow?.quantidade_baixada);
+    if (!baixaRow?.baixa_estoque || Math.abs(quantidadeBaixada - row.quantidade) > 0.0005) {
+      throw new Error(`Baixa da OS ${row.os_id} nao foi persistida para o item ${row.item_id}.`);
     }
   }
+
+  const { error: nfUpdateErr } = await admin
+    .from("nf_entrada")
+    .update({
+      baixa_os_automatica: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.nfEntradaId);
+  if (nfUpdateErr) throw new Error(nfUpdateErr.message);
 }
 
 async function buildDirectOsVinculosFromNfEntrada(opts: {
@@ -2473,23 +2556,33 @@ export async function POST(req: NextRequest) {
           nfEntradaId,
           osId: Number(osId),
         });
-        if (osVinculosDireto.length > 0) {
-          await syncPedidoMateriaisToOs({
-            tenantId,
-            empresaId,
-            nfEntradaId,
-            realizadoPor: userData.user.email ?? userData.user.id ?? "sistema",
-            osVinculos: osVinculosDireto,
-          });
+        if (osVinculosDireto.length === 0) {
+          return jerr(
+            422,
+            `NF importada, mas nao foi possivel montar os vinculos de baixa para a OS ${Number(osId)}. nf_entrada_id=${nfEntradaId}.`
+          );
         }
+
+        await syncPedidoMateriaisToOs({
+          tenantId,
+          empresaId,
+          nfEntradaId,
+          realizadoPor: userData.user.email ?? userData.user.id ?? "sistema",
+          osVinculos: osVinculosDireto,
+        });
       } catch (osDirectSyncErr) {
+        const detalhe = osDirectSyncErr instanceof Error ? osDirectSyncErr.message : "erro desconhecido";
         console.warn("[XML_IMPORT][OS_DIRETO] falha ao sincronizar baixa da NF na OS informada", {
           tenantId,
           empresaId,
           nfEntradaId,
           osId,
-          error: osDirectSyncErr instanceof Error ? osDirectSyncErr.message : "erro desconhecido",
+          error: detalhe,
         });
+        return jerr(
+          422,
+          `NF importada, mas falhou ao sincronizar baixa na OS ${Number(osId)}. nf_entrada_id=${nfEntradaId}. Detalhe: ${detalhe}`
+        );
       }
     }
 
