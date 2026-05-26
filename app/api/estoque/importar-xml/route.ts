@@ -135,6 +135,19 @@ function normalizeLookup(value: string | null | undefined): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function readImportItemId(rec: Record<string, unknown>): number {
+  const raw = rec.item_id;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function describeImportItemForError(rec: Record<string, unknown>, idx: number): string {
+  const code = String(rec.codigo_fornecedor ?? rec.codigo ?? "").trim();
+  const desc = String(rec.descricao ?? rec.nome ?? "").replace(/\s+/g, " ").trim();
+  if (code && desc) return `${code} - ${desc}`;
+  return code || desc || `item ${idx + 1}`;
+}
+
 function numKey(value: unknown): string {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return "0";
@@ -1208,10 +1221,14 @@ async function runStrictImportPreflight(opts: {
     const itens = Array.isArray(opts.itensJsonToImport)
       ? opts.itensJsonToImport.filter((v) => v && typeof v === "object").map((v) => v as Record<string, unknown>)
       : [];
+    const itensSemCadastro = itens
+      .map((rec, idx) => ({ itemId: readImportItemId(rec), label: describeImportItemForError(rec, idx) }))
+      .filter((row) => row.itemId <= 0)
+      .map((row) => row.label);
     const itemIds = Array.from(
       new Set(
         itens
-          .map((r) => Number(r.item_id ?? 0))
+          .map((r) => readImportItemId(r))
           .filter((n) => Number.isFinite(n) && n > 0)
       )
     );
@@ -1226,8 +1243,33 @@ async function runStrictImportPreflight(opts: {
     if (osErr) issues.push(`Erro ao validar OS ${osId}: ${osErr.message}`);
     else if (!osRow?.id) issues.push(`OS ${osId} nao encontrada para importacao.`);
 
-    if (itemIds.length === 0) {
+    if (itens.length === 0) {
+      issues.push("Importacao com OS direta exige itens informados no XML.");
+    } else if (itensSemCadastro.length > 0) {
+      issues.push(`Importacao com OS direta exige todos os itens vinculados ao cadastro: ${itensSemCadastro.join(", ")}.`);
+    } else if (itemIds.length === 0) {
       issues.push("Importacao com OS direta exige itens vinculados a cadastro (item_id).");
+    } else {
+      const { data: itensCadastrados, error: itensErr } = await admin
+        .from("itens")
+        .select("id")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("ativo", true)
+        .in("id", itemIds)
+        .returns<Array<{ id: number }>>();
+      if (itensErr) {
+        issues.push(`Erro ao validar cadastro dos itens: ${itensErr.message}`);
+      } else {
+        const cadastrados = new Set((Array.isArray(itensCadastrados) ? itensCadastrados : []).map((row) => Number(row.id)));
+        const inexistentes = itens
+          .map((rec, idx) => ({ itemId: readImportItemId(rec), label: describeImportItemForError(rec, idx) }))
+          .filter((row) => row.itemId > 0 && !cadastrados.has(row.itemId))
+          .map((row) => row.label);
+        if (inexistentes.length > 0) {
+          issues.push(`Itens vinculados nao encontrados/ativos no cadastro: ${inexistentes.join(", ")}.`);
+        }
+      }
     }
   }
 
@@ -2331,6 +2373,7 @@ export async function POST(req: NextRequest) {
       finalidade = pedidoOsVinculos.length > 0 ? "materia_prima" : "consumo";
     }
     const finalidadeNorm = String(finalidade ?? "").trim();
+    const finalidadeKey = finalidadeNorm.toLowerCase();
 
     let motivoCompraId = motivoCompraRaw;
     if (!motivoCompraId && pedidoFlow) {
@@ -2428,23 +2471,60 @@ export async function POST(req: NextRequest) {
     if (!UUID_REGEX.test(solicitanteUsuarioId)) return jerr(400, "Solicitante (usuario) invalido.");
     aprovadoPorUsuarioId = currentUsuarioId ?? solicitanteUsuarioId;
 
-    if (finalidadesComItemObrigatorio.has(finalidadeNorm)) {
+    if (finalidadesComItemObrigatorio.has(finalidadeKey)) {
       const itens = Array.isArray(itensJsonToImport) ? itensJsonToImport : [];
       const itensSemCadastro: string[] = [];
 
-      for (const row of itens) {
+      for (const [idx, row] of itens.entries()) {
         if (!row || typeof row !== "object") continue;
         const rec = row as Record<string, unknown>;
-        const itemIdRaw = rec.item_id;
-        const itemId = typeof itemIdRaw === "number" ? itemIdRaw : Number(itemIdRaw);
-        if (Number.isFinite(itemId) && itemId > 0) continue;
+        const itemId = readImportItemId(rec);
+        if (itemId > 0) continue;
 
-        const codigo = String(rec.codigo ?? "").trim();
-        itensSemCadastro.push(codigo || "(sem codigo)");
+        itensSemCadastro.push(describeImportItemForError(rec, idx));
       }
 
       if (itensSemCadastro.length > 0) {
         return jerr(422, `Itens nao cadastrados: ${itensSemCadastro.join(", ")}`);
+      }
+    }
+
+    const directOsSemPedido =
+      finalidadeKey === "materia_prima" &&
+      !pedidoCompraRaw &&
+      Number.isFinite(Number(osId)) &&
+      Number(osId) > 0;
+    if (directOsSemPedido) {
+      const itens = Array.isArray(itensJsonToImport)
+        ? itensJsonToImport.filter((v) => v && typeof v === "object").map((v) => v as Record<string, unknown>)
+        : [];
+      if (itens.length === 0) {
+        return jerr(422, `Importacao direta para OS ${Number(osId)} exige itens informados no XML.`);
+      }
+
+      const itemIds = Array.from(new Set(itens.map((rec) => readImportItemId(rec)).filter((id) => id > 0)));
+      const { data: itensCadastrados, error: itensCadastradosErr } = await admin
+        .from("itens")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("empresa_id", empresaId)
+        .eq("ativo", true)
+        .in("id", itemIds.length > 0 ? itemIds : [-1])
+        .returns<Array<{ id: number }>>();
+      if (itensCadastradosErr) {
+        return jerr(422, `Erro ao validar cadastro dos itens da OS ${Number(osId)}: ${itensCadastradosErr.message}`);
+      }
+
+      const cadastrados = new Set((Array.isArray(itensCadastrados) ? itensCadastrados : []).map((row) => Number(row.id)));
+      const invalidos = itens
+        .map((rec, idx) => ({ itemId: readImportItemId(rec), label: describeImportItemForError(rec, idx) }))
+        .filter((row) => row.itemId <= 0 || !cadastrados.has(row.itemId))
+        .map((row) => row.label);
+      if (invalidos.length > 0) {
+        return jerr(
+          422,
+          `Importacao direta para OS ${Number(osId)} bloqueada: cadastre/vincule os itens antes de importar: ${invalidos.join(", ")}`
+        );
       }
     }
 
