@@ -17,6 +17,7 @@ type DashRow = {
   cliente_nome: string;
   descricao_servico: string | null;
   status: "aberta" | "em_andamento" | "concluida" | "cancelada" | null;
+  data_conclusao: string | null;
 };
 
 type OsGestaoRow = {
@@ -26,6 +27,15 @@ type OsGestaoRow = {
   habilitado: boolean | null;
   data_prevista: string | null;
   progresso_percent: number | null;
+};
+
+type OsRow = {
+  id: number;
+  numero_os: string | null;
+  cliente_nome: string | null;
+  descricao_servico: string | null;
+  status: DashRow["status"] | null;
+  data_conclusao: string | null;
 };
 
 export default function ProjetosPage() {
@@ -87,7 +97,6 @@ export default function ProjetosPage() {
         effectiveTenantId,
         empresaId ?? ""
       )
-        .eq("habilitado", true)
         .eq("item_tipo", "projeto");
 
       if (!active) return;
@@ -109,30 +118,39 @@ export default function ProjetosPage() {
           cliente_nome?: string | null;
           descricao_servico?: string | null;
           status?: DashRow["status"] | null;
+          data_conclusao?: string | null;
         }
       >();
 
       if (osIds.length > 0) {
-        const { data: osData, error: osErr } = await applyTenantEmpresa(
-          supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
-          effectiveTenantId,
-          empresaId ?? ""
-        ).in("id", osIds);
+        const osData: OsRow[] = [];
 
-        if (osErr) {
-          console.error("Erro ao carregar ordens_servico:", osErr.message ?? osErr);
-          setErr(osErr.message);
-          setRows([]);
-          setLoading(false);
-          return;
+        for (let start = 0; start < osIds.length; start += 200) {
+          const chunk = osIds.slice(start, start + 200);
+          const { data: chunkData, error: osErr } = await applyTenantEmpresa(
+            supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status,data_conclusao"),
+            effectiveTenantId,
+            empresaId ?? ""
+          ).in("id", chunk);
+
+          if (osErr) {
+            console.error("Erro ao carregar ordens_servico:", osErr.message ?? osErr);
+            setErr(osErr.message);
+            setRows([]);
+            setLoading(false);
+            return;
+          }
+
+          osData.push(...((chunkData ?? []) as OsRow[]));
         }
 
-        (osData ?? []).forEach((os) => {
+        osData.forEach((os) => {
           osMap.set(os.id, {
             numero_os: os.numero_os,
             cliente_nome: os.cliente_nome,
             descricao_servico: os.descricao_servico,
             status: os.status,
+            data_conclusao: os.data_conclusao,
           });
         });
       }
@@ -149,6 +167,7 @@ export default function ProjetosPage() {
           cliente_nome: osMap.get(row.os_id)?.cliente_nome ?? "-",
           descricao_servico: osMap.get(row.os_id)?.descricao_servico ?? null,
           status: osMap.get(row.os_id)?.status ?? null,
+          data_conclusao: osMap.get(row.os_id)?.data_conclusao ?? null,
         }))
         .filter(
           (row) =>
