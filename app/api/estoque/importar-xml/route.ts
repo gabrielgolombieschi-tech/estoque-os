@@ -25,6 +25,63 @@ function normalizeName(value: string | null | undefined): string {
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const OPEN_PEDIDO_STATUSES = new Set(["ENVIADO", "PARCIAL_RECEBIDO"]);
+const MOTIVO_OS_CODES = new Set(["OS", "OS_MATERIAL_DIRETO"]);
+const MOTIVO_ESTOQUE_CODES = new Set(["ESTOQUE", "EST_MATERIA_PRIMA"]);
+
+function parsePedidoCompraRefs(...values: unknown[]): string[] {
+  const rawValues: string[] = [];
+  const collect = (value: unknown) => {
+    if (Array.isArray(value)) {
+      for (const item of value) collect(item);
+      return;
+    }
+    if (typeof value === "string" || typeof value === "number") rawValues.push(String(value));
+  };
+
+  for (const value of values) collect(value);
+
+  const refs: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of rawValues) {
+    for (const part of raw.split(/[,;\n]+/)) {
+      const ref = part.trim();
+      if (!ref) continue;
+      const key = ref.toUpperCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      refs.push(ref);
+    }
+  }
+  return refs;
+}
+
+async function findMotivoCompraByPriority(opts: {
+  tenantId: string;
+  codes: string[];
+}): Promise<{ id: string; codigo: string | null; ativo: boolean; deleted_at: string | null } | null> {
+  if (opts.codes.length === 0) return null;
+
+  const admin = supabaseAdmin();
+  const { data } = await admin
+    .schema("f")
+    .from("motivo_compra")
+    .select("id,codigo,ativo,deleted_at")
+    .eq("tenant_id", opts.tenantId)
+    .eq("ativo", true)
+    .is("deleted_at", null)
+    .in("codigo", opts.codes)
+    .returns<Array<{ id: string; codigo: string | null; ativo: boolean; deleted_at: string | null }>>();
+
+  const rows = Array.isArray(data) ? data : [];
+  const byCodigo = new Map(rows.map((row) => [String(row.codigo ?? "").trim().toUpperCase(), row]));
+  for (const code of opts.codes) {
+    const row = byCodigo.get(String(code).trim().toUpperCase());
+    if (row?.id) return row;
+  }
+
+  return null;
+}
 
 type ImportBody = {
   tenantId?: string;
@@ -32,6 +89,7 @@ type ImportBody = {
   finalidade?: string | null;
   osId?: number | null;
   pedidoCompraId?: string | null;
+  pedidoCompraIds?: unknown;
   motivoCompraId?: string | null;
   solicitanteUsuarioId?: string | null;
 
@@ -44,6 +102,19 @@ type ImportBody = {
 
   gerarContasPagar?: boolean;
   parcelasJson?: unknown;
+};
+
+type PedidoRecebimentoItem = { pedidoItemId: string; quantidade: number };
+type PedidoOsVinculo = { os_id: number; item_id: number; quantidade: number; valor_unitario: number };
+type PedidoLinkState = {
+  pedidoCompraRaw: string;
+  pedidoId: string | null;
+  recebimentoItens: PedidoRecebimentoItem[];
+  osVinculos: PedidoOsVinculo[];
+  pedidoHasOsOrigem: boolean;
+  solicitanteUsuarioId: string | null;
+  documentoRef: string | null;
+  warnings: string[];
 };
 
 type FornecedorRow = { id: number; cnpj_norm: string | null; nome: string | null; ativo: boolean | null };
@@ -61,6 +132,26 @@ type NfEntradaItemRow = {
   v_pis: number | null;
   v_cofins: number | null;
   item_id: number | null;
+};
+
+type NfEntradaCadastroItemRow = {
+  id: number;
+  item_id: number | null;
+  codigo_fornecedor: string | null;
+  descricao: string | null;
+  ncm: string | null;
+  cfop: string | null;
+  qtd: number | null;
+  v_unit: number | null;
+  v_prod: number | null;
+  v_icms: number | null;
+  v_ipi: number | null;
+  v_pis: number | null;
+  v_cofins: number | null;
+  aliq_icms: number | null;
+  aliq_ipi: number | null;
+  aliq_pis: number | null;
+  aliq_cofins: number | null;
 };
 
 type MovimentacaoExistRow = {
@@ -834,6 +925,119 @@ function mergeRecebimentoItensByMax(
     .filter((r) => r.quantidade > 0);
 }
 
+async function findOpenPedidoCompativelSemVinculo(opts: {
+  tenantId: string;
+  empresaId: string;
+  fornecedorId: number;
+  itensJson: unknown;
+}): Promise<{ pedidoId: string; codigo: string | null; matchedItems: number } | null> {
+  const itens = Array.isArray(opts.itensJson)
+    ? opts.itensJson.filter((v) => v && typeof v === "object").map((v) => v as Record<string, unknown>)
+    : [];
+  if (itens.length === 0) return null;
+
+  const nfItems = itens
+    .map((rec) => {
+      const itemId = readImportItemId(rec);
+      const codigo = normalizeItemCode(String(rec.codigo_fornecedor ?? rec.codigo ?? rec.item_codigo ?? ""));
+      const quantidade = Math.max(0, toNum(rec.qtd ?? rec.quantidade));
+      const valorUnitario = Math.max(0, toNum(rec.v_unit ?? rec.valor_unitario));
+      return { itemId, codigo, quantidade, valorUnitario };
+    })
+    .filter((item) => (item.itemId > 0 || item.codigo) && item.quantidade > 0);
+  if (nfItems.length === 0) return null;
+
+  const admin = supabaseAdmin();
+  const { data: pedidos, error: pedidosErr } = await admin
+    .schema("m")
+    .from("pedido_compra")
+    .select("id,codigo,status")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("fornecedor_id", opts.fornecedorId)
+    .is("deleted_at", null)
+    .in("status", Array.from(OPEN_PEDIDO_STATUSES))
+    .order("created_at", { ascending: false })
+    .limit(30)
+    .returns<Array<{ id: string; codigo: string | null; status: string | null }>>();
+
+  if (pedidosErr || !Array.isArray(pedidos) || pedidos.length === 0) return null;
+
+  const pedidoIds = pedidos.map((pedido) => String(pedido.id)).filter(Boolean);
+  const { data: pedidoItens, error: pedidoItensErr } = await admin
+    .schema("m")
+    .from("pedido_compra_item")
+    .select("id,pedido_compra_id,item_id,item_codigo,quantidade,quantidade_recebida,valor_unitario")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .in("pedido_compra_id", pedidoIds)
+    .is("deleted_at", null)
+    .returns<Array<{
+      id: string;
+      pedido_compra_id: string;
+      item_id: number | null;
+      item_codigo: string | null;
+      quantidade: number | null;
+      quantidade_recebida: number | null;
+      valor_unitario: number | null;
+    }>>();
+
+  if (pedidoItensErr || !Array.isArray(pedidoItens) || pedidoItens.length === 0) return null;
+
+  const rowsByPedido = new Map<string, typeof pedidoItens>();
+  for (const row of pedidoItens) {
+    const pedidoId = String(row.pedido_compra_id ?? "").trim();
+    if (!pedidoId) continue;
+    const arr = rowsByPedido.get(pedidoId) ?? [];
+    arr.push(row);
+    rowsByPedido.set(pedidoId, arr);
+  }
+
+  let best: { pedidoId: string; codigo: string | null; matchedItems: number; score: number } | null = null;
+  for (const pedido of pedidos) {
+    const rows = rowsByPedido.get(String(pedido.id)) ?? [];
+    let matchedItems = 0;
+    let score = 0;
+
+    for (const nfItem of nfItems) {
+      const match = rows.find((row) => {
+        const saldo = toNum(row.quantidade) - toNum(row.quantidade_recebida);
+        if (saldo + 1e-6 < nfItem.quantidade) return false;
+
+        const pedidoItemId = Number(row.item_id ?? 0);
+        const pedidoCodigo = normalizeItemCode(row.item_codigo ?? "");
+        const identityMatch =
+          (nfItem.itemId > 0 && pedidoItemId > 0 && nfItem.itemId === pedidoItemId) ||
+          Boolean(nfItem.codigo && pedidoCodigo && nfItem.codigo === pedidoCodigo);
+        if (!identityMatch) return false;
+
+        const pedidoValor = toNum(row.valor_unitario);
+        if (pedidoValor > 0 && nfItem.valorUnitario > 0) {
+          const diffPct = Math.abs(nfItem.valorUnitario - pedidoValor) / Math.max(pedidoValor, 1);
+          if (diffPct > 0.15) return false;
+        }
+
+        return true;
+      });
+
+      if (match) {
+        matchedItems += 1;
+        score += nfItem.itemId > 0 && Number(match.item_id ?? 0) === nfItem.itemId ? 13 : 12;
+      }
+    }
+
+    const minimo = Math.max(1, Math.ceil(nfItems.length * 0.5));
+    if (matchedItems < minimo) continue;
+
+    score += matchedItems * 10;
+    if (!best || score > best.score) {
+      best = { pedidoId: String(pedido.id), codigo: pedido.codigo ?? null, matchedItems, score };
+    }
+  }
+
+  return best ? { pedidoId: best.pedidoId, codigo: best.codigo, matchedItems: best.matchedItems } : null;
+}
+
 async function registrarRecebimentoPedidoViaImportFallback(opts: {
   tenantId: string;
   empresaId: string;
@@ -1075,6 +1279,24 @@ function mergeOsVinculosByMax(
     });
   }
   return Array.from(map.values()).filter((r) => r.quantidade > 0);
+}
+
+function aggregatePedidoLinks(links: PedidoLinkState[]) {
+  return {
+    pedidoCompraIdVinculado: links.find((link) => Boolean(link.pedidoId))?.pedidoId ?? null,
+    pedidoRecebimentos: links.reduce<PedidoRecebimentoItem[]>(
+      (acc, link) => mergeRecebimentoItens(acc, link.recebimentoItens),
+      []
+    ),
+    pedidoOsVinculos: links.reduce<PedidoOsVinculo[]>(
+      (acc, link) => mergeOsVinculos(acc, link.osVinculos),
+      []
+    ),
+    pedidoHasOsOrigem: links.some((link) => link.pedidoHasOsOrigem),
+    pedidoLinkWarnings: links.flatMap((link) => link.warnings),
+    solicitanteFromPedido: links.find((link) => Boolean(link.solicitanteUsuarioId))?.solicitanteUsuarioId ?? null,
+    pedidoDocumentoRef: links.find((link) => Boolean(link.documentoRef))?.documentoRef ?? null,
+  };
 }
 
 async function runStrictImportPreflight(opts: {
@@ -1405,6 +1627,151 @@ async function reconcileNfEntradaItemIdsFromPayload(opts: {
       // best-effort
     }
   }
+}
+
+function readPayloadText(rec: Record<string, unknown> | null, ...keys: string[]): string | null {
+  if (!rec) return null;
+  for (const key of keys) {
+    const text = String(rec[key] ?? "").trim();
+    if (text) return text;
+  }
+  return null;
+}
+
+function readPayloadNumber(rec: Record<string, unknown> | null, ...keys: string[]): number | null {
+  if (!rec) return null;
+  for (const key of keys) {
+    const raw = rec[key];
+    if (raw == null || String(raw).trim() === "") continue;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+async function syncCadastroFinalidadeFromNfEntrada(opts: {
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+  finalidadeNorm: string;
+  itensJson: unknown;
+}) {
+  const finalidade = String(opts.finalidadeNorm ?? "").trim().toLowerCase();
+  if (finalidade !== "imobilizado" && finalidade !== "consumo") return;
+
+  const admin = supabaseAdmin();
+  const { data: nfRow, error: nfErr } = await admin
+    .from("nf_entrada")
+    .select(
+      "id,chave,numero,serie,data_emissao,fornecedor_id,motivo_compra_id,solicitante_usuario_id,tenant_id,empresa_id"
+    )
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("id", opts.nfEntradaId)
+    .maybeSingle<{
+      id: number;
+      chave: string | null;
+      numero: string | null;
+      serie: string | null;
+      data_emissao: string | null;
+      fornecedor_id: number | null;
+      motivo_compra_id: string | null;
+      solicitante_usuario_id: string | null;
+      tenant_id: string;
+      empresa_id: string;
+    }>();
+  if (nfErr) throw new Error(nfErr.message);
+  if (!nfRow?.id) return;
+
+  const { data: nfItens, error: itensErr } = await admin
+    .from("nf_entrada_itens")
+    .select(
+      "id,item_id,codigo_fornecedor,descricao,ncm,cfop,qtd,v_unit,v_prod,v_icms,v_ipi,v_pis,v_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins"
+    )
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("nf_entrada_id", opts.nfEntradaId)
+    .order("id", { ascending: true })
+    .returns<NfEntradaCadastroItemRow[]>();
+  if (itensErr) throw new Error(itensErr.message);
+
+  const payloadRows = Array.isArray(opts.itensJson)
+    ? opts.itensJson.map((row) => (row && typeof row === "object" ? (row as Record<string, unknown>) : null))
+    : [];
+
+  const rows = (Array.isArray(nfItens) ? nfItens : []).map((item, idx) => {
+    const rec = payloadRows[idx] ?? null;
+    const codigoFornecedor = String(item.codigo_fornecedor ?? readPayloadText(rec, "codigo_fornecedor", "codigo") ?? "").trim();
+    const descricaoRaw = item.descricao ?? readPayloadText(rec, "descricao", "nome") ?? codigoFornecedor;
+    const descricao = String(descricaoRaw || "Item importado").trim();
+    const qtd = Math.max(0, toNum(item.qtd));
+    const valorUnitario = Math.max(0, toNum(item.v_unit));
+    const valorTotal = Math.max(0, toNum(item.v_prod));
+    const base = {
+      tenant_id: opts.tenantId,
+      empresa_id: opts.empresaId,
+      status: "IMPORTADO",
+      origem: "XML_NFE",
+      nf_entrada_id: opts.nfEntradaId,
+      nf_entrada_item_id: item.id,
+      fornecedor_id: nfRow.fornecedor_id,
+      motivo_compra_id: nfRow.motivo_compra_id,
+      solicitante_usuario_id: nfRow.solicitante_usuario_id,
+      documento_chave: nfRow.chave,
+      documento_numero: nfRow.numero,
+      documento_serie: nfRow.serie,
+      data_emissao: nfRow.data_emissao ? String(nfRow.data_emissao).slice(0, 10) : null,
+      codigo_xml: codigoFornecedor || null,
+      codigo_fornecedor: codigoFornecedor || null,
+      codigo_normalizado: normalizeItemCode(codigoFornecedor),
+      descricao: descricao || "Item importado",
+      unidade: readPayloadText(rec, "unidade", "uCom"),
+      unidade_tributavel: readPayloadText(rec, "unidade_tributavel", "unidadeTrib", "uTrib"),
+      ean: readPayloadText(rec, "ean", "cEAN"),
+      ean_tributavel: readPayloadText(rec, "ean_tributavel", "eanTrib", "cEANTrib"),
+      ncm: item.ncm ?? readPayloadText(rec, "ncm"),
+      cest: readPayloadText(rec, "cest"),
+      cfop: item.cfop ?? readPayloadText(rec, "cfop"),
+      pedido_xml: readPayloadText(rec, "pedido_xml", "pedidoXml", "xPed"),
+      pedido_item_xml: readPayloadText(rec, "pedido_item_xml", "pedidoItemXml", "nItemPed"),
+      informacoes_adicionais: readPayloadText(rec, "informacoes_adicionais", "informacoesAdicionais", "infAdProd"),
+      quantidade: qtd,
+      valor_unitario: valorUnitario,
+      valor_total: valorTotal,
+      v_prod: valorTotal,
+      v_desc: Math.max(0, readPayloadNumber(rec, "v_desc", "vDesc") ?? 0),
+      v_frete: Math.max(0, readPayloadNumber(rec, "v_frete", "vFrete") ?? 0),
+      v_seguro: Math.max(0, readPayloadNumber(rec, "v_seguro", "vSeguro") ?? 0),
+      v_outro: Math.max(0, readPayloadNumber(rec, "v_outro", "vOutro") ?? 0),
+      v_st: Math.max(0, readPayloadNumber(rec, "v_st", "vSt") ?? 0),
+      v_icms: Math.max(0, toNum(item.v_icms)),
+      v_ipi: Math.max(0, toNum(item.v_ipi)),
+      v_pis: Math.max(0, toNum(item.v_pis)),
+      v_cofins: Math.max(0, toNum(item.v_cofins)),
+      aliq_icms: item.aliq_icms ?? readPayloadNumber(rec, "aliq_icms", "aliquotaIcms"),
+      aliq_ipi: item.aliq_ipi ?? readPayloadNumber(rec, "aliq_ipi", "aliquotaIpi"),
+      aliq_pis: item.aliq_pis ?? readPayloadNumber(rec, "aliq_pis", "aliquotaPis"),
+      aliq_cofins: item.aliq_cofins ?? readPayloadNumber(rec, "aliq_cofins", "aliquotaCofins"),
+      credito_icms: Math.max(0, readPayloadNumber(rec, "credito_icms") ?? 0),
+      credito_pis: Math.max(0, readPayloadNumber(rec, "credito_pis") ?? 0),
+      credito_cofins: Math.max(0, readPayloadNumber(rec, "credito_cofins") ?? 0),
+      custo_unitario_bruto: readPayloadNumber(rec, "custo_unitario_bruto"),
+      custo_unitario_real: readPayloadNumber(rec, "custo_unitario_real"),
+      payload_json: rec ?? {},
+    };
+
+    return finalidade === "consumo"
+      ? { ...base, quantidade_disponivel: qtd, quantidade_consumida: 0 }
+      : base;
+  });
+
+  if (rows.length === 0) return;
+
+  const tableName = finalidade === "imobilizado" ? "imobilizado_itens" : "consumo_itens";
+  const { error: upsertErr } = await admin
+    .from(tableName)
+    .upsert(rows, { onConflict: "tenant_id,empresa_id,nf_entrada_item_id" });
+  if (upsertErr) throw new Error(upsertErr.message);
 }
 
 async function syncMovimentacoesFromNfEntradaFallback(opts: {
@@ -2287,8 +2654,9 @@ export async function POST(req: NextRequest) {
     if (!allowed.some((e) => e.id === empresaId)) return jerr(403, "Sem acesso a esta empresa.");
 
     // Motivo obrigatório
-    const pedidoCompraRaw = String(body.pedidoCompraId ?? "").trim();
-    const pedidoFlow = pedidoCompraRaw.length > 0;
+    const pedidoCompraRefs = parsePedidoCompraRefs(body.pedidoCompraIds, body.pedidoCompraId);
+    const pedidoCompraRaw = pedidoCompraRefs.join(", ");
+    const pedidoFlow = pedidoCompraRefs.length > 0;
     const motivoCompraRaw = String(body.motivoCompraId ?? "").trim();
 
     // Solicitante pode vir da tela ou do pedido de compra vinculado.
@@ -2319,41 +2687,60 @@ export async function POST(req: NextRequest) {
     }
 
     let finalidade = body.finalidade ?? null;
-    const osId = typeof body.osId === "number" ? body.osId : null;
+    const osIdInformado = typeof body.osId === "number" ? body.osId : null;
+    // OS informada na tela vale apenas para importacao direta sem pedido.
+    // Quando ha pedido, os vinculos de OS precisam vir dos itens do proprio pedido,
+    // pois um unico pedido pode misturar itens de estoque e itens de varias OS.
+    const osId = pedidoFlow ? null : osIdInformado;
     const gerar = Boolean(body.gerarContasPagar);
     const finalidadesComItemObrigatorio = new Set(["materia_prima", "revenda"]);
 
     let itensJsonToImport: unknown = body.itensJson ?? null;
+    const pedidoLinks: PedidoLinkState[] = [];
     let pedidoCompraIdVinculado: string | null = null;
-    let pedidoRecebimentos: Array<{ pedidoItemId: string; quantidade: number }> = [];
-    let pedidoOsVinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }> = [];
+    let pedidoRecebimentos: PedidoRecebimentoItem[] = [];
+    let pedidoOsVinculos: PedidoOsVinculo[] = [];
     let pedidoHasOsOrigem = false;
     let pedidoLinkWarnings: string[] = [];
     let solicitanteFromPedido: string | null = null;
     let pedidoDocumentoRef: string | null = null;
 
-    if (pedidoCompraRaw) {
-      const linked = await bindImportItemsFromPedido({
-        tenantId,
-        empresaId,
-        pedidoCompraRaw,
-        fornecedorId: resolved.fornecedorId,
-        fornecedorCnpj: body.fornecedorCnpj ?? null,
-        finalidade,
-        nfJson: body.nfJson ?? null,
-        itensJson: itensJsonToImport,
-      });
-      itensJsonToImport = linked.itensJson;
-      pedidoCompraIdVinculado = linked.pedidoId;
-      pedidoRecebimentos = linked.recebimentoItens;
-      pedidoOsVinculos = linked.osVinculos;
-      pedidoHasOsOrigem = linked.pedidoHasOsOrigem;
-      pedidoLinkWarnings = linked.warnings;
-      solicitanteFromPedido = linked.solicitanteUsuarioId;
-      pedidoDocumentoRef = linked.documentoRef;
-      for (const w of linked.warnings) {
-        console.warn("[XML_IMPORT][PEDIDO]", { tenantId, empresaId, pedidoCompraRaw, warning: w });
+    if (pedidoFlow) {
+      for (const pedidoRef of pedidoCompraRefs) {
+        const linked = await bindImportItemsFromPedido({
+          tenantId,
+          empresaId,
+          pedidoCompraRaw: pedidoRef,
+          fornecedorId: resolved.fornecedorId,
+          fornecedorCnpj: body.fornecedorCnpj ?? null,
+          finalidade,
+          nfJson: body.nfJson ?? null,
+          itensJson: itensJsonToImport,
+        });
+        itensJsonToImport = linked.itensJson;
+        pedidoLinks.push({
+          pedidoCompraRaw: pedidoRef,
+          pedidoId: linked.pedidoId,
+          recebimentoItens: linked.recebimentoItens,
+          osVinculos: linked.osVinculos,
+          pedidoHasOsOrigem: linked.pedidoHasOsOrigem,
+          solicitanteUsuarioId: linked.solicitanteUsuarioId,
+          documentoRef: linked.documentoRef,
+          warnings: linked.warnings,
+        });
+        for (const w of linked.warnings) {
+          console.warn("[XML_IMPORT][PEDIDO]", { tenantId, empresaId, pedidoCompraRaw: pedidoRef, warning: w });
+        }
       }
+
+      const aggregated = aggregatePedidoLinks(pedidoLinks);
+      pedidoCompraIdVinculado = aggregated.pedidoCompraIdVinculado;
+      pedidoRecebimentos = aggregated.pedidoRecebimentos;
+      pedidoOsVinculos = aggregated.pedidoOsVinculos;
+      pedidoHasOsOrigem = aggregated.pedidoHasOsOrigem;
+      pedidoLinkWarnings = aggregated.pedidoLinkWarnings;
+      solicitanteFromPedido = aggregated.solicitanteFromPedido;
+      pedidoDocumentoRef = aggregated.pedidoDocumentoRef;
     }
 
     const simplesCreditFallback = applySimplesScIcmsCreditFallback({
@@ -2374,6 +2761,12 @@ export async function POST(req: NextRequest) {
     }
     const finalidadeNorm = String(finalidade ?? "").trim();
     const finalidadeKey = finalidadeNorm.toLowerCase();
+    const pedidoQuantidadeRecebida = pedidoRecebimentos.reduce((sum, row) => sum + Math.max(0, toNum(row.quantidade)), 0);
+    const pedidoQuantidadeOs = pedidoOsVinculos.reduce((sum, row) => sum + Math.max(0, toNum(row.quantidade)), 0);
+    const pedidoTemMaterialOs = pedidoOsVinculos.length > 0;
+    const pedidoSomenteMaterialOs =
+      pedidoTemMaterialOs && pedidoQuantidadeRecebida > 0 && pedidoQuantidadeOs + 1e-6 >= pedidoQuantidadeRecebida;
+    const pedidoDestinoMisto = pedidoTemMaterialOs && !pedidoSomenteMaterialOs;
 
     let motivoCompraId = motivoCompraRaw;
     if (!motivoCompraId && pedidoFlow) {
@@ -2392,8 +2785,11 @@ export async function POST(req: NextRequest) {
       // quando fornecedor nao tem motivo padrao, escolhe automaticamente um motivo ativo
       // coerente com a finalidade inferida do pedido.
       if (!motivoCompraId) {
+        const prioridadeMateriaPrima = pedidoSomenteMaterialOs
+          ? ["OS_MATERIAL_DIRETO", "OS", "EST_MATERIA_PRIMA", "ESTOQUE", "OUTROS"]
+          : ["ESTOQUE", "EST_MATERIA_PRIMA", "CONSUMO_GERAL", "OUTROS"];
         const prioridadePorFinalidade: Record<string, string[]> = {
-          materia_prima: ["EST_MATERIA_PRIMA", "OS_MATERIAL_DIRETO", "ESTOQUE", "OS", "CONSUMO_GERAL", "OUTROS"],
+          materia_prima: prioridadeMateriaPrima,
           revenda: ["EST_REVENDA", "ESTOQUE", "OUTROS"],
           consumo: ["CONSUMO", "CONSUMO_GERAL", "OUTROS"],
           outros: ["OUTROS", "ESTOQUE", "CONSUMO_GERAL"],
@@ -2402,28 +2798,8 @@ export async function POST(req: NextRequest) {
         const key = String(finalidadeNorm || "outros").toLowerCase();
         const prioridade = prioridadePorFinalidade[key] ?? prioridadePorFinalidade.outros;
 
-        const { data: motivosPrioridade } = await admin
-          .schema("f")
-          .from("motivo_compra")
-          .select("id,codigo")
-          .eq("tenant_id", tenantId)
-          .eq("ativo", true)
-          .is("deleted_at", null)
-          .in("codigo", prioridade)
-          .returns<Array<{ id: string; codigo: string | null }>>();
-
-        if (Array.isArray(motivosPrioridade) && motivosPrioridade.length > 0) {
-          const byCodigo = new Map(
-            motivosPrioridade.map((r) => [String(r.codigo ?? "").trim().toUpperCase(), String(r.id ?? "").trim()])
-          );
-          for (const cod of prioridade) {
-            const id = byCodigo.get(cod);
-            if (id) {
-              motivoCompraId = id;
-              break;
-            }
-          }
-        }
+        const motivoPrioritario = await findMotivoCompraByPriority({ tenantId, codes: prioridade });
+        if (motivoPrioritario?.id) motivoCompraId = motivoPrioritario.id;
       }
 
       // Ultimo fallback: primeiro motivo ativo que nao seja NAO_CLASSIFICADO.
@@ -2447,7 +2823,7 @@ export async function POST(req: NextRequest) {
     if (!motivoCompraId) return jerr(422, "Classificacao/Motivo obrigatorio.");
     if (!UUID_REGEX.test(motivoCompraId)) return jerr(400, "Motivo invalido.");
 
-    const { data: motivoRow, error: motivoErr } = await admin
+    const { data: motivoData, error: motivoErr } = await admin
       .schema("f")
       .from("motivo_compra")
       .select("id,codigo,ativo,deleted_at")
@@ -2456,10 +2832,29 @@ export async function POST(req: NextRequest) {
       .eq("ativo", true)
       .is("deleted_at", null)
       .maybeSingle<{ id: string; codigo: string | null; ativo: boolean; deleted_at: string | null }>();
+    let motivoRow = motivoData;
 
     if (motivoErr || !motivoRow) return jerr(422, "Motivo invalido ou inativo.");
 
-    const codigo = String(motivoRow.codigo ?? "").trim().toUpperCase();
+    let codigo = String(motivoRow.codigo ?? "").trim().toUpperCase();
+    if (pedidoFlow) {
+      const replacementCodes =
+        (!pedidoTemMaterialOs || pedidoDestinoMisto) && MOTIVO_OS_CODES.has(codigo)
+          ? ["ESTOQUE", "EST_MATERIA_PRIMA", "CONSUMO_GERAL", "OUTROS"]
+          : pedidoSomenteMaterialOs && (MOTIVO_ESTOQUE_CODES.has(codigo) || ["CONSUMO", "CONSUMO_GERAL"].includes(codigo))
+            ? ["OS_MATERIAL_DIRETO", "OS", "EST_MATERIA_PRIMA", "OUTROS"]
+            : [];
+
+      if (replacementCodes.length > 0) {
+        const correctedMotivo = await findMotivoCompraByPriority({ tenantId, codes: replacementCodes });
+        if (correctedMotivo?.id) {
+          motivoCompraId = correctedMotivo.id;
+          motivoRow = correctedMotivo;
+          codigo = String(correctedMotivo.codigo ?? "").trim().toUpperCase();
+        }
+      }
+    }
+
     if (!codigo || codigo === "NAO_CLASSIFICADO") {
       return jerr(422, "Selecione um motivo valido (nao pode ser NAO_CLASSIFICADO).");
     }
@@ -2489,9 +2884,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (!pedidoFlow) {
+      const pedidoCompativel = await findOpenPedidoCompativelSemVinculo({
+        tenantId,
+        empresaId,
+        fornecedorId: resolved.fornecedorId,
+        itensJson: itensJsonToImport,
+      });
+
+      if (pedidoCompativel) {
+        const pedidoLabel = pedidoCompativel.codigo ?? pedidoCompativel.pedidoId;
+        return jerr(
+          422,
+          `Existe pedido de compra aberto compativel com esta NF (${pedidoLabel}). Informe o pedido de compra antes de importar; nao use importacao direta para OS/estoque.`,
+          {
+            code: "pedido_compra_compativel_obrigatorio",
+            pedidoId: pedidoCompativel.pedidoId,
+            pedidoCodigo: pedidoCompativel.codigo,
+            matchedItems: pedidoCompativel.matchedItems,
+          }
+        );
+      }
+    }
+
     const directOsSemPedido =
       finalidadeKey === "materia_prima" &&
-      !pedidoCompraRaw &&
+      !pedidoFlow &&
       Number.isFinite(Number(osId)) &&
       Number(osId) > 0;
     if (directOsSemPedido) {
@@ -2531,25 +2949,50 @@ export async function POST(req: NextRequest) {
     const docRefPreflight =
       pedidoDocumentoRef ??
       (String((body.nfJson as Record<string, unknown> | null)?.chave ?? "").trim() || null);
-    const preflightIssues = await runStrictImportPreflight({
-      tenantId,
-      empresaId,
-      pedidoCompraRaw,
-      pedidoCompraIdVinculado,
-      pedidoLinkWarnings,
-      pedidoRecebimentos,
-      pedidoOsVinculos,
-      finalidadeNorm,
-      osId,
-      itensJsonToImport,
-      documentoRef: docRefPreflight,
-    });
-    if (preflightIssues.length > 0) {
-      const issueText = preflightIssues.map((issue, idx) => `${idx + 1}) ${issue}`).join(" | ");
+    const preflightIssues: string[] = [];
+    if (pedidoFlow) {
+      for (const link of pedidoLinks) {
+        preflightIssues.push(
+          ...(await runStrictImportPreflight({
+            tenantId,
+            empresaId,
+            pedidoCompraRaw: link.pedidoCompraRaw,
+            pedidoCompraIdVinculado: link.pedidoId,
+            pedidoLinkWarnings: link.warnings,
+            pedidoRecebimentos: link.recebimentoItens,
+            pedidoOsVinculos: link.osVinculos,
+            finalidadeNorm,
+            osId,
+            itensJsonToImport,
+            documentoRef: link.documentoRef ?? docRefPreflight,
+          }))
+        );
+      }
+    } else {
+      preflightIssues.push(
+        ...(await runStrictImportPreflight({
+          tenantId,
+          empresaId,
+          pedidoCompraRaw: "",
+          pedidoCompraIdVinculado: null,
+          pedidoLinkWarnings: [],
+          pedidoRecebimentos: [],
+          pedidoOsVinculos: [],
+          finalidadeNorm,
+          osId,
+          itensJsonToImport,
+          documentoRef: docRefPreflight,
+        }))
+      );
+    }
+
+    const uniquePreflightIssues = Array.from(new Set(preflightIssues));
+    if (uniquePreflightIssues.length > 0) {
+      const issueText = uniquePreflightIssues.map((issue, idx) => `${idx + 1}) ${issue}`).join(" | ");
       return jerr(
         422,
         `Pre-validacao da importacao falhou: ${issueText}`,
-        { issues: preflightIssues }
+        { issues: uniquePreflightIssues }
       );
     }
 
@@ -2611,16 +3054,36 @@ export async function POST(req: NextRequest) {
       itensJson: itensJsonToImport ?? null,
     });
 
+    try {
+      await syncCadastroFinalidadeFromNfEntrada({
+        tenantId,
+        empresaId,
+        nfEntradaId,
+        finalidadeNorm,
+        itensJson: itensJsonToImport ?? null,
+      });
+    } catch (cadastroFinalidadeErr) {
+      const detalhe = cadastroFinalidadeErr instanceof Error ? cadastroFinalidadeErr.message : "erro desconhecido";
+      return jerr(
+        422,
+        `NF importada, mas falhou ao cadastrar itens de ${finalidadeNorm}. nf_entrada_id=${nfEntradaId}. Detalhe: ${detalhe}`
+      );
+    }
+
     // Fallback de robustez: se o vinculo com pedido nao gerou recebimentos/OS no payload,
     // tenta novamente usando os itens efetivamente gravados na nf_entrada.
     const needsPedidoOsRelink =
       String(finalidadeNorm).toLowerCase() === "materia_prima" && pedidoHasOsOrigem && pedidoOsVinculos.length === 0;
-    if (
-      pedidoCompraRaw &&
-      (!pedidoCompraIdVinculado ||
-        pedidoRecebimentos.length === 0 ||
-        needsPedidoOsRelink)
-    ) {
+    const needsPedidoRelink =
+      pedidoFlow &&
+      (needsPedidoOsRelink ||
+        pedidoLinks.some(
+          (link) =>
+            !link.pedidoId ||
+            link.recebimentoItens.length === 0 ||
+            (String(finalidadeNorm).toLowerCase() === "materia_prima" && link.pedidoHasOsOrigem && link.osVinculos.length === 0)
+        ));
+    if (needsPedidoRelink) {
       const { data: nfItensPersistidos, error: nfItensPersistidosErr } = await admin
         .from("nf_entrada_itens")
         .select("item_id,codigo_fornecedor,descricao,qtd,v_unit,v_icms,v_ipi,v_pis,v_cofins")
@@ -2646,32 +3109,68 @@ export async function POST(req: NextRequest) {
           v_cofins: toNum(r.v_cofins),
         }));
 
-        const relink = await bindImportItemsFromPedido({
-          tenantId,
-          empresaId,
-          pedidoCompraRaw,
-          fornecedorId: resolved.fornecedorId,
-          fornecedorCnpj: body.fornecedorCnpj ?? null,
-          finalidade,
-          nfJson: body.nfJson ?? null,
-          itensJson: itensFallback,
-        });
+        for (const pedidoRef of pedidoCompraRefs) {
+          const current = pedidoLinks.find((link) => link.pedidoCompraRaw === pedidoRef) ?? null;
+          const linkNeedsRelink =
+            !current ||
+            !current.pedidoId ||
+            current.recebimentoItens.length === 0 ||
+            (String(finalidadeNorm).toLowerCase() === "materia_prima" &&
+              current.pedidoHasOsOrigem &&
+              current.osVinculos.length === 0);
+          if (!linkNeedsRelink) continue;
 
-        if (!pedidoCompraIdVinculado && relink.pedidoId) {
-          pedidoCompraIdVinculado = relink.pedidoId;
-        }
-        pedidoHasOsOrigem = pedidoHasOsOrigem || relink.pedidoHasOsOrigem;
-        pedidoRecebimentos = mergeRecebimentoItensByMax(pedidoRecebimentos, relink.recebimentoItens);
-        pedidoOsVinculos = mergeOsVinculosByMax(pedidoOsVinculos, relink.osVinculos);
-        for (const w of relink.warnings) {
-          console.warn("[XML_IMPORT][PEDIDO][RELINK_FALLBACK]", {
+          const relink = await bindImportItemsFromPedido({
             tenantId,
             empresaId,
-            nfEntradaId,
-            pedidoCompraRaw,
-            warning: w,
+            pedidoCompraRaw: pedidoRef,
+            fornecedorId: resolved.fornecedorId,
+            fornecedorCnpj: body.fornecedorCnpj ?? null,
+            finalidade,
+            nfJson: body.nfJson ?? null,
+            itensJson: itensFallback,
           });
+
+          if (current) {
+            current.pedidoId = current.pedidoId ?? relink.pedidoId;
+            current.recebimentoItens = mergeRecebimentoItensByMax(current.recebimentoItens, relink.recebimentoItens);
+            current.osVinculos = mergeOsVinculosByMax(current.osVinculos, relink.osVinculos);
+            current.pedidoHasOsOrigem = current.pedidoHasOsOrigem || relink.pedidoHasOsOrigem;
+            current.solicitanteUsuarioId = current.solicitanteUsuarioId ?? relink.solicitanteUsuarioId;
+            current.documentoRef = current.documentoRef ?? relink.documentoRef;
+            current.warnings = [...current.warnings, ...relink.warnings];
+          } else {
+            pedidoLinks.push({
+              pedidoCompraRaw: pedidoRef,
+              pedidoId: relink.pedidoId,
+              recebimentoItens: relink.recebimentoItens,
+              osVinculos: relink.osVinculos,
+              pedidoHasOsOrigem: relink.pedidoHasOsOrigem,
+              solicitanteUsuarioId: relink.solicitanteUsuarioId,
+              documentoRef: relink.documentoRef,
+              warnings: relink.warnings,
+            });
+          }
+
+          for (const w of relink.warnings) {
+            console.warn("[XML_IMPORT][PEDIDO][RELINK_FALLBACK]", {
+              tenantId,
+              empresaId,
+              nfEntradaId,
+              pedidoCompraRaw: pedidoRef,
+              warning: w,
+            });
+          }
         }
+
+        const aggregated = aggregatePedidoLinks(pedidoLinks);
+        pedidoCompraIdVinculado = aggregated.pedidoCompraIdVinculado;
+        pedidoRecebimentos = aggregated.pedidoRecebimentos;
+        pedidoOsVinculos = aggregated.pedidoOsVinculos;
+        pedidoHasOsOrigem = aggregated.pedidoHasOsOrigem;
+        pedidoLinkWarnings = aggregated.pedidoLinkWarnings;
+        solicitanteFromPedido = aggregated.solicitanteFromPedido;
+        pedidoDocumentoRef = aggregated.pedidoDocumentoRef;
       }
     }
 
@@ -2831,70 +3330,107 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (pedidoCompraIdVinculado && pedidoRecebimentos.length > 0) {
-      const docRef = pedidoDocumentoRef ?? `NF_ENTRADA_${nfEntradaId}`;
+    const pedidoLinksParaReceber = pedidoLinks.filter((link) => link.pedidoId && link.recebimentoItens.length > 0);
+    if (pedidoLinksParaReceber.length === 0 && pedidoCompraIdVinculado && pedidoRecebimentos.length > 0) {
+      pedidoLinksParaReceber.push({
+        pedidoCompraRaw: pedidoCompraRaw || pedidoCompraIdVinculado,
+        pedidoId: pedidoCompraIdVinculado,
+        recebimentoItens: pedidoRecebimentos,
+        osVinculos: pedidoOsVinculos,
+        pedidoHasOsOrigem,
+        solicitanteUsuarioId: solicitanteFromPedido,
+        documentoRef: pedidoDocumentoRef,
+        warnings: pedidoLinkWarnings,
+      });
+    }
+
+    for (const link of pedidoLinksParaReceber) {
+      const pedidoId = link.pedidoId;
+      if (!pedidoId) continue;
+
+      const recebimentoItens = mergeRecebimentoItens([], link.recebimentoItens);
+      if (recebimentoItens.length === 0) continue;
+
+      const docRef = link.documentoRef ?? pedidoDocumentoRef ?? `NF_ENTRADA_${nfEntradaId}`;
       const { data: recebExists } = await admin
         .schema("m")
         .from("pedido_compra_recebimento")
         .select("id")
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
-        .eq("pedido_compra_id", pedidoCompraIdVinculado)
+        .eq("pedido_compra_id", pedidoId)
         .eq("documento_ref", docRef)
         .is("deleted_at", null)
         .limit(1)
         .maybeSingle<RowWithId>();
 
-      if (!readIdString(recebExists)) {
-        const emissao = String((body.nfJson as Record<string, unknown> | null)?.data_emissao ?? "")
-          .trim()
-          .slice(0, 10);
-        const recebDate = /^\d{4}-\d{2}-\d{2}$/.test(emissao) ? emissao : new Date().toISOString().slice(0, 10);
-        try {
-          await registrarRecebimentoPedidoViaImportFallback({
-            tenantId,
-            empresaId,
-            pedidoCompraId: pedidoCompraIdVinculado,
-            recebimentoDate: recebDate,
-            documentoRef: docRef,
-            observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
-            currentUsuarioId,
-            recebimentoItens: pedidoRecebimentos,
-          });
-        } catch (receberErr) {
-          const detail = receberErr instanceof Error ? receberErr.message : "erro desconhecido";
-          console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento via rotina dedicada", {
-            tenantId,
-            empresaId,
-            pedidoCompraIdVinculado,
-            nfEntradaId,
-            detail,
-          });
-          return jerr(
-            422,
-            `NF importada e estoque/OS sincronizados, mas falhou ao baixar o pedido ${pedidoCompraIdVinculado}. Detalhe: ${detail}`
-          );
-        }
+      if (readIdString(recebExists)) continue;
+
+      const emissao = String((body.nfJson as Record<string, unknown> | null)?.data_emissao ?? "")
+        .trim()
+        .slice(0, 10);
+      const recebDate = /^\d{4}-\d{2}-\d{2}$/.test(emissao) ? emissao : new Date().toISOString().slice(0, 10);
+      try {
+        await registrarRecebimentoPedidoViaImportFallback({
+          tenantId,
+          empresaId,
+          pedidoCompraId: pedidoId,
+          recebimentoDate: recebDate,
+          documentoRef: docRef,
+          observacoes: `Recebimento automatico via XML (NF entrada ${nfEntradaId})`,
+          currentUsuarioId,
+          recebimentoItens,
+        });
+      } catch (receberErr) {
+        const detail = receberErr instanceof Error ? receberErr.message : "erro desconhecido";
+        console.warn("[XML_IMPORT][PEDIDO] falha ao registrar recebimento via rotina dedicada", {
+          tenantId,
+          empresaId,
+          pedidoCompraIdVinculado: pedidoId,
+          pedidoCompraRaw: link.pedidoCompraRaw,
+          nfEntradaId,
+          detail,
+        });
+        return jerr(
+          422,
+          `NF importada e estoque/OS sincronizados, mas falhou ao baixar o pedido ${link.pedidoCompraRaw || pedidoId}. Detalhe: ${detail}`
+        );
       }
     }
 
-    // Aviso nao-bloqueante: divergencia entre total do pedido e total da NF.
+    // Aviso nao-bloqueante: divergencia entre total do(s) pedido(s) vinculado(s) e total da NF.
     // Regra de negocio: importar deve seguir; a tela orienta ajuste/validacao manual quando houver diferenca.
-    if (pedidoCompraIdVinculado) {
+    const recebimentosParaAviso = pedidoLinksParaReceber.flatMap((link) =>
+      mergeRecebimentoItens([], link.recebimentoItens).map((item) => ({
+        pedidoId: String(link.pedidoId ?? "").trim(),
+        pedidoItemId: item.pedidoItemId,
+        quantidade: item.quantidade,
+      }))
+    ).filter((item) => item.pedidoId && item.pedidoItemId && item.quantidade > 0);
+    const pedidoIdsParaAviso = Array.from(new Set(recebimentosParaAviso.map((item) => item.pedidoId)));
+    const pedidoItemIdsParaAviso = Array.from(new Set(recebimentosParaAviso.map((item) => item.pedidoItemId)));
+    if (pedidoIdsParaAviso.length > 0 && pedidoItemIdsParaAviso.length > 0) {
       try {
         const { data: pedidoItensTotalRows, error: pedidoItensTotalErr } = await admin
           .schema("m")
           .from("pedido_compra_item")
-          .select("quantidade,valor_unitario")
+          .select("id,pedido_compra_id,valor_unitario")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
-          .eq("pedido_compra_id", pedidoCompraIdVinculado)
+          .in("pedido_compra_id", pedidoIdsParaAviso)
+          .in("id", pedidoItemIdsParaAviso)
           .is("deleted_at", null)
-          .returns<Array<{ quantidade: number | null; valor_unitario: number | null }>>();
+          .returns<Array<{ id: string; pedido_compra_id: string | null; valor_unitario: number | null }>>();
 
         if (!pedidoItensTotalErr) {
-          const pedidoTotal = (Array.isArray(pedidoItensTotalRows) ? pedidoItensTotalRows : []).reduce(
-            (sum, row) => sum + toNum(row.quantidade) * toNum(row.valor_unitario),
+          const valorByItemId = new Map(
+            (Array.isArray(pedidoItensTotalRows) ? pedidoItensTotalRows : []).map((row) => [
+              String(row.id),
+              toNum(row.valor_unitario),
+            ])
+          );
+          const pedidoTotal = recebimentosParaAviso.reduce(
+            (sum, item) => sum + toNum(item.quantidade) * toNum(valorByItemId.get(item.pedidoItemId)),
             0
           );
 
@@ -2913,15 +3449,17 @@ export async function POST(req: NextRequest) {
 
             if (Math.abs(diffTotal) >= 0.01) {
               const sinal = diffTotal >= 0 ? "+" : "-";
+              const pedidoLabel = pedidoIdsParaAviso.length === 1 ? "Pedido" : "Pedidos";
               postImportWarnings.push({
                 code: "pedido_nota_total_divergente",
                 message:
-                  `Aviso: diferenca entre pedido e NF ${String(nfResumo.numero ?? "?")}/${String(nfResumo.serie ?? "?")}. ` +
-                  `Pedido: R$ ${formatMoneyBr(pedidoTotal)} | ` +
+                  `Aviso: diferenca entre ${pedidoLabel.toLowerCase()} e NF ${String(nfResumo.numero ?? "?")}/${String(nfResumo.serie ?? "?")}. ` +
+                  `${pedidoLabel}: R$ ${formatMoneyBr(pedidoTotal)} | ` +
                   `NF produtos: R$ ${formatMoneyBr(nfValorProdutos)} | ` +
                   `NF total: R$ ${formatMoneyBr(nfValorTotal)} | ` +
-                  `Diferenca (NF total - pedido): ${sinal}R$ ${formatMoneyBr(Math.abs(diffTotal))}.`,
+                  `Diferenca (NF total - ${pedidoLabel.toLowerCase()}): ${sinal}R$ ${formatMoneyBr(Math.abs(diffTotal))}.`,
                 data: {
+                  pedido_ids: pedidoIdsParaAviso,
                   pedido_total: round6(pedidoTotal),
                   nf_valor_produtos: round6(nfValorProdutos),
                   nf_valor_total: round6(nfValorTotal),
@@ -2935,7 +3473,7 @@ export async function POST(req: NextRequest) {
         console.warn("[XML_IMPORT][WARN_PEDIDO_VS_NF] falha ao calcular aviso de diferenca", {
           tenantId,
           empresaId,
-          pedidoCompraIdVinculado,
+          pedidoIds: pedidoIdsParaAviso,
           nfEntradaId,
           error: warnErr instanceof Error ? warnErr.message : "erro desconhecido",
         });

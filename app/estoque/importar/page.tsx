@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
@@ -9,10 +8,17 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
-import { useImportMotivos } from "./ImportMotivosProvider";
+import { useImportMotivos, type MotivoCompra } from "./ImportMotivosProvider";
 import MotivoCompraCombobox from "./MotivoCompraCombobox";
 import { parseNfeXml, type ParsedItem, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
+import {
+  analyzeXmlImport,
+  type XmlImportItemInterno,
+  type XmlImportPedidoCandidato,
+  type XmlImportPedidoItem,
+} from "@/lib/nfe/xmlImportAnalyzer";
 import { getImportacaoXmlParams, type ItemFinalidade as ParamItemFinalidade } from "@/src/lib/importacaoXmlParams";
+import XmlImportAssistantPanel from "./XmlImportAssistantPanel";
 
 type FiscalPerfil = {
   item_id: number;
@@ -56,7 +62,12 @@ type FornecedorRow = {
 type ItemCodigoRow = {
   id: number;
   codigo_interno: string;
+  nome?: string | null;
+  fornecedor_id?: number | null;
+  ativo?: boolean | null;
 };
+
+type ItemCodigoMap = Map<string, ItemCodigoRow>;
 
 type OsLookupRow = {
   id: number;
@@ -101,27 +112,206 @@ type PedidoLookupRow = {
   id: string;
   codigo: string | null;
   status: string | null;
+  fornecedor_id?: number | string | null;
   fornecedor_nome?: string | null;
   solicitante_usuario_id?: string | null;
   created_at?: string | null;
   total_geral?: number | string | null;
 };
 
+type PedidoItemLinkRequest = {
+  xmlItemIndex: number;
+  codigoOriginal: string;
+  codigoNormalizado: string;
+  descricao: string;
+  pedidoId: string;
+  pedidoCodigo?: string | null;
+  pedidoItemId: string;
+};
+
+type VincularPedidoItemResponse = {
+  ok?: boolean;
+  pedidoItem?: {
+    id?: string | null;
+    pedido_compra_id?: string | null;
+    item_id?: number | string | null;
+    item_codigo?: string | null;
+    item_nome?: string | null;
+  };
+  error?: string;
+};
+
+function toNullableString(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return text ? text : null;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value == null || String(value).trim() === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function splitPedidoCompraRefs(value: unknown): string[] {
+  return String(value ?? "")
+    .split(/[,;\n]+/)
+    .map((ref) => ref.trim())
+    .filter(Boolean);
+}
+
+function isPedidoItemManualParaVinculo(item: Pick<XmlImportPedidoItem, "item_id" | "item_codigo">): boolean {
+  const codigo = String(item.item_codigo ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+  const semCodigo = !codigo || codigo === "-" || codigo === "MANUAL" || codigo === "SEM CODIGO" || codigo === "SEM CODIGO INTERNO";
+  return !toNullableNumber(item.item_id) && semCodigo;
+}
+
+function adaptPedidoAnalyzerCandidato(raw: unknown): XmlImportPedidoCandidato | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const id = toNullableString(row.id);
+  if (!id) return null;
+
+  const itensRaw = Array.isArray(row.itens) ? row.itens : [];
+  const itens = itensRaw.reduce<XmlImportPedidoItem[]>((acc, rawItem) => {
+    if (!rawItem || typeof rawItem !== "object") return acc;
+    const item = rawItem as Record<string, unknown>;
+    const itemId = toNullableString(item.id);
+    if (!itemId) return acc;
+    acc.push({
+      id: itemId,
+      seq: toNullableNumber(item.seq),
+      item_id: item.item_id == null ? null : String(item.item_id),
+      item_codigo: toNullableString(item.item_codigo),
+      item_nome: toNullableString(item.item_nome),
+      descricao: toNullableString(item.descricao),
+      quantidade: item.quantidade == null ? null : String(item.quantidade),
+      quantidade_recebida: item.quantidade_recebida == null ? null : String(item.quantidade_recebida),
+      valor_unitario: item.valor_unitario == null ? null : String(item.valor_unitario),
+      valor_total: item.valor_total == null ? null : String(item.valor_total),
+      origem_os_id: toNullableNumber(item.origem_os_id),
+      origem_os_numero: toNullableString(item.origem_os_numero),
+      origem_os_label: toNullableString(item.origem_os_label),
+    });
+    return acc;
+  }, []);
+
+  return {
+    id,
+    codigo: toNullableString(row.codigo),
+    status: toNullableString(row.status),
+    fornecedor_id: toNullableNumber(row.fornecedor_id),
+    fornecedor_nome: toNullableString(row.fornecedor_nome),
+    solicitante_usuario_id: toNullableString(row.solicitante_usuario_id),
+    total_geral: row.total_geral == null ? null : String(row.total_geral),
+    total_pendente: row.total_pendente == null ? null : String(row.total_pendente),
+    itens,
+  };
+}
+
+function normalizeImportedItemCode(code: unknown): string {
+  const raw = String(code ?? "").trim();
+  if (!raw) return "";
+  if (/^\d+$/.test(raw)) return raw.replace(/^0+(?!$)/, "");
+  return raw;
+}
+
+function addItemCodigoToMap(map: ItemCodigoMap, row: ItemCodigoRow): void {
+  const codigo = String(row.codigo_interno ?? "").trim();
+  if (!codigo) return;
+  if (!map.has(codigo)) map.set(codigo, row);
+
+  const normalized = normalizeImportedItemCode(codigo);
+  if (normalized && !map.has(normalized)) map.set(normalized, row);
+}
+
+function normalizeMotivoSearchText(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function findMotivoAutomaticoParaPedido(
+  motivos: MotivoCompra[],
+  contexto: { temOs?: boolean; finalidade?: ItemFinalidade | "" | null }
+): MotivoCompra | null {
+  const finalidade = String(contexto.finalidade ?? "").trim().toLowerCase();
+  const preferirOs = Boolean(contexto.temOs);
+  const codigosPreferidos = preferirOs
+    ? ["OS_MATERIAL_DIRETO", "OS", "EST_MATERIA_PRIMA"]
+    : finalidade === "materia_prima"
+      ? ["ESTOQUE", "EST_MATERIA_PRIMA", "CONSUMO_GERAL"]
+      : ["ESTOQUE", "CONSUMO", "CONSUMO_GERAL"];
+
+  for (const codigoPreferido of codigosPreferidos) {
+    const motivo = motivos.find((row) => normalizeMotivoSearchText(row.codigo) === normalizeMotivoSearchText(codigoPreferido));
+    if (motivo) return motivo;
+  }
+
+  const scored = motivos
+    .filter((motivo) => normalizeMotivoSearchText(motivo.codigo) !== "NAO CLASSIFICADO")
+    .map((motivo) => {
+      const codigo = normalizeMotivoSearchText(motivo.codigo);
+      const nome = normalizeMotivoSearchText(motivo.nome);
+      const text = `${codigo} ${nome}`;
+      let score = 0;
+
+      if (text.includes("PEDIDO") && text.includes("COMPRA")) score += 60;
+      if (text.includes("ORDEM") && text.includes("COMPRA")) score += 50;
+      if (text.includes("COMPRA") && text.includes("OS")) score += 50;
+      if (text.includes("MATERIAL") && text.includes("OS")) score += 45;
+      if (text.includes("MATERIA") && text.includes("PRIMA")) score += 40;
+      if (text.includes("PEDIDO")) score += 25;
+      if (text.includes("COMPRA")) score += 15;
+      if (preferirOs && (text.includes("OS") || text.includes("ORDEM") || text.includes("MATERIAL") || text.includes("MATERIA"))) {
+        score += 20;
+      }
+      if (motivo.favorito) score += 5;
+      score += Math.min(5, Number(motivo.qtd_usos_180d ?? 0) / 20);
+
+      return { motivo, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.motivo.ordem - b.motivo.ordem || a.motivo.nome.localeCompare(b.motivo.nome, "pt-BR"));
+
+  return scored[0]?.motivo ?? null;
+}
+
 type ImportItemPayload = {
   tenant_id: string;
   item_id: number | null;
+  numero_item_xml?: number | null;
   codigo_fornecedor: string;
   // Compat: o importador do banco (public.import_nf_entrada) espera "codigo" e "nome".
   // Mantemos também "codigo_fornecedor"/"descricao" porque o app usa esses nomes no client.
   codigo?: string;
   nome?: string;
   descricao: string;
+  unidade?: string | null;
+  unidade_tributavel?: string | null;
+  ean?: string | null;
+  ean_tributavel?: string | null;
   ncm: string | null;
+  cest?: string | null;
   cfop?: string | null;
+  pedido_xml?: string | null;
+  pedido_item_xml?: string | null;
+  informacoes_adicionais?: string | null;
   qtd: number;
   v_unit: number;
   v_prod: number;
   v_desc?: number;
+  v_frete?: number;
+  v_seguro?: number;
+  v_outro?: number;
+  v_st?: number;
   v_icms: number;
   v_ipi: number;
   v_pis: number;
@@ -210,6 +400,15 @@ function formatDateBR(iso?: string | null): string {
   const d = new Date(v.includes("T") ? v : `${v}T00:00:00`);
   if (Number.isNaN(d.getTime())) return v;
   return d.toLocaleDateString("pt-BR");
+}
+
+function formatFinalidadeImportada(value: string | null | undefined): string {
+  const key = String(value ?? "").trim().toLowerCase();
+  if (key === "materia_prima") return "Materia-prima";
+  if (key === "imobilizado") return "Imobilizado";
+  if (key === "consumo") return "Consumo";
+  if (key === "revenda") return "Revenda";
+  return key || "-";
 }
 
 function clampParcelas(value: number): number {
@@ -324,6 +523,37 @@ function buildParcelasPorPagamento(
   return null;
 }
 
+async function copyTextToClipboard(text: string): Promise<void> {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fallback abaixo para navegadores/contextos que bloqueiam Clipboard API.
+    }
+  }
+
+  if (typeof document === "undefined") throw new Error("Clipboard indisponivel.");
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    const copied = document.execCommand("copy");
+    if (!copied) throw new Error("Falha ao copiar.");
+  } finally {
+    textarea.remove();
+  }
+}
+
 export default function ImportarXmlPage() {
   const router = useRouter();
   const supabase = useMemo(() => {
@@ -339,6 +569,8 @@ export default function ImportarXmlPage() {
 
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
   const [fornecedorNome, setFornecedorNome] = useState<string | null>(null);
+  const [fornecedorFinalidadePadrao, setFornecedorFinalidadePadrao] = useState<ItemFinalidade | null>(null);
+  const [fornecedorMotivoPadraoId, setFornecedorMotivoPadraoId] = useState<string | null>(null);
 
   const [importErr, setImportErr] = useState<string | null>(null);
   const [importOk, setImportOk] = useState<string | null>(null);
@@ -346,7 +578,7 @@ export default function ImportarXmlPage() {
   const [importBusy, setImportBusy] = useState(false);
   const [cadBusy, setCadBusy] = useState(false);
 
-  const [itemMap, setItemMap] = useState<Map<string, number>>(new Map());
+  const [itemMap, setItemMap] = useState<ItemCodigoMap>(new Map());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [jobs, setJobs] = useState<ImportJob[]>([]);
@@ -398,6 +630,17 @@ export default function ImportarXmlPage() {
   const [showPedidoLookup, setShowPedidoLookup] = useState(false);
   const [pedidoLookupTerm, setPedidoLookupTerm] = useState("");
   const [pedidoLookupRows, setPedidoLookupRows] = useState<PedidoLookupRow[]>([]);
+  const [pedidoAnalyzerRows, setPedidoAnalyzerRows] = useState<PedidoLookupRow[]>([]);
+  const [pedidosAnalyzerComItens, setPedidosAnalyzerComItens] = useState<XmlImportPedidoCandidato[]>([]);
+  const [pedidosAnalyzerLoading, setPedidosAnalyzerLoading] = useState(false);
+  const [pedidosAnalyzerError, setPedidosAnalyzerError] = useState<string | null>(null);
+  const [assistantCopyMessage, setAssistantCopyMessage] = useState<{ kind: "ok" | "error"; message: string } | null>(
+    null
+  );
+  const [pedidoItemLink, setPedidoItemLink] = useState<PedidoItemLinkRequest | null>(null);
+  const [pedidoItemLinkSelectedId, setPedidoItemLinkSelectedId] = useState<string>("");
+  const [pedidoItemLinkBusy, setPedidoItemLinkBusy] = useState(false);
+  const [pedidoItemLinkError, setPedidoItemLinkError] = useState<string | null>(null);
   const [pedidoLookupLoading, setPedidoLookupLoading] = useState(false);
   const [pedidoLookupError, setPedidoLookupError] = useState<string | null>(null);
   const pedidoLookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -454,6 +697,8 @@ export default function ImportarXmlPage() {
         }
 
         setDefaultsToast({ kind: "saved", message: "Padrão do fornecedor salvo." });
+        setFornecedorFinalidadePadrao(payload.finalidade);
+        setFornecedorMotivoPadraoId(payload.motivoCompraId);
         clearToastLater();
       } catch {
         setDefaultsToast({ kind: "error", message: "Erro ao salvar padrão do fornecedor." });
@@ -519,6 +764,19 @@ export default function ImportarXmlPage() {
   const osResolveReqIdRef = useRef(0);
 
   const [loteMissing, setLoteMissing] = useState<string[]>([]);
+
+  const clearOsSelection = useCallback(() => {
+    setOsNumero("");
+    setOsId(null);
+    setOsLabel(null);
+    setOsLoading(false);
+    setOsError(null);
+    setShowOsLookup(false);
+    setOsLookupTerm("");
+    setOsLookupRows([]);
+    setOsLookupError(null);
+    setOsLookupLoading(false);
+  }, []);
 
   const te = useTenantEmpresa();
   const tenantId = te.tenantId ?? "";
@@ -604,7 +862,6 @@ export default function ImportarXmlPage() {
             count: "exact",
           })
           .eq("empresa_id", empresaId)
-          .eq("finalidade_contexto", "materia_prima")
           .not("chave", "is", null)
           .order("criado_em", { ascending: false })
           .order("id", { ascending: false });
@@ -634,6 +891,7 @@ export default function ImportarXmlPage() {
               data_emissao: r.data_emissao ?? null,
               valor_total: r.valor_total ?? null,
               criado_em: r.criado_em ?? null,
+              finalidade_contexto: r.finalidade_contexto ?? null,
             }))
             .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
 
@@ -887,6 +1145,7 @@ export default function ImportarXmlPage() {
 
       if (!tenantId || !empresaId) {
         setPedidoLookupRows([]);
+        setPedidoAnalyzerRows([]);
         setPedidoLookupError("Tenant ou empresa nao carregados.");
         setPedidoLookupLoading(false);
         return;
@@ -924,6 +1183,8 @@ export default function ImportarXmlPage() {
             id: String(row.id ?? ""),
             codigo: row.codigo == null ? null : String(row.codigo),
             status: row.status == null ? null : String(row.status),
+            fornecedor_id:
+              typeof row.fornecedor_id === "number" || typeof row.fornecedor_id === "string" ? row.fornecedor_id : null,
             fornecedor_nome: row.fornecedor_nome == null ? null : String(row.fornecedor_nome),
             solicitante_usuario_id: row.solicitante_usuario_id == null ? null : String(row.solicitante_usuario_id),
             created_at: row.created_at == null ? null : String(row.created_at),
@@ -942,9 +1203,11 @@ export default function ImportarXmlPage() {
           .slice(0, 80);
 
         setPedidoLookupRows(rows);
+        setPedidoAnalyzerRows(rows);
         setPedidoLookupLoading(false);
       } catch (e: unknown) {
         setPedidoLookupRows([]);
+        setPedidoAnalyzerRows([]);
         setPedidoLookupError(getErrorMessage(e, "Erro ao buscar pedidos."));
         setPedidoLookupLoading(false);
       }
@@ -972,17 +1235,8 @@ export default function ImportarXmlPage() {
 
   useEffect(() => {
     if (osEnabled) return;
-    setOsNumero("");
-    setOsId(null);
-    setOsLabel(null);
-    setOsLoading(false);
-    setOsError(null);
-    setShowOsLookup(false);
-    setOsLookupTerm("");
-    setOsLookupRows([]);
-    setOsLookupError(null);
-    setOsLookupLoading(false);
-  }, [osEnabled]);
+    clearOsSelection();
+  }, [clearOsSelection, osEnabled]);
 
   useEffect(() => {
     if (!osEnabled) return;
@@ -995,12 +1249,14 @@ export default function ImportarXmlPage() {
       return;
     }
 
+    if (osId !== null && osLabel) return;
+
     const t = setTimeout(() => {
       void resolveOsByNumero(trimmed);
     }, 400);
 
     return () => clearTimeout(t);
-  }, [osNumero, osEnabled, resolveOsByNumero]);
+  }, [osNumero, osEnabled, osId, osLabel, resolveOsByNumero]);
 
   function normalizeItemCodigo(code: unknown): string {
     const raw = String(code ?? "").trim();
@@ -1036,6 +1292,8 @@ export default function ImportarXmlPage() {
 
     setFornecedorId(null);
     setFornecedorNome(null);
+    setFornecedorFinalidadePadrao(null);
+    setFornecedorMotivoPadraoId(null);
     applyFornecedorFinanceDefaults(false);
 
     const cnpjNormalizado = normalizeCnpj(params.documento);
@@ -1068,6 +1326,8 @@ export default function ImportarXmlPage() {
     if (fornecedor?.id) {
       setFornecedorId(fornecedor.id);
       setFornecedorNome(fornecedor.nome ?? null);
+      setFornecedorFinalidadePadrao(fornecedor.finalidade_padrao ?? null);
+      setFornecedorMotivoPadraoId(normalizeMotivoId(fornecedor.motivo_compra_padrao_id));
 
       applyFornecedorFinanceDefaults(Boolean(fornecedor.gerar_contas_pagar_auto));
 
@@ -1195,6 +1455,8 @@ export default function ImportarXmlPage() {
 
         setFornecedorId(updatedRow.id);
         setFornecedorNome(updatedRow.nome ?? null);
+        setFornecedorFinalidadePadrao(updatedRow.finalidade_padrao ?? null);
+        setFornecedorMotivoPadraoId(normalizeMotivoId(updatedRow.motivo_compra_padrao_id));
         applyFornecedorFinanceDefaults(Boolean(updatedRow.gerar_contas_pagar_auto));
 
         if (updatedRow.finalidade_padrao) setFinalidadeLote(updatedRow.finalidade_padrao);
@@ -1211,6 +1473,8 @@ export default function ImportarXmlPage() {
 
     setFornecedorId(created.id);
     setFornecedorNome(created.nome ?? null);
+    setFornecedorFinalidadePadrao(created.finalidade_padrao ?? null);
+    setFornecedorMotivoPadraoId(normalizeMotivoId(created.motivo_compra_padrao_id));
 
     applyFornecedorFinanceDefaults(Boolean(created.gerar_contas_pagar_auto));
 
@@ -1254,8 +1518,8 @@ export default function ImportarXmlPage() {
   }, [clearToastLater, motivoCompraId, motivos, motivosLoading]);
 
   const carregarItensPorCodigo = useCallback(
-    async (codigos: string[], tenantIdLocal: string, empresaIdLocal: string) => {
-      if (codigos.length === 0) return new Map<string, number>();
+    async (codigos: string[], tenantIdLocal: string, empresaIdLocal: string, fornecedorIdLocal?: number | null) => {
+      if (codigos.length === 0) return new Map<string, ItemCodigoRow>();
 
       // Consulta e mapeia usando o código normalizado (sem zeros à esquerda),
       // mas mantém compat com bancos que ainda possam ter código com zeros.
@@ -1272,7 +1536,7 @@ export default function ImportarXmlPage() {
       );
 
       const { data, error } = await applyTenantEmpresa(
-        supabase.schema("public").from("itens").select("id,codigo_interno"),
+        supabase.schema("public").from("itens").select("id,codigo_interno,nome,fornecedor_id,ativo"),
         tenantIdLocal,
         empresaIdLocal
       ).in("codigo_interno", expanded);
@@ -1282,12 +1546,22 @@ export default function ImportarXmlPage() {
         return new Map();
       }
 
-      const map = new Map<string, number>();
-      const rows = (data ?? []) as ItemCodigoRow[];
-      rows.forEach((r) => {
-        map.set(r.codigo_interno, r.id);
-        map.set(normalizeItemCodigo(r.codigo_interno), r.id);
-      });
+      const fornecedorFiltroId = fornecedorIdLocal && Number.isFinite(Number(fornecedorIdLocal))
+        ? Number(fornecedorIdLocal)
+        : null;
+      const map = new Map<string, ItemCodigoRow>();
+      const rows = ((data ?? []) as ItemCodigoRow[])
+        .filter((r) => {
+          if (!fornecedorFiltroId) return true;
+          if (r.fornecedor_id == null) return true;
+          return Number(r.fornecedor_id) === fornecedorFiltroId;
+        })
+        .sort((a, b) => {
+          const rank = (r: ItemCodigoRow) => (fornecedorFiltroId && Number(r.fornecedor_id) === fornecedorFiltroId ? 2 : r.fornecedor_id == null ? 1 : 0);
+          return rank(b) - rank(a);
+        });
+
+      rows.forEach((r) => addItemCodigoToMap(map, r));
       return map;
     },
     [supabase]
@@ -1580,11 +1854,25 @@ export default function ImportarXmlPage() {
       // reset do contexto do lote
       setFornecedorId(null);
       setFornecedorNome(null);
+      setFornecedorFinalidadePadrao(null);
+      setFornecedorMotivoPadraoId(null);
       setFornecedorIdBase(null);
       setFornecedorCnpjBase(null);
 
       fornecedorCnpjBaseRef.current = null;
       chavesAddedRef.current = new Set();
+
+      setFinalidadeLote("");
+      setMotivoCompraId("");
+      setSolicitanteUsuarioId("");
+      setPedidoCompraRef("");
+      setPedidoLookupRows([]);
+      setPedidoAnalyzerRows([]);
+      setPedidoLookupError(null);
+      setPedidosAnalyzerComItens([]);
+      setPedidosAnalyzerError(null);
+      setPedidosAnalyzerLoading(false);
+      clearOsSelection();
 
       setItemMap(new Map());
       setJobs([]);
@@ -1625,15 +1913,38 @@ export default function ImportarXmlPage() {
   }
 
   function clearQueue() {
+    setXmlText("");
+    setSelectedFile(null);
+    setSelectedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setJobs([]);
     setSelectedJobId(null);
     setFornecedorCnpjBase(null);
     setFornecedorIdBase(null);
     setFornecedorId(null);
     setFornecedorNome(null);
+    setFornecedorFinalidadePadrao(null);
+    setFornecedorMotivoPadraoId(null);
+    setFinalidadeLote("");
+    setMotivoCompraId("");
+    setSolicitanteUsuarioId("");
+    setPedidoCompraRef("");
+    setPedidoLookupRows([]);
+    setPedidoLookupError(null);
+    clearOsSelection();
     setItemMap(new Map());
+    setPedidoAnalyzerRows([]);
+    setPedidosAnalyzerComItens([]);
+    setPedidosAnalyzerError(null);
+    setPedidosAnalyzerLoading(false);
+    setAssistantCopyMessage(null);
+    setPedidoItemLink(null);
+    setPedidoItemLinkSelectedId("");
+    setPedidoItemLinkError(null);
+    setPedidoItemLinkBusy(false);
     setImportErr(null);
     setImportOk(null);
+    setImportWarn(null);
 
     fornecedorCnpjBaseRef.current = null;
     chavesAddedRef.current = new Set();
@@ -1713,7 +2024,7 @@ export default function ImportarXmlPage() {
       const todosItens = jobsToUse.flatMap((j) => j.itens);
       const codigos = Array.from(new Set(todosItens.map((i) => i.codigo)));
 
-      const map = await carregarItensPorCodigo(codigos, tenantId, empresaId);
+      const map = await carregarItensPorCodigo(codigos, tenantId, empresaId, fornecedorFinal);
 
       // regra: só cria item se tiver permissão
       const missing = codigos.filter((c) => !map.has(c));
@@ -1726,7 +2037,15 @@ export default function ImportarXmlPage() {
         for (const it of job.itens) {
           if (!map.has(it.codigo)) {
             const created = await criarItemRapido(it, fornecedorFinal ?? null, dataCompra, finalidadeLote as ItemFinalidade);
-            if (created) map.set(it.codigo, created);
+            if (created) {
+              addItemCodigoToMap(map, {
+                id: created,
+                codigo_interno: normalizeItemCodigo(it.codigo),
+                nome: it.overrideNome ?? it.nome ?? null,
+                fornecedor_id: fornecedorFinal ?? null,
+                ativo: true,
+              });
+            }
           }
         }
       }
@@ -1777,7 +2096,13 @@ export default function ImportarXmlPage() {
     if (created) {
       setItemMap((prev) => {
         const next = new Map(prev);
-        next.set(it.codigo, created);
+        addItemCodigoToMap(next, {
+          id: created,
+          codigo_interno: normalizeItemCodigo(it.codigo),
+          nome: it.overrideNome ?? it.nome ?? null,
+          fornecedor_id: fornecedorIdBase ?? fornecedorId ?? null,
+          ativo: true,
+        });
         return next;
       });
 
@@ -1877,6 +2202,7 @@ export default function ImportarXmlPage() {
             finalidade: finalidadeLote,
             osId: finalidadeLote === "materia_prima" ? osId : null,
             pedidoCompraId: pedidoCompraRef.trim() || null,
+            pedidoCompraIds: splitPedidoCompraRefs(pedidoCompraRef),
             motivoCompraId,
             solicitanteUsuarioId: solicitanteUsuarioId,
             fornecedorCnpj: info?.cnpjEmitente ?? null,
@@ -1947,7 +2273,10 @@ export default function ImportarXmlPage() {
           const codes = Array.from(new Set(job.itens.map((i) => i.codigo)));
 
           // Só busca/vincula item_id quando a finalidade do lote permitir.
-          const map = permiteVincularItens ? await carregarItensPorCodigo(codes, tenantId, empresaId) : new Map<string, number>();
+          const fornecedorFinalId = fornecedorIdBase ?? fornecedorId ?? null;
+          const map = permiteVincularItens
+            ? await carregarItensPorCodigo(codes, tenantId, empresaId, fornecedorFinalId)
+            : new Map<string, ItemCodigoRow>();
 
           // Se não pode vincular, missing não bloqueia.
           if (permiteVincularItens) {
@@ -1957,7 +2286,7 @@ export default function ImportarXmlPage() {
             }
           }
 
-          const itemIds = permiteVincularItens ? Array.from(map.values()) : [];
+          const itemIds = permiteVincularItens ? Array.from(new Set(Array.from(map.values()).map((item) => item.id))) : [];
           const fiscalMap = permiteVincularItens ? await carregarFiscalPorItens(itemIds, tenantId, empresaId) : new Map<number, FiscalPerfil>();
 
           const itemsToImport = job.itens;
@@ -1972,7 +2301,7 @@ export default function ImportarXmlPage() {
           const itensPayload: ImportItemPayload[] = [];
 
           for (const it of itemsToImport) {
-            const itemId = permiteVincularItens ? (map.get(it.codigo) ?? null) : null;
+            const itemId = permiteVincularItens ? (map.get(it.codigo)?.id ?? null) : null;
             const fiscal = itemId ? fiscalMap.get(itemId) : null;
 
             const qtd = Number(it.quantidade ?? 0);
@@ -2006,24 +2335,37 @@ export default function ImportarXmlPage() {
             itensPayload.push({
               tenant_id: tenantId,
               item_id: itemId,
+              numero_item_xml: it.nItem ?? null,
               codigo: it.codigo,
               nome: it.overrideNome ?? it.nome,
               codigo_fornecedor: it.codigo,
               descricao: it.overrideNome ?? it.nome,
+              unidade: it.unidade ?? null,
+              unidade_tributavel: it.unidadeTrib ?? null,
+              ean: it.ean ?? null,
+              ean_tributavel: it.eanTrib ?? null,
               ncm: it.ncm ?? null,
+              cest: it.cest ?? null,
               cfop: it.cfop ?? null,
+              pedido_xml: it.pedidoXml ?? null,
+              pedido_item_xml: it.pedidoItemXml ?? null,
+              informacoes_adicionais: it.informacoesAdicionais ?? null,
               qtd: round6(qtd),
               v_unit: round6(vUnitLiquido > 0 ? vUnitLiquido : vUnitRaw),
               v_prod: round6(baseProd),
               v_desc: round6(vDesc),
+              v_frete: round6(Number(it.vFrete ?? 0)),
+              v_seguro: round6(Number(it.vSeguro ?? 0)),
+              v_outro: round6(Number(it.vOutro ?? 0)),
+              v_st: round6(vSt),
               v_icms: round6(vIcms),
               v_ipi: round6(vIpi),
               v_pis: round6(vPis),
               v_cofins: round6(vCofins),
-              aliq_icms: fiscal?.aliq_icms ?? it.aliquotaIcms ?? null,
-              aliq_ipi: fiscal?.aliq_ipi ?? it.aliquotaIpi ?? null,
-              aliq_pis: fiscal?.aliq_pis ?? it.aliquotaPis ?? null,
-              aliq_cofins: fiscal?.aliq_cofins ?? it.aliquotaCofins ?? null,
+              aliq_icms: it.aliquotaIcms ?? fiscal?.aliq_icms ?? null,
+              aliq_ipi: it.aliquotaIpi ?? fiscal?.aliq_ipi ?? null,
+              aliq_pis: it.aliquotaPis ?? fiscal?.aliq_pis ?? null,
+              aliq_cofins: it.aliquotaCofins ?? fiscal?.aliq_cofins ?? null,
               quantidade: round6(qtd),
               tipo: "entrada",
               motivo: `NF ${info.numero ?? ""}/${info.serie ?? ""} chave ${info.chave ?? ""} emitente ${info.emitente ?? ""}`,
@@ -2152,16 +2494,21 @@ export default function ImportarXmlPage() {
         setItemMap(new Map());
         return;
       }
+      const fornecedorFinalId = fornecedorIdBase ?? fornecedorId ?? null;
+      if (!fornecedorFinalId) {
+        setItemMap(new Map());
+        return;
+      }
       try {
         const codes = Array.from(new Set(selectedJob.itens.map((i) => i.codigo)));
-        const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
+        const map = await carregarItensPorCodigo(codes, tenantId, empresaId, fornecedorFinalId);
         setItemMap(map);
       } catch (e: unknown) {
         setImportErr(getErrorMessage(e, "Erro ao carregar itens."));
       }
     };
     void loadMap();
-  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens]);
+  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens, fornecedorIdBase, fornecedorId]);
 
   useEffect(() => {
     let active = true;
@@ -2184,6 +2531,12 @@ export default function ImportarXmlPage() {
         return;
       }
 
+      const fornecedorFinalId = fornecedorIdBase ?? fornecedorId ?? null;
+      if (!fornecedorFinalId) {
+        clearMissing();
+        return;
+      }
+
       const codes = Array.from(new Set(selectedOkJobs.flatMap((j) => j.itens.map((it) => it.codigo))));
       if (codes.length === 0) {
         clearMissing();
@@ -2191,7 +2544,7 @@ export default function ImportarXmlPage() {
       }
 
       try {
-        const map = await carregarItensPorCodigo(codes, tenantId, empresaId);
+        const map = await carregarItensPorCodigo(codes, tenantId, empresaId, fornecedorFinalId);
         if (!active) return;
 
         const nextMissing = codes.filter((c) => !map.has(c));
@@ -2213,7 +2566,78 @@ export default function ImportarXmlPage() {
     return () => {
       active = false;
     };
-  }, [selectedOkJobs, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens]);
+  }, [selectedOkJobs, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens, fornecedorIdBase, fornecedorId]);
+
+  useEffect(() => {
+    const fornecedorFinalId = fornecedorIdBase ?? fornecedorId;
+    const hasXmlSelecionado = Boolean(selectedJob?.nfeInfo);
+
+    if (!tenantId || !empresaId || !fornecedorFinalId || !hasXmlSelecionado || importBusy || isReading) {
+      setPedidosAnalyzerComItens([]);
+      setPedidosAnalyzerError(null);
+      setPedidosAnalyzerLoading(false);
+      return;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+
+    const loadPedidosCandidatos = async () => {
+      setPedidosAnalyzerLoading(true);
+      setPedidosAnalyzerError(null);
+
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token ?? null;
+        if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+        const qs = new URLSearchParams({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          fornecedorId: String(fornecedorFinalId),
+          limit: "20",
+        });
+
+        const res = await fetch(`/api/compras/pedidos-candidatos-importacao?${qs.toString()}`, {
+          headers: { authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        const json = (await res.json().catch(() => null)) as { data?: unknown[]; error?: string } | null;
+        if (!res.ok) {
+          const msg = typeof json?.error === "string" ? json.error : "Erro ao buscar pedidos candidatos.";
+          throw new Error(msg);
+        }
+
+        const rows = Array.isArray(json?.data) ? json.data : [];
+        const next = rows.map(adaptPedidoAnalyzerCandidato).filter((row): row is XmlImportPedidoCandidato => Boolean(row));
+        if (!active) return;
+        setPedidosAnalyzerComItens(next);
+        setPedidosAnalyzerLoading(false);
+      } catch (e: unknown) {
+        if (!active || controller.signal.aborted) return;
+        setPedidosAnalyzerComItens([]);
+        setPedidosAnalyzerError(getErrorMessage(e, "Nao foi possivel carregar pedidos candidatos para o assistente."));
+        setPedidosAnalyzerLoading(false);
+      }
+    };
+
+    void loadPedidosCandidatos();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    empresaId,
+    fornecedorId,
+    fornecedorIdBase,
+    importBusy,
+    isReading,
+    selectedJob?.id,
+    selectedJob?.nfeInfo,
+    supabase,
+    tenantId,
+  ]);
 
   const fornecedorResolvido = Boolean(fornecedorIdBase ?? fornecedorId);
   const pedidoCompraInformado = Boolean(pedidoCompraRef.trim());
@@ -2240,7 +2664,154 @@ export default function ImportarXmlPage() {
     itens: !permiteVincularItens || !itensFaltantes || canCreateItem,
   };
 
+  const xmlImportAnalysis = useMemo(() => {
+    if (!selectedJob?.nfeInfo) return null;
+
+    const fornecedorFinalId = fornecedorIdBase ?? fornecedorId;
+    const itensCadastradosPorCodigo: XmlImportItemInterno[] = [];
+    const seenItens = new Set<string>();
+
+    for (const [codigoInterno, item] of itemMap.entries()) {
+      if (!codigoInterno || !item?.id) continue;
+      const key = `${item.id}:${codigoInterno}`;
+      if (seenItens.has(key)) continue;
+      seenItens.add(key);
+      itensCadastradosPorCodigo.push({
+        id: item.id,
+        codigo_interno: item.codigo_interno || codigoInterno,
+        nome: item.nome ?? null,
+        fornecedor_id: item.fornecedor_id ?? null,
+      });
+    }
+
+    const pedidosCandidatos: XmlImportPedidoCandidato[] =
+      pedidosAnalyzerComItens.length > 0
+        ? pedidosAnalyzerComItens
+        : pedidoAnalyzerRows.map((row) => ({
+            id: row.id,
+            codigo: row.codigo,
+            status: row.status,
+            fornecedor_id: toNullableNumber(row.fornecedor_id),
+            fornecedor_nome: row.fornecedor_nome ?? null,
+            solicitante_usuario_id: row.solicitante_usuario_id ?? null,
+            total_geral: row.total_geral ?? null,
+            total_pendente: row.total_geral ?? null,
+            itens: [],
+          }));
+
+    return analyzeXmlImport({
+      nfe: {
+        chave: selectedJob.nfeInfo.chave,
+        numero: selectedJob.nfeInfo.numero,
+        serie: selectedJob.nfeInfo.serie,
+        emitente: selectedJob.nfeInfo.emitente,
+        cnpjEmitente: selectedJob.nfeInfo.cnpjEmitente,
+        valorTotal: selectedJob.nfeInfo.valorTotal,
+        valorProdutos: selectedJob.nfeInfo.valorProdutos,
+        itens: selectedJob.itens,
+      },
+      itens: selectedJob.itens,
+      fornecedor: fornecedorFinalId
+        ? {
+            id: fornecedorFinalId,
+            nome: fornecedorNome,
+            cnpj: selectedJob.nfeInfo.cnpjEmitente ?? fornecedorCnpjBase ?? null,
+            finalidade_padrao: fornecedorFinalidadePadrao,
+            motivo_compra_padrao_id: fornecedorMotivoPadraoId,
+          }
+        : null,
+      itensCadastradosPorCodigo,
+      pedidosCandidatos,
+      finalidadeSelecionada: finalidadeLote || null,
+      motivoSelecionadoId: motivoCompraId || null,
+      solicitanteUsuarioId: solicitanteUsuarioId || null,
+      pedidoCompraRefAtual: pedidoCompraRef || null,
+      osIdAtual: osId,
+      parametros: {
+        finalidadesExigemItemCadastrado: Array.from(finalidadesComItemObrigatorio),
+        finalidadesPermitemAutocadastro: allowedAutoCadastrarFinalidades,
+        finalidadesPermitemVinculo: allowedVincularFinalidades,
+      },
+    });
+  }, [
+    allowedAutoCadastrarFinalidades,
+    allowedVincularFinalidades,
+    finalidadeLote,
+    finalidadesComItemObrigatorio,
+    fornecedorCnpjBase,
+    fornecedorFinalidadePadrao,
+    fornecedorId,
+    fornecedorIdBase,
+    fornecedorMotivoPadraoId,
+    fornecedorNome,
+    itemMap,
+    motivoCompraId,
+    osId,
+    pedidoAnalyzerRows,
+    pedidoCompraRef,
+    pedidosAnalyzerComItens,
+    selectedJob,
+    solicitanteUsuarioId,
+  ]);
+
   // regra: importar só se tudo estiver ok e itens sem faltantes
+  const pedidoSugeridoPossuiItensManuais = useMemo(() => {
+    const pedidoIds = new Set(
+      [
+        xmlImportAnalysis?.pedidoSuggestion?.pedidoId ?? null,
+        ...(xmlImportAnalysis?.pedidoSuggestions ?? []).map((pedido) => pedido.pedidoId),
+      ].filter((id): id is string => Boolean(id))
+    );
+    if (pedidoIds.size === 0) return false;
+
+    return pedidosAnalyzerComItens.some(
+      (pedido) => pedidoIds.has(pedido.id) && Boolean(pedido.itens?.some(isPedidoItemManualParaVinculo))
+    );
+  }, [pedidosAnalyzerComItens, xmlImportAnalysis]);
+
+  const pedidoItemLinkData = useMemo(() => {
+    if (!pedidoItemLink) return null;
+
+    const itemSuggestion = xmlImportAnalysis?.itemSuggestions.find((item) => item.index === pedidoItemLink.xmlItemIndex) ?? null;
+    const pedido = pedidosAnalyzerComItens.find((row) => row.id === pedidoItemLink.pedidoId) ?? null;
+    const manualItems = (pedido?.itens ?? []).filter(isPedidoItemManualParaVinculo);
+    const selectedPedidoItemId = pedidoItemLinkSelectedId || pedidoItemLink.pedidoItemId;
+    const selectedPedidoItem =
+      manualItems.find((item) => item.id === selectedPedidoItemId) ??
+      (pedido?.itens ?? []).find((item) => item.id === selectedPedidoItemId) ??
+      null;
+
+    return {
+      itemSuggestion,
+      internalItem: itemSuggestion?.internalItem ?? null,
+      pedido,
+      manualItems,
+      selectedPedidoItem,
+      nfItem: selectedJob?.itens[pedidoItemLink.xmlItemIndex] ?? null,
+    };
+  }, [pedidoItemLink, pedidoItemLinkSelectedId, pedidosAnalyzerComItens, selectedJob?.itens, xmlImportAnalysis]);
+
+  const pedidoItemLinkPodeCadastrar = Boolean(
+    pedidoItemLink &&
+      !pedidoItemLinkData?.internalItem &&
+      canCreateItem &&
+      permiteAutoCadastrarItens &&
+      finalidadeLote &&
+      fornecedorResolvido
+  );
+  const bloqueiaVinculoManualPedido = Boolean(
+    xmlImportAnalysis?.findings.some((finding) => finding.code === "VINCULAR_ITENS_MANUAIS_PEDIDO_OBRIGATORIO")
+  );
+  const bloqueiaDivergenciaPedido = Boolean(
+    xmlImportAnalysis?.findings.some(
+      (finding) =>
+        finding.severity === "error" &&
+        ["DIVERGENCIA_VALOR_UNITARIO", "QUANTIDADE_PARCIAL_PEDIDO", "QUANTIDADE_EXCEDE_PEDIDO"].includes(finding.code)
+    )
+  );
+  const hasPedidoSuggestion = Boolean(xmlImportAnalysis?.pedidoSuggestion || (xmlImportAnalysis?.pedidoSuggestions?.length ?? 0) > 0);
+  const bloqueiaPedidoCompativelNaoAplicado = Boolean(hasPedidoSuggestion && !pedidoCompraInformado);
+
   const bloqueiaImportacao =
     !hasSelectedOkJobs ||
     !finalidadeSelecionada ||
@@ -2248,6 +2819,9 @@ export default function ImportarXmlPage() {
     !solicitanteSelecionado ||
     !fornecedorResolvido ||
     (permiteVincularItens && itensFaltantes) ||
+    bloqueiaPedidoCompativelNaoAplicado ||
+    bloqueiaVinculoManualPedido ||
+    bloqueiaDivergenciaPedido ||
     !tenantId ||
     !empresaId;
 
@@ -2262,6 +2836,351 @@ export default function ImportarXmlPage() {
     !empresaId ||
     !podeCriarItens ||
     !permiteAutoCadastrarItens;
+  const showBulkItemRegistrationButton = false;
+  const hasAnyXmlJob = jobs.length > 0;
+  const hasSelectedNfeInfo = Boolean(selectedJob?.nfeInfo);
+  const selectedJobAlreadyImported = selectedJob?.status === "importado";
+  const selectedJobHasError = selectedJob?.status === "erro";
+  const shouldShowImportForm = hasSelectedNfeInfo && !selectedJobAlreadyImported && !selectedJobHasError;
+  const shouldShowAssistant = shouldShowImportForm && Boolean(xmlImportAnalysis);
+  const shouldShowItens = shouldShowImportForm && itensParaTabela.length > 0;
+  const shouldShowQueue = hasAnyXmlJob;
+  const shouldShowImportActions = shouldShowImportForm && hasSelectedOkJobs && itensParaTabela.length > 0;
+  const hasXmlStateToClear =
+    selectedFiles.length > 0 ||
+    Boolean(selectedFile) ||
+    Boolean(xmlText.trim()) ||
+    hasAnyXmlJob ||
+    Boolean(importErr) ||
+    Boolean(importOk) ||
+    Boolean(importWarn) ||
+    isReading;
+
+  const renderNfeResumo = (nfe: ParsedNfe, itemCount: number) => (
+    <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+      <div>
+        <div className="text-xs text-zinc-500">Chave</div>
+        <div className="font-mono text-zinc-200 break-all">{nfe.chave ?? "-"}</div>
+      </div>
+      <div>
+        <div className="text-xs text-zinc-500">Numero/serie</div>
+        <div className="text-zinc-200">
+          {nfe.numero ?? "-"}/{nfe.serie ?? "-"}
+        </div>
+      </div>
+      <div>
+        <div className="text-xs text-zinc-500">Emitente</div>
+        <div className="text-zinc-200">{nfe.emitente ?? "-"}</div>
+      </div>
+      <div>
+        <div className="text-xs text-zinc-500">CNPJ</div>
+        <div className="font-mono text-zinc-200">{nfe.cnpjEmitente ?? "-"}</div>
+      </div>
+      <div>
+        <div className="text-xs text-zinc-500">Data emissao</div>
+        <div className="text-zinc-200">{formatDateBR(nfe.dataEmissao) || "-"}</div>
+      </div>
+      <div>
+        <div className="text-xs text-zinc-500">Valor total</div>
+        <div className="text-right tabular-nums text-zinc-200 sm:text-left">R$ {formatMoneyBR(Number(nfe.valorTotal ?? 0))}</div>
+      </div>
+      <div>
+        <div className="text-xs text-zinc-500">Itens</div>
+        <div className="text-right tabular-nums text-zinc-200 sm:text-left">{itemCount}</div>
+      </div>
+    </div>
+  );
+
+  const aplicarMotivoAutomaticoSeVazio = (contexto: { temOs?: boolean; origem: "pedido" | "os" }) => {
+    if (motivoCompraIdRef.current) return false;
+
+    const motivo = findMotivoAutomaticoParaPedido(motivos, {
+      temOs: contexto.temOs,
+      finalidade: finalidadeRef.current,
+    });
+    if (!motivo) return false;
+
+    setMotivoCompraId(motivo.id);
+    motivoCompraIdRef.current = motivo.id;
+    setDefaultsToast({
+      kind: "saved",
+      message:
+        contexto.origem === "os"
+          ? "Classificacao/motivo preenchido automaticamente pela OS."
+          : "Classificacao/motivo preenchido automaticamente pelo pedido.",
+    });
+    clearToastLater(2600);
+    return true;
+  };
+
+  const aplicarPedidoSugerido = (pedidoRef: string) => {
+    setPedidoCompraRef(pedidoRef);
+    clearOsSelection();
+    aplicarMotivoAutomaticoSeVazio({ origem: "pedido", temOs: false });
+  };
+
+  const aplicarSolicitanteSugerido = (usuarioId: string) => {
+    setSolicitanteUsuarioId(usuarioId);
+  };
+
+  const aplicarOsSugerida = (nextOsId: number, osNumeroSugerido?: string | null, osLabelSugerido?: string | null) => {
+    const normalizedOsId = Math.trunc(Number(nextOsId));
+    if (!Number.isFinite(normalizedOsId) || normalizedOsId <= 0) return;
+
+    const numero = String(osNumeroSugerido ?? "").trim() || String(normalizedOsId);
+    const label = String(osLabelSugerido ?? "").trim() || `OS ${numero}`;
+
+    setOsId(normalizedOsId);
+    setOsNumero(numero);
+    setOsLabel(label);
+    setOsError(null);
+    setOsLoading(false);
+    aplicarMotivoAutomaticoSeVazio({ origem: "os", temOs: true });
+  };
+
+  const aplicarFinalidadeSugerida = (finalidade: string) => {
+    const next = finalidade as ItemFinalidade;
+    setFinalidadeLote(next);
+
+    const fornecedorFinal = fornecedorIdBase ?? fornecedorIdRef.current;
+    if (fornecedorFinal) {
+      scheduleSaveFornecedorDefaults({
+        fornecedorId: fornecedorFinal,
+        finalidade: next,
+        motivoCompraId: normalizeMotivoId(motivoCompraIdRef.current),
+      });
+    }
+  };
+
+  const aplicarMotivoSugerido = (motivoId: string) => {
+    setMotivoCompraId(motivoId);
+
+    const fornecedorFinal = fornecedorIdBase ?? fornecedorIdRef.current;
+    if (fornecedorFinal) {
+      scheduleSaveFornecedorDefaults({
+        fornecedorId: fornecedorFinal,
+        finalidade: normalizeFinalidade(finalidadeRef.current),
+        motivoCompraId: normalizeMotivoId(motivoId),
+      });
+    }
+  };
+
+  const copiarDiagnosticoAssistente = async () => {
+    if (!xmlImportAnalysis) return;
+
+    const diagnostico = {
+      geradoEm: new Date().toISOString(),
+      analyzer: {
+        status: xmlImportAnalysis.status,
+        score: xmlImportAnalysis.score,
+        fornecedorSuggestion: xmlImportAnalysis.fornecedorSuggestion,
+        pedidoSuggestion: xmlImportAnalysis.pedidoSuggestion,
+        pedidoSuggestions: xmlImportAnalysis.pedidoSuggestions,
+        findings: xmlImportAnalysis.findings,
+        warnings: xmlImportAnalysis.warnings,
+        suggestions: xmlImportAnalysis.suggestions,
+        itemSuggestions: xmlImportAnalysis.itemSuggestions,
+        actionPlan: xmlImportAnalysis.actionPlan,
+      },
+      selectedJob: selectedJob
+        ? {
+            fileName: selectedJob.fileName,
+            chave: selectedJob.nfeInfo?.chave ?? null,
+            numero: selectedJob.nfeInfo?.numero ?? null,
+            serie: selectedJob.nfeInfo?.serie ?? null,
+            emitente: selectedJob.nfeInfo?.emitente ?? null,
+            cnpjEmitente: selectedJob.nfeInfo?.cnpjEmitente ?? null,
+            valorTotal: selectedJob.nfeInfo?.valorTotal ?? null,
+            quantidadeItens: selectedJob.itens.length,
+          }
+        : null,
+      camposTela: {
+        finalidadeLote: finalidadeLote || null,
+        motivoCompraId: motivoCompraId || null,
+        solicitanteUsuarioIdPreenchido: Boolean(solicitanteUsuarioId),
+        pedidoCompraRef: pedidoCompraRef || null,
+        fornecedorId: fornecedorIdBase ?? fornecedorId ?? null,
+        pedidosAnalyzerComItensQuantidade: pedidosAnalyzerComItens.length,
+        itemMapQuantidade: itemMap.size,
+        loteMissing: [...loteMissing],
+      },
+    };
+
+    try {
+      await copyTextToClipboard(JSON.stringify(diagnostico, null, 2));
+      setAssistantCopyMessage({ kind: "ok", message: "Diagnóstico copiado." });
+    } catch {
+      setAssistantCopyMessage({ kind: "error", message: "Não foi possível copiar o diagnóstico." });
+    }
+
+    window.setTimeout(() => setAssistantCopyMessage(null), 2800);
+  };
+
+  const abrirVinculoItemPedido = (params: PedidoItemLinkRequest) => {
+    setPedidoItemLink(params);
+    setPedidoItemLinkSelectedId(params.pedidoItemId);
+    setPedidoItemLinkError(null);
+    setPedidoItemLinkBusy(false);
+  };
+
+  const abrirVinculoItemPedidoDaTabela = (it: ParsedItem, index: number) => {
+    const suggestion = xmlImportAnalysis?.itemSuggestions.find((item) => item.index === index) ?? null;
+    const pedidosSugeridos = xmlImportAnalysis?.pedidoSuggestions ?? [];
+    const pedido = pedidosSugeridos.length === 1 ? pedidosSugeridos[0] : xmlImportAnalysis?.pedidoSuggestion ?? null;
+    const pedidoId = suggestion?.pedidoMatchPedidoId ?? pedido?.pedidoId ?? null;
+    const pedidoCodigo = suggestion?.pedidoMatchPedidoCodigo ?? pedido?.codigo ?? null;
+
+    if (!pedidoId) {
+      setImportErr("Nenhum pedido sugerido disponivel para vincular este item.");
+      return;
+    }
+
+    const pedidoCompleto = pedidosAnalyzerComItens.find((row) => row.id === pedidoId) ?? null;
+    const manualItems = (pedidoCompleto?.itens ?? []).filter(isPedidoItemManualParaVinculo);
+    const pedidoItemId = suggestion?.pedidoMatchItemId ?? manualItems[0]?.id ?? "";
+
+    if (!pedidoItemId) {
+      setImportErr("Pedido sugerido nao possui item manual disponivel para vinculo.");
+      return;
+    }
+
+    abrirVinculoItemPedido({
+      xmlItemIndex: index,
+      codigoOriginal: it.codigo,
+      codigoNormalizado: normalizeItemCodigo(it.codigo),
+      descricao: it.overrideNome ?? it.nome ?? "",
+      pedidoId,
+      pedidoCodigo,
+      pedidoItemId,
+    });
+  };
+
+  const fecharVinculoItemPedido = () => {
+    if (pedidoItemLinkBusy) return;
+    setPedidoItemLink(null);
+    setPedidoItemLinkSelectedId("");
+    setPedidoItemLinkError(null);
+  };
+
+  const confirmarVinculoItemPedido = async () => {
+    if (!pedidoItemLink || !tenantId || !empresaId) return;
+
+    let internalItem = pedidoItemLinkData?.internalItem ?? null;
+
+    const pedidoItemId = pedidoItemLinkSelectedId || pedidoItemLink.pedidoItemId;
+    if (!pedidoItemId) {
+      setPedidoItemLinkError("Selecione um item manual do pedido.");
+      return;
+    }
+
+    setPedidoItemLinkBusy(true);
+    setPedidoItemLinkError(null);
+
+    try {
+      if (!internalItem?.id) {
+        if (!canCreateItem) throw new Error("Sem permissao para cadastrar itens.");
+        if (!permiteAutoCadastrarItens || !finalidadeLote) {
+          throw new Error("Selecione uma finalidade que permita cadastrar item antes de vincular ao pedido.");
+        }
+
+        const nfItem = pedidoItemLinkData?.nfItem ?? null;
+        if (!nfItem) throw new Error("Item da NF nao encontrado para cadastro.");
+
+        const fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
+        const createdId = await criarItemRapido(
+          nfItem,
+          fornecedorFinal,
+          selectedJob?.nfeInfo?.dataEmissao ?? new Date().toISOString(),
+          finalidadeLote as ItemFinalidade
+        );
+        if (!createdId) throw new Error("Nao foi possivel cadastrar o item antes do vinculo.");
+
+        const createdItem: XmlImportItemInterno = {
+          id: createdId,
+          codigo_interno: normalizeItemCodigo(nfItem.codigo),
+          nome: nfItem.overrideNome ?? nfItem.nome ?? null,
+          fornecedor_id: fornecedorFinal,
+        };
+        internalItem = createdItem;
+        setItemMap((prev) => {
+          const next = new Map(prev);
+          addItemCodigoToMap(next, {
+            id: createdItem.id,
+            codigo_interno: createdItem.codigo_interno,
+            nome: createdItem.nome,
+            fornecedor_id: createdItem.fornecedor_id ?? null,
+            ativo: true,
+          });
+          return next;
+        });
+        setLoteMissing((prev) => prev.filter((codigo) => normalizeItemCodigo(codigo) !== createdItem.codigo_interno));
+      }
+
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? null;
+      if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+      const res = await fetch("/api/compras/pedido-itens/vincular-item", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          tenantId,
+          empresaId,
+          pedidoId: pedidoItemLink.pedidoId,
+          pedidoItemId,
+          itemId: internalItem.id,
+        }),
+      });
+
+      const json = (await res.json().catch(() => null)) as VincularPedidoItemResponse | null;
+      if (!res.ok || !json?.ok || !json.pedidoItem) {
+        const message = typeof json?.error === "string" ? json.error : "Nao foi possivel vincular o item ao pedido.";
+        throw new Error(message);
+      }
+
+      const updated = json.pedidoItem;
+      const updatedItemId = toNullableNumber(updated.item_id);
+      const updatedCodigo = toNullableString(updated.item_codigo);
+      const updatedNome = toNullableString(updated.item_nome);
+
+      setPedidosAnalyzerComItens((prev) =>
+        prev.map((pedido) => {
+          if (pedido.id !== pedidoItemLink.pedidoId) return pedido;
+          return {
+            ...pedido,
+            itens: (pedido.itens ?? []).map((item) =>
+              item.id === pedidoItemId
+                ? {
+                    ...item,
+                    item_id: updatedItemId == null ? item.item_id : String(updatedItemId),
+                    item_codigo: updatedCodigo,
+                    item_nome: updatedNome,
+                    descricao: updatedNome ?? item.descricao ?? null,
+                  }
+                : item
+            ),
+          };
+        })
+      );
+
+      setAssistantCopyMessage({
+        kind: "ok",
+        message: pedidoItemLinkData?.internalItem
+          ? "Item manual do pedido vinculado ao cadastro interno."
+          : "Item cadastrado e vinculado ao item manual do pedido.",
+      });
+      window.setTimeout(() => setAssistantCopyMessage(null), 2800);
+      setPedidoItemLink(null);
+      setPedidoItemLinkSelectedId("");
+    } catch (e: unknown) {
+      setPedidoItemLinkError(getErrorMessage(e, "Nao foi possivel vincular o item ao pedido."));
+    } finally {
+      setPedidoItemLinkBusy(false);
+    }
+  };
 
   const abrirModalPagamento = () => {
     if (isReading || importBusy || bloqueiaImportacao || !canImport) return;
@@ -2364,18 +3283,16 @@ export default function ImportarXmlPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Importar XML</h1>
-          <p className="text-sm text-zinc-400 mt-1">Importe NF-e (XML) para criar fornecedor, itens e movimentações.</p>
+          <h1 className="text-2xl font-semibold">Importar NF-e (XML)</h1>
+          <p className="mt-1 text-sm text-zinc-400">Selecione um XML de NF-e para validar e preparar a entrada no estoque.</p>
         </div>
-        <Link href="/estoque" className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
-          Voltar para estoque
-        </Link>
       </div>
 
-      <div className="border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-4">
+      {shouldShowImportForm && (
+      <div className="order-3 border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-4">
         {!canImport && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
             Voce nao tem permissao para importar NF-e. Voce ainda pode ler XML e cadastrar fornecedor/itens.
@@ -2385,8 +3302,8 @@ export default function ImportarXmlPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="border border-zinc-800 rounded-lg p-3 space-y-3">
             <div>
-              <div className="text-lg font-semibold">Finalidade do lote</div>
-              <div className="text-sm text-zinc-400">Obrigatorio para cadastrar itens e importar NF.</div>
+              <div className="text-lg font-semibold">Finalidade e vínculo</div>
+              <div className="text-sm text-zinc-400">Dados operacionais para cadastrar itens e importar a NF.</div>
             </div>
 
             <div className="grid gap-4">
@@ -2489,14 +3406,19 @@ export default function ImportarXmlPage() {
                 <div className="flex items-center gap-2">
                   <input
                     value={pedidoCompraRef}
-                    onChange={(e) => setPedidoCompraRef(e.target.value)}
+                    onChange={(e) => {
+                      const nextPedidoRef = e.target.value;
+                      setPedidoCompraRef(nextPedidoRef);
+                      setPedidoAnalyzerRows([]);
+                      if (nextPedidoRef.trim()) clearOsSelection();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key !== "Enter") return;
                       e.preventDefault();
                       openPedidoLookup((e.currentTarget as HTMLInputElement).value);
                     }}
                     className="flex-1 px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    placeholder="Codigo (ex: PC-000123) ou UUID do pedido (Enter abre busca)"
+                    placeholder="Codigo(s) do pedido ou UUID (Enter abre busca)"
                     disabled={importBusy || isReading}
                     autoComplete="off"
                     enterKeyHint="search"
@@ -2511,7 +3433,7 @@ export default function ImportarXmlPage() {
                   </button>
                 </div>
                 <div className="text-xs text-zinc-400">
-                  Se informado, a importacao tenta vincular itens ao pedido, inclusive itens manuais por confronto de valor.
+                  Se informado, a importacao tenta vincular itens ao pedido. Para NF com itens de mais de um pedido, separe os pedidos por virgula.
                 </div>
               </label>
 
@@ -2611,41 +3533,86 @@ export default function ImportarXmlPage() {
               <div className={requisitosChecklist.fornecedor ? "text-emerald-300" : "text-amber-300"}>
                 {requisitosChecklist.fornecedor ? "OK" : "Pendente"} - Fornecedor encontrado/cadastrado
               </div>
-              <div className={requisitosChecklist.itens ? "text-emerald-300" : "text-amber-300"}>
-                {requisitosChecklist.itens ? "OK" : "Pendente"} - Itens cadastrados
-                {itensFaltantes ? ` (${loteMissing.length} faltante${loteMissing.length > 1 ? "s" : ""})` : ""}
+              <div className={!itensFaltantes && requisitosChecklist.itens ? "text-emerald-300" : "text-amber-300"}>
+                {itensFaltantes
+                  ? `Pendente - ${loteMissing.length} ${loteMissing.length > 1 ? "itens sem cadastro" : "item sem cadastro"}`
+                  : `${requisitosChecklist.itens ? "OK" : "Pendente"} - ${
+                      finalidadeLote === "imobilizado"
+                        ? "Itens vao para cadastro de imobilizado"
+                        : finalidadeLote === "consumo"
+                          ? "Itens vao para cadastro de consumo"
+                          : "Itens cadastrados"
+                    }`}
               </div>
+              {bloqueiaVinculoManualPedido && (
+                <div className="text-amber-300">
+                  Pendente - Vincule/corrija os itens manuais do pedido antes de importar
+                </div>
+              )}
+              {bloqueiaPedidoCompativelNaoAplicado && (
+                <div className="text-red-300">
+                  Pendente - Use o pedido sugerido antes de importar esta NF
+                </div>
+              )}
+              {bloqueiaDivergenciaPedido && (
+                <div className="text-red-300">
+                  Pendente - Corrija divergencias de preco ou quantidade no pedido antes de importar
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="border border-zinc-800 rounded-xl bg-zinc-950">
+        {shouldShowAssistant && (
+          <>
+            <XmlImportAssistantPanel
+              result={xmlImportAnalysis}
+              currentPedidoRef={pedidoCompraRef}
+              currentSolicitanteUsuarioId={solicitanteUsuarioId}
+              currentFinalidade={finalidadeLote || null}
+              currentMotivoId={motivoCompraId || null}
+              currentOsId={osId}
+              hasManualPedidoItems={pedidoSugeridoPossuiItensManuais}
+              onApplyPedidoSuggestion={aplicarPedidoSugerido}
+              onApplySolicitanteSuggestion={aplicarSolicitanteSugerido}
+              onApplyOsSuggestion={aplicarOsSugerida}
+              onApplyFinalidadeSuggestion={aplicarFinalidadeSugerida}
+              onApplyMotivoSuggestion={aplicarMotivoSugerido}
+              onCopyDiagnostics={copiarDiagnosticoAssistente}
+              onOpenPedidoItemLink={abrirVinculoItemPedido}
+            />
+            {pedidosAnalyzerLoading && (
+              <div className="text-xs text-zinc-500">Buscando pedidos candidatos para o assistente...</div>
+            )}
+            {pedidosAnalyzerError && <div className="text-xs text-amber-300">{pedidosAnalyzerError}</div>}
+            {assistantCopyMessage && (
+              <div className={assistantCopyMessage.kind === "ok" ? "text-xs text-emerald-300" : "text-xs text-amber-300"}>
+                {assistantCopyMessage.message}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      )}
+
+      <div className="order-2 border border-zinc-800 rounded-xl bg-zinc-950">
         <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-800">
           <div>
-            <div className="text-lg font-semibold">Importar NF-e (XML)</div>
-            <div className="text-sm text-zinc-400">Fornecedor por CNPJ, itens por codigo do produto.</div>
+            <div className="text-lg font-semibold">Selecionar XML</div>
+            <div className="text-sm text-zinc-400">Escolha um ou mais arquivos XML de NF-e para leitura.</div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setXmlText("");
-                setSelectedFile(null);
-                clearQueue();
-              }}
-              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-            >
-              Limpar
-            </button>
-
-            <button
-              onClick={abrirModalPagamento}
-              disabled={isReading || importBusy || bloqueiaImportacao || !canImport}
-              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-            >
-              {importBusy ? "Importando..." : "Importar"}
-            </button>
+            {hasXmlStateToClear && (
+              <button
+                type="button"
+                onClick={clearQueue}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                disabled={isReading || importBusy}
+              >
+                Limpar
+              </button>
+            )}
           </div>
         </div>
 
@@ -2674,6 +3641,17 @@ export default function ImportarXmlPage() {
             </div>
           </div>
 
+          {selectedFiles.length > 0 && !hasAnyXmlJob && !isReading && (
+            <div className="text-xs text-zinc-400">
+              {selectedFiles.length === 1 ? selectedFiles[0]?.name : `${selectedFiles.length} arquivos selecionados`}
+            </div>
+          )}
+          {isReading && <div className="text-sm text-zinc-300">Lendo XML...</div>}
+          {importErr && <div className="text-sm text-red-400">{importErr}</div>}
+          {importWarn && <div className="text-sm text-amber-300">{importWarn}</div>}
+          {importOk && <div className="text-sm text-emerald-300">{importOk}</div>}
+
+          {shouldShowQueue && (
           <div className="border border-zinc-800 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="font-semibold text-zinc-100">Fila de XMLs</div>
@@ -2763,23 +3741,40 @@ export default function ImportarXmlPage() {
               </table>
             </div>
           </div>
+          )}
 
-          {selectedJob?.nfeInfo && (
-            <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-1">
-              <div className="font-semibold text-zinc-100">NF-e</div>
-              <div>Chave: {selectedJob.nfeInfo.chave ?? "?"}</div>
+          {hasSelectedNfeInfo && selectedJob?.nfeInfo && (
+            <div
+              className={
+                selectedJobAlreadyImported
+                  ? "border border-amber-500/40 rounded-lg bg-amber-500/10 p-3 space-y-3"
+                  : selectedJobHasError
+                    ? "border border-red-500/40 rounded-lg bg-red-500/10 p-3 space-y-3"
+                    : "border border-zinc-800 rounded-lg p-3 space-y-3"
+              }
+            >
               <div>
-                Numero/Serie: {selectedJob.nfeInfo.numero ?? "?"}/{selectedJob.nfeInfo.serie ?? "?"}
+                <div className="font-semibold text-zinc-100">
+                  {selectedJobAlreadyImported
+                    ? "Esta NF-e já foi importada."
+                    : selectedJobHasError
+                      ? "XML com erro"
+                      : "Dados básicos da NF"}
+                </div>
+                {selectedJobAlreadyImported && (
+                  <div className="text-sm text-amber-200">
+                    NF-e já importada. Escolha outro XML ou abra a nota na lista de notas importadas.
+                  </div>
+                )}
+                {selectedJobHasError && (
+                  <div className="text-sm text-red-200">{selectedJob.error ?? "Nao foi possivel validar este XML."}</div>
+                )}
               </div>
-              <div>
-                Emitente: {selectedJob.nfeInfo.emitente ?? "?"}{" "}
-                {selectedJob.nfeInfo.cnpjEmitente ? `(CNPJ ${selectedJob.nfeInfo.cnpjEmitente})` : ""}
-              </div>
-              <div>Data emissao: {selectedJob.nfeInfo.dataEmissao ?? "?"}</div>
+              {renderNfeResumo(selectedJob.nfeInfo, selectedJob.itens.length)}
             </div>
           )}
 
-          {!fornecedorResolvido && (
+          {shouldShowImportForm && !fornecedorResolvido && (
             <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -2819,6 +3814,7 @@ export default function ImportarXmlPage() {
             </div>
           )}
 
+          {shouldShowItens && (
           <div className="border border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="font-semibold text-zinc-100">Itens da NF</div>
@@ -2841,7 +3837,14 @@ export default function ImportarXmlPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
                     {itensParaTabela.map((it, idx) => {
-                      const foundId = itemMap.get(it.codigo);
+                      const foundItem = itemMap.get(it.codigo) ?? itemMap.get(normalizeItemCodigo(it.codigo));
+                      const itemAnalysis = xmlImportAnalysis?.itemSuggestions.find((item) => item.index === idx) ?? null;
+                      const pedidosSugeridos = xmlImportAnalysis?.pedidoSuggestions ?? [];
+                      const fallbackPedido = pedidosSugeridos.length === 1 ? pedidosSugeridos[0] : xmlImportAnalysis?.pedidoSuggestion ?? null;
+                      const pedidoLinkId = itemAnalysis?.pedidoMatchPedidoId ?? fallbackPedido?.pedidoId ?? null;
+                      const pedidoLink = pedidosAnalyzerComItens.find((pedido) => pedido.id === pedidoLinkId) ?? null;
+                      const hasManualPedidoItems = Boolean(pedidoLink?.itens?.some(isPedidoItemManualParaVinculo));
+                      const canOpenPedidoLink = Boolean(pedidoLinkId && hasManualPedidoItems);
                       return (
                         <tr key={`${it.codigo}-${idx}`} className="hover:bg-zinc-900/40">
                           <td className="px-3 py-2 font-medium">{it.codigo}</td>
@@ -2872,11 +3875,15 @@ export default function ImportarXmlPage() {
                           <td className="px-3 py-2 text-center">
                             {!permiteVincularItens ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-md border border-zinc-600/50 text-zinc-300 text-xs">
-                                Nao cadastrado ({finalidadeLote || "sem finalidade"})
+                                {finalidadeLote === "imobilizado"
+                                  ? "Cadastro imobilizado"
+                                  : finalidadeLote === "consumo"
+                                    ? "Cadastro consumo"
+                                    : `Nao cadastrado (${finalidadeLote || "sem finalidade"})`}
                               </span>
-                            ) : foundId ? (
+                            ) : foundItem ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 text-xs">
-                                Cadastrado (id {foundId})
+                                Cadastrado (id {foundItem.id})
                               </span>
                             ) : (
                               <span className="inline-flex items-center px-2 py-1 rounded-md border border-amber-500/40 text-amber-300 text-xs">
@@ -2885,7 +3892,17 @@ export default function ImportarXmlPage() {
                             )}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {permiteAutoCadastrarItens && !foundId && (
+                            {canOpenPedidoLink ? (
+                              <button
+                                type="button"
+                                onClick={() => abrirVinculoItemPedidoDaTabela(it, idx)}
+                                className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
+                                title="Abre o vinculo entre o item do XML e um item manual do pedido."
+                              >
+                                Vincular
+                              </button>
+                            ) : (
+                              permiteAutoCadastrarItens && !foundItem && (
                               <Can perm="cad_itens.write">
                                 <button
                                   onClick={() => void cadastrarItemManual(it)}
@@ -2894,6 +3911,7 @@ export default function ImportarXmlPage() {
                                   Cadastrar item
                                 </button>
                               </Can>
+                              )
                             )}
                           </td>
                         </tr>
@@ -2915,17 +3933,21 @@ export default function ImportarXmlPage() {
             {importWarn && <div className="text-sm text-amber-300">{importWarn}</div>}
             {importOk && <div className="text-sm text-emerald-300">{importOk}</div>}
           </div>
+          )}
         </div>
 
+        {shouldShowImportActions && (
         <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
-          <button
-            onClick={() => void cadastrarFornecedorEItens()}
-            disabled={cadBusy || importBusy || isReading || bloqueiaCadastroItens}
-            className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
-            title={!fornecedorResolvido ? "Cadastre/identifique o fornecedor para cadastrar itens." : undefined}
-          >
-            {cadBusy ? "Cadastrando..." : "Cadastrar itens"}
-          </button>
+          {showBulkItemRegistrationButton && (
+            <button
+              onClick={() => void cadastrarFornecedorEItens()}
+              disabled={cadBusy || importBusy || isReading || bloqueiaCadastroItens}
+              className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
+              title={!fornecedorResolvido ? "Cadastre/identifique o fornecedor para cadastrar itens." : undefined}
+            >
+              {cadBusy ? "Cadastrando..." : "Cadastrar itens"}
+            </button>
+          )}
 
           <button
             onClick={abrirModalPagamento}
@@ -2935,14 +3957,15 @@ export default function ImportarXmlPage() {
             {importBusy ? "Importando..." : "Importar"}
           </button>
         </div>
+        )}
       </div>
 
-      <div className="border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-3">
+      <div className="order-4 border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-3">
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <div className="text-lg font-semibold">Notas importadas</div>
             <div className="text-sm text-zinc-400">
-              Notas de entrada (material) importadas. Use o filtro por mês para imprimir/consultar um período.
+              Notas de entrada importadas. Use o filtro por mês para imprimir/consultar um período.
             </div>
           </div>
           <div className="flex items-end gap-2 flex-wrap">
@@ -3019,6 +4042,7 @@ export default function ImportarXmlPage() {
                 <th className="px-3 py-2 text-left">Emissão</th>
                 <th className="px-3 py-2 text-left">Série/Número</th>
                 <th className="px-3 py-2 text-left">Emitente</th>
+                <th className="px-3 py-2 text-left">Finalidade</th>
                 <th className="px-3 py-2 text-left">Chave</th>
                 <th className="px-3 py-2 text-right">Valor</th>
                 <th className="px-3 py-2 text-center">Ação</th>
@@ -3027,13 +4051,13 @@ export default function ImportarXmlPage() {
             <tbody className="divide-y divide-zinc-800">
               {recentNfsLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-zinc-400 text-center">
+                  <td colSpan={7} className="px-3 py-4 text-zinc-400 text-center">
                     Carregando...
                   </td>
                 </tr>
               ) : recentNfs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-zinc-400 text-center">
+                  <td colSpan={7} className="px-3 py-4 text-zinc-400 text-center">
                     Nenhuma nota encontrada.
                   </td>
                 </tr>
@@ -3067,6 +4091,7 @@ export default function ImportarXmlPage() {
                       <td className="px-3 py-2">{formatDateBR(emissao) || "—"}</td>
                       <td className="px-3 py-2">{serieNum}</td>
                       <td className="px-3 py-2">{nf.emitente_nome ?? "—"}</td>
+                      <td className="px-3 py-2">{formatFinalidadeImportada(nf.finalidade_contexto)}</td>
                       <td className="px-3 py-2 font-mono text-xs">{chaveShort || "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">R$ {formatMoneyBR(Number(nf.valor_total ?? 0))}</td>
                       <td className="px-3 py-2 text-center">
@@ -3090,6 +4115,176 @@ export default function ImportarXmlPage() {
           </table>
         </div>
       </div>
+
+      {pedidoItemLink && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto"
+          onClick={(e) => e.target === e.currentTarget && fecharVinculoItemPedido()}
+        >
+          <div className="min-h-full w-full flex items-start sm:items-center justify-center p-4 py-6">
+            <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-lg font-semibold">Vincular item manual do pedido</div>
+                  <div className="text-sm text-zinc-400">
+                    Corrige somente o cadastro vinculado ao item manual. Nao altera quantidade, valor, status, estoque ou NF.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={fecharVinculoItemPedido}
+                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                  disabled={pedidoItemLinkBusy}
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-4 flex-1 min-h-0 overflow-auto">
+                {!pedidoItemLinkData?.pedido && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                    Dados do pedido candidato nao estao carregados. Releia o XML ou aguarde a busca de pedidos candidatos.
+                  </div>
+                )}
+
+                {!pedidoItemLinkData?.internalItem && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                    {pedidoItemLinkPodeCadastrar
+                      ? "Este item ainda nao tem cadastro interno. Ao confirmar, o sistema vai cadastrar o item e vincular ao item manual escolhido."
+                      : "Este item da NF ainda nao tem cadastro interno. Cadastre o item antes de vincular ao pedido."}
+                  </div>
+                )}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                    <div className="text-sm font-semibold text-zinc-100">Item da NF</div>
+                    <div className="mt-2 space-y-1 text-sm text-zinc-300">
+                      <div><span className="text-zinc-500">Codigo: </span>{pedidoItemLink.codigoOriginal || "-"}</div>
+                      <div><span className="text-zinc-500">Descricao: </span>{pedidoItemLink.descricao || "-"}</div>
+                      <div>
+                        <span className="text-zinc-500">Quantidade: </span>
+                        {formatDecimalBR(Number(pedidoItemLinkData?.nfItem?.quantidade ?? pedidoItemLinkData?.itemSuggestion?.quantidade ?? 0))}
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">Valor unitario: </span>
+                        R$ {formatMoneyBR(Number(pedidoItemLinkData?.nfItem?.valorUnit ?? pedidoItemLinkData?.itemSuggestion?.valorUnitario ?? 0))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                    <div className="text-sm font-semibold text-zinc-100">Cadastro interno</div>
+                    {pedidoItemLinkData?.internalItem ? (
+                      <div className="mt-2 space-y-1 text-sm text-zinc-300">
+                        <div><span className="text-zinc-500">ID: </span>{pedidoItemLinkData.internalItem.id}</div>
+                        <div><span className="text-zinc-500">Codigo: </span>{pedidoItemLinkData.internalItem.codigo_interno || "-"}</div>
+                        <div><span className="text-zinc-500">Nome: </span>{pedidoItemLinkData.internalItem.nome ?? pedidoItemLinkData.internalItem.descricao ?? "-"}</div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-zinc-500">
+                        {pedidoItemLinkPodeCadastrar
+                          ? "Sera criado a partir dos dados do XML ao confirmar."
+                          : "Nenhum cadastro interno encontrado para este codigo."}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                  <div className="text-sm font-semibold text-zinc-100">Pedido sugerido</div>
+                  <div className="mt-2 text-sm text-zinc-300">
+                    {pedidoItemLink.pedidoCodigo ?? pedidoItemLinkData?.pedido?.codigo ?? pedidoItemLink.pedidoId}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                  <div className="bg-zinc-900/70 px-3 py-2 text-sm font-semibold text-zinc-100">
+                    Escolha o item manual do pedido
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-zinc-900/60 text-zinc-300">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Selecionar</th>
+                          <th className="px-3 py-2 text-left">Seq</th>
+                          <th className="px-3 py-2 text-left">Descricao manual</th>
+                          <th className="px-3 py-2 text-left">OS</th>
+                          <th className="px-3 py-2 text-right">Score</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {(pedidoItemLinkData?.manualItems ?? []).map((item) => {
+                          const osLabel = item.origem_os_label ?? (item.origem_os_numero ? `OS ${item.origem_os_numero}` : item.origem_os_id ? `OS ${item.origem_os_id}` : "-");
+                          return (
+                            <tr key={item.id} className="hover:bg-zinc-900/40">
+                              <td className="px-3 py-2">
+                                <input
+                                  type="radio"
+                                  name="pedido-item-manual-link"
+                                  checked={(pedidoItemLinkSelectedId || pedidoItemLink.pedidoItemId) === item.id}
+                                  onChange={() => setPedidoItemLinkSelectedId(item.id)}
+                                />
+                              </td>
+                              <td className="px-3 py-2">{item.seq ?? "-"}</td>
+                              <td className="px-3 py-2">{item.item_nome ?? item.descricao ?? "-"}</td>
+                              <td className="px-3 py-2">{osLabel}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">
+                                {item.id === pedidoItemLink.pedidoItemId && pedidoItemLinkData?.itemSuggestion?.pedidoMatchScore
+                                  ? `${pedidoItemLinkData.itemSuggestion.pedidoMatchScore}/100`
+                                  : "-"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {(pedidoItemLinkData?.manualItems ?? []).length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-4 text-zinc-400">
+                              Nenhum item manual disponivel neste pedido.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {pedidoItemLinkError && (
+                  <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                    {pedidoItemLinkError}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-5 py-4 border-t border-zinc-800 flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={fecharVinculoItemPedido}
+                  className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                  disabled={pedidoItemLinkBusy}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmarVinculoItemPedido()}
+                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                  disabled={
+                    pedidoItemLinkBusy ||
+                    (!pedidoItemLinkData?.internalItem && !pedidoItemLinkPodeCadastrar) ||
+                    !(pedidoItemLinkSelectedId || pedidoItemLink.pedidoItemId)
+                  }
+                >
+                  {pedidoItemLinkBusy
+                    ? "Vinculando..."
+                    : pedidoItemLinkData?.internalItem
+                      ? "Confirmar vinculo"
+                      : "Cadastrar e vincular"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showPagamentoModal && (
         <div
@@ -3538,6 +4733,8 @@ export default function ImportarXmlPage() {
                               type="button"
                               onClick={() => {
                                 setPedidoCompraRef((row.codigo ?? row.id) || "");
+                                setPedidoAnalyzerRows([row]);
+                                clearOsSelection();
                                 if (row.solicitante_usuario_id) setSolicitanteUsuarioId(row.solicitante_usuario_id);
                                 closePedidoLookup();
                               }}

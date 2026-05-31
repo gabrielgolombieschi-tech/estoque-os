@@ -592,9 +592,10 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     return usuariosSolicitantes.find((u) => String(u.email ?? "").trim().toLowerCase() === sessionEmail)?.id ?? "";
   }, [te.sessionEmail, usuariosSolicitantes]);
   const canEditManualItems = useMemo(() => {
+    if (!selectedPedido) return false;
     const st = String(selectedPedido?.status ?? "").toUpperCase();
-    return ["RASCUNHO", "AGUARDANDO_APROVACAO", "REPROVADO"].includes(st);
-  }, [selectedPedido?.status]);
+    return !["RECEBIDO", "CANCELADO"].includes(st);
+  }, [selectedPedido]);
   const canEditPedidoItems = !readOnly && canWrite && canEditManualItems && pedidoEditMode;
   const pedidoCabecalhoDirty = useMemo(() => {
     if (!selectedPedido) return false;
@@ -2129,21 +2130,6 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                     >
                       {pedidoEditMode ? "Fechar edição" : "Editar"}
                     </button>
-                    <button
-                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
-                      onClick={() => void transicionarPedido(selectedPedido.id, "enviar-aprovacao")}
-                      disabled={busy || Boolean(bloqueioFluxoPedido)}
-                    >
-                      Solic. Aprov.
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
-                      onClick={() => void transicionarPedido(selectedPedido.id, "aprovar")}
-                      disabled={busy || Boolean(bloqueioFluxoPedido)}
-                    >
-                      Aprovar
-                    </button>
-                    <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => void transicionarPedido(selectedPedido.id, "reprovar", { motivo: "Reprovado via tela" })}>Reprovar</button>
                     <button
                       className="px-2 py-1 rounded border border-zinc-800 disabled:opacity-50"
                       onClick={() => void transicionarPedido(selectedPedido.id, "enviar")}

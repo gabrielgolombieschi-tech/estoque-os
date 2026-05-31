@@ -53,7 +53,8 @@ export async function PATCH(
 
   const pedido = await loadPedido(supabase, pedidoId, ctx.tenantId, ctx.empresaId);
   if ("error" in pedido) return jsonError(404, String(pedido.error ?? "Pedido nao encontrado."));
-  if (["APROVADO", "ENVIADO", "PARCIAL_RECEBIDO", "RECEBIDO", "CANCELADO"].includes(String(pedido.data.status ?? ""))) {
+  const status = String(pedido.data.status ?? "").trim().toUpperCase();
+  if (["RECEBIDO", "CANCELADO"].includes(status)) {
     return jsonError(400, `Pedido em status ${pedido.data.status} nao permite alterar item.`);
   }
 
@@ -176,7 +177,8 @@ export async function DELETE(
 
   const pedido = await loadPedido(supabase, pedidoId, ctx.tenantId, ctx.empresaId);
   if ("error" in pedido) return jsonError(404, String(pedido.error ?? "Pedido nao encontrado."));
-  if (["APROVADO", "ENVIADO", "PARCIAL_RECEBIDO", "RECEBIDO", "CANCELADO"].includes(String(pedido.data.status ?? ""))) {
+  const status = String(pedido.data.status ?? "").trim().toUpperCase();
+  if (["RECEBIDO", "CANCELADO"].includes(status)) {
     return jsonError(400, `Pedido em status ${pedido.data.status} nao permite excluir item.`);
   }
 

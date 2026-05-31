@@ -3,8 +3,13 @@
 import { parseDecimalBR } from "@/lib/decimal";
 
 export type ParsedItem = {
+  nItem?: number | null;
   codigo: string;
   nome: string;
+  unidade?: string | null;
+  unidadeTrib?: string | null;
+  ean?: string | null;
+  eanTrib?: string | null;
   quantidade: number;
   valorUnit: number;
   valorProd: number;
@@ -21,7 +26,11 @@ export type ParsedItem = {
   overrideNome?: string;
   fornecedorId?: number | null;
   ncm?: string | null;
+  cest?: string | null;
   cfop?: string | null;
+  pedidoXml?: string | null;
+  pedidoItemXml?: string | null;
+  informacoesAdicionais?: string | null;
   aliquotaIcms?: number | null;
   aliquotaIpi?: number | null;
   aliquotaPis?: number | null;
@@ -123,8 +132,14 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
     const prod = det.querySelector("prod");
     if (!prod) return;
 
+    const nItemRaw = det.getAttribute("nItem");
+    const nItem = nItemRaw ? Number(nItemRaw) : null;
     const codigo = (prod.querySelector("cProd")?.textContent ?? "").trim().replace(/^0+(?=\\d)/, "");
     const nome = prod.querySelector("xProd")?.textContent ?? "";
+    const unidade = prod.querySelector("uCom")?.textContent ?? null;
+    const unidadeTrib = prod.querySelector("uTrib")?.textContent ?? null;
+    const ean = prod.querySelector("cEAN")?.textContent ?? null;
+    const eanTrib = prod.querySelector("cEANTrib")?.textContent ?? null;
     const quantidade = num(prod.querySelector("qCom")?.textContent);
     const valorUnit = num(prod.querySelector("vUnCom")?.textContent);
     const vProd = num(prod.querySelector("vProd")?.textContent);
@@ -145,7 +160,11 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
     const total = totalBase > 0 ? totalBase : vProd || quantidade * valorUnit;
 
     const ncm = prod.querySelector("NCM")?.textContent ?? null;
+    const cest = prod.querySelector("CEST")?.textContent ?? null;
     const cfop = prod.querySelector("CFOP")?.textContent ?? null;
+    const pedidoXml = prod.querySelector("xPed")?.textContent ?? null;
+    const pedidoItemXml = prod.querySelector("nItemPed")?.textContent ?? null;
+    const informacoesAdicionais = det.querySelector("infAdProd")?.textContent ?? null;
 
     const icmsNode = det.querySelector("ICMS");
     let aliquotaIcms: number | null = null;
@@ -162,8 +181,13 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
     if (!codigo) return;
 
     itens.push({
+      nItem: Number.isFinite(nItem) ? nItem : null,
       codigo,
       nome,
+      unidade,
+      unidadeTrib,
+      ean,
+      eanTrib,
       quantidade,
       valorUnit,
       valorProd: vProd,
@@ -179,7 +203,11 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
       vSeguro,
       overrideNome: nome,
       ncm,
+      cest,
       cfop,
+      pedidoXml,
+      pedidoItemXml,
+      informacoesAdicionais,
       aliquotaIcms,
       aliquotaIpi,
       aliquotaPis,
@@ -241,4 +269,3 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
     itens,
   };
 }
-

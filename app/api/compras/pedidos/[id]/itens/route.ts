@@ -83,8 +83,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
   const valorTotal = calcPedidoItemValorTotal(quantidade, valorUnitario);
 
-  const status = String((pedido as { status?: string }).status ?? "");
-  if (["APROVADO", "ENVIADO", "PARCIAL_RECEBIDO", "RECEBIDO", "CANCELADO"].includes(status)) {
+  const status = String((pedido as { status?: string }).status ?? "").trim().toUpperCase();
+  if (["RECEBIDO", "CANCELADO"].includes(status)) {
     return jsonError(400, `Pedido em status ${status} nao permite incluir item.`);
   }
 

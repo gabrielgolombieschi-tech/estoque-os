@@ -17,6 +17,7 @@ type NfEntradaResumoRow = {
   data_emissao: string | null;
   valor_total: number | string | null;
   criado_em: string | null;
+  finalidade_contexto?: string | null;
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -34,6 +35,15 @@ function formatDateBR(dateIso: string | null | undefined): string {
   const d = new Date(`${String(dateIso).slice(0, 10)}T00:00:00`);
   if (!Number.isFinite(d.getTime())) return "—";
   return d.toLocaleDateString("pt-BR");
+}
+
+function formatFinalidadeImportada(value: string | null | undefined): string {
+  const key = String(value ?? "").trim().toLowerCase();
+  if (key === "materia_prima") return "Materia-prima";
+  if (key === "imobilizado") return "Imobilizado";
+  if (key === "consumo") return "Consumo";
+  if (key === "revenda") return "Revenda";
+  return key || "-";
 }
 
 function safeInt(value: string | null): number | null {
@@ -105,7 +115,6 @@ export default function EstoqueImportarImprimirPage() {
           .from("nf_entrada")
           .select("id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto")
           .eq("empresa_id", empresaId)
-          .eq("finalidade_contexto", "materia_prima")
           .not("chave", "is", null)
           .order("criado_em", { ascending: false })
           .order("id", { ascending: false });
@@ -135,6 +144,7 @@ export default function EstoqueImportarImprimirPage() {
               data_emissao: r.data_emissao ?? null,
               valor_total: r.valor_total ?? null,
               criado_em: r.criado_em ?? null,
+              finalidade_contexto: r.finalidade_contexto ?? null,
             }))
             .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
 
@@ -212,6 +222,7 @@ export default function EstoqueImportarImprimirPage() {
                   <th className="w-[92px] border border-zinc-300 bg-zinc-100 px-2 py-1 text-left">Emissão</th>
                   <th className="w-[120px] border border-zinc-300 bg-zinc-100 px-2 py-1 text-left">Série/Número</th>
                   <th className="border border-zinc-300 bg-zinc-100 px-2 py-1 text-left">Emitente</th>
+                  <th className="w-[110px] border border-zinc-300 bg-zinc-100 px-2 py-1 text-left">Finalidade</th>
                   <th className="border border-zinc-300 bg-zinc-100 px-2 py-1 text-left">Chave</th>
                   <th className="w-[120px] border border-zinc-300 bg-zinc-100 px-2 py-1 text-right">Valor</th>
                 </tr>
@@ -224,6 +235,7 @@ export default function EstoqueImportarImprimirPage() {
                       <td className="border border-zinc-300 px-2 py-1">{formatDateBR(nf.data_emissao)}</td>
                       <td className="border border-zinc-300 px-2 py-1">{serieNum}</td>
                       <td className="border border-zinc-300 px-2 py-1">{nf.emitente_nome ?? "—"}</td>
+                      <td className="border border-zinc-300 px-2 py-1">{formatFinalidadeImportada(nf.finalidade_contexto)}</td>
                       <td className="mono border border-zinc-300 px-2 py-1 text-[11px]">{nf.chave || "—"}</td>
                       <td className="border border-zinc-300 px-2 py-1 text-right">R$ {formatMoneyBR(Number(nf.valor_total ?? 0))}</td>
                     </tr>
