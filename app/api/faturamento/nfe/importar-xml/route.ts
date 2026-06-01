@@ -374,13 +374,11 @@ async function createPlaceholderItens(opts: {
     };
   });
 
-  const { error: insErr } = await admin
-    .from("itens")
-    .upsert(rows as unknown as Record<string, unknown>[], {
-      onConflict: "tenant_id,empresa_id,codigo_interno",
-      ignoreDuplicates: true,
-    });
-  if (insErr) throw insErr;
+  const { error: insErr } = await admin.from("itens").insert(rows as unknown as Record<string, unknown>[]);
+  if (insErr) {
+    const code = typeof insErr.code === "string" ? insErr.code : "";
+    if (code !== "23505") throw insErr;
+  }
 }
 
 export async function POST(req: NextRequest) {
