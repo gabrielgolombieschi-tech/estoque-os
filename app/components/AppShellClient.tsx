@@ -434,6 +434,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         onMouseEnter={() => openWithHover("imobilizado")}
                         onMouseLeave={scheduleClose}
                       >
+                        <Link href="/imobilizado/itens" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Itens
+                        </Link>
                         <div className="relative group/imo">
                           <div className="px-3 py-2 hover:bg-zinc-900 text-sm flex items-center justify-between cursor-default select-none">
                             <span>Ferramentas</span>

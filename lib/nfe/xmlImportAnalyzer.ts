@@ -251,6 +251,10 @@ const DEFAULT_AUTO_CREATE_FINALIDADES = ["materia_prima", "revenda"];
 const DEFAULT_PEDIDO_SCORE_MINIMO = 60;
 const PEDIDO_ITEM_MATCH_MIN_SCORE = 35;
 const PEDIDO_ITEM_MANUAL_MATCH_MIN_SCORE = 45;
+const PEDIDO_ITEM_MANUAL_VALOR_QTD_MATCH_MIN_SCORE = 40;
+const PEDIDO_ITEM_MANUAL_VALOR_QTD_DESCRICAO_MIN_SCORE = 30;
+const PEDIDO_QUANTIDADE_TOLERANCIA_ABSOLUTA = 0.01;
+const PEDIDO_QUANTIDADE_TOLERANCIA_PERCENTUAL = 0.001;
 const VALOR_UNITARIO_DIVERGENCIA_BLOQUEIO_PERCENT = 15;
 
 const DESCRIPTION_STOP_TOKENS = new Set([
@@ -633,6 +637,15 @@ function valuesClose(a: number, b: number, absoluteTolerance: number, percentTol
   return diff / Math.max(Math.abs(b), 1) <= percentTolerance;
 }
 
+function quantitiesClose(a: number, b: number): boolean {
+  return valuesClose(
+    a,
+    b,
+    PEDIDO_QUANTIDADE_TOLERANCIA_ABSOLUTA,
+    PEDIDO_QUANTIDADE_TOLERANCIA_PERCENTUAL
+  );
+}
+
 function pedidoItemSaldo(item: XmlImportPedidoItem): number {
   return Math.max(0, toNumber(item.quantidade) - toNumber(item.quantidade_recebida));
 }
@@ -748,18 +761,32 @@ function scorePedidoItem(
   const saldo = pedidoItemSaldo(pedidoItem);
   let quantityStatus: XmlImportPedidoItemMatch["quantityStatus"] = "DESCONHECIDA";
   if (nfItem.quantidade > 0 && saldo > 0) {
-    if (nfItem.quantidade > saldo + 0.000001) {
-      quantityStatus = "EXCESSO";
-      score -= 10;
-    } else if (nfItem.quantidade < saldo - 0.000001) {
-      quantityStatus = "PARCIAL";
-      score += 6;
-      matchedBy.push("quantidade_parcial");
-    } else {
+    if (quantitiesClose(nfItem.quantidade, saldo)) {
       quantityStatus = "OK";
       score += 10;
       matchedBy.push("quantidade");
+    } else if (nfItem.quantidade > saldo) {
+      quantityStatus = "EXCESSO";
+      score -= 10;
+    } else {
+      quantityStatus = "PARCIAL";
+      score += 6;
+      matchedBy.push("quantidade_parcial");
     }
+  }
+
+  const hasManualDescriptionEvidence =
+    manualItem &&
+    descSimilarity >= PEDIDO_ITEM_MANUAL_VALOR_QTD_DESCRICAO_MIN_SCORE &&
+    !matchedBy.some((value) => value.startsWith("descricao_manual_"));
+  const hasManualValueQuantityEvidence =
+    manualItem &&
+    matchedBy.includes("valor_unitario") &&
+    (quantityStatus === "OK" || quantityStatus === "PARCIAL");
+
+  if (hasManualDescriptionEvidence && hasManualValueQuantityEvidence) {
+    score += 12;
+    matchedBy.push("descricao_manual_por_valor_quantidade");
   }
 
   return {
@@ -806,6 +833,16 @@ function isPedidoItemMatchConfiavel(match: XmlImportPedidoItemMatch): boolean {
     match.matchedBy.includes("codigo");
 
   if (hasIdentityMatch) return match.score >= PEDIDO_ITEM_MATCH_MIN_SCORE;
+
+  const hasManualValueQuantityEvidence =
+    match.manualItem &&
+    match.matchedBy.includes("valor_unitario") &&
+    (match.quantityStatus === "OK" || match.quantityStatus === "PARCIAL") &&
+    (match.descricaoSimilarity ?? 0) >= PEDIDO_ITEM_MANUAL_VALOR_QTD_DESCRICAO_MIN_SCORE;
+
+  if (hasManualValueQuantityEvidence) {
+    return match.score >= PEDIDO_ITEM_MANUAL_VALOR_QTD_MATCH_MIN_SCORE;
+  }
 
   if (match.manualItem) {
     return match.score >= PEDIDO_ITEM_MANUAL_MATCH_MIN_SCORE && (match.descricaoSimilarity ?? 0) >= 50;
