@@ -11,6 +11,8 @@ type Pedido = {
   codigo: string;
   status: string;
   fornecedor_nome?: string | null;
+  solicitante_usuario_id?: string | null;
+  solicitante_nome?: string | null;
   previsao_entrega_date?: string | null;
   condicao_pagamento_nome?: string | null;
   transporte_tipo?: "CIF" | "FOB" | null;
@@ -180,6 +182,12 @@ export default function ComprasPedidoImprimirPage() {
               </div>
               <div>
                 <span className="text-zinc-600">Pedido ID:</span> <span className="font-mono">{data.pedido.id}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-zinc-600">Solicitante:</span>{" "}
+                <strong>
+                  {String(data.pedido.solicitante_nome ?? data.pedido.solicitante_usuario_id ?? "").trim() || "-"}
+                </strong>
               </div>
               <div>
                 <span className="text-zinc-600">Condições de pagamento:</span>{" "}
