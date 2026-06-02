@@ -158,7 +158,7 @@ export default function OsListPage() {
   );
 
   const canGestaoWrite = (has("os_gestao.write") ?? true) || 
-    (empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(String(empresaPapel).toUpperCase()));
+    (empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(String(empresaPapel).toUpperCase()));
 
   const osAccess = useMemo(() => getOsListAccess(empresaPapel), [empresaPapel]);
   const canView = canReadOs || osAccess.canView;

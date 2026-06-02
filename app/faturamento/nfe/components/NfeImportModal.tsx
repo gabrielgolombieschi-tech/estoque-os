@@ -88,16 +88,22 @@ export default function NfeImportModal({
 
   const canImportXml = useMemo(() => {
     const empresaRole = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
-    const isFinanceiroEmpresaRole = typeof empresaRole === "string" && empresaRole.trim().toUpperCase() === "FINANCEIRO";
+    const normalizedEmpresaRole = typeof empresaRole === "string" ? empresaRole.trim().toUpperCase() : "";
+    const isFinanceiroEmpresaRole = normalizedEmpresaRole === "FINANCEIRO" || normalizedEmpresaRole === "FATURAMENTO";
     if (isFinanceiroEmpresaRole) return true;
 
     const explicit = te.has("xml_import_faturamento.execute");
-    if (explicit === true) return true;
-
-    const fRead = te.has("financeiro.read");
-    const fWrite = te.has("financeiro.write");
-    if (explicit === undefined || fRead === undefined || fWrite === undefined) return undefined;
-    return Boolean(explicit || fRead || fWrite);
+    const values = [
+      explicit,
+      te.has("financeiro.read"),
+      te.has("financeiro.write"),
+      te.has("faturamento.read"),
+      te.has("faturamento.write"),
+      te.has("faturamento.nfe.import_xml"),
+    ];
+    if (values.some((value) => value === true)) return true;
+    if (values.some((value) => value === undefined)) return undefined;
+    return false;
   }, [te]);
 
   const [file, setFile] = useState<File | null>(null);

@@ -391,9 +391,9 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   }, [te.empresaId, te.empresas]);
   const empresaRole = useMemo(() => String(effectiveEmpresa?.papel ?? "").trim().toUpperCase(), [effectiveEmpresa?.papel]);
 
-  const canReadByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
-  const canWriteByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole);
-  const canReadOnlyPedidosByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO", "APONTAMENTO_RH"].includes(empresaRole);
+  const canReadByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
+  const canWriteByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
+  const canReadOnlyPedidosByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaRole);
 
   const canRead =
     te.has("compras.read") || te.has("compras.write") || te.has("compras.approve") || te.has("compras.receive") || canReadByRole;

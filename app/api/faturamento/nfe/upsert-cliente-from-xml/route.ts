@@ -94,12 +94,15 @@ export async function POST(req: NextRequest) {
     if (!empresaId) return jerr(400, "empresaId é obrigatório.");
 
     // Allow either client write permission OR xml import permission (feature is tied to import).
-    const [{ data: canClientes }, { data: canXml }] = await Promise.all([
+    const [{ data: canClientes }, { data: canXml }, { data: canXmlFaturamento }] = await Promise.all([
       supabase.rpc("can", { p_resource: "cad_clientes", p_action: "write" }),
       supabase.rpc("can", { p_resource: "xml_import", p_action: "execute" }),
+      supabase.rpc("can", { p_resource: "xml_import_faturamento", p_action: "execute" }),
     ]);
 
-    if (!canClientes && !canXml) return jerr(403, "Sem permissão para cadastrar/atualizar clientes.");
+    if (!canClientes && !canXml && !canXmlFaturamento) {
+      return jerr(403, "Sem permissão para cadastrar/atualizar clientes.");
+    }
 
     const documento = normalizeDocumento(body.documento);
     if (!documento) return jerr(422, "Documento (CNPJ/CPF) inválido ou ausente no XML.");

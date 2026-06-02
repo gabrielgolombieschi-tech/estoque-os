@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 const PEDIDO_LOOKUP_ALLOWED_ROLES = new Set([
   "ADMIN",
   "FINANCEIRO",
+  "FATURAMENTO",
   "COORDENACAO",
   "COMPRAS",
   "ALMOXARIFADO",

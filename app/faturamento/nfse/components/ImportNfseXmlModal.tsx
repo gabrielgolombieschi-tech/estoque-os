@@ -88,14 +88,18 @@ export default function ImportNfseXmlModal({
     const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
     return typeof role === "string" ? role.trim().toUpperCase() : "";
   }, [te.empresa?.papel, te.empresaId, te.empresas]);
-  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO" || empresaRole === "FATURAMENTO";
 
   const canImport = useMemo(() => {
     if (isFinanceiroEmpresaRole) return true;
-    const fRead = te.has("financeiro.read");
-    const fWrite = te.has("financeiro.write");
-    if (fRead === undefined || fWrite === undefined) return undefined;
-    return Boolean(fRead || fWrite);
+    const values = [
+      te.has("financeiro.read"),
+      te.has("financeiro.write"),
+      te.has("faturamento.read"),
+      te.has("faturamento.write"),
+    ];
+    if (values.some((value) => value === undefined)) return undefined;
+    return values.some(Boolean);
   }, [isFinanceiroEmpresaRole, te]);
 
   const [file, setFile] = useState<File | null>(null);

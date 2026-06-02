@@ -814,7 +814,7 @@ export default function ImportarXmlPage() {
     const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
     return typeof role === "string" ? role.trim().toUpperCase() : "";
   }, [te.empresa?.papel, te.empresaId, te.empresas]);
-  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO" || empresaRole === "FATURAMENTO";
   const { has, loading: permissionsLoading, ready } = usePermissions();
 
   const [recentNfs, setRecentNfs] = useState<NfEntradaResumoRow[]>([]);

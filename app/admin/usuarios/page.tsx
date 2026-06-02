@@ -32,6 +32,7 @@ type TenantRole = "OWNER" | "ADMIN" | "CONTADOR" | "GESTOR";
 type EmpresaRole =
   | "ADMIN"
   | "FINANCEIRO"
+  | "FATURAMENTO"
   | "COORDENACAO"
   | "COMPRAS"
   | "ALMOXARIFADO"
@@ -59,6 +60,7 @@ const TENANT_ROLES: TenantRole[] = ["OWNER", "ADMIN", "CONTADOR", "GESTOR"];
 const EMPRESA_ROLES: EmpresaRole[] = [
   "ADMIN",
   "FINANCEIRO",
+  "FATURAMENTO",
   "COORDENACAO",
   "COMPRAS",
   "ALMOXARIFADO",
@@ -118,7 +120,7 @@ function getFriendlyRoleError(err: unknown): string | null {
     return "Papel do tenant inválido. Use: OWNER, ADMIN, CONTADOR, GESTOR.";
   }
   if (t.includes("invalid_empresa_role")) {
-    return "Papel da empresa inválido. Use: ADMIN, FINANCEIRO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV.";
+    return "Papel da empresa inválido. Use: ADMIN, FINANCEIRO, FATURAMENTO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV.";
   }
   return null;
 }

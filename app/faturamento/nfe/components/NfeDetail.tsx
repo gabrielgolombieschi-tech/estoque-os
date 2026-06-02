@@ -113,7 +113,7 @@ export default function NfeDetail({
     const role = te.empresa?.papel ?? te.empresas.find((e) => e.id === te.empresaId)?.papel ?? null;
     return typeof role === "string" ? role.trim().toUpperCase() : "";
   }, [te.empresa?.papel, te.empresaId, te.empresas]);
-  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+  const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO" || empresaRole === "FATURAMENTO";
 
   const canAccess = useMemo(() => {
     const requireAny = (caps: CapabilityKey[]) => {
@@ -134,7 +134,7 @@ export default function NfeDetail({
 
     // Default: financeiro
     if (isFinanceiroEmpresaRole) return true;
-    return requireAny(["financeiro.read", "financeiro.write"]);
+    return requireAny(["financeiro.read", "financeiro.write", "faturamento.read", "faturamento.write"]);
   }, [access, isFinanceiroEmpresaRole, te]);
 
   useEffect(() => {

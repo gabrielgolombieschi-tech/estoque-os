@@ -321,7 +321,7 @@ export default function ItensClient({
     .trim()
     .toUpperCase();
   const canViewByEmpresaPapel = Boolean(
-    empresaPapel && ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS"].includes(empresaPapel)
+    empresaPapel && ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "FATURAMENTO"].includes(empresaPapel)
   );
   const canViewImobilizadoItens =
     lockedFinalidade === "imobilizado" && (has("imobilizado.read") === true || has("imobilizado.write") === true);

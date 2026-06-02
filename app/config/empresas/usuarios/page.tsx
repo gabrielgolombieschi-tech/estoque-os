@@ -14,6 +14,7 @@ type Profile = {
 type EmpresaRole =
   | "ADMIN"
   | "FINANCEIRO"
+  | "FATURAMENTO"
   | "COORDENACAO"
   | "COMPRAS"
   | "ALMOXARIFADO"
@@ -36,6 +37,7 @@ type TenantMembershipRow = {
 const roleOptions: EmpresaRole[] = [
   "ADMIN",
   "FINANCEIRO",
+  "FATURAMENTO",
   "COORDENACAO",
   "COMPRAS",
   "ALMOXARIFADO",

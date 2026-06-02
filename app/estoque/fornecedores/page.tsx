@@ -423,7 +423,7 @@ export default function FornecedoresPage() {
   const empresaPapel = String(empresa?.papel ?? "")
     .trim()
     .toUpperCase();
-  const canAccessByPapel = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaPapel));
+  const canAccessByPapel = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaPapel));
 
   const canView = hasAny(capabilities, ["estoque.read", "cad_fornecedores.write"]) || canAccessByPapel;
   const canEdit = hasAny(capabilities, ["estoque.write", "cad_fornecedores.write"]) || canAccessByPapel;

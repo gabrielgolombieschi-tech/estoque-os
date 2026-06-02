@@ -51,8 +51,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Must have permission to import XML (same gate as import screen).
-    const { data: canImport } = await supabase.rpc("can", { p_resource: "xml_import", p_action: "execute" });
-    if (!canImport) return jerr(403, "Sem permissão para importar XML.");
+    const [{ data: canImport }, { data: canImportFaturamento }] = await Promise.all([
+      supabase.rpc("can", { p_resource: "xml_import", p_action: "execute" }),
+      supabase.rpc("can", { p_resource: "xml_import_faturamento", p_action: "execute" }),
+    ]);
+    if (!canImport && !canImportFaturamento) return jerr(403, "Sem permissão para importar XML.");
 
     const { data: existing } = await applyTenantEmpresa(
       supabase

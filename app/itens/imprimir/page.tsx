@@ -100,7 +100,7 @@ export default function ItensImprimirPage() {
 
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
   const canViewByEmpresaPapel = Boolean(
-    empresaPapel && ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS"].includes(empresaPapel)
+    empresaPapel && ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "FATURAMENTO"].includes(empresaPapel)
   );
   const canView = requireAny(capabilities, ["estoque.read", "os.read", "cad_itens.write"]) || canViewByEmpresaPapel;
 

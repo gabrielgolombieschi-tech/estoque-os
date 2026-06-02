@@ -184,7 +184,10 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canAccessCadastroItens = can("cad_itens.write");
 
   const canAccessCadastrosByEmpresaPapel = Boolean(
-    empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole)
+    empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole)
+  );
+  const canAccessCadastrosFullByEmpresaPapel = Boolean(
+    empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaRole)
   );
 
   const canAccessCadastros =
@@ -193,27 +196,43 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     can("cad_clientes.write") ||
     can("cad_fornecedores.write") ||
     canAccessCadastrosByEmpresaPapel;
-  const canAccessContratos = can("admin.manage_users") || can("financeiro.read") || can("apontamentos.read");
-  const canAccessColaboradores = can("admin.manage_users") || can("financeiro.read");
+  const canAccessContratos =
+    can("admin.manage_users") ||
+    can("financeiro.read") ||
+    can("apontamentos.read") ||
+    canAccessCadastrosFullByEmpresaPapel;
+  const canAccessColaboradores =
+    can("admin.manage_users") || can("financeiro.read") || canAccessCadastrosFullByEmpresaPapel;
   const canAccessApontamentos = can("apontamentos.read") || can("apontamentos.write");
   const canAccessClientesCad =
     can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write") || canAccessCadastrosByEmpresaPapel;
   const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
+  const isFaturamentoEmpresaRole = empresaRole === "FATURAMENTO";
 
   const canAccessFinanceiro = can("financeiro.read") || can("financeiro.write") || isFinanceiroEmpresaRole;
+  const canAccessFinanceiroMenu = canAccessFinanceiro && !isFaturamentoEmpresaRole;
   const canAccessCompras =
     can("compras.read") ||
     can("compras.write") ||
     can("compras.approve") ||
     can("compras.receive") ||
-    Boolean(empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS"].includes(empresaRole));
+    Boolean(empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole));
   const canAccessComercial = canAccessFinanceiro || canAccessOs;
   const canImportXml = can("xml_import.execute");
   const canImportXmlFaturamento =
     canStrict("xml_import_faturamento.execute") ||
+    canStrict("faturamento.nfe.import_xml") ||
+    canStrict("faturamento.write") ||
     canStrict("financeiro.read") ||
     canStrict("financeiro.write") ||
-    isFinanceiroEmpresaRole;
+    isFinanceiroEmpresaRole ||
+    isFaturamentoEmpresaRole;
+  const canAccessFaturamento =
+    can("faturamento.read") ||
+    can("faturamento.write") ||
+    canImportXmlFaturamento ||
+    canAccessFinanceiro ||
+    isFaturamentoEmpresaRole;
   const canAdminManageUsers = can("admin.manage_users");
   const shouldShowAdmin = canAdminManageUsers || isAdminTenant;
   const adminReason = "";
@@ -230,17 +249,17 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     .toUpperCase();
   const canSeeEstoquePedidosMenuByEmpresaPapel = Boolean(
     empresaPapel &&
-      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH"].includes(empresaPapel)
+      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaPapel)
   );
   const canSeeEstoqueMenuByEmpresaPapel = Boolean(
     empresaPapel &&
-      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH"].includes(empresaPapel)
+      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaPapel)
   );
   const canSeeEstoqueMenu = canAccessEstoque || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeEstoquePedidosMenu = canSeeEstoqueMenu || canSeeEstoquePedidosMenuByEmpresaPapel;
   const canSeeCadastroItensMenu = canAccessCadastroItens || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeAjusteEstoqueMenu = can("estoque.read") || can("estoque.write") || canSeeEstoqueMenuByEmpresaPapel;
-  const canSeeAjusteNomeMenu = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO"].includes(empresaPapel));
+  const canSeeAjusteNomeMenu = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaPapel));
   const canSeeImobilizadoMenu = can("imobilizado.read") === true;
 
   useEffect(() => {
@@ -459,7 +478,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                   </div>
                 )}
 
-                {canAccessFinanceiro && (
+                {canAccessFinanceiroMenu && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("financeiro")}
@@ -695,7 +714,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                   </div>
                 )}
 
-                {canAccessFinanceiro && (
+                {canAccessFaturamento && (
                   <div
                     className="relative"
                     onMouseEnter={() => openWithHover("faturamento")}

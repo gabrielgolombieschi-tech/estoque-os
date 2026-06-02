@@ -17,6 +17,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PEDIDO_LOOKUP_ALLOWED_ROLES = new Set([
   "ADMIN",
   "FINANCEIRO",
+  "FATURAMENTO",
   "COORDENACAO",
   "COMPRAS",
   "ALMOXARIFADO",
