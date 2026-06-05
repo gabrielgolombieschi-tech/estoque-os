@@ -137,6 +137,7 @@ export type XmlImportPedidoItemMatch = {
   nfItemIndex: number;
   pedidoItemId: string;
   pedidoId: string;
+  pedidoItemIdentityKey?: string;
   score: number;
   matchedBy: string[];
   manualItem?: boolean;
@@ -650,6 +651,16 @@ function pedidoItemSaldo(item: XmlImportPedidoItem): number {
   return Math.max(0, toNumber(item.quantidade) - toNumber(item.quantidade_recebida));
 }
 
+function getPedidoItemIdentityKey(item: XmlImportPedidoItem): string {
+  const itemId = getItemId(item.item_id);
+  if (itemId) return `ITEM_ID:${itemId}`;
+
+  const codigo = normalizePedidoItemCode(item.item_codigo);
+  if (codigo) return `CODIGO:${normalizeKey(codigo)}`;
+
+  return `PEDIDO_ITEM:${String(item.id ?? "").trim()}`;
+}
+
 function isPedidoItemManual(item: XmlImportPedidoItem): boolean {
   return !getItemId(item.item_id) && !normalizePedidoItemCode(item.item_codigo);
 }
@@ -674,7 +685,8 @@ function scorePedidoItem(
   params: Required<Pick<
     XmlImportAnalyzerParams,
     "valorUnitarioToleranciaAbsoluta" | "valorUnitarioToleranciaPercentual"
-  >>
+  >>,
+  saldoOverride?: number | null
 ): XmlImportPedidoItemMatch {
   const matchedBy: string[] = [];
   let score = 0;
@@ -758,7 +770,7 @@ function scorePedidoItem(
     if (diffPct <= 0.1) score += 6;
   }
 
-  const saldo = pedidoItemSaldo(pedidoItem);
+  const saldo = saldoOverride == null ? pedidoItemSaldo(pedidoItem) : Math.max(0, saldoOverride);
   let quantityStatus: XmlImportPedidoItemMatch["quantityStatus"] = "DESCONHECIDA";
   if (nfItem.quantidade > 0 && saldo > 0) {
     if (quantitiesClose(nfItem.quantidade, saldo)) {
@@ -793,6 +805,7 @@ function scorePedidoItem(
     nfItemIndex: nfItem.index,
     pedidoItemId: pedidoItem.id,
     pedidoId: pedido.id,
+    pedidoItemIdentityKey: getPedidoItemIdentityKey(pedidoItem),
     score: roundScore(score),
     matchedBy,
     manualItem,
@@ -817,14 +830,151 @@ function bestMatchForItem(
   params: Required<Pick<
     XmlImportAnalyzerParams,
     "valorUnitarioToleranciaAbsoluta" | "valorUnitarioToleranciaPercentual"
-  >>
+  >>,
+  remainingByPedidoItemId?: Map<string, number>
 ): XmlImportPedidoItemMatch | null {
   let best: XmlImportPedidoItemMatch | null = null;
   for (const pedidoItem of pedido.itens ?? []) {
-    const current = scorePedidoItem(nfItem, pedido, pedidoItem, itemInterno, params);
-    if (!best || current.score > best.score) best = current;
+    const current = scorePedidoItem(
+      nfItem,
+      pedido,
+      pedidoItem,
+      itemInterno,
+      params,
+      remainingByPedidoItemId?.get(pedidoItem.id) ?? null
+    );
+    if (!best || current.score > best.score || (current.score === best.score && isBetterQuantityMatch(current, best))) {
+      best = current;
+    }
   }
   return best;
+}
+
+function quantityStatusRank(status: XmlImportPedidoItemMatch["quantityStatus"]): number {
+  if (status === "OK") return 4;
+  if (status === "PARCIAL") return 3;
+  if (status === "DESCONHECIDA") return 2;
+  return 1;
+}
+
+function isBetterQuantityMatch(current: XmlImportPedidoItemMatch, best: XmlImportPedidoItemMatch): boolean {
+  const currentRank = quantityStatusRank(current.quantityStatus);
+  const bestRank = quantityStatusRank(best.quantityStatus);
+  if (currentRank !== bestRank) return currentRank > bestRank;
+  return current.saldoPedido > best.saldoPedido;
+}
+
+function getQuantityStatus(quantidadeNf: number, saldoPedido: number): XmlImportPedidoItemMatch["quantityStatus"] {
+  if (quantidadeNf <= 0 || saldoPedido <= 0) return "DESCONHECIDA";
+  if (quantitiesClose(quantidadeNf, saldoPedido)) return "OK";
+  return quantidadeNf > saldoPedido ? "EXCESSO" : "PARCIAL";
+}
+
+function buildPedidoSaldoByIdentity(pedido: XmlImportPedidoCandidato): Map<string, number> {
+  const saldoByKey = new Map<string, number>();
+  for (const item of pedido.itens ?? []) {
+    const key = getPedidoItemIdentityKey(item);
+    saldoByKey.set(key, (saldoByKey.get(key) ?? 0) + pedidoItemSaldo(item));
+  }
+  return saldoByKey;
+}
+
+function buildPedidoQuantityDivergencias(opts: {
+  pedido: XmlImportPedidoCandidato;
+  matches: XmlImportPedidoItemMatch[];
+  nfItems: NormalizedNfItem[];
+}): XmlImportDiagnostic[] {
+  const nfItemByIndex = new Map(opts.nfItems.map((item) => [item.index, item]));
+  const saldoByKey = buildPedidoSaldoByIdentity(opts.pedido);
+  const groups = new Map<string, {
+    key: string;
+    matches: XmlImportPedidoItemMatch[];
+    pedidoItemIds: Set<string>;
+    nfItemIndexes: Set<number>;
+    quantidadeNf: number;
+    saldoPedido: number;
+    codigo: string;
+    descricao: string;
+  }>();
+
+  for (const match of opts.matches) {
+    const nfItem = nfItemByIndex.get(match.nfItemIndex);
+    if (!nfItem) continue;
+
+    const key = match.pedidoItemIdentityKey || `PEDIDO_ITEM:${match.pedidoItemId}`;
+    const group = groups.get(key) ?? {
+      key,
+      matches: [],
+      pedidoItemIds: new Set<string>(),
+      nfItemIndexes: new Set<number>(),
+      quantidadeNf: 0,
+      saldoPedido: saldoByKey.get(key) ?? match.saldoPedido,
+      codigo: nfItem.codigoOriginal || "-",
+      descricao: nfItem.descricao,
+    };
+
+    group.matches.push(match);
+    group.pedidoItemIds.add(match.pedidoItemId);
+    group.nfItemIndexes.add(nfItem.index);
+    group.quantidadeNf += nfItem.quantidade;
+    if (!group.codigo || group.codigo === "-") group.codigo = nfItem.codigoOriginal || "-";
+    if (!group.descricao) group.descricao = nfItem.descricao;
+    groups.set(key, group);
+  }
+
+  const divergencias: XmlImportDiagnostic[] = [];
+
+  for (const group of groups.values()) {
+    const saldoPedido = Math.max(0, saldoByKey.get(group.key) ?? group.saldoPedido);
+    const quantityStatus = getQuantityStatus(group.quantidadeNf, saldoPedido);
+    const linhasNf = group.nfItemIndexes.size;
+    const linhasLabel = linhasNf > 1 ? ` (${linhasNf} linhas)` : "";
+    const pedidoItemIds = Array.from(group.pedidoItemIds);
+
+    for (const match of group.matches) {
+      match.quantityStatus = quantityStatus;
+      match.saldoPedido = saldoPedido;
+      if (linhasNf > 1 && quantityStatus === "OK" && !match.matchedBy.includes("quantidade_agregada")) {
+        match.matchedBy.push("quantidade_agregada");
+      }
+    }
+
+    if (quantityStatus === "PARCIAL") {
+      const restante = Math.max(0, saldoPedido - group.quantidadeNf);
+      divergencias.push(
+        diagnostic("QUANTIDADE_PARCIAL_PEDIDO", "error", `Quantidade parcial no item ${group.codigo || "-"}: NF ${formatDecimal(group.quantidadeNf)}${linhasLabel}, saldo do pedido ${formatDecimal(saldoPedido)}, restante ${formatDecimal(restante)}. Ajuste a quantidade do pedido antes de importar.`, {
+          codigo: group.codigo,
+          descricao: group.descricao,
+          pedido_item_id: pedidoItemIds[0] ?? null,
+          pedido_item_ids: pedidoItemIds,
+          nf_item_indexes: Array.from(group.nfItemIndexes),
+          linhas_nf: linhasNf,
+          quantidade_nf: group.quantidadeNf,
+          saldo_pedido: saldoPedido,
+          restante,
+        })
+      );
+    }
+
+    if (quantityStatus === "EXCESSO") {
+      const excesso = Math.max(0, group.quantidadeNf - saldoPedido);
+      divergencias.push(
+        diagnostic("QUANTIDADE_EXCEDE_PEDIDO", "error", `Quantidade excedente no item ${group.codigo || "-"}: NF ${formatDecimal(group.quantidadeNf)}${linhasLabel}, saldo do pedido ${formatDecimal(saldoPedido)}, excesso ${formatDecimal(excesso)}. Ajuste a quantidade do pedido antes de importar.`, {
+          codigo: group.codigo,
+          descricao: group.descricao,
+          pedido_item_id: pedidoItemIds[0] ?? null,
+          pedido_item_ids: pedidoItemIds,
+          nf_item_indexes: Array.from(group.nfItemIndexes),
+          linhas_nf: linhasNf,
+          quantidade_nf: group.quantidadeNf,
+          saldo_pedido: saldoPedido,
+          excesso,
+        })
+      );
+    }
+  }
+
+  return divergencias;
 }
 
 function isPedidoItemMatchConfiavel(match: XmlImportPedidoItemMatch): boolean {
@@ -913,10 +1063,13 @@ function scorePedido(
   let matchedWithOsCount = 0;
   let matchedQuantityCompatibleCount = 0;
   let matchedValueCompatibleCount = 0;
+  const remainingByPedidoItemId = new Map(
+    pedidoItens.map((item) => [item.id, pedidoItemSaldo(item)])
+  );
 
   for (const nfItem of nfItems) {
     const itemInterno = itemMap.get(nfItem.codigoNormalizado);
-    const match = bestMatchForItem(nfItem, pedido, itemInterno, params);
+    const match = bestMatchForItem(nfItem, pedido, itemInterno, params, remainingByPedidoItemId);
     if (!match || !isPedidoItemMatchConfiavel(match)) {
       divergencias.push(
         diagnostic("ITEM_SEM_CORRESPONDENTE_PEDIDO", "warning", "Item da NF sem correspondente claro neste pedido.", {
@@ -933,8 +1086,13 @@ function scorePedido(
     matchScoreSum += match.score;
     if (match.manualItem) matchedManualCount += 1;
     if (match.origemOsId) matchedWithOsCount += 1;
-    if (match.quantityStatus === "OK" || match.quantityStatus === "PARCIAL") matchedQuantityCompatibleCount += 1;
     if (match.matchedBy.includes("valor_unitario")) matchedValueCompatibleCount += 1;
+
+    const remaining = remainingByPedidoItemId.get(match.pedidoItemId);
+    if (remaining != null) {
+      const consumed = Math.min(Math.max(remaining, 0), Math.max(0, nfItem.quantidade));
+      remainingByPedidoItemId.set(match.pedidoItemId, Math.max(0, remaining - consumed));
+    }
 
     if (
       match.valorUnitarioNf > 0 &&
@@ -961,35 +1119,12 @@ function scorePedido(
         })
       );
     }
-
-    if (match.quantityStatus === "PARCIAL") {
-      const restante = Math.max(0, match.saldoPedido - match.quantidadeNf);
-      divergencias.push(
-        diagnostic("QUANTIDADE_PARCIAL_PEDIDO", "error", `Quantidade parcial no item ${nfItem.codigoOriginal || "-"}: NF ${formatDecimal(match.quantidadeNf)}, saldo do pedido ${formatDecimal(match.saldoPedido)}, restante ${formatDecimal(restante)}. Ajuste a quantidade do pedido antes de importar.`, {
-          codigo: nfItem.codigoOriginal,
-          descricao: nfItem.descricao,
-          pedido_item_id: match.pedidoItemId,
-          quantidade_nf: match.quantidadeNf,
-          saldo_pedido: match.saldoPedido,
-          restante,
-        })
-      );
-    }
-
-    if (match.quantityStatus === "EXCESSO") {
-      const excesso = Math.max(0, match.quantidadeNf - match.saldoPedido);
-      divergencias.push(
-        diagnostic("QUANTIDADE_EXCEDE_PEDIDO", "error", `Quantidade excedente no item ${nfItem.codigoOriginal || "-"}: NF ${formatDecimal(match.quantidadeNf)}, saldo do pedido ${formatDecimal(match.saldoPedido)}, excesso ${formatDecimal(excesso)}. Ajuste a quantidade do pedido antes de importar.`, {
-          codigo: nfItem.codigoOriginal,
-          descricao: nfItem.descricao,
-          pedido_item_id: match.pedidoItemId,
-          quantidade_nf: match.quantidadeNf,
-          saldo_pedido: match.saldoPedido,
-          excesso,
-        })
-      );
-    }
   }
+
+  divergencias.push(...buildPedidoQuantityDivergencias({ pedido, matches, nfItems }));
+  matchedQuantityCompatibleCount = matches.filter(
+    (match) => match.quantityStatus === "OK" || match.quantityStatus === "PARCIAL"
+  ).length;
 
   if (nfItems.length > 0) {
     score += (matchedCount / nfItems.length) * 35;
@@ -1109,36 +1244,6 @@ function buildPedidoMatchDivergencias(
     );
   }
 
-  if (match.quantityStatus === "PARCIAL") {
-    const restante = Math.max(0, match.saldoPedido - match.quantidadeNf);
-    divergencias.push(
-      diagnostic("QUANTIDADE_PARCIAL_PEDIDO", "error", `Quantidade parcial no item ${nfItem.codigoOriginal || "-"}: NF ${formatDecimal(match.quantidadeNf)}, saldo do pedido ${formatDecimal(match.saldoPedido)}, restante ${formatDecimal(restante)}. Ajuste a quantidade do pedido antes de importar.`, {
-        codigo: nfItem.codigoOriginal,
-        descricao: nfItem.descricao,
-        pedido_item_id: match.pedidoItemId,
-        pedido_id: match.pedidoId,
-        quantidade_nf: match.quantidadeNf,
-        saldo_pedido: match.saldoPedido,
-        restante,
-      })
-    );
-  }
-
-  if (match.quantityStatus === "EXCESSO") {
-    const excesso = Math.max(0, match.quantidadeNf - match.saldoPedido);
-    divergencias.push(
-      diagnostic("QUANTIDADE_EXCEDE_PEDIDO", "error", `Quantidade excedente no item ${nfItem.codigoOriginal || "-"}: NF ${formatDecimal(match.quantidadeNf)}, saldo do pedido ${formatDecimal(match.saldoPedido)}, excesso ${formatDecimal(excesso)}. Ajuste a quantidade do pedido antes de importar.`, {
-        codigo: nfItem.codigoOriginal,
-        descricao: nfItem.descricao,
-        pedido_item_id: match.pedidoItemId,
-        pedido_id: match.pedidoId,
-        quantidade_nf: match.quantidadeNf,
-        saldo_pedido: match.saldoPedido,
-        excesso,
-      })
-    );
-  }
-
   return divergencias;
 }
 
@@ -1154,18 +1259,16 @@ function buildMultiPedidoSuggestions(opts: {
 
   const nfItemByIndex = new Map(opts.nfItems.map((item) => [item.index, item]));
   const selectedMatches: XmlImportPedidoItemMatch[] = [];
-  const usedPedidoItems = new Set<string>();
 
   for (const nfItem of opts.nfItems) {
     let best: XmlImportPedidoItemMatch | null = null;
     for (const score of opts.scores) {
       const match = score.matches.find((item) => item.nfItemIndex === nfItem.index) ?? null;
-      if (!match || match.score < 50 || usedPedidoItems.has(match.pedidoItemId)) continue;
+      if (!match || match.score < 50) continue;
       if (!best || match.score > best.score) best = match;
     }
     if (!best) continue;
     selectedMatches.push(best);
-    usedPedidoItems.add(best.pedidoItemId);
   }
 
   const pedidoIds = Array.from(new Set(selectedMatches.map((match) => match.pedidoId)));
@@ -1185,6 +1288,11 @@ function buildMultiPedidoSuggestions(opts: {
       const nfItem = nfItemByIndex.get(match.nfItemIndex);
       return nfItem ? buildPedidoMatchDivergencias(match, nfItem, opts.params) : [];
     });
+    divergencias.push(...buildPedidoQuantityDivergencias({
+      pedido: pedidoScore.pedido,
+      matches,
+      nfItems: opts.nfItems,
+    }));
     const avgMatchScore = matches.reduce((sum, match) => sum + match.score, 0) / Math.max(matches.length, 1);
 
     suggestions.push({

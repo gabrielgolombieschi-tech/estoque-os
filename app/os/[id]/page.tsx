@@ -54,6 +54,7 @@ type ItemPick = {
   id: number;
   codigo_interno: string;
   nome: string;
+  fabricante?: string | null;
   tipo: string;
   finalidade?: string | null;
   preco_unitario: number;
@@ -138,6 +139,11 @@ type SortValue = string | number | null;
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
 type SortDir = "asc" | "desc";
 
+type LookupSearchTerm = {
+  raw: string;
+  normalized: string;
+};
+
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   em_andamento: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -147,6 +153,38 @@ const statusBadge: Record<string, string> = {
 
 const DESPESA_ITEM_ID_MIN = 1;
 const DESPESA_ITEM_ID_MAX = 99;
+const LOOKUP_FETCH_LIMIT = 150;
+const LOOKUP_RESULT_LIMIT = 50;
+
+function normalizeLookupText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function parseLookupTerms(value: string | null | undefined): LookupSearchTerm[] {
+  return String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((raw) => ({
+      raw,
+      normalized: normalizeLookupText(raw),
+    }))
+    .filter((term) => term.normalized.length > 0);
+}
+
+function pickLookupSeedTerm(terms: LookupSearchTerm[]): string {
+  return [...terms].sort((a, b) => b.normalized.length - a.normalized.length)[0]?.raw ?? "";
+}
+
+function matchesLookupTerms(values: Array<string | null | undefined>, terms: LookupSearchTerm[]): boolean {
+  if (terms.length === 0) return true;
+  const haystack = values.map((value) => normalizeLookupText(value)).join(" ");
+  return terms.every((term) => haystack.includes(term.normalized));
+}
 
 function isDespesaItemId(itemId: number | null | undefined) {
   const value = Number(itemId ?? NaN);
@@ -1656,36 +1694,62 @@ export default function OsDetailPage() {
 
     const nomeTerm = (nextNome ?? lookupNome).trim();
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
+    const nomeTerms = parseLookupTerms(nomeTerm);
+    const fornecedorTerms = parseLookupTerms(fornecedorTerm);
+    const nomeSeedTerm = pickLookupSeedTerm(nomeTerms);
+    const fornecedorSeedTerm = pickLookupSeedTerm(fornecedorTerms);
 
-    const baseSelect = fornecedorTerm
-      ? "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
-      : "id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
+    const baseSelect = fornecedorSeedTerm
+      ? "id,codigo_interno,nome,fabricante,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
+      : "id,codigo_interno,nome,fabricante,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
 
-    let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
+    const buildItemQuery = (field: "nome" | "codigo_interno" | "fabricante" | null) => {
+      let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
 
-    if (isDespesaMode) {
-      query = query.gte("id", DESPESA_ITEM_ID_MIN).lte("id", DESPESA_ITEM_ID_MAX);
-    }
+      if (isDespesaMode) {
+        query = query.gte("id", DESPESA_ITEM_ID_MIN).lte("id", DESPESA_ITEM_ID_MAX);
+      }
 
-    if (nomeTerm) {
-      query = query.or(`nome.ilike.%${nomeTerm}%,codigo_interno.ilike.%${nomeTerm}%`);
-    }
-    if (fornecedorTerm) query = query.ilike("fornecedores.nome", `%${fornecedorTerm}%`);
+      if (field && nomeSeedTerm) query = query.ilike(field, `%${nomeSeedTerm}%`);
+      if (fornecedorSeedTerm) query = query.ilike("fornecedores.nome", `%${fornecedorSeedTerm}%`);
 
-    const { data, error } = await applyTenantEmpresa(
-      query.order("nome", { ascending: true }).limit(50),
-      effectiveTenantId,
-      effectiveEmpresaId
-    );
+      return applyTenantEmpresa(
+        query.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+    };
 
-    if (error) {
-      setLookupErr(error.message);
+    const itemResponses = nomeSeedTerm
+      ? await Promise.all([
+          buildItemQuery("nome"),
+          buildItemQuery("codigo_interno"),
+          buildItemQuery("fabricante"),
+        ])
+      : [await buildItemQuery(null)];
+
+    const itemError = itemResponses.find((response) => response.error)?.error;
+    if (itemError) {
+      setLookupErr(itemError.message);
       setLookupRows([]);
       setLookupBusy(false);
       return;
     }
 
-    const baseRows = (data ?? []) as ItemLookupBaseRow[];
+    const baseMap = new Map<number, ItemLookupBaseRow>();
+    itemResponses.forEach((response) => {
+      const rows = (response.data ?? []) as ItemLookupBaseRow[];
+      rows.forEach((row) => {
+        if (!baseMap.has(row.id)) baseMap.set(row.id, row);
+      });
+    });
+
+    const baseRows = Array.from(baseMap.values())
+      .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
+      .filter((row) => matchesLookupTerms([row.fornecedores?.nome ?? null], fornecedorTerms))
+      .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
+      .slice(0, LOOKUP_RESULT_LIMIT);
+
     const ids = baseRows.map((r) => r.id);
     const ultimaMap = new Map<number, string>();
 
