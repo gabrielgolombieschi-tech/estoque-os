@@ -2806,7 +2806,7 @@ export default function ImportarXmlPage() {
     xmlImportAnalysis?.findings.some(
       (finding) =>
         finding.severity === "error" &&
-        ["DIVERGENCIA_VALOR_UNITARIO", "QUANTIDADE_PARCIAL_PEDIDO", "QUANTIDADE_EXCEDE_PEDIDO"].includes(finding.code)
+        ["DIVERGENCIA_VALOR_UNITARIO", "QUANTIDADE_EXCEDE_PEDIDO"].includes(finding.code)
     )
   );
   const hasPedidoSuggestion = Boolean(xmlImportAnalysis?.pedidoSuggestion || (xmlImportAnalysis?.pedidoSuggestions?.length ?? 0) > 0);

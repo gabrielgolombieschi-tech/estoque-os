@@ -177,6 +177,9 @@ export default function XmlImportAssistantPanel({
   const finalidadeJaAplicada = Boolean(finalidadeSugerida) && finalidadeSugerida === normalizeCompare(currentFinalidade);
   const motivoJaAplicado = Boolean(motivoSugerido) && motivoSugerido === normalizeCompare(currentMotivoId);
   const currentPedidoRefs = new Set(splitRefs(currentPedidoRef));
+  const getPedidoRef = (row: XmlImportPedidoSuggestion) => normalizeCompare(row.codigo ?? row.pedidoId);
+  const isPedidoAtual = (row: XmlImportPedidoSuggestion) =>
+    [normalizeCompare(row.codigo), normalizeCompare(row.pedidoId)].filter(Boolean).some((ref) => currentPedidoRefs.has(ref));
   const pedidoJaAplicado =
     pedidos.length > 0 &&
     pedidos.every((row) =>
@@ -308,9 +311,23 @@ export default function XmlImportAssistantPanel({
                         {row.itemMatches.length} item{row.itemMatches.length === 1 ? "" : "s"}
                       </span>
                       {row.divergencias.length > 0 && (
-                        <span className="text-amber-300">
-                          {row.divergencias.length} divergencia{row.divergencias.length === 1 ? "" : "s"}
+                        <span className={row.divergencias.some((item) => item.severity !== "info") ? "text-amber-300" : "text-sky-300"}>
+                          {row.divergencias.length} ocorrencia{row.divergencias.length === 1 ? "" : "s"}
                         </span>
+                      )}
+                      {isPedidoAtual(row) ? (
+                        <span className="text-zinc-500">Selecionado</span>
+                      ) : (
+                        onApplyPedidoSuggestion && (
+                          <button
+                            type="button"
+                            onClick={() => onApplyPedidoSuggestion(getPedidoRef(row))}
+                            className={actionButtonClass()}
+                            title="Preenche apenas este pedido no campo. Nao vincula nem importa automaticamente."
+                          >
+                            Usar pedido
+                          </button>
+                        )
                       )}
                     </div>
                   ))}
@@ -328,7 +345,7 @@ export default function XmlImportAssistantPanel({
                       className={actionButtonClass()}
                       title="Preenche o campo pedido. Nao vincula nem importa automaticamente."
                     >
-                      {pedidos.length > 1 ? "Usar pedidos sugeridos" : "Usar pedido sugerido"}
+                      {pedidos.length > 1 ? "Usar todos sugeridos" : "Usar pedido sugerido"}
                     </button>
                   )
                 )}
@@ -353,7 +370,7 @@ export default function XmlImportAssistantPanel({
                   {pedidoMatchedCount} item{pedidoMatchedCount === 1 ? "" : "s"} combinado{pedidoMatchedCount === 1 ? "" : "s"}
                 </span>
                 <span className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">
-                  {pedidoDivergenciasCount} divergencia{pedidoDivergenciasCount === 1 ? "" : "s"}
+                  {pedidoDivergenciasCount} ocorrencia{pedidoDivergenciasCount === 1 ? "" : "s"}
                 </span>
                 {pedidoHasParcial && (
                   <span className="rounded-md border border-sky-500/40 bg-sky-500/10 px-2 py-1 text-xs text-sky-200">
@@ -388,7 +405,7 @@ export default function XmlImportAssistantPanel({
               {pedidoDivergencias.length > 0 && (
                 <div className="space-y-1">
                   {groupDiagnostics(pedidoDivergencias).map((item) => (
-                    <div key={`${item.code}-${item.message}`} className="text-xs text-amber-300">
+                    <div key={`${item.code}-${item.message}`} className={item.severity === "info" ? "text-xs text-sky-300" : "text-xs text-amber-300"}>
                       {item.message}
                       {item.count > 1 ? ` (${item.count} ocorrencias)` : ""}
                     </div>

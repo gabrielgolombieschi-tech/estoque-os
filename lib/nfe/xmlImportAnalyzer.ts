@@ -942,7 +942,7 @@ function buildPedidoQuantityDivergencias(opts: {
     if (quantityStatus === "PARCIAL") {
       const restante = Math.max(0, saldoPedido - group.quantidadeNf);
       divergencias.push(
-        diagnostic("QUANTIDADE_PARCIAL_PEDIDO", "error", `Quantidade parcial no item ${group.codigo || "-"}: NF ${formatDecimal(group.quantidadeNf)}${linhasLabel}, saldo do pedido ${formatDecimal(saldoPedido)}, restante ${formatDecimal(restante)}. Ajuste a quantidade do pedido antes de importar.`, {
+        diagnostic("QUANTIDADE_PARCIAL_PEDIDO", "info", `Recebimento parcial no item ${group.codigo || "-"}: NF ${formatDecimal(group.quantidadeNf)}${linhasLabel}, saldo do pedido ${formatDecimal(saldoPedido)}, restante apos importar ${formatDecimal(restante)}. O pedido ficara parcialmente recebido.`, {
           codigo: group.codigo,
           descricao: group.descricao,
           pedido_item_id: pedidoItemIds[0] ?? null,
@@ -1205,6 +1205,55 @@ function detectMultiplePedidoCandidates(
     pedidos: pedidoIds,
     itens_analisados: bestPedidoByItem.size,
   });
+}
+
+function normalizePedidoRefForCompare(value: unknown): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function splitPedidoRefsForCompare(value: unknown): string[] {
+  return String(value ?? "")
+    .split(/[,;\n]+/)
+    .map((ref) => normalizePedidoRefForCompare(ref))
+    .filter(Boolean);
+}
+
+function pedidoMatchesRef(pedido: XmlImportPedidoCandidato, ref: string): boolean {
+  if (!ref) return false;
+  const refs = [
+    normalizePedidoRefForCompare(pedido.id),
+    normalizePedidoRefForCompare(pedido.codigo),
+  ].filter(Boolean);
+  return refs.includes(ref);
+}
+
+function getExplicitPedidoScores(scores: PedidoScore[], pedidoCompraRefAtual: unknown): PedidoScore[] {
+  const refs = splitPedidoRefsForCompare(pedidoCompraRefAtual);
+  if (refs.length === 0) return [];
+
+  const selected: PedidoScore[] = [];
+  const selectedIds = new Set<string>();
+  for (const ref of refs) {
+    const match = scores.find((score) => pedidoMatchesRef(score.pedido, ref));
+    if (!match || selectedIds.has(match.pedido.id)) continue;
+    selected.push(match);
+    selectedIds.add(match.pedido.id);
+  }
+
+  return selected;
+}
+
+function buildPedidoSuggestionFromScore(score: PedidoScore): XmlImportPedidoSuggestion {
+  return {
+    pedidoId: score.pedido.id,
+    codigo: score.pedido.codigo ?? null,
+    status: score.pedido.status ?? null,
+    score: score.score,
+    motivos: score.motivos,
+    solicitanteUsuarioId: score.pedido.solicitante_usuario_id ?? null,
+    itemMatches: score.matches,
+    divergencias: score.divergencias,
+  };
 }
 
 function buildPedidoMatchDivergencias(
@@ -1555,6 +1604,68 @@ function analyzePedidos(opts: {
       return String(a.pedido.codigo ?? a.pedido.id).localeCompare(String(b.pedido.codigo ?? b.pedido.id));
     });
 
+  const explicitScores = getExplicitPedidoScores(scores, opts.input.pedidoCompraRefAtual);
+  if (explicitScores.length > 0) {
+    const multiExplicitSuggestions =
+      explicitScores.length > 1
+        ? buildMultiPedidoSuggestions({
+            scores: explicitScores,
+            nfItems: opts.nfItems,
+            params: opts.params,
+          })
+        : [];
+    const explicitSuggestions = multiExplicitSuggestions.length > 0
+      ? multiExplicitSuggestions
+      : explicitScores.map(buildPedidoSuggestionFromScore);
+    const explicitDivergencias = explicitSuggestions.flatMap((pedido) => pedido.divergencias);
+    const explicitMatchedCount = explicitSuggestions.reduce((sum, pedido) => sum + pedido.itemMatches.length, 0);
+
+    suggestions.push(
+      diagnostic(
+        explicitSuggestions.length > 1 ? "PEDIDOS_SELECIONADOS_ANALISADOS" : "PEDIDO_SELECIONADO_ANALISADO",
+        "info",
+        explicitSuggestions.length > 1
+          ? "Pedidos informados analisados contra os itens da NF."
+          : "Pedido informado analisado contra os itens da NF.",
+        {
+          pedidos: explicitSuggestions.map((pedido) => pedido.codigo ?? pedido.pedidoId),
+          pedido_ids: explicitSuggestions.map((pedido) => pedido.pedidoId),
+          itens_combinados: explicitMatchedCount,
+        }
+      )
+    );
+
+    for (const score of explicitScores) {
+      if (score.matchedCount > 0) continue;
+      warnings.push(
+        diagnostic("PEDIDO_SELECIONADO_SEM_ITENS_COMPATIVEIS", "warning", "O pedido informado nao teve itens claramente compativeis com esta NF.", {
+          pedido_id: score.pedido.id,
+          codigo: score.pedido.codigo ?? null,
+        })
+      );
+    }
+
+    if (explicitSuggestions.length === 1) {
+      const pedidoSuggestion = explicitSuggestions[0];
+      if (pedidoSuggestion.solicitanteUsuarioId && pedidoSuggestion.solicitanteUsuarioId !== opts.input.solicitanteUsuarioId) {
+        suggestions.push(
+          diagnostic("SUGERIR_SOLICITANTE_DO_PEDIDO", "info", "O solicitante do pedido pode preencher o campo solicitante.", {
+            pedido_id: pedidoSuggestion.pedidoId,
+            solicitante_usuario_id: pedidoSuggestion.solicitanteUsuarioId,
+            solicitante_ja_selecionado: hasText(opts.input.solicitanteUsuarioId),
+          })
+        );
+      }
+      findings.push(...explicitDivergencias.filter((diag) => diag.severity === "error"));
+      warnings.push(...explicitDivergencias.filter((diag) => diag.severity === "warning"));
+      return { pedidoSuggestion, pedidoSuggestions: [pedidoSuggestion], findings, suggestions, warnings };
+    }
+
+    findings.push(...explicitDivergencias.filter((diag) => diag.severity === "error"));
+    warnings.push(...explicitDivergencias.filter((diag) => diag.severity === "warning"));
+    return { pedidoSuggestion: null, pedidoSuggestions: explicitSuggestions, findings, suggestions, warnings };
+  }
+
   const multiPedidoWarning = detectMultiplePedidoCandidates(scores, opts.nfItems);
   if (multiPedidoWarning) warnings.push(multiPedidoWarning);
   const multiPedidoSuggestions = buildMultiPedidoSuggestions({
@@ -1600,16 +1711,7 @@ function analyzePedidos(opts: {
     return { pedidoSuggestion: null, pedidoSuggestions: [], findings, suggestions, warnings };
   }
 
-  const pedidoSuggestion: XmlImportPedidoSuggestion = {
-    pedidoId: best.pedido.id,
-    codigo: best.pedido.codigo ?? null,
-    status: best.pedido.status ?? null,
-    score: best.score,
-    motivos: best.motivos,
-    solicitanteUsuarioId: best.pedido.solicitante_usuario_id ?? null,
-    itemMatches: best.matches,
-    divergencias: best.divergencias,
-  };
+  const pedidoSuggestion = buildPedidoSuggestionFromScore(best);
 
   suggestions.push(
     diagnostic("PEDIDO_CANDIDATO_PROVAVEL", "info", "Este pedido parece compativel com a nota.", {
@@ -2100,10 +2202,9 @@ function buildActionPlan(opts: {
   const divergenciasQuantidadeParcial = divergencias.filter((diag) => diag.code === "QUANTIDADE_PARCIAL_PEDIDO");
   if (divergenciasQuantidadeParcial.length > 0) {
     actionPlan.push({
-      code: "CONFERIR_QUANTIDADE_PARCIAL",
-      severity: "error",
-      message: `A NF atende parcialmente o saldo do pedido em ${divergenciasQuantidadeParcial.length} item(ns). Ajuste a quantidade do pedido antes de importar. ${previewDiagnosticMessages(divergenciasQuantidadeParcial)}`,
-      actionType: "CONFERIR_DIVERGENCIA",
+      code: "RECEBIMENTO_PARCIAL_PEDIDO",
+      severity: "info",
+      message: `A NF fara baixa parcial do pedido em ${divergenciasQuantidadeParcial.length} item(ns). O saldo restante permanecera pendente no pedido. ${previewDiagnosticMessages(divergenciasQuantidadeParcial)}`,
       payload: { tipo: "quantidade_parcial", divergencias: divergenciasQuantidadeParcial.map((diag) => diag.details ?? {}) },
     });
   }

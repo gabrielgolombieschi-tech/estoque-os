@@ -27,6 +27,7 @@ import {
   updateOrcamento,
 } from "@/lib/comercial/orcamentos.service";
 import OrcamentoStatusDialog, { type OrcamentoStatusDialogPayload } from "../OrcamentoStatusDialog";
+import AssistenteIAModal from "./AssistenteIAModal";
 
 import type { ItemByIdRow } from "@/lib/comercial/orcamentos.service";
 
@@ -410,6 +411,7 @@ export default function OrcamentoPage() {
   const [statusDialog, setStatusDialog] = useState<{ open: false } | { open: true; status: OrcamentoStatusCanonical }>({
     open: false,
   });
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
@@ -1911,6 +1913,16 @@ export default function OrcamentoPage() {
         </div>
       )}
 
+      <AssistenteIAModal
+        open={aiAssistantOpen}
+        idParam={idParam}
+        supabase={supabase}
+        tenantId={tenantId}
+        empresaId={empresaId}
+        onClose={() => setAiAssistantOpen(false)}
+        onImported={reload}
+      />
+
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold">Orcamento</h1>
@@ -2107,6 +2119,14 @@ export default function OrcamentoPage() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-2">
               <div className="font-medium">Itens</div>
+              <button
+                type="button"
+                onClick={() => setAiAssistantOpen(true)}
+                disabled={readOnly || !canWrite}
+                className="px-3 py-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 text-sm disabled:opacity-60"
+              >
+                Assistente de IA
+              </button>
             </div>
 
             <div ref={inlineFormRef} className="p-4 border-b border-zinc-800">

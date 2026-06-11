@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { parseDecimalBR, formatDecimalBR } from "@/lib/decimal";
 import { upper, upperOrNull, upperTrim } from "@/lib/text";
@@ -11,6 +11,7 @@ import { upper, upperOrNull, upperTrim } from "@/lib/text";
 type Cliente = { id: number; nome: string };
 type ServicoHH = {
   id: number;
+  empresa_id: string;
   cliente_id: number;
   nome: string;
   descricao: string | null;
@@ -67,10 +68,17 @@ export default function ServicosClientePage() {
   const [form, setForm] = useState<ServicoForm>(emptyForm());
 
   async function loadClientes() {
-    if (tenantLoading || !tenantId) return;
-    const { data, error } = await applyTenant(
-      supabase.from("clientes").select("id,nome").eq("ativo", true).eq("habilita_hh", true).order("nome", { ascending: true }),
-      tenantId
+    if (tenantLoading || !tenantId || !empresaId) return;
+    const { data, error } = await applyTenantEmpresa(
+      supabase
+        .from("clientes")
+        .select("id,nome")
+        .eq("empresa_id", empresaId)
+        .eq("ativo", true)
+        .eq("habilita_hh", true)
+        .order("nome", { ascending: true }),
+      tenantId,
+      empresaId
     );
     if (!error) setClientes((data ?? []) as Cliente[]);
   }
@@ -87,6 +95,7 @@ export default function ServicosClientePage() {
       supabase
         .from("cliente_hh_servicos")
         .select("*")
+        .eq("empresa_id", empresaId)
         .eq("cliente_id", clienteIdFiltro)
         .order("criado_em", { ascending: false }),
       tenantId,
@@ -100,7 +109,7 @@ export default function ServicosClientePage() {
   useEffect(() => {
     loadClientes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId, tenantLoading]);
+  }, [tenantId, empresaId, tenantLoading]);
 
   useEffect(() => {
     loadServicos();
@@ -139,6 +148,7 @@ export default function ServicosClientePage() {
     setErr(null);
     setOk(null);
     if (!canEdit) return setErr("Sem permissão para salvar.");
+    if (!tenantId || !empresaId) return setErr("Empresa não carregada.");
     if (!form.cliente_id) return setErr("Cliente não selecionado.");
     if (!form.nome.trim()) return setErr("Nome é obrigatório.");
     if (form.preco_base < 0 || form.preco_50 < 0 || form.preco_100 < 0)
@@ -159,9 +169,9 @@ export default function ServicosClientePage() {
 
     if (editingId) {
       const { error } = await applyTenantEmpresa(
-        supabase.from("cliente_hh_servicos").update(payload).eq("id", editingId),
-        tenantId!,
-        empresaId!
+        supabase.from("cliente_hh_servicos").update(payload).eq("id", editingId).eq("empresa_id", empresaId),
+        tenantId,
+        empresaId
       );
       setBusy(false);
       if (error) return setErr(error.message);
@@ -173,6 +183,7 @@ export default function ServicosClientePage() {
       const { error } = await supabase.from("cliente_hh_servicos").insert({
         ...payload,
         tenant_id: tenantId,
+        empresa_id: empresaId,
         criado_por: userEmail,
         criado_em: new Date().toISOString(),
       });
@@ -189,14 +200,19 @@ export default function ServicosClientePage() {
 
   async function toggleAtivo(id: number, to: boolean) {
     if (!canEdit) return setErr("Sem permissão.");
+    if (!tenantId || !empresaId) return setErr("Empresa não carregada.");
     const ok = confirm(to ? "Ativar serviço?" : "Desativar serviço?");
     if (!ok) return;
 
     setBusy(true);
     const { error } = await applyTenantEmpresa(
-      supabase.from("cliente_hh_servicos").update({ ativo: to, atualizado_em: new Date().toISOString() }).eq("id", id),
-      tenantId!,
-      empresaId!
+      supabase
+        .from("cliente_hh_servicos")
+        .update({ ativo: to, atualizado_em: new Date().toISOString() })
+        .eq("id", id)
+        .eq("empresa_id", empresaId),
+      tenantId,
+      empresaId
     );
     setBusy(false);
     if (error) return setErr(error.message);
