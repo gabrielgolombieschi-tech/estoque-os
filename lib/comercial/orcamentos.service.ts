@@ -4,6 +4,7 @@ import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getOrcamentoStatusFilterValues } from "@/lib/comercial/status";
 import type {
   OrcamentoAnaliticoRow,
+  ClienteContatoLookupRow,
   ClienteLookupRow,
   ConfigOrcamentoRow,
   ItemLookupRow,
@@ -24,6 +25,249 @@ export type ListOrcamentosFilters = {
   page?: number;
   pageSize?: number;
 };
+
+function trimToNull(value: string | null | undefined): string | null {
+  const trimmed = String(value ?? "").trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeEmail(value: string | null | undefined): string | null {
+  const email = trimToNull(value);
+  return email ? email.toLowerCase() : null;
+}
+
+type ClienteContatoOrcamentoRow = {
+  id: number | string;
+  nome: string | null;
+  setor: string | null;
+  email: string | null;
+  telefone: string | null;
+  vezes_usado: number | string | null;
+};
+
+export async function salvarContatoClienteDoOrcamento(
+  supabase: SupabaseClient,
+  params: {
+    tenantId: string;
+    empresaId: string;
+    clienteId: number | null | undefined;
+    solicitanteNome?: string | null;
+    solicitanteSetor?: string | null;
+    solicitanteEmail?: string | null;
+    solicitanteTelefone?: string | null;
+  }
+): Promise<void> {
+  const tenantId = trimToNull(params.tenantId);
+  const empresaId = trimToNull(params.empresaId);
+  const clienteId = Number(params.clienteId ?? null);
+  const email = normalizeEmail(params.solicitanteEmail);
+
+  if (!tenantId || !empresaId || !Number.isFinite(clienteId) || clienteId <= 0 || !email) return;
+
+  const nome = trimToNull(params.solicitanteNome);
+  const setor = trimToNull(params.solicitanteSetor);
+  const telefone = trimToNull(params.solicitanteTelefone);
+
+  const warn = (error: unknown) => {
+    console.warn("Falha ao salvar contato do cliente a partir do orcamento.", error);
+  };
+
+  const findExisting = async (): Promise<ClienteContatoOrcamentoRow | null> => {
+    const { data, error } = await supabase
+      .from("cliente_contatos")
+      .select("id,nome,setor,email,telefone,vezes_usado")
+      .eq("tenant_id", tenantId)
+      .eq("empresa_id", empresaId)
+      .eq("cliente_id", clienteId)
+      .not("email", "is", null)
+      .limit(500)
+      .returns<ClienteContatoOrcamentoRow[]>();
+
+    if (error) throw error;
+
+    return (
+      (data ?? []).find((row) => {
+        return normalizeEmail(row.email) === email;
+      }) ?? null
+    );
+  };
+
+  const updateExisting = async (row: ClienteContatoOrcamentoRow): Promise<void> => {
+    const now = new Date().toISOString();
+    const currentUses = Number(row.vezes_usado ?? 0);
+    const patch: {
+      nome?: string;
+      setor?: string;
+      telefone?: string;
+      email: string;
+      ativo: boolean;
+      ultimo_uso_em: string;
+      vezes_usado: number;
+      updated_at: string;
+    } = {
+      email,
+      ativo: true,
+      ultimo_uso_em: now,
+      vezes_usado: (Number.isFinite(currentUses) ? currentUses : 0) + 1,
+      updated_at: now,
+    };
+
+    if (nome) patch.nome = nome;
+    if (setor) patch.setor = setor;
+    if (telefone) patch.telefone = telefone;
+
+    const { error } = await supabase
+      .from("cliente_contatos")
+      .update(patch)
+      .eq("tenant_id", tenantId)
+      .eq("empresa_id", empresaId)
+      .eq("cliente_id", clienteId)
+      .eq("id", row.id);
+    if (error) throw error;
+  };
+
+  try {
+    const existing = await findExisting();
+    if (existing) {
+      await updateExisting(existing);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const { error: insertError } = await supabase.from("cliente_contatos").insert({
+      tenant_id: tenantId,
+      empresa_id: empresaId,
+      cliente_id: clienteId,
+      nome,
+      setor,
+      email,
+      telefone,
+      ativo: true,
+      principal: false,
+      vezes_usado: 1,
+      ultimo_uso_em: now,
+    });
+
+    if (!insertError) return;
+
+    if (insertError.code === "23505") {
+      const concurrentExisting = await findExisting();
+      if (concurrentExisting) {
+        await updateExisting(concurrentExisting);
+        return;
+      }
+    }
+
+    throw insertError;
+  } catch (error) {
+    warn(error);
+  }
+}
+
+export async function listarContatosClienteParaOrcamento(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; clienteId: number | null | undefined }
+): Promise<ClienteContatoLookupRow[]> {
+  const tenantId = trimToNull(params.tenantId);
+  const empresaId = trimToNull(params.empresaId);
+  const clienteId = Number(params.clienteId ?? null);
+
+  if (!tenantId || !empresaId || !Number.isFinite(clienteId) || clienteId <= 0) return [];
+
+  const { data, error } = await supabase
+    .from("cliente_contatos")
+    .select("id,nome,setor,email,telefone,principal,vezes_usado,ultimo_uso_em")
+    .eq("tenant_id", tenantId)
+    .eq("empresa_id", empresaId)
+    .eq("cliente_id", clienteId)
+    .eq("ativo", true)
+    .order("principal", { ascending: false })
+    .order("ultimo_uso_em", { ascending: false, nullsFirst: false })
+    .order("vezes_usado", { ascending: false })
+    .order("nome", { ascending: true, nullsFirst: false })
+    .limit(25)
+    .returns<ClienteContatoLookupRow[]>();
+
+  if (error) throw error;
+  return (data ?? []) as ClienteContatoLookupRow[];
+}
+
+export async function sincronizarOrcamentoComDriveViaAppsScript(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; orcamentoId: string }
+): Promise<void> {
+  const tenantId = trimToNull(params.tenantId);
+  const empresaId = trimToNull(params.empresaId);
+  const orcamentoId = trimToNull(params.orcamentoId);
+  if (!tenantId || !empresaId || !orcamentoId) return;
+
+  const requestedAt = new Date().toISOString();
+  const updateSyncStatus = async (patch: {
+    drive_sync_status: string;
+    drive_sync_error: string | null;
+    drive_sync_requested_at: string;
+    drive_synced_at: string | null;
+  }) => {
+    const { error } = await supabase
+      .schema("m")
+      .from("orcamento")
+      .update(patch)
+      .eq("id", orcamentoId)
+      .eq("tenant_id", tenantId)
+      .eq("empresa_id", empresaId);
+    if (error) console.warn("Falha ao atualizar status de sincronizacao Drive do orcamento.", error);
+  };
+
+  const markError = async (message: string) => {
+    await updateSyncStatus({
+      drive_sync_status: "error",
+      drive_sync_error: message.slice(0, 1500),
+      drive_sync_requested_at: requestedAt,
+      drive_synced_at: null,
+    });
+  };
+
+  try {
+    await updateSyncStatus({
+      drive_sync_status: "pending",
+      drive_sync_error: null,
+      drive_sync_requested_at: requestedAt,
+      drive_synced_at: null,
+    });
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+
+    const token = data.session?.access_token ?? null;
+    if (!token) {
+      const message = "Sessao ausente para sincronizar orcamento com Drive.";
+      await markError(message);
+      console.warn(message);
+      return;
+    }
+
+    const qs = new URLSearchParams({ tenantId, empresaId });
+    const res = await fetch(`/api/comercial/orcamentos/${encodeURIComponent(orcamentoId)}/drive-sync?${qs.toString()}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ tenantId, empresaId }),
+    });
+
+    const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    if (!res.ok || json?.ok === false) {
+      const message = String(json?.error ?? `HTTP ${res.status}`).trim();
+      await markError(message);
+      console.warn("Falha ao sincronizar orcamento com Drive via Apps Script.", message);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Falha ao sincronizar orcamento com Drive via Apps Script.";
+    await markError(message);
+    console.warn("Falha ao sincronizar orcamento com Drive via Apps Script.", error);
+  }
+}
 
 export async function listOrcamentos(
   supabase: SupabaseClient,
@@ -196,11 +440,24 @@ export async function createOrcamento(
     clienteId: number;
     vendedorUsuarioId: string;
     condicaoPagamentoId?: string | null;
+    solicitanteNome?: string | null;
+    solicitanteSetor?: string | null;
+    solicitanteEmail?: string | null;
+    solicitanteTelefone?: string | null;
   }
 ): Promise<{ id: string; codigo: string | null }> {
   const payload: Pick<
     OrcamentoRow,
-    "tenant_id" | "empresa_id" | "titulo" | "cliente_id" | "vendedor_usuario_id" | "condicao_pagamento_id"
+    | "tenant_id"
+    | "empresa_id"
+    | "titulo"
+    | "cliente_id"
+    | "vendedor_usuario_id"
+    | "condicao_pagamento_id"
+    | "solicitante_nome"
+    | "solicitante_setor"
+    | "solicitante_email"
+    | "solicitante_telefone"
   > = {
     tenant_id: params.tenantId,
     empresa_id: params.empresaId,
@@ -208,6 +465,10 @@ export async function createOrcamento(
     cliente_id: params.clienteId,
     vendedor_usuario_id: params.vendedorUsuarioId,
     condicao_pagamento_id: params.condicaoPagamentoId ?? null,
+    solicitante_nome: trimToNull(params.solicitanteNome),
+    solicitante_setor: trimToNull(params.solicitanteSetor),
+    solicitante_email: trimToNull(params.solicitanteEmail),
+    solicitante_telefone: trimToNull(params.solicitanteTelefone),
   };
 
   const { data, error } = await supabase
@@ -231,6 +492,22 @@ export async function createOrcamento(
     );
     if (!e2 && row?.codigo) codigo = String(row.codigo);
   }
+
+  await salvarContatoClienteDoOrcamento(supabase, {
+    tenantId: params.tenantId,
+    empresaId: params.empresaId,
+    clienteId: params.clienteId,
+    solicitanteNome: params.solicitanteNome,
+    solicitanteSetor: params.solicitanteSetor,
+    solicitanteEmail: params.solicitanteEmail,
+    solicitanteTelefone: params.solicitanteTelefone,
+  });
+
+  await sincronizarOrcamentoComDriveViaAppsScript(supabase, {
+    tenantId: params.tenantId,
+    empresaId: params.empresaId,
+    orcamentoId: id,
+  });
 
   return { id, codigo };
 }

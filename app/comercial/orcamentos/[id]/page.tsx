@@ -8,7 +8,13 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
-import type { OrcamentoItemRow, OrcamentoRow, OrcamentoStatus, UsuarioLookupRow } from "@/lib/comercial/types";
+import type {
+  ClienteContatoLookupRow,
+  OrcamentoItemRow,
+  OrcamentoRow,
+  OrcamentoStatus,
+  UsuarioLookupRow,
+} from "@/lib/comercial/types";
 import { getOrcamentoStatusLabel, normalizeOrcamentoStatus, type OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getSuggestedOrcamentoUnitPrice, isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
@@ -22,7 +28,9 @@ import {
   getOrcamentoConfig,
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
+  listarContatosClienteParaOrcamento,
   searchClientes,
+  sincronizarOrcamentoComDriveViaAppsScript,
   updateItem,
   updateOrcamento,
 } from "@/lib/comercial/orcamentos.service";
@@ -234,6 +242,14 @@ function formatConjuntoSingleLineDescription(conjunto: ConjuntoCatalogoRow): str
   return details ? `CONJUNTO ${details}` : "CONJUNTO";
 }
 
+function contatoField(value: string | null | undefined): string {
+  return String(value ?? "").trim();
+}
+
+function formatContatoSuggestion(contato: ClienteContatoLookupRow): string {
+  return [contato.email, contato.nome, contato.setor, contato.telefone].map(contatoField).filter(Boolean).join(" - ");
+}
+
 function statusBadgeClass(status: string): string {
   const s = normalizeOrcamentoStatus(status);
   if (s === "ANDAMENTO") return "bg-blue-500/15 text-blue-300 border-blue-500/30";
@@ -294,9 +310,15 @@ type NewDialogState =
       clienteTerm: string;
       clienteResults: Array<{ id: number; nome: string | null }>;
       clienteId: number | null;
+      contatoResults: ClienteContatoLookupRow[];
+      contatoLoading: boolean;
       titulo: string;
       vendedorUsuarioId: string;
       condicaoPagamentoId: string | null;
+      solicitanteNome: string;
+      solicitanteSetor: string;
+      solicitanteEmail: string;
+      solicitanteTelefone: string;
     };
 
 function closedNewDialog(): NewDialogState {
@@ -358,6 +380,9 @@ export default function OrcamentoPage() {
 
   const [newDialog, setNewDialog] = useState<NewDialogState>(closedNewDialog);
   const newClienteReqRef = useRef(0);
+  const driveSyncAttemptedRef = useRef<Set<string>>(new Set());
+  const newDialogClienteTerm = newDialog.open ? newDialog.clienteTerm : "";
+  const newDialogClienteId = newDialog.open ? newDialog.clienteId : null;
 
   const [editClienteDialog, setEditClienteDialog] = useState<EditClienteDialogState>(closedEditClienteDialog);
   const editClienteReqRef = useRef(0);
@@ -585,6 +610,39 @@ export default function OrcamentoPage() {
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (!orc?.id || !supabase || !tenantId || !empresaId) return;
+    if (!canWrite || readOnly) return;
+
+    const hasDriveFolder = Boolean(String(orc.drive_folder_id ?? "").trim() || String(orc.drive_folder_url ?? "").trim());
+    const driveStatus = String(orc.drive_sync_status ?? "").trim().toLowerCase();
+    if (hasDriveFolder || driveStatus === "created" || driveStatus === "pending") return;
+
+    if (driveSyncAttemptedRef.current.has(orc.id)) return;
+    driveSyncAttemptedRef.current.add(orc.id);
+
+    let active = true;
+    void (async () => {
+      await sincronizarOrcamentoComDriveViaAppsScript(supabase, { tenantId, empresaId, orcamentoId: orc.id });
+      if (active) void reload();
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    canWrite,
+    empresaId,
+    orc?.drive_folder_id,
+    orc?.drive_folder_url,
+    orc?.drive_sync_status,
+    orc?.id,
+    readOnly,
+    reload,
+    supabase,
+    tenantId,
+  ]);
+
   // auto-open create dialog when /novo
   useEffect(() => {
     if (idParam !== "novo") return;
@@ -603,9 +661,15 @@ export default function OrcamentoPage() {
         clienteTerm: "",
         clienteResults: [],
         clienteId: null,
+        contatoResults: [],
+        contatoLoading: false,
         titulo: "",
         vendedorUsuarioId: vendedorFromMe?.id ? String(vendedorFromMe.id) : "",
         condicaoPagamentoId: cfgCondPadraoId,
+        solicitanteNome: "",
+        solicitanteSetor: "",
+        solicitanteEmail: "",
+        solicitanteTelefone: "",
       });
     })();
 
@@ -619,7 +683,7 @@ export default function OrcamentoPage() {
     if (!newDialog.open) return;
     if (!supabase || !tenantId || !empresaId) return;
 
-    const term = newDialog.clienteTerm.trim();
+    const term = newDialogClienteTerm.trim();
     const reqId = ++newClienteReqRef.current;
     const t = setTimeout(async () => {
       try {
@@ -641,7 +705,41 @@ export default function OrcamentoPage() {
     }, 250);
 
     return () => clearTimeout(t);
-  }, [empresaId, newDialog, supabase, tenantId]);
+  }, [empresaId, newDialog.open, newDialogClienteTerm, supabase, tenantId]);
+
+  // search contatos do cliente in new dialog
+  useEffect(() => {
+    if (!newDialog.open) return;
+
+    const clienteId = newDialogClienteId;
+    if (!supabase || !tenantId || !empresaId || !clienteId) {
+      setNewDialog((p) => {
+        if (!p.open || (p.contatoResults.length === 0 && !p.contatoLoading)) return p;
+        return { ...p, contatoResults: [], contatoLoading: false };
+      });
+      return;
+    }
+
+    let active = true;
+
+    setNewDialog((p) => (p.open && p.clienteId === clienteId ? { ...p, contatoResults: [], contatoLoading: true } : p));
+
+    (async () => {
+      try {
+        const contatos = await listarContatosClienteParaOrcamento(supabase, { tenantId, empresaId, clienteId });
+        if (!active) return;
+        setNewDialog((p) => (p.open && p.clienteId === clienteId ? { ...p, contatoResults: contatos, contatoLoading: false } : p));
+      } catch (error) {
+        console.warn("Falha ao carregar contatos do cliente para orcamento.", error);
+        if (!active) return;
+        setNewDialog((p) => (p.open && p.clienteId === clienteId ? { ...p, contatoResults: [], contatoLoading: false } : p));
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [empresaId, newDialog.open, newDialogClienteId, supabase, tenantId]);
 
   // search clientes in edit-cliente dialog
   useEffect(() => {
@@ -1175,6 +1273,20 @@ export default function OrcamentoPage() {
     router.push("/comercial/orcamentos");
   }, [router]);
 
+  const applyContatoSuggestion = useCallback((contato: ClienteContatoLookupRow) => {
+    setNewDialog((p) =>
+      p.open
+        ? {
+            ...p,
+            solicitanteNome: contatoField(contato.nome),
+            solicitanteSetor: contatoField(contato.setor),
+            solicitanteEmail: contatoField(contato.email),
+            solicitanteTelefone: contatoField(contato.telefone),
+          }
+        : p
+    );
+  }, []);
+
   const submitNew = useCallback(async () => {
     if (!newDialog.open) return;
     if (!supabase || !tenantId || !empresaId) return;
@@ -1205,6 +1317,10 @@ export default function OrcamentoPage() {
         clienteId,
         vendedorUsuarioId,
         condicaoPagamentoId: newDialog.condicaoPagamentoId ?? null,
+        solicitanteNome: newDialog.solicitanteNome ?? "",
+        solicitanteSetor: newDialog.solicitanteSetor ?? "",
+        solicitanteEmail: newDialog.solicitanteEmail ?? "",
+        solicitanteTelefone: newDialog.solicitanteTelefone ?? "",
       });
       setNewDialog(closedNewDialog());
       router.replace(`/comercial/orcamentos/${created.codigo ?? created.id}`);
@@ -2408,7 +2524,7 @@ export default function OrcamentoPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Novo orcamento"
-            className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+            className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
@@ -2416,7 +2532,7 @@ export default function OrcamentoPage() {
               <div className="text-xs text-zinc-400 mt-1">Informe cliente e titulo para criar o rascunho.</div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto">
               {newDialog.error && <div className="text-sm text-red-400">{newDialog.error}</div>}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2441,7 +2557,17 @@ export default function OrcamentoPage() {
                           type="button"
                           key={c.id}
                           onClick={() =>
-                            setNewDialog((p) => (p.open ? { ...p, clienteId: c.id, clienteTerm: c.nome ?? String(c.id) } : p))
+                            setNewDialog((p) =>
+                              p.open
+                                ? {
+                                    ...p,
+                                    clienteId: c.id,
+                                    clienteTerm: c.nome ?? String(c.id),
+                                    contatoResults: [],
+                                    contatoLoading: false,
+                                  }
+                                : p
+                            )
                           }
                           className={
                             newDialog.clienteId === c.id
@@ -2466,6 +2592,80 @@ export default function OrcamentoPage() {
                     }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="Ex.: Proposta de manutencao"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Solicitante
+                  <input
+                    value={newDialog.solicitanteNome ?? ""}
+                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteNome: e.target.value } : p))}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Nome do solicitante"
+                    autoComplete="name"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Setor
+                  <input
+                    value={newDialog.solicitanteSetor ?? ""}
+                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteSetor: e.target.value } : p))}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Setor"
+                    autoComplete="organization-title"
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  E-mail
+                  <input
+                    type="email"
+                    value={newDialog.solicitanteEmail ?? ""}
+                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteEmail: e.target.value } : p))}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="email@cliente.com.br"
+                    autoComplete="email"
+                  />
+                </label>
+
+                {(newDialog.contatoLoading || newDialog.contatoResults.length > 0) && (
+                  <div className="md:col-span-2">
+                    {newDialog.contatoLoading ? (
+                      <div className="text-xs text-zinc-500">Carregando contatos...</div>
+                    ) : (
+                      <>
+                        <div className="text-xs text-zinc-400 mb-1">Contatos sugeridos</div>
+                        <div className="max-h-36 overflow-auto rounded-md border border-zinc-800">
+                          {newDialog.contatoResults.map((contato) => {
+                            const label = formatContatoSuggestion(contato) || `Contato #${contato.id}`;
+                            return (
+                              <button
+                                type="button"
+                                key={String(contato.id)}
+                                onClick={() => applyContatoSuggestion(contato)}
+                                title={label}
+                                className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/40"
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <label className="block text-xs text-zinc-400">
+                  Telefone
+                  <input
+                    type="tel"
+                    value={newDialog.solicitanteTelefone ?? ""}
+                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteTelefone: e.target.value } : p))}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="(00) 00000-0000"
+                    autoComplete="tel"
                   />
                 </label>
 

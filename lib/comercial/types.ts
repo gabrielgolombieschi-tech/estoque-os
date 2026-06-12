@@ -71,6 +71,18 @@ export type OrcamentoRow = {
   total_desconto_global: number | string;
   total_liquido: number | string;
   valor_fechado: number | string | null;
+  solicitante_nome: string | null;
+  solicitante_setor: string | null;
+  solicitante_email: string | null;
+  solicitante_telefone: string | null;
+  drive_folder_id: string | null;
+  drive_folder_url: string | null;
+  drive_doc_id: string | null;
+  drive_doc_url: string | null;
+  drive_sync_status: string | null;
+  drive_sync_error: string | null;
+  drive_sync_requested_at: string | null;
+  drive_synced_at: string | null;
   prazo_entrega: string | null;
   garantia: string | null;
   validade_proposta: string | null;
@@ -132,6 +144,16 @@ export type CondicaoPagamentoRow = {
 };
 
 export type ClienteLookupRow = { id: number; nome: string | null };
+export type ClienteContatoLookupRow = {
+  id: number | string;
+  nome: string | null;
+  setor: string | null;
+  email: string | null;
+  telefone: string | null;
+  principal: boolean | null;
+  vezes_usado: number | string | null;
+  ultimo_uso_em: string | null;
+};
 export type UsuarioLookupRow = { id: string; nome: string | null };
 export type ItemLookupRow = {
   id: number;
