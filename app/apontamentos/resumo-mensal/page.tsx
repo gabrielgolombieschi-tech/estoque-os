@@ -8,10 +8,13 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 type Colaborador = { id: string; nome: string; ativo: boolean };
 
 type ApontamentoRow = {
+  os_id: number | null;
   colaborador_id: string;
   horas: number | null;
   horas_trabalhadas?: number | null;
 };
+
+type ResumoHhFilter = "todos" | "os_hh";
 
 function describeSupabaseError(err: unknown): string {
   if (!err) return "(sem detalhes)";
@@ -100,6 +103,7 @@ export default function ApontamentosResumoMensalPage() {
   const [year, setYear] = useState<number>(now.getFullYear());
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [colaboradorId, setColaboradorId] = useState<string>("");
+  const [resumoHhFilter, setResumoHhFilter] = useState<ResumoHhFilter>("todos");
 
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,6 +112,7 @@ export default function ApontamentosResumoMensalPage() {
   const [rows, setRows] = useState<Array<{ colaborador_id: string; colaborador_nome: string; total_horas: number }>>(
     []
   );
+  const totalHorasResumo = useMemo(() => rows.reduce((sum, row) => sum + row.total_horas, 0), [rows]);
 
   const ensureContext = useCallback(async () => {
     if (!tenantId || !empresaId) return;
@@ -163,7 +168,7 @@ export default function ApontamentosResumoMensalPage() {
       const dataIni = startOfMonthISO(year, month);
       const dataFim = endOfMonthISO(year, month);
 
-      const candidates = ["colaborador_id,horas,horas_trabalhadas", "colaborador_id,horas"];
+      const candidates = ["os_id,colaborador_id,horas,horas_trabalhadas", "os_id,colaborador_id,horas"];
 
       let data: ApontamentoRow[] | null = null;
       const attempts: string[] = [];
@@ -195,9 +200,34 @@ export default function ApontamentosResumoMensalPage() {
         throw new Error(`Falha ao consultar apontamentos_horas. Tentativas: ${attempts.join(" || ") || "(sem detalhes)"}`);
       }
 
+      let filteredData = data;
+      if (resumoHhFilter === "os_hh") {
+        const osIds = Array.from(
+          new Set(
+            data
+              .map((r) => Number(r.os_id))
+              .filter((id) => Number.isFinite(id) && id > 0)
+          )
+        );
+
+        if (osIds.length === 0) {
+          filteredData = [];
+        } else {
+          const { data: osHhRows, error: osHhError } = await applyTenantEmpresa(
+            supabase.from("ordens_servico").select("id").in("id", osIds).eq("usa_relatorio_hh", true),
+            tenantId,
+            empresaId
+          );
+          if (osHhError) throw osHhError;
+
+          const osHhIds = new Set((osHhRows ?? []).map((row) => Number(row.id)).filter((id) => Number.isFinite(id)));
+          filteredData = data.filter((row) => osHhIds.has(Number(row.os_id)));
+        }
+      }
+
       const nomeById = new Map(colaboradores.map((c) => [c.id, c.nome] as const));
       const totals = new Map<string, number>();
-      for (const r of data ?? []) {
+      for (const r of filteredData ?? []) {
         const horas =
           (typeof r.horas === "number" ? r.horas : null) ??
           (typeof r.horas_trabalhadas === "number" ? r.horas_trabalhadas : null) ??
@@ -223,7 +253,7 @@ export default function ApontamentosResumoMensalPage() {
     } finally {
       setLoading(false);
     }
-  }, [colaboradores, colaboradorId, empresaId, ensureContext, month, supabase, tenantId, year]);
+  }, [colaboradores, colaboradorId, empresaId, ensureContext, month, resumoHhFilter, supabase, tenantId, year]);
 
   useEffect(() => {
     void loadResumo();
@@ -235,7 +265,7 @@ export default function ApontamentosResumoMensalPage() {
         <h1 className="text-lg font-semibold text-zinc-100">Resumo de Horas (Mês)</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <label className="space-y-1">
           <div className="text-xs text-zinc-400">Ano</div>
           <select
@@ -281,6 +311,18 @@ export default function ApontamentosResumoMensalPage() {
             ))}
           </select>
         </label>
+
+        <label className="space-y-1">
+          <div className="text-xs text-zinc-400">Tipo de OS</div>
+          <select
+            value={resumoHhFilter}
+            onChange={(e) => setResumoHhFilter(e.target.value as ResumoHhFilter)}
+            className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+          >
+            <option value="todos">Todas</option>
+            <option value="os_hh">Somente OS HH</option>
+          </select>
+        </label>
       </div>
 
       {error && <div className="text-sm text-red-400">{error}</div>}
@@ -315,6 +357,14 @@ export default function ApontamentosResumoMensalPage() {
               ))
             )}
           </tbody>
+          {!loading && rows.length > 0 ? (
+            <tfoot className="border-t border-zinc-700 bg-zinc-950/80">
+              <tr>
+                <td className="px-3 py-2 text-left text-zinc-100 font-semibold">Total</td>
+                <td className="px-3 py-2 text-right text-zinc-100 font-semibold tabular-nums">{formatHoras(totalHorasResumo)}</td>
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
     </div>
