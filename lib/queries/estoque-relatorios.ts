@@ -31,6 +31,7 @@ export type SaldoEmEstoqueRow = {
   item_nome: string;
   unidade_medida: string | null;
   quantidade_atual: number;
+  quantidade_comprada_pendente: number;
   preco_unitario: number | string | null;
   custo_medio: number | string | null;
   valor_estoque: number | string | null;
@@ -44,6 +45,8 @@ export type SaldoEmEstoqueRow = {
   controla_estoque: boolean | null;
   abaixo_minimo: boolean | null;
 };
+
+const PEDIDO_COMPRA_STATUS_COMPRADO = ["RASCUNHO", "AGUARDANDO_APROVACAO", "APROVADO", "ENVIADO", "PARCIAL_RECEBIDO"] as const;
 
 function safeNumber(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
@@ -98,6 +101,106 @@ function sortSaldoRows(rows: SaldoEmEstoqueRow[], sort: { key: SaldoEmEstoqueSor
   });
 }
 
+function chunkArray<T>(values: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < values.length; i += size) chunks.push(values.slice(i, i + size));
+  return chunks;
+}
+
+async function listPedidoCompraAbertoIds(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string }
+): Promise<string[]> {
+  const ids: string[] = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .schema("m")
+      .from("pedido_compra")
+      .select("id")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .is("deleted_at", null)
+      .in("status", [...PEDIDO_COMPRA_STATUS_COMPRADO])
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? (data as Array<{ id?: unknown }>) : [];
+    ids.push(...rows.map((row) => String(row.id ?? "").trim()).filter(Boolean));
+
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return ids;
+}
+
+async function getQuantidadeCompradaPendenteByItem(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string },
+  itemIdsRaw: number[]
+): Promise<Map<number, number>> {
+  const itemIds = Array.from(new Set(itemIdsRaw.filter((id) => Number.isFinite(id) && id > 0)));
+  const totals = new Map<number, number>();
+  if (itemIds.length === 0) return totals;
+
+  const pedidoIds = await listPedidoCompraAbertoIds(supabase, ctx);
+  if (pedidoIds.length === 0) return totals;
+
+  for (const pedidoChunk of chunkArray(pedidoIds, 400)) {
+    for (const itemChunk of chunkArray(itemIds, 400)) {
+      const { data, error } = await supabase
+        .schema("m")
+        .from("pedido_compra_item")
+        .select("item_id,quantidade,quantidade_recebida")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("empresa_id", ctx.empresaId)
+        .is("deleted_at", null)
+        .in("pedido_compra_id", pedidoChunk)
+        .in("item_id", itemChunk);
+
+      if (error) throw error;
+
+      for (const row of Array.isArray(data) ? (data as Array<Record<string, unknown>>) : []) {
+        const itemId = safeNumber(row.item_id);
+        if (!Number.isFinite(itemId) || itemId <= 0) continue;
+        const pendente = Math.max(0, safeNumber(row.quantidade) - safeNumber(row.quantidade_recebida));
+        if (pendente <= 0) continue;
+        totals.set(itemId, (totals.get(itemId) ?? 0) + pendente);
+      }
+    }
+  }
+
+  return totals;
+}
+
+async function attachQuantidadeCompradaPendente(
+  supabase: SupabaseClient,
+  ctx: { tenantId: string; empresaId: string },
+  rows: SaldoEmEstoqueRow[]
+): Promise<SaldoEmEstoqueRow[]> {
+  if (rows.length === 0) return rows;
+  let compradoByItem = new Map<number, number>();
+
+  try {
+    compradoByItem = await getQuantidadeCompradaPendenteByItem(
+      supabase,
+      ctx,
+      rows.map((row) => row.item_id)
+    );
+  } catch (error) {
+    console.warn("[Relatorio estoque] Nao foi possivel carregar compras pendentes.", error);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    quantidade_comprada_pendente: compradoByItem.get(row.item_id) ?? 0,
+  }));
+}
+
 function mapSaldoRowFromEstoqueRecord(r: unknown): SaldoEmEstoqueRow {
   const row = r as {
     item_id?: unknown;
@@ -126,6 +229,7 @@ function mapSaldoRowFromEstoqueRecord(r: unknown): SaldoEmEstoqueRow {
     item_nome: String(itens?.nome ?? ""),
     unidade_medida: itens?.unidade_medida ?? null,
     quantidade_atual: saldo,
+    quantidade_comprada_pendente: 0,
     preco_unitario: precoUnitario,
     custo_medio: custo,
     valor_estoque: valor,
@@ -188,6 +292,7 @@ function mapSaldoRowFromItemRecord(r: unknown): SaldoEmEstoqueRow {
     item_nome: String(row.nome ?? ""),
     unidade_medida: normalizeNullableText(row.unidade_medida),
     quantidade_atual: saldo,
+    quantidade_comprada_pendente: 0,
     preco_unitario: precoUnitario,
     custo_medio: custo,
     valor_estoque: valor,
@@ -354,7 +459,8 @@ export async function listSaldoEmEstoque(
     });
 
     const sorted = sortSaldoRows(filtered, args.sort);
-    return { rows: sorted.slice(from, to + 1), count: sorted.length };
+    const pageRows = sorted.slice(from, to + 1);
+    return { rows: await attachQuantidadeCompradaPendente(supabase, ctx, pageRows), count: sorted.length };
   }
 
   let qb = applyTenantEmpresa(
@@ -408,7 +514,7 @@ export async function listSaldoEmEstoque(
 
   const filtered = filters.abaixoMinimo ? mapped.filter((x) => x.abaixo_minimo) : mapped;
 
-  return { rows: filtered, count: Number(count ?? 0) };
+  return { rows: await attachQuantidadeCompradaPendente(supabase, ctx, filtered), count: Number(count ?? 0) };
 }
 // TAB B
 export type EntradasToggleOs = "todos" | "com_os" | "sem_os";
