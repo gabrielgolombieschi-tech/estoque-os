@@ -13,18 +13,52 @@ export type EnsureCondicaoPagamentoDefaultsResult = {
 
 export const DEFAULT_CONDICOES_PAGAMENTO: ReadonlyArray<CondicaoPagamentoPayload> = [
   { codigo: "AVISTA", nome: "A VISTA", dias: 0, acrescimo_percent: 0, ativo: true },
-  { codigo: "7", nome: "7", dias: 7, acrescimo_percent: 0, ativo: true },
-  { codigo: "14", nome: "14", dias: 14, acrescimo_percent: 0, ativo: true },
-  { codigo: "21", nome: "21", dias: 21, acrescimo_percent: 0, ativo: true },
-  { codigo: "28", nome: "28", dias: 28, acrescimo_percent: 0, ativo: true },
-  { codigo: "30", nome: "30", dias: 30, acrescimo_percent: 0, ativo: true },
-  { codigo: "28/56", nome: "28/56", dias: null, acrescimo_percent: 0, ativo: true },
-  { codigo: "30/60", nome: "30/60", dias: null, acrescimo_percent: 0, ativo: true },
-  { codigo: "30/60/90", nome: "30/60/90", dias: null, acrescimo_percent: 0, ativo: true },
+  { codigo: "07D", nome: "7 DIAS", dias: 7, acrescimo_percent: 0.26, ativo: true },
+  { codigo: "14D", nome: "14 DIAS", dias: 14, acrescimo_percent: 0.52, ativo: true },
+  { codigo: "21D", nome: "21 DIAS", dias: 21, acrescimo_percent: 0.78, ativo: true },
+  { codigo: "28D", nome: "28 DIAS", dias: 28, acrescimo_percent: 1.04, ativo: true },
+  { codigo: "30D", nome: "30 DIAS", dias: 30, acrescimo_percent: 1.12, ativo: true },
+  { codigo: "45D", nome: "45 DIAS", dias: 45, acrescimo_percent: 1.68, ativo: true },
+  { codigo: "60D", nome: "60 DIAS", dias: 60, acrescimo_percent: 2.25, ativo: true },
+  { codigo: "90D", nome: "90 DIAS", dias: 90, acrescimo_percent: 3.4, ativo: true },
+  { codigo: "28_56", nome: "28/56 DIAS", dias: null, acrescimo_percent: 1.57, ativo: true },
+  { codigo: "30_60", nome: "30/60 DIAS", dias: null, acrescimo_percent: 1.68, ativo: true },
+  { codigo: "30_60_90", nome: "30/60/90 DIAS", dias: null, acrescimo_percent: 2.25, ativo: true },
 ];
 
 function normalizeLookupKey(value: unknown): string {
   return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizePrazoKey(value: unknown): string {
+  const normalized = normalizeLookupKey(value)
+    .replace(/\bDIAS?\b/g, "")
+    .replace(/D\b/g, "")
+    .replace(/_/g, "/")
+    .replace(/\s+/g, "");
+
+  const tokens = normalized.match(/\d+/g);
+  return tokens?.length ? tokens.map((token) => String(Number(token))).join("/") : normalized;
+}
+
+function seedMatchScore(row: CondicaoPagamentoSeedLookupRow | null | undefined): number {
+  if (!row) return -1;
+  let score = 0;
+  if (!row.deleted_at) score += 100;
+  if (row.ativo) score += 50;
+  if (/\bDIAS?\b/i.test(String(row.nome ?? ""))) score += 10;
+  if (/[D_]/i.test(String(row.codigo ?? ""))) score += 5;
+  return score;
+}
+
+function setPreferredMatch(
+  map: Map<string, CondicaoPagamentoSeedLookupRow>,
+  key: string,
+  row: CondicaoPagamentoSeedLookupRow
+): void {
+  if (!key) return;
+  const current = map.get(key);
+  if (!current || seedMatchScore(row) > seedMatchScore(current)) map.set(key, row);
 }
 
 export function isUniqueViolation(error: unknown): boolean {
@@ -133,10 +167,13 @@ export async function ensureDefaults(
 
   const byCode = new Map<string, CondicaoPagamentoSeedLookupRow>();
   const byName = new Map<string, CondicaoPagamentoSeedLookupRow>();
+  const byPrazo = new Map<string, CondicaoPagamentoSeedLookupRow>();
 
   for (const row of data ?? []) {
-    byCode.set(normalizeLookupKey(row.codigo), row);
-    byName.set(normalizeLookupKey(row.nome), row);
+    setPreferredMatch(byCode, normalizeLookupKey(row.codigo), row);
+    setPreferredMatch(byName, normalizeLookupKey(row.nome), row);
+    setPreferredMatch(byPrazo, normalizePrazoKey(row.codigo), row);
+    setPreferredMatch(byPrazo, normalizePrazoKey(row.nome), row);
   }
 
   let inserted = 0;
@@ -146,6 +183,8 @@ export async function ensureDefaults(
     const match =
       byCode.get(normalizeLookupKey(seed.codigo)) ??
       byName.get(normalizeLookupKey(seed.nome)) ??
+      byPrazo.get(normalizePrazoKey(seed.codigo)) ??
+      byPrazo.get(normalizePrazoKey(seed.nome)) ??
       null;
 
     if (!match) {

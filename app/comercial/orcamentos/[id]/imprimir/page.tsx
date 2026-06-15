@@ -56,6 +56,34 @@ type EstoqueRow = {
   quantidade_atual: number | null;
 };
 
+type ClienteContatoPrintInfo = {
+  nome: string;
+  setor: string;
+  email: string;
+  telefone: string;
+};
+
+type SaveFilePickerOptionsLike = {
+  suggestedName?: string;
+  types?: Array<{
+    description?: string;
+    accept: Record<string, string[]>;
+  }>;
+};
+
+type FileSystemWritableFileStreamLike = {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+};
+
+type FileSystemFileHandleLike = {
+  createWritable(): Promise<FileSystemWritableFileStreamLike>;
+};
+
+type WindowWithSaveFilePicker = Window & {
+  showSaveFilePicker?: (options?: SaveFilePickerOptionsLike) => Promise<FileSystemFileHandleLike>;
+};
+
 function formatDateBR(iso?: string | null) {
   if (!iso) return "-";
   const [y, m, d] = String(iso).slice(0, 10).split("-");
@@ -93,6 +121,19 @@ function formatEnderecoCliente(cli: ClienteRow | null) {
   return joinNonEmpty([linha1 || null, linha2 || null, cep || null], " | ") || "-";
 }
 
+function lowerTrim(value: string | null | undefined) {
+  return String(value ?? "").trim().toLocaleLowerCase("pt-BR");
+}
+
+function getClienteContatoPrintInfo(orc: OrcamentoRow | null, cli: ClienteRow | null): ClienteContatoPrintInfo {
+  return {
+    nome: upperTrim(String(orc?.solicitante_nome ?? "")) || "-",
+    setor: upperTrim(String(orc?.solicitante_setor ?? "")) || "-",
+    email: lowerTrim(orc?.solicitante_email) || lowerTrim(cli?.email) || "-",
+    telefone: String(orc?.solicitante_telefone ?? "").trim() || String(cli?.telefone ?? "").trim() || "-",
+  };
+}
+
 function blobToDataUrl(blob: Blob) {
   return new Promise<string | null>((resolve) => {
     const reader = new FileReader();
@@ -110,6 +151,33 @@ async function fetchImageAsDataUrl(src: string) {
   } catch {
     return null;
   }
+}
+
+async function pickPdfSaveHandle(suggestedName: string): Promise<FileSystemFileHandleLike | "cancelled" | "unsupported"> {
+  const picker = (window as WindowWithSaveFilePicker).showSaveFilePicker;
+  if (!picker) return "unsupported";
+
+  try {
+    return await picker({
+      suggestedName,
+      types: [
+        {
+          description: "Arquivo PDF",
+          accept: { "application/pdf": [".pdf"] },
+        },
+      ],
+    });
+  } catch (error: unknown) {
+    const name = typeof error === "object" && error !== null && "name" in error ? String((error as { name?: unknown }).name ?? "") : "";
+    if (name === "AbortError") return "cancelled";
+    throw error;
+  }
+}
+
+async function writeBlobToFileHandle(handle: FileSystemFileHandleLike, blob: Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
 }
 
 export default function OrcamentoImprimirPage() {
@@ -321,13 +389,23 @@ export default function OrcamentoImprimirPage() {
   const totalMaoDeObra = n(orc?.total_servicos);
   const frete = n(orc?.valor_frete);
   const totalProposta = n(orc?.total_liquido);
+  const clienteContatoPrint = useMemo(() => getClienteContatoPrintInfo(orc, cliente), [cliente, orc]);
 
   async function handleDownloadPdf() {
     if (!orc) return;
 
+    const safeFileBase = (upperTrim(orc.codigo) || `orcamento-${idParam}` || "orcamento")
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+    const fileName = `${safeFileBase || "orcamento"}.pdf`;
+
     setPdfErr(null);
     setDownloadingPdf(true);
     try {
+      const saveHandle = await pickPdfSaveHandle(fileName);
+      if (saveHandle === "cancelled") return;
+
       const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
       const autoTable = autoTableMod.default;
 
@@ -363,18 +441,16 @@ export default function OrcamentoImprimirPage() {
 
       const codigoTitulo = joinNonEmpty([upperTrim(orc.codigo), upperTrim(orc.titulo) || "ORCAMENTO"], " - ");
       const clienteNome = cliente ? upperTrim(cliente.razao_social || cliente.nome) : "-";
-      const clienteContato = joinNonEmpty([cliente?.telefone, cliente?.email], " | ") || "-";
+      const clienteContato = getClienteContatoPrintInfo(orc, cliente);
       const clienteEndereco = formatEnderecoCliente(cliente);
+      const usuarioProposta = vendedor?.nome ?? vendedor?.email ?? String(orc.vendedor_usuario_id ?? "-");
+      const dataProposta = formatDateBR(orc.emissao_date);
       const empresaLinha = joinNonEmpty([empresa?.cnpj ? `CNPJ: ${empresa.cnpj}` : null, empresa?.ie ? `IE: ${empresa.ie}` : null], " | ") || "-";
       const empresaRodape =
         joinNonEmpty(
           [empresa?.endereco, joinNonEmpty([empresa?.cidade, empresa?.uf], " - "), vendedor?.email ? `Contato comercial: ${vendedor.email}` : null],
           " | "
         ) || "-";
-      const safeFileBase = (upperTrim(orc.codigo) || `orcamento-${idParam}` || "orcamento")
-        .replace(/[\\/:*?"<>|]+/g, "-")
-        .replace(/\s+/g, " ")
-        .trim();
 
       const logoDataUrl = await fetchImageAsDataUrl("/Segau2.png");
 
@@ -394,7 +470,7 @@ export default function OrcamentoImprimirPage() {
       doc.text(formatDateBR(orc.emissao_date), pageWidth - margin, 13.5, { align: "right" });
 
       const topY = 16;
-      const topH = 39;
+      const topH = 45;
       card(margin, topY, contentWidth, topH);
 
       if (logoDataUrl) {
@@ -418,7 +494,9 @@ export default function OrcamentoImprimirPage() {
       doc.setTextColor(51, 51, 51);
       doc.text(doc.splitTextToSize(upperTrim(orc.codigo) || "-", 95) as string[], margin + 4, topY + 21);
       doc.text(doc.splitTextToSize(empresaLinha, 95) as string[], margin + 4, topY + 26);
-      doc.text(doc.splitTextToSize(empresaRodape, contentWidth - 8) as string[], margin + 4, topY + 35.5);
+      doc.text(doc.splitTextToSize(`Usuario: ${usuarioProposta}`, 95) as string[], margin + 4, topY + 31);
+      doc.text(doc.splitTextToSize(`Data: ${dataProposta}`, 95) as string[], margin + 4, topY + 36);
+      doc.text(doc.splitTextToSize(empresaRodape, contentWidth - 8) as string[], margin + 4, topY + 42.5);
 
       const proposalSplitX = pageWidth - margin - 96;
       const proposalLabelX = proposalSplitX + 4;
@@ -440,21 +518,14 @@ export default function OrcamentoImprimirPage() {
         topY + 10.5,
         proposalValueWidth
       );
-      writeLabelValue("Data", formatDateBR(orc.emissao_date), proposalLabelX, proposalValueX, topY + 15.5, proposalValueWidth);
-      writeLabelValue(
-        "Usuario",
-        vendedor?.nome ?? vendedor?.email ?? String(orc.vendedor_usuario_id ?? "-"),
-        proposalLabelX,
-        proposalValueX,
-        topY + 20.5,
-        proposalValueWidth
-      );
-      writeLabelValue("Validade", validade, proposalLabelX, proposalValueX, topY + 25.5, proposalValueWidth);
-      writeLabelValue("Condicao", condicaoNome ?? "(sem)", proposalLabelX, proposalValueX, topY + 30.5, proposalValueWidth);
-      writeLabelValue("Garantia", garantia, proposalLabelX, proposalValueX, topY + 35.5, proposalValueWidth);
+      writeLabelValue("Validade", validade, proposalLabelX, proposalValueX, topY + 16.5, proposalValueWidth);
+      writeLabelValue("Condicao", condicaoNome ?? "(sem)", proposalLabelX, proposalValueX, topY + 22.5, proposalValueWidth);
+      writeLabelValue("Garantia", garantia, proposalLabelX, proposalValueX, topY + 28.5, proposalValueWidth);
+      writeLabelValue("Ult. alteracao", formatDateBR(orc.updated_at), proposalLabelX, proposalValueX, topY + 34.5, proposalValueWidth);
 
-      const clienteY = 57;
-      const clienteH = 24;
+      const clienteY = topY + topH + 3;
+      const clienteH = 40;
+      const itensStartY = clienteY + clienteH + 4;
       card(margin, clienteY, contentWidth, clienteH);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
@@ -462,8 +533,11 @@ export default function OrcamentoImprimirPage() {
       doc.text("Cliente", margin + 4, clienteY + 6);
       writeLabelValue("Razao/Nome", clienteNome, margin + 4, margin + 28, clienteY + 11, 110);
       writeLabelValue("CPF/CNPJ", cliente?.documento ?? "-", margin + 4, margin + 28, clienteY + 16, 110);
-      writeLabelValue("Contato", clienteContato, margin + 4, margin + 28, clienteY + 21, 110);
-      writeLabelValue("Endereco", clienteEndereco, margin + 150, margin + 168, clienteY + 11, 108);
+      writeLabelValue("Contato", clienteContato.nome, margin + 4, margin + 28, clienteY + 21, 110);
+      writeLabelValue("Setor", clienteContato.setor, margin + 150, margin + 168, clienteY + 11, 108);
+      writeLabelValue("E-mail", clienteContato.email, margin + 150, margin + 168, clienteY + 16, 108);
+      writeLabelValue("Telefone", clienteContato.telefone, margin + 150, margin + 168, clienteY + 21, 108);
+      writeLabelValue("Endereco", clienteEndereco, margin + 4, margin + 28, clienteY + 32, contentWidth - 32);
 
       const body = itens.length
         ? itens.map((it) => {
@@ -493,8 +567,8 @@ export default function OrcamentoImprimirPage() {
         : [["-", "Nenhum item no orcamento.", "-", "-", "-", "-", "-", "-", "-"]];
 
       autoTable(doc, {
-        startY: 85,
-        margin: { left: margin, right: margin, top: 85, bottom: 34 },
+        startY: itensStartY,
+        margin: { left: margin, right: margin, top: itensStartY, bottom: 34 },
         head: [["Codigo", "Produto/Servico", "Marca", "Unid", "NCM", "Qtd", "Valor Unit.", "Valor Total", "Prazo"]],
         body,
         theme: "grid",
@@ -528,7 +602,7 @@ export default function OrcamentoImprimirPage() {
         },
       });
 
-      let footerY = ((doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 85) + 4;
+      let footerY = ((doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? itensStartY) + 4;
       if (footerY > pageHeight - 40) {
         doc.addPage();
         footerY = 18;
@@ -576,7 +650,12 @@ export default function OrcamentoImprimirPage() {
         doc.text(`Pagina ${i} de ${pages}`, pageWidth - margin, pageHeight - 4, { align: "right" });
       }
 
-      doc.save(`${safeFileBase || "orcamento"}.pdf`);
+      const blob = doc.output("blob");
+      if (saveHandle === "unsupported") {
+        doc.save(fileName);
+      } else {
+        await writeBlobToFileHandle(saveHandle, blob);
+      }
     } catch (e: unknown) {
       console.error(e);
       setPdfErr(e instanceof Error ? e.message : "Falha ao gerar PDF.");
@@ -857,6 +936,9 @@ export default function OrcamentoImprimirPage() {
           .docMetaValue {
             text-align: left;
           }
+          .orc-imp-clientGrid {
+            grid-template-columns: 1fr;
+          }
         }
 
         .orc-imp-titleSmall {
@@ -883,6 +965,25 @@ export default function OrcamentoImprimirPage() {
           grid-template-columns: 140px 1fr;
           gap: 6px 10px;
           align-items: baseline;
+        }
+
+        .orc-imp-clientGrid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 6px 28px;
+          align-items: start;
+        }
+
+        .orc-imp-clientColumn,
+        .orc-imp-clientAddress {
+          display: grid;
+          grid-template-columns: 140px 1fr;
+          gap: 6px 10px;
+          align-items: baseline;
+        }
+
+        .orc-imp-clientAddress {
+          margin-top: 6px;
         }
 
         .orc-imp-k {
@@ -1057,6 +1158,8 @@ export default function OrcamentoImprimirPage() {
                     <div className="companySub">
                       {joinNonEmpty([empresa?.cnpj ? `CNPJ: ${empresa.cnpj}` : null, empresa?.ie ? `IE: ${empresa.ie}` : null], " | ") || "-"}
                     </div>
+                    <div className="companySub">Usuario: {vendedor?.nome ?? vendedor?.email ?? orc.vendedor_usuario_id}</div>
+                    <div className="companySub">Data: {formatDateBR(orc.emissao_date)}</div>
                   </div>
                 </div>
 
@@ -1065,12 +1168,6 @@ export default function OrcamentoImprimirPage() {
                   <div className="docMetaGrid">
                     <div className="docMetaLabel">Codigo/Numero</div>
                     <div className="docMetaValue">{joinNonEmpty([orc.codigo, orc.numero ? `N${orc.numero}` : null], " | ") || "-"}</div>
-
-                    <div className="docMetaLabel">Data</div>
-                    <div className="docMetaValue">{formatDateBR(orc.emissao_date)}</div>
-
-                    <div className="docMetaLabel">Usuario</div>
-                    <div className="docMetaValue">{vendedor?.nome ?? vendedor?.email ?? orc.vendedor_usuario_id}</div>
 
                     <div className="docMetaLabel">Validade</div>
                     <div className="docMetaValue">{validade}</div>
@@ -1103,16 +1200,31 @@ export default function OrcamentoImprimirPage() {
 
             <div className="orc-imp-card">
               <div style={{ fontWeight: 900, marginBottom: 6 }}>Cliente</div>
-              <div className="orc-imp-kv">
-                <div className="orc-imp-k">Razao/Nome</div>
-                <div className="orc-imp-v">{cliente ? upperTrim(cliente.razao_social || cliente.nome) : "-"}</div>
+              <div className="orc-imp-clientGrid">
+                <div className="orc-imp-clientColumn">
+                  <div className="orc-imp-k">Razao/Nome</div>
+                  <div className="orc-imp-v">{cliente ? upperTrim(cliente.razao_social || cliente.nome) : "-"}</div>
 
-                <div className="orc-imp-k">CPF/CNPJ</div>
-                <div className="orc-imp-v">{cliente?.documento ?? "-"}</div>
+                  <div className="orc-imp-k">CPF/CNPJ</div>
+                  <div className="orc-imp-v">{cliente?.documento ?? "-"}</div>
 
-                <div className="orc-imp-k">Contato</div>
-                <div className="orc-imp-v">{joinNonEmpty([cliente?.telefone, cliente?.email], " | ") || "-"}</div>
+                  <div className="orc-imp-k">Contato</div>
+                  <div className="orc-imp-v">{clienteContatoPrint.nome}</div>
+                </div>
 
+                <div className="orc-imp-clientColumn">
+                  <div className="orc-imp-k">Setor</div>
+                  <div className="orc-imp-v">{clienteContatoPrint.setor}</div>
+
+                  <div className="orc-imp-k">E-mail</div>
+                  <div className="orc-imp-v">{clienteContatoPrint.email}</div>
+
+                  <div className="orc-imp-k">Telefone</div>
+                  <div className="orc-imp-v">{clienteContatoPrint.telefone}</div>
+                </div>
+              </div>
+
+              <div className="orc-imp-clientAddress">
                 <div className="orc-imp-k">Endereco</div>
                 <div className="orc-imp-v">{formatEnderecoCliente(cliente)}</div>
               </div>

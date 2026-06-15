@@ -29,6 +29,7 @@ import {
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
   listarContatosClienteParaOrcamento,
+  salvarContatoClienteDoOrcamento,
   searchClientes,
   sincronizarOrcamentoComDriveViaAppsScript,
   updateItem,
@@ -246,6 +247,27 @@ function contatoField(value: string | null | undefined): string {
   return String(value ?? "").trim();
 }
 
+function uppercaseContatoField(value: string | null | undefined): string {
+  return contatoField(value).toLocaleUpperCase("pt-BR");
+}
+
+function lowercaseEmailField(value: string | null | undefined): string {
+  return contatoField(value).toLocaleLowerCase("pt-BR");
+}
+
+function onlyDigits(value: string | null | undefined): string {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+function formatPhoneInput(value: string | null | undefined): string {
+  const digits = onlyDigits(value).slice(0, 11);
+  if (!digits) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 function formatContatoSuggestion(contato: ClienteContatoLookupRow): string {
   return [contato.email, contato.nome, contato.setor, contato.telefone].map(contatoField).filter(Boolean).join(" - ");
 }
@@ -334,6 +356,15 @@ type EditClienteDialogState =
       clienteTerm: string;
       clienteResults: Array<{ id: number; nome: string | null }>;
       clienteId: number | null;
+      contatoResults: ClienteContatoLookupRow[];
+      contatoLoading: boolean;
+      titulo: string;
+      vendedorUsuarioId: string;
+      condicaoPagamentoId: string | null;
+      solicitanteNome: string;
+      solicitanteSetor: string;
+      solicitanteEmail: string;
+      solicitanteTelefone: string;
     };
 
 function closedEditClienteDialog(): EditClienteDialogState {
@@ -386,6 +417,8 @@ export default function OrcamentoPage() {
 
   const [editClienteDialog, setEditClienteDialog] = useState<EditClienteDialogState>(closedEditClienteDialog);
   const editClienteReqRef = useRef(0);
+  const editClienteDialogClienteTerm = editClienteDialog.open ? editClienteDialog.clienteTerm : "";
+  const editClienteDialogClienteId = editClienteDialog.open ? editClienteDialog.clienteId : null;
 
   const [itemDialog, setItemDialog] = useState<ItemDialogState>(closedItemDialog);
   const [inlineItemId, setInlineItemId] = useState<string>("");
@@ -746,7 +779,7 @@ export default function OrcamentoPage() {
     if (!editClienteDialog.open) return;
     if (!supabase || !tenantId || !empresaId) return;
 
-    const term = editClienteDialog.clienteTerm.trim();
+    const term = editClienteDialogClienteTerm.trim();
     const reqId = ++editClienteReqRef.current;
     const t = setTimeout(async () => {
       try {
@@ -768,7 +801,41 @@ export default function OrcamentoPage() {
     }, 250);
 
     return () => clearTimeout(t);
-  }, [editClienteDialog, empresaId, supabase, tenantId]);
+  }, [editClienteDialog.open, editClienteDialogClienteTerm, empresaId, supabase, tenantId]);
+
+  // search contatos do cliente in edit-cliente dialog
+  useEffect(() => {
+    if (!editClienteDialog.open) return;
+
+    const clienteId = editClienteDialogClienteId;
+    if (!supabase || !tenantId || !empresaId || !clienteId) {
+      setEditClienteDialog((p) => {
+        if (!p.open || (p.contatoResults.length === 0 && !p.contatoLoading)) return p;
+        return { ...p, contatoResults: [], contatoLoading: false };
+      });
+      return;
+    }
+
+    let active = true;
+
+    setEditClienteDialog((p) => (p.open && p.clienteId === clienteId ? { ...p, contatoResults: [], contatoLoading: true } : p));
+
+    (async () => {
+      try {
+        const contatos = await listarContatosClienteParaOrcamento(supabase, { tenantId, empresaId, clienteId });
+        if (!active) return;
+        setEditClienteDialog((p) => (p.open && p.clienteId === clienteId ? { ...p, contatoResults: contatos, contatoLoading: false } : p));
+      } catch (error) {
+        console.warn("Falha ao carregar contatos do cliente para orcamento.", error);
+        if (!active) return;
+        setEditClienteDialog((p) => (p.open && p.clienteId === clienteId ? { ...p, contatoResults: [], contatoLoading: false } : p));
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [editClienteDialog.open, editClienteDialogClienteId, empresaId, supabase, tenantId]);
 
   const resolveItemByCodigoOrId = useCallback(
     async (rawValue: string) => {
@@ -1278,10 +1345,24 @@ export default function OrcamentoPage() {
       p.open
         ? {
             ...p,
-            solicitanteNome: contatoField(contato.nome),
-            solicitanteSetor: contatoField(contato.setor),
-            solicitanteEmail: contatoField(contato.email),
-            solicitanteTelefone: contatoField(contato.telefone),
+            solicitanteNome: uppercaseContatoField(contato.nome),
+            solicitanteSetor: uppercaseContatoField(contato.setor),
+            solicitanteEmail: lowercaseEmailField(contato.email),
+            solicitanteTelefone: formatPhoneInput(contato.telefone),
+          }
+        : p
+    );
+  }, []);
+
+  const applyEditContatoSuggestion = useCallback((contato: ClienteContatoLookupRow) => {
+    setEditClienteDialog((p) =>
+      p.open
+        ? {
+            ...p,
+            solicitanteNome: uppercaseContatoField(contato.nome),
+            solicitanteSetor: uppercaseContatoField(contato.setor),
+            solicitanteEmail: lowercaseEmailField(contato.email),
+            solicitanteTelefone: formatPhoneInput(contato.telefone),
           }
         : p
     );
@@ -1294,6 +1375,10 @@ export default function OrcamentoPage() {
     const clienteId = newDialog.clienteId;
     const titulo = upperTrim(newDialog.titulo);
     const vendedorUsuarioId = String(newDialog.vendedorUsuarioId ?? "").trim();
+    const solicitanteNome = uppercaseContatoField(newDialog.solicitanteNome);
+    const solicitanteSetor = uppercaseContatoField(newDialog.solicitanteSetor);
+    const solicitanteEmail = lowercaseEmailField(newDialog.solicitanteEmail);
+    const solicitanteTelefone = formatPhoneInput(newDialog.solicitanteTelefone);
 
     if (!clienteId) {
       setNewDialog((p) => (p.open ? { ...p, error: "Selecione um cliente." } : p));
@@ -1317,10 +1402,10 @@ export default function OrcamentoPage() {
         clienteId,
         vendedorUsuarioId,
         condicaoPagamentoId: newDialog.condicaoPagamentoId ?? null,
-        solicitanteNome: newDialog.solicitanteNome ?? "",
-        solicitanteSetor: newDialog.solicitanteSetor ?? "",
-        solicitanteEmail: newDialog.solicitanteEmail ?? "",
-        solicitanteTelefone: newDialog.solicitanteTelefone ?? "",
+        solicitanteNome,
+        solicitanteSetor,
+        solicitanteEmail,
+        solicitanteTelefone,
       });
       setNewDialog(closedNewDialog());
       router.replace(`/comercial/orcamentos/${created.codigo ?? created.id}`);
@@ -1343,8 +1428,17 @@ export default function OrcamentoPage() {
       clienteTerm: clienteNome ?? "",
       clienteResults: [],
       clienteId: form.cliente_id ?? orc.cliente_id ?? null,
+      contatoResults: [],
+      contatoLoading: false,
+      titulo: form.titulo ?? orc.titulo ?? "",
+      vendedorUsuarioId: form.vendedor_usuario_id ?? orc.vendedor_usuario_id ?? "",
+      condicaoPagamentoId: form.condicao_pagamento_id ?? orc.condicao_pagamento_id ?? null,
+      solicitanteNome: uppercaseContatoField(orc.solicitante_nome),
+      solicitanteSetor: uppercaseContatoField(orc.solicitante_setor),
+      solicitanteEmail: lowercaseEmailField(orc.solicitante_email),
+      solicitanteTelefone: formatPhoneInput(orc.solicitante_telefone),
     });
-  }, [canWrite, clienteNome, empresaId, form, orc?.cliente_id, orc?.id, readOnly, supabase, tenantId]);
+  }, [canWrite, clienteNome, empresaId, form, orc, readOnly, supabase, tenantId]);
 
   const closeEditCliente = useCallback(() => {
     setEditClienteDialog(closedEditClienteDialog());
@@ -1357,8 +1451,24 @@ export default function OrcamentoPage() {
     if (readOnly || !canWrite) return;
 
     const clienteId = editClienteDialog.clienteId;
+    const titulo = upperTrim(editClienteDialog.titulo);
+    const vendedorUsuarioId = String(editClienteDialog.vendedorUsuarioId ?? "").trim();
+    const condicaoPagamentoId = editClienteDialog.condicaoPagamentoId ?? null;
+    const solicitanteNome = uppercaseContatoField(editClienteDialog.solicitanteNome);
+    const solicitanteSetor = uppercaseContatoField(editClienteDialog.solicitanteSetor);
+    const solicitanteEmail = lowercaseEmailField(editClienteDialog.solicitanteEmail);
+    const solicitanteTelefone = formatPhoneInput(editClienteDialog.solicitanteTelefone);
+
     if (!clienteId) {
       setEditClienteDialog((p) => (p.open ? { ...p, error: "Selecione um cliente." } : p));
+      return;
+    }
+    if (!titulo) {
+      setEditClienteDialog((p) => (p.open ? { ...p, error: "Informe o titulo." } : p));
+      return;
+    }
+    if (!vendedorUsuarioId) {
+      setEditClienteDialog((p) => (p.open ? { ...p, error: "Selecione um vendedor." } : p));
       return;
     }
 
@@ -1366,10 +1476,40 @@ export default function OrcamentoPage() {
     setErr(null);
     setOk(null);
     try {
-      await updateOrcamento(supabase, { tenantId, empresaId, id: orc.id, patch: { cliente_id: clienteId } });
+      const patch: Partial<OrcamentoRow> = {
+        cliente_id: clienteId,
+        titulo,
+        vendedor_usuario_id: vendedorUsuarioId,
+        condicao_pagamento_id: condicaoPagamentoId,
+        solicitante_nome: solicitanteNome || null,
+        solicitante_setor: solicitanteSetor || null,
+        solicitante_email: solicitanteEmail || null,
+        solicitante_telefone: solicitanteTelefone || null,
+      };
 
-      setOrc((p) => (p ? { ...p, cliente_id: clienteId } : p));
-      setForm((p) => (p ? { ...p, cliente_id: clienteId } : p));
+      await updateOrcamento(supabase, { tenantId, empresaId, id: orc.id, patch });
+      await salvarContatoClienteDoOrcamento(supabase, {
+        tenantId,
+        empresaId,
+        clienteId,
+        solicitanteNome,
+        solicitanteSetor,
+        solicitanteEmail,
+        solicitanteTelefone,
+      });
+
+      setOrc((p) => (p ? { ...p, ...patch } : p));
+      setForm((p) =>
+        p
+          ? {
+              ...p,
+              cliente_id: clienteId,
+              titulo,
+              vendedor_usuario_id: vendedorUsuarioId,
+              condicao_pagamento_id: condicaoPagamentoId,
+            }
+          : p
+      );
 
       try {
         const cli = await getClienteById(supabase, { tenantId, empresaId, clienteId });
@@ -1378,14 +1518,15 @@ export default function OrcamentoPage() {
         // keep previous name if lookup fails
       }
 
-      setOk("Cliente atualizado.");
+      setOk("Dados iniciais atualizados.");
       setEditClienteDialog(closedEditClienteDialog());
+      await reload();
     } catch (e: unknown) {
       setEditClienteDialog((p) =>
-        p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao atualizar cliente.") } : p
+        p.open ? { ...p, busy: false, error: mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao atualizar dados iniciais.") } : p
       );
     }
-  }, [canWrite, editClienteDialog, empresaId, form, orc?.id, readOnly, supabase, tenantId]);
+  }, [canWrite, editClienteDialog, empresaId, form, orc?.id, readOnly, reload, supabase, tenantId]);
 
   const saveHeader = useCallback(
     async (e?: FormEvent) => {
@@ -2599,7 +2740,9 @@ export default function OrcamentoPage() {
                   Solicitante
                   <input
                     value={newDialog.solicitanteNome ?? ""}
-                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteNome: e.target.value } : p))}
+                    onChange={(e) =>
+                      setNewDialog((p) => (p.open ? { ...p, solicitanteNome: e.target.value.toLocaleUpperCase("pt-BR") } : p))
+                    }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="Nome do solicitante"
                     autoComplete="name"
@@ -2610,7 +2753,9 @@ export default function OrcamentoPage() {
                   Setor
                   <input
                     value={newDialog.solicitanteSetor ?? ""}
-                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteSetor: e.target.value } : p))}
+                    onChange={(e) =>
+                      setNewDialog((p) => (p.open ? { ...p, solicitanteSetor: e.target.value.toLocaleUpperCase("pt-BR") } : p))
+                    }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="Setor"
                     autoComplete="organization-title"
@@ -2622,7 +2767,9 @@ export default function OrcamentoPage() {
                   <input
                     type="email"
                     value={newDialog.solicitanteEmail ?? ""}
-                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteEmail: e.target.value } : p))}
+                    onChange={(e) =>
+                      setNewDialog((p) => (p.open ? { ...p, solicitanteEmail: e.target.value.toLocaleLowerCase("pt-BR") } : p))
+                    }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="email@cliente.com.br"
                     autoComplete="email"
@@ -2662,9 +2809,13 @@ export default function OrcamentoPage() {
                   <input
                     type="tel"
                     value={newDialog.solicitanteTelefone ?? ""}
-                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, solicitanteTelefone: e.target.value } : p))}
+                    onChange={(e) =>
+                      setNewDialog((p) => (p.open ? { ...p, solicitanteTelefone: formatPhoneInput(e.target.value) } : p))
+                    }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="(00) 00000-0000"
+                    inputMode="numeric"
+                    maxLength={15}
                     autoComplete="tel"
                   />
                 </label>
@@ -2736,16 +2887,16 @@ export default function OrcamentoPage() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Alterar cliente"
-            className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+            aria-label="Alterar dados iniciais"
+            className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
-              <div className="font-semibold text-zinc-100">Alterar cliente</div>
-              <div className="text-xs text-zinc-400 mt-1">Busque e selecione o novo cliente do orcamento.</div>
+              <div className="font-semibold text-zinc-100">Alterar dados iniciais</div>
+              <div className="text-xs text-zinc-400 mt-1">Altere cliente e informacoes iniciais do orcamento.</div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto">
               {editClienteDialog.error && <div className="text-sm text-red-400">{editClienteDialog.error}</div>}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2774,7 +2925,16 @@ export default function OrcamentoPage() {
                           key={c.id}
                           onClick={() =>
                             setEditClienteDialog((p) =>
-                              p.open ? { ...p, clienteId: c.id, clienteTerm: c.nome ?? String(c.id), error: null } : p
+                              p.open
+                                ? {
+                                    ...p,
+                                    clienteId: c.id,
+                                    clienteTerm: c.nome ?? String(c.id),
+                                    contatoResults: [],
+                                    contatoLoading: false,
+                                    error: null,
+                                  }
+                                : p
                             )
                           }
                           disabled={editClienteDialog.busy}
@@ -2791,6 +2951,158 @@ export default function OrcamentoPage() {
                     )}
                   </div>
                 </div>
+
+                <label className="block text-xs text-zinc-400 md:col-span-2">
+                  Titulo
+                  <input
+                    value={editClienteDialog.titulo}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) =>
+                        p.open ? { ...p, titulo: e.target.value.toLocaleUpperCase("pt-BR"), error: null } : p
+                      )
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Ex.: Proposta de manutencao"
+                    disabled={editClienteDialog.busy}
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Solicitante
+                  <input
+                    value={editClienteDialog.solicitanteNome ?? ""}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) =>
+                        p.open ? { ...p, solicitanteNome: e.target.value.toLocaleUpperCase("pt-BR"), error: null } : p
+                      )
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Nome do solicitante"
+                    autoComplete="name"
+                    disabled={editClienteDialog.busy}
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Setor
+                  <input
+                    value={editClienteDialog.solicitanteSetor ?? ""}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) =>
+                        p.open ? { ...p, solicitanteSetor: e.target.value.toLocaleUpperCase("pt-BR"), error: null } : p
+                      )
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="Setor"
+                    autoComplete="organization-title"
+                    disabled={editClienteDialog.busy}
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  E-mail
+                  <input
+                    type="email"
+                    value={editClienteDialog.solicitanteEmail ?? ""}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) =>
+                        p.open ? { ...p, solicitanteEmail: e.target.value.toLocaleLowerCase("pt-BR"), error: null } : p
+                      )
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="email@cliente.com.br"
+                    autoComplete="email"
+                    disabled={editClienteDialog.busy}
+                  />
+                </label>
+
+                {(editClienteDialog.contatoLoading || editClienteDialog.contatoResults.length > 0) && (
+                  <div className="md:col-span-2">
+                    {editClienteDialog.contatoLoading ? (
+                      <div className="text-xs text-zinc-500">Carregando contatos...</div>
+                    ) : (
+                      <>
+                        <div className="text-xs text-zinc-400 mb-1">Contatos sugeridos</div>
+                        <div className="max-h-36 overflow-auto rounded-md border border-zinc-800">
+                          {editClienteDialog.contatoResults.map((contato) => {
+                            const label = formatContatoSuggestion(contato) || `Contato #${contato.id}`;
+                            return (
+                              <button
+                                type="button"
+                                key={String(contato.id)}
+                                onClick={() => applyEditContatoSuggestion(contato)}
+                                title={label}
+                                disabled={editClienteDialog.busy}
+                                className="w-full text-left px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900/40 disabled:opacity-60"
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <label className="block text-xs text-zinc-400">
+                  Telefone
+                  <input
+                    type="tel"
+                    value={editClienteDialog.solicitanteTelefone ?? ""}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) =>
+                        p.open ? { ...p, solicitanteTelefone: formatPhoneInput(e.target.value), error: null } : p
+                      )
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                    placeholder="(00) 00000-0000"
+                    inputMode="numeric"
+                    maxLength={15}
+                    autoComplete="tel"
+                    disabled={editClienteDialog.busy}
+                  />
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Vendedor
+                  <select
+                    value={editClienteDialog.vendedorUsuarioId}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) => (p.open ? { ...p, vendedorUsuarioId: e.target.value, error: null } : p))
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
+                    disabled={editClienteDialog.busy}
+                  >
+                    <option value="">Selecione</option>
+                    {vendedores.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.nome ?? v.id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-xs text-zinc-400">
+                  Condicao de Pagamento
+                  <select
+                    value={editClienteDialog.condicaoPagamentoId ?? ""}
+                    onChange={(e) =>
+                      setEditClienteDialog((p) =>
+                        p.open ? { ...p, condicaoPagamentoId: e.target.value ? e.target.value : null, error: null } : p
+                      )
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-2 text-sm"
+                    disabled={editClienteDialog.busy}
+                  >
+                    <option value="">(Sem condicao)</option>
+                    {condicoes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome ?? c.id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
 

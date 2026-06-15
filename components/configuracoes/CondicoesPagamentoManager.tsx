@@ -57,6 +57,13 @@ function capitalize(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
+function formatPercentBR(value: number | string | null | undefined): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n(value));
+}
+
 function useConfirmDialog() {
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
@@ -181,9 +188,11 @@ export default function CondicoesPagamentoManager({
   const [dialogMode, setDialogMode] = useState<DialogMode>("create");
   const [editing, setEditing] = useState<CondicaoPagamentoRow | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [showInactive, setShowInactive] = useState(false);
 
   const singularTitle = capitalize(entitySingular);
   const newButtonLabel = newLabel ?? `Nova ${entitySingular}`;
+  const visibleRows = useMemo(() => (showInactive ? rows : rows.filter((row) => row.ativo)), [rows, showInactive]);
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
@@ -401,6 +410,14 @@ export default function CondicoesPagamentoManager({
           >
             Atualizar
           </button>
+          <button
+            type="button"
+            onClick={() => setShowInactive((prev) => !prev)}
+            disabled={busy}
+            className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
+          >
+            {showInactive ? "Ocultar inativas" : "Mostrar inativas"}
+          </button>
           {canManage ? (
             <button
               type="button"
@@ -446,20 +463,37 @@ export default function CondicoesPagamentoManager({
               </tr>
             </thead>
             <tbody>
-              {!loading && rows.length === 0 ? (
+              {!loading && visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-6 text-zinc-400">
                     Nenhuma {entitySingular} cadastrada.
                   </td>
                 </tr>
               ) : null}
-              {rows.map((row) => (
-                <tr key={row.id} className="border-t border-zinc-900/60 hover:bg-zinc-900/30">
+              {visibleRows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={
+                    row.ativo
+                      ? "border-t border-zinc-900/60 hover:bg-zinc-900/30"
+                      : "border-t border-zinc-900/60 bg-zinc-950/70 text-zinc-500 hover:bg-zinc-900/20"
+                  }
+                >
                   <td className="px-3 py-2 whitespace-nowrap">{row.codigo}</td>
                   <td className="px-3 py-2 min-w-[320px]">{row.nome}</td>
-                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{n(row.acrescimo_percent)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{formatPercentBR(row.acrescimo_percent)}</td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{row.dias ?? "-"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{row.ativo ? "Sim" : "Não"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <span
+                      className={
+                        row.ativo
+                          ? "inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-200"
+                          : "inline-flex rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400"
+                      }
+                    >
+                      {row.ativo ? "Sim" : "Não"}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     {canManage ? (
                       <div className="inline-flex items-center gap-2">
