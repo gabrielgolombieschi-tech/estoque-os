@@ -8,7 +8,6 @@ import type { CondicaoPagamentoRow } from "@/lib/comercial/types";
 import { mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
   create as createCondicaoPagamento,
-  ensureDefaults as ensureCondicoesPagamentoDefaults,
   isUniqueViolation,
   list as listCondicoesPagamento,
   softDelete as softDeleteCondicaoPagamento,
@@ -41,7 +40,6 @@ type CondicoesPagamentoManagerProps = {
   entitySingular: string;
   entityPlural: string;
   newLabel?: string;
-  defaultsLabel?: string;
 };
 
 function emptyForm(): FormState {
@@ -134,7 +132,6 @@ export default function CondicoesPagamentoManager({
   entitySingular,
   entityPlural,
   newLabel,
-  defaultsLabel = "Instalar principais",
 }: CondicoesPagamentoManagerProps) {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -197,7 +194,7 @@ export default function CondicoesPagamentoManager({
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const load = useCallback(
-    async (options?: { seedDefaults?: boolean }) => {
+    async () => {
       if (!supabase) return;
       if (te.loading) return;
 
@@ -210,10 +207,6 @@ export default function CondicoesPagamentoManager({
       setLoading(true);
       setErr(null);
       try {
-        if (options?.seedDefaults !== false && canManage) {
-          await ensureCondicoesPagamentoDefaults(supabase, { tenantId, empresaId });
-        }
-
         const data = await listCondicoesPagamento(supabase, { tenantId, empresaId });
         setRows(data);
       } catch (error: unknown) {
@@ -223,7 +216,7 @@ export default function CondicoesPagamentoManager({
         setLoading(false);
       }
     },
-    [canManage, empresaId, entityPlural, supabase, te.loading, tenantId]
+    [empresaId, entityPlural, supabase, te.loading, tenantId]
   );
 
   useEffect(() => {
@@ -232,7 +225,7 @@ export default function CondicoesPagamentoManager({
       setLoading(false);
       return;
     }
-    void load({ seedDefaults: true });
+    void load();
   }, [canView, load, permissionsReady]);
 
   const openCreate = useCallback(() => {
@@ -260,31 +253,6 @@ export default function CondicoesPagamentoManager({
     setEditing(null);
     setForm(emptyForm());
   }, []);
-
-  const installDefaults = useCallback(async () => {
-    if (!supabase || !tenantId || !empresaId || !canManage) return;
-
-    setBusy(true);
-    setErr(null);
-    setOk(null);
-
-    try {
-      const result = await ensureCondicoesPagamentoDefaults(supabase, { tenantId, empresaId });
-      const changed = result.inserted + result.reactivated;
-
-      if (changed > 0) {
-        setOk(`Principais ${entityPlural} cadastradas com sucesso.`);
-      } else {
-        setOk(`Principais ${entityPlural} já estavam cadastradas.`);
-      }
-
-      await load({ seedDefaults: false });
-    } catch (error: unknown) {
-      setErr(mapOrcamentoError(toSupabaseErrorLike(error), `Erro ao instalar ${entityPlural}.`));
-    } finally {
-      setBusy(false);
-    }
-  }, [canManage, empresaId, entityPlural, load, supabase, tenantId]);
 
   const submit = useCallback(
     async (event: FormEvent) => {
@@ -339,7 +307,7 @@ export default function CondicoesPagamentoManager({
         }
 
         closeDialog();
-        await load({ seedDefaults: false });
+        await load();
       } catch (error: unknown) {
         if (isUniqueViolation(error)) {
           setErr("Código já existe. Escolha outro código.");
@@ -373,7 +341,7 @@ export default function CondicoesPagamentoManager({
       try {
         await softDeleteCondicaoPagamento(supabase, { tenantId, empresaId, id: row.id });
         setOk(`${singularTitle} excluída com sucesso.`);
-        await load({ seedDefaults: false });
+        await load();
       } catch (error: unknown) {
         setErr(mapOrcamentoError(toSupabaseErrorLike(error), "Erro ao excluir."));
       } finally {
@@ -404,7 +372,7 @@ export default function CondicoesPagamentoManager({
           </Link>
           <button
             type="button"
-            onClick={() => void load({ seedDefaults: false })}
+            onClick={() => void load()}
             disabled={busy}
             className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
           >
@@ -418,16 +386,6 @@ export default function CondicoesPagamentoManager({
           >
             {showInactive ? "Ocultar inativas" : "Mostrar inativas"}
           </button>
-          {canManage ? (
-            <button
-              type="button"
-              onClick={() => void installDefaults()}
-              disabled={busy}
-              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm disabled:opacity-60"
-            >
-              {defaultsLabel}
-            </button>
-          ) : null}
           {canManage ? (
             <button
               type="button"
