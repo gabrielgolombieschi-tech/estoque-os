@@ -106,11 +106,37 @@ type ImportBody = {
 
 type PedidoRecebimentoItem = { pedidoItemId: string; quantidade: number };
 type PedidoOsVinculo = { os_id: number; item_id: number; quantidade: number; valor_unitario: number };
+type ImportDestinoTipo = "ESTOQUE" | "OS";
+type ImportDestinoItem = {
+  numero_item_xml: number | null;
+  codigo: string | null;
+  descricao: string;
+  unidade: string | null;
+  quantidade: number;
+  destino_tipo: ImportDestinoTipo;
+  destino_label: string;
+  os_id: number | null;
+  os_numero: string | null;
+  pedido_id: string | null;
+  pedido_codigo: string | null;
+  pedido_item_id: string | null;
+  item_id: number | null;
+};
+type ImportDestinoRelatorio = {
+  nf_entrada_id: number;
+  chave: string | null;
+  numero: string | null;
+  serie: string | null;
+  emitente: string | null;
+  data_emissao: string | null;
+  itens: ImportDestinoItem[];
+};
 type PedidoLinkState = {
   pedidoCompraRaw: string;
   pedidoId: string | null;
   recebimentoItens: PedidoRecebimentoItem[];
   osVinculos: PedidoOsVinculo[];
+  destinoItens: ImportDestinoItem[];
   pedidoHasOsOrigem: boolean;
   solicitanteUsuarioId: string | null;
   documentoRef: string | null;
@@ -198,6 +224,86 @@ type CatalogItemRow = {
 function toNum(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function formatQty(value: unknown): string {
+  return toNum(value).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function buildDestinoItemFromPayload(
+  rec: Record<string, unknown>,
+  opts: {
+    quantidade: number;
+    destinoTipo: ImportDestinoTipo;
+    osId?: number | null;
+    osNumero?: string | null;
+    pedidoId?: string | null;
+    pedidoCodigo?: string | null;
+    pedidoItemId?: string | null;
+    itemId?: number | null;
+  }
+): ImportDestinoItem {
+  const osId = Number(opts.osId ?? 0);
+  const osNumero = String(opts.osNumero ?? "").trim() || null;
+  const destinoTipo = opts.destinoTipo;
+  return {
+    numero_item_xml: readPayloadNumber(rec, "numero_item_xml", "nItem"),
+    codigo: readPayloadText(rec, "codigo_fornecedor", "codigo") ?? null,
+    descricao: readPayloadText(rec, "descricao", "nome") ?? readPayloadText(rec, "codigo_fornecedor", "codigo") ?? "Item importado",
+    unidade: readPayloadText(rec, "unidade", "uCom"),
+    quantidade: Math.max(0, toNum(opts.quantidade)),
+    destino_tipo: destinoTipo,
+    destino_label: destinoTipo === "OS" ? `OS ${osNumero ?? (Number.isFinite(osId) && osId > 0 ? osId : "")}`.trim() : "Estoque",
+    os_id: destinoTipo === "OS" && Number.isFinite(osId) && osId > 0 ? osId : null,
+    os_numero: destinoTipo === "OS" ? osNumero : null,
+    pedido_id: String(opts.pedidoId ?? "").trim() || null,
+    pedido_codigo: String(opts.pedidoCodigo ?? "").trim() || null,
+    pedido_item_id: String(opts.pedidoItemId ?? "").trim() || null,
+    item_id: Number.isFinite(Number(opts.itemId ?? 0)) && Number(opts.itemId ?? 0) > 0 ? Number(opts.itemId) : null,
+  };
+}
+
+async function enrichDestinoOsLabels(opts: {
+  tenantId: string;
+  empresaId: string;
+  itens: ImportDestinoItem[];
+}): Promise<ImportDestinoItem[]> {
+  const osIds = Array.from(
+    new Set(
+      opts.itens
+        .map((item) => Number(item.os_id ?? 0))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    )
+  );
+  if (osIds.length === 0) return opts.itens;
+
+  const admin = supabaseAdmin();
+  const { data } = await admin
+    .from("ordens_servico")
+    .select("id,numero_os,os_num")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .in("id", osIds)
+    .returns<Array<{ id: number; numero_os: string | null; os_num: number | null }>>();
+
+  const osNumeroById = new Map<number, string>();
+  for (const row of Array.isArray(data) ? data : []) {
+    const id = Number(row.id ?? 0);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    const numeroOs = String(row.numero_os ?? "").trim();
+    const osNum = Number(row.os_num ?? 0);
+    osNumeroById.set(id, numeroOs || (Number.isFinite(osNum) && osNum > 0 ? String(osNum) : String(id)));
+  }
+
+  return opts.itens.map((item) => {
+    if (item.destino_tipo !== "OS" || !item.os_id) return item;
+    const osNumero = osNumeroById.get(item.os_id) ?? item.os_numero ?? String(item.os_id);
+    return {
+      ...item,
+      os_numero: osNumero,
+      destino_label: `OS ${osNumero}`,
+    };
+  });
 }
 
 function readIdNumber(row: unknown): number | null {
@@ -509,6 +615,7 @@ async function bindImportItemsFromPedido(opts: {
   itensJson: unknown;
   recebimentoItens: Array<{ pedidoItemId: string; quantidade: number }>;
   osVinculos: Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>;
+  destinoItens: ImportDestinoItem[];
   pedidoHasOsOrigem: boolean;
   solicitanteUsuarioId: string | null;
   documentoRef: string | null;
@@ -516,6 +623,11 @@ async function bindImportItemsFromPedido(opts: {
 }> {
   const admin = supabaseAdmin();
   const warnings: string[] = [];
+  const pushWarning = (message: string) => {
+    const text = String(message ?? "").trim();
+    if (!text || warnings.includes(text)) return;
+    warnings.push(text);
+  };
   const parsedItems = Array.isArray(opts.itensJson)
     ? opts.itensJson.filter((v) => v && typeof v === "object").map((v) => ({ ...(v as Record<string, unknown>) }))
     : [];
@@ -525,6 +637,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: opts.itensJson,
       recebimentoItens: [],
       osVinculos: [],
+      destinoItens: [],
       pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
@@ -544,6 +657,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      destinoItens: [],
       pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
@@ -559,6 +673,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      destinoItens: [],
       pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
@@ -597,6 +712,7 @@ async function bindImportItemsFromPedido(opts: {
         itensJson: parsedItems,
         recebimentoItens: [],
         osVinculos: [],
+        destinoItens: [],
         pedidoHasOsOrigem: false,
         solicitanteUsuarioId: null,
         documentoRef: null,
@@ -624,6 +740,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      destinoItens: [],
       pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
@@ -639,6 +756,7 @@ async function bindImportItemsFromPedido(opts: {
       itensJson: parsedItems,
       recebimentoItens: [],
       osVinculos: [],
+      destinoItens: [],
       pedidoHasOsOrigem: false,
       solicitanteUsuarioId: null,
       documentoRef: null,
@@ -730,6 +848,7 @@ async function bindImportItemsFromPedido(opts: {
 
   const recebimentoMap = new Map<string, number>();
   const osVinculosMap = new Map<string, { os_id: number; item_id: number; quantidade: number; valor_unitario: number }>();
+  const destinoItens: ImportDestinoItem[] = [];
   const dataMov = typeof (opts.nfJson as Record<string, unknown> | null)?.data_emissao === "string"
     ? String((opts.nfJson as Record<string, unknown>).data_emissao)
     : null;
@@ -751,6 +870,7 @@ async function bindImportItemsFromPedido(opts: {
 
     // Um item do XML pode cobrir varias linhas do pedido (ex.: XML qtd=2 e pedido com 1 OS + 1 estoque).
     let qtdPendente = qtdXml;
+    let quantidadeAlocadaRec = 0;
     let guard = 0;
     while (guard < pedidoRows.length + 8) {
       guard += 1;
@@ -845,8 +965,21 @@ async function bindImportItemsFromPedido(opts: {
 
       recebimentoMap.set(row.id, (recebimentoMap.get(row.id) ?? 0) + qtdReceber);
       remainingByPedidoItemId.set(row.id, Math.max(0, remaining - qtdReceber));
+      quantidadeAlocadaRec += qtdReceber;
 
       const osId = Number(row.origem_os_id ?? origemOsByPedidoItemId.get(String(row.id)) ?? 0);
+      destinoItens.push(
+        buildDestinoItemFromPayload(rec, {
+          quantidade: qtdReceber,
+          destinoTipo: osId > 0 ? "OS" : "ESTOQUE",
+          osId: osId > 0 ? osId : null,
+          pedidoId: pedido.id,
+          pedidoCodigo: pedido.codigo ?? null,
+          pedidoItemId: row.id,
+          itemId,
+        })
+      );
+
       if (osId > 0 && itemId > 0) {
         const key = `${osId}:${itemId}`;
         const prev = osVinculosMap.get(key);
@@ -865,14 +998,66 @@ async function bindImportItemsFromPedido(opts: {
         break;
       }
     }
+
+    if (quantidadeAlocadaRec <= 0 && (codigo || descricao || alreadyId > 0)) {
+      const semSaldo = pedidoRows.find((row) => {
+        const remaining = remainingByPedidoItemId.get(row.id) ?? 0;
+        if (remaining > 0) return false;
+
+        const rowCode = normalizeItemCode(row.item_codigo ?? "");
+        const rowDesc = normalizeLookup(row.item_nome ?? "");
+        const rowItemId = Number(row.item_id ?? 0);
+        const cat = rowItemId > 0 ? catalogById.get(rowItemId) ?? null : null;
+        const catCode = normalizeItemCode(cat?.codigo_interno ?? "");
+        const catDesc = normalizeLookup(cat?.nome ?? "");
+        const sameResolvedItem = alreadyId > 0 && rowItemId > 0 && rowItemId === alreadyId;
+        const sameCode = Boolean(codigo && (codigo === rowCode || codigo === catCode));
+        const sameDesc = Boolean(descricao && (descricao === rowDesc || descricao === catDesc));
+        return sameResolvedItem || sameCode || sameDesc;
+      });
+
+      if (semSaldo) {
+        const label =
+          codigo ||
+          String(rec.codigo_fornecedor ?? rec.codigo ?? "").trim() ||
+          String(rec.descricao ?? rec.nome ?? semSaldo.item_nome ?? "").trim() ||
+          String(semSaldo.item_codigo ?? semSaldo.id);
+        const qtdPedido = toNum(semSaldo.quantidade);
+        const qtdRecebida = toNum(semSaldo.quantidade_recebida);
+        pushWarning(
+          `Pedido ${pedido.codigo ?? pedido.id}: item ${label} encontrado, mas sem saldo pendente ` +
+            `(pedido=${formatQty(qtdPedido)}, recebido=${formatQty(qtdRecebida)}, saldo=0).`
+        );
+      }
+    }
   }
 
   const recebimentoItens = Array.from(recebimentoMap.entries())
     .map(([pedidoItemId, quantidade]) => ({ pedidoItemId, quantidade }))
     .filter((r) => r.quantidade > 0);
   const osVinculos = Array.from(osVinculosMap.values()).filter((r) => r.os_id > 0 && r.item_id > 0 && r.quantidade > 0);
+  const destinoItensEnriquecidos = await enrichDestinoOsLabels({
+    tenantId: opts.tenantId,
+    empresaId: opts.empresaId,
+    itens: destinoItens.filter((item) => item.quantidade > 0),
+  });
   const pedidoHasOsOrigem =
     pedidoRows.some((r) => Number(r.origem_os_id ?? 0) > 0) || origemOsByPedidoItemId.size > 0;
+
+  if (recebimentoItens.length === 0) {
+    const pedidoAlternativo = await findOpenPedidoCompativelSemVinculo({
+      tenantId: opts.tenantId,
+      empresaId: opts.empresaId,
+      fornecedorId: opts.fornecedorId,
+      itensJson: parsedItems,
+    });
+    if (pedidoAlternativo && pedidoAlternativo.pedidoId !== pedido.id) {
+      pushWarning(
+        `Pedido aberto compativel encontrado: ${pedidoAlternativo.codigo ?? pedidoAlternativo.pedidoId}. ` +
+          "Troque o pedido informado para importar esta NF."
+      );
+    }
+  }
 
   const nf = (opts.nfJson as Record<string, unknown> | null) ?? null;
   const documentoRef = String(nf?.chave ?? "").trim() || null;
@@ -882,6 +1067,7 @@ async function bindImportItemsFromPedido(opts: {
     itensJson: parsedItems,
     recebimentoItens,
     osVinculos,
+    destinoItens: destinoItensEnriquecidos,
     pedidoHasOsOrigem,
     solicitanteUsuarioId,
     documentoRef,
@@ -1292,6 +1478,7 @@ function aggregatePedidoLinks(links: PedidoLinkState[]) {
       (acc, link) => mergeOsVinculos(acc, link.osVinculos),
       []
     ),
+    pedidoDestinoItens: links.flatMap((link) => link.destinoItens),
     pedidoHasOsOrigem: links.some((link) => link.pedidoHasOsOrigem),
     pedidoLinkWarnings: links.flatMap((link) => link.warnings),
     solicitanteFromPedido: links.find((link) => Boolean(link.solicitanteUsuarioId))?.solicitanteUsuarioId ?? null,
@@ -1342,7 +1529,9 @@ async function runStrictImportPreflight(opts: {
 
       const recebimentos = mergeRecebimentoItens([], opts.pedidoRecebimentos).filter((r) => toNum(r.quantidade) > 0);
       if (!recebimentos.length) {
-        issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: nenhum item da NF foi alocado para recebimento.`);
+        const detalhes = opts.pedidoLinkWarnings.map((w) => String(w ?? "").trim()).filter(Boolean);
+        const detalhesTexto = detalhes.length > 0 ? ` Detalhes: ${detalhes.join(" ")}` : "";
+        issues.push(`Pedido ${opts.pedidoCompraIdVinculado}: nenhum item da NF foi alocado para recebimento.${detalhesTexto}`);
       } else {
         const ids = recebimentos.map((r) => String(r.pedidoItemId)).filter(Boolean);
         const { data: pedidoItens, error: pedidoItensErr } = await admin
@@ -2700,6 +2889,7 @@ export async function POST(req: NextRequest) {
     let pedidoCompraIdVinculado: string | null = null;
     let pedidoRecebimentos: PedidoRecebimentoItem[] = [];
     let pedidoOsVinculos: PedidoOsVinculo[] = [];
+    let pedidoDestinoItens: ImportDestinoItem[] = [];
     let pedidoHasOsOrigem = false;
     let pedidoLinkWarnings: string[] = [];
     let solicitanteFromPedido: string | null = null;
@@ -2723,6 +2913,7 @@ export async function POST(req: NextRequest) {
           pedidoId: linked.pedidoId,
           recebimentoItens: linked.recebimentoItens,
           osVinculos: linked.osVinculos,
+          destinoItens: linked.destinoItens,
           pedidoHasOsOrigem: linked.pedidoHasOsOrigem,
           solicitanteUsuarioId: linked.solicitanteUsuarioId,
           documentoRef: linked.documentoRef,
@@ -2737,6 +2928,7 @@ export async function POST(req: NextRequest) {
       pedidoCompraIdVinculado = aggregated.pedidoCompraIdVinculado;
       pedidoRecebimentos = aggregated.pedidoRecebimentos;
       pedidoOsVinculos = aggregated.pedidoOsVinculos;
+      pedidoDestinoItens = aggregated.pedidoDestinoItens;
       pedidoHasOsOrigem = aggregated.pedidoHasOsOrigem;
       pedidoLinkWarnings = aggregated.pedidoLinkWarnings;
       solicitanteFromPedido = aggregated.solicitanteFromPedido;
@@ -3135,6 +3327,7 @@ export async function POST(req: NextRequest) {
             current.pedidoId = current.pedidoId ?? relink.pedidoId;
             current.recebimentoItens = mergeRecebimentoItensByMax(current.recebimentoItens, relink.recebimentoItens);
             current.osVinculos = mergeOsVinculosByMax(current.osVinculos, relink.osVinculos);
+            current.destinoItens = relink.destinoItens.length > 0 ? relink.destinoItens : current.destinoItens;
             current.pedidoHasOsOrigem = current.pedidoHasOsOrigem || relink.pedidoHasOsOrigem;
             current.solicitanteUsuarioId = current.solicitanteUsuarioId ?? relink.solicitanteUsuarioId;
             current.documentoRef = current.documentoRef ?? relink.documentoRef;
@@ -3145,6 +3338,7 @@ export async function POST(req: NextRequest) {
               pedidoId: relink.pedidoId,
               recebimentoItens: relink.recebimentoItens,
               osVinculos: relink.osVinculos,
+              destinoItens: relink.destinoItens,
               pedidoHasOsOrigem: relink.pedidoHasOsOrigem,
               solicitanteUsuarioId: relink.solicitanteUsuarioId,
               documentoRef: relink.documentoRef,
@@ -3167,6 +3361,7 @@ export async function POST(req: NextRequest) {
         pedidoCompraIdVinculado = aggregated.pedidoCompraIdVinculado;
         pedidoRecebimentos = aggregated.pedidoRecebimentos;
         pedidoOsVinculos = aggregated.pedidoOsVinculos;
+        pedidoDestinoItens = aggregated.pedidoDestinoItens;
         pedidoHasOsOrigem = aggregated.pedidoHasOsOrigem;
         pedidoLinkWarnings = aggregated.pedidoLinkWarnings;
         solicitanteFromPedido = aggregated.solicitanteFromPedido;
@@ -3337,6 +3532,7 @@ export async function POST(req: NextRequest) {
         pedidoId: pedidoCompraIdVinculado,
         recebimentoItens: pedidoRecebimentos,
         osVinculos: pedidoOsVinculos,
+        destinoItens: pedidoDestinoItens,
         pedidoHasOsOrigem,
         solicitanteUsuarioId: solicitanteFromPedido,
         documentoRef: pedidoDocumentoRef,
@@ -3480,7 +3676,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ status, message, nf_entrada_id: nfEntradaId, warnings: postImportWarnings });
+    const payloadDestinoRows = Array.isArray(itensJsonToImport)
+      ? itensJsonToImport.filter((row) => row && typeof row === "object").map((row) => row as Record<string, unknown>)
+      : [];
+    let relatorioDestinoItens = pedidoDestinoItens.filter((item) => item.quantidade > 0);
+
+    if (relatorioDestinoItens.length === 0) {
+      const directOsId =
+        String(finalidadeNorm).toLowerCase() === "materia_prima" &&
+        !pedidoFlow &&
+        Number.isFinite(Number(osId)) &&
+        Number(osId) > 0
+          ? Number(osId)
+          : null;
+
+      relatorioDestinoItens = payloadDestinoRows.map((rec) =>
+        buildDestinoItemFromPayload(rec, {
+          quantidade: readPayloadNumber(rec, "qtd", "quantidade") ?? 0,
+          destinoTipo: directOsId ? "OS" : "ESTOQUE",
+          osId: directOsId,
+          itemId: readImportItemId(rec) || null,
+        })
+      );
+
+      relatorioDestinoItens = await enrichDestinoOsLabels({
+        tenantId,
+        empresaId,
+        itens: relatorioDestinoItens,
+      });
+    }
+
+    const nfJsonObj = body.nfJson && typeof body.nfJson === "object" ? (body.nfJson as Record<string, unknown>) : null;
+    const relatorioDestinos: ImportDestinoRelatorio = {
+      nf_entrada_id: nfEntradaId,
+      chave: String(nfJsonObj?.chave ?? "").trim() || null,
+      numero: String(nfJsonObj?.numero ?? "").trim() || null,
+      serie: String(nfJsonObj?.serie ?? "").trim() || null,
+      emitente: String(nfJsonObj?.emitente_nome ?? nfJsonObj?.emitente ?? "").trim() || null,
+      data_emissao: String(nfJsonObj?.data_emissao ?? "").trim() || null,
+      itens: relatorioDestinoItens,
+    };
+
+    return NextResponse.json({
+      status,
+      message,
+      nf_entrada_id: nfEntradaId,
+      warnings: postImportWarnings,
+      relatorio_destinos: relatorioDestinos,
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Erro inesperado.";
     return jerr(500, message);

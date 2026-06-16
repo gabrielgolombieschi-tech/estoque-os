@@ -19,6 +19,11 @@ import {
 } from "@/lib/nfe/xmlImportAnalyzer";
 import { getImportacaoXmlParams, type ItemFinalidade as ParamItemFinalidade } from "@/src/lib/importacaoXmlParams";
 import XmlImportAssistantPanel from "./XmlImportAssistantPanel";
+import {
+  imprimirRelatorioDestinos,
+  isRelatorioDestinoImportacao,
+  type RelatorioDestinoImportacao,
+} from "./relatorioDestinoPrint";
 
 type FiscalPerfil = {
   item_id: number;
@@ -2245,11 +2250,15 @@ export default function ImportarXmlPage() {
                 ? Number(jsonObj.nf_entrada_id) || null
                 : null,
           warnings,
+          relatorio_destinos: isRelatorioDestinoImportacao(jsonObj?.relatorio_destinos)
+            ? jsonObj.relatorio_destinos
+            : null,
         };
       };
 
       const results: string[] = [];
       const warningResults: string[] = [];
+      const relatoriosDestino: RelatorioDestinoImportacao[] = [];
 
       for (const job of jobsToImport) {
         try {
@@ -2424,6 +2433,9 @@ export default function ImportarXmlPage() {
             if (Array.isArray(importRes.warnings) && importRes.warnings.length > 0) {
               warningResults.push(`${job.fileName}: ${importRes.warnings.join(" ")}`);
             }
+            if (importRes.relatorio_destinos?.itens?.length) {
+              relatoriosDestino.push({ ...importRes.relatorio_destinos, fileName: job.fileName });
+            }
           }
         } catch (err: unknown) {
           const msg = getErrorMessage(err, "Erro");
@@ -2435,6 +2447,7 @@ export default function ImportarXmlPage() {
       setJobs((prev) => prev.filter((j) => j.status !== "importado"));
       setImportOk(results.join(" "));
       setImportWarn(warningResults.length > 0 ? warningResults.join(" ") : null);
+      if (relatoriosDestino.length > 0) imprimirRelatorioDestinos(relatoriosDestino);
     } catch (e: unknown) {
       setImportErr(getErrorMessage(e, "Erro ao importar."));
     } finally {

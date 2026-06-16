@@ -29,6 +29,15 @@ export type XmlImportNfeItem = {
   unidade?: string | null;
   unidade_medida?: string | null;
   uCom?: string | null;
+  pedidoXml?: string | null;
+  pedido_xml?: string | null;
+  xPed?: string | null;
+  pedidoItemXml?: string | null;
+  pedido_item_xml?: string | null;
+  nItemPed?: string | null;
+  informacoesAdicionais?: string | null;
+  informacoes_adicionais?: string | null;
+  infAdProd?: string | null;
 };
 
 export type XmlImportNfeBasic = {
@@ -230,6 +239,8 @@ type NormalizedNfItem = {
   valorTotal: number;
   itemId: number | null;
   unidade: string | null;
+  pedidoXml: string | null;
+  pedidoItemXml: string | null;
 };
 
 type PedidoScore = {
@@ -428,6 +439,30 @@ function getItemUnidade(item: XmlImportNfeItem): string | null {
   return unidade || null;
 }
 
+function extractPedidoXmlFromText(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const match =
+    /\bPed\.?\s*Cli\.?\s*:\s*([A-Z0-9._/-]+)/i.exec(text) ??
+    /\bN\.?\s*Processo\s*Cliente\s*:\s*([A-Z0-9._/-]+)/i.exec(text);
+  return String(match?.[1] ?? "").trim() || null;
+}
+
+function getItemPedidoXml(item: XmlImportNfeItem): string | null {
+  const direct = String(item.pedidoXml ?? item.pedido_xml ?? item.xPed ?? "").trim();
+  if (direct) return direct;
+  return (
+    extractPedidoXmlFromText(item.informacoesAdicionais) ??
+    extractPedidoXmlFromText(item.informacoes_adicionais) ??
+    extractPedidoXmlFromText(item.infAdProd)
+  );
+}
+
+function getItemPedidoItemXml(item: XmlImportNfeItem): string | null {
+  const direct = String(item.pedidoItemXml ?? item.pedido_item_xml ?? item.nItemPed ?? "").trim();
+  return direct || null;
+}
+
 function normalizeNfItems(input: XmlImportAnalyzerInput): NormalizedNfItem[] {
   const source = input.itens ?? input.nfe.itens ?? [];
   return source.map((item, index) => {
@@ -445,6 +480,8 @@ function normalizeNfItems(input: XmlImportAnalyzerInput): NormalizedNfItem[] {
       valorTotal: getItemValorTotal(item),
       itemId: getItemId(item.item_id),
       unidade: getItemUnidade(item),
+      pedidoXml: getItemPedidoXml(item),
+      pedidoItemXml: getItemPedidoItemXml(item),
     };
   });
 }
@@ -772,8 +809,11 @@ function scorePedidoItem(
 
   const saldo = saldoOverride == null ? pedidoItemSaldo(pedidoItem) : Math.max(0, saldoOverride);
   let quantityStatus: XmlImportPedidoItemMatch["quantityStatus"] = "DESCONHECIDA";
-  if (nfItem.quantidade > 0 && saldo > 0) {
-    if (quantitiesClose(nfItem.quantidade, saldo)) {
+  if (nfItem.quantidade > 0) {
+    if (saldo <= 0) {
+      quantityStatus = "EXCESSO";
+      score -= 18;
+    } else if (quantitiesClose(nfItem.quantidade, saldo)) {
       quantityStatus = "OK";
       score += 10;
       matchedBy.push("quantidade");
@@ -865,7 +905,8 @@ function isBetterQuantityMatch(current: XmlImportPedidoItemMatch, best: XmlImpor
 }
 
 function getQuantityStatus(quantidadeNf: number, saldoPedido: number): XmlImportPedidoItemMatch["quantityStatus"] {
-  if (quantidadeNf <= 0 || saldoPedido <= 0) return "DESCONHECIDA";
+  if (quantidadeNf <= 0) return "DESCONHECIDA";
+  if (saldoPedido <= 0) return "EXCESSO";
   if (quantitiesClose(quantidadeNf, saldoPedido)) return "OK";
   return quantidadeNf > saldoPedido ? "EXCESSO" : "PARCIAL";
 }
@@ -978,6 +1019,8 @@ function buildPedidoQuantityDivergencias(opts: {
 }
 
 function isPedidoItemMatchConfiavel(match: XmlImportPedidoItemMatch): boolean {
+  if (match.quantityStatus === "EXCESSO") return false;
+
   const hasIdentityMatch = match.matchedBy.includes("item_id_xml") ||
     match.matchedBy.includes("item_id_resolvido") ||
     match.matchedBy.includes("codigo");
@@ -1038,6 +1081,15 @@ function scorePedido(
   } else if (status === "CANCELADO" || status === "RECEBIDO") {
     score -= 20;
     divergencias.push(diagnostic("PEDIDO_STATUS_INADEQUADO", "warning", `Este pedido esta com status ${status}.`));
+  }
+
+  const pedidoXmlRefs = Array.from(
+    new Set(nfItems.map((item) => String(item.pedidoXml ?? "").trim()).filter(Boolean))
+  );
+  const pedidoXmlRefsCompativeis = pedidoXmlRefs.filter((ref) => pedidoCodeMatchesLooseRef(pedido, ref));
+  if (pedidoXmlRefsCompativeis.length > 0) {
+    score += 28;
+    motivos.push(`Pedido informado no XML: ${pedidoXmlRefsCompativeis.join(", ")}.`);
   }
 
   const pedidoItens = pedido.itens ?? [];
@@ -1211,6 +1263,28 @@ function normalizePedidoRefForCompare(value: unknown): string {
   return String(value ?? "").trim().toUpperCase();
 }
 
+function normalizeNumericRef(value: string): string {
+  const trimmed = String(value ?? "").trim();
+  const noZeros = trimmed.replace(/^0+(?=\d)/, "");
+  return noZeros || trimmed;
+}
+
+function pedidoCodeMatchesLooseRef(pedido: Pick<XmlImportPedidoCandidato, "id" | "codigo">, ref: string): boolean {
+  const normalizedRef = normalizePedidoRefForCompare(ref);
+  if (!normalizedRef) return false;
+
+  const pedidoId = normalizePedidoRefForCompare(pedido.id);
+  const pedidoCodigo = normalizePedidoRefForCompare(pedido.codigo);
+  if (pedidoId === normalizedRef || pedidoCodigo === normalizedRef) return true;
+
+  const refDigits = normalizedRef.replace(/\D/g, "");
+  if (!refDigits) return false;
+
+  const normalizedRefDigits = normalizeNumericRef(refDigits);
+  const codigoSegments = pedidoCodigo.match(/\d+/g) ?? [];
+  return codigoSegments.some((segment) => normalizeNumericRef(segment) === normalizedRefDigits);
+}
+
 function splitPedidoRefsForCompare(value: unknown): string[] {
   return String(value ?? "")
     .split(/[,;\n]+/)
@@ -1219,12 +1293,7 @@ function splitPedidoRefsForCompare(value: unknown): string[] {
 }
 
 function pedidoMatchesRef(pedido: XmlImportPedidoCandidato, ref: string): boolean {
-  if (!ref) return false;
-  const refs = [
-    normalizePedidoRefForCompare(pedido.id),
-    normalizePedidoRefForCompare(pedido.codigo),
-  ].filter(Boolean);
-  return refs.includes(ref);
+  return pedidoCodeMatchesLooseRef(pedido, ref);
 }
 
 function getExplicitPedidoScores(scores: PedidoScore[], pedidoCompraRefAtual: unknown): PedidoScore[] {
@@ -1602,10 +1671,22 @@ function analyzePedidos(opts: {
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return String(a.pedido.codigo ?? a.pedido.id).localeCompare(String(b.pedido.codigo ?? b.pedido.id));
-    });
+  });
 
   const explicitScores = getExplicitPedidoScores(scores, opts.input.pedidoCompraRefAtual);
-  if (explicitScores.length > 0) {
+  const explicitHasMatchedItems = explicitScores.some((score) => score.matchedCount > 0);
+  if (explicitScores.length > 0 && !explicitHasMatchedItems) {
+    for (const score of explicitScores) {
+      warnings.push(
+        diagnostic("PEDIDO_SELECIONADO_SEM_ITENS_COMPATIVEIS", "warning", "O pedido informado nao teve itens recebiveis compativeis com esta NF.", {
+          pedido_id: score.pedido.id,
+          codigo: score.pedido.codigo ?? null,
+        })
+      );
+    }
+  }
+
+  if (explicitScores.length > 0 && explicitHasMatchedItems) {
     const multiExplicitSuggestions =
       explicitScores.length > 1
         ? buildMultiPedidoSuggestions({

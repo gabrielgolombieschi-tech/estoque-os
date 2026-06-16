@@ -112,6 +112,19 @@ type LookupItemRow = {
   estoque_atual: number | null;
 };
 
+type OsLookupRow = {
+  id: number;
+  numero_os: string | number | null;
+  os_num: number | null;
+  cliente_nome: string | null;
+  descricao_servico: string | null;
+  status: string | null;
+};
+
+type OsLookupTarget =
+  | { kind: "manual" }
+  | { kind: "pedidoItem"; itemId: string };
+
 type LookupSortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "saldo";
 type LookupSortDir = "asc" | "desc";
 type LookupSortValue = string | number | null;
@@ -224,6 +237,14 @@ function formatCondicaoPagamentoLabel(value: {
 function fmtLookupSaldo(v: number | null) {
   if (typeof v !== "number" || !Number.isFinite(v)) return "-";
   return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+}
+
+function getOsLookupNumero(row: OsLookupRow) {
+  const numeroOs = String(row.numero_os ?? "").trim();
+  if (numeroOs) return numeroOs;
+  const osNum = Number(row.os_num ?? 0);
+  if (Number.isFinite(osNum) && osNum > 0) return String(osNum);
+  return String(row.id);
 }
 
 function normalizeFilterText(value: unknown) {
@@ -353,6 +374,12 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [lookupErr, setLookupErr] = useState<string | null>(null);
   const [lookupSortKey, setLookupSortKey] = useState<LookupSortKey>("id");
   const [lookupSortDir, setLookupSortDir] = useState<LookupSortDir>("asc");
+  const [showOsLookup, setShowOsLookup] = useState(false);
+  const [osLookupTerm, setOsLookupTerm] = useState("");
+  const [osLookupRows, setOsLookupRows] = useState<OsLookupRow[]>([]);
+  const [osLookupBusy, setOsLookupBusy] = useState(false);
+  const [osLookupErr, setOsLookupErr] = useState<string | null>(null);
+  const [osLookupTarget, setOsLookupTarget] = useState<OsLookupTarget>({ kind: "manual" });
   const [pedidoEditMode, setPedidoEditMode] = useState(false);
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }>>({});
@@ -705,6 +732,73 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     setLookupErr(null);
     await buscarCodigoExistente(codigoSelecionado);
   }
+
+  const buscarOsLookup = useCallback(
+    async (termParam?: string) => {
+      const term = String(termParam ?? osLookupTerm).trim();
+      const q = new URLSearchParams({
+        tenant_id: tenantId,
+        empresa_id: empresaId,
+      });
+      if (term) q.set("q", term);
+
+      setOsLookupBusy(true);
+      setOsLookupErr(null);
+
+      try {
+        const json = await authedFetch(`/api/compras/os-lookup?${q.toString()}`);
+        const rows = Array.isArray(json.data) ? (json.data as OsLookupRow[]) : [];
+        setOsLookupRows(rows);
+      } catch (e: unknown) {
+        setOsLookupRows([]);
+        setOsLookupErr(e instanceof Error ? e.message : "Erro ao buscar OS.");
+      } finally {
+        setOsLookupBusy(false);
+      }
+    },
+    [empresaId, osLookupTerm, tenantId]
+  );
+
+  const abrirLookupOs = useCallback((target?: { itemId: string; term: string }) => {
+    const term = String(target?.term ?? manualOsNumero).trim();
+    setOsLookupTarget(target?.itemId ? { kind: "pedidoItem", itemId: target.itemId } : { kind: "manual" });
+    setOsLookupTerm(term);
+    setOsLookupErr(null);
+    setOsLookupRows([]);
+    setShowOsLookup(true);
+    void buscarOsLookup(term);
+  }, [buscarOsLookup, manualOsNumero]);
+
+  const selecionarOsLookup = useCallback((row: OsLookupRow) => {
+    const numero = getOsLookupNumero(row);
+    if (osLookupTarget.kind === "pedidoItem") {
+      const targetItemId = osLookupTarget.itemId;
+      setItemDrafts((prev) => {
+        const current = prev[targetItemId];
+        if (current) {
+          return { ...prev, [targetItemId]: { ...current, os_numero: numero } };
+        }
+
+        const item = pedidoItens.find((pedidoItem) => pedidoItem.id === targetItemId);
+        if (!item) return prev;
+        return {
+          ...prev,
+          [targetItemId]: {
+            item_nome: item.item_nome,
+            unidade: item.unidade,
+            os_numero: numero,
+            quantidade: String(item.quantidade),
+            valor_unitario: formatEditableNumber(item.valor_unitario, 4),
+          },
+        };
+      });
+    } else {
+      setManualOsNumero(numero);
+    }
+    setShowOsLookup(false);
+    setOsLookupErr(null);
+    setOsLookupTarget({ kind: "manual" });
+  }, [osLookupTarget, pedidoItens]);
 
   const handleLookupSort = useCallback((key: LookupSortKey) => {
     if (lookupSortKey === key) {
@@ -2210,7 +2304,20 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                       </label>
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">OS (numero/id)</div>
-                        <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="OS (numero/id)" value={manualOsNumero} disabled={!canEditPedidoItems} onChange={(e) => setManualOsNumero(e.target.value)} />
+                        <input
+                          className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50"
+                          placeholder="OS (numero/id)"
+                          value={manualOsNumero}
+                          disabled={!canEditPedidoItems}
+                          onChange={(e) => setManualOsNumero(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            abrirLookupOs();
+                          }}
+                          aria-label="OS numero ou id"
+                          title="Pressione Enter para buscar a OS"
+                        />
                       </label>
                     </div>
                     <div className="text-xs text-zinc-500">
@@ -2228,6 +2335,127 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                         Clique em <strong>Editar</strong> para alterar ou excluir itens.
                       </div>
                     ) : null}
+                    </div>
+                  )}
+
+                  {showOsLookup && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
+                      <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
+                        <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-lg font-semibold">Localizar OS</div>
+                              <div className="text-sm text-zinc-400">Busque por numero, cliente ou descricao da OS.</div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setShowOsLookup(false);
+                                setOsLookupTarget({ kind: "manual" });
+                              }}
+                              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Fechar
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-end">
+                            <div className="space-y-1">
+                              <div className="text-xs text-zinc-400">Busca</div>
+                              <input
+                                className="w-full px-3 py-2 rounded border border-zinc-800 bg-zinc-950"
+                                value={osLookupTerm}
+                                onChange={(e) => setOsLookupTerm(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key !== "Enter") return;
+                                  e.preventDefault();
+                                  void buscarOsLookup(e.currentTarget.value);
+                                }}
+                                autoFocus
+                                aria-label="Buscar OS"
+                                title="Buscar por numero, cliente ou descricao da OS"
+                              />
+                            </div>
+                            <button
+                              onClick={() => void buscarOsLookup()}
+                              disabled={osLookupBusy}
+                              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                            >
+                              {osLookupBusy ? "Buscando..." : "Buscar"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOsLookupTerm("");
+                                setOsLookupRows([]);
+                                setOsLookupErr(null);
+                              }}
+                              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Limpar
+                            </button>
+                          </div>
+
+                          {osLookupErr && <div className="text-sm text-red-400">{osLookupErr}</div>}
+
+                          <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-auto overscroll-contain">
+                            <table className="w-full text-sm min-w-[900px]">
+                              <thead className="bg-zinc-900/70 sticky top-0 z-10">
+                                <tr className="text-left text-zinc-200">
+                                  <th className="px-4 py-3">OS</th>
+                                  <th className="px-4 py-3">Cliente</th>
+                                  <th className="px-4 py-3">Descricao</th>
+                                  <th className="px-4 py-3">Status</th>
+                                  <th className="px-4 py-3 text-right">Acao</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-800">
+                                {osLookupRows.map((row) => {
+                                  const numero = getOsLookupNumero(row);
+                                  return (
+                                    <tr
+                                      key={row.id}
+                                      className="hover:bg-zinc-900/40 cursor-pointer"
+                                      onClick={() => selecionarOsLookup(row)}
+                                    >
+                                      <td className="px-4 py-3 tabular-nums font-medium">{numero}</td>
+                                      <td className="px-4 py-3">{row.cliente_nome ?? "-"}</td>
+                                      <td className="px-4 py-3 text-zinc-300">{row.descricao_servico ?? "-"}</td>
+                                      <td className="px-4 py-3 text-zinc-300">{statusLabel(String(row.status ?? ""))}</td>
+                                      <td className="px-4 py-3 text-right">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            selecionarOsLookup(row);
+                                          }}
+                                          className="px-3 py-1.5 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                                        >
+                                          Selecionar
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                                {!osLookupBusy && osLookupRows.length === 0 && (
+                                  <tr>
+                                    <td colSpan={5} className="px-4 py-6 text-zinc-400 text-center">
+                                      Nenhuma OS encontrada.
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {osLookupBusy && (
+                                  <tr>
+                                    <td colSpan={5} className="px-4 py-6 text-zinc-400 text-center">
+                                      Buscando OS...
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -2444,6 +2672,14 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                                     onChange={(e) =>
                                       setItemDrafts((prev) => ({ ...prev, [it.id]: { ...draft, os_numero: e.target.value } }))
                                     }
+                                    onKeyDown={(e) => {
+                                      if (e.key !== "Enter") return;
+                                      e.preventDefault();
+                                      setItemDrafts((prev) => ({ ...prev, [it.id]: draft }));
+                                      abrirLookupOs({ itemId: it.id, term: draft.os_numero });
+                                    }}
+                                    aria-label="OS do item"
+                                    title="Pressione Enter para buscar a OS"
                                   />
                                 </td>
                                 <td>

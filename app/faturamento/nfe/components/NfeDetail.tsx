@@ -10,6 +10,11 @@ import { formatMoneyBR } from "@/lib/decimal";
 import type { CapabilityKey } from "@/lib/auth/capabilities";
 import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
 import { fetchOsSelectionById, type OsSelection } from "@/lib/os-vinculo";
+import {
+  imprimirRelatorioDestinos,
+  type RelatorioDestinoImportacao,
+  type RelatorioDestinoItem,
+} from "@/app/estoque/importar/relatorioDestinoPrint";
 
 type DocumentoFiscalRow = {
   id: string;
@@ -50,7 +55,7 @@ type NfEntradaItemRow = {
   v_unit: number | string | null;
   v_prod: number | string | null;
   codigo_fornecedor?: string | null;
-  itens?: { nome: string | null; cfop_padrao: string | null } | null;
+  itens?: { nome: string | null; cfop_padrao: string | null; unidade_medida?: string | null; codigo_interno?: string | null } | null;
 };
 
 type ImpostoRow = {
@@ -82,6 +87,16 @@ type ParcelaRow = {
 
 type ClienteRow = { id: number; nome: string };
 type FornecedorRow = { id: number; nome: string | null };
+type MovimentacaoDestinoRow = {
+  id: number | string;
+  item_id: number | string | null;
+  quantidade: number | string | null;
+  origem_os_id: number | string | null;
+};
+type OsDestinoRow = { id: number; numero_os: string | null; os_num: number | null };
+type PedidoRecebimentoRow = { id: string; pedido_compra_id: string | null };
+type PedidoCompraRow = { id: string; codigo: string | null };
+type PedidoRecebimentoItemRow = { recebimento_id: string; item_id: number | string | null };
 
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -93,6 +108,235 @@ function formatDateBR(iso?: string | null): string {
   const d = new Date(`${iso}T00:00:00`);
   if (Number.isNaN(d.getTime())) return String(iso);
   return d.toLocaleDateString("pt-BR");
+}
+
+function roundedQty(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function osLabel(row: OsDestinoRow | null | undefined, fallbackId: number): string {
+  const numeroOs = String(row?.numero_os ?? "").trim();
+  if (numeroOs) return numeroOs;
+  const osNum = Number(row?.os_num ?? 0);
+  return Number.isFinite(osNum) && osNum > 0 ? String(osNum) : String(fallbackId);
+}
+
+function pedidoCodeLabel(codes: Set<string> | undefined): string | null {
+  const values = Array.from(codes ?? []).map((code) => code.trim()).filter(Boolean);
+  return values.length ? values.join(", ") : null;
+}
+
+async function loadPedidoCodesByItemId(opts: {
+  supabase: ReturnType<typeof supabaseBrowser>;
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+  chaveAcesso: string | null;
+}): Promise<Map<number, Set<string>>> {
+  const refs = Array.from(
+    new Set([String(opts.chaveAcesso ?? "").trim(), `NF_ENTRADA_${opts.nfEntradaId}`].filter(Boolean))
+  );
+  if (refs.length === 0) return new Map();
+
+  try {
+    const { data: recebimentos, error: recebErr } = await applyTenantEmpresa(
+      opts.supabase
+        .schema("m")
+        .from("pedido_compra_recebimento")
+        .select("id,pedido_compra_id")
+        .in("documento_ref", refs)
+        .is("deleted_at", null),
+      opts.tenantId,
+      opts.empresaId
+    ).returns<PedidoRecebimentoRow[]>();
+    if (recebErr) throw recebErr;
+
+    const recebRows = Array.isArray(recebimentos) ? recebimentos : [];
+    const recebimentoIds = recebRows.map((row) => String(row.id ?? "").trim()).filter(Boolean);
+    const pedidoIds = Array.from(new Set(recebRows.map((row) => String(row.pedido_compra_id ?? "").trim()).filter(Boolean)));
+    if (recebimentoIds.length === 0 || pedidoIds.length === 0) return new Map();
+
+    const [{ data: pedidos, error: pedidosErr }, { data: recebItens, error: recebItensErr }] = await Promise.all([
+      applyTenantEmpresa(
+        opts.supabase
+          .schema("m")
+          .from("pedido_compra")
+          .select("id,codigo")
+          .in("id", pedidoIds)
+          .is("deleted_at", null),
+        opts.tenantId,
+        opts.empresaId
+      ).returns<PedidoCompraRow[]>(),
+      applyTenantEmpresa(
+        opts.supabase
+          .schema("m")
+          .from("pedido_compra_recebimento_item")
+          .select("recebimento_id,item_id")
+          .in("recebimento_id", recebimentoIds)
+          .is("deleted_at", null),
+        opts.tenantId,
+        opts.empresaId
+      ).returns<PedidoRecebimentoItemRow[]>(),
+    ]);
+    if (pedidosErr) throw pedidosErr;
+    if (recebItensErr) throw recebItensErr;
+
+    const pedidoCodigoById = new Map(
+      (Array.isArray(pedidos) ? pedidos : []).map((row) => [String(row.id), String(row.codigo ?? row.id).trim()])
+    );
+    const pedidoIdByRecebimentoId = new Map(recebRows.map((row) => [String(row.id), String(row.pedido_compra_id ?? "")]));
+    const codesByItemId = new Map<number, Set<string>>();
+
+    for (const row of Array.isArray(recebItens) ? recebItens : []) {
+      const itemId = Number(row.item_id ?? 0);
+      if (!Number.isFinite(itemId) || itemId <= 0) continue;
+      const pedidoId = pedidoIdByRecebimentoId.get(String(row.recebimento_id)) ?? "";
+      const codigo = pedidoCodigoById.get(pedidoId) ?? "";
+      if (!codigo) continue;
+      const set = codesByItemId.get(itemId) ?? new Set<string>();
+      set.add(codigo);
+      codesByItemId.set(itemId, set);
+    }
+
+    return codesByItemId;
+  } catch (e) {
+    console.warn("[NFE_DETAIL][RELATORIO_DESTINO] nao foi possivel carregar pedidos vinculados", e);
+    return new Map();
+  }
+}
+
+async function buildRelatorioDestinoImportacao(opts: {
+  supabase: ReturnType<typeof supabaseBrowser>;
+  tenantId: string;
+  empresaId: string;
+  doc: DocumentoFiscalRow;
+  emitenteNome: string;
+}): Promise<RelatorioDestinoImportacao | null> {
+  const nfEntradaId = Number(opts.doc.source_nf_entrada_id ?? 0);
+  if (!Number.isFinite(nfEntradaId) || nfEntradaId <= 0) return null;
+
+  const { data: nfItens, error: nfItensErr } = await applyTenantEmpresa(
+    opts.supabase
+      .schema("public")
+      .from("nf_entrada_itens")
+      .select("id,item_id,descricao,ncm,cfop,qtd,v_unit,v_prod,codigo_fornecedor,itens(nome,cfop_padrao,unidade_medida,codigo_interno)")
+      .eq("nf_entrada_id", nfEntradaId)
+      .order("id", { ascending: true }),
+    opts.tenantId,
+    opts.empresaId
+  ).returns<NfEntradaItemRow[]>();
+  if (nfItensErr) throw nfItensErr;
+
+  const { data: movimentacoes, error: movErr } = await applyTenantEmpresa(
+    opts.supabase
+      .from("movimentacoes")
+      .select("id,item_id,quantidade,origem_os_id")
+      .eq("origem_nf_entrada_id", nfEntradaId)
+      .eq("tipo", "saida")
+      .not("origem_os_id", "is", null)
+      .order("id", { ascending: true }),
+    opts.tenantId,
+    opts.empresaId
+  ).returns<MovimentacaoDestinoRow[]>();
+  if (movErr) throw movErr;
+
+  const movRows = Array.isArray(movimentacoes) ? movimentacoes : [];
+  const osIds = Array.from(
+    new Set(movRows.map((row) => Number(row.origem_os_id ?? 0)).filter((id) => Number.isFinite(id) && id > 0))
+  );
+  const osById = new Map<number, OsDestinoRow>();
+  if (osIds.length > 0) {
+    const { data: osRows, error: osErr } = await applyTenantEmpresa(
+      opts.supabase.from("ordens_servico").select("id,numero_os,os_num").in("id", osIds),
+      opts.tenantId,
+      opts.empresaId
+    ).returns<OsDestinoRow[]>();
+    if (osErr) throw osErr;
+    for (const row of Array.isArray(osRows) ? osRows : []) {
+      const osId = Number(row.id ?? 0);
+      if (Number.isFinite(osId) && osId > 0) osById.set(osId, row);
+    }
+  }
+
+  const pedidoCodesByItemId = await loadPedidoCodesByItemId({
+    supabase: opts.supabase,
+    tenantId: opts.tenantId,
+    empresaId: opts.empresaId,
+    nfEntradaId,
+    chaveAcesso: opts.doc.chave_acesso,
+  });
+
+  const movimentosByItemId = new Map<number, MovimentacaoDestinoRow[]>();
+  const movimentoRestante = new Map<string, number>();
+  for (const mov of movRows) {
+    const itemId = Number(mov.item_id ?? 0);
+    const qtd = Math.max(0, n(mov.quantidade));
+    const osId = Number(mov.origem_os_id ?? 0);
+    if (!Number.isFinite(itemId) || itemId <= 0 || !Number.isFinite(osId) || osId <= 0 || qtd <= 0) continue;
+    const key = String(mov.id);
+    movimentoRestante.set(key, qtd);
+    const rows = movimentosByItemId.get(itemId) ?? [];
+    rows.push(mov);
+    movimentosByItemId.set(itemId, rows);
+  }
+
+  const itensRelatorio: RelatorioDestinoItem[] = [];
+  for (const [idx, item] of (Array.isArray(nfItens) ? nfItens : []).entries()) {
+    const itemId = Number(item.item_id ?? 0);
+    const quantidadeTotal = Math.max(0, n(item.qtd));
+    let restante = quantidadeTotal;
+    const codigo = String(item.codigo_fornecedor ?? item.itens?.codigo_interno ?? "").trim() || null;
+    const descricao = String(item.descricao ?? item.itens?.nome ?? codigo ?? "").trim() || "-";
+    const unidade = String(item.itens?.unidade_medida ?? "").trim() || null;
+    const pedidoCodigo = itemId > 0 ? pedidoCodeLabel(pedidoCodesByItemId.get(itemId)) : null;
+    const baseItem = {
+      numero_item_xml: idx + 1,
+      codigo,
+      descricao,
+      unidade,
+      pedido_codigo: pedidoCodigo,
+    };
+
+    for (const mov of itemId > 0 ? movimentosByItemId.get(itemId) ?? [] : []) {
+      if (restante <= 0.0005) break;
+      const key = String(mov.id);
+      const disponivel = movimentoRestante.get(key) ?? 0;
+      if (disponivel <= 0.0005) continue;
+
+      const quantidadeOs = Math.min(restante, disponivel);
+      const osId = Number(mov.origem_os_id ?? 0);
+      const label = osLabel(osById.get(osId), osId);
+      itensRelatorio.push({
+        ...baseItem,
+        quantidade: roundedQty(quantidadeOs),
+        destino_tipo: "OS",
+        destino_label: `OS ${label}`,
+        os_id: osId,
+        os_numero: label,
+      });
+      restante = Math.max(0, restante - quantidadeOs);
+      movimentoRestante.set(key, Math.max(0, disponivel - quantidadeOs));
+    }
+
+    if (restante > 0.0005 || quantidadeTotal <= 0) {
+      itensRelatorio.push({
+        ...baseItem,
+        quantidade: roundedQty(restante),
+        destino_tipo: "ESTOQUE",
+        destino_label: "Estoque",
+      });
+    }
+  }
+
+  return {
+    nf_entrada_id: nfEntradaId,
+    chave: opts.doc.chave_acesso ?? null,
+    numero: opts.doc.numero ?? null,
+    serie: opts.doc.serie ?? null,
+    emitente: opts.emitenteNome || null,
+    data_emissao: opts.doc.emissao_date ?? null,
+    itens: itensRelatorio,
+  };
 }
 
 type AccessMode = "financeiro" | "estoque";
@@ -161,6 +405,7 @@ export default function NfeDetail({
   const [clienteNome, setClienteNome] = useState<string>("");
   const [fornecedorNome, setFornecedorNome] = useState<string>("");
   const [osSelection, setOsSelection] = useState<OsSelection | null>(null);
+  const [relatorioDestino, setRelatorioDestino] = useState<RelatorioDestinoImportacao | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +422,7 @@ export default function NfeDetail({
     const run = async () => {
       setLoading(true);
       setError(null);
+      setRelatorioDestino(null);
       try {
         const supabase = supabaseBrowser();
 
@@ -274,6 +520,21 @@ export default function NfeDetail({
           fornNome = fRow?.nome ? String(fRow.nome) : "";
         }
 
+        let relatorioDestinoImportacao: RelatorioDestinoImportacao | null = null;
+        if (access === "estoque") {
+          try {
+            relatorioDestinoImportacao = await buildRelatorioDestinoImportacao({
+              supabase,
+              tenantId,
+              empresaId,
+              doc: docRow,
+              emitenteNome: fornNome || (docRow.fornecedor_id ? `ID ${docRow.fornecedor_id}` : ""),
+            });
+          } catch (relatorioErr) {
+            console.warn("[NFE_DETAIL][RELATORIO_DESTINO] nao foi possivel montar o relatorio", relatorioErr);
+          }
+        }
+
         // Fallback: importador de NF-e (entrada/saída) grava itens em public.nf_entrada_itens.
         // f.documento_fiscal_item pode não existir para esses documentos.
         const osSelectionLoaded = await fetchOsSelectionById({
@@ -289,7 +550,7 @@ export default function NfeDetail({
             supabase
               .schema("public")
               .from("nf_entrada_itens")
-              .select("id,item_id,descricao,ncm,cfop,qtd,v_unit,v_prod,codigo_fornecedor,itens(nome,cfop_padrao)")
+              .select("id,item_id,descricao,ncm,cfop,qtd,v_unit,v_prod,codigo_fornecedor,itens(nome,cfop_padrao,unidade_medida,codigo_interno)")
               .eq("nf_entrada_id", docRow.source_nf_entrada_id)
               .order("id", { ascending: true }),
             tenantId,
@@ -331,6 +592,7 @@ export default function NfeDetail({
         setClienteNome(cliNome);
         setFornecedorNome(fornNome);
         setOsSelection(osSelectionLoaded);
+        setRelatorioDestino(relatorioDestinoImportacao);
       } catch (e: unknown) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NF-e.");
@@ -342,6 +604,7 @@ export default function NfeDetail({
         setClienteNome("");
         setFornecedorNome("");
         setOsSelection(null);
+        setRelatorioDestino(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -351,7 +614,7 @@ export default function NfeDetail({
     return () => {
       cancelled = true;
     };
-  }, [empresaId, id, ready, tenantId]);
+  }, [access, empresaId, id, ready, tenantId]);
 
   const parcelasByTitulo = useMemo(() => {
     const m = new Map<string, ParcelaRow[]>();
@@ -463,6 +726,16 @@ export default function NfeDetail({
               className="rounded-md bg-rose-700 px-3 py-2 text-sm text-zinc-100 hover:bg-rose-600 disabled:opacity-50"
             >
               {deleting ? "Excluindo..." : "Excluir"}
+            </button>
+          ) : null}
+          {access === "estoque" && relatorioDestino ? (
+            <button
+              type="button"
+              onClick={() => imprimirRelatorioDestinos([relatorioDestino])}
+              disabled={loading || deleting || osSaving || !ready}
+              className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900 disabled:opacity-50"
+            >
+              Imprimir destino
             </button>
           ) : null}
           <Link
