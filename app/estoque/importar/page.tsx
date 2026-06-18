@@ -353,6 +353,12 @@ type NfEntradaResumoRow = {
   solicitante_usuario_id?: string | null;
 };
 
+const RECENT_NFS_LIMIT = 20;
+
+function escapePostgrestLikeTerm(value: string): string {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
 type ParcelaPayload = {
   numero: string;
   vencimento: string;
@@ -830,6 +836,9 @@ export default function ImportarXmlPage() {
 
   const [recentFilterMonth, setRecentFilterMonth] = useState<string>(() => String(new Date().getMonth() + 1));
   const [recentFilterYear, setRecentFilterYear] = useState<string>(() => String(new Date().getFullYear()));
+  const [recentUseDateFilter, setRecentUseDateFilter] = useState(false);
+  const [recentFilterEmitente, setRecentFilterEmitente] = useState("");
+  const [recentFilterNumero, setRecentFilterNumero] = useState("");
 
   const canImport = has("xml_import.execute");
   const canCreateFornecedor = has("cad_fornecedores.write");
@@ -856,16 +865,16 @@ export default function ImportarXmlPage() {
       try {
         const y = Number(recentFilterYear);
         const m = Number(recentFilterMonth);
-        const hasMonth = Number.isFinite(y) && Number.isFinite(m) && y > 2000 && m >= 1 && m <= 12;
+        const hasMonth = recentUseDateFilter && Number.isFinite(y) && Number.isFinite(m) && y > 2000 && m >= 1 && m <= 12;
         const start = hasMonth ? new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10) : null;
         const end = hasMonth ? new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10) : null;
+        const emitenteTerm = recentFilterEmitente.trim();
+        const numeroTerm = recentFilterNumero.trim();
 
         let qb = supabase
           .schema("public")
           .from("nf_entrada")
-          .select("id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto", {
-            count: "exact",
-          })
+          .select("id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto")
           .eq("empresa_id", empresaId)
           .not("chave", "is", null)
           .order("criado_em", { ascending: false })
@@ -875,35 +884,33 @@ export default function ImportarXmlPage() {
           qb = qb.gte("data_emissao", start).lt("data_emissao", end);
         }
 
+        if (emitenteTerm) {
+          qb = qb.ilike("emitente_nome", `%${escapePostgrestLikeTerm(emitenteTerm)}%`);
+        }
+
+        if (numeroTerm) {
+          qb = qb.ilike("numero", `%${escapePostgrestLikeTerm(numeroTerm)}%`);
+        }
+
         qb = applyTenantEmpresa(qb, tenantId, empresaId);
 
-        const pageSize = 1000;
-        let from = 0;
-        let rowsAll: NfEntradaResumoRow[] = [];
+        const { data, error } = await qb.limit(RECENT_NFS_LIMIT).returns<NfEntradaResumoRow[]>();
+        if (error) throw error;
+        if (!active) return;
 
-        while (true) {
-          const { data, error } = await qb.range(from, from + pageSize - 1).returns<NfEntradaResumoRow[]>();
-          if (error) throw error;
-          if (!active) return;
-
-          const chunkRows = (data ?? [])
-            .map((r) => ({
-              id: Number(r.id),
-              chave: String(r.chave ?? ""),
-              numero: r.numero ?? null,
-              serie: r.serie ?? null,
-              emitente_nome: r.emitente_nome ?? null,
-              data_emissao: r.data_emissao ?? null,
-              valor_total: r.valor_total ?? null,
-              criado_em: r.criado_em ?? null,
-              finalidade_contexto: r.finalidade_contexto ?? null,
-            }))
-            .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
-
-          rowsAll = rowsAll.concat(chunkRows);
-          if (!data || chunkRows.length < pageSize) break;
-          from += pageSize;
-        }
+        const rowsAll = (data ?? [])
+          .map((r) => ({
+            id: Number(r.id),
+            chave: String(r.chave ?? ""),
+            numero: r.numero ?? null,
+            serie: r.serie ?? null,
+            emitente_nome: r.emitente_nome ?? null,
+            data_emissao: r.data_emissao ?? null,
+            valor_total: r.valor_total ?? null,
+            criado_em: r.criado_em ?? null,
+            finalidade_contexto: r.finalidade_contexto ?? null,
+          }))
+          .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
 
         setRecentNfs(rowsAll);
       } catch (e: unknown) {
@@ -919,7 +926,18 @@ export default function ImportarXmlPage() {
     return () => {
       active = false;
     };
-  }, [empresaId, importOk, recentFilterMonth, recentFilterYear, recentReloadTick, supabase, tenantId]);
+  }, [
+    empresaId,
+    importOk,
+    recentFilterEmitente,
+    recentFilterMonth,
+    recentFilterNumero,
+    recentFilterYear,
+    recentReloadTick,
+    recentUseDateFilter,
+    supabase,
+    tenantId,
+  ]);
 
   const abrirNotaImportada = useCallback(
     async (row: NfEntradaResumoRow) => {
@@ -3295,6 +3313,12 @@ export default function ImportarXmlPage() {
     return <div className="min-h-screen flex items-center justify-center text-zinc-300">Sem permissao para acessar esta pagina.</div>;
   }
 
+  const recentControlsDisabled = !tenantId || !empresaId;
+  const recentActionsDisabled = recentControlsDisabled || recentNfsLoading;
+  const recentDateFieldsDisabled = recentControlsDisabled || !recentUseDateFilter;
+  const hasRecentFilters =
+    recentUseDateFilter || recentFilterEmitente.trim() !== "" || recentFilterNumero.trim() !== "";
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
@@ -3978,10 +4002,22 @@ export default function ImportarXmlPage() {
           <div>
             <div className="text-lg font-semibold">Notas importadas</div>
             <div className="text-sm text-zinc-400">
-              Notas de entrada importadas. Use o filtro por mês para imprimir/consultar um período.
+              Exibindo as 20 últimas notas importadas. Use os filtros para consultar ou imprimir a mesma seleção.
             </div>
           </div>
-          <div className="flex items-end gap-2 flex-wrap">
+          <div className="flex items-end justify-end gap-2 flex-wrap">
+            <label className="h-10 px-3 rounded-md border border-zinc-700 bg-zinc-900 text-xs text-zinc-300 flex items-center gap-2">
+              <input
+                id="recent-notas-usar-data"
+                type="checkbox"
+                className="h-4 w-4 accent-emerald-500"
+                checked={recentUseDateFilter}
+                onChange={(e) => setRecentUseDateFilter(e.target.checked)}
+                disabled={recentControlsDisabled}
+              />
+              Usar data
+            </label>
+
             <div className="flex items-center gap-2">
               <label className="text-xs text-zinc-400" htmlFor="recent-notas-mes">
                 Mês
@@ -3991,7 +4027,7 @@ export default function ImportarXmlPage() {
                 className="px-2 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-sm"
                 value={recentFilterMonth}
                 onChange={(e) => setRecentFilterMonth(e.target.value)}
-                disabled={!tenantId || !empresaId || recentNfsLoading}
+                disabled={recentDateFieldsDisabled}
                 title="Filtrar por mês de emissão"
               >
                 {Array.from({ length: 12 }).map((_, idx) => {
@@ -4011,24 +4047,85 @@ export default function ImportarXmlPage() {
               </label>
               <input
                 id="recent-notas-ano"
+                name="recent-notas-ano"
                 className="w-[92px] px-2 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-sm"
                 value={recentFilterYear}
                 onChange={(e) => setRecentFilterYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
-                disabled={!tenantId || !empresaId || recentNfsLoading}
+                disabled={recentDateFieldsDisabled}
                 inputMode="numeric"
+                autoComplete="off"
                 placeholder="YYYY"
                 title="Filtrar por ano de emissão"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-zinc-400" htmlFor="recent-notas-emitente">
+                Emitente
+              </label>
+              <input
+                id="recent-notas-emitente"
+                name="recent-notas-emitente"
+                type="search"
+                className="w-[240px] px-2 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-sm"
+                value={recentFilterEmitente}
+                onChange={(e) => setRecentFilterEmitente(e.target.value)}
+                disabled={recentControlsDisabled}
+                autoComplete="off"
+                placeholder="Nome do emitente"
+                title="Filtrar por emitente"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-zinc-400" htmlFor="recent-notas-numero">
+                Número
+              </label>
+              <input
+                id="recent-notas-numero"
+                name="recent-notas-numero-nf"
+                type="search"
+                className="w-[110px] px-2 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-sm"
+                value={recentFilterNumero}
+                onChange={(e) => setRecentFilterNumero(e.target.value.slice(0, 20))}
+                disabled={recentControlsDisabled}
+                autoComplete="off"
+                placeholder="NF"
+                title="Filtrar por número"
               />
             </div>
 
             <button
               type="button"
               onClick={() => {
-                const params = new URLSearchParams({ mes: recentFilterMonth, ano: recentFilterYear });
-                window.open(`/estoque/importar/imprimir?${params.toString()}`, "_blank");
+                setRecentUseDateFilter(false);
+                setRecentFilterEmitente("");
+                setRecentFilterNumero("");
+              }}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm disabled:opacity-60"
+              disabled={recentControlsDisabled || !hasRecentFilters}
+            >
+              Limpar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (recentUseDateFilter) {
+                  params.set("periodo", "1");
+                  params.set("mes", recentFilterMonth);
+                  params.set("ano", recentFilterYear);
+                }
+                const emitente = recentFilterEmitente.trim();
+                const numero = recentFilterNumero.trim();
+                if (emitente) params.set("emitente", emitente);
+                if (numero) params.set("numero", numero);
+                const query = params.toString();
+                window.open(`/estoque/importar/imprimir${query ? `?${query}` : ""}`, "_blank");
               }}
               className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
-              disabled={!tenantId || !empresaId || recentNfsLoading}
+              disabled={recentActionsDisabled}
             >
               Imprimir
             </button>
@@ -4037,7 +4134,7 @@ export default function ImportarXmlPage() {
               type="button"
               onClick={() => setRecentReloadTick((n) => n + 1)}
               className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
-              disabled={!tenantId || !empresaId || recentNfsLoading}
+              disabled={recentActionsDisabled}
             >
               {recentNfsLoading ? "Atualizando..." : "Atualizar"}
             </button>

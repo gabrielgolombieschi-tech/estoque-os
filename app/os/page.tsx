@@ -204,6 +204,11 @@ export default function OsListPage() {
     if (!clienteId) return false;
     return Boolean(clientes.find((c) => c.id === clienteId)?.habilita_hh);
   }, [clienteId, clientes]);
+  const clientesNovaOsHh = useMemo(
+    () => (isApontamentoRh ? clientes : clientes.filter((cliente) => cliente.habilita_hh)),
+    [clientes, isApontamentoRh]
+  );
+  const clienteSelecionadoNaoHabilitaHH = Boolean(clienteId && !clienteHabilitaHH && !isApontamentoRh);
 
   const logDebug = (...args: unknown[]) => {
     if (debugEnabled) console.debug(...args);
@@ -625,6 +630,9 @@ export default function OsListPage() {
 
     if (!canWriteOs) return setErr("Sem permissão para criar OS.");
     if (!clienteId) return setErr("Selecione um cliente.");
+    if (!clienteHabilitaHH && !isApontamentoRh) {
+      return setErr("Cliente nao habilitado para HH. Crie OS comum a partir do orcamento.");
+    }
 
     const orcadoValor = Number(orcado || 0);
     if (!Number.isFinite(orcadoValor) || orcadoValor < 0) return setErr("Informe um valor orcado valido.");
@@ -671,8 +679,7 @@ export default function OsListPage() {
     }
 
     const numeroGerado = await gerarNumeroOs(effectiveTenantId, effectiveEmpresaId);
-    const podeMarcarHH = clienteHabilitaHH || isApontamentoRh;
-    const usaRelatorioHHFinal = podeMarcarHH ? usaRelatorioHH : false;
+    const usaRelatorioHHFinal = true;
 
     const { data, error } = await supabase
       .from("ordens_servico")
@@ -684,7 +691,7 @@ export default function OsListPage() {
         cliente_nome: clienteNomeFinal,
         descricao_servico: descricao.trim() ? descricao.trim().toLocaleUpperCase("pt-BR") : null,
         pedido_compra: pedidoCompra.trim() || null,
-        tipo_pedido: tipoPedido,
+        tipo_pedido: "servico",
         vendedor: vendedor.trim() || null,
         orcado: orcadoValor,
         tem_gestao: temGestao,
@@ -893,11 +900,13 @@ export default function OsListPage() {
                 setShowCreate(true);
                 setErr(null);
                 setOkMsg(null);
-                setUsaRelatorioHH(false);
+                setClienteId(null);
+                setTipoPedido("servico");
+                setUsaRelatorioHH(true);
               }}
               className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
             >
-              Nova OS
+              Nova OS HH
             </button>
           )}
         </div>
@@ -1028,8 +1037,8 @@ export default function OsListPage() {
           <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4 my-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-lg font-semibold">Nova OS</div>
-                <div className="text-sm text-zinc-400">Informe os dados iniciais da ordem</div>
+                <div className="text-lg font-semibold">Nova OS HH</div>
+                <div className="text-sm text-zinc-400">Crie aqui somente OS de HH. As demais OS devem nascer pelo orçamento.</div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1043,7 +1052,7 @@ export default function OsListPage() {
                   disabled={creating}
                   className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
                 >
-                  {creating ? "Criando..." : "Criar OS"}
+                  {creating ? "Criando..." : "Criar OS HH"}
                 </button>
               </div>
             </div>
@@ -1067,11 +1076,11 @@ export default function OsListPage() {
                   className="w-full px-3 py-2"
                   value={tipoPedido}
                   onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
+                  disabled
                   aria-label="Tipo de pedido"
                   title="Tipo de pedido"
                 >
-                  <option value="servico">Serviço</option>
-                  <option value="material">Material</option>
+                  <option value="servico">Serviço HH</option>
                 </select>
               </div>
 
@@ -1083,37 +1092,38 @@ export default function OsListPage() {
                   onChange={(e) => {
                     const nextId = e.target.value ? Number(e.target.value) : null;
                     setClienteId(nextId);
-                    if (!nextId) {
-                      setUsaRelatorioHH(false);
-                      return;
-                    }
-                    const nextHabilita = Boolean(clientes.find((c) => c.id === nextId)?.habilita_hh);
-                    if (!nextHabilita && !isApontamentoRh) setUsaRelatorioHH(false);
+                    setUsaRelatorioHH(true);
                   }}
                   aria-label="Cliente (cadastro)"
                   title="Cliente (cadastro)"
                 >
                   <option value="">-</option>
-                  {clientes.map((c) => (
+                  {clientesNovaOsHh.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome}
                     </option>
                   ))}
                 </select>
+                {!isApontamentoRh && clientesNovaOsHh.length === 0 && (
+                  <div className="text-xs text-amber-300">Nenhum cliente habilitado para HH.</div>
+                )}
               </div>
 
-              {clienteId && (clienteHabilitaHH || isApontamentoRh) && (
-                <div className="md:col-span-3 border border-zinc-800 rounded-lg p-3 bg-zinc-900/40">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={usaRelatorioHH}
-                      onChange={(e) => setUsaRelatorioHH(e.target.checked)}
-                      disabled={creating}
-                    />
-                    <span className="font-medium">Esta OS é de HH?</span>
-                  </label>
+              <div className="md:col-span-3 border border-emerald-900/60 rounded-lg p-3 bg-emerald-950/20">
+                <label className="flex items-center gap-2 text-sm text-emerald-100">
+                  <input type="checkbox" className="h-4 w-4" checked={usaRelatorioHH} readOnly disabled />
+                  <span className="font-medium">OS HH</span>
+                </label>
+                {clienteSelecionadoNaoHabilitaHH && (
+                  <div className="mt-2 text-xs text-amber-300">
+                    Este cliente não está habilitado para HH. OS comum deve ser criada pelo orçamento.
+                  </div>
+                )}
+              </div>
+
+              {clienteSelecionadoNaoHabilitaHH && (
+                <div className="md:col-span-3 text-sm text-amber-300">
+                  Selecione um cliente habilitado para HH para criar esta OS por aqui.
                 </div>
               )}
 

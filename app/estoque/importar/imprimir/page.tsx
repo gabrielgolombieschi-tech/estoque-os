@@ -51,6 +51,12 @@ function safeInt(value: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const RECENT_NFS_LIMIT = 20;
+
+function escapePostgrestLikeTerm(value: string): string {
+  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
 export default function EstoqueImportarImprimirPage() {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -64,6 +70,10 @@ export default function EstoqueImportarImprimirPage() {
   const sp = useSearchParams();
   const mes = safeInt(sp.get("mes"));
   const ano = safeInt(sp.get("ano"));
+  const periodoParam = sp.get("periodo");
+  const usePeriodo = periodoParam === null ? Boolean(sp.get("mes") || sp.get("ano")) : periodoParam === "1";
+  const emitente = String(sp.get("emitente") ?? "").trim();
+  const numero = String(sp.get("numero") ?? "").trim();
 
   const { has, ready } = usePermissions();
   const canView =
@@ -98,6 +108,7 @@ export default function EstoqueImportarImprimirPage() {
       }
 
       const hasMonth =
+        usePeriodo &&
         Number.isFinite(ano) &&
         Number.isFinite(mes) &&
         (ano ?? 0) > 2000 &&
@@ -123,35 +134,33 @@ export default function EstoqueImportarImprimirPage() {
           qb = qb.gte("data_emissao", start).lt("data_emissao", end);
         }
 
+        if (emitente) {
+          qb = qb.ilike("emitente_nome", `%${escapePostgrestLikeTerm(emitente)}%`);
+        }
+
+        if (numero) {
+          qb = qb.ilike("numero", `%${escapePostgrestLikeTerm(numero)}%`);
+        }
+
         qb = applyTenantEmpresa(qb, tenantId, empresaId);
 
-        const pageSize = 1000;
-        let from = 0;
-        let all: NfEntradaResumoRow[] = [];
+        const { data, error } = await qb.limit(RECENT_NFS_LIMIT).returns<NfEntradaResumoRow[]>();
+        if (error) throw error;
+        if (!active) return;
 
-        while (true) {
-          const { data, error } = await qb.range(from, from + pageSize - 1).returns<NfEntradaResumoRow[]>();
-          if (error) throw error;
-          if (!active) return;
-
-          const chunkRows = (data ?? [])
-            .map((r) => ({
-              id: Number(r.id),
-              chave: String(r.chave ?? ""),
-              numero: r.numero ?? null,
-              serie: r.serie ?? null,
-              emitente_nome: r.emitente_nome ?? null,
-              data_emissao: r.data_emissao ?? null,
-              valor_total: r.valor_total ?? null,
-              criado_em: r.criado_em ?? null,
-              finalidade_contexto: r.finalidade_contexto ?? null,
-            }))
-            .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
-
-          all = all.concat(chunkRows);
-          if (!data || chunkRows.length < pageSize) break;
-          from += pageSize;
-        }
+        const all = (data ?? [])
+          .map((r) => ({
+            id: Number(r.id),
+            chave: String(r.chave ?? ""),
+            numero: r.numero ?? null,
+            serie: r.serie ?? null,
+            emitente_nome: r.emitente_nome ?? null,
+            data_emissao: r.data_emissao ?? null,
+            valor_total: r.valor_total ?? null,
+            criado_em: r.criado_em ?? null,
+            finalidade_contexto: r.finalidade_contexto ?? null,
+          }))
+          .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.chave);
 
         if (!active) return;
         setRows(all);
@@ -169,10 +178,17 @@ export default function EstoqueImportarImprimirPage() {
     return () => {
       active = false;
     };
-  }, [ano, canView, empresaId, mes, ready, supabase, tenantId]);
+  }, [ano, canView, emitente, empresaId, mes, numero, ready, supabase, tenantId, usePeriodo]);
 
   const title = "Relatório — Notas importadas";
-  const periodo = Number.isFinite(ano) && Number.isFinite(mes) ? `${String(mes).padStart(2, "0")}/${ano}` : "—";
+  const periodo =
+    usePeriodo && Number.isFinite(ano) && Number.isFinite(mes)
+      ? `${String(mes).padStart(2, "0")}/${ano}`
+      : `Últimas ${RECENT_NFS_LIMIT}`;
+  const filtros = [
+    emitente ? `Emitente: ${emitente}` : null,
+    numero ? `Número: ${numero}` : null,
+  ].filter((item): item is string => Boolean(item));
   const empresaNome = te.empresa?.nome_fantasia ?? te.empresa?.razao_social ?? null;
 
   return (
@@ -197,7 +213,8 @@ export default function EstoqueImportarImprimirPage() {
           <div>
             <div className="text-xl font-extrabold">{title}</div>
             <div className="mt-1 text-xs text-zinc-600">
-              Período: <span className="font-bold">{periodo}</span>
+              {usePeriodo ? "Período" : "Consulta"}: <span className="font-bold">{periodo}</span>
+              {filtros.length > 0 ? <span> • {filtros.join(" • ")}</span> : null}
               {empresaNome ? <span> • Empresa: {empresaNome}</span> : null}
             </div>
           </div>
