@@ -191,6 +191,15 @@ async function getNationalHolidays(year: number): Promise<Set<string>> {
   return promise;
 }
 
+const GESTAO_MAP: Record<string, { item_tipo: string; area: string }> = {
+  projeto_eletrico:  { item_tipo: "projeto",  area: "eletrico" },
+  projeto_mecanico:  { item_tipo: "projeto",  area: "mecanico" },
+  projeto_seguranca: { item_tipo: "projeto",  area: "seguranca" },
+  projeto_software:  { item_tipo: "projeto",  area: "software" },
+  execucao_eletrica: { item_tipo: "execucao", area: "eletrico" },
+  execucao_mecanica: { item_tipo: "execucao", area: "mecanico" },
+};
+
 async function isNationalHoliday(dateISO: string): Promise<boolean> {
   const year = Number(dateISO.slice(0, 4));
   if (!Number.isFinite(year)) return false;
@@ -716,6 +725,78 @@ export default function ApontamentosPage() {
     if (second.error) throw second.error;
   }
 
+  async function autoEnableGestao(osId: number, colaboradorId: string) {
+    if (!effectiveTenantId || !effectiveEmpresaId) return;
+    try {
+      await ensureContext();
+
+      // 1. Cargo do colaborador
+      const { data: colabRow } = await supabase
+        .from("colaboradores")
+        .select("cargo")
+        .eq("id", colaboradorId)
+        .maybeSingle();
+      const cargoNome = (colabRow as { cargo?: string | null } | null)?.cargo;
+      if (!cargoNome) return;
+
+      // 2. tipo_gestao do cargo
+      const { data: cargoRow } = await supabase
+        .from("cargos")
+        .select("tipo_gestao")
+        .eq("nome", cargoNome)
+        .maybeSingle();
+      const tipoGestao = (cargoRow as { tipo_gestao?: string | null } | null)?.tipo_gestao;
+      if (!tipoGestao) return;
+
+      // 3. Mapear para item_tipo + area
+      const target = GESTAO_MAP[tipoGestao];
+      if (!target) return;
+
+      // 4. Verificar se o item já está habilitado
+      const { data: itemRow } = await supabase
+        .from("os_gestao_itens")
+        .select("id,habilitado")
+        .eq("os_id", osId)
+        .eq("item_tipo", target.item_tipo)
+        .eq("area", target.area)
+        .maybeSingle();
+
+      if ((itemRow as { habilitado?: boolean } | null)?.habilitado) return;
+
+      // 5. data_prevista = hoje + 30 dias
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      const dataPrevista = d.toISOString().slice(0, 10);
+
+      // 6. Upsert o item de gestão
+      await supabase.from("os_gestao_itens").upsert(
+        {
+          tenant_id: effectiveTenantId,
+          os_id: osId,
+          item_tipo: target.item_tipo,
+          area: target.area,
+          habilitado: true,
+          data_prevista: dataPrevista,
+          responsavel_id: null,
+          progresso_percent: 0,
+        },
+        { onConflict: "os_id,item_tipo,area" }
+      );
+
+      // 7. Garantir tem_gestao = true na OS
+      await applyTenantEmpresa(
+        supabase
+          .from("ordens_servico")
+          .update({ tem_gestao: true, atualizado_em: new Date().toISOString() })
+          .eq("id", osId),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+    } catch {
+      // silencioso — não bloqueia o fluxo principal
+    }
+  }
+
   async function salvarApontamento(options?: { preserveHoras?: boolean; advanceDate?: boolean; keepFocus?: boolean }) {
     setMsg(null);
 
@@ -779,6 +860,9 @@ export default function ApontamentosPage() {
         effectiveEmpresaId
       );
       if (error) throw error;
+
+      // Auto-habilita gestão com base no cargo do colaborador (silencioso)
+      await autoEnableGestao(osDbId, colabId);
 
       if (!options?.preserveHoras) {
         setHorasText("");

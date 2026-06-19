@@ -85,6 +85,7 @@ export default function ColaboradoresPage() {
   const { tenantId } = usePermissions();
 
   const [rows, setRows] = useState<RowView[]>([]);
+  const [cargosOpts, setCargosOpts] = useState<{ id: number; nome: string }[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -118,6 +119,13 @@ export default function ColaboradoresPage() {
       if (error) throw error;
       setRows((data ?? []) as RowView[]);
 
+      const { data: cargosData } = await supabase
+        .from("cargos")
+        .select("id,nome")
+        .eq("ativo", true)
+        .order("nome", { ascending: true });
+      setCargosOpts((cargosData ?? []) as { id: number; nome: string }[]);
+
     } catch (e: unknown) {
       setErrorMsg(getErrorMessage(e, "Falha ao carregar colaboradores."));
     } finally {
@@ -146,7 +154,7 @@ export default function ColaboradoresPage() {
   function abrirEditar(r: RowView) {
     setEditId(r.id);
     setNome(upper(r.nome));
-    setCargo(upper(r.cargo ?? ""));
+    setCargo(r.cargo ?? "");
     setAtivo(!!r.ativo);
 
     setValorHoraOriginal(r.valor_hora ?? null);
@@ -467,21 +475,16 @@ export default function ColaboradoresPage() {
                 </label>
                 <select
                   value={cargo}
-                  onChange={(e) => setCargo(upper(e.target.value))}
+                  onChange={(e) => setCargo(e.target.value)}
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
                   aria-label="Cargo do colaborador"
                 >
                   <option value="">Selecione</option>
-                  <option value="AUXILIAR MEC">AUXILIAR MEC</option>
-                  <option value="AUXILIAR ELE">AUXILIAR ELE</option>
-                  <option value="MECANICO">MECANICO</option>
-                  <option value="ELETRICISTA">ELETRICISTA</option>
-                  <option value="PROJETISTA MEC">PROJETISTA MEC</option>
-                  <option value="PROJETISTA ELE">PROJETISTA ELE</option>
-                  <option value="PROGRAMADOR">PROGRAMADOR</option>
-                  <option value="ENGENHEIRO">ENGENHEIRO</option>
-                  <option value="COORDENADOR">COORDENADOR</option>
-                  <option value="TEC. SEGURANÇA">TEC. SEGURANÇA</option>
+                  {cargosOpts.map((c) => (
+                    <option key={c.id} value={c.nome}>
+                      {c.nome}
+                    </option>
+                  ))}
                 </select>
               </div>
 

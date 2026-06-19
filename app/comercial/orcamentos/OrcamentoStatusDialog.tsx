@@ -4,12 +4,55 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMoneyBR, parseMoneyBR } from "@/lib/decimal";
 import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 
+// ── Gestão types ─────────────────────────────────────────────────────────────
+type GestaoTipo = "projeto" | "execucao";
+type GestaoArea = "eletrico" | "mecanico" | "seguranca" | "software";
+
+export type GestaoConfigItem = {
+  item_tipo: GestaoTipo;
+  area: GestaoArea;
+  habilitado: boolean;
+  data_prevista: string | null;
+  progresso_percent: number;
+};
+
+export type GestaoConfig = {
+  habilitarGestao: boolean;
+  items: GestaoConfigItem[];
+};
+
+const gestaoDefs: Array<{
+  item_tipo: GestaoTipo;
+  area: GestaoArea;
+  label: string;
+  grupo: "projetos" | "execucoes";
+}> = [
+  { item_tipo: "projeto", area: "eletrico", label: "Projeto Elétrico", grupo: "projetos" },
+  { item_tipo: "projeto", area: "mecanico", label: "Projeto Mecânico", grupo: "projetos" },
+  { item_tipo: "projeto", area: "seguranca", label: "Projeto Segurança", grupo: "projetos" },
+  { item_tipo: "projeto", area: "software", label: "Projeto Software", grupo: "projetos" },
+  { item_tipo: "execucao", area: "eletrico", label: "Execução Elétrica", grupo: "execucoes" },
+  { item_tipo: "execucao", area: "mecanico", label: "Execução Mecânica", grupo: "execucoes" },
+];
+
+function makeDefaultGestaoItems(): GestaoConfigItem[] {
+  return gestaoDefs.map((d) => ({
+    item_tipo: d.item_tipo,
+    area: d.area,
+    habilitado: false,
+    data_prevista: null,
+    progresso_percent: 0,
+  }));
+}
+
+// ── Status dialog types ───────────────────────────────────────────────────────
 export type OrcamentoStatusDialogPayload = {
   status: OrcamentoStatusCanonical;
   followup: string;
   valorFechado: number | null;
   abrirOs: boolean;
   importarItensOs: boolean;
+  gestao: GestaoConfig | null;
 };
 
 export type OrcamentoStatusDialogProps = {
@@ -112,6 +155,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     onCancel,
     onSave,
   } = props;
+
   const initialLostReason = useMemo(() => getInitialLostReasonState(initialFollowup), [initialFollowup]);
   const [followup, setFollowup] = useState(() => String(initialFollowup ?? ""));
   const [valorFechado, setValorFechado] = useState(() =>
@@ -122,6 +166,11 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   const [abrirOs, setAbrirOs] = useState(false);
   const [importarItensOs, setImportarItensOs] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Gestão state
+  const [gestaoHabilitado, setGestaoHabilitado] = useState(false);
+  const [gestaoItems, setGestaoItems] = useState<GestaoConfigItem[]>(() => makeDefaultGestaoItems());
+
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectRef = useRef<HTMLSelectElement | null>(null);
 
@@ -130,6 +179,15 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     const parsed = Number(valorOrcado);
     return Number.isFinite(parsed) ? parsed : null;
   }, [valorOrcado]);
+
+  // Reset ao abrir o dialog
+  useEffect(() => {
+    if (open) {
+      setAbrirOs(canOpenOs);
+      setGestaoHabilitado(true);
+      setGestaoItems(makeDefaultGestaoItems());
+    }
+  }, [open, canOpenOs]);
 
   useEffect(() => {
     if (!open) return;
@@ -146,6 +204,12 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
 
   if (!open || !status || !meta) return null;
 
+  function updateGestaoItem(item_tipo: GestaoTipo, area: GestaoArea, patch: Partial<GestaoConfigItem>) {
+    setGestaoItems((prev) =>
+      prev.map((it) => (it.item_tipo === item_tipo && it.area === area ? { ...it, ...patch } : it))
+    );
+  }
+
   async function handleSubmit() {
     if (!status) return;
     let trimmed = followup.trim();
@@ -157,7 +221,6 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
         selectRef.current?.focus();
         return;
       }
-
       if (selected === LOST_REASON_OTHER) {
         const customText = lostReasonOtherText.trim();
         if (customText.length < 5) {
@@ -195,8 +258,18 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
       valorFechado: valorFechadoNumero,
       abrirOs: status === "FECHADO" ? abrirOs : false,
       importarItensOs: status === "FECHADO" ? abrirOs && importarItensOs : false,
+      gestao:
+        status === "FECHADO" && abrirOs
+          ? { habilitarGestao: gestaoHabilitado, items: gestaoItems }
+          : null,
     });
   }
+
+  // Show gestão column only when FECHADO + Abrir OS checked
+  const showGestao = status === "FECHADO" && abrirOs && canOpenOs;
+
+  const projetos = gestaoDefs.filter((d) => d.grupo === "projetos");
+  const execucoes = gestaoDefs.filter((d) => d.grupo === "execucoes");
 
   return (
     <div
@@ -211,133 +284,226 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
         role="dialog"
         aria-modal="true"
         aria-label={meta.title}
-        className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden"
+        className={`w-full bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)] transition-all ${
+          showGestao ? "max-w-4xl" : "max-w-xl"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40 shrink-0">
           <div className="font-semibold text-zinc-100">{meta.title}</div>
-          <div className="text-xs text-zinc-400 mt-1">Descreva o ultimo andamento para {meta.label.toLowerCase()}.</div>
+          <div className="text-xs text-zinc-400 mt-1">
+            Descreva o ultimo andamento para {meta.label.toLowerCase()}.
+          </div>
         </div>
-        <div className="px-5 py-4 space-y-3">
-          {status === "PERDIDO" ? (
-            <>
-              <label className="block text-xs text-zinc-400">
-                Motivo da perda
-                <select
-                  ref={selectRef}
-                  value={lostReason}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setLostReason(next);
-                    if (next !== LOST_REASON_OTHER) setLostReasonOtherText("");
-                    if (error) setError(null);
-                  }}
-                  disabled={loading}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
-                >
-                  {LOST_REASON_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                  <option value={LOST_REASON_OTHER}>{LOST_REASON_OTHER}</option>
-                </select>
-              </label>
-              {lostReason === LOST_REASON_OTHER ? (
+
+        {/* Body — two columns when gestão is active */}
+        <div className={`flex min-h-0 flex-1 overflow-hidden ${showGestao ? "divide-x divide-zinc-800" : ""}`}>
+
+          {/* ── Coluna esquerda: campos existentes ── */}
+          <div className={`overflow-y-auto ${showGestao ? "w-80 shrink-0" : "flex-1"} px-5 py-4 space-y-3`}>
+            {status === "PERDIDO" ? (
+              <>
                 <label className="block text-xs text-zinc-400">
-                  Outros
-                  <textarea
-                    ref={textareaRef}
-                    value={lostReasonOtherText}
+                  Motivo da perda
+                  <select
+                    ref={selectRef}
+                    value={lostReason}
                     onChange={(e) => {
-                      setLostReasonOtherText(e.target.value);
+                      const next = e.target.value;
+                      setLostReason(next);
+                      if (next !== LOST_REASON_OTHER) setLostReasonOtherText("");
                       if (error) setError(null);
                     }}
-                    placeholder="Descreva o motivo da perda"
-                    rows={4}
-                    maxLength={500}
                     disabled={loading}
-                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60 resize-y"
-                  />
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  >
+                    {LOST_REASON_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    <option value={LOST_REASON_OTHER}>{LOST_REASON_OTHER}</option>
+                  </select>
                 </label>
-              ) : null}
-            </>
-          ) : (
-            <label className="block text-xs text-zinc-400">
-              Followup
-              <textarea
-                ref={textareaRef}
-                value={followup}
-                onChange={(e) => {
-                  setFollowup(e.target.value);
-                  if (error) setError(null);
-                }}
-                placeholder={meta.placeholder}
-                rows={4}
-                maxLength={500}
-                disabled={loading}
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60 resize-y"
-              />
-            </label>
-          )}
-          {status === "FECHADO" ? (
-            <>
+                {lostReason === LOST_REASON_OTHER ? (
+                  <label className="block text-xs text-zinc-400">
+                    Outros
+                    <textarea
+                      ref={textareaRef}
+                      value={lostReasonOtherText}
+                      onChange={(e) => {
+                        setLostReasonOtherText(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      placeholder="Descreva o motivo da perda"
+                      rows={4}
+                      maxLength={500}
+                      disabled={loading}
+                      className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60 resize-y"
+                    />
+                  </label>
+                ) : null}
+              </>
+            ) : (
               <label className="block text-xs text-zinc-400">
-                Valor fechado
-                <input
-                  value={valorFechado}
+                Followup
+                <textarea
+                  ref={textareaRef}
+                  value={followup}
                   onChange={(e) => {
-                    setValorFechado(e.target.value);
+                    setFollowup(e.target.value);
                     if (error) setError(null);
                   }}
-                  onBlur={() => {
-                    const parsed = parseMoneyBR(valorFechado);
-                    if (Number.isFinite(parsed)) setValorFechado(formatMoneyBR(parsed));
-                  }}
-                  placeholder="Ex.: 12.500,00"
-                  inputMode="decimal"
+                  placeholder={meta.placeholder}
+                  rows={4}
+                  maxLength={500}
                   disabled={loading}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60 resize-y"
                 />
               </label>
-              {valorOrcadoNumero !== null ? (
-                <div className="text-xs text-zinc-500">Valor orcado atual: R$ {formatMoneyBR(valorOrcadoNumero)}</div>
-              ) : null}
-              {canOpenOs ? (
-                <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
-                  <label className="flex items-center gap-2 text-sm text-zinc-200">
-                    <input
-                      type="checkbox"
-                      checked={abrirOs}
-                      onChange={(e) => {
-                        const next = e.target.checked;
-                        setAbrirOs(next);
-                        if (!next) setImportarItensOs(false);
-                      }}
-                      disabled={loading}
-                      className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
-                    />
-                    <span>Abrir OS</span>
-                  </label>
-                  {abrirOs ? (
-                    <label className="flex items-center gap-2 pl-6 text-sm text-zinc-300">
+            )}
+
+            {status === "FECHADO" ? (
+              <>
+                <label className="block text-xs text-zinc-400">
+                  Valor fechado
+                  <input
+                    value={valorFechado}
+                    onChange={(e) => {
+                      setValorFechado(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    onBlur={() => {
+                      const parsed = parseMoneyBR(valorFechado);
+                      if (Number.isFinite(parsed)) setValorFechado(formatMoneyBR(parsed));
+                    }}
+                    placeholder="Ex.: 12.500,00"
+                    inputMode="decimal"
+                    disabled={loading}
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+                {valorOrcadoNumero !== null ? (
+                  <div className="text-xs text-zinc-500">
+                    Valor orcado atual: R$ {formatMoneyBR(valorOrcadoNumero)}
+                  </div>
+                ) : null}
+                {canOpenOs ? (
+                  <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+                    <label className="flex items-center gap-2 text-sm text-zinc-200">
                       <input
                         type="checkbox"
-                        checked={importarItensOs}
-                        onChange={(e) => setImportarItensOs(e.target.checked)}
+                        checked={abrirOs}
+                        onChange={(e) => {
+                          const next = e.target.checked;
+                          setAbrirOs(next);
+                          if (!next) setImportarItensOs(false);
+                        }}
                         disabled={loading}
                         className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
                       />
-                      <span>Importar os itens do orcamento para OS</span>
+                      <span>Abrir OS</span>
                     </label>
-                  ) : null}
+                    {abrirOs ? (
+                      <label className="flex items-center gap-2 pl-6 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={importarItensOs}
+                          onChange={(e) => setImportarItensOs(e.target.checked)}
+                          disabled={loading}
+                          className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
+                        />
+                        <span>Importar os itens do orcamento para OS</span>
+                      </label>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+
+            {error && <div className="text-sm text-red-400">{error}</div>}
+          </div>
+
+          {/* ── Coluna direita: gestão (só quando FECHADO + Abrir OS) ── */}
+          {showGestao && (
+            <div className="flex-1 min-w-0 overflow-y-auto px-5 py-4 space-y-4">
+              <div className="text-sm font-semibold text-zinc-100">Gestão de Projetos e Execução</div>
+
+              {/* Toggle habilitar gestão */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5 flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-sm text-zinc-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={gestaoHabilitado}
+                    onChange={(e) => setGestaoHabilitado(e.target.checked)}
+                    disabled={loading}
+                  />
+                  Habilitar gestão nesta OS
+                </label>
+                <span className="text-xs text-zinc-500 shrink-0">Salvo ao criar a OS.</span>
+              </div>
+
+              {gestaoHabilitado && (
+                <div className="space-y-4">
+                  {/* Projetos */}
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      Projetos (Engenharia)
+                    </div>
+                    {projetos.map((def) => {
+                      const item = gestaoItems.find(
+                        (it) => it.item_tipo === def.item_tipo && it.area === def.area
+                      );
+                      if (!item) return null;
+                      return (
+                        <GestaoItemRow
+                          key={`${def.item_tipo}-${def.area}`}
+                          def={def}
+                          item={item}
+                          disabled={loading}
+                          onChange={(patch) => updateGestaoItem(def.item_tipo, def.area, patch)}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Execuções */}
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      Execuções (Campo)
+                    </div>
+                    {execucoes.map((def) => {
+                      const item = gestaoItems.find(
+                        (it) => it.item_tipo === def.item_tipo && it.area === def.area
+                      );
+                      if (!item) return null;
+                      return (
+                        <GestaoItemRow
+                          key={`${def.item_tipo}-${def.area}`}
+                          def={def}
+                          item={item}
+                          disabled={loading}
+                          onChange={(patch) => updateGestaoItem(def.item_tipo, def.area, patch)}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-              ) : null}
-            </>
-          ) : null}
-          {error && <div className="text-sm text-red-400">{error}</div>}
+              )}
+
+              {!gestaoHabilitado && (
+                <div className="text-xs text-zinc-500">
+                  Ative a gestão acima para configurar projetos e execuções. Pode ser editado depois na OS.
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <div className="px-5 py-4 border-t border-zinc-900/80 flex items-center justify-end gap-2">
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-zinc-900/80 flex items-center justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={onCancel}
@@ -355,6 +521,72 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
             {loading ? "Salvando..." : "Salvar"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Gestão item row (compact) ─────────────────────────────────────────────────
+function GestaoItemRow({
+  def,
+  item,
+  disabled,
+  onChange,
+}: {
+  def: (typeof gestaoDefs)[number];
+  item: GestaoConfigItem;
+  disabled: boolean;
+  onChange: (patch: Partial<GestaoConfigItem>) => void;
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_130px_64px] gap-2 items-center rounded-md border border-zinc-800 bg-zinc-900/30 px-3 py-2">
+      <label className="flex items-center gap-2 text-sm text-zinc-200 cursor-pointer min-w-0">
+        <input
+          type="checkbox"
+          className="h-4 w-4 shrink-0"
+          checked={item.habilitado}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            const patch: Partial<GestaoConfigItem> = { habilitado: checked };
+            if (checked && !item.data_prevista) {
+              const d = new Date();
+              d.setDate(d.getDate() + 30);
+              patch.data_prevista = d.toISOString().slice(0, 10);
+            }
+            onChange(patch);
+          }}
+          disabled={disabled}
+        />
+        <span className="truncate">{def.label}</span>
+      </label>
+
+      <div className="space-y-0.5">
+        <div className="text-[10px] text-zinc-500">Data prevista</div>
+        <input
+          type="date"
+          title={`Data prevista — ${def.label}`}
+          value={item.data_prevista ? item.data_prevista.slice(0, 10) : ""}
+          onChange={(e) => onChange({ data_prevista: e.target.value || null })}
+          disabled={disabled || !item.habilitado}
+          className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 disabled:opacity-40"
+        />
+      </div>
+
+      <div className="space-y-0.5">
+        <div className="text-[10px] text-zinc-500">%</div>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          title={`Progresso % — ${def.label}`}
+          placeholder="0"
+          value={item.progresso_percent}
+          onChange={(e) =>
+            onChange({ progresso_percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })
+          }
+          disabled={disabled || !item.habilitado}
+          className="w-full rounded border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-100 disabled:opacity-40"
+        />
       </div>
     </div>
   );

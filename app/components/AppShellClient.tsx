@@ -794,6 +794,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             <Link href="/colaboradores" className="block px-3 py-2 hover:bg-zinc-900">
                               Colaboradores
                             </Link>
+                            <Link href="/cadastros/cargos" className="block px-5 py-2 hover:bg-zinc-900 text-sm">
+                              Cargos
+                            </Link>
                             <div className="border-t border-zinc-800 my-2"></div>
                           </>
                         )}

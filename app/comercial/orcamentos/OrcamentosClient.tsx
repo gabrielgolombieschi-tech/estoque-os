@@ -191,6 +191,26 @@ export default function OrcamentosClient() {
         );
         setStatusDialog({ open: false });
         if (payload.abrirOs && result.osId) {
+          if (payload.gestao) {
+            await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+            await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
+            const gestaoRows = payload.gestao.items.map((it) => ({
+              os_id: result.osId as number,
+              item_tipo: it.item_tipo,
+              area: it.area,
+              habilitado: it.habilitado,
+              responsavel_id: null as string | null,
+              data_prevista: it.data_prevista ?? null,
+              progresso_percent: it.progresso_percent,
+            }));
+            await supabase.from("os_gestao_itens").upsert(gestaoRows, { onConflict: "os_id,item_tipo,area" });
+            if (payload.gestao.habilitarGestao) {
+              await supabase
+                .from("ordens_servico")
+                .update({ tem_gestao: true, atualizado_em: new Date().toISOString() })
+                .eq("id", result.osId);
+            }
+          }
           router.push(`/os/${result.osId}`);
           return;
         }
@@ -443,6 +463,7 @@ export default function OrcamentosClient() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={pageSafe <= 1}
               className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
@@ -450,6 +471,7 @@ export default function OrcamentosClient() {
               Anterior
             </button>
             <button
+              type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={pageSafe >= totalPages}
               className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
