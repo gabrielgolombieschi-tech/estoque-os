@@ -192,7 +192,7 @@ export default function ExecucaoDashboard({ initialRows, emptyMessage }: Props) 
 
   useEffect(() => {
     if (totalPages <= 1) { setPageIndex(0); return; }
-    let flipTimeout: ReturnType<typeof setTimeout> | null = null;
+    let flipTimeout: number | null = null;
     const id = window.setInterval(() => {
       setFadeVisible(false);
       flipTimeout = window.setTimeout(() => {
