@@ -577,6 +577,10 @@ export function TenantEmpresaProvider(props: {
         if (capability === "admin.manage_users" || capability === "admin.users.manage") return false;
       }
 
+      if (normalizeEmpresaPapel(state.empresa?.papel) === "TECNICO") {
+        if (capability === "apontamentos.read" || capability === "apontamentos.write") return true;
+      }
+
       return state.capabilities[capability] ?? false;
     },
     [state]

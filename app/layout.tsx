@@ -3,6 +3,7 @@ import AppShell from "./components/AppShellClient";
 import ClientProviders from "@/components/auth/ClientProviders";
 import AuthGate from "@/components/auth/AuthGate";
 import NoSSR from "@/components/auth/NoSSR";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { headers } from "next/headers";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 import { getCapabilities } from "@/lib/auth/capabilities.server";
@@ -43,18 +44,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
       </head>
       <body>
-        <ClientProviders initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
-          <NoSSR>
-            <AuthGate>
-              <AppShell>{children}</AppShell>
-            </AuthGate>
-          </NoSSR>
-        </ClientProviders>
+        <ThemeProvider>
+          <ClientProviders initialCapabilities={initialCapabilities} initialTenantId={initialTenantId}>
+            <NoSSR>
+              <AuthGate>
+                <AppShell>{children}</AppShell>
+              </AuthGate>
+            </NoSSR>
+          </ClientProviders>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -389,8 +389,9 @@ export default function OsDetailPage() {
   const [qty, setQty] = useState<string>("1");
   const [vunit, setVunit] = useState<number>(0);
   const [estoqueAtual, setEstoqueAtual] = useState<number | null>(null);
-  const [baixaDireta, setBaixaDireta] = useState(false);
+  const [baixaDireta, setBaixaDireta] = useState(true);
   const qtyRef = useRef<HTMLInputElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const [showLookup, setShowLookup] = useState(false);
   const [lookupNome, setLookupNome] = useState("");
   const [lookupFornecedor, setLookupFornecedor] = useState("");
@@ -1095,7 +1096,7 @@ export default function OsDetailPage() {
     setQty("1");
     setVunit(0);
     setEstoqueAtual(null);
-    setBaixaDireta(false);
+    setBaixaDireta(addMode !== "despesa");
     setErr(null);
   }, [addMode]);
 
@@ -1372,7 +1373,7 @@ export default function OsDetailPage() {
   }, [canView, osId, tenantId, empresaId]);
 
   useEffect(() => {
-    setBaixaDireta(false);
+    setBaixaDireta(true);
   }, [osId]);
 
   const closeGestaoModal = useCallback(
@@ -2087,6 +2088,7 @@ export default function OsDetailPage() {
     setEstoqueAtual(null);
 
     await load();
+    setTimeout(() => searchRef.current?.focus(), 0);
   }
 
   function resetBaixaEditValue(row: OsItemRow) {
@@ -2381,6 +2383,7 @@ export default function OsDetailPage() {
             <div className="text-xs text-zinc-400">{addSearchLabel}</div>
             <div className="flex gap-2">
               <input
+                ref={searchRef}
                 className="w-full px-3 py-2"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}

@@ -9,6 +9,7 @@ import { useTenantEmpresa, useIsAdminTenant } from "@/lib/auth/hooks";
 import type { Capabilities, CapabilityKey } from "@/lib/auth/capabilities";
 import AdminDebugPanel from "./AdminDebugPanel";
 import SessionKeepAlive from "@/components/auth/SessionKeepAlive";
+import { useTheme } from "@/components/ThemeProvider";
 
 const isDev = process.env.NODE_ENV !== "production";
 const logError = (...args: unknown[]) => {
@@ -17,6 +18,7 @@ const logError = (...args: unknown[]) => {
 
 export default function AppShellClient({ children }: { children: React.ReactNode }) {
   const te = useTenantEmpresa();
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -163,9 +165,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     const v = has(k);
     if (v !== undefined) return v;
     if (lastKnownCapsRef.current) return lastKnownCapsRef.current[k] ?? false;
-    // Capabilities still unknown (boot): keep header stable, but never show Admin optimistically.
-    if (k === "admin.manage_users") return false;
-    return true;
+    return false;
   };
 
   const canStrict = (k: CapabilityKey) => {
@@ -882,6 +882,23 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                   onRefreshCapabilities={te.refreshCapabilities}
                 />
               </div>
+
+              <button
+                type="button"
+                onClick={toggleTheme}
+                title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+                className="px-2 py-1.5 rounded-md border border-zinc-700 hover:bg-zinc-800 text-sm"
+              >
+                {theme === "dark" ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7zm0-5a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zM4.22 4.22a1 1 0 0 1 1.41 0l.71.71a1 1 0 0 1-1.41 1.41l-.71-.71a1 1 0 0 1 0-1.41zm13.44 13.44a1 1 0 0 1 1.41 0l.71.71a1 1 0 1 1-1.41 1.41l-.71-.71a1 1 0 0 1 0-1.41zM3 12a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1zm17 0a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2h-1a1 1 0 0 1-1-1zM4.93 18.36a1 1 0 0 1 0-1.41l.71-.71a1 1 0 1 1 1.41 1.41l-.71.71a1 1 0 0 1-1.41 0zm13.44-13.44a1 1 0 0 1 0-1.41l.71-.71a1 1 0 1 1 1.41 1.41l-.71.71a1 1 0 0 1-1.41 0z"/>
+                  </svg>
+                )}
+              </button>
 
               <button
                 type="button"
