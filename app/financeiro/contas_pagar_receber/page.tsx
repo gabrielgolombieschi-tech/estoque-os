@@ -13,6 +13,7 @@ type UnifiedRow = {
   tituloId: string;
   parcelaId: string;
   parcelaNumero: string | null;
+  parcelaTotal: number | null;
   emissao: string | null; // yyyy-mm-dd (AP manual / XML)
   vencimento: string; // yyyy-mm-dd
   pessoaNome: string;
@@ -209,8 +210,10 @@ function isCancelledRow(row: UnifiedRow): boolean {
   return String(row.tituloStatus ?? "").toUpperCase() === "CANCELADO";
 }
 
-function fmtParcela(n: string | null) {
-  return n ? `Parc. ${n}` : "Parcela";
+function fmtParcela(n: string | null, total?: number | null) {
+  if (!n) return "Parcela";
+  if (total && total > 1) return `${n}/${total}`;
+  return `Parc. ${n}`;
 }
 
 function FormError({ message }: { message: string | null }) {
@@ -427,7 +430,7 @@ export default function ContasPagarReceberPage() {
           .schema("f")
           .from("r_ap_aging_detalhe")
           .select(
-            "titulo_id,parcela_id,parcela_numero,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,valor_parcela,valor_aberto,status"
+            "titulo_id,parcela_id,parcela_numero,total_parcelas,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,valor_parcela,valor_aberto,status"
           )
           .eq("tenant_id", te.tenantId)
           .eq("empresa_id", te.empresaId)
@@ -471,6 +474,7 @@ export default function ContasPagarReceberPage() {
         titulo_id: unknown;
         parcela_id: unknown;
         parcela_numero: unknown;
+        total_parcelas: unknown;
         vencimento_date: unknown;
         fornecedor_nome: unknown;
         motivo_codigo: unknown;
@@ -486,6 +490,7 @@ export default function ContasPagarReceberPage() {
         tituloId: String(r.titulo_id),
         parcelaId: String(r.parcela_id),
         parcelaNumero: r.parcela_numero ? String(r.parcela_numero) : null,
+        parcelaTotal: r.total_parcelas ? Number(r.total_parcelas) : null,
         emissao: null,
         vencimento: String(r.vencimento_date),
         pessoaNome: r.fornecedor_nome ? String(r.fornecedor_nome) : "Fornecedor",
@@ -579,6 +584,7 @@ export default function ContasPagarReceberPage() {
           tituloId: String(r.titulo_id),
           parcelaId: String(r.id),
           parcelaNumero: r.numero ? String(r.numero) : null,
+          parcelaTotal: null,
           emissao: null,
           vencimento: String(r.vencimento_date),
           pessoaNome: Number.isFinite(fornecedorId)
@@ -740,6 +746,7 @@ export default function ContasPagarReceberPage() {
           tituloId: String(r.titulo_id),
           parcelaId: String(r.id),
           parcelaNumero: r.numero ? String(r.numero) : null,
+          parcelaTotal: null,
           emissao: null,
           vencimento: String(r.vencimento_date),
           pessoaNome,
@@ -1895,7 +1902,7 @@ export default function ContasPagarReceberPage() {
                   <td className="px-3 py-2 text-zinc-200">{r.pessoaNome}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.motivoNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero)}</td>
+                  <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero, r.parcelaTotal)}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.formaPagamentoResumo ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.emissao ? formatDateBR(r.emissao) : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{formatDateBR(r.vencimento)}</td>
@@ -1941,7 +1948,7 @@ export default function ContasPagarReceberPage() {
                   <div className="text-sm text-zinc-400">Forma: {selected.formaPagamentoResumo}</div>
                 ) : null}
                 <div className="text-sm text-zinc-400">
-                  {fmtParcela(selected.parcelaNumero)} • Venc: {selected.vencimento} • Aberto: {formatMoneyBR(selected.valorAberto)}
+                  {fmtParcela(selected.parcelaNumero, selected.parcelaTotal)} • Venc: {selected.vencimento} • Aberto: {formatMoneyBR(selected.valorAberto)}
                 </div>
                 {selected.kind === "AP" && (
                   <div className="text-sm text-zinc-400">
@@ -2491,7 +2498,7 @@ export default function ContasPagarReceberPage() {
                           Titulo: <span className="font-medium text-zinc-100">{selected.tituloId}</span>
                         </div>
                         <div>Fornecedor: {selected.pessoaNome}</div>
-                        <div>Parcela: {fmtParcela(selected.parcelaNumero)}</div>
+                        <div>Parcela: {fmtParcela(selected.parcelaNumero, selected.parcelaTotal)}</div>
                       </div>
                     )}
 
