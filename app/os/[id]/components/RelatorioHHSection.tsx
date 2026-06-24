@@ -47,7 +47,7 @@ async function resolveHhTipoMappingId(
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
-import type { RowInput } from "jspdf-autotable";
+import type { CellHookData, RowInput } from "jspdf-autotable";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
@@ -96,6 +96,10 @@ type HhLancamentoViewRow = {
   hh_tipo_id?: string | number | null;
   hh_servico_id?: string | number | null;
   percentual_aplicado?: number | null;
+  tem_extra_50?: boolean | null;
+  horas_extra_50?: number | null;
+  tem_extra_100?: boolean | null;
+  horas_extra_100?: number | null;
   valor_hora: number | null;
   valor_total: number | null;
   observacao: string | null;
@@ -112,6 +116,10 @@ type HhLancamentoSyncRow = {
   hora_entrada?: string | null;
   hora_saida?: string | null;
   percentual_aplicado?: number | null;
+  tem_extra_50?: boolean | null;
+  horas_extra_50?: number | null;
+  tem_extra_100?: boolean | null;
+  horas_extra_100?: number | null;
   observacao?: string | null;
 };
 
@@ -125,6 +133,31 @@ function formatHoursBR(value: number | null | undefined) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return "0,00";
   return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatHorasInputBR(value: number | null | undefined): string {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseHorasInputBR(value: string): number | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return 0;
+
+  const hhmm = /^(\d{1,2}):([0-5]\d)$/.exec(raw);
+  if (hhmm) {
+    const horas = Number(hhmm[1]);
+    const minutos = Number(hhmm[2]);
+    if (!Number.isFinite(horas) || !Number.isFinite(minutos)) return null;
+    return Number((horas + minutos / 60).toFixed(2));
+  }
+
+  const normalized = raw.replace(",", ".");
+  if (!/^\d{1,2}(\.\d{1,2})?$/.test(normalized)) return null;
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return null;
+  return Number(n.toFixed(2));
 }
 
 function formatTimeHHMM(value: string | null | undefined): string {
@@ -197,6 +230,46 @@ function buildPeriodosSyncFromHhRows(rows: HhLancamentoSyncRow[]): Array<{ entra
   return periodos;
 }
 
+function calcHorasFromSyncRow(row: HhLancamentoSyncRow): number {
+  const periodos = buildPeriodosSyncFromHhRows([row]);
+  let total = 0;
+  for (const periodo of periodos) {
+    const entrada = parseHHMM(periodo.entrada);
+    const saida = parseHHMM(periodo.saida);
+    if (entrada === null || saida === null || saida <= entrada) continue;
+    total += calcHorasDecimalFromMinutes(entrada, saida);
+  }
+  return normalizeHorasNumber(total);
+}
+
+function getSyncHorasSplit(rows: HhLancamentoSyncRow[]) {
+  return rows.reduce(
+    (acc, row) => {
+      const horas = calcHorasFromSyncRow(row);
+      const extra50Manual = Boolean(row.tem_extra_50) || Number(row.horas_extra_50 ?? 0) > 0;
+      const extra100Manual = Boolean(row.tem_extra_100) || Number(row.horas_extra_100 ?? 0) > 0;
+      const percentual = Number(row.percentual_aplicado ?? 0);
+
+      if (extra50Manual || extra100Manual) {
+        const extra50 = normalizeHorasNumber(Number(row.horas_extra_50 ?? 0));
+        const extra100 = normalizeHorasNumber(Number(row.horas_extra_100 ?? 0));
+        acc.extra50 += extra50;
+        acc.extra100 += extra100;
+        acc.normais += normalizeHorasNumber(horas - extra50 - extra100);
+      } else if (percentual === 50) {
+        acc.extra50 += horas;
+      } else if (percentual === 100) {
+        acc.extra100 += horas;
+      } else {
+        acc.normais += horas;
+      }
+
+      return acc;
+    },
+    { normais: 0, extra50: 0, extra100: 0 }
+  );
+}
+
 function getTipoHHLabel(percentual: number): string {
   if (percentual === 50) return "Extra 50%";
   if (percentual === 100) return "Extra 100%";
@@ -254,13 +327,55 @@ function getHorasTrabalhadasEfetivas(row: HhLancamentoViewRow): number {
   return Number.isFinite(fallback) ? fallback : 0;
 }
 
+function normalizeHorasNumber(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Number(Math.max(0, value).toFixed(2));
+}
+
+function hasManualExtra(row: HhLancamentoViewRow): boolean {
+  return Boolean(row.tem_extra_50 || row.tem_extra_100) || Number(row.horas_extra_50 ?? 0) > 0 || Number(row.horas_extra_100 ?? 0) > 0;
+}
+
+function getHorasSplitEfetivo(row: HhLancamentoViewRow, horasEfetivas: number) {
+  const total = normalizeHorasNumber(horasEfetivas);
+  const percentualAplicado = Number(row.percentual_aplicado ?? 0);
+
+  if (hasManualExtra(row)) {
+    const extra50 = normalizeHorasNumber(Number(row.horas_extra_50 ?? 0));
+    const extra100 = normalizeHorasNumber(Number(row.horas_extra_100 ?? 0));
+    const normais = normalizeHorasNumber(total - extra50 - extra100);
+    return { normais, extra50, extra100 };
+  }
+
+  if (percentualAplicado === 50) return { normais: 0, extra50: total, extra100: 0 };
+  if (percentualAplicado === 100) return { normais: 0, extra50: 0, extra100: total };
+  return { normais: total, extra50: 0, extra100: 0 };
+}
+
+function getTipoHHLabelFromSplit(row: HhLancamentoViewRow, horasEfetivas: number): string {
+  const split = getHorasSplitEfetivo(row, horasEfetivas);
+  const parts: string[] = [];
+  if (split.normais > 0) parts.push("Normal");
+  if (split.extra50 > 0) parts.push("Extra 50%");
+  if (split.extra100 > 0) parts.push("Extra 100%");
+  return parts.length > 0 ? parts.join(" + ") : getTipoHHLabel(Number(row.percentual_aplicado ?? 0));
+}
+
 function getValorTotalEfetivo(row: HhLancamentoViewRow, horasEfetivas: number): number {
+  const totalDb = Number(row.valor_total ?? 0);
+  const percentualAplicado = Number(row.percentual_aplicado ?? 0);
+  if ((hasManualExtra(row) || percentualAplicado === 50 || percentualAplicado === 100) && Number.isFinite(totalDb) && totalDb > 0) {
+    return totalDb;
+  }
+
   const valorHora = Number(row.valor_hora ?? 0);
   if (Number.isFinite(valorHora) && valorHora > 0 && Number.isFinite(horasEfetivas) && horasEfetivas > 0) {
-    return Number((valorHora * horasEfetivas).toFixed(2));
+    const split = getHorasSplitEfetivo(row, horasEfetivas);
+    return Number(
+      (split.normais * valorHora + split.extra50 * valorHora * 1.5 + split.extra100 * valorHora * 2).toFixed(2)
+    );
   }
-  const total = Number(row.valor_total ?? 0);
-  return Number.isFinite(total) ? total : 0;
+  return Number.isFinite(totalDb) ? totalDb : 0;
 }
 
 function isMissingColumnError(err: unknown): boolean {
@@ -517,7 +632,8 @@ async function gerarRelatorioPDF(
       "Horas",
       "Tipo",
       "Horas Normais",
-      "Horas Extras",
+      "Extra 50%",
+      "Extra 100%",
       "R$ Total",
     ];
 
@@ -526,21 +642,20 @@ async function gerarRelatorioPDF(
     let totalGeral = 0;
     let totalHoras = 0;
     let totalHorasNormais = 0;
-    let totalHorasExtras = 0;
+    let totalHorasExtra50 = 0;
+    let totalHorasExtra100 = 0;
 
     hhRows.forEach((r) => {
       const horas = getHorasTrabalhadasEfetivas(r);
-      const percentualAplicado = Number(r.percentual_aplicado ?? 0);
-      const horasNormais = percentualAplicado === 0 ? horas : 0;
-      const horasExtras = percentualAplicado === 0 ? 0 : horas;
-
-      const tipo = getTipoHHLabel(percentualAplicado);
+      const split = getHorasSplitEfetivo(r, horas);
+      const tipo = getTipoHHLabelFromSplit(r, horas);
       const total = getValorTotalEfetivo(r, horas);
 
       totalGeral += total;
       totalHoras += horas;
-      totalHorasNormais += horasNormais;
-      totalHorasExtras += horasExtras;
+      totalHorasNormais += split.normais;
+      totalHorasExtra50 += split.extra50;
+      totalHorasExtra100 += split.extra100;
 
       bodyLancamentos.push([
         r.colaborador_nome ?? "—",
@@ -551,8 +666,9 @@ async function gerarRelatorioPDF(
         formatTimeHHMM(r.saida_2) || "—",
         formatHoursBR(horas),
         tipo,
-        formatHoursBR(horasNormais),
-        formatHoursBR(horasExtras),
+        formatHoursBR(split.normais),
+        formatHoursBR(split.extra50),
+        formatHoursBR(split.extra100),
         formatCurrencyBRL(total),
       ]);
     });
@@ -568,7 +684,8 @@ async function gerarRelatorioPDF(
       formatHoursBR(totalHoras),
       "TOTAL",
       formatHoursBR(totalHorasNormais),
-      formatHoursBR(totalHorasExtras),
+      formatHoursBR(totalHorasExtra50),
+      formatHoursBR(totalHorasExtra100),
       formatCurrencyBRL(totalGeral),
     ]);
 
@@ -585,7 +702,7 @@ async function gerarRelatorioPDF(
         lineColor: [220, 220, 220],
         overflow: "linebreak",
       },
-      didParseCell: (data: any) => {
+      didParseCell: (data: CellHookData) => {
         // Destaque profissional na linha TOTAL
         if (data?.section !== "body") return;
         if (data?.row?.index !== totalRowIndex) return;
@@ -596,14 +713,15 @@ async function gerarRelatorioPDF(
         data.cell.styles.lineWidth = 0.2;
         data.cell.styles.fontSize = 9;
       },
-      didDrawCell: (data: any) => {
+      didDrawCell: (data: CellHookData) => {
         // Linha superior mais grossa para separar o TOTAL
         if (data?.section !== "body") return;
         if (data?.row?.index !== totalRowIndex) return;
         if (data?.column?.index !== 0) return;
 
-        const startX = Number(data.table?.startX ?? 0);
-        const width = Number(data.table?.width ?? 0);
+        const tableMeta = data.table as unknown as { startX?: number; width?: number };
+        const startX = Number(tableMeta.startX ?? 0);
+        const width = Number(tableMeta.width ?? 0);
         const y = Number(data.cell?.y ?? 0);
         if (!Number.isFinite(startX) || !Number.isFinite(width) || !Number.isFinite(y) || width <= 0) return;
 
@@ -612,17 +730,18 @@ async function gerarRelatorioPDF(
         doc.line(startX, y, startX + width, y);
       },
       columnStyles: {
-        0: { cellWidth: 62 }, // Funcionário
+        0: { cellWidth: 54 }, // Funcionário
         1: { cellWidth: 16, halign: "center" }, // Data (ddMMyy)
-        2: { cellWidth: 18, halign: "center" }, // Entrada 1
-        3: { cellWidth: 18, halign: "center" }, // Saída 1
-        4: { cellWidth: 18, halign: "center" }, // Entrada 2
-        5: { cellWidth: 18, halign: "center" }, // Saída 2
-        6: { cellWidth: 18, halign: "right" }, // Horas
-        7: { cellWidth: 28 }, // Tipo
-        8: { cellWidth: 20, halign: "right" }, // Horas Normais
-        9: { cellWidth: 20, halign: "right" }, // Horas Extras
-        10: { cellWidth: 25, halign: "right" }, // R$ Total
+        2: { cellWidth: 16, halign: "center" }, // Entrada 1
+        3: { cellWidth: 16, halign: "center" }, // Saída 1
+        4: { cellWidth: 16, halign: "center" }, // Entrada 2
+        5: { cellWidth: 16, halign: "center" }, // Saída 2
+        6: { cellWidth: 16, halign: "right" }, // Horas
+        7: { cellWidth: 30 }, // Tipo
+        8: { cellWidth: 18, halign: "right" }, // Horas Normais
+        9: { cellWidth: 18, halign: "right" }, // Extra 50%
+        10: { cellWidth: 18, halign: "right" }, // Extra 100%
+        11: { cellWidth: 23, halign: "right" }, // R$ Total
       },
       headStyles: {
         fillColor: tableHeadFill,
@@ -718,15 +837,20 @@ async function gerarRelatorioPDF(
         r.especialidade_descricao && r.especialidade_descricao.trim() ? r.especialidade_descricao.trim() : "—";
       const valorHoraBase = Number(r.valor_hora ?? 0);
       const horas = getHorasTrabalhadasEfetivas(r);
-      const total = getValorTotalEfetivo(r, horas);
-      const percentualAplicado = Number(r.percentual_aplicado ?? 0);
+      const split = getHorasSplitEfetivo(r, horas);
 
-      const bucket = percentualAplicado === 50 ? resumo50 : percentualAplicado === 100 ? resumo100 : resumoNormal;
-      const key = `${funcao}||${valorHoraBase}`;
-      const cur = bucket.get(key) ?? { funcao, valorHoraBase, horas: 0, total: 0 };
-      cur.horas += Number.isFinite(horas) ? horas : 0;
-      cur.total += Number.isFinite(total) ? total : 0;
-      bucket.set(key, cur);
+      const addBucket = (bucket: Map<string, ResumoAgg>, horasBucket: number, multiplier: number) => {
+        if (!Number.isFinite(horasBucket) || horasBucket <= 0) return;
+        const key = `${funcao}||${valorHoraBase}`;
+        const cur = bucket.get(key) ?? { funcao, valorHoraBase, horas: 0, total: 0 };
+        cur.horas += horasBucket;
+        cur.total += Number((horasBucket * valorHoraBase * multiplier).toFixed(2));
+        bucket.set(key, cur);
+      };
+
+      addBucket(resumoNormal, split.normais, 1);
+      addBucket(resumo50, split.extra50, 1.5);
+      addBucket(resumo100, split.extra100, 2);
     }
 
     const addResumoTable = (title: string, map: Map<string, ResumoAgg>, multiplier: number) => {
@@ -841,7 +965,6 @@ export default function RelatorioHHSection({
   osStatus = null,
   usaRelatorioHh = null,
   enabled = true,
-  clienteHabilitaHH: _clienteHabilitaHH = false,
   effectiveTenantId = null,
   effectiveEmpresaId = null,
 }: {
@@ -984,6 +1107,10 @@ export default function RelatorioHHSection({
   const [horaSaida1, setHoraSaida1] = useState("12:00");
   const [horaEntrada2, setHoraEntrada2] = useState("13:00");
   const [horaSaida2, setHoraSaida2] = useState("17:00");
+  const [temExtra50, setTemExtra50] = useState(false);
+  const [horasExtra50Input, setHorasExtra50Input] = useState("");
+  const [temExtra100, setTemExtra100] = useState(false);
+  const [horasExtra100Input, setHorasExtra100Input] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [lancamentoForm, setLancamentoForm] = useState({
     data: new Date().toISOString().slice(0, 10),
@@ -1350,7 +1477,7 @@ export default function RelatorioHHSection({
         supabase
           .from("hh_lancamentos")
           .select(
-            "id,os_id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,criado_em,hh_tipo_id,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
+            "id,os_id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,tem_extra_50,horas_extra_50,tem_extra_100,horas_extra_100,observacao,criado_em,hh_tipo_id,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
           )
           .eq("os_id", osId)
           .order("criado_em", { ascending: false }),
@@ -1376,6 +1503,10 @@ export default function RelatorioHHSection({
         hora_saida?: string | null;
         horas_trabalhadas?: number | null;
         percentual_aplicado?: number | null;
+        tem_extra_50?: boolean | null;
+        horas_extra_50?: number | null;
+        tem_extra_100?: boolean | null;
+        horas_extra_100?: number | null;
         observacao?: string | null;
         criado_em?: string | null;
         hh_tipo_id?: number | string | null;
@@ -1465,6 +1596,10 @@ export default function RelatorioHHSection({
           hora_entrada: r.hora_entrada ?? null,
           hora_saida: r.hora_saida ?? null,
           horas_trabalhadas: r.horas_trabalhadas ?? null,
+          tem_extra_50: r.tem_extra_50 ?? null,
+          horas_extra_50: r.horas_extra_50 ?? null,
+          tem_extra_100: r.tem_extra_100 ?? null,
+          horas_extra_100: r.horas_extra_100 ?? null,
           valor_hora: r.valor_hora ?? null,
           valor_total: r.valor_total ?? null,
           observacao: r.observacao ?? null,
@@ -1522,7 +1657,7 @@ export default function RelatorioHHSection({
 
 
       // Busca na tabela base para garantir IDs (colaborador_id, etc.) e especialidade
-      const selectBase = "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,observacao,hh_especialidade_id,hh_servico_id";
+      const selectBase = "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,tem_extra_50,horas_extra_50,tem_extra_100,horas_extra_100,observacao,hh_especialidade_id,hh_servico_id";
       let data: Record<string, unknown> | null = null;
       let error: unknown = null;
       try {
@@ -1557,6 +1692,12 @@ export default function RelatorioHHSection({
         observacao: String(data.observacao ?? ""),
       });
       setPercentualManual(percentualSafe);
+      const extra50 = Number(data.horas_extra_50 ?? 0);
+      const extra100 = Number(data.horas_extra_100 ?? 0);
+      setTemExtra50(Boolean(data.tem_extra_50) || extra50 > 0);
+      setHorasExtra50Input(formatHorasInputBR(extra50));
+      setTemExtra100(Boolean(data.tem_extra_100) || extra100 > 0);
+      setHorasExtra100Input(formatHorasInputBR(extra100));
 
       editingOriginalKeyRef.current = {
         data: String(data.data ?? ""),
@@ -1623,7 +1764,7 @@ export default function RelatorioHHSection({
           const remaining = await applyTenantEmpresa(
             supabase
               .from("hh_lancamentos")
-              .select("data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,observacao")
+              .select("data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,percentual_aplicado,tem_extra_50,horas_extra_50,tem_extra_100,horas_extra_100,observacao")
               .eq("os_id", osId)
               .eq("empresa_id", empresaId)
               .eq("data", deletedData)
@@ -1637,6 +1778,7 @@ export default function RelatorioHHSection({
 
           const remainingRows = (remaining.data ?? []) as HhLancamentoSyncRow[];
           const rowWithObservacao = remainingRows.find((row) => String(row.observacao ?? "").trim());
+          const split = getSyncHorasSplit(remainingRows);
 
           await syncHhToApontamentos({
             supabase,
@@ -1651,6 +1793,9 @@ export default function RelatorioHHSection({
               remainingRows[0]?.percentual_aplicado ?? deletedRow?.percentual_aplicado,
               deletedData
             ),
+            horasNormais: split.normais,
+            horasExtra50: split.extra50,
+            horasExtra100: split.extra100,
           });
 
           return null;
@@ -1916,9 +2061,7 @@ export default function RelatorioHHSection({
 
       // Usar o preço correto baseado no percentual
       const preco_base = Number(svcData.preco_base ?? 0);
-      const preco_50 = Number(svcData.preco_50 ?? 0);
-      const preco_100 = Number(svcData.preco_100 ?? 0);
-      const valorHoraAplicado = percentual === 0 ? preco_base : (percentual === 50 ? preco_50 : preco_100);
+      const valorHoraAplicado = preco_base;
 
       // Resolve mapping correto para hh_tipo_id
       const hhTipoMappingId = await resolveHhTipoMappingId(supabase, ctx.tenant, percentual);
@@ -1929,6 +2072,36 @@ export default function RelatorioHHSection({
       const horasManual = usaDoisPeriodos
         ? Number((calcHorasDecimal(entrada1, saida1) + calcHorasDecimal(entrada2!, saida2!)).toFixed(2))
         : calcHorasDecimal(entrada1, saida1);
+      const horasExtra50 = temExtra50 ? parseHorasInputBR(horasExtra50Input) : 0;
+      const horasExtra100 = temExtra100 ? parseHorasInputBR(horasExtra100Input) : 0;
+
+      if (horasExtra50 === null) {
+        setErr("Horas extra 50% inválidas. Use decimal (1,50) ou HH:MM (1:30).");
+        setLancamentoBusy(false);
+        return false;
+      }
+      if (horasExtra100 === null) {
+        setErr("Horas extra 100% inválidas. Use decimal (1,50) ou HH:MM (1:30).");
+        setLancamentoBusy(false);
+        return false;
+      }
+      if (temExtra50 && horasExtra50 <= 0) {
+        setErr("Informe a quantidade de horas extra 50%.");
+        setLancamentoBusy(false);
+        return false;
+      }
+      if (temExtra100 && horasExtra100 <= 0) {
+        setErr("Informe a quantidade de horas extra 100%.");
+        setLancamentoBusy(false);
+        return false;
+      }
+      if (Number((horasExtra50 + horasExtra100).toFixed(2)) > horasManual) {
+        setErr("Horas extras não podem exceder o total de horas do lançamento.");
+        setLancamentoBusy(false);
+        return false;
+      }
+
+      const horasNormais = normalizeHorasNumber(horasManual - horasExtra50 - horasExtra100);
       const payloadHH: Record<string, unknown> = {
         tenant_id: ctx.tenant,
         empresa_id: ctx.empresa,
@@ -1947,6 +2120,10 @@ export default function RelatorioHHSection({
         hora_saida: usaDoisPeriodos ? minutosParaHHMM(saida2!) : minutosParaHHMM(saida1),
         horas_trabalhadas: horasManual,
         percentual_aplicado: percentual,
+        tem_extra_50: temExtra50 && horasExtra50 > 0,
+        horas_extra_50: horasExtra50,
+        tem_extra_100: temExtra100 && horasExtra100 > 0,
+        horas_extra_100: horasExtra100,
         observacao: descRaw || null,
         valor_hora: valorHoraAplicado,
         criado_por: userEmail,
@@ -2020,6 +2197,9 @@ export default function RelatorioHHSection({
             periodos: periodosSync,
             descricao: descRaw || "HH lançado na OS",
             percentual,
+            horasNormais,
+            horasExtra50,
+            horasExtra100,
           });
         } catch (syncErr: unknown) {
           console.error("[HH] Falha ao sincronizar apontamentos_horas (gerado_por_hh)", syncErr);
@@ -2233,6 +2413,10 @@ export default function RelatorioHHSection({
             setHoraSaida1("12:00");
             setHoraEntrada2("13:00");
             setHoraSaida2("17:00");
+            setTemExtra50(false);
+            setHorasExtra50Input("");
+            setTemExtra100(false);
+            setHorasExtra100Input("");
             setPrecoServicoSelecionado(null);
             setEspecialidadesOptions([]);
             setEspecialidadeLocked(false);
@@ -2471,6 +2655,62 @@ export default function RelatorioHHSection({
             </div>
           )}
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label="Marcar hora extra 50%"
+                  className="h-4 w-4 accent-emerald-300"
+                  checked={temExtra50}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setTemExtra50(checked);
+                    if (!checked) setHorasExtra50Input("");
+                  }}
+                />
+                <span className="text-sm font-medium text-zinc-100">Hora extra 50%</span>
+              </div>
+              <input
+                type="text"
+                aria-label="Quantidade de horas extra 50%"
+                inputMode="decimal"
+                className="mt-2 w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 disabled:opacity-50"
+                value={horasExtra50Input}
+                onChange={(e) => setHorasExtra50Input(e.target.value)}
+                disabled={!temExtra50}
+                placeholder="1,50"
+              />
+            </label>
+
+            <label className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label="Marcar hora extra 100%"
+                  className="h-4 w-4 accent-emerald-300"
+                  checked={temExtra100}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setTemExtra100(checked);
+                    if (!checked) setHorasExtra100Input("");
+                  }}
+                />
+                <span className="text-sm font-medium text-zinc-100">Hora extra 100%</span>
+              </div>
+              <input
+                type="text"
+                aria-label="Quantidade de horas extra 100%"
+                inputMode="decimal"
+                className="mt-2 w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 disabled:opacity-50"
+                value={horasExtra100Input}
+                onChange={(e) => setHorasExtra100Input(e.target.value)}
+                disabled={!temExtra100}
+                placeholder="1,50"
+              />
+            </label>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1">
               <label className="text-xs text-zinc-400">Entrada 1 *</label>
@@ -2586,7 +2826,7 @@ export default function RelatorioHHSection({
       
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[1020px]">
+          <table className="w-full text-sm min-w-[1180px]">
             <thead className="bg-zinc-900/60">
               <tr className="text-left text-zinc-200">
                 <th className="px-3 py-2">Data</th>
@@ -2596,13 +2836,16 @@ export default function RelatorioHHSection({
                 <th className="px-3 py-2">Entrada 2</th>
                 <th className="px-3 py-2">Saída 2</th>
                 <th className="px-3 py-2 text-right">Horas</th>
+                <th className="px-3 py-2 text-right">Normais</th>
+                <th className="px-3 py-2 text-right">Extra 50%</th>
+                <th className="px-3 py-2 text-right">Extra 100%</th>
                 <th className="px-3 py-2 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {loadingHh && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-zinc-400">
+                  <td colSpan={11} className="px-3 py-6 text-zinc-400">
                     Carregando lançamentos HH...
                   </td>
                 </tr>
@@ -2610,7 +2853,7 @@ export default function RelatorioHHSection({
 
               {!loadingHh && hhErr && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-red-400">
+                  <td colSpan={11} className="px-3 py-6 text-red-400">
                     {hhErr}
                   </td>
                 </tr>
@@ -2618,7 +2861,7 @@ export default function RelatorioHHSection({
 
               {!loadingHh && !hhErr && hhRows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-6 text-zinc-400">
+                  <td colSpan={11} className="px-3 py-6 text-zinc-400">
                     Nenhum lançamento HH ainda.
                   </td>
                 </tr>
@@ -2629,6 +2872,8 @@ export default function RelatorioHHSection({
                   const canEditRow = canWrite;
                   const canDeleteRow = canDelete;
                   const idStr = String(r.id);
+                  const horas = getHorasTrabalhadasEfetivas(r);
+                  const split = getHorasSplitEfetivo(r, horas);
                   return (
                     <tr key={idStr} className="hover:bg-zinc-900/40">
                       <td className="px-3 py-2 text-zinc-300 whitespace-nowrap">{formatDateBR(r.data)}</td>
@@ -2640,7 +2885,10 @@ export default function RelatorioHHSection({
                       <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatTimeHHMM(r.saida_1) || formatTimeHHMM(r.hora_saida) || "—"}</td>
                       <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatTimeHHMM(r.entrada_2) || "—"}</td>
                       <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatTimeHHMM(r.saida_2) || "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-zinc-200">{formatHoursBR(getHorasTrabalhadasEfetivas(r))}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-200">{formatHoursBR(horas)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-zinc-300">{formatHoursBR(split.normais)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-amber-200">{formatHoursBR(split.extra50)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-red-200">{formatHoursBR(split.extra100)}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
                           <button
@@ -2717,6 +2965,9 @@ export default function RelatorioHHSection({
                 <th>Ent. 2</th>
                 <th>Saída 2</th>
                 <th className="num">Horas</th>
+                <th className="num">Normais</th>
+                <th className="num">Extra 50%</th>
+                <th className="num">Extra 100%</th>
                 <th>Tipo</th>
                 <th className="num">V. Hora</th>
                 <th className="num">V. Hora 50%</th>
@@ -2730,8 +2981,8 @@ export default function RelatorioHHSection({
                 const valorHora50 = valorHoraNormal * 1.5;
                 const valorHora100 = valorHoraNormal * 2.0;
                 const horas = getHorasTrabalhadasEfetivas(r);
-                const percentualAplicado = Number(r.percentual_aplicado ?? 0);
-                const tipo = getTipoHHLabel(percentualAplicado);
+                const split = getHorasSplitEfetivo(r, horas);
+                const tipo = getTipoHHLabelFromSplit(r, horas);
                 const total = getValorTotalEfetivo(r, horas);
                 return (
                   <tr key={String(r.id)}>
@@ -2743,6 +2994,9 @@ export default function RelatorioHHSection({
                     <td className="center">{formatTimeHHMM(r.entrada_2) || "—"}</td>
                     <td className="center">{formatTimeHHMM(r.saida_2) || "—"}</td>
                     <td className="num">{formatHoursBR(horas)}</td>
+                    <td className="num">{formatHoursBR(split.normais)}</td>
+                    <td className="num">{formatHoursBR(split.extra50)}</td>
+                    <td className="num">{formatHoursBR(split.extra100)}</td>
                     <td>{tipo}</td>
                     <td className="num">{formatCurrencyBRL(valorHoraNormal)}</td>
                     <td className="num">{formatCurrencyBRL(valorHora50)}</td>

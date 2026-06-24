@@ -27,6 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isPublic = pathname === "/login";
   const isFullWidth =
     pathname === "/itens" || pathname === "/financeiro/contas-pagar/aprovacoes" || pathname === "/financeiro/gestao-cobranca";
+  const isOsDetailPage = /^\/os\/\d+\/?$/.test(pathname ?? "");
   const hideHeader = pathname?.startsWith("/projetos") || pathname?.startsWith("/execucao");
 
   const tenantId = te.tenantId;
@@ -576,6 +577,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             ? "w-full px-6 py-6"
             : isFullWidth
               ? "w-full px-4 md:px-6 py-6"
+              : isOsDetailPage
+                ? "mx-auto max-w-[86.4rem] px-4 py-6"
               : "mx-auto max-w-6xl px-4 py-6"
         }
       >

@@ -7,6 +7,11 @@ export type HhLancamentoCalcRow = {
   hora_entrada?: string | null;
   hora_saida?: string | null;
   horas_trabalhadas?: number | string | null;
+  percentual_aplicado?: number | string | null;
+  tem_extra_50?: boolean | null;
+  horas_extra_50?: number | string | null;
+  tem_extra_100?: boolean | null;
+  horas_extra_100?: number | string | null;
   valor_hora?: number | string | null;
   valor_total?: number | string | null;
 };
@@ -62,13 +67,47 @@ export function getHorasTrabalhadasEfetivas(row: HhLancamentoCalcRow): number {
   return Number.isFinite(fallback) ? fallback : 0;
 }
 
+function hasManualExtra(row: HhLancamentoCalcRow): boolean {
+  return Boolean(row.tem_extra_50 || row.tem_extra_100) || Number(row.horas_extra_50 ?? 0) > 0 || Number(row.horas_extra_100 ?? 0) > 0;
+}
+
+function normalizeHoras(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Number(Math.max(0, value).toFixed(2));
+}
+
+export function getHorasSplitEfetivo(row: HhLancamentoCalcRow, horasEfetivas: number) {
+  const total = normalizeHoras(horasEfetivas);
+  const manualExtra = hasManualExtra(row);
+  const percentual = Number(row.percentual_aplicado ?? 0);
+
+  if (manualExtra) {
+    const extra50 = normalizeHoras(Number(row.horas_extra_50 ?? 0));
+    const extra100 = normalizeHoras(Number(row.horas_extra_100 ?? 0));
+    const normais = normalizeHoras(total - extra50 - extra100);
+    return { normais, extra50, extra100 };
+  }
+
+  if (percentual === 50) return { normais: 0, extra50: total, extra100: 0 };
+  if (percentual === 100) return { normais: 0, extra50: 0, extra100: total };
+  return { normais: total, extra50: 0, extra100: 0 };
+}
+
 export function getValorTotalEfetivo(row: HhLancamentoCalcRow, horasEfetivas: number): number {
+  const totalDb = Number(row.valor_total ?? 0);
+  const percentual = Number(row.percentual_aplicado ?? 0);
+  if ((hasManualExtra(row) || percentual === 50 || percentual === 100) && Number.isFinite(totalDb) && totalDb > 0) {
+    return totalDb;
+  }
+
   const valorHora = Number(row.valor_hora ?? 0);
   if (Number.isFinite(valorHora) && valorHora > 0 && Number.isFinite(horasEfetivas) && horasEfetivas > 0) {
-    return Number((valorHora * horasEfetivas).toFixed(2));
+    const split = getHorasSplitEfetivo(row, horasEfetivas);
+    return Number(
+      (split.normais * valorHora + split.extra50 * valorHora * 1.5 + split.extra100 * valorHora * 2).toFixed(2)
+    );
   }
-  const total = Number(row.valor_total ?? 0);
-  return Number.isFinite(total) ? total : 0;
+  return Number.isFinite(totalDb) ? totalDb : 0;
 }
 
 export function calcHhPedidoTotal(rows: HhLancamentoCalcRow[]): number {

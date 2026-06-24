@@ -92,6 +92,11 @@ type HhLancamentoCalcRow = {
   hora_entrada: string | null;
   hora_saida: string | null;
   horas_trabalhadas: number | null;
+  tem_extra_50?: boolean | null;
+  horas_extra_50?: number | null;
+  tem_extra_100?: boolean | null;
+  horas_extra_100?: number | null;
+  percentual_aplicado?: number | null;
   valor_hora: number | null;
   valor_total: number | null;
 };
@@ -101,7 +106,6 @@ type HhPrintRow = HhLancamentoCalcRow & {
   data: string | null;
   colaborador_id: string | null;
   observacao: string | null;
-  percentual_aplicado?: number | null;
   hh_especialidade_id?: string | null;
   hh_servico_id?: string | null;
   colaborador_nome?: string | null;
@@ -520,7 +524,7 @@ export default function OsDetailPage() {
       supabase
         .from("hh_lancamentos")
         .select(
-          "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,observacao,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
+          "id,data,colaborador_id,entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,tem_extra_50,horas_extra_50,tem_extra_100,horas_extra_100,observacao,valor_hora,valor_total,hh_especialidade_id,hh_servico_id"
         )
         .eq("os_id", osId)
         .order("data", { ascending: true })
@@ -1351,7 +1355,7 @@ export default function OsDetailPage() {
       const { data: hhCalcData, error: hhCalcErr } = await applyTenant(
         supabase
           .from("hh_lancamentos")
-          .select("entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,valor_hora,valor_total")
+          .select("entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,tem_extra_50,horas_extra_50,tem_extra_100,horas_extra_100,valor_hora,valor_total")
           .eq("os_id", osId),
         effectiveTenantId
       );
@@ -3268,4 +3272,3 @@ export default function OsDetailPage() {
     </div>
   );
 }
-

@@ -1,4 +1,3 @@
-
 import { applyTenant } from "@/lib/db/scopes";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -7,16 +6,6 @@ type SupabaseErrorLike = {
   details?: string;
   hint?: string;
 };
-
-function toSupabaseErrorLike(err: unknown): SupabaseErrorLike {
-  if (!err || typeof err !== "object") return {};
-  const e = err as Record<string, unknown>;
-  return {
-    message: typeof e.message === "string" ? e.message : undefined,
-    details: typeof e.details === "string" ? e.details : undefined,
-    hint: typeof e.hint === "string" ? e.hint : undefined,
-  };
-}
 
 type SyncArgs = {
   supabase: SupabaseClient;
@@ -28,7 +17,26 @@ type SyncArgs = {
   periodos: Array<{ entrada: string; saida: string }>;
   descricao?: string;
   percentual?: 0 | 50 | 100;
+  horasNormais?: number | null;
+  horasExtra50?: number | null;
+  horasExtra100?: number | null;
 };
+
+type ApontamentoExistingRow = {
+  id: string;
+  horas?: number | null;
+  gerado_por_hh?: boolean | null;
+};
+
+function toSupabaseErrorLike(err: unknown): SupabaseErrorLike {
+  if (!err || typeof err !== "object") return {};
+  const e = err as Record<string, unknown>;
+  return {
+    message: typeof e.message === "string" ? e.message : undefined,
+    details: typeof e.details === "string" ? e.details : undefined,
+    hint: typeof e.hint === "string" ? e.hint : undefined,
+  };
+}
 
 function parseHHMMToMinutes(hhmm: string): number | null {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
@@ -51,6 +59,31 @@ function formatSbError(err: unknown): string {
   return String(err);
 }
 
+function normalizeHoras(value: number | null | undefined): number {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Number(n.toFixed(2));
+}
+
+function normalizeFator(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  return Number(value.toFixed(3));
+}
+
+async function resolveTipoHoraId(
+  supabase: SupabaseClient,
+  tenantId: string,
+  codigo: "NORMAL" | "EXTRA_50" | "EXTRA_100"
+): Promise<string> {
+  const { data, error } = await applyTenant(
+    supabase.from("tipos_horas").select("id").eq("codigo", codigo).eq("ativo", true).maybeSingle(),
+    tenantId
+  );
+
+  if (error || !data?.id) throw new Error(`Nao foi possivel resolver tipo_horas para ${codigo}`);
+  return String(data.id);
+}
+
 export async function syncHhToApontamentos({
   supabase,
   tenantId,
@@ -60,21 +93,12 @@ export async function syncHhToApontamentos({
   dataISO,
   periodos,
   descricao,
-  percentual
+  percentual,
+  horasNormais,
+  horasExtra50,
+  horasExtra100,
 }: SyncArgs): Promise<void> {
-  // 1. Resolve tipo_hora_id
-  let codigoTipo = "NORMAL";
-  if (percentual === 50) codigoTipo = "EXTRA_50";
-  if (percentual === 100) codigoTipo = "EXTRA_100";
-  const { data: tipoHoras, error: tipoHorasErr } = await applyTenant(
-    supabase.from("tipos_horas").select("id").eq("codigo", codigoTipo).eq("ativo", true).maybeSingle(),
-    tenantId
-  );
-  if (tipoHorasErr || !tipoHoras?.id) throw new Error(`Não foi possível resolver tipo_horas para ${codigoTipo}`);
-  const tipoHoraId = tipoHoras.id;
-
-  // 2. Delete apontamentos antigos
-  const deleteMatchBase = {
+  const matchBase = {
     tenant_id: tenantId,
     ...(empresaId ? { empresa_id: empresaId } : {}),
     os_id: osId,
@@ -82,32 +106,28 @@ export async function syncHhToApontamentos({
     data: dataISO,
   };
 
-  let deleteError: unknown | null = null;
-  const deleteWithHhFlag = await supabase
-    .from("apontamentos_horas")
-    .delete()
-    .match({
-      ...deleteMatchBase,
-      gerado_por_hh: true,
-    });
+  const deleteGeneratedRows = async (exceptId?: string): Promise<void> => {
+    let query = supabase
+      .from("apontamentos_horas")
+      .delete()
+      .match({
+        ...matchBase,
+        gerado_por_hh: true,
+      });
+    if (exceptId) query = query.neq("id", exceptId);
+    const result = await query;
 
-  if (deleteWithHhFlag.error) {
-    if (isMissingColumnError(deleteWithHhFlag.error, "gerado_por_hh")) {
-      // Fallback: remover filtro gerado_por_hh
-      const deleteFallback = await supabase
-        .from("apontamentos_horas")
-        .delete()
-        .match(deleteMatchBase);
-      if (deleteFallback.error) {
-        deleteError = deleteFallback.error;
-      }
-    } else {
-      deleteError = deleteWithHhFlag.error;
+    if (result.error && isMissingColumnError(result.error, "gerado_por_hh")) {
+      let fallback = supabase.from("apontamentos_horas").delete().match(matchBase);
+      if (exceptId) fallback = fallback.neq("id", exceptId);
+      const fallbackResult = await fallback;
+      if (fallbackResult.error) throw new Error(formatSbError(fallbackResult.error));
+      return;
     }
-  }
-  if (deleteError) throw new Error(formatSbError(deleteError));
 
-  // 3. Calcular TOTAL de horas de todos os períodos
+    if (result.error) throw new Error(formatSbError(result.error));
+  };
+
   let totalHoras = 0;
   for (const periodo of periodos) {
     const entrada = String(periodo.entrada ?? "").trim();
@@ -119,35 +139,129 @@ export async function syncHhToApontamentos({
     totalHoras += (minSaida - minEntrada) / 60;
   }
 
-  // Se não houver horas válidas, não inserir nada
+  totalHoras = normalizeHoras(totalHoras);
+
+  const hasSplitOverride =
+    horasNormais !== undefined || horasExtra50 !== undefined || horasExtra100 !== undefined;
+  const extra50 = normalizeHoras(horasExtra50);
+  const extra100 = normalizeHoras(horasExtra100);
+  let normal = normalizeHoras(horasNormais);
+
+  if (hasSplitOverride && totalHoras <= 0) {
+    totalHoras = normalizeHoras(normal + extra50 + extra100);
+  }
+
+  if (hasSplitOverride && normal <= 0) {
+    normal = normalizeHoras(totalHoras - extra50 - extra100);
+  }
+
+  if (extra50 < 0 || extra100 < 0 || normal < 0) {
+    throw new Error("Horas normais/extras nao podem ser negativas.");
+  }
+
+  if (hasSplitOverride && normalizeHoras(normal + extra50 + extra100) > totalHoras) {
+    throw new Error("Horas normais/extras excedem o total de horas do lancamento.");
+  }
+
+  if (!hasSplitOverride) {
+    normal = percentual === 50 || percentual === 100 ? 0 : totalHoras;
+  }
+
+  const splitExtra50 = hasSplitOverride ? extra50 : percentual === 50 ? totalHoras : 0;
+  const splitExtra100 = hasSplitOverride ? extra100 : percentual === 100 ? totalHoras : 0;
+
   if (totalHoras <= 0) {
+    await deleteGeneratedRows();
     return;
   }
 
-  // 4. Inserir um ÚNICO lançamento em apontamentos_horas com total de horas
-  // Campos: os_id, colaborador_id, data, tipo_hora_id, horas, gerado_por_hh=true
-  // NÃO incluir entrada/saída - apontamentos_horas é simples (apenas quantidade)
-  const payload: Record<string, unknown> = {
+  const tipoNormalId = await resolveTipoHoraId(supabase, tenantId, "NORMAL");
+  const fatorAplicado = normalizeFator((normal + splitExtra50 * 1.5 + splitExtra100 * 2) / totalHoras);
+
+  const selectExisting = async (): Promise<ApontamentoExistingRow[]> => {
+    const result = await supabase
+      .from("apontamentos_horas")
+      .select("id,horas,gerado_por_hh,criado_em")
+      .match(matchBase)
+      .order("gerado_por_hh", { ascending: false })
+      .order("criado_em", { ascending: false })
+      .limit(10);
+
+    if (!result.error) return (result.data ?? []) as ApontamentoExistingRow[];
+    if (!isMissingColumnError(result.error, "gerado_por_hh")) throw new Error(formatSbError(result.error));
+
+    const fallback = await supabase
+      .from("apontamentos_horas")
+      .select("id,horas,criado_em")
+      .match(matchBase)
+      .order("criado_em", { ascending: false })
+      .limit(10);
+
+    if (fallback.error) throw new Error(formatSbError(fallback.error));
+    return (fallback.data ?? []) as ApontamentoExistingRow[];
+  };
+
+  const updatePayload = async (id: string, value: Record<string, unknown>): Promise<void> => {
+    const payload = { ...value };
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const result = await supabase.from("apontamentos_horas").update(payload).eq("id", id).match(matchBase);
+      if (!result.error) return;
+
+      if (isMissingColumnError(result.error, "empresa_id")) {
+        delete payload.empresa_id;
+        continue;
+      }
+      if (isMissingColumnError(result.error, "descricao")) {
+        delete payload.descricao;
+        continue;
+      }
+      if (isMissingColumnError(result.error, "gerado_por_hh")) {
+        delete payload.gerado_por_hh;
+        continue;
+      }
+      if (isMissingColumnError(result.error, "fator_aplicado")) {
+        delete payload.fator_aplicado;
+        continue;
+      }
+
+      throw new Error(formatSbError(result.error));
+    }
+
+    throw new Error("Nao foi possivel atualizar apontamento de horas.");
+  };
+
+  const insertPayload = async (value: Record<string, unknown>): Promise<unknown | null> => {
+    const result = await supabase.from("apontamentos_horas").insert(value);
+    return result.error ?? null;
+  };
+
+  const aggregatePayload: Record<string, unknown> = {
     tenant_id: tenantId,
     ...(empresaId ? { empresa_id: empresaId } : {}),
     os_id: osId,
     colaborador_id: colaboradorId,
     data: dataISO,
-    horas: Number(totalHoras.toFixed(2)),
-    tipo_hora_id: tipoHoraId,
+    horas: totalHoras,
+    tipo_hora_id: tipoNormalId,
+    fator_aplicado: fatorAplicado,
     gerado_por_hh: true,
+    status: "lancado",
     descricao: descricao ?? null,
   };
 
-  // Fallbacks para colunas opcionais
-  const insertPayload = async (value: Record<string, unknown>) => {
-    const result = await supabase.from("apontamentos_horas").insert(value);
-    return result.error ?? null;
-  };
+  const existingRows = await selectExisting();
+  const existing = existingRows.find((row) => row.gerado_por_hh) ?? existingRows[0] ?? null;
 
-  let insertError: unknown | null = await insertPayload(payload);
+  if (existing?.id) {
+    await updatePayload(existing.id, aggregatePayload);
+    await deleteGeneratedRows(existing.id);
+    return;
+  }
+
+  let insertError: unknown | null = await insertPayload(aggregatePayload);
   if (insertError && isMissingColumnError(insertError, "empresa_id")) {
-    const p2 = { ...payload };
+    const p2 = { ...aggregatePayload };
     delete p2.empresa_id;
     insertError = await insertPayload(p2);
     if (insertError && isMissingColumnError(insertError, "descricao")) {
@@ -161,7 +275,7 @@ export async function syncHhToApontamentos({
       }
     }
   } else if (insertError && isMissingColumnError(insertError, "descricao")) {
-    const p2 = { ...payload };
+    const p2 = { ...aggregatePayload };
     delete p2.descricao;
     insertError = await insertPayload(p2);
     if (insertError && isMissingColumnError(insertError, "gerado_por_hh")) {
@@ -170,9 +284,20 @@ export async function syncHhToApontamentos({
       insertError = await insertPayload(p3);
     }
   } else if (insertError && isMissingColumnError(insertError, "gerado_por_hh")) {
-    const p2 = { ...payload };
+    const p2 = { ...aggregatePayload };
     delete p2.gerado_por_hh;
     insertError = await insertPayload(p2);
   }
-  if (insertError) throw new Error(formatSbError(insertError));
+
+  if (!insertError) return;
+
+  const rowsAfterConflict = await selectExisting();
+  const rowAfterConflict = rowsAfterConflict.find((row) => row.gerado_por_hh) ?? rowsAfterConflict[0] ?? null;
+  if (rowAfterConflict?.id) {
+    await updatePayload(rowAfterConflict.id, aggregatePayload);
+    await deleteGeneratedRows(rowAfterConflict.id);
+    return;
+  }
+
+  throw new Error(formatSbError(insertError));
 }

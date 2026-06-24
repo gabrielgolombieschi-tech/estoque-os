@@ -48,6 +48,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/financeiro/contas_pagar_receber" ||
     pathname === "/financeiro/gestao-cobranca" ||
     pathname?.startsWith("/financeiro/contas_pagar_receber/");
+  const isOsDetailPage = /^\/os\/\d+\/?$/.test(pathname ?? "");
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
   const lastKnownCapsRef = useRef<Capabilities | null>(null);
@@ -914,7 +915,13 @@ export default function AppShellClient({ children }: { children: React.ReactNode
 
       <main
         className={
-          hideHeader ? "w-full px-6 py-6" : isFullWidth ? "w-full px-4 md:px-6 py-6" : "mx-auto max-w-6xl px-4 py-6"
+          hideHeader
+            ? "w-full px-6 py-6"
+            : isFullWidth
+              ? "w-full px-4 md:px-6 py-6"
+              : isOsDetailPage
+                ? "mx-auto max-w-[86.4rem] px-4 py-6"
+                : "mx-auto max-w-6xl px-4 py-6"
         }
       >
         {children}
