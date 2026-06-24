@@ -303,6 +303,9 @@ export default function ContasPagarReceberPage() {
   const [editVencimentoDate, setEditVencimentoDate] = useState<string>("");
   const [emissaoBusy, setEmissaoBusy] = useState(false);
   const [emissaoErr, setEmissaoErr] = useState<string | null>(null);
+  const [editDescricao, setEditDescricao] = useState<string>("");
+  const [descricaoBusy, setDescricaoBusy] = useState(false);
+  const [descricaoErr, setDescricaoErr] = useState<string | null>(null);
 
   // Aprovar
   const [motivoId, setMotivoId] = useState<string>("");
@@ -329,6 +332,9 @@ export default function ContasPagarReceberPage() {
     setTituloMeta(null);
     setEditEmissaoDate("");
     setEditVencimentoDate("");
+    setEditDescricao("");
+    setDescricaoErr(null);
+    setDescricaoBusy(false);
     setMotivoId("");
     setMotivoOutrosText("");
     setOsId("");
@@ -430,7 +436,7 @@ export default function ContasPagarReceberPage() {
           .schema("f")
           .from("r_ap_aging_detalhe")
           .select(
-            "titulo_id,parcela_id,parcela_numero,total_parcelas,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,valor_parcela,valor_aberto,status"
+            "titulo_id,parcela_id,parcela_numero,total_parcelas,fornecedor_nome,motivo_codigo,motivo_nome,vencimento_date,valor_parcela,valor_aberto,status,descricao"
           )
           .eq("tenant_id", te.tenantId)
           .eq("empresa_id", te.empresaId)
@@ -482,6 +488,7 @@ export default function ContasPagarReceberPage() {
         valor_parcela: unknown;
         valor_aberto: unknown;
         status: unknown;
+        descricao: unknown;
       };
 
       const apRows: UnifiedRow[] = ((apData ?? []) as ApAgingDetalheRow[]).map((r) => ({
@@ -494,7 +501,7 @@ export default function ContasPagarReceberPage() {
         emissao: null,
         vencimento: String(r.vencimento_date),
         pessoaNome: r.fornecedor_nome ? String(r.fornecedor_nome) : "Fornecedor",
-        descricao: null,
+        descricao: r.descricao ? String(r.descricao) : null,
         motivoCodigo: r.motivo_codigo ? String(r.motivo_codigo) : null,
         motivoNome: r.motivo_nome ? String(r.motivo_nome) : null,
         aprovadoPorNome: null,
@@ -1073,6 +1080,31 @@ export default function ContasPagarReceberPage() {
     }
   }, [editEmissaoDate, load, selected, supabase, tituloMeta]);
 
+  const doUpdateDescricao = useCallback(async () => {
+    if (!selected || selected.kind !== "AP") return;
+    const novo = editDescricao.trim();
+    if (novo === (selected.descricao ?? "")) {
+      setDescricaoErr("A descrição precisa ser diferente da atual.");
+      return;
+    }
+    setDescricaoErr(null);
+    setDescricaoBusy(true);
+    try {
+      const { error } = await supabase.schema("f").rpc("atualizar_titulo_descricao", {
+        p_titulo_id: selected.tituloId,
+        p_descricao: novo,
+        p_change_reason: "UI: editar descrição/observação",
+      });
+      if (error) throw error;
+      setSelected((prev) => (prev ? { ...prev, descricao: novo || null } : prev));
+      await load();
+    } catch (e: unknown) {
+      setDescricaoErr(getErrorMessage(e, "Erro ao salvar descrição."));
+    } finally {
+      setDescricaoBusy(false);
+    }
+  }, [editDescricao, load, selected, supabase]);
+
   const doUpdateVencimentoDate = useCallback(async () => {
     if (!selected || (selected.kind !== "AP" && selected.kind !== "AR")) return;
     if (!editVencimentoDate) {
@@ -1182,6 +1214,7 @@ export default function ContasPagarReceberPage() {
       setSelected(row);
       setTab(row.kind === "AP" ? "APROVAR" : "RECEBER");
       setEditVencimentoDate(row.vencimento);
+      setEditDescricao(row.descricao ?? "");
       setSplitRecebimento(false);
       setSplitVencimentoDate(row.vencimento);
 
@@ -1875,7 +1908,8 @@ export default function ContasPagarReceberPage() {
             <tr className="text-left text-zinc-300">
               <th className="px-3 py-2">Tipo</th>
               <th className="px-3 py-2">NF</th>
-              <th className="px-3 py-2">Pessoa</th>
+              <th className="px-3 py-2">Fornecedor / Cliente</th>
+              <th className="px-3 py-2">Descrição</th>
               <th className="px-3 py-2">Motivo</th>
               <th className="px-3 py-2">Aprovado por</th>
               <th className="px-3 py-2">Parcela</th>
@@ -1900,6 +1934,7 @@ export default function ContasPagarReceberPage() {
                   <td className="px-3 py-2 font-medium text-zinc-100">{r.kind}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.nfNumero ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.pessoaNome}</td>
+                  <td className="px-3 py-2 text-zinc-100">{r.descricao ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.motivoNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero, r.parcelaTotal)}</td>
@@ -1918,7 +1953,7 @@ export default function ContasPagarReceberPage() {
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={13} className="px-3 py-6 text-center text-zinc-400">
                   Nenhum item neste período.
                 </td>
               </tr>
@@ -2057,6 +2092,35 @@ export default function ContasPagarReceberPage() {
 
             <div className="mt-4 space-y-3">
               <FormError message={actionErr} />
+
+              {selected.kind === "AP" && (
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="text-sm text-zinc-300">Descrição / Observação</div>
+                      <textarea
+                        aria-label="Descrição / Observação"
+                        value={editDescricao}
+                        onChange={(e) => setEditDescricao(e.target.value)}
+                        placeholder="Ex: PARCELAMENTO ICMS - SEFAZ/SC (Série 1)"
+                        className="w-full min-h-[60px] bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                      />
+                      <div className="text-xs text-zinc-500 mt-1">
+                        Texto que identifica o título na listagem (aparece na coluna Descrição).
+                      </div>
+                      <FormError message={descricaoErr} />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={descricaoBusy || editDescricao.trim() === (selected.descricao ?? "")}
+                      onClick={() => void doUpdateDescricao()}
+                      className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
+                    >
+                      {descricaoBusy ? "Salvando..." : "Salvar descrição"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {selected.kind === "AP" && (
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
