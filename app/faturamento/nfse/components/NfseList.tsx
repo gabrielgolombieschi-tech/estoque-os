@@ -9,7 +9,19 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
 import { fetchOsSelectionById } from "@/lib/os-vinculo";
 import PeriodoMesAnoFilter, { buildPeriodoMesAnoRange } from "@/app/faturamento/components/PeriodoMesAnoFilter";
-import { buildEmpresaDisplayById, fetchTenantEmpresas, mergeEmpresaInfos } from "@/app/faturamento/components/empresaDisplay";
+import {
+  buildEmpresaDisplayById,
+  buildEmpresaDisplayOptions,
+  fetchTenantEmpresas,
+  mergeEmpresaInfos,
+} from "@/app/faturamento/components/empresaDisplay";
+import EmpresaScopeFilter from "@/app/faturamento/components/EmpresaScopeFilter";
+import {
+  normalizeEmpresaScopeParam,
+  resolveScopeEmpresaIds,
+  runAcrossEmpresas,
+  type EmpresaScope,
+} from "@/app/faturamento/components/empresaScope";
 import ImportNfseXmlModal from "./ImportNfseXmlModal";
 
 type DocumentoFiscalRow = {
@@ -206,6 +218,13 @@ function pagamentoResumoValor(
   return totals.valor;
 }
 
+function compareDocsDesc(a: DocumentoFiscalRow, b: DocumentoFiscalRow): number {
+  const dateA = a.emissao_date ?? "";
+  const dateB = b.emissao_date ?? "";
+  if (dateA !== dateB) return dateB.localeCompare(dateA);
+  return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+}
+
 export default function NfseList() {
   const te = useTenantEmpresa();
   const router = useRouter();
@@ -244,11 +263,32 @@ export default function NfseList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [offsetsByEmpresa, setOffsetsByEmpresa] = useState<Record<string, number>>({});
+  const [moreByEmpresa, setMoreByEmpresa] = useState<Record<string, boolean>>({});
+  const hasMore = Object.values(moreByEmpresa).some(Boolean);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<NfseStatusFilter>("");
   const empresasById = useMemo(() => buildEmpresaDisplayById(empresaCatalog), [empresaCatalog]);
+  const allowedEmpresaIds = useMemo(() => te.empresas.map((e) => e.id), [te.empresas]);
+  const empresaScopeOptions = useMemo(() => {
+    const options = buildEmpresaDisplayOptions(empresaCatalog);
+    return options.filter((option) => allowedEmpresaIds.includes(option.id));
+  }, [empresaCatalog, allowedEmpresaIds]);
+  const empresaScope = useMemo(
+    () => normalizeEmpresaScopeParam(searchParams.get("empresa"), allowedEmpresaIds),
+    [searchParams, allowedEmpresaIds]
+  );
+  const setEmpresaScope = (scope: EmpresaScope) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (scope === "ALL") {
+      params.delete("empresa");
+    } else {
+      params.set("empresa", scope);
+    }
+    const nextUrl = params.toString() ? `/faturamento/nfse?${params.toString()}` : "/faturamento/nfse";
+    router.replace(nextUrl, { scroll: false });
+  };
   const ready =
     typeof te.sessionUserId === "string" &&
     Boolean(te.tenantId) &&
@@ -328,29 +368,20 @@ export default function NfseList() {
     });
   };
 
-  const loadPagamentos = async (rows: DocumentoFiscalRow[]) => {
-    if (!te.tenantId) return {} as Record<string, PagamentoMeta>;
-
-    const documentoIds = Array.from(new Set(rows.map((row) => String(row.id)).filter(Boolean)));
-    if (!documentoIds.length) return {} as Record<string, PagamentoMeta>;
+  // f.titulo e RLS-restrito a `empresa_id = current_empresa_id()`, por isso e buscado
+  // dentro do loop por empresa (fetchDocsAndTitulosForEmpresa). f.titulo_parcela nao tem
+  // essa restricao (so tenant), entao e combinado aqui apos o merge das empresas.
+  const buildPagamentosFromTitulos = async (
+    rows: DocumentoFiscalRow[],
+    titulos: TituloFinanceiroRow[]
+  ): Promise<Record<string, PagamentoMeta>> => {
+    if (!te.tenantId || !rows.length) return {};
 
     const supabase = supabaseBrowser();
     const tenantId = te.tenantId;
     const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
 
-    const { data: tituloData, error: titErr } = await applyTenantEmpresa(
-      supabase
-        .schema("f")
-        .from("titulo")
-        .select("id,documento_fiscal_id,tipo,status,valor_total,valor_aberto")
-        .in("documento_fiscal_id", documentoIds)
-        .is("deleted_at", null),
-      tenantId,
-      empresaId
-    ).returns<TituloFinanceiroRow[]>();
-    if (titErr) throw titErr;
-
-    const titulosRelevantes = (tituloData ?? []).filter((titulo) => {
+    const titulosRelevantes = titulos.filter((titulo) => {
       const tipo = String(titulo.tipo ?? "").trim().toUpperCase();
       const statusTitulo = String(titulo.status ?? "").trim().toUpperCase();
       return tipo === "AR" && statusTitulo !== "CANCELADO";
@@ -432,12 +463,9 @@ export default function NfseList() {
     });
   };
 
-  const fetchDocs = async (offset: number) => {
-    if (!ready) return { rows: [] as DocumentoFiscalRow[], more: false };
-
+  const fetchDocsAndTitulosForEmpresa = async (empresaId: string, offset: number) => {
     const supabase = supabaseBrowser();
     const tenantId = te.tenantId!;
-    const empresaId = te.empresaId ?? te.empresas[0]!.id;
 
     let query = applyTenantEmpresa(
       supabase
@@ -450,6 +478,12 @@ export default function NfseList() {
       tenantId,
       empresaId
     )
+      // Filtro explicito alem do RLS (current_empresa_id()): como runAcrossEmpresas
+      // troca o contexto de empresa via RPC de forma sequencial mas o contexto e
+      // compartilhado (tabela user_empresa_context, nao por conexao), uma race entre
+      // reloads concorrentes pode fazer esta query rodar com o contexto errado.
+      // O .eq aqui garante que so voltam linhas da empresa pedida nesta iteracao.
+      .eq("empresa_id", empresaId)
       .order("emissao_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
@@ -465,7 +499,28 @@ export default function NfseList() {
     if (qErr) throw qErr;
 
     const rows = (data ?? []) as unknown as DocumentoFiscalRow[];
-    return { rows, more: rows.length === PAGE_SIZE };
+
+    const documentoIds = rows.map((row) => String(row.id));
+    const { data: tituloData, error: titErr } = documentoIds.length
+      ? await applyTenantEmpresa(
+          supabase
+            .schema("f")
+            .from("titulo")
+            .select("id,documento_fiscal_id,tipo,status,valor_total,valor_aberto")
+            .in("documento_fiscal_id", documentoIds)
+            .eq("empresa_id", empresaId)
+            .is("deleted_at", null),
+          tenantId,
+          empresaId
+        ).returns<TituloFinanceiroRow[]>()
+      : { data: [] as TituloFinanceiroRow[], error: null };
+    if (titErr) throw titErr;
+
+    return {
+      rows,
+      titulos: (tituloData ?? []) as TituloFinanceiroRow[],
+      more: rows.length === PAGE_SIZE,
+    };
   };
 
   const reload = async () => {
@@ -474,21 +529,37 @@ export default function NfseList() {
     setLoading(true);
     setError(null);
     try {
-      const { rows, more } = await fetchDocs(0);
-      const [pagamentos] = await Promise.all([
-        loadPagamentos(rows),
-        resolveClientes(rows),
-        resolveOrdensServico(rows),
-      ]);
+      const supabase = supabaseBrowser();
+      const targetIds = resolveScopeEmpresaIds(empresaScope, allowedEmpresaIds);
+      const restoreId = te.empresaId ?? targetIds[0] ?? null;
+
+      const perEmpresa = await runAcrossEmpresas(supabase, targetIds, restoreId, (empresaId) =>
+        fetchDocsAndTitulosForEmpresa(empresaId, 0)
+      );
+
+      const rows = targetIds.flatMap((id) => perEmpresa[id]?.rows ?? []).sort(compareDocsDesc);
+      const titulos = targetIds.flatMap((id) => perEmpresa[id]?.titulos ?? []);
+      const nextOffsets: Record<string, number> = {};
+      const nextMore: Record<string, boolean> = {};
+      for (const id of targetIds) {
+        nextOffsets[id] = perEmpresa[id]?.rows.length ?? 0;
+        nextMore[id] = perEmpresa[id]?.more ?? false;
+      }
+
+      const pagamentos = await buildPagamentosFromTitulos(rows, titulos);
+      await Promise.all([resolveClientes(rows), resolveOrdensServico(rows)]);
+
       setDocs(rows);
       setPagamentosByDocId(pagamentos);
-      setHasMore(more);
+      setOffsetsByEmpresa(nextOffsets);
+      setMoreByEmpresa(nextMore);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NFS-e.");
       setDocs([]);
       setOsNumeroById({});
       setPagamentosByDocId({});
-      setHasMore(false);
+      setOffsetsByEmpresa({});
+      setMoreByEmpresa({});
     } finally {
       setLoading(false);
     }
@@ -502,16 +573,38 @@ export default function NfseList() {
     setLoadingMore(true);
     setError(null);
     try {
-      const offset = docs.length;
-      const { rows, more } = await fetchDocs(offset);
-      const [pagamentos] = await Promise.all([
-        loadPagamentos(rows),
-        resolveClientes(rows),
-        resolveOrdensServico(rows),
-      ]);
-      setDocs((prev) => [...prev, ...rows]);
+      const supabase = supabaseBrowser();
+      const targetIds = resolveScopeEmpresaIds(empresaScope, allowedEmpresaIds).filter(
+        (id) => moreByEmpresa[id] !== false
+      );
+      const restoreId = te.empresaId ?? targetIds[0] ?? null;
+
+      const perEmpresa = await runAcrossEmpresas(supabase, targetIds, restoreId, (empresaId) =>
+        fetchDocsAndTitulosForEmpresa(empresaId, offsetsByEmpresa[empresaId] ?? 0)
+      );
+
+      const newRows = targetIds.flatMap((id) => perEmpresa[id]?.rows ?? []).sort(compareDocsDesc);
+      const newTitulos = targetIds.flatMap((id) => perEmpresa[id]?.titulos ?? []);
+
+      const pagamentos = await buildPagamentosFromTitulos(newRows, newTitulos);
+      await Promise.all([resolveClientes(newRows), resolveOrdensServico(newRows)]);
+
+      setDocs((prev) => [...prev, ...newRows].sort(compareDocsDesc));
       setPagamentosByDocId((prev) => ({ ...prev, ...pagamentos }));
-      setHasMore(more);
+      setOffsetsByEmpresa((prev) => {
+        const next = { ...prev };
+        for (const id of targetIds) {
+          next[id] = (prev[id] ?? 0) + (perEmpresa[id]?.rows.length ?? 0);
+        }
+        return next;
+      });
+      setMoreByEmpresa((prev) => {
+        const next = { ...prev };
+        for (const id of targetIds) {
+          next[id] = perEmpresa[id]?.more ?? false;
+        }
+        return next;
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro inesperado ao carregar mais NFS-e.");
     } finally {
@@ -523,7 +616,17 @@ export default function NfseList() {
     if (!ready) return;
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, canFinanceiro, te.sessionUserId, te.tenantId, te.empresaId, te.empresas.length, periodo.startDate, periodo.endDate]);
+  }, [
+    ready,
+    canFinanceiro,
+    te.sessionUserId,
+    te.tenantId,
+    te.empresaId,
+    te.empresas.length,
+    empresaScope,
+    periodo.startDate,
+    periodo.endDate,
+  ]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -617,6 +720,8 @@ export default function NfseList() {
             className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-700"
           />
         </div>
+
+        <EmpresaScopeFilter options={empresaScopeOptions} value={empresaScope} onChange={setEmpresaScope} />
 
         <div className="lg:min-w-[360px]">
           <label className="block text-xs font-medium text-zinc-400">Pagamento</label>

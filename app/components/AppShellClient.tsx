@@ -855,6 +855,23 @@ export default function AppShellClient({ children }: { children: React.ReactNode
 
               {te.error && <div className="text-xs text-red-400 max-w-[240px]">{te.error}</div>}
 
+              {effectiveEmpresa && (
+                <div className="flex items-center gap-2 text-xs text-zinc-300 whitespace-nowrap">
+                  <span className="text-zinc-500">Empresa:</span>
+                  <span className="font-medium text-zinc-100">
+                    {effectiveEmpresa.nome_fantasia ?? effectiveEmpresa.razao_social ?? effectiveEmpresa.id}
+                  </span>
+                  {empresas.length > 1 && (
+                    <Link
+                      href="/selecionar-empresa"
+                      className="px-2 py-1 rounded-md border border-zinc-700 hover:bg-zinc-800"
+                    >
+                      Trocar
+                    </Link>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col items-end gap-1">
                 {te.email && (
                   <div className="text-xs text-zinc-300 select-none whitespace-nowrap">
