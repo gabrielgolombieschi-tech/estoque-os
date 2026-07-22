@@ -115,6 +115,16 @@ function firstTextByLocalName(root: ParentNode, localNames: string[]): string | 
   return null;
 }
 
+function firstAttrByLocalName(root: ParentNode, localName: string, attrName: string): string | null {
+  const all = root.querySelectorAll("*");
+  for (const el of Array.from(all)) {
+    if (String(el.localName ?? "").toLowerCase() !== localName.toLowerCase()) continue;
+    const v = el.getAttribute(attrName);
+    if (v && v.trim()) return v.trim();
+  }
+  return null;
+}
+
 function firstTextByPath(root: ParentNode, localNamePath: string[]): string | null {
   // Best-effort: walk down by localName sequence.
   let current: ParentNode | null = root;
@@ -168,6 +178,14 @@ function parseIssRetidoFlag(value: string | null | undefined): string {
   return "0";
 }
 
+// Padrao nacional NFS-e (DPS/infDPS/valores/trib/tribMun/tpRetISSQN):
+// 1 = Nao retido; 2 = Retido pelo tomador; 3 = Retido pelo intermediario.
+// Note: domain is inverted relative to the ABRASF "IssRetido" flag above.
+function parseTpRetIssqnFlag(value: string | null | undefined): string {
+  const v = String(value ?? "").trim();
+  return v === "2" || v === "3" ? "1" : "0";
+}
+
 export function parseNfseXml(xmlText: string): ParsedNfse {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, "text/xml");
@@ -178,13 +196,16 @@ export function parseNfseXml(xmlText: string): ParsedNfse {
   }
 
   // Required-ish identifiers
-  const numero = firstTextByLocalName(doc, ["Numero", "NumeroNfse", "NumeroNota"]) ?? "";
+  // "nNFSe" e "emit/toma/DPS/infDPS/..." sao do layout nacional da NFS-e (ADN),
+  // usado desde que a emissao passou a ser feita pelo site do governo.
+  const numero = firstTextByLocalName(doc, ["Numero", "NumeroNfse", "NumeroNota", "nNFSe"]) ?? "";
   const serie = firstTextByLocalName(doc, ["Serie", "SerieRps", "SeriePrestacao"]) ?? "";
 
   // Prestador
   const prestadorCnpjRaw =
     firstTextByPath(doc, ["PrestadorServico", "IdentificacaoPrestador", "Cnpj"]) ??
     firstTextByPath(doc, ["Prestador", "Cnpj"]) ??
+    firstTextByPath(doc, ["emit", "CNPJ"]) ??
     firstTextByLocalName(doc, ["CnpjPrestador", "Cnpj"]) ??
     "";
 
@@ -193,44 +214,55 @@ export function parseNfseXml(xmlText: string): ParsedNfse {
     firstTextByPath(doc, ["TomadorServico", "IdentificacaoTomador", "CpfCnpj", "Cnpj"]) ??
     firstTextByPath(doc, ["Tomador", "IdentificacaoTomador", "CpfCnpj", "Cnpj"]) ??
     firstTextByPath(doc, ["TomadorServico", "IdentificacaoTomador", "Cnpj"]) ??
+    firstTextByPath(doc, ["toma", "CNPJ"]) ??
     firstTextByLocalName(doc, ["CnpjTomador"]) ??
     null;
 
   const tomadorCpfRaw =
     firstTextByPath(doc, ["TomadorServico", "IdentificacaoTomador", "CpfCnpj", "Cpf"]) ??
     firstTextByPath(doc, ["Tomador", "IdentificacaoTomador", "CpfCnpj", "Cpf"]) ??
+    firstTextByPath(doc, ["toma", "CPF"]) ??
     firstTextByLocalName(doc, ["CpfTomador"]) ??
     null;
 
   const tomadorDocumentoRaw = tomadorCnpjRaw ?? tomadorCpfRaw ?? "";
 
   const dataEmissao =
-    parseIsoDate(firstTextByLocalName(doc, ["DataEmissao"])) ??
-    parseIsoDate(firstTextByLocalName(doc, ["Competencia"])) ??
+    parseIsoDate(firstTextByLocalName(doc, ["DataEmissao", "dhEmi"])) ??
+    parseIsoDate(firstTextByLocalName(doc, ["Competencia", "dCompet"])) ??
     null;
 
-  const codigoVerificacao = firstTextByLocalName(doc, ["CodigoVerificacao", "CodigoValidacao"]) ?? null;
+  // Layout nacional nao tem "CodigoVerificacao"; usa a chave de acesso (Id do infNFSe).
+  const codigoVerificacao =
+    firstTextByLocalName(doc, ["CodigoVerificacao", "CodigoValidacao"]) ??
+    firstAttrByLocalName(doc, "infNFSe", "Id") ??
+    null;
 
-  const discriminacao = firstTextByLocalName(doc, ["Discriminacao", "Descricao"]) ?? null;
+  const discriminacao = firstTextByLocalName(doc, ["Discriminacao", "Descricao", "xDescServ"]) ?? null;
 
   const municipioCodigo =
     firstTextByPath(doc, ["OrgaoGerador", "CodigoMunicipio"]) ??
     firstTextByPath(doc, ["Servico", "CodigoMunicipio"]) ??
-    firstTextByLocalName(doc, ["CodigoMunicipio"]) ??
+    firstTextByLocalName(doc, ["CodigoMunicipio", "cLocPrestacao", "cLocIncid"]) ??
     null;
 
   // Valores (names vary a lot). Keep best-effort.
-  const valorServicosNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorServicos", "ValorServico"]));
+  const valorServicosNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorServicos", "ValorServico", "vServ"]));
   const valorDeducoesNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorDeducoes", "ValorDeducao"]));
   const valorInssNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorInss", "ValorINSS"]));
 
-  const valorIssNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorIss", "ValorISS"]));
+  const valorIssNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorIss", "ValorISS", "vISSQN"]));
   const valorIssRetidoNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorIssRetido", "ValorISSRetido"]));
-  const baseCalculoNum = parseDecimalLoose(firstTextByLocalName(doc, ["BaseCalculo", "BaseCalculoISS"]));
-  const aliquotaNum = parseDecimalLoose(firstTextByLocalName(doc, ["Aliquota", "AliquotaISS"]));
-  const valorLiquidoNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorLiquidoNfse", "ValorLiquido"]));
+  const baseCalculoNum = parseDecimalLoose(firstTextByLocalName(doc, ["BaseCalculo", "BaseCalculoISS", "vBC"]));
+  const aliquotaNum = parseDecimalLoose(firstTextByLocalName(doc, ["Aliquota", "AliquotaISS", "pAliqAplic"]));
+  const valorLiquidoNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorLiquidoNfse", "ValorLiquido", "vLiq"]));
 
-  const issRetidoFlag = parseIssRetidoFlag(firstTextByLocalName(doc, ["IssRetido", "ISSRetido"]));
+  // tpRetISSQN (layout nacional) tem dominio invertido em relacao a "IssRetido" (ABRASF).
+  const tpRetIssqnRaw = firstTextByLocalName(doc, ["tpRetISSQN"]);
+  const issRetidoFlag =
+    tpRetIssqnRaw != null
+      ? parseTpRetIssqnFlag(tpRetIssqnRaw)
+      : parseIssRetidoFlag(firstTextByLocalName(doc, ["IssRetido", "ISSRetido"]));
 
   const valorPisNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorPis", "ValorPIS"]));
   const valorCofinsNum = parseDecimalLoose(firstTextByLocalName(doc, ["ValorCofins", "ValorCOFINS"]));
@@ -272,33 +304,44 @@ export function parseNfseXml(xmlText: string): ParsedNfse {
       valor_csll: formatDecimalForRpc(valorCsllNum),
     },
     tomador: {
-      razao_social: firstTextByPath(doc, ["TomadorServico", "RazaoSocial"]) ?? firstTextByPath(doc, ["Tomador", "RazaoSocial"]) ?? null,
+      razao_social:
+        firstTextByPath(doc, ["toma", "xNome"]) ??
+        firstTextByPath(doc, ["TomadorServico", "RazaoSocial"]) ??
+        firstTextByPath(doc, ["Tomador", "RazaoSocial"]) ??
+        null,
       nome_fantasia: null,
       email: null,
       telefone: null,
       contato: {
-        email: firstTextByLocalName(doc, ["Email"]) ?? null,
-        telefone: firstTextByLocalName(doc, ["Telefone"]) ?? null,
+        // No layout nacional o "emit" tambem tem <email>/<fone>, entao a busca
+        // generica por qualquer <Email> pegaria o do prestador; preferir "toma".
+        email: firstTextByPath(doc, ["toma", "email"]) ?? firstTextByLocalName(doc, ["Email"]) ?? null,
+        telefone: firstTextByPath(doc, ["toma", "fone"]) ?? firstTextByLocalName(doc, ["Telefone"]) ?? null,
       },
       endereco: {
         logradouro:
+          firstTextByPath(doc, ["toma", "end", "xLgr"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "Endereco"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "Logradouro"]) ??
           firstTextByPath(doc, ["Tomador", "Endereco", "Logradouro"]) ??
           null,
         numero:
+          firstTextByPath(doc, ["toma", "end", "nro"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "Numero"]) ??
           firstTextByPath(doc, ["Tomador", "Endereco", "Numero"]) ??
           null,
         complemento:
+          firstTextByPath(doc, ["toma", "end", "xCpl"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "Complemento"]) ??
           firstTextByPath(doc, ["Tomador", "Endereco", "Complemento"]) ??
           null,
         bairro:
+          firstTextByPath(doc, ["toma", "end", "xBairro"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "Bairro"]) ??
           firstTextByPath(doc, ["Tomador", "Endereco", "Bairro"]) ??
           null,
         cidade:
+          firstTextByPath(doc, ["toma", "end", "endNac", "cMun"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "CodigoMunicipio"]) ??
           firstTextByPath(doc, ["Tomador", "Endereco", "CodigoMunicipio"]) ??
           null,
@@ -311,6 +354,7 @@ export function parseNfseXml(xmlText: string): ParsedNfse {
           firstTextByPath(doc, ["Tomador", "Endereco", "Uf"]) ??
           null,
         cep:
+          firstTextByPath(doc, ["toma", "end", "endNac", "CEP"]) ??
           firstTextByPath(doc, ["TomadorServico", "Endereco", "Cep"]) ??
           firstTextByPath(doc, ["Tomador", "Endereco", "Cep"]) ??
           null,
