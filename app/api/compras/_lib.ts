@@ -9,6 +9,7 @@ type SyncPedidoTotaisResult =
   | {
       data: {
         totalItens: number;
+        totalIpi: number;
         totalGeral: number;
       };
     };
@@ -158,20 +159,20 @@ export function resolvePedidoTransporte(opts: {
     ? normalizeNullableText(opts.transportadoraNome)
     : normalizeNullableText(opts.currentTransportadoraNome);
 
-  if (opts.hasTransportadoraField && transportadoraNome && transporteTipo !== "CIF") {
+  if (opts.hasTransportadoraField && transportadoraNome && transporteTipo !== "FOB") {
     return {
       transporteTipo,
       transportadoraNome,
-      error: "Selecione transporte CIF para informar a transportadora.",
+      error: "Selecione transporte FOB para informar a transportadora.",
     };
   }
 
-  if (transporteTipo !== "CIF") transportadoraNome = null;
-  if (transporteTipo === "CIF" && !transportadoraNome) {
+  if (transporteTipo !== "FOB") transportadoraNome = null;
+  if (transporteTipo === "FOB" && !transportadoraNome) {
     return {
       transporteTipo,
       transportadoraNome,
-      error: "Informe a transportadora quando o transporte for CIF.",
+      error: "Informe a transportadora quando o transporte for FOB.",
     };
   }
 
@@ -337,8 +338,16 @@ export async function resolveItemByCodigoOuId(
   return { error: `Codigo de item nao encontrado: ${codigo}`, status: 404 } as const;
 }
 
-export function calcPedidoItemValorTotal(quantidade: number, valorUnitario: number) {
-  return roundMoney((Number.isFinite(quantidade) ? quantidade : 0) * (Number.isFinite(valorUnitario) ? valorUnitario : 0));
+export function calcPedidoItemValorTotal(
+  quantidade: number,
+  valorUnitario: number,
+  valorIpiUnitario = 0,
+  destacarIpi = false
+) {
+  const unitarioComIpi =
+    (Number.isFinite(valorUnitario) ? valorUnitario : 0) +
+    (destacarIpi && Number.isFinite(valorIpiUnitario) ? valorIpiUnitario : 0);
+  return roundMoney((Number.isFinite(quantidade) ? quantidade : 0) * unitarioComIpi);
 }
 
 export async function syncPedidoTotais(
@@ -363,7 +372,7 @@ export async function syncPedidoTotais(
   const { data: itens, error: itensErr } = await supabase
     .schema("m")
     .from("pedido_compra_item")
-    .select("valor_total")
+    .select("valor_total,valor_ipi_total")
     .eq("pedido_compra_id", pedidoId)
     .eq("tenant_id", tenantId)
     .eq("empresa_id", empresaId)
@@ -372,6 +381,12 @@ export async function syncPedidoTotais(
 
   const totalItens = roundMoney(
     (Array.isArray(itens) ? itens : []).reduce((acc, row) => acc + Number((row as Record<string, unknown>).valor_total ?? 0), 0)
+  );
+  const totalIpi = roundMoney(
+    (Array.isArray(itens) ? itens : []).reduce(
+      (acc, row) => acc + Number((row as Record<string, unknown>).valor_ipi_total ?? 0),
+      0
+    )
   );
   const totalFrete = roundMoney(Number((pedido as Record<string, unknown>).total_frete ?? 0));
   const totalDesconto = roundMoney(Number((pedido as Record<string, unknown>).total_desconto ?? 0));
@@ -382,6 +397,7 @@ export async function syncPedidoTotais(
     .from("pedido_compra")
     .update({
       total_itens: totalItens,
+      total_ipi: totalIpi,
       total_geral: totalGeral,
       updated_by: null,
     })
@@ -391,5 +407,5 @@ export async function syncPedidoTotais(
     .is("deleted_at", null);
   if (updErr) return { error: updErr.message } as const;
 
-  return { data: { totalItens, totalGeral } } as const;
+  return { data: { totalItens, totalIpi, totalGeral } } as const;
 }

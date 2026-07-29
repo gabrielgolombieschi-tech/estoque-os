@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
@@ -19,7 +19,9 @@ type Pedido = {
   transportadora_nome?: string | null;
   created_at?: string | null;
   total_geral?: number | null;
+  total_ipi?: number | null;
   observacoes?: string | null;
+  destacar_ipi?: boolean | null;
 };
 
 type PedidoItem = {
@@ -29,6 +31,8 @@ type PedidoItem = {
   unidade: string;
   quantidade: number;
   valor_unitario: number;
+  valor_ipi_unitario?: number | null;
+  valor_ipi_total?: number | null;
   valor_total: number;
   origem_resumo?: string | null;
 };
@@ -117,10 +121,11 @@ export default function ComprasPedidoImprimirPage() {
     return () => clearTimeout(t);
   }, [autoPrint, data, err, loading]);
 
-  const totalItens = useMemo(() => {
-    if (!data?.itens?.length) return 0;
-    return data.itens.reduce((acc, it) => acc + Number(it.valor_total ?? 0), 0);
-  }, [data?.itens]);
+  const totalItens =
+    data?.itens.reduce((acc, it) => acc + Number(it.valor_total ?? 0), 0) ?? 0;
+  const totalIpi =
+    data?.itens.reduce((acc, it) => acc + Number(it.valor_ipi_total ?? 0), 0) ?? 0;
+  const destacarIpi = Boolean(data?.pedido.destacar_ipi);
 
   return (
     <div className="min-h-screen bg-white text-zinc-900">
@@ -204,7 +209,7 @@ export default function ComprasPedidoImprimirPage() {
               <div>
                 <span className="text-zinc-600">Transportadora:</span>{" "}
                 <strong>
-                  {String(data.pedido.transporte_tipo ?? "").trim().toUpperCase() === "CIF"
+                  {String(data.pedido.transporte_tipo ?? "").trim().toUpperCase() === "FOB"
                     ? String(data.pedido.transportadora_nome ?? "").trim() || "-"
                     : "-"}
                 </strong>
@@ -226,6 +231,9 @@ export default function ComprasPedidoImprimirPage() {
                     <th className="border border-zinc-300 px-2 py-1 text-center">Unid</th>
                     <th className="border border-zinc-300 px-2 py-1 text-right">Qtd</th>
                     <th className="border border-zinc-300 px-2 py-1 text-right">Vlr Unit</th>
+                    {destacarIpi ? (
+                      <th className="border border-amber-500 bg-amber-100 px-2 py-1 text-right">IPI</th>
+                    ) : null}
                     <th className="border border-zinc-300 px-2 py-1 text-right">Total</th>
                   </tr>
                 </thead>
@@ -238,12 +246,17 @@ export default function ComprasPedidoImprimirPage() {
                       <td className="border border-zinc-300 px-2 py-1 text-center">{it.unidade}</td>
                       <td className="border border-zinc-300 px-2 py-1 text-right">{Number(it.quantidade ?? 0).toLocaleString("pt-BR")}</td>
                       <td className="border border-zinc-300 px-2 py-1 text-right">{fmtMoney(Number(it.valor_unitario ?? 0))}</td>
+                      {destacarIpi ? (
+                        <td className="border border-amber-500 bg-amber-50 px-2 py-1 text-right font-semibold">
+                          {fmtMoney(Number(it.valor_ipi_unitario ?? 0))}
+                        </td>
+                      ) : null}
                       <td className="border border-zinc-300 px-2 py-1 text-right">{fmtMoney(Number(it.valor_total ?? 0))}</td>
                     </tr>
                   ))}
                   {!data.itens.length ? (
                     <tr>
-                      <td className="border border-zinc-300 px-2 py-2 text-zinc-500" colSpan={7}>
+                      <td className="border border-zinc-300 px-2 py-2 text-zinc-500" colSpan={destacarIpi ? 8 : 7}>
                         Nenhum item no pedido.
                       </td>
                     </tr>
@@ -252,7 +265,13 @@ export default function ComprasPedidoImprimirPage() {
               </table>
             </div>
 
-            <div className="mt-3 text-right text-sm">
+            {destacarIpi ? (
+              <div className="mt-3 text-right text-sm text-amber-900">
+                Total de IPI destacado:{" "}
+                <strong>{fmtMoney(Number(data.pedido.total_ipi ?? totalIpi))}</strong>
+              </div>
+            ) : null}
+            <div className={destacarIpi ? "mt-1 text-right text-sm" : "mt-3 text-right text-sm"}>
               Total de itens: <strong>{fmtMoney(totalItens)}</strong>
             </div>
           </>

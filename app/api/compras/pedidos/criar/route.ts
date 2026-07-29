@@ -93,7 +93,9 @@ export async function POST(req: NextRequest) {
       transporte_tipo: transporteResult.transporteTipo,
       transportadora_nome: transporteResult.transportadoraNome,
     })
-    .select("id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome,created_at,total_geral")
+    .select(
+      "id,codigo,status,fornecedor_id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome,observacoes,destacar_ipi,total_ipi,total_itens,created_at,total_geral"
+    )
     .single();
 
   if (error) return jsonError(400, error.message);

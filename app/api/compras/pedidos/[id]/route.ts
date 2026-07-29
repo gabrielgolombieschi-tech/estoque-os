@@ -380,9 +380,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const hasTransportadoraField =
     Object.prototype.hasOwnProperty.call(body, "transportadoraNome") ||
     Object.prototype.hasOwnProperty.call(body, "transportadora_nome");
+  const hasObservacoesField = Object.prototype.hasOwnProperty.call(body, "observacoes");
+  const hasDestacarIpiField =
+    Object.prototype.hasOwnProperty.call(body, "destacarIpi") ||
+    Object.prototype.hasOwnProperty.call(body, "destacar_ipi");
+  const destacarIpiValue = body.destacarIpi ?? body.destacar_ipi;
 
-  if (!hasSolicitanteField && !hasPrevisaoEntregaField && !hasCondicaoPagamentoField && !hasTransporteField && !hasTransportadoraField) {
+  if (
+    !hasSolicitanteField &&
+    !hasPrevisaoEntregaField &&
+    !hasCondicaoPagamentoField &&
+    !hasTransporteField &&
+    !hasTransportadoraField &&
+    !hasObservacoesField &&
+    !hasDestacarIpiField
+  ) {
     return jsonError(400, "Nenhum campo informado para atualizacao.");
+  }
+  if (hasDestacarIpiField && typeof destacarIpiValue !== "boolean") {
+    return jsonError(400, "Destacar IPI deve ser verdadeiro ou falso.");
   }
 
   const { data: pedido } = await supabase
@@ -434,6 +450,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  if (hasObservacoesField) {
+    patch.observacoes = String(body.observacoes ?? "").trim() || null;
+  }
+
   if (hasTransporteField || hasTransportadoraField) {
     const transporteResult = resolvePedidoTransporte({
       hasTransporteField,
@@ -448,7 +468,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     patch.transportadora_nome = transporteResult.transportadoraNome;
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .schema("m")
     .from("pedido_compra")
     .update(patch)
@@ -456,9 +476,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
     .is("deleted_at", null)
-    .select("id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome")
+    .select("id")
     .single();
   if (error) return jsonError(400, error.message);
+
+  if (hasDestacarIpiField) {
+    const { error: destacarIpiErr } = await supabase.schema("m").rpc("fn_pedido_compra_definir_destacar_ipi", {
+      p_tenant_id: ctx.tenantId,
+      p_empresa_id: ctx.empresaId,
+      p_pedido_id: id,
+      p_destacar: destacarIpiValue as boolean,
+    });
+    if (destacarIpiErr) return jsonError(400, destacarIpiErr.message);
+  }
+
+  const { data, error: finalErr } = await supabase
+    .schema("m")
+    .from("pedido_compra")
+    .select(
+      "id,solicitante_usuario_id,previsao_entrega_date,condicao_pagamento_id,transporte_tipo,transportadora_nome,observacoes,destacar_ipi,total_ipi,total_itens,total_geral"
+    )
+    .eq("id", id)
+    .eq("tenant_id", ctx.tenantId)
+    .eq("empresa_id", ctx.empresaId)
+    .is("deleted_at", null)
+    .single();
+  if (finalErr) return jsonError(400, finalErr.message);
 
   return Response.json({ data });
 }

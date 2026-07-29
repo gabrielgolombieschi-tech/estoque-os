@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: pedido, error: pedidoErr } = await supabase
     .schema("m")
     .from("pedido_compra")
-    .select("id,status,fornecedor_id")
+    .select("id,status,fornecedor_id,destacar_ipi")
     .eq("id", id)
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
@@ -47,6 +47,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const unidade = String(body.unidade ?? "UN").trim() || "UN";
   const quantidade = asNum(body.quantidade, 0);
   const valorUnitario = asNum(body.valor_unitario ?? body.valorUnitario, 0);
+  const hasValorIpiUnitario =
+    Object.prototype.hasOwnProperty.call(body, "valor_ipi_unitario") ||
+    Object.prototype.hasOwnProperty.call(body, "valorIpiUnitario");
+  const valorIpiUnitario = hasValorIpiUnitario
+    ? asNum(body.valor_ipi_unitario ?? body.valorIpiUnitario, 0)
+    : null;
   const osIdRaw = body.origem_os_id ?? body.origemOsId ?? null;
   const osNumeroRaw = String(body.origem_os_numero ?? body.origemOsNumero ?? "").trim();
 
@@ -81,7 +87,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!itemId && !itemNome) return jsonError(400, "Informe item_codigo existente, item_id ou item_nome.");
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
-  const valorTotal = calcPedidoItemValorTotal(quantidade, valorUnitario);
+  if (valorIpiUnitario != null && valorIpiUnitario < 0) {
+    return jsonError(400, "Valor unitario do IPI invalido.");
+  }
+  const destacarIpi = Boolean((pedido as Record<string, unknown>).destacar_ipi);
+  const valorTotal = calcPedidoItemValorTotal(
+    quantidade,
+    valorUnitario,
+    valorIpiUnitario ?? 0,
+    destacarIpi
+  );
 
   const status = String((pedido as { status?: string }).status ?? "").trim().toUpperCase();
   if (["RECEBIDO", "CANCELADO"].includes(status)) {
@@ -128,7 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!origemOsId) return jsonError(404, "OS nao encontrada para vinculo.");
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     tenant_id: ctx.tenantId,
     empresa_id: ctx.empresaId,
     pedido_compra_id: id,
@@ -140,6 +155,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     valor_total: valorTotal,
     origem_os_id: origemOsId,
   };
+  if (hasValorIpiUnitario) {
+    payload.valor_ipi_unitario = valorIpiUnitario ?? 0;
+  }
 
   const { data, error } = await supabase
     .schema("m")

@@ -67,6 +67,10 @@ type Pedido = {
   condicao_pagamento_nome?: string | null;
   transporte_tipo?: "CIF" | "FOB" | null;
   transportadora_nome?: string | null;
+  observacoes?: string | null;
+  destacar_ipi?: boolean | null;
+  total_ipi?: number | null;
+  total_itens?: number | null;
   created_at: string;
   total_geral: number;
 };
@@ -83,6 +87,9 @@ type PedidoItem = {
   quantidade: number;
   quantidade_recebida: number;
   valor_unitario: number;
+  aliquota_ipi?: number | null;
+  valor_ipi_unitario?: number | null;
+  valor_ipi_total?: number | null;
   valor_total: number;
 };
 
@@ -109,7 +116,18 @@ type LookupItemRow = {
   fornecedor: string | null;
   ultima_entrada: string | null;
   preco_unitario: number;
+  aliquota_ipi?: number | null;
+  valor_ipi_unitario?: number | null;
   estoque_atual: number | null;
+};
+
+type PedidoItemDraft = {
+  item_nome: string;
+  unidade: string;
+  quantidade: string;
+  valor_unitario: string;
+  valor_ipi_unitario: string;
+  os_numero: string;
 };
 
 type OsLookupRow = {
@@ -364,6 +382,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [manualUnidade, setManualUnidade] = useState("UN");
   const [manualQtd, setManualQtd] = useState("1");
   const [manualValor, setManualValor] = useState("0");
+  const [manualValorIpi, setManualValorIpi] = useState("");
   const [manualOsNumero, setManualOsNumero] = useState("");
   const [manualCodigoLookupBusy, setManualCodigoLookupBusy] = useState(false);
   const [showLookup, setShowLookup] = useState(false);
@@ -382,7 +401,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [osLookupTarget, setOsLookupTarget] = useState<OsLookupTarget>({ kind: "manual" });
   const [pedidoEditMode, setPedidoEditMode] = useState(false);
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
-  const [itemDrafts, setItemDrafts] = useState<Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }>>({});
+  const [itemDrafts, setItemDrafts] = useState<Record<string, PedidoItemDraft>>({});
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nome: string } | null>(null);
   const [recebimentoTarget, setRecebimentoTarget] = useState<{ id: string; nome: string; saldo: number } | null>(null);
   const [recebimentoDate, setRecebimentoDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -400,6 +419,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [pedidoCondicaoPagamentoId, setPedidoCondicaoPagamentoId] = useState("");
   const [pedidoTransporteTipo, setPedidoTransporteTipo] = useState<PedidoTransporteTipo>("");
   const [pedidoTransportadoraNome, setPedidoTransportadoraNome] = useState("");
+  const [pedidoObservacoes, setPedidoObservacoes] = useState("");
   const manualQtdInputRef = useRef<HTMLInputElement | null>(null);
 
   const [busy, setBusy] = useState(false);
@@ -583,7 +603,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     const json = await authedFetch(`/api/compras/pedidos/${manualPedidoId}?${ctxQuery}&_ts=${Date.now()}`);
     const itens = ((json.data as { itens?: PedidoItem[] })?.itens ?? []) as PedidoItem[];
     setPedidoItens(itens);
-    const nextDrafts: Record<string, { item_nome: string; unidade: string; quantidade: string; valor_unitario: string; os_numero: string }> = {};
+    const nextDrafts: Record<string, PedidoItemDraft> = {};
     let lastOsNumero = "";
     for (const it of itens) {
       const osNumero = extractOsNumeroFromItem(it);
@@ -592,6 +612,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
         unidade: String(it.unidade ?? "UN"),
         quantidade: String(it.quantidade ?? 0),
         valor_unitario: formatEditableNumber(it.valor_unitario, 4),
+        valor_ipi_unitario: formatEditableNumber(it.valor_ipi_unitario, 4),
         os_numero: osNumero,
       };
       if (osNumero) lastOsNumero = osNumero;
@@ -631,12 +652,14 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       String(selectedPedido.previsao_entrega_date ?? "") !== pedidoPrevisaoEntregaDate ||
       String(selectedPedido.condicao_pagamento_id ?? "") !== pedidoCondicaoPagamentoId ||
       normalizePedidoTransporteTipo(selectedPedido.transporte_tipo) !== pedidoTransporteTipo ||
-      String(selectedPedido.transportadora_nome ?? "").trim() !== pedidoTransportadoraNome.trim()
+      String(selectedPedido.transportadora_nome ?? "").trim() !== pedidoTransportadoraNome.trim() ||
+      String(selectedPedido.observacoes ?? "").trim() !== pedidoObservacoes.trim()
     );
   }, [
     pedidoCondicaoPagamentoId,
     pedidoPrevisaoEntregaDate,
     pedidoSolicitanteId,
+    pedidoObservacoes,
     pedidoTransportadoraNome,
     pedidoTransporteTipo,
     selectedPedido,
@@ -646,19 +669,19 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       pedidoPrevisaoEntregaDate.trim() &&
       pedidoCondicaoPagamentoId.trim() &&
       pedidoTransporteTipo &&
-      (pedidoTransporteTipo !== "CIF" || pedidoTransportadoraNome.trim())
+      (pedidoTransporteTipo !== "FOB" || pedidoTransportadoraNome.trim())
   );
   const bloqueioFluxoPedido = useMemo(() => {
     if (!selectedPedido) return null;
     if (!pedidoCabecalhoCompleto) {
-      return "Preencha solicitante, data de entrega, condicao de pagamento e transporte. Quando o transporte for CIF, informe tambem a transportadora.";
+      return "Preencha solicitante, data de entrega, condicao de pagamento e transporte. Quando o transporte for FOB, informe tambem a transportadora.";
     }
     if (pedidoCabecalhoDirty) {
       return "Salve os dados do pedido antes de continuar o fluxo.";
     }
     return null;
   }, [pedidoCabecalhoCompleto, pedidoCabecalhoDirty, selectedPedido]);
-  const transporteCarrierVisible = pedidoTransporteTipo === "CIF";
+  const transporteCarrierVisible = pedidoTransporteTipo === "FOB";
   const transporteTipoLabel = useMemo(() => {
     if (!selectedPedido) return "-";
     const tipo = normalizePedidoTransporteTipo(selectedPedido.transporte_tipo);
@@ -667,7 +690,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const transportadoraNomeLabel = useMemo(() => {
     if (!selectedPedido) return "-";
     const tipo = normalizePedidoTransporteTipo(selectedPedido.transporte_tipo);
-    if (tipo !== "CIF") return "-";
+    if (tipo !== "FOB") return "-";
     return String(selectedPedido.transportadora_nome ?? "").trim() || "-";
   }, [selectedPedido]);
   const sortedLookupRows = useMemo(
@@ -789,6 +812,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
             os_numero: numero,
             quantidade: String(item.quantidade),
             valor_unitario: formatEditableNumber(item.valor_unitario, 4),
+            valor_ipi_unitario: formatEditableNumber(item.valor_ipi_unitario, 4),
           },
         };
       });
@@ -841,6 +865,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       setPedidoCondicaoPagamentoId("");
       setPedidoTransporteTipo("");
       setPedidoTransportadoraNome("");
+      setPedidoObservacoes("");
       return;
     }
     setPedidoSolicitanteId(String(selectedPedido.solicitante_usuario_id ?? defaultSolicitanteId ?? ""));
@@ -848,11 +873,13 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     setPedidoCondicaoPagamentoId(String(selectedPedido.condicao_pagamento_id ?? ""));
     setPedidoTransporteTipo(normalizePedidoTransporteTipo(selectedPedido.transporte_tipo));
     setPedidoTransportadoraNome(String(selectedPedido.transportadora_nome ?? ""));
+    setPedidoObservacoes(String(selectedPedido.observacoes ?? ""));
   }, [
     defaultSolicitanteId,
     selectedPedido,
     selectedPedido?.condicao_pagamento_id,
     selectedPedido?.id,
+    selectedPedido?.observacoes,
     selectedPedido?.previsao_entrega_date,
     selectedPedido?.solicitante_usuario_id,
     selectedPedido?.transportadora_nome,
@@ -1293,6 +1320,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     const nome = manualNome.trim();
     const qtd = parseNum(manualQtd, 0);
     const vlr = parseNum(manualValor, 0);
+    const informarIpi = manualValorIpi.trim() !== "";
+    const vlrIpi = parseNum(manualValorIpi, 0);
     if (!codigo && !nome) {
       setErr("Informe o codigo existente ou a descricao do item.");
       return;
@@ -1303,6 +1332,10 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     }
     if (vlr < 0) {
       setErr("Valor unitario invalido.");
+      return;
+    }
+    if (vlrIpi < 0) {
+      setErr("Valor unitario do IPI invalido.");
       return;
     }
 
@@ -1320,6 +1353,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
           unidade: manualUnidade || "UN",
           quantidade: qtd,
           valor_unitario: vlr,
+          ...(selectedPedido?.destacar_ipi && informarIpi ? { valor_ipi_unitario: vlrIpi } : {}),
           origem_os_numero: manualOsNumero.trim() || null,
         }),
       });
@@ -1329,6 +1363,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       setManualUnidade("UN");
       setManualQtd("1");
       setManualValor("0");
+      setManualValorIpi("");
       await loadPedidos();
       await loadPedidoItens();
     } catch (e: unknown) {
@@ -1336,7 +1371,21 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     } finally {
       setBusy(false);
     }
-  }, [empresaId, loadPedidoItens, loadPedidos, manualCodigo, manualNome, manualOsNumero, manualPedidoId, manualQtd, manualUnidade, manualValor, tenantId]);
+  }, [
+    empresaId,
+    loadPedidoItens,
+    loadPedidos,
+    manualCodigo,
+    manualNome,
+    manualOsNumero,
+    manualPedidoId,
+    manualQtd,
+    manualUnidade,
+    manualValor,
+    manualValorIpi,
+    selectedPedido,
+    tenantId,
+  ]);
 
   async function buscarCodigoExistente(codigoParam?: string) {
     const codigo = String(codigoParam ?? manualCodigo).trim();
@@ -1362,11 +1411,15 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       const nome = String(row.item_nome ?? "").trim();
       const unidade = String(row.unidade ?? "").trim();
       const valor = Number(row.valor_unitario_sugerido ?? row.valor_unitario_cadastro ?? 0);
+      const valorIpi = Number(row.valor_ipi_unitario_sugerido ?? 0);
 
       if (nome) setManualNome(nome);
       if (unidade) setManualUnidade(unidade);
       if (Number.isFinite(valor) && valor >= 0) {
         setManualValor(formatEditableNumber(valor, 4));
+      }
+      if (Number.isFinite(valorIpi) && valorIpi >= 0) {
+        setManualValorIpi(formatEditableNumber(valorIpi, 4));
       }
       setOk(nome ? `Item localizado: ${nome}` : "Item localizado.");
     } catch (e: unknown) {
@@ -1385,9 +1438,11 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       const isManual = row ? row.item_id == null : true;
       const qtd = parseNum(draft.quantidade, 0);
       const vlr = parseNum(draft.valor_unitario, 0);
+      const vlrIpi = parseNum(draft.valor_ipi_unitario, 0);
       if (isManual && !draft.item_nome.trim()) return setErr("Descricao do item manual obrigatoria.");
       if (qtd <= 0) return setErr("Quantidade invalida.");
       if (vlr < 0) return setErr("Valor unitario invalido.");
+      if (vlrIpi < 0) return setErr("Valor unitario do IPI invalido.");
 
       setBusy(true);
       setErr(null);
@@ -1402,6 +1457,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
             unidade: draft.unidade || "UN",
             quantidade: qtd,
             valor_unitario: vlr,
+            ...(selectedPedido?.destacar_ipi ? { valor_ipi_unitario: vlrIpi } : {}),
             origem_os_numero: draft.os_numero?.trim() || null,
           }),
         });
@@ -1414,7 +1470,16 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
         setBusy(false);
       }
     },
-    [empresaId, itemDrafts, loadPedidoItens, loadPedidos, manualPedidoId, pedidoItens, tenantId]
+    [
+      empresaId,
+      itemDrafts,
+      loadPedidoItens,
+      loadPedidos,
+      manualPedidoId,
+      pedidoItens,
+      selectedPedido,
+      tenantId,
+    ]
   );
 
   const excluirItemPedido = useCallback(
@@ -1479,6 +1544,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
       setManualUnidade("UN");
       setManualQtd("1");
       setManualValor("0");
+      setManualValorIpi("");
       setManualOsNumero("");
       setAvulsoPrevisaoEntregaDate("");
       setAvulsoCondicaoPagamentoId("");
@@ -1519,7 +1585,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
           previsaoEntregaDate: pedidoPrevisaoEntregaDate || null,
           condicaoPagamentoId: pedidoCondicaoPagamentoId || null,
           transporteTipo: pedidoTransporteTipo || null,
-          transportadoraNome: pedidoTransporteTipo === "CIF" ? pedidoTransportadoraNome.trim() || null : null,
+          transportadoraNome: pedidoTransporteTipo === "FOB" ? pedidoTransportadoraNome.trim() || null : null,
+          observacoes: pedidoObservacoes.trim() || null,
         }),
       });
       setOk("Dados do pedido atualizados.");
@@ -1537,10 +1604,37 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     pedidoCondicaoPagamentoId,
     pedidoPrevisaoEntregaDate,
     pedidoSolicitanteId,
+    pedidoObservacoes,
     pedidoTransportadoraNome,
     pedidoTransporteTipo,
     tenantId,
   ]);
+
+  const definirDestaqueIpi = useCallback(
+    async (destacarIpi: boolean) => {
+      if (!manualPedidoId || !canWrite) return;
+      setBusy(true);
+      setErr(null);
+      setOk(null);
+      try {
+        await authedFetch(`/api/compras/pedidos/${manualPedidoId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            empresa_id: empresaId,
+            destacarIpi,
+          }),
+        });
+        setOk(destacarIpi ? "IPI destacado no pedido." : "Destaque de IPI removido.");
+        await Promise.all([loadPedidos(), loadPedidoItens()]);
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : "Erro ao alterar destaque de IPI.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [canWrite, empresaId, loadPedidoItens, loadPedidos, manualPedidoId, tenantId]
+  );
 
   const imprimirPedido = useCallback((pedidoId: string) => {
     const id = String(pedidoId ?? "").trim();
@@ -2086,7 +2180,14 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                     <div className="text-xs text-zinc-500">
                       {String(selectedPedido.fornecedor_nome ?? "").trim() || "SEM FORNECEDOR"}
                     </div>
-                    <div className="ml-auto text-sm font-medium">{fmtMoney(Number(selectedPedido.total_geral ?? 0))}</div>
+                    <div className="ml-auto text-right">
+                      {selectedPedido.destacar_ipi ? (
+                        <div className="text-xs font-medium text-amber-300">
+                          IPI: {fmtMoney(Number(selectedPedido.total_ipi ?? 0))}
+                        </div>
+                      ) : null}
+                      <div className="text-sm font-medium">{fmtMoney(Number(selectedPedido.total_geral ?? 0))}</div>
+                    </div>
                   </div>
 
                   {readOnly ? (
@@ -2112,6 +2213,12 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                       <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2">
                         <div className="text-[11px] uppercase tracking-wide text-zinc-500">Transportadora</div>
                         <div className="text-sm text-zinc-200">{transportadoraNomeLabel}</div>
+                      </div>
+                      <div className="rounded border border-zinc-800 bg-zinc-950/50 px-3 py-2 md:col-span-5">
+                        <div className="text-[11px] uppercase tracking-wide text-zinc-500">Observações</div>
+                        <div className="text-sm text-zinc-200 whitespace-pre-wrap">
+                          {String(selectedPedido.observacoes ?? "").trim() || "-"}
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -2172,7 +2279,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                             onChange={(e) => {
                               const next = normalizePedidoTransporteTipo(e.target.value);
                               setPedidoTransporteTipo(next);
-                              if (next !== "CIF") setPedidoTransportadoraNome("");
+                              if (next !== "FOB") setPedidoTransportadoraNome("");
                             }}
                             disabled={busy || !canWrite}
                           >
@@ -2195,6 +2302,17 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                             />
                           </label>
                         ) : null}
+
+                        <label className="space-y-1 text-sm md:col-span-4">
+                          <div className="text-zinc-300">Observações</div>
+                          <textarea
+                            className="w-full min-h-20 px-2 py-2 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                            value={pedidoObservacoes}
+                            onChange={(e) => setPedidoObservacoes(e.target.value)}
+                            disabled={busy || !canWrite}
+                            placeholder="Ex.: orçamento nº 12345"
+                          />
+                        </label>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
@@ -2236,6 +2354,15 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                       </>
                     )}
                     <button className="px-2 py-1 rounded border border-zinc-800" onClick={() => imprimirPedido(selectedPedido.id)}>Imprimir PDF</button>
+                    <label className="inline-flex items-center gap-2 px-2 py-1 rounded border border-zinc-800 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedPedido.destacar_ipi)}
+                        disabled={busy || !canWrite}
+                        onChange={(e) => void definirDestaqueIpi(e.target.checked)}
+                      />
+                      Destacar IPI
+                    </label>
                   </div>
                   {!readOnly && bloqueioFluxoPedido ? (
                     <div className="text-xs text-amber-300">{bloqueioFluxoPedido}</div>
@@ -2244,7 +2371,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                   {!readOnly && (
                     <div className="rounded border border-zinc-800 p-3 space-y-2">
                     <div className="text-sm font-medium">Adicionar item no pedido</div>
-                    <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+                    <div className={`grid grid-cols-1 gap-2 ${selectedPedido.destacar_ipi ? "md:grid-cols-8" : "md:grid-cols-7"}`}>
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">Codigo existente</div>
                         <input
@@ -2252,7 +2379,10 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                           placeholder="Codigo existente"
                           value={manualCodigo}
                           disabled={!canEditPedidoItems || manualCodigoLookupBusy}
-                          onChange={(e) => setManualCodigo(e.target.value)}
+                          onChange={(e) => {
+                            setManualCodigo(e.target.value);
+                            setManualValorIpi("");
+                          }}
                           onKeyDown={(e) => {
                             if (e.key !== "Enter") return;
                             e.preventDefault();
@@ -2299,9 +2429,21 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                         />
                       </label>
                       <label className="space-y-1">
-                        <div className="text-[11px] text-zinc-400">Vlr unit</div>
+                        <div className="text-[11px] text-zinc-400">Vlr unit (sem IPI)</div>
                         <input className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50" placeholder="0,00" value={manualValor} disabled={!canEditPedidoItems} onChange={(e) => setManualValor(e.target.value)} />
                       </label>
+                      {selectedPedido.destacar_ipi ? (
+                        <label className="space-y-1">
+                          <div className="text-[11px] font-medium text-amber-300">IPI unit.</div>
+                          <input
+                            className="w-full px-2 py-2 rounded border border-amber-700/70 bg-zinc-950 disabled:opacity-50"
+                            placeholder="0,00"
+                            value={manualValorIpi}
+                            disabled={!canEditPedidoItems}
+                            onChange={(e) => setManualValorIpi(e.target.value)}
+                          />
+                        </label>
+                      ) : null}
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">OS (numero/id)</div>
                         <input
@@ -2620,6 +2762,9 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                             <th>NF</th>
                             <th>Status item</th>
                             <th>Vlr unit</th>
+                            {selectedPedido.destacar_ipi ? (
+                              <th className="text-amber-300">IPI</th>
+                            ) : null}
                             <th className="text-center min-w-[130px] px-3">Total</th>
                             <th className="text-center min-w-[170px] px-3">Acoes</th>
                           </tr>
@@ -2634,6 +2779,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                               os_numero: extractOsNumeroFromItem(it),
                               quantidade: String(it.quantidade),
                               valor_unitario: formatEditableNumber(it.valor_unitario, 4),
+                              valor_ipi_unitario: formatEditableNumber(it.valor_ipi_unitario, 4),
                             };
                             return (
                               <tr key={it.id} className="border-t border-zinc-900">
@@ -2714,6 +2860,21 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                                     }
                                   />
                                 </td>
+                                {selectedPedido.destacar_ipi ? (
+                                  <td>
+                                    <input
+                                      className="px-2 py-1 rounded border border-amber-700/70 bg-zinc-950 w-28 text-amber-200"
+                                      value={draft.valor_ipi_unitario}
+                                      disabled={!canEditPedidoItems}
+                                      onChange={(e) =>
+                                        setItemDrafts((prev) => ({
+                                          ...prev,
+                                          [it.id]: { ...draft, valor_ipi_unitario: e.target.value },
+                                        }))
+                                      }
+                                    />
+                                  </td>
+                                ) : null}
                                 <td className="text-center tabular-nums whitespace-nowrap px-3">{fmtMoney(Number(it.valor_total ?? 0))}</td>
                                 <td className="px-3">
                                   {canEditPedidoItems ? (
@@ -2747,7 +2908,9 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                           })}
                           {!pedidoItens.length && (
                             <tr>
-                              <td className="py-3 text-zinc-500" colSpan={14}>Nenhum item no pedido selecionado.</td>
+                              <td className="py-3 text-zinc-500" colSpan={selectedPedido.destacar_ipi ? 15 : 14}>
+                                Nenhum item no pedido selecionado.
+                              </td>
                             </tr>
                           )}
                         </tbody>

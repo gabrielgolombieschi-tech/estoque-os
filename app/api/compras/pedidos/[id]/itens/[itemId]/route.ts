@@ -25,14 +25,14 @@ async function loadPedido(
   const { data, error } = await supabase
     .schema("m")
     .from("pedido_compra")
-    .select("id,status")
+    .select("id,status,destacar_ipi")
     .eq("id", pedidoId)
     .eq("tenant_id", tenantId)
     .eq("empresa_id", empresaId)
     .is("deleted_at", null)
     .single();
   if (error || !data) return { error: "Pedido nao encontrado." } as const;
-  return { data: data as { id: string; status: string } } as const;
+  return { data: data as { id: string; status: string; destacar_ipi?: boolean | null } } as const;
 }
 
 export async function PATCH(
@@ -61,7 +61,7 @@ export async function PATCH(
   const { data: item, error: itemErr } = await supabase
     .schema("m")
     .from("pedido_compra_item")
-    .select("id,item_id,quantidade_recebida")
+    .select("id,item_id,quantidade_recebida,valor_ipi_unitario")
     .eq("id", itemId)
     .eq("pedido_compra_id", pedidoId)
     .eq("tenant_id", ctx.tenantId)
@@ -75,15 +75,27 @@ export async function PATCH(
   const unidade = String(body.unidade ?? "UN").trim() || "UN";
   const quantidade = asNum(body.quantidade, 0);
   const valorUnitario = asNum(body.valor_unitario ?? body.valorUnitario, 0);
+  const hasValorIpiUnitario =
+    Object.prototype.hasOwnProperty.call(body, "valor_ipi_unitario") ||
+    Object.prototype.hasOwnProperty.call(body, "valorIpiUnitario");
+  const valorIpiUnitario = hasValorIpiUnitario
+    ? asNum(body.valor_ipi_unitario ?? body.valorIpiUnitario, 0)
+    : asNum((item as Record<string, unknown>).valor_ipi_unitario, 0);
   const osIdRaw = body.origem_os_id ?? body.origemOsId ?? null;
   const osNumeroRaw = String(body.origem_os_numero ?? body.origemOsNumero ?? "").trim();
 
   if (quantidade <= 0) return jsonError(400, "Quantidade invalida.");
   if (valorUnitario < 0) return jsonError(400, "Valor unitario invalido.");
+  if (valorIpiUnitario < 0) return jsonError(400, "Valor unitario do IPI invalido.");
   if (quantidade < asNum((item as { quantidade_recebida?: unknown }).quantidade_recebida, 0)) {
     return jsonError(400, "Quantidade nao pode ser menor que a quantidade ja recebida.");
   }
-  const valorTotal = calcPedidoItemValorTotal(quantidade, valorUnitario);
+  const valorTotal = calcPedidoItemValorTotal(
+    quantidade,
+    valorUnitario,
+    valorIpiUnitario,
+    Boolean(pedido.data.destacar_ipi)
+  );
 
   let origemOsId: number | null = null;
   if (osIdRaw != null && String(osIdRaw).trim() !== "") {
@@ -132,6 +144,9 @@ export async function PATCH(
     updated_by: null,
     origem_os_id: origemOsId,
   };
+  if (hasValorIpiUnitario) {
+    payload.valor_ipi_unitario = valorIpiUnitario;
+  }
 
   if (!isLinkedItem) {
     if (!itemNome) return jsonError(400, "Descricao do item obrigatoria.");
