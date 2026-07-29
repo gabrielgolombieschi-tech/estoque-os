@@ -55,6 +55,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 const OPEN_PEDIDO_STATUSES = new Set(["ENVIADO", "PARCIAL_RECEBIDO"]);
 const MOTIVO_OS_CODES = new Set(["OS", "OS_MATERIAL_DIRETO"]);
 const MOTIVO_ESTOQUE_CODES = new Set(["ESTOQUE", "EST_MATERIA_PRIMA"]);
+const MOTIVO_CONSUMO_CODES = new Set(["CONSUMO", "CONSUMO_GERAL"]);
 
 function parsePedidoCompraRefs(...values: unknown[]): string[] {
   const rawValues: string[] = [];
@@ -3011,10 +3012,15 @@ export async function POST(req: NextRequest) {
     const pedidoTemMaterialOs = pedidoOsVinculos.length > 0;
     const pedidoSomenteMaterialOs =
       pedidoTemMaterialOs && pedidoQuantidadeRecebida > 0 && pedidoQuantidadeOs + 1e-6 >= pedidoQuantidadeRecebida;
-    const pedidoDestinoMisto = pedidoTemMaterialOs && !pedidoSomenteMaterialOs;
+    const importacaoDiretaSomenteOs =
+      !pedidoFlow &&
+      finalidadeKey === "materia_prima" &&
+      Number.isFinite(Number(osId)) &&
+      Number(osId) > 0;
+    const destinoSomenteOs = pedidoSomenteMaterialOs || importacaoDiretaSomenteOs;
 
     let motivoCompraId = motivoCompraRaw;
-    if (!motivoCompraId && pedidoFlow) {
+    if (!motivoCompraId && (pedidoFlow || importacaoDiretaSomenteOs)) {
       const { data: fornMotivo } = await admin
         .from("fornecedores")
         .select("motivo_compra_padrao_id")
@@ -3030,7 +3036,7 @@ export async function POST(req: NextRequest) {
       // quando fornecedor nao tem motivo padrao, escolhe automaticamente um motivo ativo
       // coerente com a finalidade inferida do pedido.
       if (!motivoCompraId) {
-        const prioridadeMateriaPrima = pedidoSomenteMaterialOs
+        const prioridadeMateriaPrima = destinoSomenteOs
           ? ["OS_MATERIAL_DIRETO", "OS", "EST_MATERIA_PRIMA", "ESTOQUE", "OUTROS"]
           : ["ESTOQUE", "EST_MATERIA_PRIMA", "CONSUMO_GERAL", "OUTROS"];
         const prioridadePorFinalidade: Record<string, string[]> = {
@@ -3082,21 +3088,19 @@ export async function POST(req: NextRequest) {
     if (motivoErr || !motivoRow) return jerr(422, "Motivo invalido ou inativo.");
 
     let codigo = String(motivoRow.codigo ?? "").trim().toUpperCase();
-    if (pedidoFlow) {
-      const replacementCodes =
-        (!pedidoTemMaterialOs || pedidoDestinoMisto) && MOTIVO_OS_CODES.has(codigo)
-          ? ["ESTOQUE", "EST_MATERIA_PRIMA", "CONSUMO_GERAL", "OUTROS"]
-          : pedidoSomenteMaterialOs && (MOTIVO_ESTOQUE_CODES.has(codigo) || ["CONSUMO", "CONSUMO_GERAL"].includes(codigo))
-            ? ["OS_MATERIAL_DIRETO", "OS", "EST_MATERIA_PRIMA", "OUTROS"]
-            : [];
+    const replacementCodes =
+      !destinoSomenteOs && MOTIVO_OS_CODES.has(codigo)
+        ? ["ESTOQUE", "EST_MATERIA_PRIMA", "CONSUMO_GERAL", "OUTROS"]
+        : destinoSomenteOs && (MOTIVO_ESTOQUE_CODES.has(codigo) || MOTIVO_CONSUMO_CODES.has(codigo))
+          ? ["OS_MATERIAL_DIRETO", "OS", "EST_MATERIA_PRIMA", "OUTROS"]
+          : [];
 
-      if (replacementCodes.length > 0) {
-        const correctedMotivo = await findMotivoCompraByPriority({ tenantId, codes: replacementCodes });
-        if (correctedMotivo?.id) {
-          motivoCompraId = correctedMotivo.id;
-          motivoRow = correctedMotivo;
-          codigo = String(correctedMotivo.codigo ?? "").trim().toUpperCase();
-        }
+    if (replacementCodes.length > 0) {
+      const correctedMotivo = await findMotivoCompraByPriority({ tenantId, codes: replacementCodes });
+      if (correctedMotivo?.id) {
+        motivoCompraId = correctedMotivo.id;
+        motivoRow = correctedMotivo;
+        codigo = String(correctedMotivo.codigo ?? "").trim().toUpperCase();
       }
     }
 

@@ -682,6 +682,47 @@ export default function ImportarXmlPage() {
     toastTimerRef.current = setTimeout(() => setDefaultsToast(null), ms);
   }, []);
 
+  const aplicarMotivoAutomatico = useCallback(
+    (contexto: { temOs?: boolean; origem: "pedido" | "os" }) => {
+      const motivoAtual = motivos.find((row) => row.id === motivoCompraIdRef.current) ?? null;
+      const codigoAtual = normalizeMotivoSearchText(motivoAtual?.codigo);
+      const motivosSubstituiveisAoDirecionarParaOs = new Set([
+        "",
+        "NAO CLASSIFICADO",
+        "ESTOQUE",
+        "EST MATERIA PRIMA",
+        "CONSUMO",
+        "CONSUMO GERAL",
+      ]);
+
+      if (
+        motivoCompraIdRef.current &&
+        (!contexto.temOs || !motivosSubstituiveisAoDirecionarParaOs.has(codigoAtual))
+      ) {
+        return false;
+      }
+
+      const motivo = findMotivoAutomaticoParaPedido(motivos, {
+        temOs: contexto.temOs,
+        finalidade: finalidadeRef.current,
+      });
+      if (!motivo) return false;
+
+      setMotivoCompraId(motivo.id);
+      motivoCompraIdRef.current = motivo.id;
+      setDefaultsToast({
+        kind: "saved",
+        message:
+          contexto.origem === "os"
+            ? "Classificacao ajustada para material direto de OS."
+            : "Classificacao/motivo preenchido automaticamente pelo pedido.",
+      });
+      clearToastLater(2600);
+      return true;
+    },
+    [clearToastLater, motivos]
+  );
+
   const normalizeFinalidade = (v: ItemFinalidade | "" | null | undefined): ItemFinalidade | null => {
     if (!v) return null;
     return v as ItemFinalidade;
@@ -1100,8 +1141,9 @@ export default function ImportarXmlPage() {
       setOsLabel(`OS ${numeroDb} - ${cliente}`);
       setOsError(null);
       setOsLoading(false);
+      aplicarMotivoAutomatico({ origem: "os", temOs: true });
     },
-    [supabase, tenantId, empresaId]
+    [aplicarMotivoAutomatico, supabase, tenantId, empresaId]
   );
 
   const loadOsLookup = useCallback(
@@ -2922,32 +2964,10 @@ export default function ImportarXmlPage() {
     </div>
   );
 
-  const aplicarMotivoAutomaticoSeVazio = (contexto: { temOs?: boolean; origem: "pedido" | "os" }) => {
-    if (motivoCompraIdRef.current) return false;
-
-    const motivo = findMotivoAutomaticoParaPedido(motivos, {
-      temOs: contexto.temOs,
-      finalidade: finalidadeRef.current,
-    });
-    if (!motivo) return false;
-
-    setMotivoCompraId(motivo.id);
-    motivoCompraIdRef.current = motivo.id;
-    setDefaultsToast({
-      kind: "saved",
-      message:
-        contexto.origem === "os"
-          ? "Classificacao/motivo preenchido automaticamente pela OS."
-          : "Classificacao/motivo preenchido automaticamente pelo pedido.",
-    });
-    clearToastLater(2600);
-    return true;
-  };
-
   const aplicarPedidoSugerido = (pedidoRef: string) => {
     setPedidoCompraRef(pedidoRef);
     clearOsSelection();
-    aplicarMotivoAutomaticoSeVazio({ origem: "pedido", temOs: false });
+    aplicarMotivoAutomatico({ origem: "pedido", temOs: false });
   };
 
   const aplicarSolicitanteSugerido = (usuarioId: string) => {
@@ -2966,7 +2986,7 @@ export default function ImportarXmlPage() {
     setOsLabel(label);
     setOsError(null);
     setOsLoading(false);
-    aplicarMotivoAutomaticoSeVazio({ origem: "os", temOs: true });
+    aplicarMotivoAutomatico({ origem: "os", temOs: true });
   };
 
   const aplicarFinalidadeSugerida = (finalidade: string) => {
@@ -4740,6 +4760,7 @@ export default function ImportarXmlPage() {
                                 setOsId(Number(row.id));
                                 setOsLabel(`OS ${numero} - ${(row.cliente_nome ?? "-")}`);
                                 setOsError(null);
+                                aplicarMotivoAutomatico({ origem: "os", temOs: true });
                                 closeOsLookup();
                               }}
                               className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
