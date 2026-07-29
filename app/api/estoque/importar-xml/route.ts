@@ -17,6 +17,33 @@ function normalizeCnpj(value: string | null | undefined): string | null {
   return digits.length === 14 ? digits : null;
 }
 
+function extractXmlPartyCnpj(xmlRaw: string | null, party: "emit" | "dest"): string | null {
+  if (!xmlRaw) return null;
+
+  const sectionPattern = new RegExp(
+    `<(?:[A-Za-z_][\\w.-]*:)?${party}\\b[^>]*>([\\s\\S]*?)<\\/(?:[A-Za-z_][\\w.-]*:)?${party}>`,
+    "i"
+  );
+  const section = xmlRaw.match(sectionPattern)?.[1] ?? "";
+  const cnpj = section.match(
+    /<(?:[A-Za-z_][\w.-]*:)?CNPJ\b[^>]*>([^<]+)<\/(?:[A-Za-z_][\w.-]*:)?CNPJ>/i
+  )?.[1];
+
+  return normalizeCnpj(cnpj);
+}
+
+function readNfJsonCnpj(value: unknown, ...keys: string[]): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+
+  for (const key of keys) {
+    const cnpj = normalizeCnpj(typeof record[key] === "string" ? String(record[key]) : null);
+    if (cnpj) return cnpj;
+  }
+
+  return null;
+}
+
 function normalizeName(value: string | null | undefined): string {
   return String(value ?? "")
     .replace(/\s+/g, " ")
@@ -2840,7 +2867,33 @@ export async function POST(req: NextRequest) {
 
     // Validate empresa membership
     const allowed = await getAllowedEmpresas(supabase, tenantId);
-    if (!allowed.some((e) => e.id === empresaId)) return jerr(403, "Sem acesso a esta empresa.");
+    const selectedEmpresa = allowed.find((e) => e.id === empresaId) ?? null;
+    if (!selectedEmpresa) return jerr(403, "Sem acesso a esta empresa.");
+
+    const empresaCnpj = normalizeCnpj(selectedEmpresa.cnpj);
+    const emitenteCnpj =
+      extractXmlPartyCnpj(xmlRaw, "emit") ??
+      normalizeCnpj(body.fornecedorCnpj) ??
+      readNfJsonCnpj(body.nfJson, "emitente_cnpj", "cnpj_emitente", "cnpj");
+    const destinatarioCnpj =
+      extractXmlPartyCnpj(xmlRaw, "dest") ??
+      readNfJsonCnpj(body.nfJson, "destinatario_cnpj", "cnpj_destinatario");
+
+    if (empresaCnpj && emitenteCnpj === empresaCnpj) {
+      return jerr(
+        422,
+        "Esta NF-e foi emitida pela propria empresa e representa faturamento/saida. Importe-a em Faturamento > NF-e; ela nao pode gerar entrada de estoque nem material na OS.",
+        { code: "nfe_saida_no_fluxo_entrada" }
+      );
+    }
+
+    if (empresaCnpj && destinatarioCnpj && destinatarioCnpj !== empresaCnpj) {
+      return jerr(
+        422,
+        "O destinatario deste XML nao corresponde a empresa selecionada. Se for uma venda, use Faturamento > NF-e; se for uma compra de outra empresa do grupo, selecione a empresa destinataria correta.",
+        { code: "nfe_destinatario_empresa_divergente" }
+      );
+    }
 
     // Motivo obrigatório
     const pedidoCompraRefs = parsePedidoCompraRefs(body.pedidoCompraIds, body.pedidoCompraId);

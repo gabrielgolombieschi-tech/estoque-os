@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
 
@@ -12,6 +12,7 @@ export default function SelecionarEmpresaPage() {
   const setEmpresaId = ctx.setEmpresaId;
   const loading = ctx.loading || !ctx.tenantId;
   const error = ctx.error;
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && empresaId && empresas.length === 1) {
@@ -27,7 +28,7 @@ export default function SelecionarEmpresaPage() {
     );
   }
 
-  if (error || empresas.length === 0) {
+  if (empresas.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300">
         {error || "Sem acesso a empresas. Fale com o admin."}
@@ -45,17 +46,36 @@ export default function SelecionarEmpresaPage() {
           </p>
         </div>
 
+        {error && (
+          <div className="rounded-lg border border-red-900/70 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
         <div className="space-y-2">
           {empresas.map((empresa) => (
             <button
               key={empresa.id}
               onClick={async () => {
-                await setEmpresaId(empresa.id);
-                router.replace("/");
+                if (switchingId) return;
+                setSwitchingId(empresa.id);
+                try {
+                  await setEmpresaId(empresa.id);
+                  router.replace("/");
+                } catch {
+                  // O provider mantem a empresa anterior e apresenta o erro.
+                } finally {
+                  setSwitchingId(null);
+                }
               }}
-              className="w-full text-left px-4 py-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+              disabled={switchingId !== null}
+              className="w-full text-left px-4 py-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
             >
-              <div className="font-medium">{empresa.nome_fantasia ?? empresa.razao_social ?? empresa.id}</div>
+              <div className="font-medium">
+                {switchingId === empresa.id
+                  ? "Confirmando empresa..."
+                  : empresa.nome_fantasia ?? empresa.razao_social ?? empresa.id}
+              </div>
               <div className="text-xs text-zinc-400">{empresa.id}</div>
             </button>
           ))}

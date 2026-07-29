@@ -260,6 +260,8 @@ export default function EmpresaUsuariosPage() {
               try {
                 await setEmpresaId(next);
                 setReloadKey((prev) => prev + 1);
+              } catch (e: unknown) {
+                setErr(getErrorMessage(e, "Nao foi possivel trocar de empresa."));
               } finally {
                 setSwitchingEmpresa(false);
               }

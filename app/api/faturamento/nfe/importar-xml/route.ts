@@ -668,7 +668,10 @@ export async function POST(req: NextRequest) {
         p_xml_raw: xmlRaw,
         p_gerar_contas_pagar: false,
         p_parcelas_json: null,
-        p_os_id: osIdNum,
+        // A OS pertence ao faturamento (f.documento_fiscal.os_id_import), nao
+        // aos materiais consumidos. Repassar a OS para import_nf_entrada faz
+        // os produtos vendidos virarem os_itens e infla o custo da ordem.
+        p_os_id: null,
         p_baixar_os: false,
         p_motivo_compra_id: motivoCompraId,
         p_solicitante_usuario_id: solicitanteUsuarioId,

@@ -64,6 +64,7 @@ export default function ApAgingClient() {
   const [selected, setSelected] = useState<{ fornecedor: string | null; motivo: string | null } | null>(null);
 
   const [resumo, setResumo] = useState<ResumoRow[]>([]);
+  const [resumoCompleto, setResumoCompleto] = useState<ResumoRow[]>([]);
   const [detalhe, setDetalhe] = useState<DetalheRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [detalheLoading, setDetalheLoading] = useState(false);
@@ -131,7 +132,7 @@ export default function ApAgingClient() {
         )
           .eq("empresa_id", empresaId!)
           .order("total_aberto", { ascending: false })
-          .limit(Math.max(5, Math.min(100, limitResumo)));
+          .limit(1000);
 
         const term = q.trim();
         if (term) {
@@ -149,7 +150,8 @@ export default function ApAgingClient() {
           ? rows.filter((r) => Math.abs(n(r.total_aberto)) >= min)
           : rows;
 
-        setResumo(filtered);
+        setResumoCompleto(filtered);
+        setResumo(filtered.slice(0, Math.max(5, Math.min(100, limitResumo))));
 
         // Default selection: first row (for drilldown).
         if (!selected && filtered.length) {
@@ -158,6 +160,7 @@ export default function ApAgingClient() {
       } catch (e: unknown) {
         if (cancelled) return;
         setResumo([]);
+        setResumoCompleto([]);
         setError(e instanceof Error ? e.message : "Erro ao carregar aging AP.");
       } finally {
         if (!cancelled) setLoading(false);
@@ -225,7 +228,7 @@ export default function ApAgingClient() {
   }, [endDue, onlyOverdue, ready, selected, startDue, tenantId, empresaId]);
 
   const totals = useMemo(() => {
-    const sum = resumo.reduce(
+    const sum = resumoCompleto.reduce(
       (acc, r) => {
         acc.a_vencer += n(r.a_vencer);
         acc.v0 += n(r.vencido_0_30);
@@ -238,7 +241,7 @@ export default function ApAgingClient() {
       { a_vencer: 0, v0: 0, v31: 0, v61: 0, v90: 0, total: 0 }
     );
     return sum;
-  }, [resumo]);
+  }, [resumoCompleto]);
 
   const exportResumo = () => {
     const header = [
@@ -430,7 +433,9 @@ export default function ApAgingClient() {
       <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
         <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
           <div className="text-sm font-semibold text-zinc-100">Resumo (por fornecedor x motivo)</div>
-          <div className="text-xs text-zinc-500">{resumo.length} linhas</div>
+          <div className="text-xs text-zinc-500">
+            {resumo.length} de {resumoCompleto.length} linhas
+          </div>
         </div>
 
         <div className="overflow-x-auto">

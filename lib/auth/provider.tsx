@@ -139,13 +139,10 @@ async function rpcCurrentEmpresaId(supabase: ReturnType<typeof getSupabaseBrowse
 }
 
 async function rpcSetCurrentEmpresa(supabase: ReturnType<typeof getSupabaseBrowser>, empresaId: string) {
-  try {
-    const { error } = await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
-    if (error && !isMissingRpc(error, "set_current_empresa")) {
-      if (isDev) console.debug("[TENANT] set_current_empresa error", { message: error.message });
-    }
-  } catch {
-    // ignore
+  const { error } = await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
+  if (error) {
+    if (isDev) console.debug("[TENANT] set_current_empresa error", { message: error.message });
+    throw new Error(error.message || "Nao foi possivel definir a empresa atual.");
   }
 }
 
@@ -365,20 +362,15 @@ async function loadCapabilitiesFromRpc(
   errorMessage?: string;
 }> {
   try {
-    // Ensure DB context best-effort so can_many()/can() can evaluate permissions.
-    // `public.can` uses current_tenant_id(), so without setting tenant this can return false.
+    // Tenant context remains best-effort here. Empresa context is synchronized by
+    // revalidate()/setEmpresaId() before capabilities load. Do not write empresa
+    // from this asynchronous path: an older permissions request could otherwise
+    // overwrite a newer company selection.
     const resolvedEmpresaIdForContext = empresaId ?? (await rpcCurrentEmpresaId(supabase));
     try {
       await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
     } catch {
       // ignore
-    }
-    if (resolvedEmpresaIdForContext) {
-      try {
-        await supabase.rpc("set_current_empresa", { p_empresa_id: resolvedEmpresaIdForContext });
-      } catch {
-        // ignore
-      }
     }
 
     // Some environments may have an overloaded `get_my_permissions` RPC:
@@ -726,31 +718,17 @@ export function TenantEmpresaProvider(props: {
             fromRpc ?? fromStoredPerUser ?? autoSingle ?? (await ensureEmpresaId(supabase, ensuredTenantId, empresas));
 
           if (isStale()) return;
+          const empresa = empresas.find((e) => e.id === empresaId) ?? null;
+
+          // Banco/RLS e interface precisam apontar para a mesma empresa. A
+          // selecao so e publicada nos caches e no React depois da RPC.
+          await rpcSetCurrentEmpresa(supabase, empresaId);
+          if (isStale()) return;
+
           setStoredEmpresaId(empresaId);
           writeStoredEmpresaIdForUser(userId, empresaId);
 
-          const empresa = empresas.find((e) => e.id === empresaId) ?? null;
-
           // Commit tenant/empresa immediately (avoid "Empresa: Carregando..." while permissions load).
-          setState((prev) => ({
-            ...prev,
-            tenantId: ensuredTenantId,
-            empresaId,
-            empresas,
-            empresa,
-            loading: false,
-            refreshing: true,
-            error: null,
-          }));
-
-          // Ensure DB context (best-effort), then permissions.
-          try {
-            await withTimeout(rpcSetCurrentEmpresa(supabase, empresaId), 1500);
-          } catch {
-            // ignore
-          }
-          if (isStale()) return;
-
           setState((prev) => ({
             ...prev,
             tenantId: ensuredTenantId,
@@ -782,11 +760,12 @@ export function TenantEmpresaProvider(props: {
         }
       })();
 
-      inflightRef.current = run.finally(() => {
-        if (inflightRef.current === run) inflightRef.current = null;
+      const trackedRun = run.finally(() => {
+        if (inflightRef.current === trackedRun) inflightRef.current = null;
       });
+      inflightRef.current = trackedRun;
 
-      return inflightRef.current;
+      return trackedRun;
     },
     [clear, initialTenantId, state.sessionUserId, state.tenantId]
   );
@@ -978,30 +957,78 @@ export function TenantEmpresaProvider(props: {
     async (nextEmpresaId: string) => {
       const supabase = supabaseRef.current ?? (supabaseRef.current = getSupabaseBrowser());
       if (!nextEmpresaId) return;
-      if (nextEmpresaId === state.empresaId) return;
-      if (!state.tenantId) return;
-      if (!state.empresas.some((e) => e.id === nextEmpresaId)) {
-        setState((prev) => ({ ...prev, error: "Sem acesso a esta empresa." }));
-        return;
+      if (!state.tenantId) {
+        const message = "Contexto do tenant ainda nao esta disponivel.";
+        setState((prev) => ({ ...prev, error: message }));
+        throw new Error(message);
+      }
+
+      const nextEmpresa = state.empresas.find((e) => e.id === nextEmpresaId) ?? null;
+      if (!nextEmpresa) {
+        const message = "Sem acesso a esta empresa.";
+        setState((prev) => ({ ...prev, error: message }));
+        throw new Error(message);
+      }
+
+      const changed = nextEmpresaId !== state.empresaId;
+
+      // Invalida uma revalidacao antiga e aguarda qualquer writer de contexto
+      // ja em andamento antes de persistir a nova empresa por ultimo.
+      requestIdRef.current += 1;
+      const previousRevalidation = inflightRef.current;
+      if (previousRevalidation) {
+        try {
+          await previousRevalidation;
+        } catch {
+          // A troca abaixo fara uma nova validacao autoritativa.
+        }
+      }
+
+      if (changed) {
+        capsRequestIdRef.current += 1;
+        lastCapsKeyRef.current = null;
+      }
+
+      setState((prev) => ({ ...prev, refreshing: true, error: null }));
+
+      try {
+        // A RPC so resolve depois do upsert em user_empresa_context. Nao use
+        // timeout em escrita: Promise.race nao cancela a requisicao e poderia
+        // trocar o RLS depois de a interface informar falha.
+        await rpcSetCurrentEmpresa(supabase, nextEmpresaId);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Nao foi possivel trocar de empresa.";
+        setState((prev) => ({ ...prev, refreshing: false, error: message }));
+        throw e instanceof Error ? e : new Error(message);
       }
 
       setStoredEmpresaId(nextEmpresaId);
       if (typeof state.sessionUserId === "string") {
         writeStoredEmpresaIdForUser(state.sessionUserId, nextEmpresaId);
+        writeCached(state.sessionUserId, state.tenantId, {
+          tenantId: state.tenantId,
+          empresaId: nextEmpresaId,
+          empresa: nextEmpresa,
+          empresas: state.empresas,
+          updatedAt: Date.now(),
+        });
       }
+
+      permissionScopeRef.current = { tenantId: state.tenantId, empresaId: nextEmpresaId };
+      lastContextSyncAtRef.current = Date.now();
+
       setState((prev) => ({
         ...prev,
         empresaId: nextEmpresaId,
-        empresa: prev.empresas.find((e) => e.id === nextEmpresaId) ?? null,
+        empresa: nextEmpresa,
+        capabilities: changed ? null : prev.capabilities,
+        refreshing: false,
         error: null,
       }));
 
-      await rpcSetCurrentEmpresa(supabase, nextEmpresaId);
-      permissionScopeRef.current = { tenantId: state.tenantId, empresaId: nextEmpresaId };
-      void revalidate({ background: true, reason: "setEmpresaId" });
       router.refresh();
     },
-    [revalidate, router, state.empresaId, state.empresas, state.sessionUserId, state.tenantId]
+    [router, state.empresaId, state.empresas, state.sessionUserId, state.tenantId]
   );
 
   // Boot: getSession once + subscribe

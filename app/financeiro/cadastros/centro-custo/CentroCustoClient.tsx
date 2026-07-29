@@ -39,6 +39,40 @@ function indentClass(depth: number) {
   return INDENTS[idx];
 }
 
+function collectDescendantIds(rows: CentroCustoRow[], rootId: string) {
+  const childrenByParent = new Map<string, string[]>();
+  for (const row of rows) {
+    if (row.deleted_at || !row.parent_id) continue;
+    const children = childrenByParent.get(row.parent_id) ?? [];
+    children.push(row.id);
+    childrenByParent.set(row.parent_id, children);
+  }
+
+  const descendants = new Set<string>();
+  const visited = new Set<string>([rootId]);
+  const pending = [rootId];
+
+  while (pending.length > 0) {
+    const currentId = pending.pop();
+    if (!currentId) continue;
+
+    for (const childId of childrenByParent.get(currentId) ?? []) {
+      if (visited.has(childId)) continue;
+      visited.add(childId);
+      descendants.add(childId);
+      pending.push(childId);
+    }
+  }
+
+  return descendants;
+}
+
+function activeDescendantsLabel(count: number) {
+  return count === 1
+    ? "1 centro subordinado ativo"
+    : `${count} centros subordinados ativos`;
+}
+
 function buildFlatTree(rows: CentroCustoRow[], opts: { includeInativos: boolean; q: string; empresaId: string | null }) {
   const q = opts.q.trim().toLowerCase();
 
@@ -115,6 +149,10 @@ export default function CentroCustoClient() {
   }, [canFinanceiro, router]);
 
   const empresaId = te.empresaId;
+  const empresaNome =
+    te.empresa?.nome_fantasia?.trim() ||
+    te.empresa?.razao_social?.trim() ||
+    "Empresa atual";
 
   const [rows, setRows] = useState<CentroCustoRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +171,22 @@ export default function CentroCustoClient() {
   const [saving, setSaving] = useState(false);
 
   const selected = useMemo(() => (selectedId ? rows.find((r) => r.id === selectedId) ?? null : null), [rows, selectedId]);
+  const selectedDescendantIds = useMemo(
+    () => (selectedId ? collectDescendantIds(rows, selectedId) : new Set<string>()),
+    [rows, selectedId]
+  );
+  const selectedActiveDescendants = useMemo(
+    () =>
+      selected
+        ? rows.filter(
+            (row) =>
+              !row.deleted_at &&
+              row.ativo &&
+              selectedDescendantIds.has(row.id)
+          ).length
+        : 0,
+    [rows, selected, selectedDescendantIds]
+  );
 
   const flat = useMemo(
     () => buildFlatTree(rows, { includeInativos, q, empresaId: empresaId ?? null }),
@@ -166,6 +220,7 @@ export default function CentroCustoClient() {
         .from("centro_custo")
         .select("id,tenant_id,empresa_id,codigo,nome,parent_id,ativo,deleted_at,created_at,updated_at")
         .eq("tenant_id", te.tenantId)
+        .eq("empresa_id", empresaId)
         .order("codigo", { ascending: true })
         .limit(5000);
 
@@ -190,7 +245,10 @@ export default function CentroCustoClient() {
   };
 
   useEffect(() => {
-    void reload();
+    const timer = window.setTimeout(() => {
+      void reload();
+    }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canFinanceiro, te.sessionUserId, te.tenantId, empresaId]);
 
@@ -234,6 +292,17 @@ export default function CentroCustoClient() {
       setError("Nome é obrigatório.");
       return;
     }
+    if (
+      mode === "editar" &&
+      selected?.ativo &&
+      !formAtivo &&
+      selectedActiveDescendants > 0
+    ) {
+      setError(
+        `Este centro possui ${activeDescendantsLabel(selectedActiveDescendants)}. Desative ou mova os centros subordinados antes de desativar o centro principal.`
+      );
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -264,7 +333,9 @@ export default function CentroCustoClient() {
             ativo: formAtivo,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", selectedId);
+          .eq("id", selectedId)
+          .eq("tenant_id", te.tenantId)
+          .eq("empresa_id", empresaId);
         if (error) throw error;
       }
 
@@ -279,6 +350,22 @@ export default function CentroCustoClient() {
 
   const toggleAtivo = async (r: CentroCustoRow) => {
     if (canWrite !== true) return;
+    if (!te.tenantId || !empresaId) {
+      setError("Selecione uma empresa antes de alterar o centro de custo.");
+      return;
+    }
+
+    const descendantIds = collectDescendantIds(rows, r.id);
+    const activeDescendants = rows.filter(
+      (row) => !row.deleted_at && row.ativo && descendantIds.has(row.id)
+    ).length;
+    if (r.ativo && activeDescendants > 0) {
+      setError(
+        `Este centro possui ${activeDescendantsLabel(activeDescendants)}. Desative ou mova os centros subordinados antes de desativar o centro principal.`
+      );
+      return;
+    }
+
     setError(null);
     try {
       const supabase = getSupabaseBrowser();
@@ -286,7 +373,9 @@ export default function CentroCustoClient() {
         .schema("f")
         .from("centro_custo")
         .update({ ativo: !r.ativo, updated_at: new Date().toISOString() })
-        .eq("id", r.id);
+        .eq("id", r.id)
+        .eq("tenant_id", te.tenantId)
+        .eq("empresa_id", empresaId);
       if (error) throw error;
       await reload();
     } catch (e: unknown) {
@@ -296,6 +385,22 @@ export default function CentroCustoClient() {
 
   const arquivar = async (r: CentroCustoRow) => {
     if (canWrite !== true) return;
+    if (!te.tenantId || !empresaId) {
+      setError("Selecione uma empresa antes de arquivar o centro de custo.");
+      return;
+    }
+
+    const descendantIds = collectDescendantIds(rows, r.id);
+    const activeDescendants = rows.filter(
+      (row) => !row.deleted_at && row.ativo && descendantIds.has(row.id)
+    ).length;
+    if (activeDescendants > 0) {
+      setError(
+        `Este centro possui ${activeDescendantsLabel(activeDescendants)}. Desative ou mova os centros subordinados antes de arquivar o centro principal.`
+      );
+      return;
+    }
+
     setError(null);
     try {
       const supabase = getSupabaseBrowser();
@@ -303,7 +408,9 @@ export default function CentroCustoClient() {
         .schema("f")
         .from("centro_custo")
         .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("id", r.id);
+        .eq("id", r.id)
+        .eq("tenant_id", te.tenantId)
+        .eq("empresa_id", empresaId);
       if (error) throw error;
       setSelectedId(null);
       await reload();
@@ -316,10 +423,15 @@ export default function CentroCustoClient() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Centro de Custo</h1>
+          <h1 className="text-2xl font-semibold">Centros de Custo</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Estrutura por empresa para alocação/rateio gerencial (f.centro_custo). Útil para DRE e análise por área.
+            Organize receitas e despesas por área para acompanhar custos, resultados e responsabilidades.
           </p>
+          {empresaId && (
+            <div className="mt-2 text-xs text-zinc-500">
+              Empresa atual: <span className="font-medium text-zinc-300">{empresaNome}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -330,7 +442,7 @@ export default function CentroCustoClient() {
           </Link>
           <button
             type="button"
-            onClick={() => openNew(selected?.id ?? null)}
+            onClick={() => openNew(null)}
             disabled={canWrite !== true || !empresaId}
             className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
           >
@@ -494,7 +606,7 @@ export default function CentroCustoClient() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
                   <div className="text-xs text-zinc-400">Empresa</div>
-                  <div className="text-zinc-100 font-mono text-xs">{selected.empresa_id}</div>
+                  <div className="text-zinc-100">{empresaNome}</div>
                 </div>
                 <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
                   <div className="text-xs text-zinc-400">Status</div>
@@ -506,7 +618,7 @@ export default function CentroCustoClient() {
                 <button
                   type="button"
                   onClick={() => toggleAtivo(selected)}
-                  disabled={canWrite !== true}
+                  disabled={canWrite !== true || (selected.ativo && selectedActiveDescendants > 0)}
                   className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-sm disabled:opacity-60"
                 >
                   {selected.ativo ? "Desativar" : "Ativar"}
@@ -514,18 +626,25 @@ export default function CentroCustoClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    const ok = window.confirm("Arquivar centro de custo? Ele ficará com deleted_at e não aparecerá nas listas.");
+                    const ok = window.confirm("Arquivar centro de custo? Ele deixará de aparecer nas listas, mas o histórico será preservado.");
                     if (ok) void arquivar(selected);
                   }}
-                  disabled={canWrite !== true}
+                  disabled={canWrite !== true || selectedActiveDescendants > 0}
                   className="px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 text-sm disabled:opacity-60"
                 >
                   Arquivar
                 </button>
               </div>
 
+              {selectedActiveDescendants > 0 && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                  Este centro possui {activeDescendantsLabel(selectedActiveDescendants)}. Desative ou mova os centros subordinados antes de
+                  desativar ou arquivar o centro principal.
+                </div>
+              )}
+
               <div className="text-xs text-zinc-500">
-                Boas práticas: reflita o organograma/áreas (ex: ADMIN &gt; TI; OPERAÇÃO &gt; Campo), e use centros ativos em lançamentos.
+                Boas práticas: mantenha uma estrutura simples, alinhada às áreas responsáveis pelos gastos e receitas.
               </div>
             </div>
           )}
@@ -538,7 +657,7 @@ export default function CentroCustoClient() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-semibold">{mode === "novo" ? "Novo centro" : "Editar centro"}</div>
-                <div className="text-xs text-zinc-400 mt-1">Cadastro em f.centro_custo (por empresa).</div>
+                <div className="text-xs text-zinc-400 mt-1">O centro será utilizado somente na empresa selecionada.</div>
               </div>
               <button
                 type="button"
@@ -581,7 +700,14 @@ export default function CentroCustoClient() {
                 >
                   <option value="">(raiz)</option>
                   {rows
-                    .filter((r) => !r.deleted_at && r.empresa_id === (empresaId ?? "") && (includeInativos || r.ativo))
+                    .filter(
+                      (r) =>
+                        !r.deleted_at &&
+                        r.empresa_id === (empresaId ?? "") &&
+                        (includeInativos || r.ativo) &&
+                        (mode !== "editar" ||
+                          (r.id !== selectedId && !selectedDescendantIds.has(r.id)))
+                    )
                     .sort((a, b) => a.codigo.localeCompare(b.codigo, "pt-BR", { numeric: true }))
                     .map((r) => (
                       <option key={r.id} value={r.id}>
@@ -596,11 +722,17 @@ export default function CentroCustoClient() {
                   type="checkbox"
                   checked={formAtivo}
                   onChange={(e) => setFormAtivo(e.target.checked)}
+                  disabled={mode === "editar" && Boolean(selected?.ativo) && selectedActiveDescendants > 0}
                   aria-label="Ativo"
-                  className="accent-zinc-200"
+                  className="accent-zinc-200 disabled:opacity-60"
                 />
                 Ativo
               </label>
+              {mode === "editar" && selected?.ativo && selectedActiveDescendants > 0 && (
+                <div className="text-xs text-amber-300 sm:col-span-2">
+                  Para desativar este centro, primeiro desative ou mova os centros subordinados ativos.
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">

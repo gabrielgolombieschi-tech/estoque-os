@@ -143,7 +143,10 @@ export default function ConfiguracoesClient() {
 
   useEffect(() => {
     if (!prefsStorageKey) return;
-    setPrefs(readPrefs(prefsStorageKey));
+    const timer = window.setTimeout(() => {
+      setPrefs(readPrefs(prefsStorageKey));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [prefsStorageKey]);
 
   useEffect(() => {
@@ -163,13 +166,18 @@ export default function ConfiguracoesClient() {
 
       const supabase = getSupabaseBrowser();
 
-      const safeCount = async (table: string) => {
+      const safeCount = async (table: string, empresaScoped = false) => {
         try {
-          const res = await supabase
+          const baseQuery = supabase
             .schema("f")
             .from(table)
             .select("id", { count: "exact", head: true })
             .eq("tenant_id", te.tenantId as string);
+          const query =
+            empresaScoped && effectiveEmpresaId
+              ? baseQuery.eq("empresa_id", effectiveEmpresaId)
+              : baseQuery;
+          const res = await query;
           if (res.error) return null;
           return typeof res.count === "number" ? res.count : null;
         } catch {
@@ -180,8 +188,8 @@ export default function ConfiguracoesClient() {
       try {
         const [planoContasCount, centroCustoCount, contasBancariasCount, motivosCompraCount] = await Promise.all([
           safeCount("plano_contas"),
-          safeCount("centro_custo"),
-          safeCount("conta_bancaria"),
+          safeCount("centro_custo", true),
+          safeCount("conta_bancaria", true),
           safeCount("motivo_compra"),
         ]);
 
@@ -199,7 +207,7 @@ export default function ConfiguracoesClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, te.tenantId]);
+  }, [ready, te.tenantId, effectiveEmpresaId]);
 
   const moneyExample = useMemo(() => {
     const v = parseDecimalBR("1234,56");
@@ -264,6 +272,11 @@ export default function ConfiguracoesClient() {
           <CardLink href="/financeiro/cadastros/centro-custo" title="Centros de Custo" desc="Organize despesas/receitas por área, contrato ou projeto." />
           <CardLink href="/financeiro/cadastros/contas-bancarias" title="Contas Bancárias" desc="Bancos/contas para extratos, conciliação e transferências." />
           <CardLink href="/financeiro/cadastros/motivos-compra" title="Motivos / Classificação" desc="Classificação gerencial para compras e despesas." />
+          <CardLink
+            href="/financeiro/cadastros/regras-rateio"
+            title="Regras de Rateio"
+            desc="Automatize a distribuição por plano de contas e centro de custo."
+          />
         </div>
       </div>
 

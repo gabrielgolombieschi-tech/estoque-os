@@ -10,7 +10,7 @@ export function useEmpresa() {
     empresaId: ctx.empresaId,
     empresas: ctx.empresas,
     setEmpresaId: (id: string) => {
-      void ctx.setEmpresaId(id);
+      void ctx.setEmpresaId(id).catch(() => undefined);
     },
     loading: ctx.loading || !ctx.empresaId,
     error: ctx.error,

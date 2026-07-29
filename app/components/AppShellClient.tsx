@@ -47,6 +47,8 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/financeiro/impostos" ||
     pathname === "/financeiro/contas_pagar_receber" ||
     pathname === "/financeiro/gestao-cobranca" ||
+    pathname === "/financeiro/relatorios/saude-financeira" ||
+    pathname === "/financeiro/relatorios/inconsistencias" ||
     pathname?.startsWith("/financeiro/contas_pagar_receber/");
   const isOsDetailPage = /^\/os\/\d+\/?$/.test(pathname ?? "");
 
@@ -107,7 +109,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     if (!te.sessionUserId) return;
     if (!empresaId && empresas.length === 1) {
       didAutoSelectEmpresaRef.current = true;
-      void te.setEmpresaId(empresas[0].id);
+      void te.setEmpresaId(empresas[0].id).catch(() => undefined);
     }
   }, [empresaId, empresas, te.sessionUserId, te.setEmpresaId]);
 
@@ -589,6 +591,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             <Link href="/financeiro/cadastros/motivos-compra" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                               Motivos / Classificação de Compra
                             </Link>
+                            <Link href="/financeiro/cadastros/regras-rateio" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                              Regras de Rateio
+                            </Link>
                           </div>
                         </div>
 
@@ -598,6 +603,20 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             <span className="text-zinc-500">{">"}</span>
                           </div>
                           <div className="hidden group-hover/fin:block absolute left-full top-0 ml-1 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-lg py-2 z-30">
+                            <div className="px-3 py-2 text-xs font-semibold text-zinc-400">An&aacute;lise Gerencial</div>
+                            <Link
+                              href="/financeiro/relatorios/saude-financeira"
+                              className="block px-3 py-2 hover:bg-zinc-900 text-sm"
+                            >
+                              Sa&uacute;de Financeira
+                            </Link>
+                            <Link
+                              href="/financeiro/relatorios/inconsistencias"
+                              className="block px-3 py-2 hover:bg-zinc-900 text-sm"
+                            >
+                              Central de Inconsist&ecirc;ncias
+                            </Link>
+                            <div className="border-t border-zinc-800 my-2" />
                             <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Fluxo de Caixa</div>
                             <Link href="/financeiro/relatorios/fluxo-caixa/previsto" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                               Previsto

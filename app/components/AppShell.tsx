@@ -64,7 +64,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (!te.sessionUserId) return; // só quando logado
     if (!empresaId && empresas.length === 1) {
       didAutoSelectEmpresaRef.current = true;
-      void te.setEmpresaId(empresas[0].id);
+      void te.setEmpresaId(empresas[0].id).catch(() => undefined);
     }
   }, [empresaId, empresas, te.sessionUserId, te.setEmpresaId]);
 
