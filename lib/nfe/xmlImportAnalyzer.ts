@@ -301,6 +301,16 @@ export function normalizeXmlItemCode(value: unknown): string {
   const raw = String(value ?? "").trim();
   if (!raw) return "";
   if (/^\d+$/.test(raw)) return raw.replace(/^0+(?!$)/, "");
+
+  // Alguns fornecedores usam o primeiro bloco do codigo numerico com zero a
+  // esquerda (ex.: XML "01.02.00426" e cadastro "1.02.00426"). Mantemos os
+  // demais blocos intactos, pois os zeros deles fazem parte do codigo do item.
+  const dottedNumericPrefix = raw.match(/^(\d+)(\..+)$/);
+  if (dottedNumericPrefix) {
+    const firstBlock = dottedNumericPrefix[1].replace(/^0+(?!$)/, "");
+    return `${firstBlock}${dottedNumericPrefix[2]}`;
+  }
+
   return raw;
 }
 

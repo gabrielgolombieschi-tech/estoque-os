@@ -13,6 +13,7 @@ import MotivoCompraCombobox from "./MotivoCompraCombobox";
 import { parseNfeXml, type ParsedItem, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
 import {
   analyzeXmlImport,
+  normalizeXmlItemCode,
   type XmlImportItemInterno,
   type XmlImportPedidoCandidato,
   type XmlImportPedidoItem,
@@ -218,10 +219,7 @@ function adaptPedidoAnalyzerCandidato(raw: unknown): XmlImportPedidoCandidato | 
 }
 
 function normalizeImportedItemCode(code: unknown): string {
-  const raw = String(code ?? "").trim();
-  if (!raw) return "";
-  if (/^\d+$/.test(raw)) return raw.replace(/^0+(?!$)/, "");
-  return raw;
+  return normalizeXmlItemCode(code);
 }
 
 function addItemCodigoToMap(map: ItemCodigoMap, row: ItemCodigoRow): void {
@@ -231,6 +229,16 @@ function addItemCodigoToMap(map: ItemCodigoMap, row: ItemCodigoRow): void {
 
   const normalized = normalizeImportedItemCode(codigo);
   if (normalized && !map.has(normalized)) map.set(normalized, row);
+}
+
+function getItemCodigoFromMap(map: ItemCodigoMap, code: unknown): ItemCodigoRow | undefined {
+  const raw = String(code ?? "").trim();
+  if (!raw) return undefined;
+  return map.get(raw) ?? map.get(normalizeImportedItemCode(raw));
+}
+
+function hasItemCodigoInMap(map: ItemCodigoMap, code: unknown): boolean {
+  return Boolean(getItemCodigoFromMap(map, code));
 }
 
 function normalizeMotivoSearchText(value: unknown): string {
@@ -1324,12 +1332,7 @@ export default function ImportarXmlPage() {
   }, [osNumero, osEnabled, osId, osLabel, resolveOsByNumero]);
 
   function normalizeItemCodigo(code: unknown): string {
-    const raw = String(code ?? "").trim();
-    if (!raw) return "";
-    // Alguns fornecedores enviam cProd com vários zeros à esquerda.
-    // Para evitar duplicidade e facilitar a busca, removemos zeros apenas quando for numérico.
-    if (/^\d+$/.test(raw)) return raw.replace(/^0+(?!$)/, "");
-    return raw;
+    return normalizeXmlItemCode(code);
   }
 
   function parseXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] } {
@@ -2092,7 +2095,7 @@ export default function ImportarXmlPage() {
       const map = await carregarItensPorCodigo(codigos, tenantId, empresaId, fornecedorFinal);
 
       // regra: só cria item se tiver permissão
-      const missing = codigos.filter((c) => !map.has(c));
+      const missing = codigos.filter((c) => !hasItemCodigoInMap(map, c));
       if (missing.length > 0 && !canCreateItem) {
         throw new Error(`Sem permissao para cadastrar itens. Faltantes: ${missing.join(", ")}`);
       }
@@ -2100,7 +2103,7 @@ export default function ImportarXmlPage() {
       for (const job of jobsToUse) {
         const dataCompra = job.nfeInfo?.dataEmissao ?? new Date().toISOString();
         for (const it of job.itens) {
-          if (!map.has(it.codigo)) {
+          if (!hasItemCodigoInMap(map, it.codigo)) {
             const created = await criarItemRapido(it, fornecedorFinal ?? null, dataCompra, finalidadeLote as ItemFinalidade);
             if (created) {
               addItemCodigoToMap(map, {
@@ -2119,7 +2122,7 @@ export default function ImportarXmlPage() {
 
       // Atualiza imediatamente os faltantes do lote para liberar a importacao sem precisar recarregar a tela.
       // (o efeito que recalcula loteMissing depende de selectedOkJobs, que pode não mudar após o cadastro)
-      const nextMissing = codigos.filter((c) => !map.has(c));
+      const nextMissing = codigos.filter((c) => !hasItemCodigoInMap(map, c));
       setLoteMissing(nextMissing);
 
       setFornecedorIdBase(fornecedorFinal ?? null);
@@ -2620,7 +2623,7 @@ export default function ImportarXmlPage() {
         const map = await carregarItensPorCodigo(codes, tenantId, empresaId, fornecedorFinalId);
         if (!active) return;
 
-        const nextMissing = codes.filter((c) => !map.has(c));
+        const nextMissing = codes.filter((c) => !hasItemCodigoInMap(map, c));
 
         setLoteMissing((prev) => {
           if (prev.length !== nextMissing.length) return nextMissing;
@@ -3894,7 +3897,7 @@ export default function ImportarXmlPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
                     {itensParaTabela.map((it, idx) => {
-                      const foundItem = itemMap.get(it.codigo) ?? itemMap.get(normalizeItemCodigo(it.codigo));
+                      const foundItem = getItemCodigoFromMap(itemMap, it.codigo);
                       const itemAnalysis = xmlImportAnalysis?.itemSuggestions.find((item) => item.index === idx) ?? null;
                       const pedidosSugeridos = xmlImportAnalysis?.pedidoSuggestions ?? [];
                       const fallbackPedido = pedidosSugeridos.length === 1 ? pedidosSugeridos[0] : xmlImportAnalysis?.pedidoSuggestion ?? null;

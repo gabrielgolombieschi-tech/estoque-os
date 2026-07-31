@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { supabaseFromAuthHeader } from "@/lib/supabase/serverFromAuthHeader";
 import { getAllowedEmpresas } from "@/lib/auth/empresa";
+import { normalizeXmlItemCode } from "@/lib/nfe/xmlImportAnalyzer";
 
 export const runtime = "nodejs";
 
@@ -386,7 +387,7 @@ function normalizeItemCode(value: string | null | undefined): string {
     .replace(/[^A-Z0-9._/-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return cleaned;
+  return normalizeXmlItemCode(cleaned);
 }
 
 function moneyDiff(a: number, b: number): number {
@@ -1737,7 +1738,7 @@ async function reconcileNfEntradaItemIdsFromPayload(opts: {
     const rec = row as Record<string, unknown>;
     const itemIdRaw = rec.item_id;
     const itemId = typeof itemIdRaw === "number" ? itemIdRaw : Number(itemIdRaw);
-    const codigo = normalizeLookup(String(rec.codigo_fornecedor ?? rec.codigo ?? ""));
+    const codigo = normalizeItemCode(String(rec.codigo_fornecedor ?? rec.codigo ?? ""));
     if (codigo) {
       if (Number.isFinite(itemId) && itemId > 0) {
         if (!candidatosCodigo.has(codigo)) candidatosCodigo.set(codigo, []);
@@ -1792,7 +1793,7 @@ async function reconcileNfEntradaItemIdsFromPayload(opts: {
     for (const it of itensCadastrados) {
       const id = Number(it.id ?? 0);
       if (!Number.isFinite(id) || id <= 0) continue;
-      const cod = normalizeLookup(it.codigo_interno);
+      const cod = normalizeItemCode(it.codigo_interno);
       if (cod && (codigosSemId.has(cod) || !codigoParaItemId.has(cod))) {
         codigoParaItemId.set(cod, id);
       }
@@ -1807,7 +1808,7 @@ async function reconcileNfEntradaItemIdsFromPayload(opts: {
   for (const row of rows) {
     if (row.item_id && Number(row.item_id) > 0) continue;
 
-    const codigo = normalizeLookup(row.codigo_fornecedor);
+    const codigo = normalizeItemCode(row.codigo_fornecedor);
     const desc = normalizeLookup(row.descricao);
     if (!codigo && !desc) continue;
 
