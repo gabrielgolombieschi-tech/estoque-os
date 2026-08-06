@@ -28,6 +28,23 @@ type UnifiedRow = {
   valorAberto: number;
   tituloStatus: string;
   formaPagamentoResumo: string | null;
+  contaBancariaResumo: string | null;
+};
+
+type ContaSaldo = {
+  empresaId: string;
+  empresaNome: string;
+  contaId: string;
+  codigo: string;
+  nome: string;
+  configurada: boolean;
+  saldoReferencia: number | null;
+  saldoReferenciaData: string | null;
+  saldoInicialPeriodo: number | null;
+  entradasPeriodo: number;
+  saidasPeriodo: number;
+  transferenciasPeriodo: number;
+  saldoAtual: number | null;
 };
 
 type MotivoCompra = {
@@ -107,6 +124,14 @@ function summarizeFormaPagamentoLabels(values: unknown[]): string | null {
   );
   if (labels.length === 0) return null;
   if (labels.length === 1) return labels[0];
+  return labels.join(" + ");
+}
+
+function summarizeTextValues(values: unknown[]): string | null {
+  const labels = Array.from(
+    new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))
+  );
+  if (labels.length === 0) return null;
   return labels.join(" + ");
 }
 
@@ -288,6 +313,7 @@ export default function ContasPagarReceberPage() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<UnifiedRow[]>([]);
   const [todaySummary, setTodaySummary] = useState({ entradas: 0, saidas: 0 });
+  const [accountBalances, setAccountBalances] = useState<ContaSaldo[]>([]);
 
   const [selected, setSelected] = useState<UnifiedRow | null>(null);
   const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO">("APROVAR");
@@ -534,6 +560,7 @@ export default function ContasPagarReceberPage() {
         valorAberto: Number(r.valor_aberto ?? 0),
         tituloStatus: String(r.status ?? ""),
         formaPagamentoResumo: null,
+        contaBancariaResumo: null,
       }));
 
       type ApParcelaPaidRow = {
@@ -632,6 +659,7 @@ export default function ContasPagarReceberPage() {
           valorAberto: Number(r.valor_aberto ?? 0),
           tituloStatus: String(r?.titulo?.status ?? ""),
           formaPagamentoResumo: null,
+          contaBancariaResumo: null,
         };
       });
 
@@ -794,6 +822,7 @@ export default function ContasPagarReceberPage() {
           valorAberto: Number(r.valor_aberto ?? 0),
           tituloStatus: String(r?.titulo?.status ?? ""),
           formaPagamentoResumo: null,
+          contaBancariaResumo: null,
         };
       });
 
@@ -950,8 +979,8 @@ export default function ContasPagarReceberPage() {
     setError(null);
 
     try {
-      const [listaRes, hojeRes] = await Promise.all([
-        supabase.schema("f").rpc("contas_pagar_receber_listar", {
+      const [listaRes, hojeRes, saldosRes] = await Promise.all([
+        supabase.schema("f").rpc("contas_pagar_receber_listar_v2", {
           p_tenant_id: te.tenantId,
           p_empresa_ids: selectedEmpresaIds,
           p_data_inicio: ini,
@@ -962,11 +991,19 @@ export default function ContasPagarReceberPage() {
           p_empresa_ids: selectedEmpresaIds,
           p_data: todayISO(),
         }),
+        supabase.schema("f").rpc("contas_bancarias_saldos", {
+          p_tenant_id: te.tenantId,
+          p_empresa_ids: selectedEmpresaIds,
+          p_data_inicio: ini,
+          p_data_fim: fim,
+          p_data_referencia: todayISO(),
+        }),
       ]);
 
       if (requestIdRef.current !== reqId) return;
       if (listaRes.error) throw listaRes.error;
       if (hojeRes.error) throw hojeRes.error;
+      if (saldosRes.error) throw saldosRes.error;
 
       type ContasPagarReceberRpcRow = {
         empresa_id: unknown;
@@ -988,6 +1025,8 @@ export default function ContasPagarReceberPage() {
         titulo_status: unknown;
         formas_aplicadas: unknown;
         formas_agendadas: unknown;
+        contas_aplicadas: unknown;
+        contas_agendadas: unknown;
         pagamento_import_json: unknown;
       };
 
@@ -999,6 +1038,8 @@ export default function ContasPagarReceberPage() {
           const empresaId = String(row.empresa_id ?? "");
           const formasAplicadas = Array.isArray(row.formas_aplicadas) ? row.formas_aplicadas : [];
           const formasAgendadas = Array.isArray(row.formas_agendadas) ? row.formas_agendadas : [];
+          const contasAplicadas = Array.isArray(row.contas_aplicadas) ? row.contas_aplicadas : [];
+          const contasAgendadas = Array.isArray(row.contas_agendadas) ? row.contas_agendadas : [];
           const importEntries = readPagamentoImportEntries(row.pagamento_import_json);
           const formasImportadas = importEntries
             .map((entry) => entry.forma_pagamento ?? entry.forma ?? entry.modo ?? null)
@@ -1030,6 +1071,7 @@ export default function ContasPagarReceberPage() {
               importada: summarizeFormaPagamentoLabels(formasImportadas),
               parcelasNoTitulo,
             }),
+            contaBancariaResumo: summarizeTextValues(contasAplicadas) ?? summarizeTextValues(contasAgendadas),
           };
         })
         .filter((row): row is UnifiedRow => row !== null);
@@ -1037,20 +1079,56 @@ export default function ContasPagarReceberPage() {
       type ResumoHojeRpcRow = { entradas?: unknown; saidas?: unknown };
       const resumoHoje = ((hojeRes.data ?? []) as ResumoHojeRpcRow[])[0] ?? null;
 
+      type SaldoRpcRow = {
+        empresa_id: unknown;
+        conta_bancaria_id: unknown;
+        conta_codigo: unknown;
+        conta_nome: unknown;
+        configurada: unknown;
+        saldo_referencia: unknown;
+        saldo_referencia_data: unknown;
+        saldo_inicial_periodo: unknown;
+        entradas_periodo: unknown;
+        saidas_periodo: unknown;
+        transferencias_periodo: unknown;
+        saldo_atual: unknown;
+      };
+      const saldos = ((saldosRes.data ?? []) as SaldoRpcRow[]).map((saldo): ContaSaldo => {
+        const empresaId = String(saldo.empresa_id ?? "");
+        return {
+          empresaId,
+          empresaNome: empresaNomeById.get(empresaId) ?? "Empresa",
+          contaId: String(saldo.conta_bancaria_id ?? ""),
+          codigo: String(saldo.conta_codigo ?? ""),
+          nome: String(saldo.conta_nome ?? "Conta"),
+          configurada: Boolean(saldo.configurada),
+          saldoReferencia: saldo.saldo_referencia === null ? null : Number(saldo.saldo_referencia ?? 0),
+          saldoReferenciaData: saldo.saldo_referencia_data ? String(saldo.saldo_referencia_data) : null,
+          saldoInicialPeriodo: saldo.saldo_inicial_periodo === null ? null : Number(saldo.saldo_inicial_periodo ?? 0),
+          entradasPeriodo: Number(saldo.entradas_periodo ?? 0),
+          saidasPeriodo: Number(saldo.saidas_periodo ?? 0),
+          transferenciasPeriodo: Number(saldo.transferencias_periodo ?? 0),
+          saldoAtual: saldo.saldo_atual === null ? null : Number(saldo.saldo_atual ?? 0),
+        };
+      });
+
       setRows(mapped);
+      setAccountBalances(saldos);
       setTodaySummary({
         entradas: Number(resumoHoje?.entradas ?? 0),
         saidas: Number(resumoHoje?.saidas ?? 0),
       });
     } catch (e: unknown) {
       if (requestIdRef.current !== reqId) return;
-      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar");
+      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar_v2");
       const missingTodayRpc = isMissingRpc(e, "f.contas_pagar_receber_resumo_hoje");
+      const missingBalancesRpc = isMissingRpc(e, "f.contas_bancarias_saldos");
       if (
-        (missingListRpc || missingTodayRpc) &&
+        (missingListRpc || missingTodayRpc || missingBalancesRpc) &&
         selectedEmpresaIds.length === 1 &&
         selectedEmpresaIds[0] === te.empresaId
       ) {
+        setAccountBalances([]);
         await loadLegacy();
         return;
       }
@@ -1343,7 +1421,8 @@ export default function ContasPagarReceberPage() {
         (r.descricao ?? "").toLowerCase().includes(query) ||
         (r.motivoNome ?? "").toLowerCase().includes(query) ||
         (r.aprovadoPorNome ?? "").toLowerCase().includes(query) ||
-        (r.formaPagamentoResumo ?? "").toLowerCase().includes(query)
+        (r.formaPagamentoResumo ?? "").toLowerCase().includes(query) ||
+        (r.contaBancariaResumo ?? "").toLowerCase().includes(query)
       );
       const matchNf = !nfTerm || (r.nfNumero ?? "").toLowerCase().includes(nfTerm);
       return matchText && matchNf;
@@ -1360,28 +1439,32 @@ export default function ContasPagarReceberPage() {
     const rowsResumo = filtered.filter((r) => !isCancelledRow(r));
     const previstoReceitas = rowsResumo.filter((r) => r.kind === "AR").reduce((acc, r) => acc + Number(r.valor || 0), 0);
     const previstoDespesas = rowsResumo.filter((r) => r.kind === "AP").reduce((acc, r) => acc + Number(r.valor || 0), 0);
-    const realizadoReceitas = filtered
-      .filter((r) => r.kind === "AR" && !isCancelledRow(r))
-      .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
-    const realizadoDespesas = filtered
-      .filter((r) => r.kind === "AP" && !isCancelledRow(r))
-      .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
+    const saldosConfigurados = accountBalances.filter((conta) => conta.configurada);
+    const saldoInicial = saldosConfigurados.reduce((acc, conta) => acc + (conta.saldoInicialPeriodo ?? 0), 0);
+    const realizadoReceitas = accountBalances.reduce((acc, conta) => acc + conta.entradasPeriodo, 0);
+    const realizadoDespesas = accountBalances.reduce((acc, conta) => acc + conta.saidasPeriodo, 0);
+    const transferencias = accountBalances.reduce((acc, conta) => acc + conta.transferenciasPeriodo, 0);
+    const saldoAtual = saldosConfigurados.reduce((acc, conta) => acc + (conta.saldoAtual ?? 0), 0);
 
     return {
       previsto: {
-        saldoInicial: 0,
+        saldoInicial,
         receitas: previstoReceitas,
         despesas: previstoDespesas,
-        saldoFinal: previstoReceitas - previstoDespesas,
+        saldoFinal: saldoInicial + previstoReceitas - previstoDespesas,
       },
       realizado: {
-        saldoInicial: 0,
+        saldoInicial,
         receitas: realizadoReceitas,
         despesas: realizadoDespesas,
-        saldoFinal: realizadoReceitas - realizadoDespesas,
+        transferencias,
+        saldoFinal: saldoInicial + realizadoReceitas - realizadoDespesas + transferencias,
       },
+      saldoAtual,
+      contasConfiguradas: saldosConfigurados.length,
+      contasPendentes: accountBalances.length - saldosConfigurados.length,
     };
-  }, [filtered]);
+  }, [accountBalances, filtered]);
 
   const selectedMotivo = useMemo(() => {
     if (!motivoId) return null;
@@ -1893,11 +1976,14 @@ export default function ContasPagarReceberPage() {
 
   return (
     <div className="space-y-4">
-      <div className="border border-zinc-800 rounded-md bg-zinc-950/60 p-3 space-y-3">
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 xl:col-span-3">
-            <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Previsto</div>
+      <div className="border border-zinc-800 rounded-xl bg-zinc-950/60 p-3 sm:p-4 space-y-4 shadow-sm">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3">
+            <div className="border border-zinc-800 rounded-xl p-4 bg-gradient-to-br from-zinc-900/70 to-zinc-950">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-zinc-100">Previsto</div>
+                <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-200">Competência</span>
+              </div>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center justify-between text-zinc-300">
                   <span>Saldo Inicial:</span>
@@ -1917,8 +2003,11 @@ export default function ContasPagarReceberPage() {
                 </div>
               </div>
             </div>
-            <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Realizado</div>
+            <div className="border border-zinc-800 rounded-xl p-4 bg-gradient-to-br from-zinc-900/70 to-zinc-950">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-zinc-100">Realizado</div>
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-200">Baixas</span>
+              </div>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center justify-between text-zinc-300">
                   <span>Saldo Inicial:</span>
@@ -1932,30 +2021,81 @@ export default function ContasPagarReceberPage() {
                   <span>Despesas (-):</span>
                   <span className="text-red-300">{formatMoneyBR(resumo.realizado.despesas)}</span>
                 </div>
+                {resumo.realizado.transferencias !== 0 && (
+                  <div className="flex items-center justify-between text-zinc-400">
+                    <span>Transferências:</span>
+                    <span>{formatMoneyBR(resumo.realizado.transferencias)}</span>
+                  </div>
+                )}
                 <div className="border-t border-zinc-800 pt-1 mt-1 flex items-center justify-between font-medium text-zinc-100">
                   <span>Saldo Final:</span>
                   <span>{formatMoneyBR(resumo.realizado.saldoFinal)}</span>
                 </div>
               </div>
             </div>
-            <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Hoje</div>
+            <div className="border border-zinc-800 rounded-xl p-4 bg-gradient-to-br from-zinc-900/70 to-zinc-950">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-zinc-100">Hoje</div>
+                <span className="text-xs text-zinc-500">{formatDateBR(todayISO())}</span>
+              </div>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center justify-between text-zinc-300">
                   <span>Entradas (+):</span>
                   <span className="text-emerald-300">{formatMoneyBR(todaySummary.entradas)}</span>
                 </div>
                 <div className="flex items-center justify-between text-zinc-300">
-                  <span>SaÃ­das (-):</span>
+                  <span>Saídas (-):</span>
                   <span className="text-red-300">{formatMoneyBR(todaySummary.saidas)}</span>
                 </div>
               </div>
             </div>
+
+            <div className="border border-emerald-500/20 rounded-xl p-4 bg-gradient-to-br from-emerald-500/10 via-zinc-950 to-zinc-950">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <div className="text-sm font-semibold text-zinc-100">Saldo atual</div>
+                  <div className="text-[11px] text-zinc-500">Por conta bancária</div>
+                </div>
+                <div className={`text-lg font-semibold text-right ${resumo.saldoAtual < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                  {formatMoneyBR(resumo.saldoAtual)}
+                </div>
+              </div>
+              <div className="max-h-28 space-y-1.5 overflow-y-auto pr-1 text-xs">
+                {accountBalances.map((conta) => (
+                  <div key={conta.contaId} className="flex items-center justify-between gap-3 rounded-md bg-black/20 px-2 py-1.5">
+                    <div className="min-w-0">
+                      <div className="truncate text-zinc-200">{conta.codigo} · {conta.nome}</div>
+                      {empresaOptions.length > 1 && <div className="text-[10px] text-zinc-500">{conta.empresaNome}</div>}
+                    </div>
+                    {conta.saldoAtual === null ? (
+                      <span className="shrink-0 text-amber-300">Configurar</span>
+                    ) : (
+                      <span className={`shrink-0 tabular-nums ${conta.saldoAtual < 0 ? "text-red-300" : "text-zinc-100"}`}>
+                        {formatMoneyBR(conta.saldoAtual)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {accountBalances.length === 0 && <div className="text-zinc-500">Nenhuma conta cadastrada.</div>}
+              </div>
+              {resumo.contasPendentes > 0 && (
+                <div className="mt-2 text-[11px] text-amber-300">
+                  {resumo.contasPendentes} {resumo.contasPendentes === 1 ? "conta sem saldo configurado" : "contas sem saldo configurado"}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2 xl:col-span-2">
+          <div className="space-y-3 rounded-xl border border-zinc-800 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-zinc-100">Filtros</div>
+                <div className="text-xs text-zinc-500">Refine o período, a empresa e os lançamentos exibidos.</div>
+              </div>
+              <div className="hidden sm:block text-xs text-zinc-500">Vencimento</div>
+            </div>
             <div className="flex flex-wrap items-center content-start gap-2">
-              <div className="text-sm text-zinc-300 self-center">Vencimento</div>
+              <div className="text-sm text-zinc-300 self-center sm:hidden">Vencimento</div>
               <select
                 aria-label="Ano"
                 value={String(year)}
@@ -2035,7 +2175,7 @@ export default function ContasPagarReceberPage() {
                   checked={onlyPendentes}
                   onChange={(e) => setOnlyPendentes(e.target.checked)}
                 />
-                Pendetes
+                Pendentes
               </label>
             </div>
 
@@ -2117,7 +2257,7 @@ export default function ContasPagarReceberPage() {
                   aria-label="Buscar"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Fornecedor/Cliente, motivo, descricao..."
+                  placeholder="Fornecedor, cliente, motivo, conta..."
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                 />
               </div>
@@ -2147,7 +2287,7 @@ export default function ContasPagarReceberPage() {
       {loading && <div className="text-sm text-zinc-400">Carregando...</div>}
 
       <div className="w-full overflow-x-auto rounded-md border border-zinc-800">
-        <table className="w-full min-w-full text-sm">
+        <table className="w-full min-w-[1800px] text-sm">
           <thead className="bg-zinc-950/80">
             <tr className="text-left text-zinc-300">
               <th className="px-3 py-2">Tipo</th>
@@ -2159,6 +2299,7 @@ export default function ContasPagarReceberPage() {
               <th className="px-3 py-2">Aprovado por</th>
               <th className="px-3 py-2">Parcela</th>
               <th className="px-3 py-2">Forma pgto</th>
+              <th className="px-3 py-2">Conta bancária</th>
               <th className="px-3 py-2">Emissão</th>
               <th className="px-3 py-2">Vencimento</th>
               <th className="px-3 py-2 text-right">Valor</th>
@@ -2185,6 +2326,7 @@ export default function ContasPagarReceberPage() {
                   <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero, r.parcelaTotal)}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.formaPagamentoResumo ?? "-"}</td>
+                  <td className="px-3 py-2 text-zinc-200">{r.contaBancariaResumo ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.emissao ? formatDateBR(r.emissao) : "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{formatDateBR(r.vencimento)}</td>
                   <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valor)}</td>
@@ -2199,7 +2341,7 @@ export default function ContasPagarReceberPage() {
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={14} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={15} className="px-3 py-6 text-center text-zinc-400">
                   Nenhum item neste período.
                 </td>
               </tr>
@@ -2228,6 +2370,9 @@ export default function ContasPagarReceberPage() {
                 <div className="text-sm text-zinc-400">Empresa: {selected.empresaNome}</div>
                 {selected.formaPagamentoResumo ? (
                   <div className="text-sm text-zinc-400">Forma: {selected.formaPagamentoResumo}</div>
+                ) : null}
+                {selected.contaBancariaResumo ? (
+                  <div className="text-sm text-zinc-400">Conta: {selected.contaBancariaResumo}</div>
                 ) : null}
                 <div className="text-sm text-zinc-400">
                   {fmtParcela(selected.parcelaNumero, selected.parcelaTotal)} • Venc: {selected.vencimento} • Aberto: {formatMoneyBR(selected.valorAberto)}

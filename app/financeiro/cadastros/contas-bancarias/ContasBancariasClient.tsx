@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
+import { formatMoneyBR, parseMoneyBR } from "@/lib/decimal";
 
 type ContaBancariaRow = {
   id: string;
@@ -21,6 +22,12 @@ type ContaBancariaRow = {
   created_at?: string;
   updated_at?: string;
   deleted_at: string | null;
+  saldo_referencia: number | null;
+  saldo_referencia_data: string | null;
+  saldo_referencia_motivo: string | null;
+  saldo_atual: number | null;
+  saldo_inicial_periodo: number | null;
+  configurada: boolean;
 };
 
 function normalize(value: unknown): string {
@@ -80,7 +87,9 @@ export default function ContasBancariasClient() {
     const base = rows.filter((r) => !r.deleted_at);
     const ativos = base.filter((r) => r.ativo).length;
     const inativos = base.filter((r) => !r.ativo).length;
-    return { total: base.length, ativos, inativos };
+    const configuradas = base.filter((r) => r.configurada).length;
+    const saldoAtual = base.reduce((acc, r) => acc + (r.saldo_atual ?? 0), 0);
+    return { total: base.length, ativos, inativos, configuradas, saldoAtual };
   }, [rows]);
 
   const filtered = useMemo(() => {
@@ -109,6 +118,12 @@ export default function ContasBancariasClient() {
   const [formAtivo, setFormAtivo] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [balanceOpen, setBalanceOpen] = useState(false);
+  const [balanceValue, setBalanceValue] = useState("");
+  const [balanceDate, setBalanceDate] = useState("");
+  const [balanceReason, setBalanceReason] = useState("");
+  const [balanceSaving, setBalanceSaving] = useState(false);
+
   const reload = async () => {
     if (typeof te.sessionUserId !== "string") return;
     if (!te.tenantId) return;
@@ -121,17 +136,56 @@ export default function ContasBancariasClient() {
     try {
       const supabase = getSupabaseBrowser();
 
-      const { data, error } = await supabase
-        .schema("f")
-        .from("conta_bancaria")
-        .select("id,tenant_id,empresa_id,codigo,nome,tipo,banco,agencia,conta,pix_chave,ativo,created_at,updated_at,deleted_at")
-        .eq("tenant_id", te.tenantId)
-        .is("deleted_at", null)
-        .order("nome", { ascending: true })
-        .limit(5000);
+      const today = new Date();
+      const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const [contasRes, saldosRes] = await Promise.all([
+        supabase
+          .schema("f")
+          .from("conta_bancaria")
+          .select(
+            "id,tenant_id,empresa_id,codigo,nome,tipo,banco,agencia,conta,pix_chave,ativo,created_at,updated_at,deleted_at,saldo_referencia,saldo_referencia_data,saldo_referencia_motivo"
+          )
+          .eq("tenant_id", te.tenantId)
+          .eq("empresa_id", effectiveEmpresaId)
+          .is("deleted_at", null)
+          .order("nome", { ascending: true })
+          .limit(5000),
+        supabase.schema("f").rpc("contas_bancarias_saldos", {
+          p_tenant_id: te.tenantId,
+          p_empresa_ids: [effectiveEmpresaId],
+          p_data_inicio: todayIso,
+          p_data_fim: todayIso,
+          p_data_referencia: todayIso,
+        }),
+      ]);
 
-      if (error) throw error;
-      setRows((data ?? []) as unknown as ContaBancariaRow[]);
+      if (contasRes.error) throw contasRes.error;
+      if (saldosRes.error) throw saldosRes.error;
+
+      type SaldoRpcRow = {
+        conta_bancaria_id: unknown;
+        configurada: unknown;
+        saldo_atual: unknown;
+        saldo_inicial_periodo: unknown;
+      };
+      const saldoByConta = new Map(
+        ((saldosRes.data ?? []) as SaldoRpcRow[]).map((saldo) => [String(saldo.conta_bancaria_id), saldo])
+      );
+      const data = (contasRes.data ?? []).map((raw) => {
+        const conta = raw as unknown as Omit<ContaBancariaRow, "saldo_atual" | "saldo_inicial_periodo" | "configurada">;
+        const saldo = saldoByConta.get(String(conta.id));
+        return {
+          ...conta,
+          saldo_atual: saldo?.saldo_atual === null || saldo?.saldo_atual === undefined ? null : Number(saldo.saldo_atual),
+          saldo_inicial_periodo:
+            saldo?.saldo_inicial_periodo === null || saldo?.saldo_inicial_periodo === undefined
+              ? null
+              : Number(saldo.saldo_inicial_periodo),
+          configurada: Boolean(saldo?.configurada),
+        } satisfies ContaBancariaRow;
+      });
+
+      setRows(data);
       setSelectedId((prev) => {
         if (!prev) return prev;
         return (data ?? []).some((r: unknown) => {
@@ -151,6 +205,7 @@ export default function ContasBancariasClient() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canFinanceiro, te.sessionUserId, te.tenantId, effectiveEmpresaId]);
@@ -247,7 +302,9 @@ export default function ContasBancariasClient() {
             ativo: formAtivo,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", selectedId);
+          .eq("id", selectedId)
+          .eq("tenant_id", te.tenantId)
+          .eq("empresa_id", effectiveEmpresaId);
         if (error) throw error;
       }
 
@@ -269,7 +326,9 @@ export default function ContasBancariasClient() {
         .schema("f")
         .from("conta_bancaria")
         .update({ ativo: !r.ativo, updated_at: new Date().toISOString() })
-        .eq("id", r.id);
+        .eq("id", r.id)
+        .eq("tenant_id", r.tenant_id)
+        .eq("empresa_id", r.empresa_id);
       if (error) throw error;
       await reload();
     } catch (e: unknown) {
@@ -286,7 +345,9 @@ export default function ContasBancariasClient() {
         .schema("f")
         .from("conta_bancaria")
         .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("id", r.id);
+        .eq("id", r.id)
+        .eq("tenant_id", r.tenant_id)
+        .eq("empresa_id", r.empresa_id);
       if (error) throw error;
       setSelectedId(null);
       await reload();
@@ -295,14 +356,64 @@ export default function ContasBancariasClient() {
     }
   };
 
+  const openBalance = (r: ContaBancariaRow) => {
+    if (canWrite !== true) return;
+    const today = new Date();
+    setSelectedId(r.id);
+    setBalanceValue(r.saldo_atual === null ? "" : formatMoneyBR(r.saldo_atual));
+    setBalanceDate(
+      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+    );
+    setBalanceReason(r.configurada ? "Conferência do saldo bancário" : "Implantação do saldo bancário");
+    setBalanceOpen(true);
+  };
+
+  const saveBalance = async () => {
+    if (canWrite !== true || !te.tenantId || !effectiveEmpresaId || !selected) return;
+
+    const parsed = parseMoneyBR(balanceValue);
+    if (!Number.isFinite(parsed)) {
+      setError("Informe um saldo válido.");
+      return;
+    }
+    if (!balanceDate) {
+      setError("Informe a data da posição bancária.");
+      return;
+    }
+    if (balanceReason.trim().length < 3) {
+      setError("Informe o motivo do ajuste.");
+      return;
+    }
+
+    setBalanceSaving(true);
+    setError(null);
+    try {
+      const supabase = getSupabaseBrowser();
+      const { error } = await supabase.schema("f").rpc("conta_bancaria_ajustar_saldo", {
+        p_tenant_id: te.tenantId,
+        p_empresa_id: effectiveEmpresaId,
+        p_conta_bancaria_id: selected.id,
+        p_saldo_atual: parsed.toFixed(2),
+        p_data_referencia: balanceDate,
+        p_motivo: balanceReason.trim(),
+      });
+      if (error) throw error;
+      setBalanceOpen(false);
+      await reload();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro ao ajustar saldo da conta.");
+    } finally {
+      setBalanceSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Contas Bancárias</h1>
+          <h1 className="text-2xl font-semibold">Contas bancárias</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Cadastro de contas para pagamentos/recebimentos, extratos e conciliação (f.conta_bancaria). No Lucro Real, isso sustenta o
-            fluxo de caixa e a rastreabilidade.
+            Cadastre as contas usadas nos pagamentos e recebimentos e mantenha a posição de caixa conferida.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -375,24 +486,29 @@ export default function ContasBancariasClient() {
           {loading && <div className="text-xs text-zinc-400">Carregando…</div>}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
             <div className="text-xs text-zinc-400">Total</div>
             <div className="text-lg font-semibold">{totals.total}</div>
           </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+          <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
             <div className="text-xs text-zinc-400">Ativas</div>
             <div className="text-lg font-semibold">{totals.ativos}</div>
           </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-            <div className="text-xs text-zinc-400">Inativas</div>
-            <div className="text-lg font-semibold">{totals.inativos}</div>
+          <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
+            <div className="text-xs text-zinc-400">Saldos configurados</div>
+            <div className="text-lg font-semibold">{totals.configuradas} de {totals.total}</div>
+          </div>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <div className="text-xs text-emerald-300/80">Saldo atual consolidado</div>
+            <div className={`text-lg font-semibold text-right ${totals.saldoAtual < 0 ? "text-red-300" : "text-emerald-300"}`}>
+              {formatMoneyBR(totals.saldoAtual)}
+            </div>
           </div>
         </div>
 
         <div className="text-xs text-zinc-500">
-          Dica: use <span className="text-zinc-300">CAIXA</span> para caixa físico e <span className="text-zinc-300">BANCO</span> para
-          contas bancárias/contas digitais.
+          O saldo atual considera a última posição confirmada, as baixas de AP/AR e as transferências registradas.
         </div>
       </div>
 
@@ -405,7 +521,7 @@ export default function ContasBancariasClient() {
             <div className="text-xs text-zinc-500">{filtered.length} itens</div>
           </div>
           <div className="overflow-auto">
-            <table className="min-w-[980px] w-full text-sm">
+            <table className="min-w-[1080px] w-full text-sm">
               <thead className="bg-zinc-950/60">
                 <tr className="text-left text-xs text-zinc-400">
                   <th className="px-4 py-3">Código</th>
@@ -414,13 +530,14 @@ export default function ContasBancariasClient() {
                   <th className="px-4 py-3">Banco</th>
                   <th className="px-4 py-3">Agência</th>
                   <th className="px-4 py-3">Conta</th>
+                  <th className="px-4 py-3 text-right">Saldo atual</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td className="px-4 py-6 text-zinc-400" colSpan={7}>
+                    <td className="px-4 py-6 text-zinc-400" colSpan={8}>
                       Nenhuma conta encontrada.
                     </td>
                   </tr>
@@ -443,6 +560,13 @@ export default function ContasBancariasClient() {
                       <td className="px-4 py-3 text-zinc-300">{r.banco ?? "—"}</td>
                       <td className="px-4 py-3 text-zinc-300">{r.agencia ?? "—"}</td>
                       <td className="px-4 py-3 text-zinc-300">{r.conta ?? "—"}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${r.saldo_atual !== null && r.saldo_atual < 0 ? "text-red-300" : "text-zinc-100"}`}>
+                        {r.saldo_atual === null ? (
+                          <span className="text-amber-300 text-xs">Configurar</span>
+                        ) : (
+                          formatMoneyBR(r.saldo_atual)
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${
@@ -466,10 +590,20 @@ export default function ContasBancariasClient() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-lg font-semibold">Detalhes</div>
-              <div className="text-xs text-zinc-400 mt-1">Selecione uma conta para ver/editar.</div>
+              <div className="text-xs text-zinc-400 mt-1">
+                {selected ? "Dados bancários e posição financeira da conta." : "Selecione uma conta para ver ou editar."}
+              </div>
             </div>
             {selected && (
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openBalance(selected)}
+                  disabled={canWrite !== true}
+                  className="px-3 py-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15 text-sm font-medium disabled:opacity-60"
+                >
+                  Ajustar saldo
+                </button>
                 <button
                   type="button"
                   onClick={() => openEdit(selected)}
@@ -486,6 +620,33 @@ export default function ContasBancariasClient() {
 
           {selected && (
             <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-emerald-300/80">Saldo atual</div>
+                    <div className={`mt-1 text-2xl font-semibold ${selected.saldo_atual !== null && selected.saldo_atual < 0 ? "text-red-300" : "text-zinc-50"}`}>
+                      {selected.saldo_atual === null ? "Não configurado" : formatMoneyBR(selected.saldo_atual)}
+                    </div>
+                  </div>
+                  <span className={`rounded-full border px-2.5 py-1 text-xs ${selected.configurada ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>
+                    {selected.configurada ? "CONFERIDO" : "PENDENTE"}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-zinc-500">Última posição confirmada</div>
+                    <div className="text-zinc-200">
+                      {selected.saldo_referencia === null ? "—" : formatMoneyBR(selected.saldo_referencia)}
+                      {selected.saldo_referencia_data ? ` em ${selected.saldo_referencia_data.split("-").reverse().join("/")}` : ""}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-zinc-500">Motivo</div>
+                    <div className="text-zinc-200">{selected.saldo_referencia_motivo ?? "—"}</div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
                   <div className="text-xs text-zinc-400">Código</div>
@@ -675,6 +836,84 @@ export default function ContasBancariasClient() {
                 className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium disabled:opacity-60"
               >
                 {saving ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {balanceOpen && selected && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 p-5">
+              <div>
+                <div className="text-lg font-semibold">Ajustar saldo atual</div>
+                <div className="mt-1 text-sm text-zinc-400">{selected.codigo} · {selected.nome}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBalanceOpen(false)}
+                className="rounded-md border border-zinc-800 px-2.5 py-1.5 text-sm text-zinc-300 hover:bg-zinc-900"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 text-sm text-sky-100/80">
+                Informe o saldo conferido no banco. Os pagamentos, recebimentos e transferências registrados depois dessa posição passam a atualizar o valor automaticamente.
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block text-xs text-zinc-400">
+                  Saldo conferido
+                  <input
+                    value={balanceValue}
+                    onChange={(e) => setBalanceValue(e.target.value)}
+                    aria-label="Saldo conferido"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    className="mt-1 w-full rounded-md border border-zinc-700 bg-black px-3 py-2.5 text-right text-lg font-semibold text-zinc-50"
+                  />
+                </label>
+                <label className="block text-xs text-zinc-400">
+                  Data da posição
+                  <input
+                    type="date"
+                    value={balanceDate}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setBalanceDate(e.target.value)}
+                    aria-label="Data da posição"
+                    className="mt-1 w-full rounded-md border border-zinc-700 bg-black px-3 py-2.5 text-zinc-100"
+                  />
+                </label>
+              </div>
+              <label className="block text-xs text-zinc-400">
+                Motivo do ajuste
+                <input
+                  value={balanceReason}
+                  onChange={(e) => setBalanceReason(e.target.value)}
+                  aria-label="Motivo do ajuste"
+                  placeholder="Ex.: Conferência do extrato bancário"
+                  className="mt-1 w-full rounded-md border border-zinc-700 bg-black px-3 py-2.5 text-sm text-zinc-100"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-800 p-5">
+              <button
+                type="button"
+                onClick={() => setBalanceOpen(false)}
+                className="rounded-md border border-zinc-800 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveBalance()}
+                disabled={balanceSaving}
+                className="rounded-md bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-300 disabled:opacity-60"
+              >
+                {balanceSaving ? "Salvando…" : "Confirmar saldo"}
               </button>
             </div>
           </div>
