@@ -2130,12 +2130,18 @@ export default function ContasPagarReceberPage() {
                   </Link>
                 </div>
               </div>
-              <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1 text-xs">
+              <div className="space-y-1.5 text-xs">
                 {accountBalances.map((conta) => (
                   <div key={conta.contaId} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 truncate font-medium text-zinc-200">
+                      <div
+                        className="min-w-0 truncate font-semibold text-zinc-200"
+                        title={conta.saldoReferenciaMotivo ?? undefined}
+                      >
                         {accountDisplayLabel(conta.codigo, conta.nome, conta.empresaNome)}
+                        {conta.configurada && conta.saldoReferenciaData && (
+                          <span className="text-zinc-500"> - Ajuste: {formatDateBR(conta.saldoReferenciaData)}</span>
+                        )}
                       </div>
                       {conta.saldoAtual === null ? (
                         <span className="shrink-0 text-amber-300">Configurar</span>
@@ -2145,16 +2151,6 @@ export default function ContasPagarReceberPage() {
                         </span>
                       )}
                     </div>
-                    {conta.configurada && conta.saldoReferenciaMotivo && (
-                      <div
-                        className="mt-1 truncate text-[10px] leading-4 text-zinc-500"
-                        title={`${conta.saldoReferenciaData ? `${formatDateBR(conta.saldoReferenciaData)} · ` : ""}${conta.saldoReferenciaMotivo}`}
-                      >
-                        <span className="text-zinc-600">Ajuste:</span>{" "}
-                        {conta.saldoReferenciaData ? `${formatDateBR(conta.saldoReferenciaData)} · ` : ""}
-                        {conta.saldoReferenciaMotivo}
-                      </div>
-                    )}
                   </div>
                 ))}
                 {accountBalances.length === 0 && <div className="text-zinc-500">Nenhuma conta cadastrada.</div>}
