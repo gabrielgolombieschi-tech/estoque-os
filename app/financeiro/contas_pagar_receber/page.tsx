@@ -1007,7 +1007,7 @@ export default function ContasPagarReceberPage() {
 
     try {
       const [listaRes, hojeRes, saldosRes] = await Promise.all([
-        supabase.schema("f").rpc("contas_pagar_receber_listar_v2", {
+        supabase.schema("f").rpc("contas_pagar_receber_listar_v3", {
           p_tenant_id: te.tenantId,
           p_empresa_ids: selectedEmpresaIds,
           p_data_inicio: ini,
@@ -1149,7 +1149,7 @@ export default function ContasPagarReceberPage() {
       });
     } catch (e: unknown) {
       if (requestIdRef.current !== reqId) return;
-      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar_v2");
+      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar_v3");
       const missingTodayRpc = isMissingRpc(e, "f.contas_pagar_receber_resumo_hoje");
       const missingBalancesRpc = isMissingRpc(e, "f.contas_bancarias_saldos_ativos");
       if (
