@@ -364,7 +364,7 @@ export default function ContasBancariasClient() {
     setBalanceDate(
       `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
     );
-    setBalanceReason(r.configurada ? "Conferência do saldo bancário" : "Implantação do saldo bancário");
+    setBalanceReason("");
     setBalanceOpen(true);
   };
 
@@ -888,14 +888,16 @@ export default function ContasBancariasClient() {
                 </label>
               </div>
               <label className="block text-xs text-zinc-400">
-                Motivo do ajuste
+                Motivo do ajuste <span className="text-red-300">*</span>
                 <input
                   value={balanceReason}
                   onChange={(e) => setBalanceReason(e.target.value)}
                   aria-label="Motivo do ajuste"
+                  required
                   placeholder="Ex.: Conferência do extrato bancário"
                   className="mt-1 w-full rounded-md border border-zinc-700 bg-black px-3 py-2.5 text-sm text-zinc-100"
                 />
+                <span className="mt-1 block text-[11px] text-zinc-500">Obrigatório. Este motivo ficará visível no resumo financeiro.</span>
               </label>
             </div>
 
@@ -910,7 +912,7 @@ export default function ContasBancariasClient() {
               <button
                 type="button"
                 onClick={() => void saveBalance()}
-                disabled={balanceSaving}
+                disabled={balanceSaving || balanceReason.trim().length < 3}
                 className="rounded-md bg-emerald-400 px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-300 disabled:opacity-60"
               >
                 {balanceSaving ? "Salvando…" : "Confirmar saldo"}

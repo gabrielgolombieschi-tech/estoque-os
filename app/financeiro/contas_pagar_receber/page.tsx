@@ -41,6 +41,7 @@ type ContaSaldo = {
   configurada: boolean;
   saldoReferencia: number | null;
   saldoReferenciaData: string | null;
+  saldoReferenciaMotivo: string | null;
   saldoInicialPeriodo: number | null;
   entradasPeriodo: number;
   saidasPeriodo: number;
@@ -1116,6 +1117,7 @@ export default function ContasPagarReceberPage() {
         configurada: unknown;
         saldo_referencia: unknown;
         saldo_referencia_data: unknown;
+        saldo_referencia_motivo: unknown;
         saldo_inicial_periodo: unknown;
         entradas_periodo: unknown;
         saidas_periodo: unknown;
@@ -1133,6 +1135,7 @@ export default function ContasPagarReceberPage() {
           configurada: Boolean(saldo.configurada),
           saldoReferencia: saldo.saldo_referencia === null ? null : Number(saldo.saldo_referencia ?? 0),
           saldoReferenciaData: saldo.saldo_referencia_data ? String(saldo.saldo_referencia_data) : null,
+          saldoReferenciaMotivo: saldo.saldo_referencia_motivo ? String(saldo.saldo_referencia_motivo) : null,
           saldoInicialPeriodo: saldo.saldo_inicial_periodo === null ? null : Number(saldo.saldo_inicial_periodo ?? 0),
           entradasPeriodo: Number(saldo.entradas_periodo ?? 0),
           saidasPeriodo: Number(saldo.saidas_periodo ?? 0),
@@ -2127,18 +2130,30 @@ export default function ContasPagarReceberPage() {
                   </Link>
                 </div>
               </div>
-              <div className="max-h-32 space-y-1 overflow-y-auto pr-1 text-xs">
+              <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1 text-xs">
                 {accountBalances.map((conta) => (
-                  <div key={conta.contaId} className="flex items-center justify-between gap-3 rounded-md bg-black/20 px-2 py-1.5">
-                    <div className="min-w-0 truncate text-zinc-200">
-                      {accountDisplayLabel(conta.codigo, conta.nome, conta.empresaNome)}
+                  <div key={conta.contaId} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 truncate font-medium text-zinc-200">
+                        {accountDisplayLabel(conta.codigo, conta.nome, conta.empresaNome)}
+                      </div>
+                      {conta.saldoAtual === null ? (
+                        <span className="shrink-0 text-amber-300">Configurar</span>
+                      ) : (
+                        <span className={`shrink-0 tabular-nums ${conta.saldoAtual < 0 ? "text-red-300" : "text-zinc-100"}`}>
+                          {formatMoneyBR(conta.saldoAtual)}
+                        </span>
+                      )}
                     </div>
-                    {conta.saldoAtual === null ? (
-                      <span className="shrink-0 text-amber-300">Configurar</span>
-                    ) : (
-                      <span className={`shrink-0 tabular-nums ${conta.saldoAtual < 0 ? "text-red-300" : "text-zinc-100"}`}>
-                        {formatMoneyBR(conta.saldoAtual)}
-                      </span>
+                    {conta.configurada && conta.saldoReferenciaMotivo && (
+                      <div
+                        className="mt-1 truncate text-[10px] leading-4 text-zinc-500"
+                        title={`${conta.saldoReferenciaData ? `${formatDateBR(conta.saldoReferenciaData)} · ` : ""}${conta.saldoReferenciaMotivo}`}
+                      >
+                        <span className="text-zinc-600">Ajuste:</span>{" "}
+                        {conta.saldoReferenciaData ? `${formatDateBR(conta.saldoReferenciaData)} · ` : ""}
+                        {conta.saldoReferenciaMotivo}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -2152,199 +2167,237 @@ export default function ContasPagarReceberPage() {
             </div>
           </div>
 
-          <div className="space-y-3 rounded-xl border border-zinc-800 bg-black/20 p-3">
-            <div className="flex items-center justify-between gap-3">
+          <section aria-label="Filtros financeiros" className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
               <div>
                 <div className="text-sm font-semibold text-zinc-100">Filtros</div>
-                <div className="text-xs text-zinc-500">Refine o período, a empresa e os lançamentos exibidos.</div>
+                <div className="mt-0.5 text-xs text-zinc-500">Organize os títulos por período, empresa e situação.</div>
               </div>
-              <div className="hidden sm:block text-xs text-zinc-500">Vencimento</div>
-            </div>
-            <div className="flex flex-wrap items-center content-start gap-2">
-              <div className="text-sm text-zinc-300 self-center sm:hidden">Vencimento</div>
-              <select
-                aria-label="Ano"
-                value={String(year)}
-                onChange={(e) => {
-                  setOnlyToday(false);
-                  setYear(Number(e.target.value));
-                }}
-                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-              >
-                {years.map((y) => (
-                  <option key={y} value={String(y)}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Mes"
-                value={String(monthNum)}
-                onChange={(e) => {
-                  setOnlyToday(false);
-                  setMonthNum(Number(e.target.value));
-                }}
-                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-              >
-                {Array.from({ length: 12 }).map((_, i) => {
-                  const m = i + 1;
-                  return (
-                    <option key={m} value={String(m)}>
-                      {pad2(m)}
-                    </option>
-                  );
-                })}
-              </select>
-              <button
-                type="button"
-                onClick={() => {
-                  const d = new Date();
-                  setYear(d.getFullYear());
-                  setMonthNum(d.getMonth() + 1);
-                  setDateFrom("");
-                  setDateTo("");
-                  setOnlyToday((s) => !s);
-                }}
-                className={
-                  onlyToday
-                    ? "px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
-                    : "px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
-                }
-              >
-                Hoje
-              </button>
-              <div className="text-sm text-zinc-300 self-center">De</div>
-              <input
-                type="date"
-                aria-label="Data de"
-                value={dateFrom}
-                onChange={(e) => {
-                  setOnlyToday(false);
-                  setDateFrom(e.target.value);
-                }}
-                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-              />
-              <div className="text-sm text-zinc-300 self-center">Ate</div>
-              <input
-                type="date"
-                aria-label="Data ate"
-                value={dateTo}
-                onChange={(e) => {
-                  setOnlyToday(false);
-                  setDateTo(e.target.value);
-                }}
-                className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-              />
-              <label className="ml-auto flex items-center gap-2 text-sm text-zinc-300 select-none">
-                <input
-                  type="checkbox"
-                  checked={onlyPendentes}
-                  onChange={(e) => setOnlyPendentes(e.target.checked)}
-                />
-                Pendentes
-              </label>
+              <div className="rounded-full border border-zinc-800 bg-black/30 px-2.5 py-1 text-[11px] text-zinc-500">
+                Baseado no vencimento
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-10 gap-2">
-              <div className="xl:col-span-2">
-                <div className="text-sm text-zinc-300">Tipo</div>
-                <select
-                  aria-label="Tipo"
-                  value={only}
-                  onChange={(e) => setOnly(e.target.value as "ALL" | Kind)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+            <div className="space-y-4 p-4">
+              <div className="grid gap-3 2xl:grid-cols-[minmax(300px,0.8fr)_minmax(460px,1.2fr)_minmax(210px,0.45fr)]">
+                <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Período mensal</div>
+                  <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
+                    <select
+                      aria-label="Ano"
+                      value={String(year)}
+                      onChange={(e) => {
+                        setOnlyToday(false);
+                        setYear(Number(e.target.value));
+                      }}
+                      className="h-10 min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
+                    >
+                      {years.map((y) => (
+                        <option key={y} value={String(y)}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Mes"
+                      value={String(monthNum)}
+                      onChange={(e) => {
+                        setOnlyToday(false);
+                        setMonthNum(Number(e.target.value));
+                      }}
+                      className="h-10 min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
+                    >
+                      {Array.from({ length: 12 }).map((_, i) => {
+                        const m = i + 1;
+                        return (
+                          <option key={m} value={String(m)}>
+                            {pad2(m)}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <button
+                      type="button"
+                      aria-pressed={onlyToday}
+                      onClick={() => {
+                        const d = new Date();
+                        setYear(d.getFullYear());
+                        setMonthNum(d.getMonth() + 1);
+                        setDateFrom("");
+                        setDateTo("");
+                        setOnlyToday((s) => !s);
+                      }}
+                      className={
+                        onlyToday
+                          ? "h-10 rounded-md bg-emerald-400 px-3 text-sm font-semibold text-emerald-950 hover:bg-emerald-300"
+                          : "h-10 rounded-md border border-zinc-700 px-3 text-sm font-medium text-zinc-200 hover:border-zinc-600 hover:bg-zinc-900"
+                      }
+                    >
+                      Hoje
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Intervalo personalizado</div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="relative block">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-zinc-500">DE</span>
+                      <input
+                        type="date"
+                        aria-label="Data de"
+                        value={dateFrom}
+                        onChange={(e) => {
+                          setOnlyToday(false);
+                          setDateFrom(e.target.value);
+                        }}
+                        className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 pl-10 pr-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
+                      />
+                    </label>
+                    <label className="relative block">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-zinc-500">ATÉ</span>
+                      <input
+                        type="date"
+                        aria-label="Data ate"
+                        value={dateTo}
+                        onChange={(e) => {
+                          setOnlyToday(false);
+                          setDateTo(e.target.value);
+                        }}
+                        className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 pl-12 pr-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <label
+                  className={`flex min-h-[82px] cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
+                    onlyPendentes
+                      ? "border-amber-500/40 bg-amber-500/10"
+                      : "border-zinc-800 bg-black/20 hover:border-zinc-700"
+                  }`}
                 >
-                  <option value="ALL">AP + AR</option>
-                  <option value="AP">AP (pagar)</option>
-                  <option value="AR">AR (receber)</option>
-                </select>
-                <div className="mt-2 flex items-center gap-2">
+                  <span>
+                    <span className="block text-sm font-medium text-zinc-200">Somente pendentes</span>
+                    <span className="mt-0.5 block text-xs text-zinc-500">Ocultar títulos baixados</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={onlyPendentes}
+                    onChange={(e) => setOnlyPendentes(e.target.checked)}
+                    className="h-4 w-4 shrink-0 accent-amber-400"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(180px,0.65fr)_minmax(280px,0.9fr)_minmax(380px,1.5fr)_minmax(210px,0.7fr)]">
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Tipo</span>
+                  <select
+                    aria-label="Tipo"
+                    value={only}
+                    onChange={(e) => setOnly(e.target.value as "ALL" | Kind)}
+                    className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
+                  >
+                    <option value="ALL">AP + AR</option>
+                    <option value="AP">AP (pagar)</option>
+                    <option value="AR">AR (receber)</option>
+                  </select>
+                </label>
+
+                <div>
+                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Empresa</div>
+                  <div
+                    role="group"
+                    aria-label="Empresa"
+                    className="flex h-10 w-full overflow-hidden rounded-md border border-zinc-700 bg-zinc-950"
+                  >
+                    {empresaOptions.length > 1 && (
+                      <button
+                        type="button"
+                        aria-pressed={effectiveEmpresaFilter === "ALL"}
+                        onClick={() => setEmpresaFilter("ALL")}
+                        className={
+                          effectiveEmpresaFilter === "ALL"
+                            ? "min-w-0 flex-1 bg-zinc-100 px-3 text-sm font-semibold text-zinc-950"
+                            : "min-w-0 flex-1 px-3 text-sm text-zinc-300 hover:bg-zinc-900"
+                        }
+                      >
+                        Ambas
+                      </button>
+                    )}
+                    {empresaOptions.map((empresa) => (
+                      <button
+                        key={empresa.id}
+                        type="button"
+                        aria-pressed={effectiveEmpresaFilter === empresa.id}
+                        onClick={() => setEmpresaFilter(empresa.id)}
+                        className={
+                          effectiveEmpresaFilter === empresa.id
+                            ? "min-w-0 flex-1 border-l border-zinc-700 bg-zinc-100 px-3 text-sm font-semibold text-zinc-950"
+                            : "min-w-0 flex-1 border-l border-zinc-700 px-3 text-sm text-zinc-300 hover:bg-zinc-900"
+                        }
+                      >
+                        {empresa.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Busca rápida</span>
+                  <input
+                    aria-label="Buscar"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Fornecedor, cliente, descrição, motivo ou conta"
+                    className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500/60"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Nota fiscal</span>
+                  <input
+                    aria-label="NF"
+                    value={nfQuery}
+                    onChange={(e) => setNfQuery(e.target.value)}
+                    placeholder="Número da NF"
+                    className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500/60"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => load()}
-                    className="px-3 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-medium"
+                    className="h-10 rounded-md bg-emerald-400 px-4 text-sm font-semibold text-emerald-950 hover:bg-emerald-300"
                   >
-                    Atualizar
+                    Atualizar resultados
                   </button>
                   {only !== "AR" && (
                     <button
                       type="button"
                       onClick={() => void openCreate()}
-                      className="px-3 py-2 rounded-md border border-zinc-800 text-zinc-100 hover:bg-zinc-900 text-sm font-medium"
+                      className="h-10 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900"
                     >
                       Novo AP
                     </button>
                   )}
                 </div>
-              </div>
 
-              <div className="xl:col-span-3">
-                <div className="text-sm text-zinc-300">Empresa</div>
-                <div
-                  role="group"
-                  aria-label="Empresa"
-                  className="inline-flex max-w-full overflow-hidden rounded-md border border-zinc-800 bg-zinc-950"
-                >
-                  {empresaOptions.length > 1 && (
-                    <button
-                      type="button"
-                      aria-pressed={effectiveEmpresaFilter === "ALL"}
-                      onClick={() => setEmpresaFilter("ALL")}
-                      className={
-                        effectiveEmpresaFilter === "ALL"
-                          ? "cursor-pointer px-3 py-2 bg-zinc-100 text-zinc-900 font-medium"
-                          : "cursor-pointer px-3 py-2 text-zinc-200 hover:bg-zinc-900"
-                      }
-                    >
-                      Ambas
-                    </button>
-                  )}
-                  {empresaOptions.map((empresa) => (
-                    <button
-                      key={empresa.id}
-                      type="button"
-                      aria-pressed={effectiveEmpresaFilter === empresa.id}
-                      onClick={() => setEmpresaFilter(empresa.id)}
-                      className={
-                        effectiveEmpresaFilter === empresa.id
-                          ? "cursor-pointer border-l border-zinc-800 px-3 py-2 bg-zinc-100 text-zinc-900 font-medium"
-                          : "cursor-pointer border-l border-zinc-800 px-3 py-2 text-zinc-200 hover:bg-zinc-900"
-                      }
-                    >
-                      {empresa.label}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-zinc-400">
+                    AP em aberto <span className="ml-1 font-semibold tabular-nums text-red-200">{formatMoneyBR(totalsOpen.sumAP)}</span>
+                  </div>
+                  <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-zinc-400">
+                    AR em aberto <span className="ml-1 font-semibold tabular-nums text-emerald-200">{formatMoneyBR(totalsOpen.sumAR)}</span>
+                  </div>
                 </div>
               </div>
-
-              <div className="xl:col-span-3">
-                <div className="text-sm text-zinc-300">Buscar</div>
-                <input
-                  aria-label="Buscar"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Fornecedor, cliente, motivo, conta..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-                />
-              </div>
-
-              <div className="xl:col-span-2">
-                <div className="text-sm text-zinc-300">NF</div>
-                <input
-                  aria-label="NF"
-                  value={nfQuery}
-                  onChange={(e) => setNfQuery(e.target.value)}
-                  placeholder="Numero da NF"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-                />
-              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 text-xs text-zinc-400">
-          <span>AP em aberto: {formatMoneyBR(totalsOpen.sumAP)}</span>
-          <span>AR em aberto: {formatMoneyBR(totalsOpen.sumAR)}</span>
+          </section>
         </div>
       </div>
 
