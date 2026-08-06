@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { formatMoneyBR, parseMoneyBR } from "@/lib/decimal";
+import { buildEmpresaDisplayOptions } from "@/app/faturamento/components/empresaDisplay";
 
 type Kind = "AP" | "AR";
 
 type UnifiedRow = {
+  empresaId: string;
+  empresaNome: string;
   kind: Kind;
   nfNumero: string | null;
   tituloId: string;
@@ -252,6 +255,7 @@ export default function ContasPagarReceberPage() {
 
   useEffect(() => {
     const next = `${year}-${pad2(monthNum)}`;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (next !== month) setMonth(next);
   }, [month, monthNum, year]);
 
@@ -262,10 +266,28 @@ export default function ContasPagarReceberPage() {
   const [onlyToday, setOnlyToday] = useState(false);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const empresaOptions = useMemo(() => buildEmpresaDisplayOptions(te.empresas), [te.empresas]);
+  const [empresaFilter, setEmpresaFilter] = useState<string>("ALL");
+  const effectiveEmpresaFilter = useMemo(
+    () => (empresaFilter === "ALL" || empresaOptions.some((empresa) => empresa.id === empresaFilter) ? empresaFilter : "ALL"),
+    [empresaFilter, empresaOptions]
+  );
+  const selectedEmpresaIds = useMemo(
+    () =>
+      effectiveEmpresaFilter === "ALL"
+        ? empresaOptions.map((empresa) => empresa.id)
+        : [effectiveEmpresaFilter],
+    [effectiveEmpresaFilter, empresaOptions]
+  );
+  const empresaNomeById = useMemo(
+    () => new Map(empresaOptions.map((empresa) => [empresa.id, empresa.label])),
+    [empresaOptions]
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<UnifiedRow[]>([]);
+  const [todaySummary, setTodaySummary] = useState({ entradas: 0, saidas: 0 });
 
   const [selected, setSelected] = useState<UnifiedRow | null>(null);
   const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO">("APROVAR");
@@ -275,6 +297,7 @@ export default function ContasPagarReceberPage() {
   const [createErr, setCreateErr] = useState<string | null>(null);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
 
+  const [newEmpresaId, setNewEmpresaId] = useState<string>("");
   const [newFornecedorId, setNewFornecedorId] = useState<string>("");
   const [newDescricao, setNewDescricao] = useState<string>("");
   const [newEmissaoDate, setNewEmissaoDate] = useState<string>(todayISO());
@@ -412,7 +435,7 @@ export default function ContasPagarReceberPage() {
   }, [parseMoneyOrZero, selected, tab, toCents, valorDesconto, valorJuros, valorMov, valorMulta]);
 
   const requestIdRef = useRef(0);
-  const load = useCallback(async () => {
+  const loadLegacy = useCallback(async () => {
     if (!canFinanceiro) return;
     if (!te.tenantId || !te.empresaId) return;
 
@@ -492,6 +515,8 @@ export default function ContasPagarReceberPage() {
       };
 
       const apRows: UnifiedRow[] = ((apData ?? []) as ApAgingDetalheRow[]).map((r) => ({
+        empresaId: te.empresaId ?? "",
+        empresaNome: te.empresa?.nome_fantasia ?? te.empresa?.razao_social ?? "Empresa",
         kind: "AP",
         nfNumero: null,
         tituloId: String(r.titulo_id),
@@ -586,6 +611,8 @@ export default function ContasPagarReceberPage() {
         const motivoId = r?.titulo?.motivo_compra_id ? String(r.titulo.motivo_compra_id) : "";
         const motivo = motivoById.get(motivoId);
         return {
+          empresaId: te.empresaId ?? "",
+          empresaNome: te.empresa?.nome_fantasia ?? te.empresa?.razao_social ?? "Empresa",
           kind: "AP",
           nfNumero: null,
           tituloId: String(r.titulo_id),
@@ -748,6 +775,8 @@ export default function ContasPagarReceberPage() {
         const clienteId = r?.titulo?.cliente_id ? String(r.titulo.cliente_id) : null;
         const pessoaNome = clienteId ? clienteNomeById.get(clienteId) ?? `Cliente ${clienteId}` : "Cliente";
         return {
+          empresaId: te.empresaId ?? "",
+          empresaNome: te.empresa?.nome_fantasia ?? te.empresa?.razao_social ?? "Empresa",
           kind: "AR",
           nfNumero: null,
           tituloId: String(r.titulo_id),
@@ -902,9 +931,149 @@ export default function ContasPagarReceberPage() {
     } finally {
       if (requestIdRef.current === reqId) setLoading(false);
     }
-  }, [canFinanceiro, dateFrom, dateTo, range.fim, range.ini, supabase, te.empresaId, te.tenantId]);
+  }, [canFinanceiro, dateFrom, dateTo, range.fim, range.ini, supabase, te.empresa, te.empresaId, te.tenantId]);
+
+  const load = useCallback(async () => {
+    if (!canFinanceiro || !te.tenantId || selectedEmpresaIds.length === 0) return;
+
+    const from = dateFrom.trim();
+    const to = dateTo.trim();
+    if (from && to && from > to) {
+      setError("Data 'De' nÃ£o pode ser maior que 'AtÃ©'.");
+      return;
+    }
+
+    const ini = from || range.ini;
+    const fim = to || range.fim;
+    const reqId = ++requestIdRef.current;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [listaRes, hojeRes] = await Promise.all([
+        supabase.schema("f").rpc("contas_pagar_receber_listar", {
+          p_tenant_id: te.tenantId,
+          p_empresa_ids: selectedEmpresaIds,
+          p_data_inicio: ini,
+          p_data_fim: fim,
+        }),
+        supabase.schema("f").rpc("contas_pagar_receber_resumo_hoje", {
+          p_tenant_id: te.tenantId,
+          p_empresa_ids: selectedEmpresaIds,
+          p_data: todayISO(),
+        }),
+      ]);
+
+      if (requestIdRef.current !== reqId) return;
+      if (listaRes.error) throw listaRes.error;
+      if (hojeRes.error) throw hojeRes.error;
+
+      type ContasPagarReceberRpcRow = {
+        empresa_id: unknown;
+        tipo: unknown;
+        nf_numero: unknown;
+        titulo_id: unknown;
+        parcela_id: unknown;
+        parcela_numero: unknown;
+        total_parcelas: unknown;
+        emissao_date: unknown;
+        vencimento_date: unknown;
+        pessoa_nome: unknown;
+        descricao: unknown;
+        motivo_codigo: unknown;
+        motivo_nome: unknown;
+        aprovado_por_nome: unknown;
+        valor: unknown;
+        valor_aberto: unknown;
+        titulo_status: unknown;
+        formas_aplicadas: unknown;
+        formas_agendadas: unknown;
+        pagamento_import_json: unknown;
+      };
+
+      const mapped = ((listaRes.data ?? []) as ContasPagarReceberRpcRow[])
+        .map((row): UnifiedRow | null => {
+          const kind = String(row.tipo ?? "").toUpperCase();
+          if (kind !== "AP" && kind !== "AR") return null;
+
+          const empresaId = String(row.empresa_id ?? "");
+          const formasAplicadas = Array.isArray(row.formas_aplicadas) ? row.formas_aplicadas : [];
+          const formasAgendadas = Array.isArray(row.formas_agendadas) ? row.formas_agendadas : [];
+          const importEntries = readPagamentoImportEntries(row.pagamento_import_json);
+          const formasImportadas = importEntries
+            .map((entry) => entry.forma_pagamento ?? entry.forma ?? entry.modo ?? null)
+            .filter((value) => value !== null && value !== undefined);
+          const parcelasNoTitulo = Math.max(1, Number(row.total_parcelas ?? 1));
+
+          return {
+            empresaId,
+            empresaNome: empresaNomeById.get(empresaId) ?? "Empresa",
+            kind,
+            nfNumero: row.nf_numero ? String(row.nf_numero) : null,
+            tituloId: String(row.titulo_id),
+            parcelaId: String(row.parcela_id),
+            parcelaNumero: row.parcela_numero ? String(row.parcela_numero) : null,
+            parcelaTotal: parcelasNoTitulo,
+            emissao: row.emissao_date ? String(row.emissao_date) : null,
+            vencimento: String(row.vencimento_date),
+            pessoaNome: row.pessoa_nome ? String(row.pessoa_nome) : kind === "AP" ? "Fornecedor" : "Cliente",
+            descricao: row.descricao ? String(row.descricao) : null,
+            motivoCodigo: row.motivo_codigo ? String(row.motivo_codigo) : null,
+            motivoNome: row.motivo_nome ? String(row.motivo_nome) : null,
+            aprovadoPorNome: row.aprovado_por_nome ? String(row.aprovado_por_nome) : null,
+            valor: Number(row.valor ?? 0),
+            valorAberto: Number(row.valor_aberto ?? 0),
+            tituloStatus: String(row.titulo_status ?? ""),
+            formaPagamentoResumo: buildFormaPagamentoResumo({
+              aplicada: summarizeFormaPagamentoLabels(formasAplicadas),
+              agendada: summarizeFormaPagamentoLabels(formasAgendadas),
+              importada: summarizeFormaPagamentoLabels(formasImportadas),
+              parcelasNoTitulo,
+            }),
+          };
+        })
+        .filter((row): row is UnifiedRow => row !== null);
+
+      type ResumoHojeRpcRow = { entradas?: unknown; saidas?: unknown };
+      const resumoHoje = ((hojeRes.data ?? []) as ResumoHojeRpcRow[])[0] ?? null;
+
+      setRows(mapped);
+      setTodaySummary({
+        entradas: Number(resumoHoje?.entradas ?? 0),
+        saidas: Number(resumoHoje?.saidas ?? 0),
+      });
+    } catch (e: unknown) {
+      if (requestIdRef.current !== reqId) return;
+      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar");
+      const missingTodayRpc = isMissingRpc(e, "f.contas_pagar_receber_resumo_hoje");
+      if (
+        (missingListRpc || missingTodayRpc) &&
+        selectedEmpresaIds.length === 1 &&
+        selectedEmpresaIds[0] === te.empresaId
+      ) {
+        await loadLegacy();
+        return;
+      }
+      setError(getErrorMessage(e, "Erro ao carregar contas."));
+    } finally {
+      if (requestIdRef.current === reqId) setLoading(false);
+    }
+  }, [
+    canFinanceiro,
+    dateFrom,
+    dateTo,
+    empresaNomeById,
+    loadLegacy,
+    range.fim,
+    range.ini,
+    selectedEmpresaIds,
+    supabase,
+    te.empresaId,
+    te.tenantId,
+  ]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -918,6 +1087,13 @@ export default function ContasPagarReceberPage() {
     setCreateErr(null);
     setCreateBusy(false);
     setCreateOpen(true);
+    const defaultEmpresaId =
+      selectedEmpresaIds.length === 1
+        ? selectedEmpresaIds[0]
+        : selectedEmpresaIds.includes(te.empresaId ?? "")
+          ? te.empresaId ?? ""
+          : selectedEmpresaIds[0] ?? "";
+    setNewEmpresaId(defaultEmpresaId);
 
     // Defaults/suggestions
     setNewEmissaoDate(todayISO());
@@ -974,7 +1150,7 @@ export default function ContasPagarReceberPage() {
     } catch (e: unknown) {
       setCreateErr(getErrorMessage(e, "Erro ao preparar criação."));
     }
-  }, [fornecedores.length, motivos.length, newMotivoId, supabase]);
+  }, [fornecedores.length, motivos.length, newMotivoId, selectedEmpresaIds, supabase, te.empresaId]);
 
   const doCreateAp = useCallback(async () => {
     setCreateErr(null);
@@ -1001,8 +1177,17 @@ export default function ContasPagarReceberPage() {
       return;
     }
 
+    if (!newEmpresaId || !selectedEmpresaIds.includes(newEmpresaId)) {
+      setCreateErr("Selecione a empresa do novo AP.");
+      return;
+    }
+
     setCreateBusy(true);
     try {
+      if (newEmpresaId !== te.empresaId) {
+        await te.setEmpresaId(newEmpresaId);
+      }
+
       // IMPORTANT: RPC payload is strict. Do not send extra fields.
       const args = {
         p_descricao: desc,
@@ -1047,7 +1232,7 @@ export default function ContasPagarReceberPage() {
     } finally {
       setCreateBusy(false);
     }
-  }, [closeCreate, load, newDescricao, newEmissaoDate, newFornecedorId, newMotivoId, newRecorrente, newProvisionarMeses, newValor, newVencimento, supabase]);
+  }, [closeCreate, load, newDescricao, newEmissaoDate, newEmpresaId, newFornecedorId, newMotivoId, newRecorrente, newProvisionarMeses, newValor, newVencimento, selectedEmpresaIds, supabase, te]);
 
   const doUpdateEmissaoDate = useCallback(async () => {
     if (!selected || selected.kind !== "AP") return;
@@ -1219,6 +1404,10 @@ export default function ContasPagarReceberPage() {
       setSplitVencimentoDate(row.vencimento);
 
       try {
+        if (row.empresaId && row.empresaId !== te.empresaId) {
+          await te.setEmpresaId(row.empresaId);
+        }
+
         // Prefill AP approval fields from:
         // 1) existing approval row (f.titulo_aprovacao)
         // 2) imported title values (f.titulo.motivo_compra_id and f.documento_fiscal.os_id_import)
@@ -1319,7 +1508,7 @@ export default function ContasPagarReceberPage() {
           }
         }
 
-        if (contas.length === 0) {
+        if (contas.length === 0 || row.empresaId !== te.empresaId) {
           const { data, error } = await supabase
             .schema("f")
             .from("conta_bancaria")
@@ -1357,7 +1546,7 @@ export default function ContasPagarReceberPage() {
         setActionErr(getErrorMessage(e, "Erro ao preparar modal."));
       }
     },
-    [resetModalState, supabase, contas, motivos]
+    [resetModalState, supabase, contas, motivos, te]
   );
 
   const close = useCallback(() => {
@@ -1372,6 +1561,7 @@ export default function ContasPagarReceberPage() {
     if (tab === "PAGAR" && selected.kind !== "AP") return;
     if (tab === "RECEBER" && selected.kind !== "AR") return;
     if (valorMov.trim()) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setValorMov(formatMoneyBR(selected.valorAberto));
   }, [selected, tab, valorMov]);
 
@@ -1383,6 +1573,7 @@ export default function ContasPagarReceberPage() {
 
     const today = new Date();
     const iso = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDataPagamento(iso);
   }, [dataPagamento, selected, tab]);
 
@@ -1390,6 +1581,7 @@ export default function ContasPagarReceberPage() {
     if (!selected || selected.kind !== "AP") return;
     if (cancelPagamentoId) return;
     if (!aplicacoes.length) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCancelPagamentoId(String(aplicacoes[0].pagamento.id));
   }, [aplicacoes, cancelPagamentoId, selected]);
 
@@ -1702,8 +1894,8 @@ export default function ContasPagarReceberPage() {
   return (
     <div className="space-y-4">
       <div className="border border-zinc-800 rounded-md bg-zinc-950/60 p-3 space-y-3">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 xl:col-span-3">
             <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
               <div className="text-sm font-medium text-zinc-100 mb-2">Previsto</div>
               <div className="space-y-1 text-sm">
@@ -1746,9 +1938,22 @@ export default function ContasPagarReceberPage() {
                 </div>
               </div>
             </div>
+            <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Hoje</div>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>Entradas (+):</span>
+                  <span className="text-emerald-300">{formatMoneyBR(todaySummary.entradas)}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-300">
+                  <span>SaÃ­das (-):</span>
+                  <span className="text-red-300">{formatMoneyBR(todaySummary.saidas)}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 xl:col-span-2">
             <div className="flex flex-wrap items-center content-start gap-2">
               <div className="text-sm text-zinc-300 self-center">Vencimento</div>
               <select
@@ -1864,6 +2069,22 @@ export default function ContasPagarReceberPage() {
                       Novo AP
                     </button>
                   )}
+                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                    <span>Empresa</span>
+                    <select
+                      aria-label="Empresa"
+                      value={effectiveEmpresaFilter}
+                      onChange={(e) => setEmpresaFilter(e.target.value)}
+                      className="bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                    >
+                      {empresaOptions.length > 1 && <option value="ALL">Ambas</option>}
+                      {empresaOptions.map((empresa) => (
+                        <option key={empresa.id} value={empresa.id}>
+                          {empresa.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </div>
 
@@ -1907,6 +2128,7 @@ export default function ContasPagarReceberPage() {
           <thead className="bg-zinc-950/80">
             <tr className="text-left text-zinc-300">
               <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2">Empresa</th>
               <th className="px-3 py-2">NF</th>
               <th className="px-3 py-2">Fornecedor / Cliente</th>
               <th className="px-3 py-2">Descrição</th>
@@ -1932,6 +2154,7 @@ export default function ContasPagarReceberPage() {
                   onClick={() => open(r)}
                 >
                   <td className="px-3 py-2 font-medium text-zinc-100">{r.kind}</td>
+                  <td className="px-3 py-2 text-zinc-200">{r.empresaNome}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.nfNumero ?? "-"}</td>
                   <td className="px-3 py-2 text-zinc-200">{r.pessoaNome}</td>
                   <td className="px-3 py-2 text-zinc-100">{r.descricao ?? "-"}</td>
@@ -1953,7 +2176,7 @@ export default function ContasPagarReceberPage() {
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={13} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={14} className="px-3 py-6 text-center text-zinc-400">
                   Nenhum item neste período.
                 </td>
               </tr>
@@ -1979,6 +2202,7 @@ export default function ContasPagarReceberPage() {
               <div>
                 <div className="text-sm text-zinc-400">{selected.kind === "AP" ? "Conta a pagar" : "Conta a receber"}</div>
                 <div className="text-lg font-semibold text-zinc-100">{selected.pessoaNome}</div>
+                <div className="text-sm text-zinc-400">Empresa: {selected.empresaNome}</div>
                 {selected.formaPagamentoResumo ? (
                   <div className="text-sm text-zinc-400">Forma: {selected.formaPagamentoResumo}</div>
                 ) : null}
@@ -2624,6 +2848,24 @@ export default function ContasPagarReceberPage() {
 
             <div className="mt-4 space-y-3">
               <FormError message={createErr} />
+
+              <div>
+                <div className="text-sm text-zinc-300">Empresa</div>
+                <select
+                  aria-label="Empresa do novo AP"
+                  value={newEmpresaId}
+                  onChange={(e) => setNewEmpresaId(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                >
+                  {empresaOptions
+                    .filter((empresa) => selectedEmpresaIds.includes(empresa.id))
+                    .map((empresa) => (
+                      <option key={empresa.id} value={empresa.id}>
+                        {empresa.label}
+                      </option>
+                    ))}
+                </select>
+              </div>
 
               <div>
                 <div className="text-sm text-zinc-300">Fornecedor (opcional)</div>
