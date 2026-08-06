@@ -163,6 +163,56 @@ type QualidadeData = {
   itens: AlertItem[];
 };
 
+type EstoquePendenteItem = {
+  type: "SEM_CADASTRO" | "SEM_ENTRADA";
+  nfId: number;
+  nfNumber: string;
+  date: string;
+  description: string;
+  value: number;
+};
+
+type EstoqueSaudeData = {
+  meta: {
+    positionDate: string;
+    valuationCriterion: string;
+  };
+  period: {
+    purchasesForStock: number;
+    directPurchasesForOs: number;
+    otherEntries: number;
+    stockConsumptionByOs: number;
+    directOutputsForOs: number;
+    otherOutputs: number;
+    adjustments: number;
+    outputsValuedAtCurrentCost: number;
+    movementsWithoutValue: number;
+  };
+  position: {
+    currentValue: number;
+    openingValue: number;
+    closingValue: number;
+    periodVariation: number;
+    itemsWithBalance: number;
+    itemsWithoutCost: number;
+    quantityWithoutCost: number;
+    negativeItems: number;
+    negativeQuantity: number;
+    itemsWithoutMovement180d: number;
+    valueWithoutMovement180d: number;
+    itemsAboveIdeal: number;
+    valueAboveIdeal: number;
+  };
+  quality: {
+    expectedItems: number;
+    itemsWithoutRegistration: number;
+    valueWithoutRegistration: number;
+    itemsWithoutEntry: number;
+    valueWithoutEntry: number;
+  };
+  pending: EstoquePendenteItem[];
+};
+
 type HealthReport = {
   meta: UnknownRecord;
   competencia: CompetenciaData;
@@ -433,6 +483,65 @@ function normalizeReport(value: unknown): HealthReport | null {
       porTipo: normalizeRanked(first(qualidade, ["porTipo", "por_tipo"])),
       itens: normalizeAlerts(qualidade.itens),
     },
+  };
+}
+
+function normalizeEstoqueSaude(value: unknown): EstoqueSaudeData | null {
+  const root = asRecord(Array.isArray(value) ? value[0] : value);
+  if (!Object.keys(root).length) return null;
+
+  const meta = asRecord(root.meta);
+  const period = asRecord(first(root, ["periodo", "period"]));
+  const position = asRecord(first(root, ["posicao", "position"]));
+  const quality = asRecord(first(root, ["qualidade", "quality"]));
+  const pending = collection(first(root, ["pendencias", "pending"])).map((row, index) => ({
+    type: text(first(row, ["tipo", "type"]), "SEM_CADASTRO") === "SEM_ENTRADA" ? "SEM_ENTRADA" as const : "SEM_CADASTRO" as const,
+    nfId: readNum(row, "nfId", "nf_id") || index + 1,
+    nfNumber: text(first(row, ["nfNumero", "nf_numero"]), "-"),
+    date: text(first(row, ["data", "date"])),
+    description: text(first(row, ["descricao", "description"]), "Item sem descrição"),
+    value: readNum(row, "valor", "value"),
+  }));
+
+  return {
+    meta: {
+      positionDate: text(first(meta, ["posicaoAtualEm", "posicao_atual_em"])),
+      valuationCriterion: text(first(meta, ["criterioValoracao", "criterio_valoracao"])),
+    },
+    period: {
+      purchasesForStock: readNum(period, "comprasParaEstoque", "compras_para_estoque"),
+      directPurchasesForOs: readNum(period, "comprasDiretasOs", "compras_diretas_os"),
+      otherEntries: readNum(period, "outrasEntradas", "outras_entradas"),
+      stockConsumptionByOs: readNum(period, "consumoEstoqueOs", "consumo_estoque_os"),
+      directOutputsForOs: readNum(period, "saidasDiretasOs", "saidas_diretas_os"),
+      otherOutputs: readNum(period, "outrasSaidas", "outras_saidas"),
+      adjustments: readNum(period, "ajustes"),
+      outputsValuedAtCurrentCost: readNum(period, "saidasValorizadasPorCustoAtual", "saidas_valorizadas_por_custo_atual"),
+      movementsWithoutValue: readNum(period, "movimentosSemValor", "movimentos_sem_valor"),
+    },
+    position: {
+      currentValue: readNum(position, "valorAtual", "valor_atual"),
+      openingValue: readNum(position, "valorInicioPeriodo", "valor_inicio_periodo"),
+      closingValue: readNum(position, "valorFimPeriodo", "valor_fim_periodo"),
+      periodVariation: readNum(position, "variacaoPeriodo", "variacao_periodo"),
+      itemsWithBalance: readNum(position, "itensComSaldo", "itens_com_saldo"),
+      itemsWithoutCost: readNum(position, "itensSemCusto", "itens_sem_custo"),
+      quantityWithoutCost: readNum(position, "quantidadeSemCusto", "quantidade_sem_custo"),
+      negativeItems: readNum(position, "itensNegativos", "itens_negativos"),
+      negativeQuantity: readNum(position, "quantidadeNegativa", "quantidade_negativa"),
+      itemsWithoutMovement180d: readNum(position, "itensSemMovimento180d", "itens_sem_movimento_180d"),
+      valueWithoutMovement180d: readNum(position, "valorSemMovimento180d", "valor_sem_movimento_180d"),
+      itemsAboveIdeal: readNum(position, "itensAcimaIdeal", "itens_acima_ideal"),
+      valueAboveIdeal: readNum(position, "valorAcimaIdeal", "valor_acima_ideal"),
+    },
+    quality: {
+      expectedItems: readNum(quality, "itensEsperados", "itens_esperados"),
+      itemsWithoutRegistration: readNum(quality, "itensSemCadastro", "itens_sem_cadastro"),
+      valueWithoutRegistration: readNum(quality, "valorSemCadastro", "valor_sem_cadastro"),
+      itemsWithoutEntry: readNum(quality, "itensSemEntrada", "itens_sem_entrada"),
+      valueWithoutEntry: readNum(quality, "valorSemEntrada", "valor_sem_entrada"),
+    },
+    pending,
   };
 }
 
@@ -779,6 +888,7 @@ export default function SaudeFinanceiraDashboardV3() {
     useState<CommitmentClassificationData | null>(null);
   const [commitmentReference, setCommitmentReference] =
     useState<CommitmentReferenceData | null>(null);
+  const [inventoryHealth, setInventoryHealth] = useState<EstoqueSaudeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -844,6 +954,7 @@ export default function SaudeFinanceiraDashboardV3() {
       setReport(null);
       setCommitmentClassification(null);
       setCommitmentReference(null);
+      setInventoryHealth(null);
       try {
         const supabase = getSupabaseBrowser();
         const now = new Date();
@@ -852,7 +963,7 @@ export default function SaudeFinanceiraDashboardV3() {
           String(now.getMonth() + 1).padStart(2, "0"),
           String(now.getDate()).padStart(2, "0"),
         ].join("-");
-        const [reportResult, classificationResult, referenceResult] = await Promise.all([
+        const [reportResult, classificationResult, referenceResult, inventoryResult] = await Promise.all([
           supabase.schema("f").rpc("relatorio_saude_financeira", {
             p_tenant_id: tenantId,
             p_empresa_id: empresaId,
@@ -868,10 +979,17 @@ export default function SaudeFinanceiraDashboardV3() {
             p_tenant_id: tenantId,
             p_empresa_id: empresaId,
           }),
+          supabase.schema("f").rpc("resumo_estoque_saude_financeira", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_data_inicio: range.start,
+            p_data_fim: range.end,
+          }),
         ]);
         if (reportResult.error) throw reportResult.error;
         if (classificationResult.error) throw classificationResult.error;
         if (referenceResult.error) throw referenceResult.error;
+        if (inventoryResult.error) throw inventoryResult.error;
         if (!cancelled) {
           setReport(normalizeReport(reportResult.data));
           setCommitmentClassification(
@@ -880,6 +998,7 @@ export default function SaudeFinanceiraDashboardV3() {
           setCommitmentReference(
             normalizeCommitmentReference(referenceResult.data)
           );
+          setInventoryHealth(normalizeEstoqueSaude(inventoryResult.data));
         }
       } catch (loadError: unknown) {
         if (!cancelled) {
@@ -902,8 +1021,28 @@ export default function SaudeFinanceiraDashboardV3() {
     if (filters.regime === "caixa") return report.caixa.porMotivo;
     if (activeDimension === "centro") return report.competencia.porCentro;
     if (activeDimension === "motivo") return report.competencia.porMotivo;
-    return report.competencia.porPlano;
+    return report.competencia.porPlano.map((item) =>
+      item.label.toLocaleUpperCase("pt-BR").startsWith("EST_MAT_PRIMA")
+        ? { ...item, label: `${item.label} (compras classificadas)` }
+        : item
+    );
   }, [activeDimension, filters.regime, report]);
+
+  const classifiedStockPurchases = useMemo(
+    () =>
+      report?.competencia.porPlano.find((item) =>
+        item.label.toLocaleUpperCase("pt-BR").startsWith("EST_MAT_PRIMA")
+      )?.value ?? 0,
+    [report]
+  );
+
+  const inventoryVariationOverPurchases = useMemo(() => {
+    if (!inventoryHealth) return null;
+    const physicalPurchases =
+      inventoryHealth.period.purchasesForStock + inventoryHealth.period.directPurchasesForOs;
+    if (physicalPurchases <= 0) return null;
+    return (inventoryHealth.position.periodVariation / physicalPurchases) * 100;
+  }, [inventoryHealth]);
 
   const series = filters.regime === "competencia" ? report?.competencia.serie ?? [] : report?.caixa.serie ?? [];
   const suppliers = useMemo(
@@ -1118,6 +1257,52 @@ export default function SaudeFinanceiraDashboardV3() {
         ]);
       }
     }
+    if (inventoryHealth) {
+      add("Estoque", "Compra física para estoque", inventoryHealth.period.purchasesForStock);
+      add("Estoque", "Compra vinculada à OS", inventoryHealth.period.directPurchasesForOs);
+      add("Estoque", "Baixa do estoque para OS", inventoryHealth.period.stockConsumptionByOs);
+      add("Estoque", "Outras entradas", inventoryHealth.period.otherEntries);
+      add("Estoque", "Outras saídas", inventoryHealth.period.otherOutputs);
+      add("Estoque", "Variação líquida estimada", inventoryHealth.position.periodVariation);
+      add("Estoque", "Valor estimado no início do período", inventoryHealth.position.openingValue);
+      add("Estoque", "Valor estimado no fim do período", inventoryHealth.position.closingValue);
+      add("Estoque", "Valor atual", inventoryHealth.position.currentValue);
+      add("Estoque", "Compra classificada em EST_MAT_PRIMA", classifiedStockPurchases);
+      add(
+        "Qualidade do estoque",
+        "Itens fiscais sem cadastro",
+        inventoryHealth.quality.valueWithoutRegistration,
+        `${inventoryHealth.quality.itemsWithoutRegistration.toLocaleString("pt-BR")} itens`
+      );
+      add(
+        "Qualidade do estoque",
+        "Itens cadastrados sem entrada",
+        inventoryHealth.quality.valueWithoutEntry,
+        `${inventoryHealth.quality.itemsWithoutEntry.toLocaleString("pt-BR")} itens`
+      );
+      add(
+        "Qualidade do estoque",
+        "Saldo sem custo cadastrado",
+        0,
+        `${inventoryHealth.position.itemsWithoutCost.toLocaleString("pt-BR")} itens; ${inventoryHealth.position.quantityWithoutCost.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} unidades`
+      );
+      add(
+        "Qualidade do estoque",
+        "Sem movimentação há 180 dias",
+        inventoryHealth.position.valueWithoutMovement180d,
+        `${inventoryHealth.position.itemsWithoutMovement180d.toLocaleString("pt-BR")} itens`
+      );
+      inventoryHealth.pending.forEach((item) =>
+        rows.push([
+          "Pendências do estoque",
+          item.type === "SEM_CADASTRO" ? "Cadastrar ou reclassificar" : "Registrar entrada",
+          `NF ${item.nfNumber}`,
+          csvNumber(item.value),
+          `${item.description}${item.date ? ` · ${formatDateBR(item.date)}` : ""}`,
+          item.type === "SEM_CADASTRO" ? "Cadastrar/vincular o item ou corrigir a finalidade da NF." : "Revisar e registrar a entrada física.",
+        ])
+      );
+    }
     breakdown.forEach((item) =>
       rows.push(["Destino dos recursos", activeDimension, item.label, csvNumber(item.value), "", ""])
     );
@@ -1152,6 +1337,8 @@ export default function SaudeFinanceiraDashboardV3() {
     commitmentReference,
     filteredAlerts,
     filters,
+    classifiedStockPurchases,
+    inventoryHealth,
     range,
     report,
     suppliers,
@@ -1721,7 +1908,9 @@ export default function SaudeFinanceiraDashboardV3() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-zinc-100">Para onde foi o dinheiro</h2>
-                  <p className="mt-1 text-xs text-zinc-500">Ranking das classificações com maior impacto.</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Ranking financeiro. EST_MAT_PRIMA representa compras classificadas; o estoque líquido é analisado abaixo.
+                  </p>
                 </div>
                 {filters.regime === "competencia" ? (
                   <div className="flex flex-wrap gap-1">
@@ -1769,6 +1958,195 @@ export default function SaudeFinanceiraDashboardV3() {
               </dl>
             </div>
           </section>
+
+          {inventoryHealth ? (
+            <section
+              aria-labelledby="estoque-saude-title"
+              className="overflow-hidden rounded-xl border border-sky-500/20 bg-zinc-950"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-800 px-4 py-4">
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-sky-400">Análise operacional</div>
+                  <h2 id="estoque-saude-title" className="mt-1 text-base font-semibold text-zinc-100">
+                    Estoque e materiais das OS
+                  </h2>
+                  <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">
+                    Separa compra sem OS, compra vinculada a OS e material efetivamente retirado do estoque.
+                  </p>
+                </div>
+                <div className="rounded-full border border-zinc-800 bg-black/30 px-3 py-1.5 text-xs text-zinc-400">
+                  Fluxo: {range.label}
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <article className="rounded-lg border border-sky-500/25 bg-sky-500/5 p-3">
+                    <div className="text-xs text-zinc-500">Compra para estoque</div>
+                    <div className="mt-1 text-lg font-semibold tabular-nums text-sky-200">
+                      {formatMoney(inventoryHealth.period.purchasesForStock)}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-4 text-zinc-600">NF sem destino direto para OS</div>
+                  </article>
+                  <article className="rounded-lg border border-violet-500/25 bg-violet-500/5 p-3">
+                    <div className="text-xs text-zinc-500">Compra vinculada à OS</div>
+                    <div className="mt-1 text-lg font-semibold tabular-nums text-violet-200">
+                      {formatMoney(inventoryHealth.period.directPurchasesForOs)}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-4 text-zinc-600">Destino informado na entrada da NF</div>
+                  </article>
+                  <article className="rounded-lg border border-rose-500/25 bg-rose-500/5 p-3">
+                    <div className="text-xs text-zinc-500">Estoque consumido por OS</div>
+                    <div className="mt-1 text-lg font-semibold tabular-nums text-rose-200">
+                      {formatMoney(inventoryHealth.period.stockConsumptionByOs)}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-4 text-zinc-600">Baixas do almoxarifado vinculadas à OS</div>
+                  </article>
+                  <article
+                    className={`rounded-lg border p-3 ${
+                      inventoryHealth.position.periodVariation >= 0
+                        ? "border-emerald-500/25 bg-emerald-500/5"
+                        : "border-amber-500/25 bg-amber-500/5"
+                    }`}
+                  >
+                    <div className="text-xs text-zinc-500">Variação líquida</div>
+                    <div
+                      className={`mt-1 text-lg font-semibold tabular-nums ${
+                        inventoryHealth.position.periodVariation >= 0 ? "text-emerald-200" : "text-amber-200"
+                      }`}
+                    >
+                      {formatSignedMoney(inventoryHealth.position.periodVariation)}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-4 text-zinc-600">
+                      {inventoryVariationOverPurchases === null
+                        ? "Sem compra para comparar"
+                        : `${formatPercent(Math.abs(inventoryVariationOverPurchases))} do total comprado`}
+                    </div>
+                  </article>
+                  <article className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3">
+                    <div className="text-xs text-zinc-500">Valor atual do estoque</div>
+                    <div className="mt-1 text-lg font-semibold tabular-nums text-emerald-200">
+                      {formatMoney(inventoryHealth.position.currentValue)}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-4 text-zinc-600">
+                      {inventoryHealth.position.itemsWithBalance.toLocaleString("pt-BR")} itens com saldo
+                    </div>
+                  </article>
+                </div>
+
+                <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+                  <article className="rounded-lg border border-zinc-800 bg-black/25 p-4">
+                    <h3 className="text-sm font-semibold text-zinc-100">Leitura crítica do período</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">
+                      {inventoryHealth.position.periodVariation >= 0 ? (
+                        <>
+                          O estoque aumentou <strong className="font-semibold text-emerald-200">{formatMoney(inventoryHealth.position.periodVariation)}</strong>.
+                        </>
+                      ) : (
+                        <>
+                          O estoque diminuiu <strong className="font-semibold text-amber-200">{formatMoney(Math.abs(inventoryHealth.position.periodVariation))}</strong>; as saídas superaram as entradas valorizadas.
+                        </>
+                      )}{" "}
+                      Compras de <strong className="font-semibold text-violet-200">{formatMoney(inventoryHealth.period.directPurchasesForOs)}</strong> entraram vinculadas a OS. A variação líquida considera o que efetivamente permaneceu após todas as entradas e saídas físicas.
+                    </p>
+
+                    <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2">
+                        <dt className="text-zinc-500">EST_MAT_PRIMA financeiro</dt>
+                        <dd className="mt-1 text-right font-semibold tabular-nums text-zinc-200">
+                          {formatMoney(classifiedStockPurchases)}
+                        </dd>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2">
+                        <dt className="text-zinc-500">Compra física para estoque</dt>
+                        <dd className="mt-1 text-right font-semibold tabular-nums text-sky-200">
+                          {formatMoney(inventoryHealth.period.purchasesForStock)}
+                        </dd>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2">
+                        <dt className="text-zinc-500">Diferença a conciliar</dt>
+                        <dd
+                          className={`mt-1 text-right font-semibold tabular-nums ${
+                            Math.abs(classifiedStockPurchases - inventoryHealth.period.purchasesForStock) < 0.01
+                              ? "text-emerald-300"
+                              : "text-amber-200"
+                          }`}
+                        >
+                          {formatSignedMoney(classifiedStockPurchases - inventoryHealth.period.purchasesForStock)}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="mt-3 text-[11px] leading-5 text-zinc-600">
+                      O valor financeiro segue competência e classificação do AP; o valor físico segue as movimentações de itens. Diferenças podem indicar data, frete, imposto ou classificação a revisar.
+                    </div>
+                  </article>
+
+                  <article className="rounded-lg border border-zinc-800 bg-black/25 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-zinc-100">Qualidade e risco do estoque</h3>
+                        <p className="mt-1 text-xs text-zinc-500">Pontos que reduzem a confiança da avaliação.</p>
+                      </div>
+                      <Link href="/estoque/importar" className="shrink-0 text-xs text-sky-300 hover:text-sky-200 hover:underline">
+                        Revisar entradas
+                      </Link>
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        ["Sem cadastro/vínculo", inventoryHealth.quality.itemsWithoutRegistration, formatMoney(inventoryHealth.quality.valueWithoutRegistration), "text-rose-200"],
+                        ["Sem entrada física", inventoryHealth.quality.itemsWithoutEntry, formatMoney(inventoryHealth.quality.valueWithoutEntry), "text-amber-200"],
+                        ["Saldo sem custo", inventoryHealth.position.itemsWithoutCost, `${inventoryHealth.position.quantityWithoutCost.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} un.`, "text-amber-200"],
+                        ["Parado há 180 dias", inventoryHealth.position.itemsWithoutMovement180d, formatMoney(inventoryHealth.position.valueWithoutMovement180d), "text-zinc-200"],
+                        ["Acima do ideal", inventoryHealth.position.itemsAboveIdeal, formatMoney(inventoryHealth.position.valueAboveIdeal), "text-zinc-200"],
+                        ["Saldo negativo", inventoryHealth.position.negativeItems, `${inventoryHealth.position.negativeQuantity.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} un.`, inventoryHealth.position.negativeItems > 0 ? "text-rose-200" : "text-emerald-300"],
+                      ].map(([label, count, detail, tone]) => (
+                        <div key={String(label)} className="rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2">
+                          <dt className="text-zinc-500">{label}</dt>
+                          <dd className={`mt-1 font-semibold tabular-nums ${tone}`}>
+                            {Number(count).toLocaleString("pt-BR")} itens
+                          </dd>
+                          <div className="mt-0.5 text-[11px] tabular-nums text-zinc-600">{detail}</div>
+                        </div>
+                      ))}
+                    </dl>
+                  </article>
+                </div>
+
+                {inventoryHealth.pending.length ? (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-semibold text-amber-100">Itens que exigem ação</h3>
+                        <p className="mt-0.5 text-xs text-amber-100/55">Amostra das pendências fiscais do período selecionado.</p>
+                      </div>
+                      <Link href="/itens" className="text-xs text-amber-200 hover:text-amber-100 hover:underline">Abrir cadastro de itens</Link>
+                    </div>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                      {inventoryHealth.pending.map((item) => (
+                        <div key={`${item.type}-${item.nfId}-${item.description}`} className="rounded-md border border-amber-500/15 bg-black/20 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2 text-[11px]">
+                            <span className={item.type === "SEM_CADASTRO" ? "text-rose-200" : "text-amber-200"}>
+                              {item.type === "SEM_CADASTRO" ? "Cadastrar / reclassificar" : "Registrar entrada"}
+                            </span>
+                            <span className="text-zinc-600">NF {item.nfNumber}</span>
+                          </div>
+                          <div className="mt-1 truncate text-xs font-medium text-zinc-200" title={item.description}>{item.description}</div>
+                          <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-600">
+                            <span>{item.date ? formatDateBR(item.date) : "Sem data"}</span>
+                            <span className="tabular-nums text-zinc-400">{formatMoney(item.value)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="text-[11px] leading-5 text-zinc-600">
+                  Valores históricos de saída são estimados pelo custo médio atual quando a movimentação não possui custo gravado. Posição estimada no início e no fim do período; posição atual em {inventoryHealth.meta.positionDate ? formatDateBR(inventoryHealth.meta.positionDate) : "data não informada"}.
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2040,6 +2418,12 @@ export default function SaudeFinanceiraDashboardV3() {
                 Títulos explicitamente marcados como legado de implantação não participam de AP aberto, aging,
                 cobertura ou qualidade. A marca não cria pagamento, não altera caixa e não reescreve o resultado
                 histórico; o total retirado permanece visível e auditável.
+              </p>
+              <p>
+                A análise de estoque cruza movimentações físicas com notas de entrada e OS. Compras diretas para OS
+                são separadas das compras para armazenagem. A posição histórica e as saídas sem custo gravado são
+                estimadas pelo custo médio atual, enquanto pendências sem cadastro ou sem entrada permanecem fora da
+                valorização até a regularização.
               </p>
             </div>
           </details>
