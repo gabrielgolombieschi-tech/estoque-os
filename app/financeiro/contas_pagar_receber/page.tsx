@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
@@ -133,6 +134,31 @@ function summarizeTextValues(values: unknown[]): string | null {
   );
   if (labels.length === 0) return null;
   return labels.join(" + ");
+}
+
+function accountBankName(codigo: string, nome: string): string {
+  const source = `${codigo} ${nome}`.toUpperCase();
+  if (source.includes("SICREDI") || codigo.toUpperCase() === "SGU") return "Sicredi";
+  if (source.includes("SANTANDER")) return "Santander";
+  if (source.includes("CAIXA") || codigo.toUpperCase() === "CX") return "Caixa";
+  return nome.trim() || codigo.trim() || "Conta";
+}
+
+function accountDisplayLabel(codigo: string, nome: string, empresaNome: string): string {
+  return `${accountBankName(codigo, nome)} - ${empresaNome}`;
+}
+
+function summarizeAccountLabels(values: unknown[], empresaNome: string): string | null {
+  const labels = values
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .map((value) => {
+      const parts = value.split(" - ");
+      const codigo = parts.shift() ?? "";
+      const nome = parts.join(" - ") || codigo;
+      return accountDisplayLabel(codigo, nome, empresaNome);
+    });
+  return summarizeTextValues(labels);
 }
 
 function buildFormaPagamentoResumo({
@@ -329,6 +355,7 @@ export default function ContasPagarReceberPage() {
   const [newEmissaoDate, setNewEmissaoDate] = useState<string>(todayISO());
   const [newVencimento, setNewVencimento] = useState<string>(todayISO());
   const [newValor, setNewValor] = useState<string>("");
+  const [newQuantidadeParcelas, setNewQuantidadeParcelas] = useState<number>(1);
   const [newMotivoId, setNewMotivoId] = useState<string>("");
   const [newRecorrente, setNewRecorrente] = useState<boolean>(false);
   const [newProvisionarMeses, setNewProvisionarMeses] = useState<number>(12);
@@ -991,7 +1018,7 @@ export default function ContasPagarReceberPage() {
           p_empresa_ids: selectedEmpresaIds,
           p_data: todayISO(),
         }),
-        supabase.schema("f").rpc("contas_bancarias_saldos", {
+        supabase.schema("f").rpc("contas_bancarias_saldos_ativos", {
           p_tenant_id: te.tenantId,
           p_empresa_ids: selectedEmpresaIds,
           p_data_inicio: ini,
@@ -1036,6 +1063,7 @@ export default function ContasPagarReceberPage() {
           if (kind !== "AP" && kind !== "AR") return null;
 
           const empresaId = String(row.empresa_id ?? "");
+          const empresaNome = empresaNomeById.get(empresaId) ?? "Empresa";
           const formasAplicadas = Array.isArray(row.formas_aplicadas) ? row.formas_aplicadas : [];
           const formasAgendadas = Array.isArray(row.formas_agendadas) ? row.formas_agendadas : [];
           const contasAplicadas = Array.isArray(row.contas_aplicadas) ? row.contas_aplicadas : [];
@@ -1048,7 +1076,7 @@ export default function ContasPagarReceberPage() {
 
           return {
             empresaId,
-            empresaNome: empresaNomeById.get(empresaId) ?? "Empresa",
+            empresaNome,
             kind,
             nfNumero: row.nf_numero ? String(row.nf_numero) : null,
             tituloId: String(row.titulo_id),
@@ -1071,7 +1099,8 @@ export default function ContasPagarReceberPage() {
               importada: summarizeFormaPagamentoLabels(formasImportadas),
               parcelasNoTitulo,
             }),
-            contaBancariaResumo: summarizeTextValues(contasAplicadas) ?? summarizeTextValues(contasAgendadas),
+            contaBancariaResumo:
+              summarizeAccountLabels(contasAplicadas, empresaNome) ?? summarizeAccountLabels(contasAgendadas, empresaNome),
           };
         })
         .filter((row): row is UnifiedRow => row !== null);
@@ -1122,7 +1151,7 @@ export default function ContasPagarReceberPage() {
       if (requestIdRef.current !== reqId) return;
       const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar_v2");
       const missingTodayRpc = isMissingRpc(e, "f.contas_pagar_receber_resumo_hoje");
-      const missingBalancesRpc = isMissingRpc(e, "f.contas_bancarias_saldos");
+      const missingBalancesRpc = isMissingRpc(e, "f.contas_bancarias_saldos_ativos");
       if (
         (missingListRpc || missingTodayRpc || missingBalancesRpc) &&
         selectedEmpresaIds.length === 1 &&
@@ -1254,6 +1283,14 @@ export default function ContasPagarReceberPage() {
       setCreateErr("Informe um valor válido.");
       return;
     }
+    if (!Number.isInteger(newQuantidadeParcelas) || newQuantidadeParcelas < 1 || newQuantidadeParcelas > 120) {
+      setCreateErr("Informe uma quantidade de parcelas entre 1 e 120.");
+      return;
+    }
+    if (newQuantidadeParcelas > 1 && newRecorrente) {
+      setCreateErr("Escolha parcelamento ou recorrência, não os dois.");
+      return;
+    }
 
     if (!newEmpresaId || !selectedEmpresaIds.includes(newEmpresaId)) {
       setCreateErr("Selecione a empresa do novo AP.");
@@ -1266,33 +1303,55 @@ export default function ContasPagarReceberPage() {
         await te.setEmpresaId(newEmpresaId);
       }
 
-      // IMPORTANT: RPC payload is strict. Do not send extra fields.
-      const args = {
-        p_descricao: desc,
-        p_vencimento_date: venc,
-        p_valor: valorParsed,
-        p_fornecedor_id: fornecedorIdParsed && Number.isFinite(fornecedorIdParsed) ? fornecedorIdParsed : null,
-        p_motivo_compra_id: newMotivoId || null,
-        p_emissao_date: emissao,
-        p_criar_recorrencia: Boolean(newRecorrente),
-        p_dia_vencimento: null,
-        p_auto_copiar_valor: true,
-      };
+      let recorrenciaId: string | null = null;
 
-      const { data, error } = await supabase.schema("f").rpc("criar_titulo_ap_manual_v2", args);
+      if (newQuantidadeParcelas > 1) {
+        const { error } = await supabase.schema("f").rpc("criar_titulo_ap_manual_parcelado_v1", {
+          p_descricao: desc,
+          p_primeiro_vencimento: venc,
+          p_valor_parcela: valorParsed,
+          p_quantidade_parcelas: newQuantidadeParcelas,
+          p_fornecedor_id: fornecedorIdParsed && Number.isFinite(fornecedorIdParsed) ? fornecedorIdParsed : null,
+          p_motivo_compra_id: newMotivoId || null,
+          p_emissao_date: emissao,
+          p_change_reason: "UI:contas_pagar_receber:criar_ap_parcelado",
+        });
 
-      if (error) {
-        if (isMissingRpc(error, "f.criar_titulo_ap_manual_v2")) {
-          throw new Error(
-            "RPC f.criar_titulo_ap_manual_v2 não encontrada no banco. Aplique a migration/SQL do financeiro (AP manual v2)."
-          );
+        if (error) {
+          if (isMissingRpc(error, "f.criar_titulo_ap_manual_parcelado_v1")) {
+            throw new Error("Atualize o banco para habilitar AP parcelado.");
+          }
+          throw error;
         }
-        throw error;
-      }
+      } else {
+        // IMPORTANT: RPC payload is strict. Do not send extra fields.
+        const args = {
+          p_descricao: desc,
+          p_vencimento_date: venc,
+          p_valor: valorParsed,
+          p_fornecedor_id: fornecedorIdParsed && Number.isFinite(fornecedorIdParsed) ? fornecedorIdParsed : null,
+          p_motivo_compra_id: newMotivoId || null,
+          p_emissao_date: emissao,
+          p_criar_recorrencia: Boolean(newRecorrente),
+          p_dia_vencimento: null,
+          p_auto_copiar_valor: true,
+        };
 
-      type CriarTituloApManualRes = { titulo_id?: unknown; recorrencia_id?: unknown };
-      const row = (Array.isArray(data) ? data[0] : data) as CriarTituloApManualRes | null;
-      const recorrenciaId = row?.recorrencia_id ? String(row.recorrencia_id) : null;
+        const { data, error } = await supabase.schema("f").rpc("criar_titulo_ap_manual_v2", args);
+
+        if (error) {
+          if (isMissingRpc(error, "f.criar_titulo_ap_manual_v2")) {
+            throw new Error(
+              "RPC f.criar_titulo_ap_manual_v2 não encontrada no banco. Aplique a migration/SQL do financeiro (AP manual v2)."
+            );
+          }
+          throw error;
+        }
+
+        type CriarTituloApManualRes = { titulo_id?: unknown; recorrencia_id?: unknown };
+        const row = (Array.isArray(data) ? data[0] : data) as CriarTituloApManualRes | null;
+        recorrenciaId = row?.recorrencia_id ? String(row.recorrencia_id) : null;
+      }
 
       if (newRecorrente && recorrenciaId && newProvisionarMeses > 0) {
         const { error: provErr } = await supabase.schema("f").rpc("provisionar_ap_recorrencia", {
@@ -1310,7 +1369,7 @@ export default function ContasPagarReceberPage() {
     } finally {
       setCreateBusy(false);
     }
-  }, [closeCreate, load, newDescricao, newEmissaoDate, newEmpresaId, newFornecedorId, newMotivoId, newRecorrente, newProvisionarMeses, newValor, newVencimento, selectedEmpresaIds, supabase, te]);
+  }, [closeCreate, load, newDescricao, newEmissaoDate, newEmpresaId, newFornecedorId, newMotivoId, newQuantidadeParcelas, newRecorrente, newProvisionarMeses, newValor, newVencimento, selectedEmpresaIds, supabase, te]);
 
   const doUpdateEmissaoDate = useCallback(async () => {
     if (!selected || selected.kind !== "AP") return;
@@ -2056,16 +2115,23 @@ export default function ContasPagarReceberPage() {
                   <div className="text-sm font-semibold text-zinc-100">Saldo atual</div>
                   <div className="text-[11px] text-zinc-500">Por conta bancária</div>
                 </div>
-                <div className={`text-lg font-semibold text-right ${resumo.saldoAtual < 0 ? "text-red-300" : "text-emerald-300"}`}>
-                  {formatMoneyBR(resumo.saldoAtual)}
+                <div className="text-right">
+                  <div className={`text-lg font-semibold ${resumo.saldoAtual < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                    {formatMoneyBR(resumo.saldoAtual)}
+                  </div>
+                  <Link
+                    href="/financeiro/cadastros/contas-bancarias"
+                    className="text-[11px] text-emerald-300 hover:text-emerald-200 hover:underline"
+                  >
+                    Ajustar saldos
+                  </Link>
                 </div>
               </div>
-              <div className="max-h-28 space-y-1.5 overflow-y-auto pr-1 text-xs">
+              <div className="max-h-32 space-y-1 overflow-y-auto pr-1 text-xs">
                 {accountBalances.map((conta) => (
                   <div key={conta.contaId} className="flex items-center justify-between gap-3 rounded-md bg-black/20 px-2 py-1.5">
-                    <div className="min-w-0">
-                      <div className="truncate text-zinc-200">{conta.codigo} · {conta.nome}</div>
-                      {empresaOptions.length > 1 && <div className="text-[10px] text-zinc-500">{conta.empresaNome}</div>}
+                    <div className="min-w-0 truncate text-zinc-200">
+                      {accountDisplayLabel(conta.codigo, conta.nome, conta.empresaNome)}
                     </div>
                     {conta.saldoAtual === null ? (
                       <span className="shrink-0 text-amber-300">Configurar</span>
@@ -3089,7 +3155,7 @@ export default function ContasPagarReceberPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <div className="text-sm text-zinc-300">Valor</div>
+                  <div className="text-sm text-zinc-300">Valor por parcela</div>
                   <input
                     aria-label="Valor"
                     value={newValor}
@@ -3098,7 +3164,29 @@ export default function ContasPagarReceberPage() {
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                   />
                 </div>
+                <div>
+                  <div className="text-sm text-zinc-300">Quantidade de parcelas</div>
+                  <input
+                    aria-label="Quantidade de parcelas"
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={String(newQuantidadeParcelas)}
+                    onChange={(e) => {
+                      const quantidade = Number(e.target.value);
+                      setNewQuantidadeParcelas(quantidade);
+                      if (quantidade > 1) setNewRecorrente(false);
+                    }}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                  />
+                </div>
               </div>
+
+              {newQuantidadeParcelas > 1 && Number.isFinite(parseMoneyBR(newValor)) && parseMoneyBR(newValor) > 0 && (
+                <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-300">
+                  Total da dívida: {formatMoneyBR(parseMoneyBR(newValor) * newQuantidadeParcelas)}. Os vencimentos serão mensais.
+                </div>
+              )}
 
               <div>
                 <div className="text-sm text-zinc-300">Motivo (opcional)</div>
@@ -3121,6 +3209,7 @@ export default function ContasPagarReceberPage() {
                 <input
                   id="ap-recorrente"
                   type="checkbox"
+                  disabled={newQuantidadeParcelas > 1}
                   checked={newRecorrente}
                   onChange={(e) => setNewRecorrente(e.target.checked)}
                 />
