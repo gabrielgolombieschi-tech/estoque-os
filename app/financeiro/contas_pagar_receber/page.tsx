@@ -2069,48 +2069,49 @@ export default function ContasPagarReceberPage() {
                       Novo AP
                     </button>
                   )}
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
-                    <span>Empresa</span>
-                    <div
-                      role="group"
-                      aria-label="Empresa"
-                      className="inline-flex overflow-hidden rounded-md border border-zinc-800 bg-zinc-950"
-                    >
-                      {empresaOptions.length > 1 && (
-                        <button
-                          type="button"
-                          aria-pressed={effectiveEmpresaFilter === "ALL"}
-                          onClick={() => setEmpresaFilter("ALL")}
-                          className={
-                            effectiveEmpresaFilter === "ALL"
-                              ? "px-3 py-2 bg-zinc-100 text-zinc-900 font-medium"
-                              : "px-3 py-2 text-zinc-200 hover:bg-zinc-900"
-                          }
-                        >
-                          Ambas
-                        </button>
-                      )}
-                      {empresaOptions.map((empresa) => (
-                        <button
-                          key={empresa.id}
-                          type="button"
-                          aria-pressed={effectiveEmpresaFilter === empresa.id}
-                          onClick={() => setEmpresaFilter(empresa.id)}
-                          className={
-                            effectiveEmpresaFilter === empresa.id
-                              ? "border-l border-zinc-800 px-3 py-2 bg-zinc-100 text-zinc-900 font-medium"
-                              : "border-l border-zinc-800 px-3 py-2 text-zinc-200 hover:bg-zinc-900"
-                          }
-                        >
-                          {empresa.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
 
-              <div className="xl:col-span-6">
+              <div className="xl:col-span-3">
+                <div className="text-sm text-zinc-300">Empresa</div>
+                <div
+                  role="group"
+                  aria-label="Empresa"
+                  className="inline-flex max-w-full overflow-hidden rounded-md border border-zinc-800 bg-zinc-950"
+                >
+                  {empresaOptions.length > 1 && (
+                    <button
+                      type="button"
+                      aria-pressed={effectiveEmpresaFilter === "ALL"}
+                      onClick={() => setEmpresaFilter("ALL")}
+                      className={
+                        effectiveEmpresaFilter === "ALL"
+                          ? "cursor-pointer px-3 py-2 bg-zinc-100 text-zinc-900 font-medium"
+                          : "cursor-pointer px-3 py-2 text-zinc-200 hover:bg-zinc-900"
+                      }
+                    >
+                      Ambas
+                    </button>
+                  )}
+                  {empresaOptions.map((empresa) => (
+                    <button
+                      key={empresa.id}
+                      type="button"
+                      aria-pressed={effectiveEmpresaFilter === empresa.id}
+                      onClick={() => setEmpresaFilter(empresa.id)}
+                      className={
+                        effectiveEmpresaFilter === empresa.id
+                          ? "cursor-pointer border-l border-zinc-800 px-3 py-2 bg-zinc-100 text-zinc-900 font-medium"
+                          : "cursor-pointer border-l border-zinc-800 px-3 py-2 text-zinc-200 hover:bg-zinc-900"
+                      }
+                    >
+                      {empresa.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="xl:col-span-3">
                 <div className="text-sm text-zinc-300">Buscar</div>
                 <input
                   aria-label="Buscar"
