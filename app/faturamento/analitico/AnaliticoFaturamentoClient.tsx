@@ -944,7 +944,7 @@ export default function AnaliticoFaturamentoClient() {
           <h1 className="mt-1 text-2xl font-semibold text-zinc-100">Analitico</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Base: documentos fiscais de saida por competencia (fallback emissao). NFS-e conta somente quando estiver
-            emitida.
+            emitida. Faturamentos entre empresas do grupo nao entram no analitico.
           </p>
           {manualHistoricalYears.length ? (
             <p className="mt-1 text-xs text-zinc-500">
