@@ -79,6 +79,20 @@ type PagamentoAplicado = {
   };
 };
 
+type RevisaoValorAp = {
+  id: string;
+  revisadoEm: string;
+  valorAnterior: number;
+  valorNovo: number;
+  diferenca: number;
+  valorPago: number;
+  saldoAnterior: number;
+  saldoNovo: number;
+  motivo: string;
+  origem: string;
+  revisadoPor: string;
+};
+
 function normalizeFormaPagamentoLabel(value: unknown): string | null {
   const normalized = String(value ?? "")
     .trim()
@@ -343,7 +357,9 @@ export default function ContasPagarReceberPage() {
   const [accountBalances, setAccountBalances] = useState<ContaSaldo[]>([]);
 
   const [selected, setSelected] = useState<UnifiedRow | null>(null);
-  const [tab, setTab] = useState<"APROVAR" | "PAGAR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO">("APROVAR");
+  const [tab, setTab] = useState<
+    "APROVAR" | "PAGAR" | "REVISAR_VALOR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO"
+  >("APROVAR");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
@@ -364,6 +380,7 @@ export default function ContasPagarReceberPage() {
   const [motivos, setMotivos] = useState<MotivoCompra[]>([]);
   const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [aplicacoes, setAplicacoes] = useState<PagamentoAplicado[]>([]);
+  const [revisoesValor, setRevisoesValor] = useState<RevisaoValorAp[]>([]);
   const [cancelPagamentoId, setCancelPagamentoId] = useState<string>("");
   const [cancelMotivo, setCancelMotivo] = useState<string>("");
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -398,6 +415,9 @@ export default function ContasPagarReceberPage() {
   const [valorMulta, setValorMulta] = useState<string>("");
   const [valorDesconto, setValorDesconto] = useState<string>("");
   const [observacoes, setObservacoes] = useState<string>("");
+  const [pagamentoComoValorFinal, setPagamentoComoValorFinal] = useState(false);
+  const [novoValorFinal, setNovoValorFinal] = useState<string>("");
+  const [motivoRevisao, setMotivoRevisao] = useState<string>("");
   const [splitRecebimento, setSplitRecebimento] = useState(false);
   const [splitVencimentoDate, setSplitVencimentoDate] = useState<string>("");
 
@@ -423,9 +443,13 @@ export default function ContasPagarReceberPage() {
     setValorMulta("");
     setValorDesconto("");
     setObservacoes("");
+    setPagamentoComoValorFinal(false);
+    setNovoValorFinal("");
+    setMotivoRevisao("");
     setSplitRecebimento(false);
     setSplitVencimentoDate("");
     setAplicacoes([]);
+    setRevisoesValor([]);
     setCancelPagamentoId("");
     setCancelMotivo("");
     setCancelConfirmOpen(false);
@@ -487,6 +511,26 @@ export default function ContasPagarReceberPage() {
     const totalCents = principalCents + jurosCents + multaCents - descontoCents;
     return { principalCents, jurosCents, multaCents, descontoCents, openCents, totalCents };
   }, [parseMoneyOrZero, selected, tab, toCents, valorDesconto, valorJuros, valorMov, valorMulta]);
+
+  const valorPagoParcela = useMemo(
+    () => aplicacoes.reduce((total, aplicacao) => total + Number(aplicacao.valor ?? 0), 0),
+    [aplicacoes]
+  );
+
+  const pagamentoPrincipalMenorQueAberto = useMemo(() => {
+    if (!selected || selected.kind !== "AP" || tab !== "PAGAR" || !movTotals) return false;
+    return (
+      Number.isFinite(movTotals.principalCents) &&
+      Number.isFinite(movTotals.openCents) &&
+      movTotals.principalCents > 0 &&
+      movTotals.principalCents < movTotals.openCents
+    );
+  }, [movTotals, selected, tab]);
+
+  const novoValorFinalNumero = useMemo(() => parseMoneyOrZero(novoValorFinal), [novoValorFinal, parseMoneyOrZero]);
+  const saldoAposRevisao = Number.isFinite(novoValorFinalNumero)
+    ? Math.max(0, novoValorFinalNumero - valorPagoParcela)
+    : NaN;
 
   const requestIdRef = useRef(0);
   const loadLegacy = useCallback(async () => {
@@ -1545,6 +1589,7 @@ export default function ContasPagarReceberPage() {
       setTab(row.kind === "AP" ? "APROVAR" : "RECEBER");
       setEditVencimentoDate(row.vencimento);
       setEditDescricao(row.descricao ?? "");
+      setNovoValorFinal(formatMoneyBR(row.valor));
       setSplitRecebimento(false);
       setSplitVencimentoDate(row.vencimento);
 
@@ -1683,8 +1728,49 @@ export default function ContasPagarReceberPage() {
         if (!appliedErr) {
           const mapped = (applied ?? []) as unknown as PagamentoAplicado[];
           setAplicacoes(mapped);
+          const totalPago = mapped.reduce((total, item) => total + Number(item.valor ?? 0), 0);
+          setNovoValorFinal(formatMoneyBR(totalPago > 0 ? totalPago : row.valor));
           if (row.kind === "AP" && mapped.length > 0) {
             setCancelPagamentoId(String(mapped[0].pagamento.id));
+          }
+        }
+
+        if (row.kind === "AP" && te.tenantId) {
+          type RevisaoValorRow = {
+            id: unknown;
+            revisado_em: unknown;
+            valor_anterior: unknown;
+            valor_novo: unknown;
+            diferenca: unknown;
+            valor_pago: unknown;
+            saldo_anterior: unknown;
+            saldo_novo: unknown;
+            motivo: unknown;
+            origem: unknown;
+            revisado_por: unknown;
+          };
+          const { data: revisoes, error: revisoesErr } = await supabase.schema("f").rpc("historico_revisoes_valor_ap", {
+            p_tenant_id: te.tenantId,
+            p_empresa_id: row.empresaId,
+            p_titulo_id: row.tituloId,
+            p_titulo_parcela_id: row.parcelaId,
+          });
+          if (!revisoesErr) {
+            setRevisoesValor(
+              ((revisoes ?? []) as RevisaoValorRow[]).map((revisao) => ({
+                id: String(revisao.id),
+                revisadoEm: String(revisao.revisado_em),
+                valorAnterior: Number(revisao.valor_anterior ?? 0),
+                valorNovo: Number(revisao.valor_novo ?? 0),
+                diferenca: Number(revisao.diferenca ?? 0),
+                valorPago: Number(revisao.valor_pago ?? 0),
+                saldoAnterior: Number(revisao.saldo_anterior ?? 0),
+                saldoNovo: Number(revisao.saldo_novo ?? 0),
+                motivo: String(revisao.motivo ?? ""),
+                origem: String(revisao.origem ?? ""),
+                revisadoPor: String(revisao.revisado_por ?? "Sistema"),
+              }))
+            );
           }
         }
       } catch (e: unknown) {
@@ -1802,6 +1888,60 @@ export default function ContasPagarReceberPage() {
     }
   }, [close, load, motivoId, motivoOutrosText, osId, selected, selectedMotivo, supabase]);
 
+  const doRevisarValorFinal = useCallback(async () => {
+    if (!selected || selected.kind !== "AP" || !te.tenantId) return;
+
+    const novoValor = parseMoneyOrZero(novoValorFinal);
+    if (!Number.isFinite(novoValor) || novoValor <= 0) {
+      setActionErr("Informe um novo valor final válido e maior que zero.");
+      return;
+    }
+    if (toCents(novoValor) < toCents(valorPagoParcela)) {
+      setActionErr(`O valor final não pode ser menor que o total já pago (${formatMoneyBR(valorPagoParcela)}).`);
+      return;
+    }
+    if (toCents(novoValor) === toCents(selected.valor)) {
+      setActionErr("O novo valor final é igual ao valor atual.");
+      return;
+    }
+
+    const motivo = motivoRevisao.trim();
+    if (motivo.length < 5) {
+      setActionErr("Informe o motivo da revisão (mínimo 5 caracteres).");
+      return;
+    }
+
+    setActionBusy(true);
+    setActionErr(null);
+    try {
+      const { error } = await supabase.schema("f").rpc("revisar_valor_final_ap", {
+        p_tenant_id: te.tenantId,
+        p_empresa_id: selected.empresaId,
+        p_titulo_id: selected.tituloId,
+        p_titulo_parcela_id: selected.parcelaId,
+        p_novo_valor_final: novoValor.toFixed(2),
+        p_motivo: motivo,
+        p_origem: "REVISAO_MANUAL",
+      });
+      if (error) throw error;
+
+      await load();
+      const saldoNovo = Math.max(0, novoValor - valorPagoParcela);
+      setToastMsg(
+        saldoNovo === 0
+          ? `Valor final revisado para ${formatMoneyBR(novoValor)}. A parcela foi encerrada sem novo pagamento.`
+          : `Valor final revisado para ${formatMoneyBR(novoValor)}. Saldo atual: ${formatMoneyBR(saldoNovo)}.`
+      );
+      if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = window.setTimeout(() => setToastMsg(null), 7000);
+      close();
+    } catch (e: unknown) {
+      setActionErr(getErrorMessage(e, "Erro ao revisar o valor final."));
+    } finally {
+      setActionBusy(false);
+    }
+  }, [close, load, motivoRevisao, novoValorFinal, parseMoneyOrZero, selected, supabase, te.tenantId, toCents, valorPagoParcela]);
+
   const doMov = useCallback(
     async (mode: "PAGAR" | "RECEBER") => {
       if (!selected) return;
@@ -1875,6 +2015,13 @@ export default function ContasPagarReceberPage() {
         }
       }
 
+      const confirmarComoValorFinal =
+        mode === "PAGAR" && pagamentoComoValorFinal && principalCents < openCents;
+      if (confirmarComoValorFinal && motivoRevisao.trim().length < 5) {
+        setActionErr("Informe o motivo da revisão do valor final (mínimo 5 caracteres).");
+        return;
+      }
+
       if (!contaBancariaId) {
         setActionErr("Selecione a conta bancária.");
         return;
@@ -1897,8 +2044,7 @@ export default function ContasPagarReceberPage() {
           if (splitErr) throw splitErr;
         }
 
-        const rpcName = mode === "PAGAR" ? "registrar_pagamento_ap_v2" : "registrar_recebimento_ar_v2";
-        const { error } = await supabase.schema("f").rpc(rpcName, {
+        const movementArgs = {
           p_titulo_id: selected.tituloId,
           p_conta_bancaria_id: contaBancariaId,
           p_data_pagamento: dataPagamento,
@@ -1908,8 +2054,22 @@ export default function ContasPagarReceberPage() {
           p_valor_multa: centsToNumericString(multaCents),
           p_valor_desconto: centsToNumericString(descontoCents),
           p_observacoes: observacoes.trim() ? observacoes.trim() : null,
-          p_change_reason: "UI: popup pagar/receber (juros/multa/desconto)",
-        });
+        };
+
+        const { error } = confirmarComoValorFinal
+          ? await supabase.schema("f").rpc("registrar_pagamento_ap_valor_final", {
+              ...movementArgs,
+              p_tenant_id: te.tenantId,
+              p_empresa_id: selected.empresaId,
+              p_titulo_parcela_id: selected.parcelaId,
+              p_motivo_ajuste: motivoRevisao.trim(),
+            })
+          : await supabase
+              .schema("f")
+              .rpc(mode === "PAGAR" ? "registrar_pagamento_ap_v2" : "registrar_recebimento_ar_v2", {
+                ...movementArgs,
+                p_change_reason: "UI: popup pagar/receber (juros/multa/desconto)",
+              });
         if (error) throw error;
 
         await load();
@@ -1920,7 +2080,8 @@ export default function ContasPagarReceberPage() {
           `, juros R$ ${centsToMoneyString(jurosCents)}` +
           `, multa R$ ${centsToMoneyString(multaCents)}` +
           `, desconto R$ ${centsToMoneyString(descontoCents)}` +
-          `, total R$ ${centsToMoneyString(totalCents)}.`;
+          `, total R$ ${centsToMoneyString(totalCents)}.` +
+          (confirmarComoValorFinal ? " Diferença da previsão encerrada com revisão auditada." : "");
 
         setToastMsg(okMsg);
         if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
@@ -1941,12 +2102,15 @@ export default function ContasPagarReceberPage() {
       dataPagamento,
       formaPagamento,
       load,
+      motivoRevisao,
       observacoes,
+      pagamentoComoValorFinal,
       parseMoneyOrZero,
       selected,
       splitRecebimento,
       splitVencimentoDate,
       supabase,
+      te.tenantId,
       toCents,
       valorDesconto,
       valorJuros,
@@ -2513,7 +2677,7 @@ export default function ContasPagarReceberPage() {
               </button>
             </div>
 
-            <div className="mt-4 flex items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               {selected.kind === "AP" ? (
                 <>
                   <button
@@ -2539,6 +2703,18 @@ export default function ContasPagarReceberPage() {
                     }`}
                   >
                     Pagar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelConfirmOpen(false);
+                      setTab("REVISAR_VALOR");
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-sm border ${
+                      tab === "REVISAR_VALOR" ? "bg-zinc-100 text-zinc-900 border-zinc-100" : "border-zinc-800 text-zinc-200"
+                    }`}
+                  >
+                    Revisar valor
                   </button>
                   <button
                     type="button"
@@ -2726,6 +2902,100 @@ export default function ContasPagarReceberPage() {
                 </div>
               )}
 
+              {tab === "REVISAR_VALOR" && selected.kind === "AP" && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                    <div className="text-sm font-medium text-zinc-100">Confirmar o valor efetivamente devido</div>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      Use quando o salário, imposto ou outra previsão vier diferente. Pagamentos já feitos permanecem
+                      intactos; somente a previsão e o saldo em aberto são corrigidos.
+                    </p>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                        <div className="text-xs text-zinc-500">Valor previsto atual</div>
+                        <div className="mt-1 text-sm font-semibold text-zinc-100">{formatMoneyBR(selected.valor)}</div>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                        <div className="text-xs text-zinc-500">Já pago</div>
+                        <div className="mt-1 text-sm font-semibold text-emerald-400">{formatMoneyBR(valorPagoParcela)}</div>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                        <div className="text-xs text-zinc-500">Saldo após revisão</div>
+                        <div className={`mt-1 text-sm font-semibold ${saldoAposRevisao > 0 ? "text-amber-300" : "text-emerald-400"}`}>
+                          {Number.isFinite(saldoAposRevisao) ? formatMoneyBR(saldoAposRevisao) : "Valor invalido"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-sm text-zinc-300">Novo valor final</span>
+                        <input
+                          aria-label="Novo valor final"
+                          value={novoValorFinal}
+                          onChange={(e) => setNovoValorFinal(e.target.value)}
+                          placeholder="0,00"
+                          className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-sm text-zinc-300">Motivo da revisão</span>
+                        <input
+                          aria-label="Motivo da revisão"
+                          value={motivoRevisao}
+                          onChange={(e) => setMotivoRevisao(e.target.value)}
+                          placeholder="Ex: valor final da folha confirmado"
+                          className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </label>
+                    </div>
+
+                    {Number.isFinite(novoValorFinalNumero) && novoValorFinalNumero < valorPagoParcela ? (
+                      <div className="mt-3 text-xs text-red-300">
+                        O valor final não pode ser menor que o total já pago. Nesse caso, registre o crédito a recuperar
+                        separadamente.
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={actionBusy}
+                        onClick={() => void doRevisarValorFinal()}
+                        className="rounded-md bg-amber-400 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-300 disabled:opacity-60"
+                      >
+                        {actionBusy ? "Revisando..." : "Confirmar valor final"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+                    <div className="text-sm font-medium text-zinc-200">Histórico de revisões</div>
+                    {revisoesValor.length === 0 ? (
+                      <div className="mt-2 text-xs text-zinc-500">Nenhuma revisão registrada nesta parcela.</div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {revisoesValor.map((revisao) => (
+                          <div key={revisao.id} className="rounded-md border border-zinc-800 px-3 py-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                              <span className="font-medium text-zinc-200">
+                                {formatMoneyBR(revisao.valorAnterior)} para {formatMoneyBR(revisao.valorNovo)}
+                              </span>
+                              <span className="text-xs text-zinc-500">
+                                {new Date(revisao.revisadoEm).toLocaleString("pt-BR")}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-xs text-zinc-400">{revisao.motivo}</div>
+                            <div className="mt-1 text-xs text-zinc-600">Revisado por {revisao.revisadoPor}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {tab === "CANCELAR_PAGAMENTO" && selected.kind === "AP" && (
                 <div className="space-y-3">
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3 space-y-2">
@@ -2847,7 +3117,7 @@ export default function ContasPagarReceberPage() {
                         <option value="">Selecione...</option>
                         {contas.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.codigo} - {c.nome}
+                            {accountDisplayLabel(c.codigo, c.nome, selected.empresaNome)}
                           </option>
                         ))}
                       </select>
@@ -2895,6 +3165,73 @@ export default function ContasPagarReceberPage() {
                       <div className="text-xs text-zinc-500 mt-1">Dica: aceita &quot;1234,56&quot; ou &quot;R$ 1.234,56&quot;</div>
                     </div>
                   </div>
+
+                  {tab === "PAGAR" && selected.kind === "AP" && pagamentoPrincipalMenorQueAberto && movTotals ? (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                      <div className="text-sm font-medium text-zinc-100">
+                        Como tratar a diferença de {formatMoneyBR((movTotals.openCents - movTotals.principalCents) / 100)}?
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                        <label
+                          className={`cursor-pointer rounded-md border p-3 ${
+                            !pagamentoComoValorFinal
+                              ? "border-sky-500/70 bg-sky-500/10"
+                              : "border-zinc-800 bg-zinc-950/60"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="radio"
+                              name="tratamento-pagamento-menor"
+                              checked={!pagamentoComoValorFinal}
+                              onChange={() => setPagamentoComoValorFinal(false)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-zinc-200">Pagamento parcial</div>
+                              <div className="mt-1 text-xs text-zinc-500">Mantém a diferença em aberto para pagar depois.</div>
+                            </div>
+                          </div>
+                        </label>
+                        <label
+                          className={`cursor-pointer rounded-md border p-3 ${
+                            pagamentoComoValorFinal
+                              ? "border-emerald-500/70 bg-emerald-500/10"
+                              : "border-zinc-800 bg-zinc-950/60"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="radio"
+                              name="tratamento-pagamento-menor"
+                              checked={pagamentoComoValorFinal}
+                              onChange={() => setPagamentoComoValorFinal(true)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-zinc-200">Valor final confirmado</div>
+                              <div className="mt-1 text-xs text-zinc-500">
+                                Corrige a previsão e encerra a diferença sem gerar nova dívida.
+                              </div>
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+
+                      {pagamentoComoValorFinal ? (
+                        <label className="mt-3 block">
+                          <span className="text-sm text-zinc-300">Motivo da revisão</span>
+                          <input
+                            aria-label="Motivo do valor final"
+                            value={motivoRevisao}
+                            onChange={(e) => setMotivoRevisao(e.target.value)}
+                            placeholder="Ex: valor final da folha confirmado"
+                            className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="border border-zinc-800 rounded-md p-3 bg-zinc-950/40 space-y-3">
                     <div>
@@ -3033,7 +3370,11 @@ export default function ContasPagarReceberPage() {
                           <span className="text-zinc-500"> • </span>
                           <span>{a.pagamento.forma_pagamento}</span>
                           <span className="text-zinc-500"> • </span>
-                          <span>{conta ? `${conta.codigo} - ${conta.nome}` : a.pagamento.conta_bancaria_id}</span>
+                           <span>
+                             {conta
+                               ? accountDisplayLabel(conta.codigo, conta.nome, selected.empresaNome)
+                               : a.pagamento.conta_bancaria_id}
+                           </span>
                         </div>
                       );
                     })}
