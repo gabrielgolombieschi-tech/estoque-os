@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
@@ -8,6 +8,7 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 type Colaborador = { id: string; nome: string; ativo: boolean };
 
 type ApontamentoRow = {
+  data?: string | null;
   os_id: number | null;
   colaborador_id: string;
   horas: number | null;
@@ -15,6 +16,16 @@ type ApontamentoRow = {
 };
 
 type ResumoHhFilter = "todos" | "os_hh";
+type ActiveTab = "resumo" | "extrato";
+
+type ExtratoRow = {
+  data: string;
+  os_id: number | null;
+  numero_os: string;
+  cliente_nome: string;
+  descricao_servico: string;
+  total_horas: number;
+};
 
 function describeSupabaseError(err: unknown): string {
   if (!err) return "(sem detalhes)";
@@ -89,6 +100,15 @@ function formatHoras(n: number) {
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
+function formatData(value: string) {
+  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export default function ApontamentosResumoMensalPage() {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -104,6 +124,7 @@ export default function ApontamentosResumoMensalPage() {
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [colaboradorId, setColaboradorId] = useState<string>("");
   const [resumoHhFilter, setResumoHhFilter] = useState<ResumoHhFilter>("todos");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("resumo");
 
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,7 +133,30 @@ export default function ApontamentosResumoMensalPage() {
   const [rows, setRows] = useState<Array<{ colaborador_id: string; colaborador_nome: string; total_horas: number }>>(
     []
   );
+  const [extratoRows, setExtratoRows] = useState<ExtratoRow[]>([]);
+  const [extratoLoading, setExtratoLoading] = useState(false);
   const totalHorasResumo = useMemo(() => rows.reduce((sum, row) => sum + row.total_horas, 0), [rows]);
+  const totalHorasExtrato = useMemo(
+    () => extratoRows.reduce((sum, row) => sum + row.total_horas, 0),
+    [extratoRows]
+  );
+  const extratoPorDia = useMemo(() => {
+    const grouped = new Map<string, ExtratoRow[]>();
+    for (const row of extratoRows) {
+      const list = grouped.get(row.data) ?? [];
+      list.push(row);
+      grouped.set(row.data, list);
+    }
+    return Array.from(grouped.entries()).map(([data, lancamentos]) => ({
+      data,
+      lancamentos,
+      total_horas: lancamentos.reduce((sum, row) => sum + row.total_horas, 0),
+    }));
+  }, [extratoRows]);
+  const colaboradorSelecionado = useMemo(
+    () => colaboradores.find((colaborador) => colaborador.id === colaboradorId) ?? null,
+    [colaboradorId, colaboradores]
+  );
 
   const ensureContext = useCallback(async () => {
     if (!tenantId || !empresaId) return;
@@ -158,7 +202,7 @@ export default function ApontamentosResumoMensalPage() {
   }, [empresaId, ensureContext, supabase, tenantId]);
 
   const loadResumo = useCallback(async () => {
-    if (!tenantId || !empresaId) return;
+    if (!tenantId || !empresaId || activeTab !== "resumo") return;
 
     setLoading(true);
     setError(null);
@@ -253,16 +297,166 @@ export default function ApontamentosResumoMensalPage() {
     } finally {
       setLoading(false);
     }
-  }, [colaboradores, colaboradorId, empresaId, ensureContext, month, resumoHhFilter, supabase, tenantId, year]);
+  }, [activeTab, colaboradores, colaboradorId, empresaId, ensureContext, month, resumoHhFilter, supabase, tenantId, year]);
+
+  const loadExtrato = useCallback(async () => {
+    if (!tenantId || !empresaId || activeTab !== "extrato") return;
+    if (!colaboradorId) {
+      setExtratoRows([]);
+      setError(null);
+      return;
+    }
+
+    setExtratoLoading(true);
+    setError(null);
+    try {
+      await ensureContext();
+
+      const dataIni = startOfMonthISO(year, month);
+      const dataFim = endOfMonthISO(year, month);
+      const candidates = ["data,os_id,colaborador_id,horas,horas_trabalhadas", "data,os_id,colaborador_id,horas"];
+
+      let data: ApontamentoRow[] | null = null;
+      const attempts: string[] = [];
+
+      for (const sel of candidates) {
+        const res = await applyTenantEmpresa(
+          supabase.from("apontamentos_horas").select(sel),
+          tenantId,
+          empresaId
+        )
+          .eq("empresa_id", empresaId)
+          .eq("colaborador_id", colaboradorId)
+          .gte("data", dataIni)
+          .lte("data", dataFim)
+          .order("data", { ascending: true })
+          .order("os_id", { ascending: true });
+
+        if (!res.error) {
+          data = (res.data ?? []) as unknown as ApontamentoRow[];
+          break;
+        }
+
+        attempts.push(
+          `select=${sel} | status=${String(res.status)} ${String(res.statusText ?? "").trim()} | ${describeSupabaseError(res.error)}`
+        );
+        if (!isMissingColumnError(res.error)) break;
+      }
+
+      if (!data) {
+        throw new Error(`Falha ao consultar apontamentos_horas. Tentativas: ${attempts.join(" || ") || "(sem detalhes)"}`);
+      }
+
+      const osIds = Array.from(
+        new Set(data.map((row) => Number(row.os_id)).filter((id) => Number.isFinite(id) && id > 0))
+      );
+      const osById = new Map<
+        number,
+        { numero_os: string | null; cliente_nome: string | null; descricao_servico: string | null }
+      >();
+
+      if (osIds.length > 0) {
+        let osQuery = applyTenantEmpresa(
+          supabase
+            .from("ordens_servico")
+            .select("id,numero_os,cliente_nome,descricao_servico,usa_relatorio_hh")
+            .in("id", osIds),
+          tenantId,
+          empresaId
+        );
+        if (resumoHhFilter === "os_hh") osQuery = osQuery.eq("usa_relatorio_hh", true);
+
+        const { data: osData, error: osError } = await osQuery;
+        if (osError) throw osError;
+
+        for (const osRow of osData ?? []) {
+          osById.set(Number(osRow.id), {
+            numero_os: osRow.numero_os,
+            cliente_nome: osRow.cliente_nome,
+            descricao_servico: osRow.descricao_servico,
+          });
+        }
+      }
+
+      const totals = new Map<string, ExtratoRow>();
+      for (const row of data) {
+        const dataRow = String(row.data ?? "").slice(0, 10);
+        if (!dataRow) continue;
+
+        const osId = row.os_id == null ? null : Number(row.os_id);
+        const osInfo = osId == null ? null : osById.get(osId);
+        if (resumoHhFilter === "os_hh" && !osInfo) continue;
+
+        const horas =
+          (typeof row.horas === "number" ? row.horas : null) ??
+          (typeof row.horas_trabalhadas === "number" ? row.horas_trabalhadas : null) ??
+          0;
+        const key = `${dataRow}|${osId ?? "sem-os"}`;
+        const current = totals.get(key);
+
+        totals.set(key, {
+          data: dataRow,
+          os_id: osId,
+          numero_os: osInfo?.numero_os?.trim() || (osId ? String(osId) : "Sem OS"),
+          cliente_nome: osInfo?.cliente_nome?.trim() || "—",
+          descricao_servico: osInfo?.descricao_servico?.trim() || "—",
+          total_horas: Number(((current?.total_horas ?? 0) + horas).toFixed(2)),
+        });
+      }
+
+      setExtratoRows(
+        Array.from(totals.values())
+          .filter((row) => row.total_horas > 0)
+          .sort((a, b) => a.data.localeCompare(b.data) || a.numero_os.localeCompare(b.numero_os, "pt-BR"))
+      );
+    } catch (e: unknown) {
+      setExtratoRows([]);
+      console.error("[Extrato Horas] erro ao carregar", e);
+      setError(`Erro ao carregar extrato: ${describeSupabaseError(e)}`);
+    } finally {
+      setExtratoLoading(false);
+    }
+  }, [activeTab, colaboradorId, empresaId, ensureContext, month, resumoHhFilter, supabase, tenantId, year]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadResumo();
   }, [loadResumo]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadExtrato();
+  }, [loadExtrato]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-zinc-100">Resumo de Horas (Mês)</h1>
+      </div>
+
+      <div className="flex gap-1 border-b border-zinc-800">
+        <button
+          type="button"
+          onClick={() => setActiveTab("resumo")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "resumo"
+              ? "border-emerald-400 text-emerald-300"
+              : "border-transparent text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          Resumo
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("extrato")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "extrato"
+              ? "border-emerald-400 text-emerald-300"
+              : "border-transparent text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          Extrato
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -303,7 +497,7 @@ export default function ApontamentosResumoMensalPage() {
             onChange={(e) => setColaboradorId(e.target.value)}
             className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
           >
-            <option value="">Todos</option>
+            <option value="">{activeTab === "extrato" ? "Selecione..." : "Todos"}</option>
             {colaboradores.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nome}
@@ -327,46 +521,129 @@ export default function ApontamentosResumoMensalPage() {
 
       {error && <div className="text-sm text-red-400">{error}</div>}
 
-      <div className="border border-zinc-800 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-950/60 border-b border-zinc-800">
-            <tr>
-              <th className="text-left px-3 py-2 text-zinc-200 font-medium">Colaborador</th>
-              <th className="text-right px-3 py-2 text-zinc-200 font-medium">Total (h)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+      {activeTab === "resumo" ? (
+        <div className="border border-zinc-800 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-950/60 border-b border-zinc-800">
               <tr>
-                <td className="px-3 py-3 text-zinc-400" colSpan={2}>
-                  Carregando...
-                </td>
+                <th className="text-left px-3 py-2 text-zinc-200 font-medium">Colaborador</th>
+                <th className="text-right px-3 py-2 text-zinc-200 font-medium">Total (h)</th>
               </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td className="px-3 py-3 text-zinc-400" colSpan={2}>
-                  Nenhum apontamento encontrado para o período.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.colaborador_id} className="border-t border-zinc-800">
-                  <td className="px-3 py-2 text-zinc-100">{r.colaborador_nome}</td>
-                  <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">{formatHoras(r.total_horas)}</td>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td className="px-3 py-3 text-zinc-400" colSpan={2}>
+                    Carregando...
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-          {!loading && rows.length > 0 ? (
-            <tfoot className="border-t border-zinc-700 bg-zinc-950/80">
-              <tr>
-                <td className="px-3 py-2 text-left text-zinc-100 font-semibold">Total</td>
-                <td className="px-3 py-2 text-right text-zinc-100 font-semibold tabular-nums">{formatHoras(totalHorasResumo)}</td>
-              </tr>
-            </tfoot>
-          ) : null}
-        </table>
-      </div>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td className="px-3 py-3 text-zinc-400" colSpan={2}>
+                    Nenhum apontamento encontrado para o período.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.colaborador_id} className="border-t border-zinc-800">
+                    <td className="px-3 py-2 text-zinc-100">{r.colaborador_nome}</td>
+                    <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">
+                      {formatHoras(r.total_horas)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {!loading && rows.length > 0 ? (
+              <tfoot className="border-t border-zinc-700 bg-zinc-950/80">
+                <tr>
+                  <td className="px-3 py-2 text-left text-zinc-100 font-semibold">Total</td>
+                  <td className="px-3 py-2 text-right text-zinc-100 font-semibold tabular-nums">
+                    {formatHoras(totalHorasResumo)}
+                  </td>
+                </tr>
+              </tfoot>
+            ) : null}
+          </table>
+        </div>
+      ) : !colaboradorId ? (
+        <div className="border border-dashed border-zinc-700 rounded-lg px-4 py-10 text-center text-zinc-400">
+          Selecione um colaborador para visualizar o extrato diário de horas e OS trabalhadas.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-3 sm:col-span-1">
+              <div className="text-xs text-zinc-400">Colaborador</div>
+              <div className="mt-1 text-sm font-medium text-zinc-100">{colaboradorSelecionado?.nome ?? "—"}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-3">
+              <div className="text-xs text-zinc-400">Dias trabalhados</div>
+              <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">{extratoPorDia.length}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-3">
+              <div className="text-xs text-zinc-400">Total no mês</div>
+              <div className="mt-1 text-lg font-semibold text-emerald-300 tabular-nums">
+                {formatHoras(totalHorasExtrato)} h
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-zinc-800 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
+              <thead className="bg-zinc-950/60 border-b border-zinc-800">
+                <tr>
+                  <th className="text-left px-3 py-2 text-zinc-200 font-medium">OS</th>
+                  <th className="text-left px-3 py-2 text-zinc-200 font-medium">Cliente</th>
+                  <th className="text-left px-3 py-2 text-zinc-200 font-medium">Serviço</th>
+                  <th className="text-right px-3 py-2 text-zinc-200 font-medium">Horas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {extratoLoading ? (
+                  <tr>
+                    <td className="px-3 py-3 text-zinc-400" colSpan={4}>Carregando...</td>
+                  </tr>
+                ) : extratoPorDia.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-3 text-zinc-400" colSpan={4}>
+                      Nenhum apontamento encontrado para o colaborador no período.
+                    </td>
+                  </tr>
+                ) : (
+                  extratoPorDia.map((dia) => (
+                    <Fragment key={dia.data}>
+                      <tr className="bg-zinc-900/80">
+                        <th colSpan={4} className="px-3 py-2 text-left font-semibold text-zinc-100 capitalize">
+                          {formatData(dia.data)}
+                        </th>
+                      </tr>
+                      {dia.lancamentos.map((row) => (
+                        <tr key={`${row.data}-${row.os_id ?? "sem-os"}`} className="border-t border-zinc-800/70">
+                          <td className="px-3 py-2 text-zinc-100 whitespace-nowrap">
+                            {row.os_id ? `OS ${row.numero_os}` : "Sem OS"}
+                          </td>
+                          <td className="px-3 py-2 text-zinc-300">{row.cliente_nome}</td>
+                          <td className="px-3 py-2 text-zinc-300">{row.descricao_servico}</td>
+                          <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">
+                            {formatHoras(row.total_horas)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-zinc-700 bg-zinc-950/60">
+                        <td colSpan={3} className="px-3 py-2 text-right text-zinc-400 font-medium">Total do dia</td>
+                        <td className="px-3 py-2 text-right text-zinc-100 font-semibold tabular-nums">
+                          {formatHoras(dia.total_horas)}
+                        </td>
+                      </tr>
+                    </Fragment>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

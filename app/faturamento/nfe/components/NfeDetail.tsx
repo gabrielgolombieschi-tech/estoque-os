@@ -630,7 +630,12 @@ export default function NfeDetail({
   const hasAR = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AR"), [titulos]);
   const hasAP = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AP"), [titulos]);
   const canEditOsLink = doc?.operacao === "SAIDA" && doc?.natureza === "PRODUTO";
-  const canDeleteDoc = access === "financeiro" && doc?.operacao === "SAIDA" && doc?.natureza === "PRODUTO";
+  const isEntradaProduto =
+    doc?.operacao === "ENTRADA" && doc?.natureza === "PRODUTO" && Number(doc?.source_nf_entrada_id ?? 0) > 0;
+  const canDeleteDoc =
+    access === "financeiro" &&
+    doc?.natureza === "PRODUTO" &&
+    (doc?.operacao === "SAIDA" || isEntradaProduto);
 
   const saveOsLink = async () => {
     if (!ready || !doc?.id || !canEditOsLink) return;
@@ -670,11 +675,22 @@ export default function NfeDetail({
 
   const removeDoc = async () => {
     if (!ready || !doc?.id || !canDeleteDoc) return;
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm("Excluir esta NF-e e os titulos financeiros vinculados? Depois sera possivel reimportar.")
-    ) {
+    const confirmMessage = isEntradaProduto
+      ? "Estornar esta NF-e de entrada, o estoque e os titulos financeiros vinculados? Depois sera possivel reimportar."
+      : "Excluir esta NF-e e os titulos financeiros vinculados? Depois sera possivel reimportar.";
+    if (typeof window !== "undefined" && !window.confirm(confirmMessage)) {
       return;
+    }
+
+    let motivoEstorno = `Exclusao solicitada no detalhe da NF-e ${doc.numero ?? doc.id}`;
+    if (isEntradaProduto && typeof window !== "undefined") {
+      const motivoInformado = window.prompt("Informe o motivo do estorno da NF-e:", "Lançamento importado incorretamente");
+      if (motivoInformado === null) return;
+      if (motivoInformado.trim().length < 5) {
+        window.alert("Informe um motivo com pelo menos 5 caracteres.");
+        return;
+      }
+      motivoEstorno = motivoInformado.trim();
     }
 
     setDeleting(true);
@@ -683,11 +699,18 @@ export default function NfeDetail({
 
     try {
       const supabase = supabaseBrowser();
-      const { error: rpcErr } = await supabase.rpc("faturamento_excluir_documento_saida", {
-        p_tenant_id: tenantId,
-        p_empresa_id: empresaId,
-        p_documento_fiscal_id: doc.id,
-      });
+      const { error: rpcErr } = isEntradaProduto
+        ? await supabase.rpc("estornar_nf_entrada", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_nf_entrada_id: Number(doc.source_nf_entrada_id),
+            p_motivo: motivoEstorno,
+          })
+        : await supabase.rpc("faturamento_excluir_documento_saida", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_documento_fiscal_id: doc.id,
+          });
       if (rpcErr) throw rpcErr;
 
       router.replace("/faturamento/nfe");
@@ -725,7 +748,7 @@ export default function NfeDetail({
               disabled={loading || deleting || osSaving || !ready}
               className="rounded-md bg-rose-700 px-3 py-2 text-sm text-zinc-100 hover:bg-rose-600 disabled:opacity-50"
             >
-              {deleting ? "Excluindo..." : "Excluir"}
+              {deleting ? (isEntradaProduto ? "Estornando..." : "Excluindo...") : isEntradaProduto ? "Estornar" : "Excluir"}
             </button>
           ) : null}
           {access === "estoque" && relatorioDestino ? (

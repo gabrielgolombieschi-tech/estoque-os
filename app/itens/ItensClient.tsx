@@ -46,7 +46,18 @@ type Item = {
 
   ativo: boolean;
   criado_em: string;
+  criado_por: string | null;
   atualizado_em: string;
+  atualizado_por: string | null;
+  auditoria?: ItemAudit | null;
+};
+
+type ItemAudit = {
+  item_id: number;
+  acao: "criacao" | "alteracao";
+  data_acao: string;
+  autor_nome: string;
+  autor_identificador: string | null;
 };
 
 type ItemForm = {
@@ -123,6 +134,7 @@ type ItemPayload = {
   fornecedor_id: number | null;
   ativo: boolean;
   atualizado_em: string;
+  atualizado_por?: string | null;
 };
 
 type FiscalPayload = {
@@ -168,6 +180,13 @@ function money(n: number | null | undefined) {
 
 function upper(value: string | null | undefined) {
   return String(value ?? "").toUpperCase();
+}
+
+function formatAuditDate(value: string | null | undefined) {
+  if (!value) return "Data não disponível";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Data não disponível";
+  return parsed.toLocaleString("pt-BR");
 }
 
 function emptyForm(): ItemForm {
@@ -374,6 +393,7 @@ export default function ItensClient({
   const [fiscalForm, setFiscalForm] = useState<FiscalForm>(emptyFiscalForm());
   const [initialFiscalSnapshot, setInitialFiscalSnapshot] = useState(() => serializeFiscalForm(emptyFiscalForm()));
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingAudit, setEditingAudit] = useState<ItemAudit | null>(null);
 
   useEffect(() => {
     if (!isFinalidadeLocked) return;
@@ -474,9 +494,9 @@ export default function ItensClient({
       message.toLowerCase().includes("motivo_compra_id") && message.toLowerCase().includes("does not exist");
 
     const selectBase =
-      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em" as const;
+      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,criado_por,atualizado_em,atualizado_por" as const;
     const selectWithMotivo =
-      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,motivo_compra_id,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,atualizado_em" as const;
+      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,motivo_compra_id,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,criado_por,atualizado_em,atualizado_por" as const;
 
     try {
       const from = (page - 1) * PAGE_SIZE;
@@ -594,6 +614,7 @@ export default function ItensClient({
       const baseRows = (data ?? []) as unknown as ItemBaseMaybeMotivo[];
       const itemIds = Array.from(new Set(baseRows.map((row) => row.id).filter(Number.isFinite)));
       const fiscalMap = new Map<number, FiscalItem>();
+      const auditMap = new Map<number, ItemAudit>();
 
       if (itemIds.length > 0 && empresaId) {
         const { data: fiscalData, error: fiscalErr } = await applyTenantEmpresa(
@@ -616,11 +637,35 @@ export default function ItensClient({
         }
       }
 
+      if (itemIds.length > 0 && empresaId) {
+        const { data: auditData, error: auditError } = await supabase.rpc("list_itens_auditoria", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_item_ids: itemIds,
+        });
+
+        if (auditError) {
+          console.warn("[Itens] auditoria indisponível", auditError);
+        } else {
+          ((auditData ?? []) as ItemAudit[]).forEach((audit) => {
+            auditMap.set(Number(audit.item_id), audit);
+          });
+        }
+      }
+
       const merged = baseRows.map((row) => ({
         ...row,
         // In environments without the column, Supabase won't return it; normalize to null.
         motivo_compra_id: supportsMotivoCompra ? row.motivo_compra_id ?? null : null,
         fiscal_itens: fiscalMap.get(row.id) ?? null,
+        auditoria:
+          auditMap.get(row.id) ?? {
+            item_id: row.id,
+            acao: row.atualizado_por?.trim() ? "alteracao" : "criacao",
+            data_acao: row.atualizado_por?.trim() ? row.atualizado_em : row.criado_em,
+            autor_nome: row.atualizado_por?.trim() || row.criado_por?.trim() || "Não identificado",
+            autor_identificador: row.atualizado_por?.trim() || row.criado_por?.trim() || null,
+          },
       }));
 
       setRows(merged as Item[]);
@@ -734,6 +779,7 @@ export default function ItensClient({
       return;
     }
     setEditingId(null);
+    setEditingAudit(null);
     setForm(emptyFormForContext());
     {
       const emptyFiscal = emptyFiscalForm();
@@ -746,6 +792,7 @@ export default function ItensClient({
 
   function openEditorForItem(r: Item, nextEditingId: number) {
     setEditingId(nextEditingId);
+    setEditingAudit(r.auditoria ?? null);
     setShowForm(true);
     setForm(buildFormForContext({ ...r, id: nextEditingId }));
 
@@ -768,6 +815,7 @@ export default function ItensClient({
   function closeForm() {
     setShowForm(false);
     setEditingId(null);
+    setEditingAudit(null);
     setForm(emptyFormForContext());
     {
       const emptyFiscal = emptyFiscalForm();
@@ -937,7 +985,16 @@ export default function ItensClient({
           finalidade: copiedFinalidade,
           fiscal_itens: copiedFiscal,
           criado_em: copiedAt,
+          criado_por: userEmail,
           atualizado_em: copiedAt,
+          atualizado_por: null,
+          auditoria: {
+            item_id: newItemId,
+            acao: "criacao",
+            data_acao: copiedAt,
+            autor_nome: userEmail?.trim() || "Não identificado",
+            autor_identificador: userEmail,
+          },
         },
         newItemId
       );
@@ -973,6 +1030,9 @@ export default function ItensClient({
     const finalidadeParaSalvar = lockedFinalidade || form.finalidade.trim();
 
     setBusy(true);
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userEmail = sess.session?.user?.email ?? null;
 
     const payload: ItemPayload = {
       codigo_interno: upper(form.codigo_interno).trim(),
@@ -1019,7 +1079,10 @@ export default function ItensClient({
         setErr("Tenant nao carregado.");
         return;
       }
-      const res = await applyTenant(supabase.from("itens").update(payload), tenantId).eq("id", editingId);
+      const res = await applyTenant(
+        supabase.from("itens").update({ ...payload, atualizado_por: userEmail }),
+        tenantId
+      ).eq("id", editingId);
       error = res.error ?? null;
     } else {
       if (!tenantId) {
@@ -1027,9 +1090,6 @@ export default function ItensClient({
         setErr("Tenant nao carregado.");
         return;
       }
-
-      const { data: sess } = await supabase.auth.getSession();
-      const userEmail = sess.session?.user?.email ?? null;
 
       const res = await supabase
         .from("itens")
@@ -1090,8 +1150,12 @@ export default function ItensClient({
       setBusy(false);
       return setErr("Tenant nao carregado.");
     }
+    const { data: sess } = await supabase.auth.getSession();
+    const userEmail = sess.session?.user?.email ?? null;
     const { error } = await applyTenant(
-      supabase.from("itens").update({ ativo: to, atualizado_em: new Date().toISOString() }),
+      supabase
+        .from("itens")
+        .update({ ativo: to, atualizado_em: new Date().toISOString(), atualizado_por: userEmail }),
       tenantId
     ).eq("id", id);
 
@@ -1581,6 +1645,16 @@ export default function ItensClient({
               <div>
                 <div className="font-semibold">{editingId ? `Editar item #${editingId}` : "Novo item"}</div>
                 <div className="text-xs text-zinc-400 mt-0.5">Preencha os campos e salve para registrar.</div>
+                {editingId && editingAudit ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-300">
+                    <span className="text-zinc-500">
+                      {editingAudit.acao === "alteracao" ? "Última alteração por:" : "Cadastro criado por:"}
+                    </span>
+                    <span className="font-medium text-amber-300">{editingAudit.autor_nome}</span>
+                    <span className="text-zinc-600">•</span>
+                    <span className="tabular-nums text-zinc-400">{formatAuditDate(editingAudit.data_acao)}</span>
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={closeForm} className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800">

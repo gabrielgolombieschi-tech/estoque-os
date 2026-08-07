@@ -47,6 +47,9 @@ type OsItemRow = {
   quantidade_baixada?: number | null;
   desconto_percentual?: number | null;
   desconto_valor?: number | null;
+  criado_em?: string | null;
+  registrado_em?: string | null;
+  registrado_por_nome?: string | null;
   itens: { nome: string; codigo_interno: string; tipo: string } | null;
 };
 
@@ -1307,7 +1310,7 @@ export default function OsDetailPage() {
       supabase
         .from("os_itens")
         .select(
-          "id,item_id,quantidade,valor_unitario,valor_total,desconto_percentual,desconto_valor,baixa_estoque,quantidade_baixada,itens(nome,codigo_interno,tipo)"
+          "id,item_id,quantidade,valor_unitario,valor_total,desconto_percentual,desconto_valor,baixa_estoque,quantidade_baixada,criado_em,registrado_em,registrado_por_nome,itens(nome,codigo_interno,tipo)"
         ),
       effectiveTenantId
     )
@@ -2880,8 +2883,8 @@ export default function OsDetailPage() {
           )}
 
           {/* Tabela itens */}
-          <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
-            <table className="w-full text-sm">
+          <div className="border border-zinc-800 rounded-xl overflow-x-auto bg-zinc-950">
+            <table className="w-full min-w-[1120px] text-sm">
               <thead className="bg-zinc-900/60">
                 <tr className="text-left text-zinc-200">
                   <th className="px-4 py-3">ID</th>
@@ -2891,6 +2894,8 @@ export default function OsDetailPage() {
                   <th className="px-4 py-3 text-right">Total</th>
                   <th className="px-4 py-3 text-center">Baixa</th>
                   <th className="px-4 py-3 text-center">Ações</th>
+                  <th className="px-4 py-3 whitespace-nowrap">Data</th>
+                  <th className="px-4 py-3">Nome</th>
                 </tr>
               </thead>
 
@@ -3001,13 +3006,21 @@ export default function OsDetailPage() {
                     Remover
                   </button>
                 </td>
+                <td className="px-4 py-3 whitespace-nowrap tabular-nums text-zinc-300">
+                  {r.registrado_em || r.criado_em
+                    ? new Date(r.registrado_em ?? r.criado_em ?? "").toLocaleString("pt-BR")
+                    : "—"}
+                </td>
+                <td className="px-4 py-3 text-zinc-300">
+                  {r.registrado_por_nome?.trim() || "Não identificado"}
+                </td>
               </tr>
                   );
                 })}
 
             {rows.length === 0 && (
               <tr>
-                <td className="px-4 py-6 text-zinc-400" colSpan={7}>
+                <td className="px-4 py-6 text-zinc-400" colSpan={9}>
                   Nenhum item ainda.
                 </td>
               </tr>
