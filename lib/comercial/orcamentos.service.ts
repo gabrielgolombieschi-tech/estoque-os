@@ -722,24 +722,12 @@ export async function searchClientes(
   const t = String(params.term ?? "").trim();
   if (!t) return [];
 
-  let query = applyTenantEmpresa(
-    supabase
-      .from("clientes")
-      .select("id,nome")
-      .order("nome", { ascending: true })
-      .limit(25),
-    params.tenantId,
-    params.empresaId
-  );
-
-  const maybeId = Number(t);
-  if (Number.isFinite(maybeId) && maybeId > 0) {
-    query = query.or(`id.eq.${maybeId},nome.ilike.%${t}%`);
-  } else {
-    query = query.ilike("nome", `%${t}%`);
-  }
-
-  const { data, error } = await query.returns<ClienteLookupRow[]>();
+  const { data, error } = await supabase.rpc("search_orcamento_clientes", {
+    p_tenant_id: params.tenantId,
+    p_empresa_id: params.empresaId,
+    p_term: t,
+    p_limit: 25,
+  });
   if (error) throw error;
   return (data ?? []) as ClienteLookupRow[];
 }

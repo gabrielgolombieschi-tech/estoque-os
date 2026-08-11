@@ -383,6 +383,56 @@ export async function listSaldoEmEstoque(
   const { tenantId, empresaId } = ctx;
   const { filters } = args;
 
+  const buscaDireta = filters.busca.trim();
+  if (buscaDireta) {
+    const { data, error } = await supabase.rpc("search_estoque_itens", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_busca_geral: buscaDireta,
+      p_codigo: null,
+      p_nome: null,
+      p_fornecedor: filters.fornecedorPrefix.trim() || null,
+      p_item_id: null,
+      p_ativo_only: false,
+      p_finalidade: filters.finalidade && filters.finalidade !== "todas" ? filters.finalidade : null,
+      p_abaixo_minimo: filters.abaixoMinimo,
+      p_sem_fornecedor: filters.semFornecedor,
+      p_saldo_positivo: !filters.abaixoMinimo,
+      p_page: page,
+      p_page_size: pageSize,
+      p_sort_key: args.sort.key,
+      p_sort_dir: args.sort.dir,
+    });
+    if (error) throw error;
+
+    const rpcRows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+    const rows = rpcRows.map((row): SaldoEmEstoqueRow => ({
+      item_id: safeNumber(row.item_id),
+      codigo_interno: String(row.codigo_interno ?? ""),
+      item_nome: String(row.item_nome ?? ""),
+      unidade_medida: normalizeNullableText(row.unidade_medida),
+      quantidade_atual: safeNumber(row.quantidade_atual),
+      quantidade_comprada_pendente: 0,
+      preco_unitario: normalizeNumberOrString(row.preco_unitario),
+      custo_medio: normalizeNumberOrString(row.custo_medio),
+      valor_estoque: safeNumber(row.quantidade_atual) * pickPositiveUnitValue([row.preco_unitario, row.custo_medio]),
+      fornecedor_id: normalizeNullableNumber(row.fornecedor_id),
+      fornecedor_nome: normalizeNullableText(row.fornecedor_nome),
+      estoque_minimo: normalizeNumberOrString(row.estoque_minimo),
+      estoque_ideal: normalizeNumberOrString(row.estoque_ideal),
+      estoque_maximo: normalizeNumberOrString(row.estoque_maximo),
+      localizacao: normalizeNullableText(row.localizacao),
+      finalidade: normalizeNullableText(row.finalidade),
+      controla_estoque: normalizeNullableBoolean(row.controla_estoque),
+      abaixo_minimo: normalizeNullableBoolean(row.abaixo_minimo),
+    }));
+
+    return {
+      rows: await attachQuantidadeCompradaPendente(supabase, ctx, rows),
+      count: rpcRows.length > 0 ? safeNumber(rpcRows[0].total_count) : 0,
+    };
+  }
+
   const resolvedFornecedorIds =
     filters.fornecedorIds.length > 0
       ? filters.fornecedorIds

@@ -673,6 +673,62 @@ export default function EstoquePage() {
     }
 
     const fornTerm = filtros.fornecedor.trim();
+
+    const codigoTerm = filtros.codigo.trim();
+    if (codigoTerm) {
+      const { data, error } = await supabase.rpc("search_estoque_itens", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_busca_geral: null,
+        p_codigo: codigoTerm,
+        p_nome: filtros.produto.trim() || null,
+        p_fornecedor: fornTerm || null,
+        p_item_id: idNumber,
+        p_ativo_only: filtros.ativos === "ativos",
+        p_finalidade: null,
+        p_abaixo_minimo: filtros.abaixoMinimo,
+        p_sem_fornecedor: false,
+        p_saldo_positivo: false,
+        p_page: page + 1,
+        p_page_size: pageSize,
+        p_sort_key: "id",
+        p_sort_dir: "desc",
+      });
+      if (error) {
+        setRows([]);
+        setTotalCount(0);
+        setErr(error.message);
+        return;
+      }
+
+      const rpcRows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+      const mapped: EstoqueRow[] = rpcRows.map((row) => ({
+        id: Number(row.estoque_id ?? row.item_id ?? 0),
+        item_id: Number(row.item_id ?? 0),
+        quantidade_atual: Number(row.quantidade_atual ?? 0),
+        atualizado_em: String(row.atualizado_em ?? new Date(0).toISOString()),
+        localizacao: row.localizacao == null ? null : String(row.localizacao),
+        itens: {
+          codigo_interno: String(row.codigo_interno ?? ""),
+          codigo_barras: row.codigo_barras == null ? null : String(row.codigo_barras),
+          nome: String(row.item_nome ?? ""),
+          tipo: String(row.tipo ?? "produto"),
+          unidade_medida: row.unidade_medida == null ? null : String(row.unidade_medida),
+          controla_estoque: row.controla_estoque === true,
+          estoque_minimo: row.estoque_minimo == null ? null : Number(row.estoque_minimo),
+          estoque_ideal: row.estoque_ideal == null ? null : Number(row.estoque_ideal),
+          estoque_maximo: row.estoque_maximo == null ? null : Number(row.estoque_maximo),
+          ativo: row.ativo === true,
+          fornecedor_id: row.fornecedor_id == null ? null : Number(row.fornecedor_id),
+          fornecedores: row.fornecedor_nome == null ? null : { nome: String(row.fornecedor_nome) },
+        },
+      }));
+
+      setRows(mapped);
+      setTotalCount(rpcRows.length > 0 ? Number(rpcRows[0].total_count ?? 0) : 0);
+      return;
+    }
+
     const fornIds = fornTerm ? await resolveFornecedorIdsByTerm(fornTerm) : null;
     if (fornTerm && (!fornIds || fornIds.length === 0)) {
       setRows([]);
@@ -693,12 +749,6 @@ export default function EstoquePage() {
 
       if (filtros.ativos === "ativos") query = query.eq("ativo", true);
       if (idNumber !== null) query = query.eq("id", idNumber);
-
-      const codigoTerm = filtros.codigo.trim();
-      if (codigoTerm) {
-        const safe = codigoTerm.replaceAll(",", " ").trim();
-        query = query.or(`codigo_interno.ilike.%${safe}%,codigo_barras.ilike.%${safe}%`);
-      }
 
       const produtoTerm = filtros.produto.trim();
       if (produtoTerm) query = query.ilike("nome", `%${produtoTerm}%`);

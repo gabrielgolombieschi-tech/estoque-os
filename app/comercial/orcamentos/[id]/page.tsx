@@ -331,6 +331,8 @@ type NewDialogState =
       error: string | null;
       clienteTerm: string;
       clienteResults: Array<{ id: number; nome: string | null }>;
+      clienteLoading: boolean;
+      clienteSearchError: string | null;
       clienteId: number | null;
       contatoResults: ClienteContatoLookupRow[];
       contatoLoading: boolean;
@@ -355,6 +357,8 @@ type EditClienteDialogState =
       error: string | null;
       clienteTerm: string;
       clienteResults: Array<{ id: number; nome: string | null }>;
+      clienteLoading: boolean;
+      clienteSearchError: string | null;
       clienteId: number | null;
       contatoResults: ClienteContatoLookupRow[];
       contatoLoading: boolean;
@@ -693,6 +697,8 @@ export default function OrcamentoPage() {
         error: null,
         clienteTerm: "",
         clienteResults: [],
+        clienteLoading: false,
+        clienteSearchError: null,
         clienteId: null,
         contatoResults: [],
         contatoLoading: false,
@@ -722,17 +728,33 @@ export default function OrcamentoPage() {
       try {
         if (!term) {
           if (reqId === newClienteReqRef.current) {
-            setNewDialog((p) => (p.open ? { ...p, clienteResults: [] } : p));
+            setNewDialog((p) =>
+              p.open ? { ...p, clienteResults: [], clienteLoading: false, clienteSearchError: null } : p
+            );
           }
           return;
         }
+        setNewDialog((p) =>
+          p.open ? { ...p, clienteLoading: true, clienteSearchError: null } : p
+        );
         const res = await searchClientes(supabase, { tenantId, empresaId, term });
         if (reqId === newClienteReqRef.current) {
-          setNewDialog((p) => (p.open ? { ...p, clienteResults: res } : p));
+          setNewDialog((p) =>
+            p.open ? { ...p, clienteResults: res, clienteLoading: false, clienteSearchError: null } : p
+          );
         }
       } catch {
         if (reqId === newClienteReqRef.current) {
-          setNewDialog((p) => (p.open ? { ...p, clienteResults: [] } : p));
+          setNewDialog((p) =>
+            p.open
+              ? {
+                  ...p,
+                  clienteResults: [],
+                  clienteLoading: false,
+                  clienteSearchError: "Nao foi possivel buscar clientes. Tente novamente.",
+                }
+              : p
+          );
         }
       }
     }, 250);
@@ -785,17 +807,33 @@ export default function OrcamentoPage() {
       try {
         if (!term) {
           if (reqId === editClienteReqRef.current) {
-            setEditClienteDialog((p) => (p.open ? { ...p, clienteResults: [] } : p));
+            setEditClienteDialog((p) =>
+              p.open ? { ...p, clienteResults: [], clienteLoading: false, clienteSearchError: null } : p
+            );
           }
           return;
         }
+        setEditClienteDialog((p) =>
+          p.open ? { ...p, clienteLoading: true, clienteSearchError: null } : p
+        );
         const res = await searchClientes(supabase, { tenantId, empresaId, term });
         if (reqId === editClienteReqRef.current) {
-          setEditClienteDialog((p) => (p.open ? { ...p, clienteResults: res } : p));
+          setEditClienteDialog((p) =>
+            p.open ? { ...p, clienteResults: res, clienteLoading: false, clienteSearchError: null } : p
+          );
         }
       } catch {
         if (reqId === editClienteReqRef.current) {
-          setEditClienteDialog((p) => (p.open ? { ...p, clienteResults: [] } : p));
+          setEditClienteDialog((p) =>
+            p.open
+              ? {
+                  ...p,
+                  clienteResults: [],
+                  clienteLoading: false,
+                  clienteSearchError: "Nao foi possivel buscar clientes. Tente novamente.",
+                }
+              : p
+          );
         }
       }
     }, 250);
@@ -1427,6 +1465,8 @@ export default function OrcamentoPage() {
       error: null,
       clienteTerm: clienteNome ?? "",
       clienteResults: [],
+      clienteLoading: false,
+      clienteSearchError: null,
       clienteId: form.cliente_id ?? orc.cliente_id ?? null,
       contatoResults: [],
       contatoLoading: false,
@@ -2681,7 +2721,13 @@ export default function OrcamentoPage() {
                   Cliente (busca)
                   <input
                     value={newDialog.clienteTerm}
-                    onChange={(e) => setNewDialog((p) => (p.open ? { ...p, clienteTerm: e.target.value } : p))}
+                    onChange={(e) =>
+                      setNewDialog((p) =>
+                        p.open
+                          ? { ...p, clienteTerm: e.target.value, clienteSearchError: null }
+                          : p
+                      )
+                    }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="Digite nome ou ID..."
                   />
@@ -2690,7 +2736,11 @@ export default function OrcamentoPage() {
                 <div className="md:col-span-2">
                   <div className="text-xs text-zinc-400 mb-1">Resultados</div>
                   <div className="max-h-48 overflow-auto border border-zinc-800 rounded-md">
-                    {newDialog.clienteResults.length === 0 ? (
+                    {newDialog.clienteLoading ? (
+                      <div className="px-3 py-3 text-sm text-zinc-500">Buscando clientes...</div>
+                    ) : newDialog.clienteSearchError ? (
+                      <div className="px-3 py-3 text-sm text-red-400">{newDialog.clienteSearchError}</div>
+                    ) : newDialog.clienteResults.length === 0 ? (
                       <div className="px-3 py-3 text-sm text-zinc-500">Sem resultados.</div>
                     ) : (
                       newDialog.clienteResults.map((c) => (
@@ -2706,6 +2756,7 @@ export default function OrcamentoPage() {
                                     clienteTerm: c.nome ?? String(c.id),
                                     contatoResults: [],
                                     contatoLoading: false,
+                                    clienteSearchError: null,
                                   }
                                 : p
                             )
@@ -2905,7 +2956,11 @@ export default function OrcamentoPage() {
                   <input
                     value={editClienteDialog.clienteTerm}
                     onChange={(e) =>
-                      setEditClienteDialog((p) => (p.open ? { ...p, clienteTerm: e.target.value, error: null } : p))
+                      setEditClienteDialog((p) =>
+                        p.open
+                          ? { ...p, clienteTerm: e.target.value, error: null, clienteSearchError: null }
+                          : p
+                      )
                     }
                     className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="Digite nome ou ID..."
@@ -2916,7 +2971,11 @@ export default function OrcamentoPage() {
                 <div className="md:col-span-2">
                   <div className="text-xs text-zinc-400 mb-1">Resultados</div>
                   <div className="max-h-48 overflow-auto border border-zinc-800 rounded-md">
-                    {editClienteDialog.clienteResults.length === 0 ? (
+                    {editClienteDialog.clienteLoading ? (
+                      <div className="px-3 py-3 text-sm text-zinc-500">Buscando clientes...</div>
+                    ) : editClienteDialog.clienteSearchError ? (
+                      <div className="px-3 py-3 text-sm text-red-400">{editClienteDialog.clienteSearchError}</div>
+                    ) : editClienteDialog.clienteResults.length === 0 ? (
                       <div className="px-3 py-3 text-sm text-zinc-500">Sem resultados.</div>
                     ) : (
                       editClienteDialog.clienteResults.map((c) => (
@@ -2932,6 +2991,7 @@ export default function OrcamentoPage() {
                                     clienteTerm: c.nome ?? String(c.id),
                                     contatoResults: [],
                                     contatoLoading: false,
+                                    clienteSearchError: null,
                                     error: null,
                                   }
                                 : p
