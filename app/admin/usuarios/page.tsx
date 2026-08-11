@@ -31,6 +31,7 @@ type RpcAdminUserRow = {
 type TenantRole = "OWNER" | "ADMIN" | "DIRETOR" | "CONTADOR" | "GESTOR";
 type EmpresaRole =
   | "ADMIN"
+  | "DIRETOR"
   | "FINANCEIRO"
   | "FATURAMENTO"
   | "COORDENACAO"
@@ -57,15 +58,9 @@ type EditEmpresaItem = {
 };
 
 const TENANT_ROLES: TenantRole[] = ["OWNER", "ADMIN", "DIRETOR", "CONTADOR", "GESTOR"];
-const TENANT_ROLE_RANK: Record<TenantRole, number> = {
-  OWNER: 40,
-  ADMIN: 30,
-  DIRETOR: 20,
-  CONTADOR: 10,
-  GESTOR: 10,
-};
 const EMPRESA_ROLES: EmpresaRole[] = [
   "ADMIN",
+  "DIRETOR",
   "FINANCEIRO",
   "FATURAMENTO",
   "COORDENACAO",
@@ -121,7 +116,7 @@ function getErrorText(err: unknown) {
 function getFriendlyRoleError(err: unknown): string | null {
   const t = getErrorText(err).toLowerCase();
   if (t.includes("not_allowed")) {
-    return "Seu usuário não tem permissão efetiva para gerenciar usuários neste tenant. Verifique o vínculo DIRETOR/ADMIN/OWNER e a permissão admin.manage_users.";
+    return "Seu usuário não tem permissão efetiva para gerenciar usuários neste tenant. Verifique o vínculo ADMIN/OWNER e a permissão admin.manage_users.";
   }
   if (t.includes("invalid_tenant_role")) {
     return "Papel do tenant inválido. Use: OWNER, ADMIN, DIRETOR, CONTADOR, GESTOR.";
@@ -133,7 +128,7 @@ function getFriendlyRoleError(err: unknown): string | null {
     return "Nome, telefone, e-mail ou status global não podem ser alterados porque esse usuário também pertence a outro tenant ativo.";
   }
   if (t.includes("invalid_empresa_role")) {
-    return "Papel da empresa inválido. Use: ADMIN, FINANCEIRO, FATURAMENTO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV.";
+    return "Papel da empresa inválido. Use: ADMIN, DIRETOR, FINANCEIRO, FATURAMENTO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV.";
   }
   return null;
 }
@@ -154,9 +149,6 @@ export default function AdminUsuariosPage() {
     if (!actorTenantRole) return [] as TenantRole[];
     if (actorTenantRole === "OWNER") return TENANT_ROLES;
     if (actorTenantRole === "ADMIN") return TENANT_ROLES.filter((role) => role !== "OWNER");
-    if (actorTenantRole === "DIRETOR") {
-      return TENANT_ROLES.filter((role) => TENANT_ROLE_RANK[role] < TENANT_ROLE_RANK.DIRETOR);
-    }
     return [] as TenantRole[];
   }, [actorTenantRole]);
 
@@ -166,9 +158,6 @@ export default function AdminUsuariosPage() {
       const targetRole = safeTenantRole(row.tenant_papel);
       if (actorTenantRole === "OWNER") return true;
       if (actorTenantRole === "ADMIN") return targetRole !== "OWNER";
-      if (actorTenantRole === "DIRETOR") {
-        return TENANT_ROLE_RANK[targetRole] < TENANT_ROLE_RANK.DIRETOR;
-      }
       return false;
     },
     [actorTenantRole]

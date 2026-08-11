@@ -423,11 +423,11 @@ export default function FornecedoresPage() {
   const empresaPapel = String(empresa?.papel ?? "")
     .trim()
     .toUpperCase();
-  const canAccessByPapel = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaPapel));
+  const canAccessByPapel = Boolean(empresaPapel && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaPapel));
 
   const canView = hasAny(capabilities, ["estoque.read", "cad_fornecedores.write"]) || canAccessByPapel;
   const canEdit = hasAny(capabilities, ["estoque.write", "cad_fornecedores.write"]) || canAccessByPapel;
-  const canDelete = empresaPapel === "ADMIN";
+  const canDelete = empresaPapel === "ADMIN" || empresaPapel === "DIRETOR";
 
   const [rows, setRows] = useState<Fornecedor[]>([]);
   const [err, setErr] = useState<string | null>(null);

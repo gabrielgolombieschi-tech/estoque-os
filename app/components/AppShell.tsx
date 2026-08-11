@@ -95,7 +95,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const canAccessApontamentos = can("apontamentos.read");
   const canAccessEstoque = can("estoque.read") || can("estoque.write");
   const canAccessCadastroItens = can("cad_itens.write") || can("estoque.read") || can("os.read");
-  const canSeeAjusteNomeMenu = Boolean(empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaRole));
+  const canSeeAjusteNomeMenu = Boolean(empresaRole && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaRole));
   const canImportXml = can("xml_import.execute");
   const canAccessFinanceiro = can("financeiro.read");
   const canAccessAdmin = can("admin.manage_users");

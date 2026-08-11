@@ -1,5 +1,6 @@
 export type EmpresaPapel =
   | "ADMIN"
+  | "DIRETOR"
   | "FINANCEIRO"
   | "FATURAMENTO"
   | "COORDENACAO"
@@ -23,7 +24,7 @@ export function getOsListAccess(papel: EmpresaPapel | null | undefined): {
 
   if (p === "PAINEL_TV") return { canView: false, readOnly: true, hideValorPedido: true };
 
-  if (p === "ADMIN" || p === "FINANCEIRO" || p === "FATURAMENTO" || p === "COORDENACAO") {
+  if (p === "ADMIN" || p === "DIRETOR" || p === "FINANCEIRO" || p === "FATURAMENTO" || p === "COORDENACAO") {
     return { canView: true, readOnly: false, hideValorPedido: false };
   }
 
@@ -46,7 +47,7 @@ export function getOsDetailAccess(papel: EmpresaPapel | null | undefined): {
 
   if (p === "PAINEL_TV") return { canView: false, readOnly: true, hideCustos: true, hideTotais: true };
 
-  if (p === "ADMIN" || p === "FINANCEIRO" || p === "FATURAMENTO" || p === "COORDENACAO") {
+  if (p === "ADMIN" || p === "DIRETOR" || p === "FINANCEIRO" || p === "FATURAMENTO" || p === "COORDENACAO") {
     return { canView: true, readOnly: false, hideCustos: false, hideTotais: false };
   }
 

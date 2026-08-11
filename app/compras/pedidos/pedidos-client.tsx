@@ -361,6 +361,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
   const [avulsoFornecedores, setAvulsoFornecedores] = useState<FornecedorBase[]>([]);
   const [avulsoFornecedorId, setAvulsoFornecedorId] = useState<number | null>(null);
+  const [avulsoFornecedoresLoading, setAvulsoFornecedoresLoading] = useState(false);
+  const [avulsoFornecedoresError, setAvulsoFornecedoresError] = useState<string | null>(null);
   const [avulsoOsReferencia, setAvulsoOsReferencia] = useState("");
   const [avulsoObservacoes, setAvulsoObservacoes] = useState("");
   const [detRows, setDetRows] = useState<PendDet[]>([]);
@@ -438,9 +440,9 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   }, [te.empresaId, te.empresas]);
   const empresaRole = useMemo(() => String(effectiveEmpresa?.papel ?? "").trim().toUpperCase(), [effectiveEmpresa?.papel]);
 
-  const canReadByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
-  const canWriteByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
-  const canReadOnlyPedidosByRole = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaRole);
+  const canReadByRole = ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
+  const canWriteByRole = ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
+  const canReadOnlyPedidosByRole = ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "ALMOXARIFADO", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaRole);
 
   const canRead =
     te.has("compras.read") || te.has("compras.write") || te.has("compras.approve") || te.has("compras.receive") || canReadByRole;
@@ -528,11 +530,31 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const loadFornecedoresAvulso = useCallback(async () => {
     if (readOnly) return;
     if (!tenantId || !empresaId || !effectiveCanRead) return;
-    const json = await authedFetch(`/api/compras/fornecedores?${ctxQuery}`);
-    const rows = ((json.data as FornecedorBase[]) ?? []).filter((f) => Number.isFinite(Number(f.id)));
-    setAvulsoFornecedores(rows);
-    if (avulsoFornecedorId == null && rows.length > 0) setAvulsoFornecedorId(Number(rows[0].id));
-  }, [avulsoFornecedorId, ctxQuery, effectiveCanRead, empresaId, readOnly, tenantId]);
+    setAvulsoFornecedoresLoading(true);
+    setAvulsoFornecedoresError(null);
+    try {
+      const json = await authedFetch(`/api/compras/fornecedores?${ctxQuery}`);
+      const rows = (Array.isArray(json.data) ? (json.data as FornecedorBase[]) : []).filter((f) =>
+        Number.isFinite(Number(f.id))
+      );
+      setAvulsoFornecedores(rows);
+      setAvulsoFornecedorId((currentId) =>
+        currentId != null && rows.some((row) => Number(row.id) === currentId)
+          ? currentId
+          : rows.length > 0
+            ? Number(rows[0].id)
+            : null
+      );
+    } catch (e) {
+      setAvulsoFornecedores([]);
+      setAvulsoFornecedorId(null);
+      setAvulsoFornecedoresError(
+        e instanceof Error ? e.message : "Nao foi possivel carregar os fornecedores."
+      );
+    } finally {
+      setAvulsoFornecedoresLoading(false);
+    }
+  }, [ctxQuery, effectiveCanRead, empresaId, readOnly, tenantId]);
 
   const loadUsuariosSolicitantes = useCallback(async () => {
     if (readOnly) return;
@@ -1983,13 +2005,32 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                 value={avulsoFornecedorId ?? ""}
                 onChange={(e) => setAvulsoFornecedorId(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="">Selecione...</option>
+                <option value="">
+                  {avulsoFornecedoresLoading
+                    ? "Carregando fornecedores..."
+                    : avulsoFornecedores.length === 0
+                      ? "Nenhum fornecedor disponivel"
+                      : "Selecione..."}
+                </option>
                 {avulsoFornecedores.map((f) => (
                   <option key={f.id} value={f.id}>
                     {String(f.nome ?? `Fornecedor #${f.id}`)}
                   </option>
                 ))}
               </select>
+              {avulsoFornecedoresError && (
+                <div className="space-y-1">
+                  <div className="text-xs text-red-400">{avulsoFornecedoresError}</div>
+                  <button
+                    type="button"
+                    className="text-xs text-sky-300 underline disabled:text-zinc-600"
+                    disabled={avulsoFornecedoresLoading}
+                    onClick={() => void loadFornecedoresAvulso()}
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
             </label>
 
             <label className="text-sm space-y-1">

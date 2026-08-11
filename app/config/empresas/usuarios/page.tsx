@@ -15,6 +15,7 @@ type Profile = {
 
 type EmpresaRole =
   | "ADMIN"
+  | "DIRETOR"
   | "FINANCEIRO"
   | "FATURAMENTO"
   | "COORDENACAO"
@@ -39,6 +40,7 @@ type TenantMembershipRow = {
 
 const roleOptions: EmpresaRole[] = [
   "ADMIN",
+  "DIRETOR",
   "FINANCEIRO",
   "FATURAMENTO",
   "COORDENACAO",
@@ -64,7 +66,6 @@ function canManageTenantRole(actorRole: string | null, targetRole: string | null
   const target = String(targetRole ?? "").trim().toUpperCase();
   if (actor === "OWNER") return true;
   if (actor === "ADMIN") return target !== "OWNER";
-  if (actor === "DIRETOR") return target === "CONTADOR" || target === "GESTOR";
   return false;
 }
 

@@ -8,7 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const APPS_SCRIPT_TIMEOUT_MS = 20000;
 const MAX_ERROR_LENGTH = 1500;
 const NOT_CONFIGURED_ERROR = "Integra\u00e7\u00e3o Google Apps Script n\u00e3o configurada";
-const ORCAMENTO_WRITE_EMPRESA_ROLES = new Set(["ADMIN", "FINANCEIRO", "COORDENACAO", "ALMOXARIFADO", "APONTAMENTO_RH", "FATURAMENTO"]);
+const ORCAMENTO_WRITE_EMPRESA_ROLES = new Set(["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "ALMOXARIFADO", "APONTAMENTO_RH", "FATURAMENTO"]);
 
 type AuthResult = Awaited<ReturnType<typeof getAuthSupabase>>;
 type AuthedSupabase = Extract<AuthResult, { supabase: unknown }>["supabase"];

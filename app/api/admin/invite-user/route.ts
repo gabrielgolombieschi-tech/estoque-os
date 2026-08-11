@@ -125,6 +125,7 @@ async function findAuthUserIdByEmail(
 const TENANT_ROLES = new Set(["OWNER", "ADMIN", "DIRETOR", "CONTADOR", "GESTOR"]);
 const EMPRESA_ROLES = new Set([
   "ADMIN",
+  "DIRETOR",
   "FINANCEIRO",
   "FATURAMENTO",
   "COORDENACAO",

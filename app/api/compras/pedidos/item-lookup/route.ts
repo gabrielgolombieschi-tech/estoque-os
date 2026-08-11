@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const ITEM_LOOKUP_ALLOWED_ROLES = new Set([
   "ADMIN",
+  "DIRETOR",
   "FINANCEIRO",
   "FATURAMENTO",
   "COORDENACAO",

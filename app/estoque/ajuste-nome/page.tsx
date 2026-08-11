@@ -55,7 +55,7 @@ function getFiltrosIniciais(): Filtros {
   };
 }
 
-const ALLOWED_ROLES = ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"] as const;
+const ALLOWED_ROLES = ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"] as const;
 
 export default function AjusteNomePage() {
   const supabase = useMemo(() => {

@@ -64,7 +64,7 @@ export default function ClientesPage() {
 
   const canDelete = useMemo(() => {
     const papel = String(empresaPapel ?? "").toUpperCase();
-    return papel === "ADMIN";
+    return papel === "ADMIN" || papel === "DIRETOR";
   }, [empresaPapel]);
 
   const [rows, setRows] = useState<Cliente[]>([]);

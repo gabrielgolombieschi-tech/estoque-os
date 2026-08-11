@@ -52,23 +52,11 @@ export async function GET(req: NextRequest) {
     }
     if (!tenantId) return jerr(400, "Tenant nao carregado.");
 
-    // Read from ranked view (includes favorite + usage count in last 180d).
-    // IMPORTANT: must be scoped to the current tenant (no global tenant).
-    let q = supabase
-      .schema("r")
-      .from("r_motivo_compra_rank")
-      .select("id,codigo,nome,requires_text,requires_os,aplica_em,favorito,ordem,qtd_usos_180d,ativo,deleted_at")
-      .eq("tenant_id", tenantId)
-      .order("favorito", { ascending: false })
-      .order("qtd_usos_180d", { ascending: false })
-      .order("ordem", { ascending: false })
-      .order("nome", { ascending: true });
-
-    if (origem === "XML_PRODUTO") {
-      q = q.in("aplica_em", ["PRODUTO", "AMBOS"]);
-    }
-
-    const { data, error } = await q.returns<MotivoRow[]>();
+    // A RPC valida tenant/empresa uma vez e evita a avaliacao de RLS para cada
+    // titulo usado no ranking dos ultimos 180 dias.
+    const { data, error } = await supabase.rpc("list_motivos_compra_import", {
+      p_origem: origem || null,
+    });
 
     if (error) {
       const msg = String(error.message ?? "");
@@ -86,14 +74,14 @@ export async function GET(req: NextRequest) {
       } catch {
         curEmpresa = null;
       }
-      const count = Array.isArray(data) ? data.length : 0;
-      const preview = Array.isArray(data)
-        ? data.slice(0, 3).map((r) => ({ id: r.id, codigo: r.codigo, nome: r.nome, aplica_em: r.aplica_em }))
-        : [];
+      const motivoRows = (data ?? []) as unknown as MotivoRow[];
+      const count = motivoRows.length;
+      const preview = motivoRows
+        .slice(0, 3).map((r) => ({ id: r.id, codigo: r.codigo, nome: r.nome, aplica_em: r.aplica_em }));
       console.log("[motivos-compra] loaded", { tenantId, curEmpresa, origem: origem || null, count, preview });
     }
 
-    const motivos = (data ?? [])
+    const motivos = ((data ?? []) as unknown as MotivoRow[])
       .map((r) => ({
         id: String(r.id),
         codigo: String(r.codigo ?? ""),

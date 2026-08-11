@@ -80,7 +80,7 @@ export function useIsAdminTenant(): AdminState {
         .eq("tenant_id", te.tenantId)
         .eq("ativo", true)
         .is("deleted_at", null)
-        .in("papel", ["OWNER", "ADMIN", "DIRETOR"])
+        .in("papel", ["OWNER", "ADMIN"])
         .maybeSingle();
 
       if (!active || isStale()) return;

@@ -146,6 +146,12 @@ async function rpcSetCurrentEmpresa(supabase: ReturnType<typeof getSupabaseBrows
   }
 }
 
+function isDiretorEmpresaRole(state: TenantEmpresaState): boolean {
+  const papel =
+    state.empresa?.papel ?? state.empresas.find((e) => e.id === state.empresaId)?.papel ?? null;
+  return normalizeEmpresaPapel(papel) === "DIRETOR";
+}
+
 type EmpresaMembershipJoinedRow = {
   empresa_id: string | null;
   tenant_id: string | null;
@@ -505,6 +511,10 @@ export function TenantEmpresaProvider(props: {
           return false;
         }
         if (capability === "xml_import.execute") return false;
+        if (capability === "admin.manage_users" || capability === "admin.users.manage") return false;
+      }
+
+      if (isDiretorEmpresaRole(state)) {
         if (capability === "admin.manage_users" || capability === "admin.users.manage") return false;
       }
 

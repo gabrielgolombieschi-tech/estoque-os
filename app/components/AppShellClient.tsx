@@ -187,10 +187,10 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canAccessCadastroItens = can("cad_itens.write");
 
   const canAccessCadastrosByEmpresaPapel = Boolean(
-    empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole)
+    empresaRole && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole)
   );
   const canAccessCadastrosFullByEmpresaPapel = Boolean(
-    empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaRole)
+    empresaRole && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaRole)
   );
 
   const canAccessCadastros =
@@ -219,7 +219,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     can("compras.write") ||
     can("compras.approve") ||
     can("compras.receive") ||
-    Boolean(empresaRole && ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole));
+    Boolean(empresaRole && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole));
   const canAccessComercial = canAccessFinanceiro || canAccessOs;
   const canImportXml = can("xml_import.execute");
   const canImportXmlFaturamento =
@@ -252,17 +252,17 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     .toUpperCase();
   const canSeeEstoquePedidosMenuByEmpresaPapel = Boolean(
     empresaPapel &&
-      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaPapel)
+      ["ADMIN", "DIRETOR", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaPapel)
   );
   const canSeeEstoqueMenuByEmpresaPapel = Boolean(
     empresaPapel &&
-      ["ADMIN", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaPapel)
+      ["ADMIN", "DIRETOR", "COORDENACAO", "ALMOXARIFADO", "FINANCEIRO", "COMPRAS", "APONTAMENTO_RH", "FATURAMENTO"].includes(empresaPapel)
   );
   const canSeeEstoqueMenu = canAccessEstoque || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeEstoquePedidosMenu = canSeeEstoqueMenu || canSeeEstoquePedidosMenuByEmpresaPapel;
   const canSeeCadastroItensMenu = canAccessCadastroItens || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeAjusteEstoqueMenu = can("estoque.read") || can("estoque.write") || canSeeEstoqueMenuByEmpresaPapel;
-  const canSeeAjusteNomeMenu = Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaPapel));
+  const canSeeAjusteNomeMenu = Boolean(empresaPapel && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaPapel));
   const canSeeImobilizadoMenu = can("imobilizado.read") === true;
 
   useEffect(() => {

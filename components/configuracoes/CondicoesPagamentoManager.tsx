@@ -149,7 +149,7 @@ export default function CondicoesPagamentoManager({
 
   const empresaRole = useMemo(() => normalizeRole(effectiveEmpresa?.papel), [effectiveEmpresa?.papel]);
   const permissionsReady = te.capabilities !== null;
-  const roleCanManage = ["ADMIN", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
+  const roleCanManage = ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "COMPRAS", "FATURAMENTO"].includes(empresaRole);
 
   const canView = useMemo(() => {
     if (!permissionsReady) return false;
