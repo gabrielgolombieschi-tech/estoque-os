@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTenantEmpresaContext } from "@/lib/auth/provider";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 
@@ -11,19 +11,20 @@ export function useTenantEmpresa() {
 type AdminState = {
   isAdmin: boolean;
   loading: boolean;
+  tenantRole: string | null;
   error?: string;
 };
 
 export function useIsAdminTenant(): AdminState {
   const te = useTenantEmpresaContext();
   const requestIdRef = useRef(0);
-  const [state, setState] = useState<AdminState>({ isAdmin: false, loading: true });
+  const [state, setState] = useState<AdminState>({ isAdmin: false, loading: true, tenantRole: null });
 
   // Reset only on real sign-out.
   useEffect(() => {
     if (te.sessionUserId !== null) return;
     const t = setTimeout(() => {
-      setState({ isAdmin: false, loading: false });
+      setState({ isAdmin: false, loading: false, tenantRole: null });
     }, 0);
     return () => clearTimeout(t);
   }, [te.sessionUserId]);
@@ -42,7 +43,7 @@ export function useIsAdminTenant(): AdminState {
       }
 
       if (!te.sessionUserId || !te.tenantId) {
-        if (active) setState({ isAdmin: false, loading: false });
+        if (active) setState({ isAdmin: false, loading: false, tenantRole: null });
         return;
       }
 
@@ -53,6 +54,7 @@ export function useIsAdminTenant(): AdminState {
         .from("usuario")
         .select("id")
         .eq("auth_user_id", te.sessionUserId)
+        .eq("ativo", true)
         .is("deleted_at", null)
         .maybeSingle();
 
@@ -60,7 +62,12 @@ export function useIsAdminTenant(): AdminState {
 
       if (usuarioErr || !usuarioRow?.id) {
         if (active) {
-          setState((prev) => ({ ...prev, loading: false, error: usuarioErr?.message ?? "Usuario nao encontrado." }));
+          setState({
+            isAdmin: false,
+            loading: false,
+            tenantRole: null,
+            error: usuarioErr?.message ?? "Usuario nao encontrado.",
+          });
         }
         return;
       }
@@ -73,18 +80,22 @@ export function useIsAdminTenant(): AdminState {
         .eq("tenant_id", te.tenantId)
         .eq("ativo", true)
         .is("deleted_at", null)
-        .in("papel", ["ADMIN", "OWNER"])
+        .in("papel", ["OWNER", "ADMIN", "DIRETOR"])
         .maybeSingle();
 
       if (!active || isStale()) return;
 
       if (utErr) {
-        setState((prev) => ({ ...prev, loading: false, error: utErr.message }));
+        setState({ isAdmin: false, loading: false, tenantRole: null, error: utErr.message });
         return;
       }
 
       const nextIsAdmin = Boolean(utRow);
-      setState({ isAdmin: nextIsAdmin, loading: false });
+      setState({
+        isAdmin: nextIsAdmin,
+        loading: false,
+        tenantRole: typeof utRow?.papel === "string" ? utRow.papel.toUpperCase() : null,
+      });
     };
 
     void run();

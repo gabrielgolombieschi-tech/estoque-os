@@ -122,7 +122,7 @@ async function findAuthUserIdByEmail(
   return null;
 }
 
-const TENANT_ROLES = new Set(["OWNER", "ADMIN", "CONTADOR", "GESTOR"]);
+const TENANT_ROLES = new Set(["OWNER", "ADMIN", "DIRETOR", "CONTADOR", "GESTOR"]);
 const EMPRESA_ROLES = new Set([
   "ADMIN",
   "FINANCEIRO",
@@ -158,6 +158,16 @@ export async function POST(req: NextRequest) {
 
     if (!nome) return jerr(400, "Nome obrigatorio.");
     if (!TENANT_ROLES.has(tenantPapel)) return jerr(400, "Papel do tenant invalido.");
+
+    const { data: canAssignRole, error: canAssignRoleErr } = await ctx.supabase.rpc(
+      "admin_can_assign_tenant_role",
+      {
+        p_tenant_id: tenantId,
+        p_requested_role: tenantPapel,
+      }
+    );
+    if (canAssignRoleErr) return jerr(400, canAssignRoleErr.message);
+    if (!canAssignRole) return jerr(403, "Papel acima da sua alcada.");
 
     const vinculos: EmpresaVinculo[] = empresaVinculos
       .map((v) => ({
@@ -208,6 +218,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!authUserId) return jerr(400, "Nao foi possivel criar/convidar o usuario no Auth.");
+
+    const { data: canManageInvite, error: canManageInviteErr } = await ctx.supabase.rpc(
+      "admin_can_manage_invited_user",
+      {
+        p_tenant_id: tenantId,
+        p_target_auth_user_id: authUserId,
+        p_requested_role: tenantPapel,
+      }
+    );
+    if (canManageInviteErr) return jerr(400, canManageInviteErr.message);
+    if (!canManageInvite) return jerr(403, "Usuario ou papel acima da sua alcada.");
 
     const { error: finalizeErr } = await ctx.supabase.rpc("admin_finalize_invited_user", {
       p_tenant_id: tenantId,

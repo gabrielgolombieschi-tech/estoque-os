@@ -1,3 +1,11 @@
+-- OBSOLETO E BLOQUEADO: este script forca todos para uma empresa fixa e
+-- viola a fronteira definida na SGU. Nao executar.
+do $script_obsoleto$
+begin
+  raise exception 'SCRIPT OBSOLETO: a empresa atual depende do vinculo ativo na SGU';
+end;
+$script_obsoleto$;
+
 -- =====================================================================
 -- PARTE 2: BLOQUEAR TROCA DE EMPRESA (SEMPRE ELÉTRICA SEGAU)
 -- =====================================================================

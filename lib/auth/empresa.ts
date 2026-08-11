@@ -15,8 +15,6 @@ type EmpresaRow = {
   deleted_at?: string | null;
 };
 
-const isDev = process.env.NODE_ENV !== "production";
-
 function toEmpresaInfo(row: EmpresaRow): EmpresaInfo {
   return {
     id: String(row.id),
@@ -51,6 +49,7 @@ async function resolveUsuarioId(supabase: SupabaseClient, authUserId: string): P
     .from("usuario")
     .select("id")
     .eq("auth_user_id", authUserId)
+    .eq("ativo", true)
     .is("deleted_at", null)
     .maybeSingle<UsuarioIdRow>();
   if (error) return null;
@@ -75,71 +74,6 @@ async function fetchEmpresasByIds(supabase: SupabaseClient, tenantId: string, id
   return rows.filter((row) => row.ativo !== false).map(toEmpresaInfo);
 }
 
-async function fetchEmpresaById(
-  supabase: SupabaseClient,
-  tenantId: string,
-  empresaId: string
-): Promise<EmpresaOption | null> {
-  const { data, error } = await supabase
-    .schema("c")
-    .from("empresa")
-    .select("id,tenant_id,cnpj,razao_social,nome_fantasia,ativo,deleted_at")
-    .eq("tenant_id", tenantId)
-    .eq("id", empresaId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (error) return null;
-  const row = data as EmpresaRow | null;
-  if (!row) return null;
-  if (row.ativo === false) return null;
-  return toEmpresaInfo(row);
-}
-
-async function fetchAllEmpresasForTenant(supabase: SupabaseClient, tenantId: string): Promise<EmpresaOption[]> {
-  const { data, error } = await supabase
-    .schema("c")
-    .from("empresa")
-    .select("id,tenant_id,cnpj,razao_social,nome_fantasia,ativo,deleted_at")
-    .eq("tenant_id", tenantId)
-    .is("deleted_at", null)
-    .order("nome_fantasia", { ascending: true });
-
-  if (error) throw error;
-  const rows = (data ?? []) as EmpresaRow[];
-  return rows.filter((row) => row.ativo !== false).map(toEmpresaInfo);
-}
-
-async function rpcCurrentEmpresaId(supabase: SupabaseClient): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.rpc("current_empresa_id");
-    if (error) return null;
-    return data ? String(data) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function isAdminOrOwnerInTenant(supabase: SupabaseClient, usuarioId: string, tenantId: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .schema("a")
-      .from("usuario_tenant")
-      .select("id")
-      .eq("usuario_id", usuarioId)
-      .eq("tenant_id", tenantId)
-      .eq("ativo", true)
-      .is("deleted_at", null)
-      .in("papel", ["OWNER", "ADMIN"])
-      .maybeSingle();
-
-    if (error) return false;
-    return Boolean(data);
-  } catch {
-    return false;
-  }
-}
-
 export function getStoredEmpresaId(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem("current_empresa_id");
@@ -161,6 +95,19 @@ export async function getAllowedEmpresas(supabase: SupabaseClient, tenantId: str
     throw new Error("Usuario nao encontrado em a.usuario.");
   }
 
+  const { data: tenantMembership, error: tenantMembershipError } = await supabase
+    .schema("a")
+    .from("usuario_tenant")
+    .select("id")
+    .eq("usuario_id", usuarioId)
+    .eq("tenant_id", tenantId)
+    .eq("ativo", true)
+    .is("deleted_at", null)
+    .maybeSingle<{ id: string }>();
+
+  if (tenantMembershipError) throw tenantMembershipError;
+  if (!tenantMembership?.id) return [];
+
   const { data, error } = await supabase
     .schema("a")
     .from("usuario_empresa")
@@ -175,27 +122,7 @@ export async function getAllowedEmpresas(supabase: SupabaseClient, tenantId: str
   const memberships = (data ?? []) as UsuarioEmpresaRow[];
   const ids = memberships.map((row) => String(row.empresa_id)).filter(Boolean);
   const uniqueIds = Array.from(new Set(ids));
-  if (!uniqueIds.length) {
-    // Fallback 1: if DB context already has a current empresa, use it (even without usuario_empresa rows).
-    const curEmpresaId = await rpcCurrentEmpresaId(supabase);
-    if (curEmpresaId) {
-      const empresa = await fetchEmpresaById(supabase, tenantId, curEmpresaId);
-      if (empresa) {
-        const isAdmin = await isAdminOrOwnerInTenant(supabase, usuarioId, tenantId);
-        if (isDev) console.debug("[TENANT] getAllowedEmpresas fallback current_empresa_id", { tenantId, curEmpresaId, isAdmin });
-        return [{ ...empresa, papel: isAdmin ? "ADMIN" : null }];
-      }
-    }
-
-    // Fallback 2: tenant ADMIN/OWNER can see all empresas (useful for initial provisioning/migrations).
-    const isAdmin = await isAdminOrOwnerInTenant(supabase, usuarioId, tenantId);
-    if (isAdmin) {
-      if (isDev) console.debug("[TENANT] getAllowedEmpresas fallback ADMIN/OWNER -> all empresas", { tenantId });
-      return (await fetchAllEmpresasForTenant(supabase, tenantId)).map((e) => ({ ...e, papel: "ADMIN" }));
-    }
-
-    return [];
-  }
+  if (!uniqueIds.length) return [];
 
   const papelByEmpresaId = new Map<string, string | null>();
   for (const m of memberships) {

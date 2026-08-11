@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresaContext } from "@/lib/auth/TenantEmpresaProvider";
+import { useIsAdminTenant } from "@/lib/auth/useIsAdminTenant";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type Profile = {
   id: string;
   email: string | null;
   nome: string | null;
+  tenant_papel: string | null;
 };
 
 type EmpresaRole =
@@ -32,6 +34,7 @@ type UsuarioEmpresaRow = {
 
 type TenantMembershipRow = {
   usuario_id: string | null;
+  papel: string | null;
 };
 
 const roleOptions: EmpresaRole[] = [
@@ -56,6 +59,15 @@ function getErrorMessage(err: unknown, fallback: string) {
   return fallback;
 }
 
+function canManageTenantRole(actorRole: string | null, targetRole: string | null) {
+  const actor = String(actorRole ?? "").trim().toUpperCase();
+  const target = String(targetRole ?? "").trim().toUpperCase();
+  if (actor === "OWNER") return true;
+  if (actor === "ADMIN") return target !== "OWNER";
+  if (actor === "DIRETOR") return target === "CONTADOR" || target === "GESTOR";
+  return false;
+}
+
 export default function EmpresaUsuariosPage() {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -68,6 +80,11 @@ export default function EmpresaUsuariosPage() {
   const setEmpresaId = te.setEmpresaId;
   const tenantLoading = te.loading || !tenantId || !empresaId;
   const { has, loading: permLoading } = usePermissions();
+  const {
+    isAdmin: isAdminTenant,
+    loading: adminTenantLoading,
+    tenantRole: actorTenantRole,
+  } = useIsAdminTenant();
 
   const [switchingEmpresa, setSwitchingEmpresa] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
@@ -77,7 +94,7 @@ export default function EmpresaUsuariosPage() {
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const isAdmin = has("admin.manage_users");
+  const isAdmin = isAdminTenant && has("admin.manage_users");
 
   useEffect(() => {
     let active = true;
@@ -94,7 +111,7 @@ export default function EmpresaUsuariosPage() {
         const { data: tenantUsers, error: tenantUsersErr } = await supabase
           .schema("a")
           .from("usuario_tenant")
-          .select("usuario_id")
+          .select("usuario_id,papel")
           .eq("tenant_id", tenantId)
           .eq("ativo", true)
           .is("deleted_at", null);
@@ -102,6 +119,11 @@ export default function EmpresaUsuariosPage() {
 
         const tenantRows = (tenantUsers ?? []) as TenantMembershipRow[];
         const usuarioIds = Array.from(new Set(tenantRows.map((r) => r.usuario_id).filter(Boolean)));
+        const tenantRoleByUserId = new Map(
+          tenantRows
+            .filter((row): row is TenantMembershipRow & { usuario_id: string } => Boolean(row.usuario_id))
+            .map((row) => [row.usuario_id, row.papel] as const)
+        );
         if (usuarioIds.length === 0) {
           if (active) {
             setUsers([]);
@@ -129,7 +151,12 @@ export default function EmpresaUsuariosPage() {
         if (empresaErr) throw empresaErr;
 
         if (active) {
-          setUsers((profiles ?? []) as Profile[]);
+          setUsers(
+            ((profiles ?? []) as Array<Omit<Profile, "tenant_papel">>).map((profile) => ({
+              ...profile,
+              tenant_papel: tenantRoleByUserId.get(profile.id) ?? null,
+            }))
+          );
           setMemberships((empresaUsers ?? []) as UsuarioEmpresaRow[]);
         }
       } catch (e: unknown) {
@@ -149,12 +176,13 @@ export default function EmpresaUsuariosPage() {
     setBusyUserId(userId);
     setErr(null);
 
-    const existing = memberships.find((m) => m.usuario_id === userId && m.empresa_id === empresaId) ?? null;
-    const payload = { usuario_id: userId, empresa_id: empresaId, papel: "TECNICO" as EmpresaRole, ativo: true };
-
-    const { error } = existing?.id
-      ? await supabase.schema("a").from("usuario_empresa").update(payload).eq("id", existing.id).is("deleted_at", null)
-      : await supabase.schema("a").from("usuario_empresa").insert(payload);
+    const { error } = await supabase.rpc("admin_set_user_empresa", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_usuario_id: userId,
+      p_papel: "TECNICO",
+      p_ativo: true,
+    });
     setBusyUserId(null);
     if (error) {
       setErr(error.message);
@@ -173,12 +201,13 @@ export default function EmpresaUsuariosPage() {
       return;
     }
 
-    const { error } = await supabase
-      .schema("a")
-      .from("usuario_empresa")
-      .update({ ativo: false })
-      .eq("id", existing.id)
-      .is("deleted_at", null);
+    const { error } = await supabase.rpc("admin_set_user_empresa", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_usuario_id: userId,
+      p_papel: existing.papel,
+      p_ativo: false,
+    });
     setBusyUserId(null);
     if (error) {
       setErr(error.message);
@@ -190,12 +219,19 @@ export default function EmpresaUsuariosPage() {
   async function updateRole(membershipId: string, role: EmpresaRole) {
     if (!tenantId || !empresaId) return;
     setErr(null);
-    const { error } = await supabase
-      .schema("a")
-      .from("usuario_empresa")
-      .update({ papel: role })
-      .eq("id", membershipId)
-      .is("deleted_at", null);
+    const existing = memberships.find((membership) => membership.id === membershipId) ?? null;
+    if (!existing) {
+      setErr("Vinculo de empresa nao encontrado.");
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_set_user_empresa", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_usuario_id: existing.usuario_id,
+      p_papel: role,
+      p_ativo: existing.ativo,
+    });
     if (error) {
       setErr(error.message);
       return;
@@ -203,7 +239,7 @@ export default function EmpresaUsuariosPage() {
     setReloadKey((prev) => prev + 1);
   }
 
-  if (tenantLoading || permLoading || switchingEmpresa || loading) {
+  if (tenantLoading || permLoading || adminTenantLoading || switchingEmpresa || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-zinc-300">
         Carregando...
@@ -296,10 +332,12 @@ export default function EmpresaUsuariosPage() {
               {users.map((user) => {
               const membership = memberships.find((m) => m.usuario_id === user.id) ?? null;
               const isActive = Boolean(membership?.ativo);
+              const canManageUser = canManageTenantRole(actorTenantRole, user.tenant_papel);
               return (
                 <tr key={user.id} className="hover:bg-zinc-900/40">
                   <td className="px-4 py-3">
                     {user.nome ?? user.id}
+                    <div className="text-xs text-zinc-500">Tenant: {user.tenant_papel ?? "-"}</div>
                   </td>
                   <td className="px-4 py-3 text-zinc-300">{user.email ?? "-"}</td>
                   <td className="px-4 py-3">
@@ -309,6 +347,7 @@ export default function EmpresaUsuariosPage() {
                         className="px-2 py-1 bg-zinc-900 border border-zinc-700 text-xs rounded"
                         value={membership?.papel ?? "TECNICO"}
                         onChange={(e) => updateRole(membership!.id, e.target.value as EmpresaRole)}
+                        disabled={!canManageUser || busyUserId === user.id}
                       >
                         {roleOptions.map((role) => (
                           <option key={role} value={role}>
@@ -327,7 +366,8 @@ export default function EmpresaUsuariosPage() {
                     {isActive ? (
                       <button
                         onClick={() => removeMembership(user.id)}
-                        disabled={busyUserId === user.id}
+                        disabled={busyUserId === user.id || !canManageUser}
+                        title={canManageUser ? "Remover vínculo" : "Papel fora da sua alçada"}
                         className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs disabled:opacity-60"
                       >
                         Remover
@@ -335,7 +375,8 @@ export default function EmpresaUsuariosPage() {
                     ) : (
                       <button
                         onClick={() => addMembership(user.id)}
-                        disabled={busyUserId === user.id}
+                        disabled={busyUserId === user.id || !canManageUser}
+                        title={canManageUser ? "Adicionar vínculo" : "Papel fora da sua alçada"}
                         className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs disabled:opacity-60"
                       >
                         Adicionar

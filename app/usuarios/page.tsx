@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { useIsAdminTenant } from "@/lib/auth/hooks";
 
 const ADMIN_PERMISSION = "admin.manage_users";
 
@@ -68,8 +69,10 @@ export default function UsuariosPage() {
     return supabaseBrowser();
   }, []);
   const { has, loading: permissionsLoading, ready } = usePermissions();
+  const { tenantRole } = useIsAdminTenant();
 
   const canManage = has(ADMIN_PERMISSION);
+  const canManageLegacyRoles = tenantRole === "OWNER" || tenantRole === "ADMIN";
 
   const [rows, setRows] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -146,12 +149,11 @@ export default function UsuariosPage() {
   }
 
   useEffect(() => {
-    if (!ready) return;
-    if (!canManage) {
-      setLoading(false);
-      return;
-    }
-    void load();
+    if (!ready || !canManage) return;
+    const timeoutId = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, canManage]);
 
@@ -222,7 +224,7 @@ export default function UsuariosPage() {
         body: JSON.stringify({
           email: createForm.email.trim(),
           nome: createForm.nome.trim(),
-          roles: createForm.roleIds,
+          ...(canManageLegacyRoles ? { roles: createForm.roleIds } : {}),
           tempPassword: createForm.sendInvite ? undefined : createForm.tempPassword,
           sendInvite: createForm.sendInvite,
         }),
@@ -255,7 +257,7 @@ export default function UsuariosPage() {
         body: JSON.stringify({
           nome: editForm.nome.trim(),
           status: editForm.status,
-          roles: editForm.roleIds,
+          ...(canManageLegacyRoles ? { roles: editForm.roleIds } : {}),
         }),
       });
 
@@ -536,30 +538,36 @@ export default function UsuariosPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-zinc-200">Roles</div>
-                {roles.length === 0 ? (
-                  <div className="text-xs text-zinc-500">Nenhuma role cadastrada.</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {roles.map((role) => (
-                      <label key={role.id} className="flex items-center gap-2 text-sm text-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={createForm.roleIds.includes(role.id)}
-                          onChange={() =>
-                            setCreateForm((s) => ({
-                              ...s,
-                              roleIds: toggleRole(s.roleIds, role.id),
-                            }))
-                          }
-                        />
-                        {role.name ?? role.id}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {canManageLegacyRoles ? (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-zinc-200">Roles</div>
+                  {roles.length === 0 ? (
+                    <div className="text-xs text-zinc-500">Nenhuma role cadastrada.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {roles.map((role) => (
+                        <label key={role.id} className="flex items-center gap-2 text-sm text-zinc-200">
+                          <input
+                            type="checkbox"
+                            checked={createForm.roleIds.includes(role.id)}
+                            onChange={() =>
+                              setCreateForm((s) => ({
+                                ...s,
+                                roleIds: toggleRole(s.roleIds, role.id),
+                              }))
+                            }
+                          />
+                          {role.name ?? role.id}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-zinc-500">
+                  A matriz de roles e administrada por OWNER ou ADMIN.
+                </div>
+              )}
 
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
                 <label className="flex items-center gap-2 text-sm text-zinc-200">
@@ -645,30 +653,36 @@ export default function UsuariosPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-zinc-200">Roles</div>
-                {roles.length === 0 ? (
-                  <div className="text-xs text-zinc-500">Nenhuma role cadastrada.</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {roles.map((role) => (
-                      <label key={role.id} className="flex items-center gap-2 text-sm text-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={editForm.roleIds.includes(role.id)}
-                          onChange={() =>
-                            setEditForm((s) => ({
-                              ...s,
-                              roleIds: toggleRole(s.roleIds, role.id),
-                            }))
-                          }
-                        />
-                        {role.name ?? role.id}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {canManageLegacyRoles ? (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-zinc-200">Roles</div>
+                  {roles.length === 0 ? (
+                    <div className="text-xs text-zinc-500">Nenhuma role cadastrada.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {roles.map((role) => (
+                        <label key={role.id} className="flex items-center gap-2 text-sm text-zinc-200">
+                          <input
+                            type="checkbox"
+                            checked={editForm.roleIds.includes(role.id)}
+                            onChange={() =>
+                              setEditForm((s) => ({
+                                ...s,
+                                roleIds: toggleRole(s.roleIds, role.id),
+                              }))
+                            }
+                          />
+                          {role.name ?? role.id}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-zinc-500">
+                  A matriz de roles e administrada por OWNER ou ADMIN.
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,3 +1,11 @@
+-- OBSOLETO E BLOQUEADO: este script fixa contexto de empresa no login e
+-- pode conceder acesso fora da SGU. Nao executar.
+do $script_obsoleto$
+begin
+  raise exception 'SCRIPT OBSOLETO: contexto deve ser validado pelos vinculos canonicos';
+end;
+$script_obsoleto$;
+
 -- =====================================================================
 -- SOLUÇÃO FINAL: FORÇAR CONTEXTO NO LOGIN
 -- =====================================================================

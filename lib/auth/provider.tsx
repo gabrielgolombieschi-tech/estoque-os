@@ -200,24 +200,26 @@ async function loadEmpresasForUser(userId: string): Promise<EmpresaInfo[]> {
   const unique = new Map<string, EmpresaInfo>();
   for (const e of mapped) unique.set(e.id, e);
 
-  // Best-effort: enrich empresa list with membership role (a.usuario_empresa.papel)
+  // A lista publica e apenas uma projecao; o vinculo canonico em a.* e obrigatorio.
   try {
     const empresas = Array.from(unique.values());
     const empresaIds = empresas.map((e) => e.id);
     if (!empresaIds.length) return empresas;
 
-    const { data: usuario } = await supabase
+    const { data: usuario, error: usuarioError } = await supabase
       .schema("a")
       .from("usuario")
       .select("id")
       .eq("auth_user_id", userId)
+      .eq("ativo", true)
       .is("deleted_at", null)
       .maybeSingle<UsuarioIdRow>();
 
+    if (usuarioError) throw usuarioError;
     const usuarioId = usuario?.id ? String(usuario.id) : null;
-    if (!usuarioId) return empresas;
+    if (!usuarioId) return [];
 
-    const { data: roles } = await supabase
+    const { data: roles, error: rolesError } = await supabase
       .schema("a")
       .from("usuario_empresa")
       .select("empresa_id,papel")
@@ -227,15 +229,19 @@ async function loadEmpresasForUser(userId: string): Promise<EmpresaInfo[]> {
       .in("empresa_id", empresaIds)
       .returns<UsuarioEmpresaRoleRow[]>();
 
+    if (rolesError) throw rolesError;
+
     const papelById = new Map<string, string | null>();
     for (const r of roles ?? []) {
       if (!r?.empresa_id) continue;
       papelById.set(String(r.empresa_id), r.papel ? String(r.papel) : null);
     }
 
-    return empresas.map((e) => ({ ...e, papel: papelById.get(e.id) ?? null }));
+    return empresas
+      .filter((e) => papelById.has(e.id))
+      .map((e) => ({ ...e, papel: papelById.get(e.id) ?? null }));
   } catch {
-    return Array.from(unique.values());
+    return [];
   }
 }
 
@@ -278,73 +284,6 @@ async function deriveTenantIdFromEmpresaId(
     return row?.tenant_id ? String(row.tenant_id) : null;
   } catch {
     return null;
-  }
-}
-
-type LegacyEmpresaMembershipRow = { tenant_id: string | null; empresa_id: string | null };
-
-async function readLegacyEmpresaMemberships(
-  supabase: ReturnType<typeof getSupabaseBrowser>,
-  userId: string
-): Promise<{ tenantIds: string[]; empresaIds: string[] }> {
-  try {
-    const { data, error } = await supabase
-      .from("empresa_memberships")
-      .select("tenant_id,empresa_id")
-      .eq("user_id", userId)
-      .eq("status", "active");
-    if (error) return { tenantIds: [], empresaIds: [] };
-
-    const rows = (data ?? []) as LegacyEmpresaMembershipRow[];
-    const tenantIds = Array.from(new Set(rows.map((r) => (r.tenant_id ? String(r.tenant_id) : null)).filter(Boolean))) as string[];
-    const empresaIds = Array.from(new Set(rows.map((r) => (r.empresa_id ? String(r.empresa_id) : null)).filter(Boolean))) as string[];
-    return { tenantIds, empresaIds };
-  } catch {
-    return { tenantIds: [], empresaIds: [] };
-  }
-}
-
-async function fetchEmpresasByIdsInTenant(
-  supabase: ReturnType<typeof getSupabaseBrowser>,
-  tenantId: string,
-  empresaIds: string[]
-): Promise<EmpresaInfo[]> {
-  if (!empresaIds.length) return [];
-
-  try {
-    const { data, error } = await supabase
-      .schema("c")
-      .from("empresa")
-      .select("id,tenant_id,nome_fantasia,razao_social,cnpj,ativo,deleted_at")
-      .eq("tenant_id", tenantId)
-      .is("deleted_at", null)
-      .in("id", empresaIds)
-      .order("nome_fantasia", { ascending: true });
-    if (error) return [];
-
-    type EmpresaRow = {
-      id?: unknown;
-      tenant_id?: unknown;
-      nome_fantasia?: string | null;
-      razao_social?: string | null;
-      cnpj?: string | null;
-      ativo?: boolean | null;
-    };
-
-    return (data ?? [])
-      .map((r) => r as EmpresaRow)
-      .filter((r) => r?.ativo !== false)
-      .map((r) => ({
-        id: String(r.id),
-        tenant_id: String(r.tenant_id ?? tenantId),
-        nome_fantasia: r.nome_fantasia ?? null,
-        razao_social: r.razao_social ?? null,
-        cnpj: r.cnpj ?? null,
-        ativo: r.ativo ?? null,
-        papel: null,
-      }));
-  } catch {
-    return [];
   }
 }
 
@@ -667,12 +606,6 @@ export function TenantEmpresaProvider(props: {
             }
           }
 
-          // Fallback 2: legacy empresa_memberships has tenant_id.
-          if (!ensuredTenantId) {
-            const legacy = await readLegacyEmpresaMemberships(supabase, userId);
-            if (legacy.tenantIds.length === 1) ensuredTenantId = legacy.tenantIds[0];
-          }
-
           if (isStale()) return;
           if (!ensuredTenantId) {
             setState((prev) => ({ ...prev, error: "Nao foi possivel resolver tenant atual." }));
@@ -691,17 +624,10 @@ export function TenantEmpresaProvider(props: {
           try {
             allowed = await getAllowedEmpresas(supabase, ensuredTenantId);
           } catch (e) {
-            if (isDev) console.debug("[TENANT] getAllowedEmpresas failed (will try legacy fallback)", e);
+            if (isDev) console.debug("[TENANT] getAllowedEmpresas failed", e);
             allowed = [];
           }
           if (isStale()) return;
-
-          // If the new schema membership table is empty, try legacy empresa_memberships for this tenant.
-          if (!allowed.length) {
-            const legacy = await readLegacyEmpresaMemberships(supabase, userId);
-            const empresasFromLegacy = await fetchEmpresasByIdsInTenant(supabase, ensuredTenantId, legacy.empresaIds);
-            if (empresasFromLegacy.length) allowed = empresasFromLegacy;
-          }
 
           const empresas = allowed;
           if (!empresas.length) {

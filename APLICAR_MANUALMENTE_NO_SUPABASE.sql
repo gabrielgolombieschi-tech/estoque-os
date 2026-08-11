@@ -1,3 +1,11 @@
+-- OBSOLETO E BLOQUEADO: este script concede uma empresa padrao a todos os
+-- usuarios e viola a fronteira definida na SGU. Nao executar.
+do $script_obsoleto$
+begin
+  raise exception 'SCRIPT OBSOLETO: use as migrations versionadas de acesso por empresa';
+end;
+$script_obsoleto$;
+
 -- =====================================================================
 -- INSTRUÇÕES DE USO:
 -- =====================================================================

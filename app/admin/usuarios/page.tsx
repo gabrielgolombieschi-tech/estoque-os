@@ -28,7 +28,7 @@ type RpcAdminUserRow = {
   usuario_updated_at: string | null;
 };
 
-type TenantRole = "OWNER" | "ADMIN" | "CONTADOR" | "GESTOR";
+type TenantRole = "OWNER" | "ADMIN" | "DIRETOR" | "CONTADOR" | "GESTOR";
 type EmpresaRole =
   | "ADMIN"
   | "FINANCEIRO"
@@ -56,7 +56,14 @@ type EditEmpresaItem = {
   papel: EmpresaRole;
 };
 
-const TENANT_ROLES: TenantRole[] = ["OWNER", "ADMIN", "CONTADOR", "GESTOR"];
+const TENANT_ROLES: TenantRole[] = ["OWNER", "ADMIN", "DIRETOR", "CONTADOR", "GESTOR"];
+const TENANT_ROLE_RANK: Record<TenantRole, number> = {
+  OWNER: 40,
+  ADMIN: 30,
+  DIRETOR: 20,
+  CONTADOR: 10,
+  GESTOR: 10,
+};
 const EMPRESA_ROLES: EmpresaRole[] = [
   "ADMIN",
   "FINANCEIRO",
@@ -114,10 +121,16 @@ function getErrorText(err: unknown) {
 function getFriendlyRoleError(err: unknown): string | null {
   const t = getErrorText(err).toLowerCase();
   if (t.includes("not_allowed")) {
-    return "Seu usuário não tem permissão efetiva para gerenciar usuários neste tenant. Verifique o vínculo ADMIN/OWNER e a permissão admin.manage_users.";
+    return "Seu usuário não tem permissão efetiva para gerenciar usuários neste tenant. Verifique o vínculo DIRETOR/ADMIN/OWNER e a permissão admin.manage_users.";
   }
   if (t.includes("invalid_tenant_role")) {
-    return "Papel do tenant inválido. Use: OWNER, ADMIN, CONTADOR, GESTOR.";
+    return "Papel do tenant inválido. Use: OWNER, ADMIN, DIRETOR, CONTADOR, GESTOR.";
+  }
+  if (t.includes("role_hierarchy_violation")) {
+    return "A hierarquia não permite alterar esse usuário ou atribuir esse papel.";
+  }
+  if (t.includes("global_user_shared_across_tenants")) {
+    return "Nome, telefone, e-mail ou status global não podem ser alterados porque esse usuário também pertence a outro tenant ativo.";
   }
   if (t.includes("invalid_empresa_role")) {
     return "Papel da empresa inválido. Use: ADMIN, FINANCEIRO, FATURAMENTO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV.";
@@ -128,9 +141,38 @@ function getFriendlyRoleError(err: unknown): string | null {
 export default function AdminUsuariosPage() {
   const te = useTenantEmpresa();
   const tenantId = te.tenantId;
-  const { isAdmin: isAdminTenant, loading: adminLoading, error: adminError } = useIsAdminTenant();
+  const {
+    isAdmin: isAdminTenant,
+    loading: adminLoading,
+    error: adminError,
+    tenantRole,
+  } = useIsAdminTenant();
 
   const canManageUsers = Boolean(te.capabilities?.["admin.manage_users"] || te.capabilities?.["admin.users.manage"]);
+  const actorTenantRole = tenantRole ? safeTenantRole(tenantRole) : null;
+  const selectableTenantRoles = useMemo(() => {
+    if (!actorTenantRole) return [] as TenantRole[];
+    if (actorTenantRole === "OWNER") return TENANT_ROLES;
+    if (actorTenantRole === "ADMIN") return TENANT_ROLES.filter((role) => role !== "OWNER");
+    if (actorTenantRole === "DIRETOR") {
+      return TENANT_ROLES.filter((role) => TENANT_ROLE_RANK[role] < TENANT_ROLE_RANK.DIRETOR);
+    }
+    return [] as TenantRole[];
+  }, [actorTenantRole]);
+
+  const canManageRow = useCallback(
+    (row: RpcAdminUserRow) => {
+      if (!actorTenantRole) return false;
+      const targetRole = safeTenantRole(row.tenant_papel);
+      if (actorTenantRole === "OWNER") return true;
+      if (actorTenantRole === "ADMIN") return targetRole !== "OWNER";
+      if (actorTenantRole === "DIRETOR") {
+        return TENANT_ROLE_RANK[targetRole] < TENANT_ROLE_RANK.DIRETOR;
+      }
+      return false;
+    },
+    [actorTenantRole]
+  );
 
   const [rows, setRows] = useState<RpcAdminUserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -343,7 +385,7 @@ export default function AdminUsuariosPage() {
   }, []);
 
   const openCreate = useCallback(() => {
-    if (!canManageUsers) return;
+    if (!canManageUsers || selectableTenantRoles.length === 0) return;
     setOk(null);
     setCreateErr(null);
     setCreateOpen(true);
@@ -355,11 +397,11 @@ export default function AdminUsuariosPage() {
       empresaMap[e.id] = { ativo: false, papel: "TECNICO" };
     }
     setCreateEmpresaForm(empresaMap);
-  }, [canManageUsers, te.empresas]);
+  }, [canManageUsers, selectableTenantRoles.length, te.empresas]);
 
   const openEdit = useCallback(
     (row: RpcAdminUserRow) => {
-      if (!canManageUsers) return;
+      if (!canManageUsers || !canManageRow(row)) return;
       setEditRow(row);
       setEditOpen(true);
       setEditErr(null);
@@ -391,7 +433,7 @@ export default function AdminUsuariosPage() {
       }
       setEmpresaForm(empresaMap);
     },
-    [canManageUsers, te.empresas]
+    [canManageRow, canManageUsers, te.empresas]
   );
 
   useEffect(() => {
@@ -478,6 +520,11 @@ export default function AdminUsuariosPage() {
       setCreating(false);
       return;
     }
+    if (!selectableTenantRoles.includes(createTenantPapel)) {
+      setCreateErr("A hierarquia não permite atribuir esse papel.");
+      setCreating(false);
+      return;
+    }
 
     const telefone = onlyDigits(createForm.telefoneDigits).slice(0, 20);
     const supabase = getSupabaseBrowser();
@@ -536,6 +583,7 @@ export default function AdminUsuariosPage() {
     createForm.telefoneDigits,
     createTenantPapel,
     load,
+    selectableTenantRoles,
     te.empresas,
     tenantId,
   ]);
@@ -554,50 +602,34 @@ export default function AdminUsuariosPage() {
       setSaving(false);
       return;
     }
+    if (!canManageRow(editRow) || !selectableTenantRoles.includes(tenantForm.papel)) {
+      setEditErr("A hierarquia não permite alterar esse usuário ou atribuir esse papel.");
+      setSaving(false);
+      return;
+    }
 
     const telefone = onlyDigits(userForm.telefoneDigits).slice(0, 20);
-    const { error: userErr } = await supabase.rpc("admin_update_user", {
+    const empresas = te.empresas ?? [];
+    const empresaVinculos = empresas.map((e) => {
+      const item = empresaForm[e.id] ?? { ativo: false, papel: "TECNICO" as EmpresaRole };
+      return { empresa_id: e.id, papel: item.papel, ativo: item.ativo };
+    });
+
+    const { error: saveErr } = await supabase.rpc("admin_save_user_access", {
       p_tenant_id: tenantId,
       p_usuario_id: editRow.usuario_id,
       p_nome: nome,
       p_telefone: telefone ? telefone : null,
-      p_ativo: userForm.ativo,
+      p_usuario_ativo: userForm.ativo,
+      p_tenant_papel: tenantForm.papel,
+      p_tenant_ativo: tenantForm.ativo,
+      p_empresa_vinculos: empresaVinculos,
     });
 
-    if (userErr) {
-      setEditErr(userErr.message ?? "Erro ao salvar usuário.");
+    if (saveErr) {
+      setEditErr(getFriendlyRoleError(saveErr) ?? saveErr.message ?? "Erro ao salvar acessos do usuário.");
       setSaving(false);
       return;
-    }
-
-    const { error: tenantErr } = await supabase.rpc("admin_set_user_tenant_role", {
-      p_tenant_id: tenantId,
-      p_usuario_id: editRow.usuario_id,
-      p_papel: tenantForm.papel,
-      p_ativo: tenantForm.ativo,
-    });
-
-    if (tenantErr) {
-      setEditErr(getFriendlyRoleError(tenantErr) ?? tenantErr.message ?? "Erro ao salvar papel do tenant.");
-      setSaving(false);
-      return;
-    }
-
-    const empresas = te.empresas ?? [];
-    for (const e of empresas) {
-      const item = empresaForm[e.id] ?? { ativo: false, papel: "TECNICO" as EmpresaRole };
-      const { error: empErr } = await supabase.rpc("admin_set_user_empresa", {
-        p_tenant_id: tenantId,
-        p_empresa_id: e.id,
-        p_usuario_id: editRow.usuario_id,
-        p_papel: item.papel,
-        p_ativo: item.ativo,
-      });
-      if (empErr) {
-        setEditErr(getFriendlyRoleError(empErr) ?? empErr.message ?? `Erro ao salvar empresa ${e.nome_fantasia ?? e.id}.`);
-        setSaving(false);
-        return;
-      }
     }
 
     setOk("Usuário atualizado.");
@@ -605,7 +637,7 @@ export default function AdminUsuariosPage() {
     closeEdit();
     await load();
     await te.refreshCapabilities?.();
-  }, [closeEdit, editRow, empresaForm, load, te, tenantForm, tenantId, userForm]);
+  }, [canManageRow, closeEdit, editRow, empresaForm, load, selectableTenantRoles, te, tenantForm, tenantId, userForm]);
 
   if (te.loading || adminLoading) {
     return <div className="min-h-screen flex items-center justify-center text-zinc-300">Carregando...</div>;
@@ -700,7 +732,9 @@ export default function AdminUsuariosPage() {
                     <button
                       type="button"
                       onClick={() => openEdit(r)}
-                      className="px-2 py-1 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200"
+                      className="px-2 py-1 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!canManageRow(r)}
+                      title={canManageRow(r) ? "Editar usuário" : "Papel acima ou no mesmo nível da sua alçada"}
                     >
                       Editar
                     </button>
@@ -791,7 +825,7 @@ export default function AdminUsuariosPage() {
                     onChange={(e) => setCreateTenantPapel(safeTenantRole(e.target.value))}
                     className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100"
                   >
-                    {TENANT_ROLES.map((r) => (
+                    {selectableTenantRoles.map((r) => (
                       <option key={r} value={r}>
                         {r}
                       </option>
@@ -1019,7 +1053,7 @@ export default function AdminUsuariosPage() {
                     onChange={(e) => setTenantForm((prev) => ({ ...prev, papel: safeTenantRole(e.target.value) }))}
                     className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-950 text-zinc-100"
                   >
-                    {TENANT_ROLES.map((r) => (
+                    {selectableTenantRoles.map((r) => (
                       <option key={r} value={r}>
                         {r}
                       </option>

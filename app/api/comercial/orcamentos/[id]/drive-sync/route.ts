@@ -169,6 +169,15 @@ async function canWriteOrcamento(
     supabase.rpc("set_current_empresa", { p_empresa_id: params.empresaId }),
   ]);
 
+  const { data: hasActiveEmpresaAccess, error: activeEmpresaAccessErr } = await supabase.rpc(
+    "has_active_empresa_access",
+    {
+      p_tenant_id: params.tenantId,
+      p_empresa_id: params.empresaId,
+    }
+  );
+  if (activeEmpresaAccessErr || !hasActiveEmpresaAccess) return false;
+
   const checks = await Promise.allSettled([
     supabase.rpc("can", { p_resource: "financeiro", p_action: "write", p_tenant_id: params.tenantId }),
     supabase.rpc("can", { p_resource: "os", p_action: "write", p_tenant_id: params.tenantId }),
@@ -228,10 +237,13 @@ async function canWriteOrcamento(
   if (tenantAccess.error) throw tenantAccess.error;
   if (empresaAccess.error) throw empresaAccess.error;
 
-  const tenantRole = normalizeRole(tenantAccess.data?.papel);
-  if (tenantRole === "OWNER" || tenantRole === "ADMIN") return true;
+  const empresaRole = normalizeRole(empresaAccess.data?.papel);
+  if (!empresaRole) return false;
 
-  return ORCAMENTO_WRITE_EMPRESA_ROLES.has(normalizeRole(empresaAccess.data?.papel));
+  const tenantRole = normalizeRole(tenantAccess.data?.papel);
+  if (tenantRole === "OWNER" || tenantRole === "ADMIN" || tenantRole === "DIRETOR") return true;
+
+  return ORCAMENTO_WRITE_EMPRESA_ROLES.has(empresaRole);
 }
 
 async function loadOrcamento(

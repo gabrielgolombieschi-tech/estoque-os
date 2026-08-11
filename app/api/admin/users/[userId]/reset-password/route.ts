@@ -15,7 +15,7 @@ type ResetBody = {
 
 type AdminContext =
   | { error: string; status: number }
-  | { supabase: ReturnType<typeof supabaseFromAuthHeader>; tenantId: number };
+  | { supabase: ReturnType<typeof supabaseFromAuthHeader>; tenantId: string };
 
 function isAdminError(ctx: AdminContext): ctx is { error: string; status: number } {
   return "error" in ctx;
@@ -33,17 +33,16 @@ async function getAdminContext(req: NextRequest): Promise<AdminContext> {
     return { error: "Nao autenticado.", status: 401 } as const;
   }
 
-  const { data: hasPerm, error: permErr } = await supabase.rpc("can", {
-    p_resource: "admin",
-    p_action: "manage_users",
-  });
-  if (permErr || !hasPerm) {
-    return { error: "Sem permissao.", status: 403 } as const;
-  }
-
   const { data: tenantId, error: tenantErr } = await supabase.rpc("current_tenant_id");
   if (tenantErr || !tenantId) {
     return { error: "Tenant nao carregado.", status: 400 } as const;
+  }
+
+  const { data: canManage, error: canManageErr } = await supabase.rpc("admin_can_manage_users", {
+    p_tenant_id: String(tenantId),
+  });
+  if (canManageErr || !canManage) {
+    return { error: "Sem permissao.", status: 403 } as const;
   }
 
   return { supabase, tenantId } as const;
@@ -67,6 +66,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ userId
     const tempPassword = body.tempPassword ? String(body.tempPassword) : "";
 
     const { tenantId } = ctx;
+
+    const { data: isOwner, error: isOwnerErr } = await ctx.supabase.rpc("admin_is_owner", {
+      p_tenant_id: String(tenantId),
+    });
+    if (isOwnerErr) return jerr(400, isOwnerErr.message);
+    if (!isOwner) return jerr(403, "Apenas OWNER pode redefinir senhas.");
+
+    const { data: canManageTarget, error: canManageTargetErr } = await ctx.supabase.rpc(
+      "admin_can_manage_auth_user",
+      {
+        p_tenant_id: String(tenantId),
+        p_target_auth_user_id: userId,
+      }
+    );
+    if (canManageTargetErr) return jerr(400, canManageTargetErr.message);
+    if (!canManageTarget) return jerr(403, "Usuario acima da sua alcada.");
 
     const { data: membership, error: membershipErr } = await admin
       .from("tenant_memberships")

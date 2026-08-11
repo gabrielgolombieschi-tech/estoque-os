@@ -276,77 +276,28 @@ export async function listOrcamentos(
   const page = Math.max(1, Number(filters.page ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(filters.pageSize ?? 50)));
   const fromIdx = (page - 1) * pageSize;
-  const toIdx = fromIdx + pageSize - 1;
-
-  let query = applyTenantEmpresa(
-    supabase
-      .schema("r")
-      .from("r_orcamento_lista")
-      .select(
-        [
-          "id",
-          "codigo",
-          "numero",
-          "versao",
-          "status",
-          "emissao_date",
-          "titulo",
-          "cliente_id",
-          "cliente_nome",
-          "vendedor_usuario_id",
-          "vendedor_nome",
-          "condicao_pagamento_id",
-          "condicao_pagamento_nome",
-          "desconto_global_percent",
-          "acrescimo_cond_pag_percent",
-          "valor_frete",
-          "total_produtos",
-          "total_servicos",
-          "total_bruto",
-          "total_desconto_global",
-          "total_liquido",
-          "valor_fechado",
-          "desconto_fechamento_valor",
-          "desconto_fechamento_percent",
-          "observacoes",
-          "os_id",
-          "os_itens_importados_at",
-          "created_at",
-          "updated_at",
-        ].join(","),
-        { count: "exact" }
-      )
-      .order("emissao_date", { ascending: false })
-      .order("numero", { ascending: false })
-      .range(fromIdx, toIdx),
-    filters.tenantId,
-    filters.empresaId
-  );
 
   const status = filters.status ?? "TODOS";
-  if (status !== "TODOS") {
-    const statusValues = getOrcamentoStatusFilterValues(status);
-    if (statusValues.length === 1) {
-      query = query.eq("status", statusValues[0]);
-    } else if (statusValues.length > 1) {
-      query = query.in("status", statusValues);
-    }
-  }
+  const statusValues = status === "TODOS" ? null : getOrcamentoStatusFilterValues(status);
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_listar", {
+    p_tenant_id: filters.tenantId,
+    p_empresa_id: filters.empresaId,
+    p_statuses: statusValues,
+    p_emissao_de: trimToNull(filters.from),
+    p_emissao_ate: trimToNull(filters.to),
+    p_busca: trimToNull(filters.q),
+    p_offset: fromIdx,
+    p_limit: pageSize,
+  });
 
-  const from = String(filters.from ?? "").trim();
-  const to = String(filters.to ?? "").trim();
-  if (from) query = query.gte("emissao_date", from);
-  if (to) query = query.lte("emissao_date", to);
-
-  const term = String(filters.q ?? "").trim();
-  if (term) {
-    const like = `%${term}%`;
-    query = query.or(`codigo.ilike.${like},titulo.ilike.${like},cliente_nome.ilike.${like}`);
-  }
-
-  const { data, error, count } = await query.returns<OrcamentoListaRow[]>();
   if (error) throw error;
-  return { rows: (data ?? []) as OrcamentoListaRow[], count: typeof count === "number" ? count : 0 };
+
+  const result = (data ?? {}) as { rows?: OrcamentoListaRow[]; count?: number | string };
+  const count = Number(result.count ?? 0);
+  return {
+    rows: Array.isArray(result.rows) ? result.rows : [],
+    count: Number.isFinite(count) ? count : 0,
+  };
 }
 
 export async function listOrcamentosAnalitico(

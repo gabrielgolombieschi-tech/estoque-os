@@ -14,7 +14,7 @@ type RoleRow = {
 };
 
 type MembershipRow = {
-  id: number;
+  id: string;
   user_id: string;
   status: string;
 };
@@ -25,7 +25,7 @@ type ProfileRow = {
 };
 
 type MembershipRoleRow = {
-  membership_id: number;
+  membership_id: string;
   role_id: string;
 };
 
@@ -39,7 +39,7 @@ type CreateBody = {
 
 type AdminContext =
   | { error: string; status: number }
-  | { supabase: ReturnType<typeof supabaseFromAuthHeader>; tenantId: number };
+  | { supabase: ReturnType<typeof supabaseFromAuthHeader>; tenantId: string };
 
 function isAdminError(ctx: AdminContext): ctx is { error: string; status: number } {
   return "error" in ctx;
@@ -57,17 +57,16 @@ async function getAdminContext(req: NextRequest): Promise<AdminContext> {
     return { error: "Nao autenticado.", status: 401 } as const;
   }
 
-  const { data: hasPerm, error: permErr } = await supabase.rpc("can", {
-    p_resource: "admin",
-    p_action: "manage_users",
-  });
-  if (permErr || !hasPerm) {
-    return { error: "Sem permissao.", status: 403 } as const;
-  }
-
   const { data: tenantId, error: tenantErr } = await supabase.rpc("current_tenant_id");
   if (tenantErr || !tenantId) {
     return { error: "Tenant nao carregado.", status: 400 } as const;
+  }
+
+  const { data: canManage, error: canManageErr } = await supabase.rpc("admin_can_manage_users", {
+    p_tenant_id: String(tenantId),
+  });
+  if (canManageErr || !canManage) {
+    return { error: "Sem permissao.", status: 403 } as const;
   }
 
   return { supabase, tenantId } as const;
@@ -139,7 +138,7 @@ export async function GET(req: NextRequest) {
     const roles = (rolesData ?? []) as RoleRow[];
     const roleNameMap = new Map(roles.map((r) => [r.id, r.name ?? r.id]));
 
-    const rolesByMembership = new Map<number, RoleRow[]>();
+    const rolesByMembership = new Map<string, RoleRow[]>();
     if (membershipIds.length > 0) {
       const { data: membershipRoles, error: membershipRolesErr } = await admin
         .from("membership_roles")
@@ -207,6 +206,18 @@ export async function POST(req: NextRequest) {
 
     const { tenantId } = ctx;
 
+    if (roles.length > 0) {
+      const { data: canAssignRoles, error: canAssignRolesErr } = await ctx.supabase.rpc(
+        "admin_can_assign_legacy_roles",
+        {
+          p_tenant_id: String(tenantId),
+          p_role_ids: roles,
+        }
+      );
+      if (canAssignRolesErr) return jerr(400, canAssignRolesErr.message);
+      if (!canAssignRoles) return jerr(403, "Matriz de acessos restrita a OWNER/ADMIN.");
+    }
+
     let userId: string | null = null;
 
     const { data: existingAuth, error: existingAuthErr } = await admin
@@ -245,41 +256,25 @@ export async function POST(req: NextRequest) {
       return jerr(400, "Falha ao criar usuario.");
     }
 
-    const { error: profileErr } = await admin
-      .from("user_profiles")
-      .upsert({ user_id: userId, nome }, { onConflict: "user_id" });
-
-    if (profileErr) {
-      return jerr(400, profileErr.message);
-    }
-
-    const { data: membership, error: membershipErr } = await admin
-      .from("tenant_memberships")
-      .upsert({ tenant_id: tenantId, user_id: userId, status: "active" }, { onConflict: "tenant_id,user_id" })
-      .select("id")
-      .single();
-
-    if (membershipErr) {
-      return jerr(400, membershipErr.message);
-    }
-
-    const membershipId = membership?.id as number | null;
-
-    if (membershipId && roles.length > 0) {
-      const { error: clearErr } = await admin.from("membership_roles").delete().eq("membership_id", membershipId);
-      if (clearErr) {
-        return jerr(400, clearErr.message);
+    const { data: canManageTarget, error: canManageTargetErr } = await ctx.supabase.rpc(
+      "admin_can_manage_invited_user",
+      {
+        p_tenant_id: String(tenantId),
+        p_target_auth_user_id: userId,
+        p_requested_role: "GESTOR",
       }
-      const payload = roles.map((roleId) => ({
-        membership_id: membershipId,
-        role_id: roleId,
-      }));
+    );
+    if (canManageTargetErr) return jerr(400, canManageTargetErr.message);
+    if (!canManageTarget) return jerr(403, "Usuario acima da sua alcada.");
 
-      const { error: rolesErr } = await admin.from("membership_roles").insert(payload);
-      if (rolesErr) {
-        return jerr(400, rolesErr.message);
-      }
-    }
+    const { error: finalizeErr } = await ctx.supabase.rpc("admin_finalize_legacy_user", {
+      p_tenant_id: String(tenantId),
+      p_auth_user_id: userId,
+      p_email: email,
+      p_nome: nome,
+      p_role_ids: roles,
+    });
+    if (finalizeErr) return jerr(400, finalizeErr.message);
 
     return NextResponse.json({ ok: true, user_id: userId });
   } catch (err: unknown) {
