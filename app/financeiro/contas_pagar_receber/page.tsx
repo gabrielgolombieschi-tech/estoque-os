@@ -6,6 +6,8 @@ import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { formatMoneyBR, parseMoneyBR } from "@/lib/decimal";
 import { buildEmpresaDisplayOptions } from "@/app/faturamento/components/empresaDisplay";
+import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
+import type { OsSelection } from "@/lib/os-vinculo";
 
 type Kind = "AP" | "AR";
 
@@ -58,6 +60,11 @@ type MotivoCompra = {
 };
 
 type Fornecedor = {
+  id: number;
+  nome: string;
+};
+
+type Cliente = {
   id: number;
   nome: string;
 };
@@ -362,12 +369,16 @@ export default function ContasPagarReceberPage() {
   >("APROVAR");
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createKind, setCreateKind] = useState<Kind>("AP");
   const [createBusy, setCreateBusy] = useState(false);
   const [createErr, setCreateErr] = useState<string | null>(null);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
 
   const [newEmpresaId, setNewEmpresaId] = useState<string>("");
   const [newFornecedorId, setNewFornecedorId] = useState<string>("");
+  const [newClienteId, setNewClienteId] = useState<string>("");
+  const [newOsSelection, setNewOsSelection] = useState<OsSelection | null>(null);
   const [newDescricao, setNewDescricao] = useState<string>("");
   const [newEmissaoDate, setNewEmissaoDate] = useState<string>(todayISO());
   const [newVencimento, setNewVencimento] = useState<string>(todayISO());
@@ -393,6 +404,7 @@ export default function ContasPagarReceberPage() {
   const [tituloMeta, setTituloMeta] = useState<{ emissaoDate: string | null; documentoFiscalId: string | null } | null>(
     null
   );
+  const [arOsNumero, setArOsNumero] = useState<string | null>(null);
   const [editEmissaoDate, setEditEmissaoDate] = useState<string>("");
   const [editVencimentoDate, setEditVencimentoDate] = useState<string>("");
   const [emissaoBusy, setEmissaoBusy] = useState(false);
@@ -427,6 +439,7 @@ export default function ContasPagarReceberPage() {
     setEmissaoErr(null);
     setEmissaoBusy(false);
     setTituloMeta(null);
+    setArOsNumero(null);
     setEditEmissaoDate("");
     setEditVencimentoDate("");
     setEditDescricao("");
@@ -1237,9 +1250,10 @@ export default function ContasPagarReceberPage() {
     setCreateErr(null);
   }, []);
 
-  const openCreate = useCallback(async () => {
+  const openCreate = useCallback(async (kind: Kind = "AP") => {
     setCreateErr(null);
     setCreateBusy(false);
+    setCreateKind(kind);
     setCreateOpen(true);
     const defaultEmpresaId =
       selectedEmpresaIds.length === 1
@@ -1252,6 +1266,37 @@ export default function ContasPagarReceberPage() {
     // Defaults/suggestions
     setNewEmissaoDate(todayISO());
     setNewVencimento(todayISO());
+    setNewDescricao("");
+    setNewValor("");
+    setNewQuantidadeParcelas(1);
+    setNewFornecedorId("");
+    setNewClienteId("");
+    setNewOsSelection(null);
+
+    if (kind === "AR") {
+      try {
+        if (clientes.length === 0) {
+          const { data, error } = await supabase
+            .from("clientes")
+            .select("id,nome")
+            .eq("ativo", true)
+            .order("nome", { ascending: true })
+            .limit(500);
+          if (!error) {
+            type ClienteRow = { id: unknown; nome: unknown };
+            const mapped = (data ?? []) as ClienteRow[];
+            setClientes(
+              mapped
+                .map((c) => ({ id: Number(c.id), nome: c?.nome ? String(c.nome) : "Cliente" }))
+                .filter((c) => Number.isFinite(c.id))
+            );
+          }
+        }
+      } catch (e: unknown) {
+        setCreateErr(getErrorMessage(e, "Erro ao preparar criação."));
+      }
+      return;
+    }
 
     // Load motivos/fornecedores for manual AP.
     try {
@@ -1304,7 +1349,7 @@ export default function ContasPagarReceberPage() {
     } catch (e: unknown) {
       setCreateErr(getErrorMessage(e, "Erro ao preparar criação."));
     }
-  }, [fornecedores.length, motivos.length, newMotivoId, selectedEmpresaIds, supabase, te.empresaId]);
+  }, [clientes.length, fornecedores.length, motivos.length, newMotivoId, selectedEmpresaIds, supabase, te.empresaId]);
 
   const doCreateAp = useCallback(async () => {
     setCreateErr(null);
@@ -1417,6 +1462,72 @@ export default function ContasPagarReceberPage() {
       setCreateBusy(false);
     }
   }, [closeCreate, load, newDescricao, newEmissaoDate, newEmpresaId, newFornecedorId, newMotivoId, newQuantidadeParcelas, newRecorrente, newProvisionarMeses, newValor, newVencimento, selectedEmpresaIds, supabase, te]);
+
+  const doCreateAr = useCallback(async () => {
+    setCreateErr(null);
+    const desc = newDescricao.trim();
+    const emissao = newEmissaoDate;
+    const venc = newVencimento;
+    const valorParsed = parseMoneyBR(newValor);
+    const clienteIdParsed = newClienteId.trim() ? Number(newClienteId) : null;
+
+    if (!clienteIdParsed || !Number.isFinite(clienteIdParsed)) {
+      setCreateErr("Selecione o cliente.");
+      return;
+    }
+    if (!desc) {
+      setCreateErr("Informe a descrição.");
+      return;
+    }
+    if (!emissao) {
+      setCreateErr("Informe a data de emissão.");
+      return;
+    }
+    if (!venc) {
+      setCreateErr("Informe o vencimento.");
+      return;
+    }
+    if (!Number.isFinite(valorParsed) || valorParsed <= 0) {
+      setCreateErr("Informe um valor válido.");
+      return;
+    }
+    if (!newEmpresaId || !selectedEmpresaIds.includes(newEmpresaId)) {
+      setCreateErr("Selecione a empresa do novo AR.");
+      return;
+    }
+
+    setCreateBusy(true);
+    try {
+      if (newEmpresaId !== te.empresaId) {
+        await te.setEmpresaId(newEmpresaId);
+      }
+
+      const { error } = await supabase.schema("f").rpc("criar_titulo_ar_manual_v1", {
+        p_cliente_id: clienteIdParsed,
+        p_descricao: desc,
+        p_emissao_date: emissao,
+        p_vencimento_date: venc,
+        p_valor: valorParsed,
+        p_os_id: newOsSelection?.id ?? null,
+      });
+
+      if (error) {
+        if (isMissingRpc(error, "f.criar_titulo_ar_manual_v1")) {
+          throw new Error(
+            "RPC f.criar_titulo_ar_manual_v1 não encontrada no banco. Aplique a migration do financeiro (AR manual)."
+          );
+        }
+        throw error;
+      }
+
+      await load();
+      closeCreate();
+    } catch (e: unknown) {
+      setCreateErr(getErrorMessage(e, "Erro ao criar AR."));
+    } finally {
+      setCreateBusy(false);
+    }
+  }, [closeCreate, load, newClienteId, newDescricao, newEmissaoDate, newEmpresaId, newOsSelection, newValor, newVencimento, selectedEmpresaIds, supabase, te]);
 
   const doUpdateEmissaoDate = useCallback(async () => {
     if (!selected || selected.kind !== "AP") return;
@@ -1664,6 +1775,33 @@ export default function ContasPagarReceberPage() {
 
             const numero = osRow?.numero_os ? String(osRow.numero_os) : "";
             if (numero) setOsId(numero);
+          }
+        }
+
+        if (row.kind === "AR") {
+          type TituloArRow = { os_id: unknown };
+          const { data: tituloAr } = await supabase
+            .schema("f")
+            .from("titulo")
+            .select("os_id")
+            .eq("id", row.tituloId)
+            .is("deleted_at", null)
+            .maybeSingle<TituloArRow>();
+
+          const osInternalId = tituloAr?.os_id;
+          const n =
+            osInternalId === null || osInternalId === undefined || osInternalId === ""
+              ? NaN
+              : Number(osInternalId);
+
+          if (Number.isFinite(n)) {
+            type OsRow = { numero_os: unknown };
+            const { data: osRow } = await supabase
+              .from("ordens_servico")
+              .select("numero_os")
+              .eq("id", n)
+              .maybeSingle<OsRow>();
+            setArOsNumero(osRow?.numero_os ? String(osRow.numero_os) : null);
           }
         }
 
@@ -2539,10 +2677,19 @@ export default function ContasPagarReceberPage() {
                   {only !== "AR" && (
                     <button
                       type="button"
-                      onClick={() => void openCreate()}
+                      onClick={() => void openCreate("AP")}
                       className="h-10 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900"
                     >
                       Novo AP
+                    </button>
+                  )}
+                  {only !== "AP" && (
+                    <button
+                      type="button"
+                      onClick={() => void openCreate("AR")}
+                      className="h-10 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900"
+                    >
+                      Novo AR
                     </button>
                   )}
                 </div>
@@ -2666,6 +2813,9 @@ export default function ContasPagarReceberPage() {
                 )}
                 {selected.kind === "AR" && selected.descricao && (
                   <div className="text-sm text-zinc-400">{selected.descricao}</div>
+                )}
+                {selected.kind === "AR" && arOsNumero && (
+                  <div className="text-sm text-zinc-400">OS vinculada: {arOsNumero}</div>
                 )}
               </div>
               <button
@@ -3457,9 +3607,15 @@ export default function ContasPagarReceberPage() {
           <div className="relative w-full max-w-2xl rounded-lg border border-zinc-800 bg-zinc-950 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm text-zinc-400">Conta a pagar</div>
-                <div className="text-lg font-semibold text-zinc-100">Novo AP (manual)</div>
-                <div className="text-sm text-zinc-400">Para energia, água, aluguel, etc (sem XML).</div>
+                <div className="text-sm text-zinc-400">{createKind === "AP" ? "Conta a pagar" : "Conta a receber"}</div>
+                <div className="text-lg font-semibold text-zinc-100">
+                  {createKind === "AP" ? "Novo AP (manual)" : "Novo AR (manual)"}
+                </div>
+                <div className="text-sm text-zinc-400">
+                  {createKind === "AP"
+                    ? "Para energia, água, aluguel, etc (sem XML)."
+                    : "Para recebimentos sem nota fiscal emitida (ex: entrada lançada manualmente)."}
+                </div>
               </div>
               <button
                 type="button"
@@ -3476,7 +3632,7 @@ export default function ContasPagarReceberPage() {
               <div>
                 <div className="text-sm text-zinc-300">Empresa</div>
                 <select
-                  aria-label="Empresa do novo AP"
+                  aria-label={createKind === "AP" ? "Empresa do novo AP" : "Empresa do novo AR"}
                   value={newEmpresaId}
                   onChange={(e) => setNewEmpresaId(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
@@ -3491,22 +3647,41 @@ export default function ContasPagarReceberPage() {
                 </select>
               </div>
 
-              <div>
-                <div className="text-sm text-zinc-300">Fornecedor (opcional)</div>
-                <select
-                  aria-label="Fornecedor"
-                  value={newFornecedorId}
-                  onChange={(e) => setNewFornecedorId(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-                >
-                  <option value="">Sem fornecedor</option>
-                  {fornecedores.map((f) => (
-                    <option key={f.id} value={String(f.id)}>
-                      {f.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {createKind === "AP" ? (
+                <div>
+                  <div className="text-sm text-zinc-300">Fornecedor (opcional)</div>
+                  <select
+                    aria-label="Fornecedor"
+                    value={newFornecedorId}
+                    onChange={(e) => setNewFornecedorId(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                  >
+                    <option value="">Sem fornecedor</option>
+                    {fornecedores.map((f) => (
+                      <option key={f.id} value={String(f.id)}>
+                        {f.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-sm text-zinc-300">Cliente</div>
+                  <select
+                    aria-label="Cliente"
+                    value={newClienteId}
+                    onChange={(e) => setNewClienteId(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                  >
+                    <option value="">Selecione um cliente</option>
+                    {clientes.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <div className="text-sm text-zinc-300">Descrição</div>
@@ -3514,16 +3689,16 @@ export default function ContasPagarReceberPage() {
                   aria-label="Descrição"
                   value={newDescricao}
                   onChange={(e) => setNewDescricao(e.target.value)}
-                  placeholder="Ex: Energia - ENEL"
+                  placeholder={createKind === "AP" ? "Ex: Energia - ENEL" : "Ex: Recebimento Uniplast - sem NF"}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <div className="text-sm text-zinc-300">Data da NF (Emissão)</div>
+                  <div className="text-sm text-zinc-300">{createKind === "AP" ? "Data da NF (Emissão)" : "Emissão"}</div>
                   <input
-                    aria-label="Data da NF (Emissão)"
+                    aria-label={createKind === "AP" ? "Data da NF (Emissão)" : "Emissão"}
                     type="date"
                     value={newEmissaoDate}
                     onChange={(e) => setNewEmissaoDate(e.target.value)}
@@ -3543,94 +3718,119 @@ export default function ContasPagarReceberPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <div className="text-sm text-zinc-300">Valor por parcela</div>
-                  <input
-                    aria-label="Valor"
-                    value={newValor}
-                    onChange={(e) => setNewValor(e.target.value)}
-                    placeholder='Ex: 450,00'
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-                  />
-                </div>
-                <div>
-                  <div className="text-sm text-zinc-300">Quantidade de parcelas</div>
-                  <input
-                    aria-label="Quantidade de parcelas"
-                    type="number"
-                    min={1}
-                    max={120}
-                    value={String(newQuantidadeParcelas)}
-                    onChange={(e) => {
-                      const quantidade = Number(e.target.value);
-                      setNewQuantidadeParcelas(quantidade);
-                      if (quantidade > 1) setNewRecorrente(false);
-                    }}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-                  />
-                </div>
-              </div>
+              {createKind === "AP" ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-sm text-zinc-300">Valor por parcela</div>
+                      <input
+                        aria-label="Valor"
+                        value={newValor}
+                        onChange={(e) => setNewValor(e.target.value)}
+                        placeholder='Ex: 450,00'
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-sm text-zinc-300">Quantidade de parcelas</div>
+                      <input
+                        aria-label="Quantidade de parcelas"
+                        type="number"
+                        min={1}
+                        max={120}
+                        value={String(newQuantidadeParcelas)}
+                        onChange={(e) => {
+                          const quantidade = Number(e.target.value);
+                          setNewQuantidadeParcelas(quantidade);
+                          if (quantidade > 1) setNewRecorrente(false);
+                        }}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                      />
+                    </div>
+                  </div>
 
-              {newQuantidadeParcelas > 1 && Number.isFinite(parseMoneyBR(newValor)) && parseMoneyBR(newValor) > 0 && (
-                <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-300">
-                  Total da dívida: {formatMoneyBR(parseMoneyBR(newValor) * newQuantidadeParcelas)}. Os vencimentos serão mensais.
-                </div>
-              )}
+                  {newQuantidadeParcelas > 1 && Number.isFinite(parseMoneyBR(newValor)) && parseMoneyBR(newValor) > 0 && (
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-300">
+                      Total da dívida: {formatMoneyBR(parseMoneyBR(newValor) * newQuantidadeParcelas)}. Os vencimentos serão mensais.
+                    </div>
+                  )}
 
-              <div>
-                <div className="text-sm text-zinc-300">Motivo (opcional)</div>
-                <select
-                  aria-label="Motivo"
-                  value={newMotivoId}
-                  onChange={(e) => setNewMotivoId(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
-                >
-                  <option value="">Sem motivo</option>
-                  {motivos.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.codigo} - {m.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  id="ap-recorrente"
-                  type="checkbox"
-                  disabled={newQuantidadeParcelas > 1}
-                  checked={newRecorrente}
-                  onChange={(e) => setNewRecorrente(e.target.checked)}
-                />
-                <label htmlFor="ap-recorrente" className="text-sm text-zinc-200">
-                  É recorrente (provisionar próximos meses)
-                </label>
-              </div>
-
-              {newRecorrente && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <div className="text-sm text-zinc-300">Provisionar quantos meses</div>
+                    <div className="text-sm text-zinc-300">Motivo (opcional)</div>
+                    <select
+                      aria-label="Motivo"
+                      value={newMotivoId}
+                      onChange={(e) => setNewMotivoId(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                    >
+                      <option value="">Sem motivo</option>
+                      {motivos.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.codigo} - {m.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     <input
-                      aria-label="Meses"
-                      type="number"
-                      min={0}
-                      max={60}
-                      value={String(newProvisionarMeses)}
-                      onChange={(e) => setNewProvisionarMeses(Number(e.target.value))}
+                      id="ap-recorrente"
+                      type="checkbox"
+                      disabled={newQuantidadeParcelas > 1}
+                      checked={newRecorrente}
+                      onChange={(e) => setNewRecorrente(e.target.checked)}
+                    />
+                    <label htmlFor="ap-recorrente" className="text-sm text-zinc-200">
+                      É recorrente (provisionar próximos meses)
+                    </label>
+                  </div>
+
+                  {newRecorrente && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-sm text-zinc-300">Provisionar quantos meses</div>
+                        <input
+                          aria-label="Meses"
+                          type="number"
+                          min={0}
+                          max={60}
+                          value={String(newProvisionarMeses)}
+                          onChange={(e) => setNewProvisionarMeses(Number(e.target.value))}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
+                        />
+                        <div className="text-xs text-zinc-500 mt-1">Dica: ele copia o valor do mês anterior por padrão.</div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div className="text-sm text-zinc-300">Valor</div>
+                    <input
+                      aria-label="Valor"
+                      value={newValor}
+                      onChange={(e) => setNewValor(e.target.value)}
+                      placeholder='Ex: 450,00'
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-md px-3 py-2 text-sm text-zinc-100"
                     />
-                    <div className="text-xs text-zinc-500 mt-1">Dica: ele copia o valor do mês anterior por padrão.</div>
                   </div>
-                </div>
+
+                  <OsVinculoField
+                    tenantId={te.tenantId ?? ""}
+                    empresaId={newEmpresaId}
+                    value={newOsSelection}
+                    onChange={setNewOsSelection}
+                    helperText="Opcional. Vincula este recebimento manual a uma OS existente."
+                  />
+                </>
               )}
 
               <div className="flex justify-end">
                 <button
                   type="button"
                   disabled={createBusy}
-                  onClick={() => void doCreateAp()}
+                  onClick={() => void (createKind === "AP" ? doCreateAp() : doCreateAr())}
                   className="px-3 py-2 rounded-md bg-emerald-500 text-zinc-950 hover:bg-emerald-400 text-sm font-medium disabled:opacity-60"
                 >
                   {createBusy ? "Salvando..." : "Criar"}
