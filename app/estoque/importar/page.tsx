@@ -363,10 +363,6 @@ type NfEntradaResumoRow = {
 
 const RECENT_NFS_LIMIT = 20;
 
-function escapePostgrestLikeTerm(value: string): string {
-  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
-}
-
 type ParcelaPayload = {
   numero: string;
   vencimento: string;
@@ -920,34 +916,19 @@ export default function ImportarXmlPage() {
         const emitenteTerm = recentFilterEmitente.trim();
         const numeroTerm = recentFilterNumero.trim();
 
-        let qb = supabase
-          .schema("public")
-          .from("nf_entrada")
-          .select("id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto")
-          .eq("empresa_id", empresaId)
-          .not("chave", "is", null)
-          .order("criado_em", { ascending: false })
-          .order("id", { ascending: false });
-
-        if (start && end) {
-          qb = qb.gte("data_emissao", start).lt("data_emissao", end);
-        }
-
-        if (emitenteTerm) {
-          qb = qb.ilike("emitente_nome", `%${escapePostgrestLikeTerm(emitenteTerm)}%`);
-        }
-
-        if (numeroTerm) {
-          qb = qb.ilike("numero", `%${escapePostgrestLikeTerm(numeroTerm)}%`);
-        }
-
-        qb = applyTenantEmpresa(qb, tenantId, empresaId);
-
-        const { data, error } = await qb.limit(RECENT_NFS_LIMIT).returns<NfEntradaResumoRow[]>();
+        const { data, error } = await supabase.schema("public").rpc("list_imported_nfe", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_start_date: start,
+            p_end_date: end,
+            p_emitente: emitenteTerm || null,
+            p_numero: numeroTerm || null,
+            p_limit: RECENT_NFS_LIMIT,
+          });
         if (error) throw error;
         if (!active) return;
 
-        const rowsAll = (data ?? [])
+        const rowsAll = ((data ?? []) as unknown as NfEntradaResumoRow[])
           .map((r) => ({
             id: Number(r.id),
             chave: String(r.chave ?? ""),

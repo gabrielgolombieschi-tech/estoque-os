@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { formatMoneyBR } from "@/lib/decimal";
@@ -52,10 +51,6 @@ function safeInt(value: string | null): number | null {
 }
 
 const RECENT_NFS_LIMIT = 20;
-
-function escapePostgrestLikeTerm(value: string): string {
-  return value.replace(/[\\%_]/g, (match) => `\\${match}`);
-}
 
 export default function EstoqueImportarImprimirPage() {
   const supabase = useMemo(() => {
@@ -121,34 +116,19 @@ export default function EstoqueImportarImprimirPage() {
       setLoading(true);
 
       try {
-        let qb = supabase
-          .schema("public")
-          .from("nf_entrada")
-          .select("id,chave,numero,serie,emitente_nome,data_emissao,valor_total,criado_em,finalidade_contexto")
-          .eq("empresa_id", empresaId)
-          .not("chave", "is", null)
-          .order("criado_em", { ascending: false })
-          .order("id", { ascending: false });
-
-        if (start && end) {
-          qb = qb.gte("data_emissao", start).lt("data_emissao", end);
-        }
-
-        if (emitente) {
-          qb = qb.ilike("emitente_nome", `%${escapePostgrestLikeTerm(emitente)}%`);
-        }
-
-        if (numero) {
-          qb = qb.ilike("numero", `%${escapePostgrestLikeTerm(numero)}%`);
-        }
-
-        qb = applyTenantEmpresa(qb, tenantId, empresaId);
-
-        const { data, error } = await qb.limit(RECENT_NFS_LIMIT).returns<NfEntradaResumoRow[]>();
+        const { data, error } = await supabase.schema("public").rpc("list_imported_nfe", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_start_date: start,
+            p_end_date: end,
+            p_emitente: emitente || null,
+            p_numero: numero || null,
+            p_limit: RECENT_NFS_LIMIT,
+          });
         if (error) throw error;
         if (!active) return;
 
-        const all = (data ?? [])
+        const all = ((data ?? []) as unknown as NfEntradaResumoRow[])
           .map((r) => ({
             id: Number(r.id),
             chave: String(r.chave ?? ""),

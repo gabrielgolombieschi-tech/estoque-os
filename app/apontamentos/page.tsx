@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
 
 type Colaborador = { id: string; nome: string; ativo: boolean };
 type TipoHora = { id: string; codigo: string; descricao: string; fator: number; ativo: boolean };
@@ -242,13 +243,13 @@ export default function ApontamentosPage() {
     return supabaseBrowser();
   }, []);
   const { tenantId, empresaId: ctxEmpresaId } = useTenantEmpresa();
+  const { has } = usePermissions();
   const searchParams = useSearchParams();
 
-  const fixedTenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
-  const forcedEmpresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
-  const effectiveTenantId = useMemo(() => tenantId ?? fixedTenantId, [tenantId]);
-  const effectiveEmpresaId = useMemo(() => forcedEmpresaId ?? ctxEmpresaId, [ctxEmpresaId]);
+  const effectiveTenantId = tenantId ?? "";
+  const effectiveEmpresaId = ctxEmpresaId ?? "";
   const effectiveLoading = !effectiveTenantId || !effectiveEmpresaId;
+  const canWrite = Boolean(has("apontamentos.write"));
 
   const ensureContext = useCallback(async () => {
     if (!effectiveTenantId || !effectiveEmpresaId) return;
@@ -418,6 +419,7 @@ export default function ApontamentosPage() {
 
   useEffect(() => {
     if (osDbId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFiltroOsId(String(osDbId));
       carregarApontamentos();
     }
@@ -626,11 +628,17 @@ export default function ApontamentosPage() {
   useEffect(() => {
     if (!combosLoaded || tiposHoras.length === 0) return;
     if (tipoHoraTouched) return;
-    if (!tipoHoraId && normalTipoId) setTipoHoraId(normalTipoId);
+    if (!tipoHoraId && normalTipoId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTipoHoraId(normalTipoId);
+    }
   }, [combosLoaded, tiposHoras.length, tipoHoraId, normalTipoId, tipoHoraTouched]);
 
   useEffect(() => {
-    if (editing && !editTipoHoraId && normalTipoId) setEditTipoHoraId(normalTipoId);
+    if (editing && !editTipoHoraId && normalTipoId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEditTipoHoraId(normalTipoId);
+    }
   }, [editing, editTipoHoraId, normalTipoId]);
 
   const colabOptions = useMemo(
@@ -665,6 +673,7 @@ export default function ApontamentosPage() {
     const horas = toNumberBR(horasText);
 
     if (!data || horas == null || horas <= 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTipoSugerido("");
       return;
     }
@@ -1035,9 +1044,16 @@ export default function ApontamentosPage() {
         </div>
       )}
 
+      {!canWrite && (
+        <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-300">
+          Consulta somente leitura. Seu perfil pode visualizar os apontamentos, mas não pode incluir, editar ou excluir.
+        </div>
+      )}
+
       {/* FORM */}
-      <div style={{ marginTop: 12, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>Novo lancamento</div>
+      {canWrite && (
+        <div style={{ marginTop: 12, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>Novo lancamento</div>
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr 2fr 1fr", gap: 10 }}>
           <label>
@@ -1215,7 +1231,8 @@ export default function ApontamentosPage() {
             Salvar
           </button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* FILTROS + LISTA */}
       <div style={{ marginTop: 14, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
@@ -1276,7 +1293,7 @@ export default function ApontamentosPage() {
                   <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Tipo</th>
                   <th style={{ padding: 10, borderBottom: "1px solid #333" }}>OS / Descricao</th>
                   <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Cliente</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Ações</th>
+                  {canWrite && <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1303,31 +1320,33 @@ export default function ApontamentosPage() {
                         {os?.numero_os || a.os_id} - {osDesc}
                       </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{clienteNome}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(a)}
-                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => excluirApontamento(a.id)}
-                            className="px-3 py-1.5 rounded-md border border-red-700/50 bg-red-950/40 hover:bg-red-950 text-red-200"
-                          >
-                            Excluir
-                          </button>
-                        </div>
-                      </td>
+                      {canWrite && (
+                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(a)}
+                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => excluirApontamento(a.id)}
+                              className="px-3 py-1.5 rounded-md border border-red-700/50 bg-red-950/40 hover:bg-red-950 text-red-200"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
 
                 {apontamentos.length === 0 && (
                   <tr>
-                    <td style={{ padding: 10 }} colSpan={8}>
+                    <td style={{ padding: 10 }} colSpan={canWrite ? 8 : 7}>
                       Nenhum apontamento no periodo.
                     </td>
                   </tr>
@@ -1337,7 +1356,7 @@ export default function ApontamentosPage() {
         </div>
       </div>
 
-      {editing && (
+      {canWrite && editing && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="w-full max-w-3xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl">
             <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
