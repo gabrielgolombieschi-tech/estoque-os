@@ -35,6 +35,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/itens/imprimir" ||
     pathname === "/faturamento/nfe" ||
     pathname === "/faturamento/nfse" ||
+    pathname === "/os" ||
     pathname === "/os/analitico" ||
     pathname === "/compras/pedidos" ||
     pathname === "/estoque/pedidos" ||

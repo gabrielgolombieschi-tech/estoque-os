@@ -11,6 +11,7 @@ import { useSessionReady } from "@/lib/auth/useSessionReady";
 import { getOsListAccess } from "@/lib/auth/osAccess";
 import { formatMoneyBR } from "@/lib/decimal";
 import { getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
+import { fetchFaturadoByOs } from "@/lib/os/faturadoPorOs";
 
 type ViewMode = "mes" | "mes-cliente" | "ano" | "ano-cliente";
 type StatusScope = "em_andamento" | "concluida" | "todas";
@@ -48,14 +49,6 @@ type HhCalcRow = {
   horas_trabalhadas: number | null;
   valor_hora: number | null;
   valor_total: number | null;
-};
-
-type DocumentoFaturadoRow = {
-  os_id_import: number | null;
-  valor_total: number | string | null;
-  modelo: string | null;
-  nfe_status: string | null;
-  nfse_status: string | null;
 };
 
 type OsAnalitico = {
@@ -214,16 +207,6 @@ function pickPreferredClientName(options: Map<string, { count: number; total: nu
     })[0]?.[0] ?? "(Sem cliente)";
 }
 
-function shouldIncludeFaturamentoDocumento(row: DocumentoFaturadoRow): boolean {
-  const modelo = String(row.modelo ?? "").trim().toUpperCase();
-  const nfseStatus = String(row.nfse_status ?? "").trim().toUpperCase();
-  const nfeStatus = String(row.nfe_status ?? "").trim().toUpperCase();
-
-  if (modelo === "NFSE") return nfseStatus === "EMITIDA";
-  if (!nfeStatus) return true;
-  return nfeStatus === "EMITIDA";
-}
-
 async function fetchClientesByIds(params: {
   supabase: ReturnType<typeof supabaseBrowser>;
   tenantId: string;
@@ -316,48 +299,6 @@ async function fetchHhPedidoTotals(params: {
       const total = getValorTotalEfetivo(row, horasEfetivas);
       out[osId] = Math.round(((out[osId] ?? 0) + total) * 100) / 100;
     }
-  }
-
-  return out;
-}
-
-async function fetchFaturadoByOs(params: {
-  supabase: ReturnType<typeof supabaseBrowser>;
-  tenantId: string;
-  empresaId: string;
-}): Promise<Record<number, number>> {
-  const out: Record<number, number> = {};
-  let offset = 0;
-
-  while (true) {
-    const { data, error } = await applyTenantEmpresa(
-      params.supabase
-        .schema("f")
-        .from("documento_fiscal")
-        .select("os_id_import,valor_total,modelo,nfe_status,nfse_status")
-        .eq("operacao", "SAIDA")
-        .not("os_id_import", "is", null)
-        .is("deleted_at", null)
-        .order("id", { ascending: true })
-        .range(offset, offset + FETCH_BATCH_SIZE - 1),
-      params.tenantId,
-      params.empresaId
-    ).returns<DocumentoFaturadoRow[]>();
-
-    if (error) throw error;
-
-    const rows = data ?? [];
-    for (const row of rows) {
-      if (!shouldIncludeFaturamentoDocumento(row)) continue;
-
-      const osId = Number(row.os_id_import);
-      if (!Number.isFinite(osId) || osId <= 0) continue;
-
-      out[osId] = round2((out[osId] ?? 0) + n(row.valor_total));
-    }
-
-    if (rows.length < FETCH_BATCH_SIZE) break;
-    offset += FETCH_BATCH_SIZE;
   }
 
   return out;
@@ -735,6 +676,29 @@ export default function AnaliticoOsClient() {
       clienteNome: preferredNameByKey.get(row.clientKey) ?? row.clienteNome,
     }));
   }, [clientesById, faturadoByOs, fromYear, hhFallbackByOs, hhPedidoByOs, rows, toYear]);
+
+  const osExcedentes = useMemo(() => {
+    return rows
+      .filter((row) => row.status === "em_andamento")
+      .map((row) => {
+        const clienteNomeCadastro =
+          typeof row.cliente_id === "number" && Number.isFinite(row.cliente_id) ? clientesById[row.cliente_id] : undefined;
+        const clienteNome = clienteNomeCadastro || String(row.cliente_nome ?? "").trim() || "(Sem cliente)";
+        const valorPedido = row.usa_relatorio_hh ? hhPedidoByOs[row.id] ?? hhFallbackByOs[row.id] ?? 0 : n(row.orcado);
+        const valorFaturado = round2(faturadoByOs[row.id] ?? 0);
+        const excesso = round2(valorFaturado - valorPedido);
+        return {
+          id: row.id,
+          numeroOs: String(row.numero_os ?? row.id),
+          clienteNome,
+          valorPedido,
+          valorFaturado,
+          excesso,
+        };
+      })
+      .filter((row) => row.excesso > 0.009)
+      .sort((a, b) => b.excesso - a.excesso);
+  }, [clientesById, faturadoByOs, hhFallbackByOs, hhPedidoByOs, rows]);
 
   const filteredClientTerm = clientQuery.trim().toLowerCase();
   const activeClientTerm = view === "mes-cliente" || view === "ano-cliente" ? filteredClientTerm : "";
@@ -1163,6 +1127,46 @@ export default function AnaliticoOsClient() {
           }
         />
       </div>
+
+      {!hideValorPedido && statusScope === "em_andamento" && ready && !loading && osExcedentes.length > 0 ? (
+        <section className="rounded-xl border border-rose-900/60 bg-rose-950/10 p-4">
+          <h2 className="text-sm font-semibold text-rose-200">OS faturadas acima do orçado</h2>
+          <p className="mt-1 text-xs text-rose-300/80">
+            Estas OS em andamento já têm mais faturado do que o valor orçado. Corrija o valor orçado da OS ou
+            revise o faturamento vinculado.
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-rose-900/40 text-rose-300/80">
+                  <th className="px-3 py-2 text-left font-medium">OS</th>
+                  <th className="px-3 py-2 text-left font-medium">Cliente</th>
+                  <th className="px-3 py-2 text-right font-medium">Valor pedido</th>
+                  <th className="px-3 py-2 text-right font-medium">Valor faturado</th>
+                  <th className="px-3 py-2 text-right font-medium">Excesso</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rose-900/20">
+                {osExcedentes.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-3 py-2">
+                      <Link href={`/os/${row.id}`} className="text-rose-200 underline-offset-2 hover:underline">
+                        OS {row.numeroOs}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-zinc-200">{row.clienteNome}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-zinc-300">{formatMoneyBR(row.valorPedido)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-zinc-300">{formatMoneyBR(row.valorFaturado)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-rose-200">
+                      {formatMoneyBR(row.excesso)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {error ? (
         <div className="rounded-xl border border-rose-900/60 bg-rose-950/20 px-4 py-3 text-sm text-rose-200">{error}</div>

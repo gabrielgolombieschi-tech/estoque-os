@@ -114,6 +114,9 @@ export default function NfeImportModal({
   const [chaveAcesso, setChaveAcesso] = useState<string>("");
   const [alreadyImportedId, setAlreadyImportedId] = useState<string>("");
   const [osSelection, setOsSelection] = useState<OsSelection | null>(null);
+  const [osSaldo, setOsSaldo] = useState<{ valorPedido: number; valorFaturado: number; saldo: number } | null>(null);
+  const [osSaldoLoading, setOsSaldoLoading] = useState(false);
+  const [osSaldoErr, setOsSaldoErr] = useState<string | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [detectingCliente, setDetectingCliente] = useState(false);
@@ -197,9 +200,56 @@ export default function NfeImportModal({
     setParsedNfe(null);
     setAlreadyImportedId("");
     setOsSelection(null);
+    setOsSaldo(null);
+    setOsSaldoErr(null);
+    setOsSaldoLoading(false);
     setQtdPagamentos(1);
     setParcelas([{ numero: "001", valor: "", vencimento: todayIso() }]);
   }, [open]);
+
+  useEffect(() => {
+    if (!osSelection || !tenantId || !empresaId) {
+      setOsSaldo(null);
+      setOsSaldoErr(null);
+      return;
+    }
+
+    let cancelled = false;
+    setOsSaldoLoading(true);
+    setOsSaldoErr(null);
+
+    void (async () => {
+      try {
+        const supabase = supabaseBrowser();
+        const { data, error: rpcErr } = await supabase
+          .schema("f")
+          .rpc("fn_os_saldo_a_faturar", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osSelection.id });
+        if (rpcErr) throw rpcErr;
+        if (cancelled) return;
+
+        const row = (Array.isArray(data) ? data[0] : data) as
+          | { valor_pedido?: unknown; valor_faturado?: unknown; saldo?: unknown }
+          | null;
+        setOsSaldo({
+          valorPedido: n(row?.valor_pedido),
+          valorFaturado: n(row?.valor_faturado),
+          saldo: n(row?.saldo),
+        });
+      } catch (e: unknown) {
+        if (cancelled) return;
+        setOsSaldo(null);
+        setOsSaldoErr(getErrorMessage(e, "Erro ao consultar saldo da OS."));
+      } finally {
+        if (!cancelled) setOsSaldoLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [osSelection, tenantId, empresaId]);
+
+  const osSaldoExcedido = Boolean(osSaldo) && parsedTotal > (osSaldo?.saldo ?? 0) + 0.01;
 
   const onPickFile = async (f: File | null) => {
     setFile(f);
@@ -347,6 +397,12 @@ export default function NfeImportModal({
     if (!file) return setError("Selecione um arquivo XML.");
     if (alreadyImportedId) return setError("Este XML já foi importado. Reimportação bloqueada.");
     if (!clienteId) return setError("Cliente não resolvido a partir do XML.");
+    if (!osSelection) return setError("Vincule a OS antes de importar.");
+    if (osSaldoExcedido) {
+      return setError(
+        `Valor da NF-e (R$ ${parsedTotal.toFixed(2)}) excede o saldo a faturar da OS (R$ ${(osSaldo?.saldo ?? 0).toFixed(2)}).`
+      );
+    }
 
     if (qtdPagamentos < 1) return setError("Informe ao menos 1 pagamento.");
 
@@ -484,14 +540,31 @@ export default function NfeImportModal({
           </div>
 
           {file ? (
-            <OsVinculoField
-              tenantId={tenantId}
-              empresaId={empresaId}
-              value={osSelection}
-              onChange={setOsSelection}
-              disabled={busy || detectingCliente || checkingDuplicate || !ready}
-              helperText="Opcional. O valor desta NF-e sera abatido da carteira da OS vinculada."
-            />
+            <div className="space-y-2">
+              <OsVinculoField
+                tenantId={tenantId}
+                empresaId={empresaId}
+                value={osSelection}
+                onChange={setOsSelection}
+                disabled={busy || detectingCliente || checkingDuplicate || !ready}
+                helperText="Obrigatorio. O valor desta NF-e sera abatido do saldo a faturar da OS vinculada."
+              />
+              {osSaldoLoading ? <div className="text-xs text-zinc-500">Consultando saldo da OS...</div> : null}
+              {osSaldoErr ? <div className="text-xs text-rose-300">{osSaldoErr}</div> : null}
+              {osSaldo && !osSaldoLoading ? (
+                <div
+                  className={`rounded-md border px-3 py-2 text-xs ${
+                    osSaldoExcedido
+                      ? "border-rose-900/60 bg-rose-950/20 text-rose-200"
+                      : "border-zinc-800 bg-zinc-950 text-zinc-400"
+                  }`}
+                >
+                  Saldo a faturar da OS: R$ {osSaldo.saldo.toFixed(2)} (pedido R$ {osSaldo.valorPedido.toFixed(2)},
+                  ja faturado R$ {osSaldo.valorFaturado.toFixed(2)}).
+                  {osSaldoExcedido ? " O valor desta nota excede o saldo restante." : ""}
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {parsedNfe ? (
@@ -575,7 +648,19 @@ export default function NfeImportModal({
               type="button"
               onClick={() => void importXml()}
               className="rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-700 disabled:opacity-50"
-              disabled={busy || !ready || canImportXml === false || detectingCliente || checkingDuplicate || !file || !clienteId || Boolean(alreadyImportedId)}
+              disabled={
+                busy ||
+                !ready ||
+                canImportXml === false ||
+                detectingCliente ||
+                checkingDuplicate ||
+                !file ||
+                !clienteId ||
+                Boolean(alreadyImportedId) ||
+                !osSelection ||
+                osSaldoLoading ||
+                osSaldoExcedido
+              }
             >
               {busy ? "Importando..." : "Importar"}
             </button>

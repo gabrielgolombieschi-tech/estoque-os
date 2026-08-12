@@ -396,10 +396,11 @@ export async function POST(req: NextRequest) {
     const osIdRaw = String(form.get("os_id") ?? "").trim();
     const pagamentosRaw = String(form.get("pagamentos_json") ?? "").trim();
     if (!clienteIdRaw) return jerr(422, "cliente_id é obrigatório.");
+    if (!osIdRaw) return jerr(422, "os_id é obrigatório. Vincule a OS antes de importar.");
     const clienteIdNum = Number(clienteIdRaw);
-    const osIdNum = osIdRaw ? Number(osIdRaw) : null;
+    const osIdNum = Number(osIdRaw);
     let pagamentos: Array<{ numero: string; vencimento: string; valor: number }> | null = null;
-    if (osIdRaw && (!Number.isFinite(osIdNum) || Number(osIdNum) <= 0)) return jerr(400, "os_id invalido.");
+    if (!Number.isFinite(osIdNum) || osIdNum <= 0) return jerr(400, "os_id invalido.");
     if (!Number.isFinite(clienteIdNum) || clienteIdNum <= 0) return jerr(400, "cliente_id inválido.");
 
     if (!file || typeof file !== "object" || !("text" in file)) return jerr(422, "Arquivo XML é obrigatório (file).");
@@ -534,6 +535,23 @@ export async function POST(req: NextRequest) {
     const parsed = parseNfeXmlServer(xmlRaw);
     const info = parsed.nfe;
     if (!info.chave) return jerr(422, "Chave não encontrada no XML.");
+
+    {
+      const { data: saldoRows, error: saldoErr } = await supabase
+        .schema("f")
+        .rpc("fn_os_saldo_a_faturar", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osIdNum });
+      if (saldoErr) return jerr(400, getErrorMessage(saldoErr, "Erro ao validar saldo da OS."));
+
+      const saldoRow = (Array.isArray(saldoRows) ? saldoRows[0] : saldoRows) as { saldo?: unknown } | null;
+      const saldo = Number(saldoRow?.saldo ?? 0);
+      const valorNota = Math.round((Number(info.valorTotal ?? 0) || 0) * 100) / 100;
+      if (valorNota > saldo + 0.01) {
+        return jerr(
+          422,
+          `Valor da NF-e (R$ ${valorNota.toFixed(2)}) excede o saldo a faturar da OS (R$ ${saldo.toFixed(2)}). Ajuste o valor orçado da OS ou o valor da nota antes de importar.`
+        );
+      }
+    }
 
     if (pagamentos && pagamentos.length > 0) {
       const somaPagamentos = Math.round(pagamentos.reduce((acc, pagamento) => acc + pagamento.valor, 0) * 100) / 100;

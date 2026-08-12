@@ -9,6 +9,7 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { useSessionReady } from "@/lib/auth/useSessionReady";
 import { getOsListAccess } from "@/lib/auth/osAccess";
 import { getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
+import { fetchFaturadoByOs } from "@/lib/os/faturadoPorOs";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh: boolean };
 
@@ -183,6 +184,7 @@ export default function OsListPage() {
   const [materiaisPorOs, setMateriaisPorOs] = useState<Record<number, number>>({});
   const [hhTotalPorOs, setHhTotalPorOs] = useState<Record<number, number>>({});
   const [hhPedidoPorOs, setHhPedidoPorOs] = useState<Record<number, number>>({});
+  const [faturadoPorOs, setFaturadoPorOs] = useState<Record<number, number>>({});
 
   // criacao
   const [creating, setCreating] = useState(false);
@@ -505,6 +507,20 @@ export default function OsListPage() {
       } catch (e) {
         console.warn("[OS] hhPedidoPorOs: fallback", e);
         setHhPedidoPorOs({});
+      }
+
+      try {
+        const faturado = await fetchFaturadoByOs({
+          supabase,
+          tenantId: effectiveTenantId,
+          empresaId: effectiveEmpresaId,
+          osIds,
+        });
+        if (reqId !== osReqIdRef.current) return;
+        setFaturadoPorOs(faturado);
+      } catch (e) {
+        console.warn("[OS] faturadoPorOs: fallback", e);
+        setFaturadoPorOs({});
       }
     }
     if (reqId === osReqIdRef.current) {
@@ -927,6 +943,7 @@ export default function OsListPage() {
               <th className="px-4 py-3 text-left">Descrição</th>
               <th className="px-4 py-3 text-right">Custo</th>
               {!hideValorPedido && <th className="px-4 py-3 text-right">Valor pedido</th>}
+              {!hideValorPedido && <th className="px-4 py-3 text-right">Faturado</th>}
             </tr>
           </thead>
 
@@ -1007,6 +1024,11 @@ export default function OsListPage() {
                       {!hideValorPedido && (
                         <td className="px-4 py-3 text-right tabular-nums text-zinc-200">R$ {formatMoney(pedido)}</td>
                       )}
+                      {!hideValorPedido && (
+                        <td className="px-4 py-3 text-right tabular-nums text-zinc-200">
+                          R$ {formatMoney(faturadoPorOs[r.id] ?? 0)}
+                        </td>
+                      )}
                     </>
                   );
                 })()}
@@ -1015,7 +1037,7 @@ export default function OsListPage() {
 
             {loading && (
               <tr>
-                <td colSpan={hideValorPedido ? 6 : 7} className="px-4 py-6 text-zinc-400">
+                <td colSpan={hideValorPedido ? 6 : 8} className="px-4 py-6 text-zinc-400">
                   Carregando...
                 </td>
               </tr>
@@ -1023,7 +1045,7 @@ export default function OsListPage() {
 
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={hideValorPedido ? 6 : 7} className="px-4 py-6 text-zinc-400">
+                <td colSpan={hideValorPedido ? 6 : 8} className="px-4 py-6 text-zinc-400">
                   Nenhuma OS encontrada.
                 </td>
               </tr>
