@@ -1076,37 +1076,30 @@ export default function OrcamentoPage() {
         ? "id,codigo_interno,nome,fabricante,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
         : "id,codigo_interno,nome,fabricante,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
 
-      const buildItemQuery = (field: "nome" | "codigo_interno" | "fabricante" | null) => {
-        let query = supabase.from("itens").select(baseSelect).eq("ativo", true);
-        if (field && nomeSeedTerm) query = query.ilike(field, `%${nomeSeedTerm}%`);
+      const buildItemQuery = () => {
+        let query = supabase
+          .from("itens")
+          .select(baseSelect)
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
+          .eq("ativo", true);
+        if (nomeSeedTerm) {
+          query = query.or(
+            `nome.ilike.%${nomeSeedTerm}%,codigo_interno.ilike.%${nomeSeedTerm}%,fabricante.ilike.%${nomeSeedTerm}%`
+          );
+        }
         if (fornecedorSeedTerm) query = query.ilike("fornecedores.nome", `%${fornecedorSeedTerm}%`);
         return query.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT);
       };
 
-      const itemResponses = nomeSeedTerm
-        ? await Promise.all([
-            buildItemQuery("nome"),
-            buildItemQuery("codigo_interno"),
-            buildItemQuery("fabricante"),
-          ])
-        : [await buildItemQuery(null)];
-
-      const itemError = itemResponses.find((response) => response.error)?.error;
+      const { data: itemData, error: itemError } = await buildItemQuery();
       if (itemError) {
         setLookupErr(itemError.message);
         setLookupRows([]);
         return;
       }
 
-      const baseMap = new Map<number, ItemLookupBaseRow>();
-      itemResponses.forEach((response) => {
-        const rows = (response.data ?? []) as ItemLookupBaseRow[];
-        rows.forEach((row) => {
-          if (!baseMap.has(row.id)) baseMap.set(row.id, row);
-        });
-      });
-
-      const baseRows = Array.from(baseMap.values())
+      const baseRows = ((itemData ?? []) as ItemLookupBaseRow[])
         .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
         .filter((row) => matchesLookupTerms([row.fornecedores?.nome ?? null], fornecedorTerms))
         .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
@@ -1117,12 +1110,19 @@ export default function OrcamentoPage() {
       const stockMap = new Map<number, number>();
 
       if (ids.length > 0) {
-        const { data: movData, error: movErr } = await supabase
-          .from("movimentacoes")
-          .select("item_id,data_movimentacao")
-          .eq("tipo", "entrada")
-          .in("item_id", ids)
-          .order("data_movimentacao", { ascending: false });
+        const [{ data: movData, error: movErr }, { data: estData, error: estErr }] = await Promise.all([
+          supabase.rpc("ultima_entrada_por_itens", {
+            p_tenant_id: tenantId,
+            p_empresa_id: empresaId,
+            p_item_ids: ids,
+          }),
+          supabase
+            .from("estoque")
+            .select("item_id,quantidade_atual")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
+            .in("item_id", ids),
+        ]);
 
         if (!movErr) {
           const movRows = (movData ?? []) as MovRow[];
@@ -1131,11 +1131,12 @@ export default function OrcamentoPage() {
           });
         }
 
-        const { data: estData } = await supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", ids);
-        const estoqueRows = (estData ?? []) as EstoqueRow[];
-        estoqueRows.forEach((e) => {
-          stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
-        });
+        if (!estErr) {
+          const estoqueRows = (estData ?? []) as EstoqueRow[];
+          estoqueRows.forEach((e) => {
+            stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
+          });
+        }
       }
 
       setLookupRows(
