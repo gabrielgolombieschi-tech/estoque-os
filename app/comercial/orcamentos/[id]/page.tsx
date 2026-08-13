@@ -47,10 +47,11 @@ type ItemLookupBaseRow = {
   fabricante: string | null;
   preco_unitario: number | null;
   custo_ultima_compra: number | null;
-  fornecedores?: { nome?: string | null } | null;
+  fornecedor: string | null;
+  ultima_entrada: string | null;
+  estoque_atual: number | null;
 };
 
-type MovRow = { item_id: number; data_movimentacao: string };
 type EstoqueRow = { item_id: number; quantidade_atual: number | null };
 
 type ItemLookupRow = {
@@ -1072,27 +1073,13 @@ export default function OrcamentoPage() {
 
       setLookupConjuntoRows([]);
 
-      const baseSelect = fornecedorSeedTerm
-        ? "id,codigo_interno,nome,fabricante,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
-        : "id,codigo_interno,nome,fabricante,preco_unitario,custo_ultima_compra,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
-
-      const buildItemQuery = () => {
-        let query = supabase
-          .from("itens")
-          .select(baseSelect)
-          .eq("tenant_id", tenantId)
-          .eq("empresa_id", empresaId)
-          .eq("ativo", true);
-        if (nomeSeedTerm) {
-          query = query.or(
-            `nome.ilike.%${nomeSeedTerm}%,codigo_interno.ilike.%${nomeSeedTerm}%,fabricante.ilike.%${nomeSeedTerm}%`
-          );
-        }
-        if (fornecedorSeedTerm) query = query.ilike("fornecedores.nome", `%${fornecedorSeedTerm}%`);
-        return query.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT);
-      };
-
-      const { data: itemData, error: itemError } = await buildItemQuery();
+      const { data: itemData, error: itemError } = await supabase.rpc("search_orcamento_itens", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_term: nomeSeedTerm || null,
+        p_fornecedor: fornecedorSeedTerm || null,
+        p_limit: LOOKUP_FETCH_LIMIT,
+      });
       if (itemError) {
         setLookupErr(itemError.message);
         setLookupRows([]);
@@ -1101,57 +1088,23 @@ export default function OrcamentoPage() {
 
       const baseRows = ((itemData ?? []) as ItemLookupBaseRow[])
         .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
-        .filter((row) => matchesLookupTerms([row.fornecedores?.nome ?? null], fornecedorTerms))
+        .filter((row) => matchesLookupTerms([row.fornecedor], fornecedorTerms))
         .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
         .slice(0, LOOKUP_RESULT_LIMIT);
-
-      const ids = baseRows.map((r) => r.id);
-      const ultimaMap = new Map<number, string>();
-      const stockMap = new Map<number, number>();
-
-      if (ids.length > 0) {
-        const [{ data: movData, error: movErr }, { data: estData, error: estErr }] = await Promise.all([
-          supabase.rpc("ultima_entrada_por_itens", {
-            p_tenant_id: tenantId,
-            p_empresa_id: empresaId,
-            p_item_ids: ids,
-          }),
-          supabase
-            .from("estoque")
-            .select("item_id,quantidade_atual")
-            .eq("tenant_id", tenantId)
-            .eq("empresa_id", empresaId)
-            .in("item_id", ids),
-        ]);
-
-        if (!movErr) {
-          const movRows = (movData ?? []) as MovRow[];
-          movRows.forEach((m) => {
-            if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao);
-          });
-        }
-
-        if (!estErr) {
-          const estoqueRows = (estData ?? []) as EstoqueRow[];
-          estoqueRows.forEach((e) => {
-            stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
-          });
-        }
-      }
 
       setLookupRows(
         baseRows.map((r) => ({
           id: r.id,
           codigo_interno: r.codigo_interno,
           nome: r.nome,
-          fornecedor: r.fornecedores?.nome ?? null,
-          ultima_entrada: ultimaMap.get(r.id) ?? null,
+          fornecedor: r.fornecedor,
+          ultima_entrada: r.ultima_entrada,
           preco_unitario: getSuggestedOrcamentoUnitPrice({
             custoUltimaCompra: r.custo_ultima_compra,
             precoUnitario: r.preco_unitario,
             margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
           }),
-          estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
+          estoque_atual: r.estoque_atual === null ? null : Number(r.estoque_atual),
         }))
       );
     } catch (e: unknown) {

@@ -431,11 +431,12 @@ export default function ItensClient({
 
   async function loadFornecedores() {
     if (tenantEmpresaLoading) return;
-    if (!tenantId) return;
-    const { data, error } = await applyTenant(
-      supabase.from("fornecedores").select("id,nome,ativo"),
-      tenantId
-    )
+    if (!tenantId || !empresaId) return;
+    const { data, error } = await supabase
+      .from("fornecedores")
+      .select("id,nome,ativo")
+      .eq("tenant_id", tenantId)
+      .eq("empresa_id", empresaId)
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .limit(500);
@@ -483,8 +484,8 @@ export default function ItensClient({
   async function load() {
     setErr(null);
     if (tenantEmpresaLoading) return;
-    if (!tenantId) {
-      setErr("Tenant nao carregado.");
+    if (!tenantId || !empresaId) {
+      setErr("Tenant/empresa nao carregados.");
       return;
     }
 
@@ -502,15 +503,14 @@ export default function ItensClient({
       const from = (page - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      let query = applyTenant(
-        supabase
-          .from("itens")
-          .select(
-            (supportsMotivoCompra ? selectWithMotivo : selectBase) as string,
-            { count: "exact" }
-          ),
-        tenantId
-      );
+      let query = supabase
+        .from("itens")
+        .select(
+          (supportsMotivoCompra ? selectWithMotivo : selectBase) as string,
+          { count: "exact" }
+        )
+        .eq("tenant_id", tenantId)
+        .eq("empresa_id", empresaId);
 
       const idRaw = filterId.trim();
       if (idRaw) {
@@ -526,7 +526,9 @@ export default function ItensClient({
 
       const codigo = filterCodigo.trim().replace(/,/g, " ").replace(/\s+/g, " ").trim();
       if (codigo) {
-        query = query.or(`codigo_interno.ilike.%${codigo}%,codigo_barras.ilike.%${codigo}%`);
+        query = /^\d+$/.test(codigo)
+          ? query.or(`codigo_interno.eq.${codigo},codigo_barras.eq.${codigo}`)
+          : query.or(`codigo_interno.ilike.%${codigo}%,codigo_barras.ilike.%${codigo}%`);
       }
 
       const produto = filterProduto.trim();
@@ -547,10 +549,11 @@ export default function ItensClient({
         // returning empty results just because the page hasn't loaded fornecedores yet.
         let baseFornecedores = fornecedores;
         if (baseFornecedores.length === 0) {
-          const { data } = await applyTenant(
-            supabase.from("fornecedores").select("id,nome,ativo"),
-            tenantId
-          )
+          const { data } = await supabase
+            .from("fornecedores")
+            .select("id,nome,ativo")
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
             .eq("ativo", true)
             .order("nome", { ascending: true })
             .limit(1000);
@@ -590,10 +593,11 @@ export default function ItensClient({
         if (supportsMotivoCompra && isMissingMotivoCompraColumn(error.message ?? "")) {
           setSupportsMotivoCompra(false);
           // Retry without motivo_compra_id so the page still loads.
-          const retry = await applyTenant(
-            supabase.from("itens").select(selectBase as string, { count: "exact" }),
-            tenantId
-          )
+          const retry = await supabase
+            .from("itens")
+            .select(selectBase as string, { count: "exact" })
+            .eq("tenant_id", tenantId)
+            .eq("empresa_id", empresaId)
             .order("nome", { ascending: true })
             .range(from, to);
           data = retry.data;
