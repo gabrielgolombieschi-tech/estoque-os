@@ -740,7 +740,7 @@ export async function getClienteById(
   if (!Number.isFinite(id) || id <= 0) return null;
 
   const { data, error } = await applyTenantEmpresa(
-    supabase.from("clientes").select("id,nome").eq("id", id).maybeSingle<ClienteLookupRow>(),
+    supabase.from("clientes").select("id,nome,documento").eq("id", id).maybeSingle<ClienteLookupRow>(),
     params.tenantId,
     params.empresaId
   );

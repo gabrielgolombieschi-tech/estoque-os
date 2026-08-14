@@ -143,7 +143,7 @@ export type CondicaoPagamentoRow = {
   deleted_at: string | null;
 };
 
-export type ClienteLookupRow = { id: number; nome: string | null };
+export type ClienteLookupRow = { id: number; nome: string | null; documento: string | null };
 export type ClienteContatoLookupRow = {
   id: number | string;
   nome: string | null;

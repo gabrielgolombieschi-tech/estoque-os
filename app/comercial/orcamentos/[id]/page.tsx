@@ -10,6 +10,7 @@ import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/ca
 import { formatDecimalBR, formatMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import type {
   ClienteContatoLookupRow,
+  ClienteLookupRow,
   OrcamentoItemRow,
   OrcamentoRow,
   OrcamentoStatus,
@@ -244,6 +245,20 @@ function formatConjuntoSingleLineDescription(conjunto: ConjuntoCatalogoRow): str
   return details ? `CONJUNTO ${details}` : "CONJUNTO";
 }
 
+function formatClienteDocumento(value: string | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+
+  if (digits.length === 14) {
+    return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  }
+  if (digits.length === 11) {
+    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  }
+
+  return raw || "Não informado";
+}
+
 function contatoField(value: string | null | undefined): string {
   return String(value ?? "").trim();
 }
@@ -331,7 +346,7 @@ type NewDialogState =
       busy: boolean;
       error: string | null;
       clienteTerm: string;
-      clienteResults: Array<{ id: number; nome: string | null }>;
+      clienteResults: ClienteLookupRow[];
       clienteLoading: boolean;
       clienteSearchError: string | null;
       clienteId: number | null;
@@ -357,7 +372,7 @@ type EditClienteDialogState =
       busy: boolean;
       error: string | null;
       clienteTerm: string;
-      clienteResults: Array<{ id: number; nome: string | null }>;
+      clienteResults: ClienteLookupRow[];
       clienteLoading: boolean;
       clienteSearchError: string | null;
       clienteId: number | null;
@@ -2722,7 +2737,8 @@ export default function OrcamentoPage() {
                           }
                         >
                           <span className="text-zinc-200">{c.nome ?? `#${c.id}`}</span>
-                          <span className="text-zinc-500"> - #{c.id}</span>
+                          <span className="text-zinc-400"> — {formatClienteDocumento(c.documento)}</span>
+                          <span className="text-zinc-600"> · #{c.id}</span>
                         </button>
                       ))
                     )}
@@ -2959,7 +2975,8 @@ export default function OrcamentoPage() {
                           }
                         >
                           <span className="text-zinc-200">{c.nome ?? `#${c.id}`}</span>
-                          <span className="text-zinc-500"> - #{c.id}</span>
+                          <span className="text-zinc-400"> — {formatClienteDocumento(c.documento)}</span>
+                          <span className="text-zinc-600"> · #{c.id}</span>
                         </button>
                       ))
                     )}
