@@ -112,6 +112,10 @@ type ItemBase = Omit<Item, "fiscal_itens">;
 // When the DB schema hasn't been migrated yet, `motivo_compra_id` won't be returned by Supabase.
 // This keeps runtime resilient without using `any`.
 type ItemBaseMaybeMotivo = Omit<ItemBase, "motivo_compra_id"> & { motivo_compra_id?: string | null };
+type CadastroItemRpcRow = Omit<ItemBaseMaybeMotivo, "fornecedores"> & {
+  total_count: number;
+  fornecedor_nome: string | null;
+};
 type ItemPayload = {
   codigo_interno: string;
   codigo_barras: string | null;
@@ -491,28 +495,9 @@ export default function ItensClient({
 
     setListLoading(true);
 
-    const isMissingMotivoCompraColumn = (message: string) =>
-      message.toLowerCase().includes("motivo_compra_id") && message.toLowerCase().includes("does not exist");
-
-    const selectBase =
-      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,criado_por,atualizado_em,atualizado_por" as const;
-    const selectWithMotivo =
-      "id,codigo_interno,codigo_barras,nome,descricao,tipo,categoria,subcategoria,fabricante,finalidade,motivo_compra_id,unidade_medida,controla_estoque,estoque_minimo,estoque_maximo,estoque_ideal,custo_ultima_compra,custo_medio,preco_unitario,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo,criado_em,criado_por,atualizado_em,atualizado_por" as const;
-
     try {
-      const from = (page - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      let query = supabase
-        .from("itens")
-        .select(
-          (supportsMotivoCompra ? selectWithMotivo : selectBase) as string,
-          { count: "exact" }
-        )
-        .eq("tenant_id", tenantId)
-        .eq("empresa_id", empresaId);
-
       const idRaw = filterId.trim();
+      let itemId: number | null = null;
       if (idRaw) {
         const parsed = Number.parseInt(idRaw, 10);
         if (!Number.isFinite(parsed)) {
@@ -521,101 +506,43 @@ export default function ItensClient({
           setTotalCount(0);
           return;
         }
-        query = query.eq("id", parsed);
+        itemId = parsed;
       }
 
       const codigo = filterCodigo.trim().replace(/,/g, " ").replace(/\s+/g, " ").trim();
-      if (codigo) {
-        query = /^\d+$/.test(codigo)
-          ? query.or(`codigo_interno.eq.${codigo},codigo_barras.eq.${codigo}`)
-          : query.or(`codigo_interno.ilike.%${codigo}%,codigo_barras.ilike.%${codigo}%`);
-      }
-
       const produto = filterProduto.trim();
-      if (produto) {
-        query = query.ilike("nome", `%${produto}%`);
-      }
-
       const fornecedorTerm = filterFornecedor.trim();
-      if (fornecedorTerm) {
-        const norm = (s: string) =>
-          s
-            .normalize("NFD")
-            // eslint-disable-next-line no-control-regex
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
 
-        // Use the cached fornecedores list when available; otherwise, fetch it to avoid
-        // returning empty results just because the page hasn't loaded fornecedores yet.
-        let baseFornecedores = fornecedores;
-        if (baseFornecedores.length === 0) {
-          const { data } = await supabase
-            .from("fornecedores")
-            .select("id,nome,ativo")
-            .eq("tenant_id", tenantId)
-            .eq("empresa_id", empresaId)
-            .eq("ativo", true)
-            .order("nome", { ascending: true })
-            .limit(1000);
-          baseFornecedores = (data ?? []) as unknown as Fornecedor[];
-        }
-
-        const term = norm(fornecedorTerm);
-        const ids = baseFornecedores
-          .filter((f) => norm(String(f.nome ?? "")).includes(term))
-          .map((f) => f.id)
-          .filter((v) => Number.isFinite(v));
-
-        if (ids.length === 0) {
-          setRows([]);
-          setTotalCount(0);
-          return;
-        }
-
-        query = query.in("fornecedor_id", ids);
-      }
-
-      if (filterTipo) query = query.eq("tipo", filterTipo);
-      if (filterFinalidade) query = query.eq("finalidade", filterFinalidade);
-      if (filterAtivo === "ativos") query = query.eq("ativo", true);
-
-      const ascending = sort.dir === "asc";
-      if (sort.key === "fornecedor") {
-        query = query.order("nome", { foreignTable: "fornecedores", ascending });
-      } else {
-        query = query.order(sort.key, { ascending });
-      }
-      if (sort.key !== "id") query = query.order("id", { ascending: false });
-
-      let { data, error, count } = await query.range(from, to);
+      const { data, error } = await supabase.rpc("search_cadastro_itens", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_item_id: itemId,
+        p_codigo: codigo || null,
+        p_produto: produto || null,
+        p_fornecedor: fornecedorTerm || null,
+        p_tipo: filterTipo || null,
+        p_finalidade: filterFinalidade || null,
+        p_ativo_only: filterAtivo === "ativos",
+        p_page: page,
+        p_page_size: PAGE_SIZE,
+        p_sort_key: sort.key,
+        p_sort_dir: sort.dir,
+      });
 
       if (error) {
-        if (supportsMotivoCompra && isMissingMotivoCompraColumn(error.message ?? "")) {
-          setSupportsMotivoCompra(false);
-          // Retry without motivo_compra_id so the page still loads.
-          const retry = await supabase
-            .from("itens")
-            .select(selectBase as string, { count: "exact" })
-            .eq("tenant_id", tenantId)
-            .eq("empresa_id", empresaId)
-            .order("nome", { ascending: true })
-            .range(from, to);
-          data = retry.data;
-          error = retry.error;
-          count = retry.count;
-        }
-
-        if (error) {
-          setErr(error.message);
-          setRows([]);
-          setTotalCount(0);
-          return;
-        }
+        setErr(error.message);
+        setRows([]);
+        setTotalCount(0);
+        return;
       }
 
-      setTotalCount(count ?? 0);
+      const rpcRows = (data ?? []) as CadastroItemRpcRow[];
+      setTotalCount(Number(rpcRows[0]?.total_count ?? 0));
 
-      const baseRows = (data ?? []) as unknown as ItemBaseMaybeMotivo[];
+      const baseRows = rpcRows.map((row) => ({
+        ...row,
+        fornecedores: row.fornecedor_nome ? { nome: row.fornecedor_nome } : null,
+      })) as ItemBaseMaybeMotivo[];
       const itemIds = Array.from(new Set(baseRows.map((row) => row.id).filter(Number.isFinite)));
       const fiscalMap = new Map<number, FiscalItem>();
       const auditMap = new Map<number, ItemAudit>();

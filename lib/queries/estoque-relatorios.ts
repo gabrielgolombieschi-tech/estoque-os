@@ -85,22 +85,6 @@ function normalizeNullableBoolean(v: unknown): boolean | null {
   return typeof v === "boolean" ? v : null;
 }
 
-function compareText(a: string, b: string) {
-  return a.localeCompare(b, "pt-BR", { sensitivity: "base" });
-}
-
-function sortSaldoRows(rows: SaldoEmEstoqueRow[], sort: { key: SaldoEmEstoqueSortKey; dir: SortDir }) {
-  const factor = sort.dir === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const primary =
-      sort.key === "codigo"
-        ? compareText(String(a.codigo_interno ?? ""), String(b.codigo_interno ?? ""))
-        : compareText(String(a.item_nome ?? ""), String(b.item_nome ?? ""));
-    if (primary !== 0) return primary * factor;
-    return (safeNumber(a.item_id) - safeNumber(b.item_id)) * factor;
-  });
-}
-
 function chunkArray<T>(values: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < values.length; i += size) chunks.push(values.slice(i, i + size));
@@ -201,113 +185,6 @@ async function attachQuantidadeCompradaPendente(
   }));
 }
 
-function mapSaldoRowFromEstoqueRecord(r: unknown): SaldoEmEstoqueRow {
-  const row = r as {
-    item_id?: unknown;
-    quantidade_atual?: unknown;
-    localizacao?: unknown;
-    itens?: unknown;
-  };
-
-  const itensRaw = row.itens ?? null;
-  const itens = Array.isArray(itensRaw) ? itensRaw[0] ?? null : itensRaw;
-
-  const fornRaw = itens?.fornecedores ?? null;
-  const forn = Array.isArray(fornRaw) ? fornRaw[0] ?? null : fornRaw;
-
-  const saldo = safeNumber(row.quantidade_atual);
-  const precoUnitario = itens?.preco_unitario ?? null;
-  const custo = itens?.custo_medio ?? null;
-  const valorUnitario = pickPositiveUnitValue([precoUnitario, custo]);
-  const valor = saldo * valorUnitario;
-  const estoqueMin = itens?.estoque_minimo ?? null;
-  const abaixoMin = saldo < safeNumber(estoqueMin);
-
-  return {
-    item_id: safeNumber(itens?.id ?? row.item_id),
-    codigo_interno: String(itens?.codigo_interno ?? ""),
-    item_nome: String(itens?.nome ?? ""),
-    unidade_medida: itens?.unidade_medida ?? null,
-    quantidade_atual: saldo,
-    quantidade_comprada_pendente: 0,
-    preco_unitario: precoUnitario,
-    custo_medio: custo,
-    valor_estoque: valor,
-    fornecedor_id: itens?.fornecedor_id ?? null,
-    fornecedor_nome: forn?.nome ? String(forn.nome) : null,
-    estoque_minimo: itens?.estoque_minimo ?? null,
-    estoque_ideal: null,
-    estoque_maximo: itens?.estoque_maximo ?? null,
-    localizacao: typeof row.localizacao === "string" ? row.localizacao : null,
-    finalidade: itens?.finalidade ?? null,
-    controla_estoque: itens?.controla_estoque ?? null,
-    abaixo_minimo: abaixoMin,
-  };
-}
-
-function mapSaldoRowFromItemRecord(r: unknown): SaldoEmEstoqueRow {
-  const row = r as {
-    id?: unknown;
-    codigo_interno?: unknown;
-    nome?: unknown;
-    unidade_medida?: unknown;
-    preco_unitario?: unknown;
-    custo_medio?: unknown;
-    estoque_minimo?: unknown;
-    estoque_maximo?: unknown;
-    fornecedor_id?: unknown;
-    finalidade?: unknown;
-    controla_estoque?: unknown;
-    fornecedores?: unknown;
-    estoque?: unknown;
-  };
-
-  const fornecedorRaw = row.fornecedores ?? null;
-  const fornecedor = Array.isArray(fornecedorRaw) ? fornecedorRaw[0] ?? null : fornecedorRaw;
-  const estoqueRows = Array.isArray(row.estoque) ? row.estoque : [];
-
-  const saldo = estoqueRows.reduce((acc, estoqueRow) => {
-    const current = estoqueRow as { quantidade_atual?: unknown };
-    return acc + safeNumber(current.quantidade_atual);
-  }, 0);
-
-  const localizacoes = Array.from(
-    new Set(
-      estoqueRows
-        .map((estoqueRow) => normalizeNullableText((estoqueRow as { localizacao?: unknown }).localizacao))
-        .filter((value): value is string => Boolean(value))
-    )
-  );
-
-  const precoUnitario = normalizeNumberOrString(row.preco_unitario);
-  const custo = normalizeNumberOrString(row.custo_medio);
-  const valorUnitario = pickPositiveUnitValue([precoUnitario, custo]);
-  const valor = saldo * valorUnitario;
-  const estoqueMin = normalizeNumberOrString(row.estoque_minimo);
-  const abaixoMin = saldo < safeNumber(estoqueMin);
-
-  return {
-    item_id: safeNumber(row.id),
-    codigo_interno: String(row.codigo_interno ?? ""),
-    item_nome: String(row.nome ?? ""),
-    unidade_medida: normalizeNullableText(row.unidade_medida),
-    quantidade_atual: saldo,
-    quantidade_comprada_pendente: 0,
-    preco_unitario: precoUnitario,
-    custo_medio: custo,
-    valor_estoque: valor,
-    fornecedor_id: normalizeNullableNumber(row.fornecedor_id),
-    fornecedor_nome: fornecedor?.nome ? String(fornecedor.nome) : null,
-    estoque_minimo: estoqueMin,
-    estoque_ideal: null,
-    estoque_maximo: normalizeNumberOrString(row.estoque_maximo),
-    localizacao: localizacoes.length ? localizacoes.join(", ") : null,
-    finalidade: normalizeNullableText(row.finalidade),
-    controla_estoque: normalizeNullableBoolean(row.controla_estoque),
-    abaixo_minimo: abaixoMin,
-  };
-}
-
 function splitOrEmpty(s: string): string[] {
   return String(s ?? "")
     .split(",")
@@ -335,34 +212,6 @@ export async function listFornecedores(
     .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.nome);
 }
 
-async function resolveFornecedorIdsByPrefix(
-  supabase: SupabaseClient,
-  ctx: { tenantId: string; empresaId: string },
-  prefixRaw: string
-): Promise<number[]> {
-  const prefix = String(prefixRaw ?? "").trim();
-  if (!prefix) return [];
-
-  const { tenantId, empresaId } = ctx;
-
-  const { data, error } = await applyTenantEmpresa(
-    supabase
-      .from("fornecedores")
-      .select("id")
-      .eq("ativo", true)
-      .ilike("nome", `${prefix}%`)
-      .order("nome", { ascending: true })
-      .limit(500),
-    tenantId,
-    empresaId
-  );
-
-  if (error) throw error;
-
-  const rows = Array.isArray(data) ? (data as Array<{ id: unknown }>) : [];
-  return rows.map((r) => safeNumber(r.id)).filter((n) => Number.isFinite(n) && n > 0);
-}
-
 // TAB A
 // Fonte oficial: public.estoque + join public.itens + left join public.fornecedores.
 export async function listSaldoEmEstoque(
@@ -377,194 +226,50 @@ export async function listSaldoEmEstoque(
 ): Promise<PagedResult<SaldoEmEstoqueRow>> {
   const page = Math.max(1, Math.floor(args.page || 1));
   const pageSize = Math.max(10, Math.min(500, Math.floor(args.pageSize || 50)));
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
   const { tenantId, empresaId } = ctx;
   const { filters } = args;
-
-  const buscaDireta = filters.busca.trim();
-  if (buscaDireta) {
-    const { data, error } = await supabase.rpc("search_estoque_itens", {
-      p_tenant_id: tenantId,
-      p_empresa_id: empresaId,
-      p_busca_geral: buscaDireta,
-      p_codigo: null,
-      p_nome: null,
-      p_fornecedor: filters.fornecedorPrefix.trim() || null,
-      p_item_id: null,
-      p_ativo_only: false,
-      p_finalidade: filters.finalidade && filters.finalidade !== "todas" ? filters.finalidade : null,
-      p_abaixo_minimo: filters.abaixoMinimo,
-      p_sem_fornecedor: filters.semFornecedor,
-      p_saldo_positivo: !filters.abaixoMinimo,
-      p_page: page,
-      p_page_size: pageSize,
-      p_sort_key: args.sort.key,
-      p_sort_dir: args.sort.dir,
-    });
-    if (error) throw error;
-
-    const rpcRows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
-    const rows = rpcRows.map((row): SaldoEmEstoqueRow => ({
-      item_id: safeNumber(row.item_id),
-      codigo_interno: String(row.codigo_interno ?? ""),
-      item_nome: String(row.item_nome ?? ""),
-      unidade_medida: normalizeNullableText(row.unidade_medida),
-      quantidade_atual: safeNumber(row.quantidade_atual),
-      quantidade_comprada_pendente: 0,
-      preco_unitario: normalizeNumberOrString(row.preco_unitario),
-      custo_medio: normalizeNumberOrString(row.custo_medio),
-      valor_estoque: safeNumber(row.quantidade_atual) * pickPositiveUnitValue([row.preco_unitario, row.custo_medio]),
-      fornecedor_id: normalizeNullableNumber(row.fornecedor_id),
-      fornecedor_nome: normalizeNullableText(row.fornecedor_nome),
-      estoque_minimo: normalizeNumberOrString(row.estoque_minimo),
-      estoque_ideal: normalizeNumberOrString(row.estoque_ideal),
-      estoque_maximo: normalizeNumberOrString(row.estoque_maximo),
-      localizacao: normalizeNullableText(row.localizacao),
-      finalidade: normalizeNullableText(row.finalidade),
-      controla_estoque: normalizeNullableBoolean(row.controla_estoque),
-      abaixo_minimo: normalizeNullableBoolean(row.abaixo_minimo),
-    }));
-
-    return {
-      rows: await attachQuantidadeCompradaPendente(supabase, ctx, rows),
-      count: rpcRows.length > 0 ? safeNumber(rpcRows[0].total_count) : 0,
-    };
-  }
-
-  const resolvedFornecedorIds =
-    filters.fornecedorIds.length > 0
-      ? filters.fornecedorIds
-      : filters.fornecedorPrefix.trim()
-        ? await resolveFornecedorIdsByPrefix(supabase, ctx, filters.fornecedorPrefix)
-        : [];
-
-  if (filters.fornecedorPrefix.trim() && resolvedFornecedorIds.length === 0 && !filters.semFornecedor) {
-    return { rows: [], count: 0 };
-  }
-
-  if (filters.abaixoMinimo) {
-    let itensQb = applyTenantEmpresa(
-      supabase
-        .from("itens")
-        .select(
-          [
-            "id",
-            "codigo_interno",
-            "nome",
-            "unidade_medida",
-            "preco_unitario",
-            "custo_medio",
-            "estoque_minimo",
-            "estoque_maximo",
-            "fornecedor_id",
-            "finalidade",
-            "controla_estoque",
-            "fornecedores!itens_tenant_empresa_fornecedor_fk(nome)",
-            "estoque!estoque_item_id_fkey(quantidade_atual,localizacao)",
-          ].join(",")
-        ),
-      tenantId,
-      empresaId
-    );
-
-    itensQb = itensQb.eq("controla_estoque", true);
-
-    if (filters.finalidade && filters.finalidade !== "todas") itensQb = itensQb.eq("finalidade", filters.finalidade);
-
-    const busca = filters.busca.trim();
-    if (busca) {
-      itensQb = itensQb.or([`nome.ilike.%${busca}%`, `codigo_interno.ilike.%${busca}%`].join(","));
-    }
-
-    if (resolvedFornecedorIds.length && filters.semFornecedor) {
-      itensQb = itensQb.or([`fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "fornecedor_id.is.null"].join(","));
-    } else if (resolvedFornecedorIds.length) {
-      itensQb = itensQb.in("fornecedor_id", resolvedFornecedorIds);
-    } else if (filters.semFornecedor) {
-      itensQb = itensQb.is("fornecedor_id", null);
-    }
-
-    const chunkSize = 1000;
-    let offset = 0;
-    const allRows: SaldoEmEstoqueRow[] = [];
-
-    while (true) {
-      const { data, error } = await itensQb.range(offset, offset + chunkSize - 1);
-      if (error) throw error;
-
-      const typedRows = Array.isArray(data) ? data : [];
-      allRows.push(...typedRows.map(mapSaldoRowFromItemRecord));
-
-      if (typedRows.length < chunkSize) break;
-      offset += chunkSize;
-    }
-
-    const localizacaoBusca = filters.localizacao.trim().toLowerCase();
-    const filtered = allRows.filter((row) => {
-      if (!row.abaixo_minimo) return false;
-      if (!localizacaoBusca) return true;
-      return String(row.localizacao ?? "").toLowerCase().includes(localizacaoBusca);
-    });
-
-    const sorted = sortSaldoRows(filtered, args.sort);
-    const pageRows = sorted.slice(from, to + 1);
-    return { rows: await attachQuantidadeCompradaPendente(supabase, ctx, pageRows), count: sorted.length };
-  }
-
-  let qb = applyTenantEmpresa(
-    supabase
-      .from("estoque")
-      .select(
-        [
-          "item_id",
-          "quantidade_atual",
-          "localizacao",
-          "empresa_id",
-          "itens:itens!estoque_item_id_fkey!inner(id,codigo_interno,nome,unidade_medida,preco_unitario,custo_medio,estoque_minimo,estoque_maximo,fornecedor_id,finalidade,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome))",
-        ].join(","),
-        { count: "exact" }
-      )
-      .eq("empresa_id", empresaId)
-      .gt("quantidade_atual", 0),
-    tenantId,
-    empresaId
-  );
-
-  qb = qb.eq("itens.controla_estoque", true);
-
-  if (filters.finalidade && filters.finalidade !== "todas") qb = qb.eq("itens.finalidade", filters.finalidade);
-
-  if (filters.localizacao.trim()) qb = qb.ilike("localizacao", `%${filters.localizacao.trim()}%`);
-
-  const busca = filters.busca.trim();
-  if (busca) {
-    qb = qb.or([`nome.ilike.%${busca}%`, `codigo_interno.ilike.%${busca}%`].join(","), { foreignTable: "itens" });
-  }
-
-  if (resolvedFornecedorIds.length && filters.semFornecedor) {
-    qb = qb.or([`fornecedor_id.in.(${resolvedFornecedorIds.join(",")})`, "fornecedor_id.is.null"].join(","), { foreignTable: "itens" });
-  } else if (resolvedFornecedorIds.length) {
-    qb = qb.in("itens.fornecedor_id", resolvedFornecedorIds);
-  } else if (filters.semFornecedor) {
-    qb = qb.is("itens.fornecedor_id", null);
-  }
-
-  if (args.sort.key === "codigo") {
-    qb = qb.order("itens(codigo_interno)", { ascending: args.sort.dir === "asc" });
-  } else {
-    qb = qb.order("itens(nome)", { ascending: args.sort.dir === "asc" });
-  }
-
-  const { data, error, count } = await qb.range(from, to);
+  const { data, error } = await supabase.rpc("search_relatorio_estoque", {
+    p_tenant_id: tenantId,
+    p_empresa_id: empresaId,
+    p_busca: filters.busca.trim() || null,
+    p_fornecedor: filters.fornecedorPrefix.trim() || null,
+    p_finalidade: filters.finalidade && filters.finalidade !== "todas" ? filters.finalidade : null,
+    p_localizacao: filters.localizacao.trim() || null,
+    p_abaixo_minimo: filters.abaixoMinimo,
+    p_sem_fornecedor: filters.semFornecedor,
+    p_page: page,
+    p_page_size: pageSize,
+    p_sort_key: args.sort.key,
+    p_sort_dir: args.sort.dir,
+  });
   if (error) throw error;
 
-  const mapped: SaldoEmEstoqueRow[] = (data ?? []).map(mapSaldoRowFromEstoqueRecord);
+  const rpcRows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+  const rows = rpcRows.map((row): SaldoEmEstoqueRow => ({
+    item_id: safeNumber(row.item_id),
+    codigo_interno: String(row.codigo_interno ?? ""),
+    item_nome: String(row.item_nome ?? ""),
+    unidade_medida: normalizeNullableText(row.unidade_medida),
+    quantidade_atual: safeNumber(row.quantidade_atual),
+    quantidade_comprada_pendente: 0,
+    preco_unitario: normalizeNumberOrString(row.preco_unitario),
+    custo_medio: normalizeNumberOrString(row.custo_medio),
+    valor_estoque: safeNumber(row.quantidade_atual) * pickPositiveUnitValue([row.preco_unitario, row.custo_medio]),
+    fornecedor_id: normalizeNullableNumber(row.fornecedor_id),
+    fornecedor_nome: normalizeNullableText(row.fornecedor_nome),
+    estoque_minimo: normalizeNumberOrString(row.estoque_minimo),
+    estoque_ideal: normalizeNumberOrString(row.estoque_ideal),
+    estoque_maximo: normalizeNumberOrString(row.estoque_maximo),
+    localizacao: normalizeNullableText(row.localizacao),
+    finalidade: normalizeNullableText(row.finalidade),
+    controla_estoque: normalizeNullableBoolean(row.controla_estoque),
+    abaixo_minimo: normalizeNullableBoolean(row.abaixo_minimo),
+  }));
 
-  const filtered = filters.abaixoMinimo ? mapped.filter((x) => x.abaixo_minimo) : mapped;
-
-  return { rows: await attachQuantidadeCompradaPendente(supabase, ctx, filtered), count: Number(count ?? 0) };
+  return {
+    rows: await attachQuantidadeCompradaPendente(supabase, ctx, rows),
+    count: rpcRows.length > 0 ? safeNumber(rpcRows[0].total_count) : 0,
+  };
 }
 // TAB B
 export type EntradasToggleOs = "todos" | "com_os" | "sem_os";

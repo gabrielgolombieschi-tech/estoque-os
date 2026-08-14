@@ -72,20 +72,12 @@ type ItemLookupRow = ItemPick & {
 };
 
 type ItemLookupBaseRow = ItemPick & {
-  fornecedores?: { nome?: string | null } | null;
+  fornecedor: string | null;
+  ultima_entrada: string | null;
+  estoque_atual: number | null;
 };
 
 type AddMode = "item" | "despesa";
-
-type MovRow = {
-  item_id: number;
-  data_movimentacao: string;
-};
-
-type EstoqueRow = {
-  item_id: number;
-  quantidade_atual: number | null;
-};
 
 type HhLancamentoCalcRow = {
   entrada_1: string | null;
@@ -1270,106 +1262,44 @@ export default function OsDetailPage() {
   async function load() {
     setErr(null);
 
-    const { data: osData, error: osErr } = await applyTenant(
-      supabase
-        .from("ordens_servico")
-        .select(
-          "id,numero_os,cliente_nome,cliente_id,status,descricao_servico,valor_total,data_abertura,orcado,tipo_pedido,tem_gestao,pedido_compra,vendedor,usa_relatorio_hh"
-        ),
-      effectiveTenantId
-    )
-      .eq("id", osId)
-      .single();
+    const { data, error } = await supabase.rpc("get_os_detail_operacional", {
+      p_tenant_id: effectiveTenantId,
+      p_empresa_id: effectiveEmpresaId,
+      p_os_id: osId,
+    });
 
-    if (osErr) {
-      setErr(osErr.message);
+    if (error) {
+      setErr(error.message);
       return;
     }
-    const osRow = osData as OS;
+
+    const payload = (data ?? {}) as Record<string, unknown>;
+    const osRow = payload.os as OS | undefined;
+    if (!osRow?.id) {
+      setErr("Ordem de serviço não encontrada para a empresa ativa.");
+      return;
+    }
+
     setOs(osRow);
     setTemGestao(Boolean(osRow.tem_gestao));
-    await loadGestaoItens();
 
-    // Carregar flag habilita_hh do cliente (best-effort). Alguns perfis podem não ter SELECT em `clientes`.
-    // Se a OS já é HH, não bloquear a UI de HH.
-    if (osRow.cliente_id) {
-      const { data: clienteData, error: clienteErr } = await applyTenant(
-        supabase.from("clientes").select("habilita_hh").eq("id", osRow.cliente_id).single(),
-        effectiveTenantId
-      );
-      if (clienteErr) {
-        setClienteHabilitaHH(Boolean(osRow.usa_relatorio_hh));
-      } else {
-        setClienteHabilitaHH(Boolean(clienteData?.habilita_hh) || Boolean(osRow.usa_relatorio_hh));
-      }
-    } else {
-      setClienteHabilitaHH(Boolean(osRow.usa_relatorio_hh));
-    }
+    setClienteHabilitaHH(Boolean(payload.cliente_habilita_hh));
 
-    const { data: itemsData, error: itemsErr } = await applyTenant(
-      supabase
-        .from("os_itens")
-        .select(
-          "id,item_id,quantidade,valor_unitario,valor_total,desconto_percentual,desconto_valor,baixa_estoque,quantidade_baixada,criado_em,registrado_em,registrado_por_nome,itens(nome,codigo_interno,tipo)"
-        ),
-      effectiveTenantId
-    )
-      .eq("os_id", osId)
-      .order("id", { ascending: false });
+    const nextRows = Array.isArray(payload.itens) ? (payload.itens as unknown as OsItemRow[]) : [];
+    setRows(nextRows);
+    setBaixaEditValues(
+      Object.fromEntries(nextRows.map((row) => [row.id, formatDecimalBR(getQuantidadeBaixada(row), 3)]))
+    );
 
-    if (itemsErr) setErr(itemsErr.message);
-    else {
-      const nextRows = (itemsData ?? []) as unknown as OsItemRow[];
-      setRows(nextRows);
-      setBaixaEditValues(
-        Object.fromEntries(nextRows.map((row) => [row.id, formatDecimalBR(getQuantidadeBaixada(row), 3)]))
-      );
-    }
-
-    const { data: maoData, error: maoErr } = await supabase
-      .from("vw_custo_mao_obra_os")
-      .select("custo_mao_obra")
-      .eq("os_id", osId)
-      .maybeSingle();
-
-    if (maoErr) {
-      console.error(maoErr);
-      setMaoObraExtra(0);
-    } else {
-      setMaoObraExtra(Number(maoData?.custo_mao_obra ?? 0));
-    }
-
-    const { data: hhData, error: hhErr } = await supabase
-      .from("vw_hh_total_os")
-      .select("total_hh")
-      .eq("os_id", osId)
-      .maybeSingle();
-
-    if (hhErr) {
-      console.error(hhErr);
-      setHhTotal(0);
-    } else {
-      setHhTotal(Number((hhData as { total_hh?: number | null } | null)?.total_hh ?? 0));
-    }
+    setMaoObraExtra(Number(payload.custo_mao_obra ?? 0));
+    setHhTotal(Number(payload.total_hh ?? 0));
 
     // Valor do pedido HH (para bater com PDF): soma(valor_hora * horas_efetivas)
     // horas_efetivas segue a mesma regra do PDF (2 períodos ou entrada/saída; fallback horas_trabalhadas).
-    try {
-      const { data: hhCalcData, error: hhCalcErr } = await applyTenant(
-        supabase
-          .from("hh_lancamentos")
-          .select("entrada_1,saida_1,entrada_2,saida_2,hora_entrada,hora_saida,horas_trabalhadas,percentual_aplicado,tem_extra_50,horas_extra_50,tem_extra_100,horas_extra_100,valor_hora,valor_total")
-          .eq("os_id", osId),
-        effectiveTenantId
-      );
-      if (hhCalcErr) throw hhCalcErr;
-
-      const hhRows = Array.isArray(hhCalcData) ? (hhCalcData as unknown as HhLancamentoCalcRow[]) : [];
-      setHhPedido(calcHhPedidoTotal(hhRows));
-    } catch (e) {
-      console.warn("[OS detail] hhPedido: fallback", e);
-      setHhPedido(0);
-    }
+    const hhRows = Array.isArray(payload.hh_lancamentos)
+      ? (payload.hh_lancamentos as unknown as HhLancamentoCalcRow[])
+      : [];
+    setHhPedido(calcHhPedidoTotal(hhRows));
   }
 
   useEffect(() => {
@@ -1707,37 +1637,14 @@ export default function OsDetailPage() {
     const nomeSeedTerm = pickLookupSeedTerm(nomeTerms);
     const fornecedorSeedTerm = pickLookupSeedTerm(fornecedorTerms);
 
-    const baseSelect = fornecedorSeedTerm
-      ? "id,codigo_interno,nome,fabricante,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
-      : "id,codigo_interno,nome,fabricante,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
-
-    const isCodigoExato = nomeTerms.length === 1 && /^\d+$/.test(nomeSeedTerm);
-
-    const buildItemQuery = () => {
-      let query = supabase
-        .from("itens")
-        .select(baseSelect)
-        .eq("tenant_id", effectiveTenantId)
-        .eq("empresa_id", effectiveEmpresaId)
-        .eq("ativo", true);
-
-      if (isDespesaMode) {
-        query = query.gte("id", DESPESA_ITEM_ID_MIN).lte("id", DESPESA_ITEM_ID_MAX);
-      }
-
-      if (isCodigoExato) {
-        query = query.or(`codigo_interno.eq.${nomeSeedTerm},codigo_barras.eq.${nomeSeedTerm}`);
-      } else if (nomeSeedTerm) {
-        query = query.or(
-          `nome.ilike.%${nomeSeedTerm}%,codigo_interno.ilike.%${nomeSeedTerm}%,fabricante.ilike.%${nomeSeedTerm}%`
-        );
-      }
-      if (fornecedorSeedTerm) query = query.ilike("fornecedores.nome", `%${fornecedorSeedTerm}%`);
-
-      return query.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT);
-    };
-
-    const { data: itemData, error: itemError } = await buildItemQuery();
+    const { data: itemData, error: itemError } = await supabase.rpc("search_os_itens", {
+      p_tenant_id: effectiveTenantId,
+      p_empresa_id: effectiveEmpresaId,
+      p_term: nomeSeedTerm || null,
+      p_fornecedor: fornecedorSeedTerm || null,
+      p_despesa_only: isDespesaMode,
+      p_limit: LOOKUP_FETCH_LIMIT,
+    });
     if (itemError) {
       setLookupErr(itemError.message);
       setLookupRows([]);
@@ -1747,44 +1654,9 @@ export default function OsDetailPage() {
 
     const baseRows = ((itemData ?? []) as ItemLookupBaseRow[])
       .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
-      .filter((row) => matchesLookupTerms([row.fornecedores?.nome ?? null], fornecedorTerms))
+      .filter((row) => matchesLookupTerms([row.fornecedor], fornecedorTerms))
       .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
       .slice(0, LOOKUP_RESULT_LIMIT);
-
-    const ids = baseRows.map((r) => r.id);
-    const ultimaMap = new Map<number, string>();
-
-    const stockMap = new Map<number, number>();
-
-    if (ids.length > 0 && !isDespesaMode) {
-      const [{ data: movData, error: movErr }, { data: estData, error: estErr }] = await Promise.all([
-        supabase.rpc("ultima_entrada_por_itens", {
-          p_tenant_id: effectiveTenantId,
-          p_empresa_id: effectiveEmpresaId,
-          p_item_ids: ids,
-        }),
-        supabase
-          .from("estoque")
-          .select("item_id,quantidade_atual")
-          .eq("tenant_id", effectiveTenantId)
-          .eq("empresa_id", effectiveEmpresaId)
-          .in("item_id", ids),
-      ]);
-
-      if (!movErr) {
-        const movRows = (movData ?? []) as MovRow[];
-        movRows.forEach((m) => {
-          if (!ultimaMap.has(m.item_id)) ultimaMap.set(m.item_id, m.data_movimentacao);
-        });
-      }
-
-      if (!estErr) {
-        const estoqueRows = (estData ?? []) as EstoqueRow[];
-        estoqueRows.forEach((e) => {
-          stockMap.set(e.item_id, Number(e.quantidade_atual ?? 0));
-        });
-      }
-    }
 
     setLookupRows(
       baseRows.map((r) => ({
@@ -1796,9 +1668,9 @@ export default function OsDetailPage() {
         preco_unitario: r.preco_unitario,
         aliquota_ipi: r.aliquota_ipi,
         controla_estoque: r.controla_estoque ?? null,
-        fornecedor: r.fornecedores?.nome ?? null,
-        ultima_entrada: ultimaMap.get(r.id) ?? null,
-        estoque_atual: stockMap.has(r.id) ? stockMap.get(r.id)! : null,
+        fornecedor: r.fornecedor,
+        ultima_entrada: r.ultima_entrada,
+        estoque_atual: r.estoque_atual === null ? null : Number(r.estoque_atual),
       }))
     );
 
@@ -1980,20 +1852,19 @@ export default function OsDetailPage() {
 
     setSearching(true);
 
-    let query = supabase
-      .from("itens")
-      .select("id,codigo_interno,nome,tipo,finalidade,preco_unitario,aliquota_ipi,controla_estoque")
-      .eq("id", id);
-
-    if (isDespesaMode) {
-      query = query.gte("id", DESPESA_ITEM_ID_MIN).lte("id", DESPESA_ITEM_ID_MAX);
-    }
-
-    const { data, error } = await applyTenantEmpresa(query.maybeSingle(), effectiveTenantId, effectiveEmpresaId);
+    const { data, error } = await supabase.rpc("search_os_itens", {
+      p_tenant_id: effectiveTenantId,
+      p_empresa_id: effectiveEmpresaId,
+      p_term: term,
+      p_fornecedor: null,
+      p_despesa_only: isDespesaMode,
+      p_limit: 1,
+    });
+    const item = ((data ?? []) as ItemLookupBaseRow[])[0] ?? null;
 
     setSearching(false);
 
-    if (error || !data) {
+    if (error || !item) {
       setErr(
         isDespesaMode
           ? "Despesa nao encontrada pelo ID informado. Use a busca por nome/fornecedor."
@@ -2003,7 +1874,7 @@ export default function OsDetailPage() {
       return;
     }
 
-    pickItem(data as ItemPick);
+    pickItem(item);
   }
 
   function pickItem(it: ItemPick) {
@@ -2022,7 +1893,7 @@ export default function OsDetailPage() {
           : null
       );
     }
-    if (!isDespesaMode && Number.isFinite(it.id) && it.id > 0) {
+    if (!isDespesaMode && typeof (it as ItemLookupRow).estoque_atual !== "number" && Number.isFinite(it.id) && it.id > 0) {
       void (async () => {
         const { data } = await applyTenantEmpresa(
           supabase.from("estoque").select("quantidade_atual").eq("item_id", it.id).maybeSingle(),
