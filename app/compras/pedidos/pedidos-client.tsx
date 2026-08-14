@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 type FornPend = {
   fornecedor_id: number | null;
   fornecedor_nome: string;
+  fornecedor_documento: string | null;
   qtd_pendencias_abertas: number;
   qtd_total_pendente: number;
 };
@@ -14,8 +15,23 @@ type FornPend = {
 type FornecedorBase = {
   id: number;
   nome: string | null;
+  documento: string | null;
   ativo: boolean | null;
 };
+
+function formatFornecedorDocumento(value: string | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+
+  if (digits.length === 14) {
+    return `CNPJ ${digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}`;
+  }
+  if (digits.length === 11) {
+    return `CPF ${digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")}`;
+  }
+
+  return raw ? `Documento ${raw}` : "CNPJ não informado";
+}
 
 type PendDet = {
   pendencia_id: string;
@@ -1705,6 +1721,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                 }
               >
                 <div className="text-sm">{f.fornecedor_nome}</div>
+                <div className="text-xs text-zinc-300">{formatFornecedorDocumento(f.fornecedor_documento)}</div>
                 <div className="text-xs text-zinc-400">{f.qtd_pendencias_abertas} pendencias | {Number(f.qtd_total_pendente).toFixed(3)}</div>
               </button>
             ))}
@@ -2014,7 +2031,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                 </option>
                 {avulsoFornecedores.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {String(f.nome ?? `Fornecedor #${f.id}`)}
+                    {String(f.nome ?? `Fornecedor #${f.id}`)} — {formatFornecedorDocumento(f.documento)}
                   </option>
                 ))}
               </select>

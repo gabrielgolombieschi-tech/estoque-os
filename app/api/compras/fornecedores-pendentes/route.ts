@@ -13,14 +13,10 @@ export async function GET(req: NextRequest) {
 
   if (!(await canCompras(supabase, "read"))) return jsonError(403, "Sem permissao (compras.read).");
 
-  const { data, error } = await supabase
-    .schema("r")
-    .from("r_compra_fornecedores_pendentes")
-    .select("*")
-    .eq("tenant_id", ctx.tenantId)
-    .eq("empresa_id", ctx.empresaId)
-    .gt("qtd_pendencias_abertas", 0)
-    .order("fornecedor_nome", { ascending: true });
+  const { data, error } = await supabase.rpc("list_compras_fornecedores_pendentes", {
+    p_tenant_id: ctx.tenantId,
+    p_empresa_id: ctx.empresaId,
+  });
 
   if (error) return jsonError(400, error.message);
   return Response.json({ data: data ?? [] });
