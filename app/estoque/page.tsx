@@ -47,14 +47,6 @@ type Filtros = {
   abaixoMinimo: boolean;
 };
 
-function normalizeSearchTerm(s: unknown) {
-  return String(s ?? "")
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
 function getFiltrosIniciais(): Filtros {
   return {
     id: "",
@@ -88,8 +80,6 @@ export default function EstoquePage() {
 
   const [draftFiltros, setDraftFiltros] = useState<Filtros>(getFiltrosIniciais);
   const [filtros, setFiltros] = useState<Filtros>(getFiltrosIniciais);
-  const [abaixoMinCacheKey, setAbaixoMinCacheKey] = useState<string>("");
-  const [abaixoMinCache, setAbaixoMinCache] = useState<EstoqueRow[] | null>(null);
 
   const [showAjuste, setShowAjuste] = useState(false);
   const [ajusteItemIdText, setAjusteItemIdText] = useState<string>("");
@@ -163,33 +153,6 @@ export default function EstoquePage() {
 
     if (!error) setFornecedores((data ?? []) as unknown as Fornecedor[]);
   }, [supabase, tenantEmpresaLoading, tenantId]);
-
-  const resolveFornecedorIdsByTerm = useCallback(
-    async (termRaw: string): Promise<number[] | null> => {
-      const term = normalizeSearchTerm(termRaw);
-      if (!term) return null;
-
-      let base = fornecedores;
-      if (base.length === 0) {
-        if (tenantEmpresaLoading) return [];
-        if (!tenantId) return [];
-        const { data } = await applyTenant(
-          supabase.from("fornecedores").select("id,nome,ativo"),
-          tenantId
-        )
-          .eq("ativo", true)
-          .order("nome", { ascending: true })
-          .limit(1000);
-        base = (data ?? []) as unknown as Fornecedor[];
-      }
-
-      return base
-        .filter((f) => normalizeSearchTerm(f.nome).includes(term))
-        .map((f) => f.id)
-        .filter((v) => Number.isFinite(v));
-    },
-    [fornecedores, supabase, tenantEmpresaLoading, tenantId]
-  );
 
   function fornecedorNomeById(id: number | null | undefined) {
     const parsed = Number(id ?? NaN);
@@ -647,18 +610,6 @@ export default function EstoquePage() {
       return;
     }
 
-    const filtrosKey = JSON.stringify(filtros);
-    if (filtros.abaixoMinimo && abaixoMinCache && abaixoMinCacheKey === filtrosKey) {
-      setTotalCount(abaixoMinCache.length);
-      setRows(abaixoMinCache.slice(page * pageSize, page * pageSize + pageSize));
-      return;
-    }
-
-    if (!filtros.abaixoMinimo && abaixoMinCache) {
-      setAbaixoMinCache(null);
-      setAbaixoMinCacheKey("");
-    }
-
     const idTerm = filtros.id.trim();
     let idNumber: number | null = null;
     if (idTerm) {
@@ -674,138 +625,66 @@ export default function EstoquePage() {
 
     const fornTerm = filtros.fornecedor.trim();
 
-    const codigoTerm = filtros.codigo.trim();
-    if (codigoTerm) {
-      const { data, error } = await supabase.rpc("search_estoque_itens", {
-        p_tenant_id: tenantId,
-        p_empresa_id: empresaId,
-        p_busca_geral: null,
-        p_codigo: codigoTerm,
-        p_nome: filtros.produto.trim() || null,
-        p_fornecedor: fornTerm || null,
-        p_item_id: idNumber,
-        p_ativo_only: filtros.ativos === "ativos",
-        p_finalidade: null,
-        p_abaixo_minimo: filtros.abaixoMinimo,
-        p_sem_fornecedor: false,
-        p_saldo_positivo: false,
-        p_page: page + 1,
-        p_page_size: pageSize,
-        p_sort_key: "id",
-        p_sort_dir: "desc",
-      });
-      if (error) {
-        setRows([]);
-        setTotalCount(0);
-        setErr(error.message);
-        return;
-      }
-
-      const rpcRows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
-      const mapped: EstoqueRow[] = rpcRows.map((row) => ({
-        id: Number(row.estoque_id ?? row.item_id ?? 0),
-        item_id: Number(row.item_id ?? 0),
-        quantidade_atual: Number(row.quantidade_atual ?? 0),
-        atualizado_em: String(row.atualizado_em ?? new Date(0).toISOString()),
-        localizacao: row.localizacao == null ? null : String(row.localizacao),
-        itens: {
-          codigo_interno: String(row.codigo_interno ?? ""),
-          codigo_barras: row.codigo_barras == null ? null : String(row.codigo_barras),
-          nome: String(row.item_nome ?? ""),
-          tipo: String(row.tipo ?? "produto"),
-          unidade_medida: row.unidade_medida == null ? null : String(row.unidade_medida),
-          controla_estoque: row.controla_estoque === true,
-          estoque_minimo: row.estoque_minimo == null ? null : Number(row.estoque_minimo),
-          estoque_ideal: row.estoque_ideal == null ? null : Number(row.estoque_ideal),
-          estoque_maximo: row.estoque_maximo == null ? null : Number(row.estoque_maximo),
-          ativo: row.ativo === true,
-          fornecedor_id: row.fornecedor_id == null ? null : Number(row.fornecedor_id),
-          fornecedores: row.fornecedor_nome == null ? null : { nome: String(row.fornecedor_nome) },
-        },
-      }));
-
-      setRows(mapped);
-      setTotalCount(rpcRows.length > 0 ? Number(rpcRows[0].total_count ?? 0) : 0);
-      return;
-    }
-
-    const fornIds = fornTerm ? await resolveFornecedorIdsByTerm(fornTerm) : null;
-    if (fornTerm && (!fornIds || fornIds.length === 0)) {
+    // A RPC pagina e calcula o total no banco, sem expandir o relacionamento de
+    // estoque nem executar uma contagem exata sujeita a RLS linha a linha.
+    const { data, error } = await supabase.rpc("search_estoque_itens", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_busca_geral: null,
+      p_codigo: filtros.codigo.trim() || null,
+      p_nome: filtros.produto.trim() || null,
+      p_fornecedor: fornTerm || null,
+      p_item_id: idNumber,
+      p_ativo_only: filtros.ativos === "ativos",
+      p_finalidade: null,
+      p_abaixo_minimo: filtros.abaixoMinimo,
+      p_sem_fornecedor: false,
+      p_saldo_positivo: false,
+      p_page: page + 1,
+      p_page_size: pageSize,
+      p_sort_key: "id",
+      p_sort_dir: "desc",
+    });
+    if (error) {
       setRows([]);
       setTotalCount(0);
+      setErr(error.message);
       return;
     }
 
-    const buildItensQuery = (withCount: boolean) => {
-      const base = withCount
-        ? supabase.from("itens").select(itensSelect, { count: "exact" })
-        : supabase.from("itens").select(itensSelect);
+    const rpcRows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+    const mapped: EstoqueRow[] = rpcRows.map((row) => ({
+      id: Number(row.estoque_id ?? row.item_id ?? 0),
+      item_id: Number(row.item_id ?? 0),
+      quantidade_atual: Number(row.quantidade_atual ?? 0),
+      atualizado_em: String(row.atualizado_em ?? new Date(0).toISOString()),
+      localizacao: row.localizacao == null ? null : String(row.localizacao),
+      itens: {
+        codigo_interno: String(row.codigo_interno ?? ""),
+        codigo_barras: row.codigo_barras == null ? null : String(row.codigo_barras),
+        nome: String(row.item_nome ?? ""),
+        tipo: String(row.tipo ?? "produto"),
+        unidade_medida: row.unidade_medida == null ? null : String(row.unidade_medida),
+        controla_estoque: row.controla_estoque === true,
+        estoque_minimo: row.estoque_minimo == null ? null : Number(row.estoque_minimo),
+        estoque_ideal: row.estoque_ideal == null ? null : Number(row.estoque_ideal),
+        estoque_maximo: row.estoque_maximo == null ? null : Number(row.estoque_maximo),
+        ativo: row.ativo === true,
+        fornecedor_id: row.fornecedor_id == null ? null : Number(row.fornecedor_id),
+        fornecedores: row.fornecedor_nome == null ? null : { nome: String(row.fornecedor_nome) },
+      },
+    }));
 
-      let query = applyTenantEmpresa(base, tenantId, empresaId)
-        .eq("tipo", "produto")
-        .eq("controla_estoque", true)
-        .order("id", { foreignTable: "estoque", ascending: false })
-        .order("id", { ascending: false });
-
-      if (filtros.ativos === "ativos") query = query.eq("ativo", true);
-      if (idNumber !== null) query = query.eq("id", idNumber);
-
-      const produtoTerm = filtros.produto.trim();
-      if (produtoTerm) query = query.ilike("nome", `%${produtoTerm}%`);
-
-      if (fornIds && fornIds.length > 0) query = query.in("fornecedor_id", fornIds);
-
-      return query;
-    };
-
-    if (filtros.abaixoMinimo) {
-      const all: EstoqueItemRow[] = [];
-      const chunkSize = 1000;
-      let offset = 0;
-
-      while (true) {
-        const qb = buildItensQuery(false);
-        const { data, error } = await qb.range(offset, offset + chunkSize - 1);
-        if (error) return setErr(error.message);
-        const typed = (data ?? []) as unknown as EstoqueItemRow[];
-        all.push(...typed);
-        if (typed.length < chunkSize) break;
-        offset += chunkSize;
-      }
-
-      const below = all
-        .map(mapItemToEstoqueRow)
-        .filter(Boolean)
-        .filter((r) => Number(r!.quantidade_atual ?? 0) < Number(r!.itens?.estoque_minimo ?? 0)) as EstoqueRow[];
-
-      setAbaixoMinCacheKey(filtrosKey);
-      setAbaixoMinCache(below);
-      setTotalCount(below.length);
-      setRows(below.slice(page * pageSize, page * pageSize + pageSize));
-      return;
-    }
-
-    const qb = buildItensQuery(true);
-    const { data, error, count } = await qb.range(page * pageSize, page * pageSize + pageSize - 1);
-    if (error) return setErr(error.message);
-    setTotalCount(typeof count === "number" ? count : null);
-
-    const typed = (data ?? []) as unknown as EstoqueItemRow[];
-    const list = typed.map(mapItemToEstoqueRow).filter(Boolean) as EstoqueRow[];
-    setRows(list);
+    setRows(mapped);
+    setTotalCount(rpcRows.length > 0 ? Number(rpcRows[0].total_count ?? 0) : 0);
   }, [
-    abaixoMinCache,
-    abaixoMinCacheKey,
     empresaId,
     filtros,
     page,
     pageSize,
-    resolveFornecedorIdsByTerm,
     supabase,
     tenantEmpresaLoading,
     tenantId,
-    itensSelect,
-    mapItemToEstoqueRow,
   ]);
 
   function startAjuste(item_id: number) {
@@ -845,7 +724,10 @@ export default function EstoquePage() {
   }, [load]);
 
   useEffect(() => {
-    void loadFornecedores();
+    const t = setTimeout(() => {
+      void loadFornecedores();
+    }, 0);
+    return () => clearTimeout(t);
   }, [loadFornecedores]);
 
   if (tenantEmpresaError) {
@@ -945,8 +827,6 @@ export default function EstoquePage() {
           setErr(null);
           setOk(null);
           setPage(0);
-          setAbaixoMinCache(null);
-          setAbaixoMinCacheKey("");
           setFiltros(draftFiltros);
         }}
         className="border border-zinc-800 rounded-xl p-4 bg-zinc-950"
@@ -1064,8 +944,6 @@ export default function EstoquePage() {
               setErr(null);
               setOk(null);
               setPage(0);
-              setAbaixoMinCache(null);
-              setAbaixoMinCacheKey("");
               setDraftFiltros(getFiltrosIniciais());
               setFiltros(getFiltrosIniciais());
             }}

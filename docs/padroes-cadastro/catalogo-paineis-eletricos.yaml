@@ -1,0 +1,1175 @@
+versao_padrao: "1.13.0"
+fonte_de_verdade: true
+familia_material:
+  codigo: PAINEIS_ELETRICOS_E_COMPONENTES
+  nome: "Painéis elétricos e componentes"
+  escopo_inicial: "Acessórios de disjuntores caixa moldada e disjuntores mini"
+
+campos_erp:
+  nome_padronizado: itens.nome
+  codigo_origem_nota: itens.codigo_interno
+  fabricante: itens.fabricante
+  fornecedor_origem: itens.fornecedor_id
+  grupo_controlado: itens.grupo_id
+  descricao_complementar: itens.descricao
+  modelo:
+    campo_proprio_existente: false
+    regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável e houver aprovação humana."
+
+tipos_tecnicos_aceitos:
+  - codigo: ACESSORIO_DISJUNTOR_CAIXA_MOLDADA
+    nome: "Acessório para disjuntor caixa moldada"
+    subtipos_iniciais:
+      - ACIONAMENTO_ROTATIVO_LATERAL
+  - codigo: DISJUNTOR_MINI
+    nome: "Disjuntor mini"
+    atributos_obrigatorios:
+      - polos
+      - curva
+      - corrente_nominal
+    atributos_condicionais:
+      - capacidade_interrupcao
+  - codigo: ACESSORIO_DISJUNTOR_MINI
+    nome: "Acessório para disjuntor mini"
+    subtipos_iniciais:
+      - BLOCO_DISTRIBUICAO
+      - BARRAMENTO_DISPOSITIVOS_MODULARES
+      - BORNE_BARRAMENTO
+    atributos_por_subtipo:
+      BLOCO_DISTRIBUICAO: [polos, corrente_nominal, tensao_nominal]
+      BARRAMENTO_DISPOSITIVOS_MODULARES: [polos, corrente_nominal, comprimento]
+      BORNE_BARRAMENTO: [posicao_montagem, corrente_nominal, tensao_nominal]
+  - codigo: BOTAO_COMANDO
+    nome: "Botão de comando"
+    subtipos_iniciais:
+      - PULSADOR
+      - BOTAO_EMERGENCIA
+      - CHAVE_SELETORA
+      - MANOPLA_SELETORA
+    atributos_condicionais:
+      - contatos
+      - iluminado
+      - tensao_iluminacao
+      - cor
+      - material
+      - diametro
+      - numero_posicoes
+      - retorno
+  - codigo: BOTOEIRA_CAIXA_COMANDO
+    nome: "Botoeira ou caixa de comando"
+  - codigo: SINALEIRO
+    nome: "Sinaleiro"
+  - codigo: BLOCO_CONTATO_BOTAO
+    nome: "Bloco de contato para botão"
+  - codigo: MODULO_LED_BOTAO
+    nome: "Módulo LED para botão"
+  - codigo: ACESSORIO_BOTAO
+    nome: "Acessório para botão"
+  - codigo: CONTATOR
+    nome: "Contator"
+    atributos_condicionais:
+      - polos
+      - categoria_utilizacao
+      - corrente_nominal
+      - contatos_auxiliares
+      - tensao_comando
+      - frequencia
+      - tipo_conexao
+  - codigo: CONTATOR_AUXILIAR
+    nome: "Contator auxiliar"
+  - codigo: ACESSORIO_CONTATOR
+    nome: "Acessório para contator"
+  - codigo: DISJUNTOR_MOTOR
+    nome: "Disjuntor motor"
+    atributos_condicionais:
+      - faixa_ajuste_corrente
+      - corrente_nominal
+      - polos
+      - tipo_conexao
+  - codigo: ACESSORIO_DISJUNTOR_MOTOR
+    nome: "Acessório para disjuntor motor"
+  - codigo: CONEXAO_PARTIDA_MOTOR
+    nome: "Conexão para partida de motor"
+  - codigo: RELE_SOBRECARGA
+    nome: "Relé de sobrecarga"
+    atributos_condicionais:
+      - faixa_ajuste_corrente
+      - tamanho_construtivo
+  - codigo: ACESSORIO_RELE_SOBRECARGA
+    nome: "Acessório para relé de sobrecarga"
+  - codigo: CHAVE_SECCIONADORA
+    nome: "Chave seccionadora"
+    atributos_condicionais: [tipo_construtivo, polos, corrente_nominal, tensao_nominal, tipo_montagem]
+  - codigo: FUSIVEL_NH
+    nome: "Fusível NH"
+    atributos_condicionais: [classe_fusivel, tamanho, corrente_nominal, tensao_nominal]
+  - codigo: BASE_FUSIVEL_NH
+    nome: "Base para fusível NH"
+    atributos_condicionais: [tamanho, polos, corrente_nominal, tensao_nominal]
+  - codigo: INTERRUPTOR_DIFERENCIAL_RESIDUAL
+    nome: "Interruptor diferencial residual"
+    atributos_condicionais: [polos, corrente_nominal, corrente_residual, tipo_diferencial]
+  - codigo: SOFT_STARTER
+    nome: "Soft-starter"
+    atributos_condicionais: [corrente_nominal, tensao_potencia, tensao_comando, grau_protecao, tipo_conexao]
+  - codigo: ACESSORIO_SOFT_STARTER
+    nome: "Acessório para soft-starter"
+  - codigo: RELE_MONITORAMENTO_REDE
+    nome: "Relé de monitoramento de rede"
+    atributos_condicionais: [funcoes_monitoramento, tensao_nominal, frequencia, contatos]
+  - codigo: ACESSORIO_RELE_SEGURANCA
+    nome: "Acessório para relé de segurança"
+  - codigo: FONTE_ALIMENTACAO
+    nome: "Fonte de alimentação"
+    atributos_condicionais: [tipo_conversao, tensao_entrada, tensao_saida, corrente_nominal, potencia]
+  - codigo: UPS_CC
+    nome: "UPS CC"
+    atributos_condicionais: [tensao_nominal, corrente_nominal, interface]
+  - codigo: INVERSOR_FREQUENCIA
+    nome: "Inversor de frequência"
+    atributos_condicionais: [tensao_entrada, fases_entrada, potencia_nominal, corrente_nominal, grau_protecao, frenagem]
+  - codigo: RESISTOR_FRENAGEM
+    nome: "Resistor de frenagem"
+  - codigo: ACESSORIO_INVERSOR_FREQUENCIA
+    nome: "Acessório para inversor de frequência"
+  - codigo: CONTROLADOR_PROGRAMAVEL
+    nome: "Controlador programável"
+    atributos_condicionais: [familia, entradas_digitais, saidas_digitais, entradas_analogicas, tensao_nominal]
+  - codigo: MODULO_PLC
+    nome: "Módulo para PLC"
+    atributos_condicionais: [familia, tipo_io, quantidade_io, sinal, tensao_nominal]
+  - codigo: INTERFACE_REDE_ET200SP
+    nome: "Cabeça de rede para estação ET200SP"
+    atributos_condicionais: [protocolo, capacidade_modulos_io, portas_rede, recursos_avancados]
+  - codigo: ACOPLADOR_REDE_INDUSTRIAL
+    nome: "Módulo acoplador para redes industriais"
+    atributos_condicionais: [protocolo_origem, protocolo_destino, funcao_troca_dados, alimentacao]
+  - codigo: BUSADAPTER_ET200SP
+    nome: "Adaptador de barramento para estação ET200SP"
+    atributos_condicionais: [tipo_busadapter, meio_fisico, conectores, portas_rede]
+  - codigo: BASE_ET200SP
+    nome: "Base para módulo ET200SP"
+    atributos_condicionais: [largura, terminais, terminais_auxiliares, grupo_carga, tipo_conexao]
+  - codigo: ACESSORIO_PLC
+    nome: "Acessório para PLC"
+    atributos_condicionais: [familia, funcao, dimensao, capacidade_memoria, tipo_conexao]
+  - codigo: BORNE
+    nome: "Borne"
+    atributos_condicionais: [funcao, tipo_conexao, numero_condutores, secao_condutor, numero_andares]
+  - codigo: PENTE_PARA_BORNE
+    nome: "Pente para borne"
+    atributos_condicionais: [numero_polos, secao_condutor, numero_andares]
+  - codigo: TAMPA_FINAL_BORNE
+    nome: "Tampa final para borne"
+    atributos_condicionais: [secao_condutor]
+  - codigo: TRANSFORMADOR_COMANDO
+    nome: "Transformador de comando"
+    atributos_condicionais: [fases, potencia, tensao_entrada, tensao_saida, grau_protecao]
+  - codigo: RELE_TEMPORIZADOR
+    nome: "Relé temporizador"
+    atributos_condicionais: [tensao_alimentacao, faixa_temporizacao, contatos]
+  - codigo: SERVOMOTOR
+    nome: "Servomotor"
+    atributos_condicionais: [tipo_alimentacao, torque, rotacao, encoder]
+  - codigo: CABO_SERVOMOTOR
+    nome: "Cabo para servomotor"
+    atributos_condicionais: [funcao, comprimento, familia_servomotor, familia_drive]
+  - codigo: INTERFACE_HOMEM_MAQUINA
+    nome: "Interface homem-máquina"
+    atributos_condicionais: [tipo_interface, dimensao_display, familia_controlador]
+  - codigo: MODULO_COMUNICACAO_PLC
+    nome: "Módulo de comunicação para PLC"
+    atributos_condicionais: [familia, protocolo, papel_rede, tipo_conector]
+  - codigo: SWITCH_REDE_INDUSTRIAL
+    nome: "Switch de rede industrial"
+    atributos_condicionais: [gerenciavel, camada_rede, portas_cobre, portas_fibra, tipo_conector]
+  - codigo: MODULO_PESAGEM
+    nome: "Módulo de pesagem"
+    atributos_condicionais: [familia, modo_operacao, canais, entradas_digitais, saidas_digitais, saidas_analogicas, interfaces]
+
+grupos_controlados_propostos:
+  - codigo: DISJUNTORES_CAIXA_MOLDADA
+    nome: "Disjuntores caixa moldada"
+    filhos:
+      - codigo: ACESSORIOS
+        nome: "Acessórios"
+  - codigo: DISJUNTORES_MINI
+    nome: "Disjuntores mini"
+    filhos:
+      - codigo: DISJUNTORES_MINI_ACESSORIOS
+        nome: "Disjuntores mini - acessórios"
+  - codigo: BOTOES_DE_COMANDO
+    nome: "Botões de comando"
+    filhos:
+      - codigo: PULSADORES
+        nome: "Pulsadores"
+      - codigo: BOTOES_EMERGENCIA
+        nome: "Botões de emergência"
+      - codigo: CHAVES_MANOPLAS_SELETORAS
+        nome: "Chaves e manoplas seletoras"
+      - codigo: BOTOEIRAS_CAIXAS
+        nome: "Botoeiras e caixas"
+      - codigo: SINALEIROS
+        nome: "Sinaleiros"
+      - codigo: COLUNAS_SINALIZADORAS
+        nome: "Colunas sinalizadoras"
+      - codigo: BLOCOS_CONTATO
+        nome: "Blocos de contato"
+      - codigo: MODULOS_LED
+        nome: "Módulos LED"
+      - codigo: ACESSORIOS_BOTOES
+        nome: "Acessórios para botões"
+  - codigo: MANOBRA_E_PARTIDA_MOTORES
+    nome: "Manobra e partida de motores"
+    filhos:
+      - codigo: CONTATORES
+        nome: "Contatores"
+      - codigo: CONTATORES_AUXILIARES
+        nome: "Contatores auxiliares"
+      - codigo: ACESSORIOS_PARA_CONTATORES
+        nome: "Acessórios para contatores"
+      - codigo: CONEXOES_PARTIDA_MOTORES
+        nome: "Conexões para partida de motores"
+      - codigo: RELES_SOBRECARGA
+        nome: "Relés de sobrecarga"
+      - codigo: ACESSORIOS_RELES_SOBRECARGA
+        nome: "Acessórios para relés de sobrecarga"
+      - codigo: PARTIDAS_DIRETAS_SEGURANCA
+        nome: "Partidas diretas de segurança"
+  - codigo: PROTECAO_E_SECCIONAMENTO
+    nome: "Proteção e seccionamento"
+    filhos:
+      - codigo: DISJUNTORES_MOTOR
+        nome: "Disjuntores motor"
+      - codigo: ACESSORIOS_DISJUNTORES_MOTOR
+        nome: "Acessórios para disjuntores motor"
+      - codigo: CHAVES_SECCIONADORAS
+        nome: "Chaves seccionadoras"
+      - codigo: ACESSORIOS_CHAVES_SECCIONADORAS
+        nome: "Acessórios para chaves seccionadoras"
+      - codigo: FUSIVEIS_NH
+        nome: "Fusíveis NH"
+      - codigo: BASES_FUSIVEIS_NH
+        nome: "Bases para fusíveis NH"
+      - codigo: INTERRUPTORES_DIFERENCIAIS_RESIDUAIS
+        nome: "Interruptores diferenciais residuais"
+      - codigo: DISJUNTORES_ABERTOS
+        nome: "Disjuntores abertos"
+      - codigo: CHAVES_SECCIONADORAS_PORTA_FUSIVEL
+        nome: "Chaves seccionadoras porta-fusível"
+  - codigo: ACIONAMENTOS_MOTORES
+    nome: "Acionamentos de motores"
+    filhos:
+      - codigo: SOFT_STARTERS
+        nome: "Soft-starters"
+      - codigo: ACESSORIOS_SOFT_STARTERS
+        nome: "Acessórios para soft-starters"
+      - codigo: INVERSORES_FREQUENCIA
+        nome: "Inversores de frequência"
+      - codigo: RESISTORES_FRENAGEM
+        nome: "Resistores de frenagem"
+      - codigo: ACESSORIOS_INVERSORES_FREQUENCIA
+        nome: "Acessórios para inversores de frequência"
+      - codigo: SERVOMOTORES
+        nome: "Servomotores"
+      - codigo: CABOS_PARA_SERVOMOTORES
+        nome: "Cabos para servomotores"
+  - codigo: ALIMENTACAO_E_ENERGIA
+    nome: "Alimentação e energia"
+    filhos:
+      - codigo: FONTES_ALIMENTACAO
+        nome: "Fontes de alimentação"
+      - codigo: UPS_CC
+        nome: "UPS CC"
+  - codigo: AUTOMACAO_PROGRAMAVEL
+    nome: "Automação programável"
+    filhos:
+      - codigo: CONTROLADORES_PROGRAMAVEIS_S71200
+        nome: "Controladores programáveis S7-1200"
+      - codigo: MODULOS_ENTRADAS_DIGITAIS_S71200
+        nome: "Módulos de entradas digitais para PLC S7-1200"
+      - codigo: MODULOS_SAIDAS_DIGITAIS_S71200
+        nome: "Módulos de saídas digitais para PLC S7-1200"
+      - codigo: MODULOS_IO_DIGITAIS_S71200
+        nome: "Módulos de entradas e saídas digitais para PLC S7-1200"
+      - codigo: MODULOS_ANALOGICOS_S71200
+        nome: "Módulos analógicos para PLC S7-1200"
+      - codigo: MODULOS_IO_DIGITAIS_ET200SP
+        nome: "Módulos de E/S digitais para PLC ET200SP"
+      - codigo: MODULOS_IO_ANALOGICAS_ET200SP
+        nome: "Módulos de E/S analógicas para PLC ET200SP"
+      - codigo: MODULOS_IO_SEGURANCA_ET200SP
+        nome: "Módulos de E/S de segurança para PLC ET200SP"
+      - codigo: MODULOS_SAIDAS_SEGURANCA_S71200
+        nome: "Módulos de saídas de segurança para PLC S7-1200"
+      - codigo: MODULOS_IO_SEGURANCA_ET200MP
+        nome: "Módulos de E/S de segurança para PLC ET200MP"
+      - codigo: INTERFACES_PROFINET_ET200SP
+        nome: "Interfaces PROFINET para PLC ET200SP"
+      - codigo: ACOPLADORES_REDES_INDUSTRIAIS
+        nome: "Acopladores para redes industriais"
+      - codigo: BUSADAPTERS_ET200SP
+        nome: "Adaptadores de barramento para PLC ET200SP"
+      - codigo: BASES_MODULOS_ET200SP
+        nome: "Bases para módulos ET200SP"
+      - codigo: ACESSORIOS_PLC_ET200SP
+        nome: "Acessórios para PLC ET200SP"
+      - codigo: ACESSORIOS_PLC_S71500
+        nome: "Acessórios para PLC S7-1500"
+      - codigo: CONTROLADORES_PROGRAMAVEIS_LOGO
+        nome: "Controladores programáveis LOGO!"
+      - codigo: MODULOS_EXPANSAO_PLC_LOGO
+        nome: "Módulos de expansão para PLC LOGO!"
+      - codigo: MODULOS_COMUNICACAO_PLC_S71200
+        nome: "Módulos de comunicação para PLC S7-1200"
+      - codigo: MODULOS_COMUNICACAO_PLC_S71500
+        nome: "Módulos de comunicação para PLC S7-1500"
+      - codigo: MODULOS_PESAGEM_PLC_S71200
+        nome: "Módulos de pesagem para PLC S7-1200"
+      - codigo: INTERFACES_HOMEM_MAQUINA
+        nome: "Interfaces homem-máquina"
+  - codigo: RELES_MONITORAMENTO
+    nome: "Relés e monitoramento"
+    filhos:
+      - codigo: RELES_INTERFACE
+        nome: "Relés de interface"
+      - codigo: ACESSORIOS_RELES_INTERFACE
+        nome: "Acessórios para relés de interface"
+      - codigo: RELES_MONITORAMENTO_REDE
+        nome: "Relés de monitoramento de rede"
+      - codigo: RELES_TEMPORIZADORES
+        nome: "Relés temporizadores"
+  - codigo: CONEXOES_ELETRICAS
+    nome: "Conexões elétricas"
+    filhos:
+      - codigo: BORNES_PASSAGEM
+        nome: "Bornes de passagem"
+      - codigo: BORNES_PASSAGEM_PLUGIN
+        nome: "Bornes de passagem plug-in"
+      - codigo: BORNES_PROTECAO
+        nome: "Bornes de proteção"
+      - codigo: PENTES_PARA_BORNES
+        nome: "Pentes para bornes"
+      - codigo: TAMPAS_FINAIS_PARA_BORNES
+        nome: "Tampas finais para bornes"
+  - codigo: TRANSFORMADORES_COMANDO
+    nome: "Transformadores de comando"
+  - codigo: MEDICAO_INSTRUMENTACAO
+    nome: "Medição e instrumentação"
+    filhos:
+      - codigo: TRANSFORMADORES_CORRENTE
+        nome: "Transformadores de corrente"
+  - codigo: COMUNICACAO_INDUSTRIAL
+    nome: "Comunicação industrial"
+    filhos:
+      - codigo: SWITCHES_REDE_INDUSTRIAL
+        nome: "Switches de rede industrial"
+      - codigo: CONECTORES_REDE_INDUSTRIAL
+        nome: "Conectores de rede industrial"
+  - codigo: SEGURANCA_MAQUINAS
+    nome: "Segurança de máquinas"
+    filhos:
+      - codigo: RELES_SEGURANCA
+        nome: "Relés de segurança"
+      - codigo: ACESSORIOS_RELES_SEGURANCA
+        nome: "Acessórios para relés de segurança"
+
+sinonimos_encontrados:
+  - termo: "ACION ROT"
+    interpretar_como: "ACIONAMENTO ROTATIVO"
+    contexto_obrigatorio: "Quando houver evidência de acessório de manobra."
+  - termo: "EMERG"
+    interpretar_como: "EMERGÊNCIA"
+    contexto_obrigatorio: "Quando confirmado como função de emergência."
+  - termo: "LAT"
+    interpretar_como: "LATERAL"
+    contexto_obrigatorio: "Quando indicar a posição de montagem."
+  - termo: "DISJ"
+    interpretar_como: "DISJUNTOR"
+    contexto_obrigatorio: "Quando acompanhado de polos, curva ou corrente nominal."
+  - termo: "BLOCO DISTRIBUIÇÃO"
+    interpretar_como: "BLOCO DE DISTRIBUIÇÃO"
+    contexto_obrigatorio: "Quando indicar bloco para distribuição elétrica."
+  - termo: "BORNE TERM"
+    interpretar_como: "BORNE PARA BARRAMENTO"
+    contexto_obrigatorio: "Quando houver corrente, tensão ou posição de conexão confirmadas."
+  - termo: "CONEX. LAT. ESQ."
+    interpretar_como: "CONEXÃO LATERAL ESQUERDA"
+    contexto_obrigatorio: "Quando indicar a posição do borne no barramento."
+  - termo: "CONEX. LAT. DIR."
+    interpretar_como: "CONEXÃO LATERAL DIREITA"
+    contexto_obrigatorio: "Quando indicar a posição do borne no barramento."
+  - termo: "FRONT"
+    interpretar_como: "OMITIR DO NOME PADRONIZADO"
+    contexto_obrigatorio: "Quando identificar somente a posição frontal do acionador, sem mudar o tipo técnico do botão."
+  - termo: "FRONTAL"
+    interpretar_como: "OMITIR DO NOME PADRONIZADO"
+    contexto_obrigatorio: "Quando identificar somente a posição frontal do acionador, sem mudar o tipo técnico do botão."
+  - termo: "RETORNO POR MOLA"
+    interpretar_como: "MOMENTÂNEO"
+    contexto_obrigatorio: "Quando o retorno mecânico estiver explicitamente informado."
+  - termo: "LUMINOSO"
+    interpretar_como: "ILUMINADO"
+    contexto_obrigatorio: "Quando a iluminação do botão ou do módulo estiver confirmada."
+
+atributos_relevantes:
+  - tipo_tecnico
+  - posicao_montagem
+  - equipamento_compativel
+  - serie_compativel
+  - faixa_nominal_compativel
+  - polos
+  - curva
+  - corrente_nominal
+  - capacidade_interrupcao
+  - tensao_nominal
+  - comprimento
+
+ordem_atributos_nome:
+  - tipo_tecnico
+  - posicao_montagem
+  - equipamento_compativel
+  - serie_compativel
+  - faixa_nominal_compativel
+  - polos
+  - curva
+  - corrente_nominal
+  - capacidade_interrupcao
+
+regras_nome_por_tipo:
+  - tipo_tecnico: DISJUNTOR_MINI
+    formato: "DISJUNTOR MINI {polos} CURVA {curva} {corrente_nominal} {capacidade_interrupcao_opcional}"
+  - tipo_tecnico: BLOCO_DISTRIBUICAO
+    formato: "BLOCO DE DISTRIBUIÇÃO {polos} {corrente_nominal} {tensao_nominal}"
+  - tipo_tecnico: BARRAMENTO_DISPOSITIVOS_MODULARES
+    formato: "BARRAMENTO PARA DISPOSITIVOS MODULARES {polos} {corrente_nominal} {comprimento}"
+  - tipo_tecnico: BORNE_BARRAMENTO
+    formato: "BORNE [ISOLADO] PARA BARRAMENTO COM CONEXÃO {posicao_montagem} {corrente_nominal_opcional} {tensao_nominal_opcional}"
+  - tipo_tecnico: PULSADOR
+    formato: "BOTÃO PULSADOR [ILUMINADO] MOMENTÂNEO {diametro_opcional} {material_opcional} {cor_opcional} {tensao_iluminacao_opcional} {contatos_opcional}"
+  - tipo_tecnico: BOTAO_EMERGENCIA
+    formato: "BOTÃO DE EMERGÊNCIA [ILUMINADO] {diametro_opcional} {material_opcional} {acionamento_opcional} {contatos_opcional}"
+  - tipo_tecnico: CHAVE_SELETORA
+    formato: "CHAVE SELETORA {numero_posicoes} POSIÇÕES {retorno_opcional} {diametro_opcional} {material_opcional} {cor_opcional} {contatos_opcional}"
+  - tipo_tecnico: MANOPLA_SELETORA
+    formato: "MANOPLA SELETORA {numero_posicoes} POSIÇÕES {retorno_opcional} {diametro_opcional} {material_opcional} {cor_opcional}"
+  - tipo_tecnico: BOTOEIRA_CAIXA_COMANDO
+    formato: "BOTOEIRA PARA {aplicacao_ou_quantidade_pontos} {material_opcional} {grau_protecao_opcional}"
+  - tipo_tecnico: SINALEIRO
+    formato: "SINALEIRO [LED] [MONOBLOCO] {diametro_opcional} {tensao_opcional} {material_opcional} {cor_opcional}"
+  - tipo_tecnico: BLOCO_CONTATO_BOTAO
+    formato: "BLOCO DE CONTATO {contatos} {funcao_opcional}"
+  - tipo_tecnico: MODULO_LED_BOTAO
+    formato: "MÓDULO LED {tensao} {cor}"
+  - tipo_tecnico: ACESSORIO_BOTAO
+    formato: "{tipo_acessorio} PARA BOTÃO {atributos_confirmados_opcionais}"
+
+regras_formatacao:
+  caixa: "MAIÚSCULAS"
+  unidades: "Número + unidade, sem espaço; exemplos: 100A, 500VCA, 24VCC, 6kA e 17,5mm."
+  separador_faixa: " / "
+  nao_repetir_no_nome:
+    - fabricante
+    - marca
+    - codigo_interno
+    - codigo_fornecedor
+    - codigo_barras
+  excecao_serie_modelo: "Permitida somente como compatibilidade técnica indispensável, com aprovação humana registrada."
+
+integracao_importacao_nf:
+  agente: "Agente de Normalização de Cadastro"
+  endpoint: "/api/estoque/importar/normalizar-itens"
+  modelo_configuravel: "ASSISTENTE_IA_OPENAI_MODEL"
+  fonte_contexto:
+    - "Dados fiscais do item da NF-e"
+    - "Este catálogo YAML, excluído o histórico para reduzir contexto"
+    - "Grupos existentes no tenant e empresa correntes"
+  contrato_resposta:
+    - codigo
+    - descricao_padronizada
+    - grupo_id
+    - novo_grupo
+    - justificativa
+    - dados_pendentes
+    - confianca
+  salvaguardas:
+    - "O agente apenas sugere; não possui ação de gravação no banco."
+    - "O cadastro requer confirmação humana explícita na tela."
+    - "grupo_id deve ser um grupo existente no escopo atual. Quando não houver grupo funcional adequado, novo_grupo propõe código, nome e grupo pai existentes."
+    - "A criação do grupo e do item ocorre somente após confirmação humana explícita na tela."
+    - "Descrição e grupo — existente ou novo aprovado — são obrigatórios para o cadastro."
+
+exemplos_aprovados:
+  - id_decisao: D-001
+    status: aprovado
+    item_referencia:
+      id: 937
+      codigo_origem: "3VA91570PK15"
+      nome_anterior: "ACION ROT EMERG LAT 3VA160 3VA9157-0PK15"
+    interpretacao_tecnica: "Acessório de acionamento rotativo lateral para disjuntor caixa moldada, com função de emergência."
+    nome_padronizado: "ACIONAMENTO ROTATIVO LATERAL PARA DISJUNTORES CAIXA MOLDADA 3VA1 (100 A / 160 A)"
+    grupo:
+      caminho:
+        - "Disjuntores caixa moldada"
+        - "Acessórios"
+    atributos_confirmados:
+      tipo_tecnico: ACIONAMENTO_ROTATIVO_LATERAL
+      equipamento_compativel: "Disjuntor caixa moldada"
+      serie_compativel: "3VA1"
+      faixa_nominal_compativel:
+        - "100 A"
+        - "160 A"
+    justificativa: "A compatibilidade distingue o acessório e foi aprovada como exceção à regra de não repetir série/modelo."
+  - id_decisao: D-002
+    status: aprovado
+    tipo_tecnico: DISJUNTOR_MINI
+    regra_nome: "DISJUNTOR MINI {polos} CURVA {curva} {corrente_nominal} {capacidade_interrupcao}"
+    grupo:
+      caminho:
+        - "Disjuntores mini"
+    exemplos:
+      - codigo_origem: "5SL62257MB"
+        nome_anterior: "DISJ 2P C 25A 5SL6 225-7MB"
+        nome_padronizado: "DISJUNTOR MINI 2P CURVA C 25A 6kA"
+      - codigo_origem: "5SL32257MB"
+        nome_anterior: "DISJ 2P C 25A 5SL3 225-7MB"
+        nome_padronizado: "DISJUNTOR MINI 2P CURVA C 25A 4,5kA"
+      - codigo_origem: "5SL11106MB"
+        nome_anterior: "DISJ 1P B 10A 5SL1 110-6MB"
+        nome_padronizado: "DISJUNTOR MINI 1P CURVA B 10A"
+    regra_incerteza: "Não incluir capacidade de interrupção quando ela não estiver confirmada."
+  - id_decisao: D-005
+    status: aprovado
+    tipo_tecnico: ACESSORIO_DISJUNTOR_MINI
+    grupo:
+      caminho:
+        - "Disjuntores mini"
+        - "Disjuntores mini - acessórios"
+    exemplos:
+      - codigo_origem: "5ST2502"
+        nome_anterior: "BLOCO DISTRIBUIÇÃO 4P 125A 690V 5ST2 502"
+        nome_padronizado: "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V"
+        subtipo: BLOCO_DISTRIBUICAO
+      - codigo_origem: "5ST37400MB"
+        nome_anterior: "BARRAMENTO 63A 3P 1014MM 5ST3740-0MB"
+        nome_padronizado: "BARRAMENTO PARA DISPOSITIVOS MODULARES 3P 63A 1014 mm"
+        subtipo: BARRAMENTO_DISPOSITIVOS_MODULARES
+      - codigo_origem: "5ST37684"
+        nome_anterior: "BORNE TERM 80A/690VCA CONEX. LAT. ESQ."
+        nome_padronizado: "BORNE PARA BARRAMENTO COM CONEXÃO LATERAL ESQUERDA 80A 690VCA"
+        subtipo: BORNE_BARRAMENTO
+    regra_incerteza: "Não classificar como acessório de disjuntor mini apenas por conter termo semelhante; exigir evidência de instalação modular ou compatibilidade."
+  - id_decisao: D-006
+    status: aprovado
+    tipo_tecnico: CHAVE_SELETORA
+    grupo:
+      caminho:
+        - "Botões de comando"
+        - "Chaves e manoplas seletoras"
+    exemplos:
+      - codigo_origem: "3SU10022BF600AA0"
+        nome_anterior: "FRONTAL COMUT PLAS RET 2POS 22MM BR"
+        nome_padronizado: "CHAVE SELETORA 2 POSIÇÕES RETENTIVA 22 mm PLÁSTICA BRANCA"
+      - codigo_origem: "3SU10022BM600AA0"
+        nome_anterior: "FRONTAL COMUT PLAS MOM 3POS 22MM BR"
+        nome_padronizado: "CHAVE SELETORA 3 POSIÇÕES MOMENTÂNEA 22 mm PLÁSTICA BRANCA"
+      - codigo_origem: "3SU11002BF601MA0"
+        nome_anterior: "COMUT PLA 2POS RET PARA 1NA+1NF BR"
+        nome_padronizado: "CHAVE SELETORA 2 POSIÇÕES RETENTIVA PLÁSTICA BRANCA 1NA+1NF"
+    regra_incerteza: "Omitir front/frontal. Incluir contatos, posições, retorno, diâmetro, material e cor apenas quando confirmados."
+  - id_decisao: D-007
+    status: aprovado
+    tipo_tecnico: BOTAO_COMANDO
+    grupos:
+      pulsadores:
+        - "Botões de comando"
+        - "Pulsadores"
+      emergencia:
+        - "Botões de comando"
+        - "Botões de emergência"
+    exemplos:
+      - codigo_origem: "3SU10500AB300AA0"
+        nome_anterior: "FRONT BOTAO 22MM MET MOM AM"
+        nome_padronizado: "BOTÃO PULSADOR MOMENTÂNEO 22 mm METÁLICO AMARELO"
+      - codigo_origem: "3SU11020AB501BA0"
+        nome_anterior: "BOTAO PLA ILU 24V MOM PARA 1NA AZ"
+        nome_padronizado: "BOTÃO PULSADOR ILUMINADO MOMENTÂNEO 24V PLÁSTICO AZUL 1NA"
+      - codigo_origem: "3SU10001HB200AA0"
+        nome_anterior: "FRONTAL BOTAO EMER 40MM PLAS ROT DES"
+        nome_padronizado: "BOTÃO DE EMERGÊNCIA 40 mm PLÁSTICO GIRATÓRIO COM DESTRAVAMENTO"
+    regra_incerteza: "Botões iluminados pertencem ao grupo funcional do botão; iluminação é atributo no nome. Não classificar blocos de contato, blocos LED, sinaleiros, caixas ou acessórios como botões."
+  - id_decisao: D-008
+    status: aprovado
+    familia: "Componentes Siemens 3SB e 3SU para comando e sinalização"
+    grupos:
+      - "Botoeiras e caixas"
+      - "Sinaleiros"
+      - "Blocos de contato"
+      - "Módulos LED"
+      - "Acessórios para botões"
+    exemplos:
+      - codigo_origem: "3SB78110AA100BA0"
+        nome_anterior: "BOTOEIRA PLA P/ 1 BOTAO DE COMANDO IP65"
+        nome_padronizado: "BOTOEIRA PARA 1 BOTÃO DE COMANDO PLÁSTICA IP65"
+        tipo_tecnico: BOTOEIRA_CAIXA_COMANDO
+      - codigo_origem: "3SB62136AA201AA0"
+        nome_anterior: "SINALEIRO MONOBLOCO LED 24V VERMELHO"
+        nome_padronizado: "SINALEIRO LED MONOBLOCO 24V VERMELHO"
+        tipo_tecnico: SINALEIRO
+      - codigo_origem: "3SU14001AA101BA0"
+        nome_anterior: "BLOCO CONTATO MONT FRONT PARA 1NA"
+        nome_padronizado: "BLOCO DE CONTATO 1NA"
+        tipo_tecnico: BLOCO_CONTATO_BOTAO
+      - codigo_origem: "3SU14011BB501AA0"
+        nome_anterior: "BLOCO LED 24VCACC FRONT PARA AZ"
+        nome_padronizado: "MÓDULO LED 24VCA/CC AZUL"
+        tipo_tecnico: MODULO_LED_BOTAO
+      - codigo_origem: "3SU19000DB700AA0"
+        nome_anterior: "CAPA SILICONE PROTECAO BOTAO"
+        nome_padronizado: "CAPA DE SILICONE PARA BOTÃO"
+        tipo_tecnico: ACESSORIO_BOTAO
+    regra_incerteza: "Não inferir aplicação, quantidade de furos, grau de proteção, tensão, cor ou contatos ausentes no cadastro."
+  - id_decisao: D-009
+    status: aprovado
+    origem: "Aplicação dos padrões de comando e sinalização a fornecedores WEG e Schneider"
+    regra: "Aplicar os mesmos grupos e formatos por função técnica, sem repetir fabricante, fornecedor, marca, série ou código no nome."
+    exemplos:
+      - codigo_origem: "XB5AW36B5"
+        nome_padronizado: "BOTÃO PULSADOR ILUMINADO MOMENTÂNEO 22 mm PLÁSTICO AZUL 24VCA/CC 1NA+1NF"
+      - codigo_origem: "10046540"
+        nome_padronizado: "SINALEIRO MONOBLOCO 22 mm PLÁSTICO VERMELHO 24VCC"
+      - codigo_origem: "ZBE101"
+        nome_padronizado: "BLOCO DE CONTATO 1NA"
+      - codigo_origem: "XVGB3"
+        nome_padronizado: "COLUNA SINALIZADORA PRE-MONTADA 60 mm LED VERMELHO / VERDE / AMARELO 24VCA/CC COM TUBO E SUPORTE EM L"
+      - codigo_origem: "15985138"
+        nome_padronizado: "SINALEIRO 22 mm BRANCO 200-230VCA"
+    regra_incerteza: "Manter pendente todo item cujo tipo ou atributos técnicos não possam ser confirmados pelo cadastro ou catálogo oficial."
+  - id_decisao: D-010
+    status: aprovado
+    tipo_tecnico: COLUNA_SINALIZADORA
+    grupo:
+      caminho:
+        - "Botões de comando"
+        - "Colunas sinalizadoras"
+    regra: "Coluna sinalizadora pré-montada é um conjunto de sinalização e deve ficar em grupo próprio; não classificá-la como sinaleiro unitário."
+    exemplos:
+      - codigo_origem: "XVGB3"
+        nome_padronizado: "COLUNA SINALIZADORA PRE-MONTADA 60 mm LED VERMELHO / VERDE / AMARELO 24VCA/CC COM TUBO E SUPORTE EM L"
+  - id_decisao: D-011
+    status: aprovado
+    tipo_tecnico: CONTATOR
+    grupo:
+      caminho:
+        - "Manobra e partida de motores"
+        - "Contatores"
+    ordem_atributos:
+      - tipo
+      - polos_quando_confirmados
+      - categoria_utilizacao
+      - corrente_nominal
+      - contatos_auxiliares
+      - tensao_comando
+      - frequencia
+      - tipo_conexao
+    regra: "Usar CONTATOR, seguido de atributos técnicos confirmados. Contatores auxiliares e acessórios ficam em grupos próprios. Não repetir modelo, série, marca ou fornecedor no nome."
+    exemplos:
+      - codigo_origem: "3RT20261AN20"
+        nome_padronizado: "CONTATOR AC-3 25 A 1NA+1NF 220 V 50/60 Hz CONEXÃO POR PARAFUSO"
+      - codigo_origem: "3RT10541AF36"
+        nome_padronizado: "CONTATOR 3P AC-3 115 A 2NA+2NF 110-127 VCA/CC 50/60 Hz CONEXÃO POR PARAFUSO"
+      - codigo_origem: "3RH21221AF00"
+        nome_padronizado: "CONTATOR AUXILIAR 2NA+2NF 110 V 50/60 Hz CONEXÃO POR PARAFUSO"
+    regra_incerteza: "Quando corrente, polos ou demais especificações não estiverem confirmados, não inferi-los a partir do modelo; manter somente os atributos comprovados."
+  - id_decisao: D-012
+    status: aprovado
+    tipo_tecnico: DISJUNTOR_MOTOR
+    grupo:
+      caminho:
+        - "Proteção e seccionamento"
+        - "Disjuntores motor"
+    regra: "Usar DISJUNTOR MOTOR seguido da faixa de ajuste ou corrente nominal confirmada. Acessórios e conexões para partida ficam em grupos próprios."
+    exemplos:
+      - codigo_origem: "3RV20111GA10"
+        nome_padronizado: "DISJUNTOR MOTOR 4,5-6,3 A"
+      - codigo_origem: "3RV23314WC10"
+        nome_padronizado: "DISJUNTOR MOTOR 52 A"
+    regra_incerteza: "Extrair corrente somente quando aparecer como atributo no fim da descrição; não interpretar números da série/modelo como valor elétrico."
+  - id_decisao: D-013
+    status: aprovado
+    tipo_tecnico: RELE_SOBRECARGA
+    grupo:
+      caminho:
+        - "Manobra e partida de motores"
+        - "Relés de sobrecarga"
+    regra: "Usar RELÉ DE SOBRECARGA seguido da faixa de ajuste confirmada e do tamanho construtivo quando informado. Suportes e outros complementos ficam em Acessórios para relés de sobrecarga."
+    exemplos:
+      - codigo_origem: "3RU21261KB0"
+        nome_padronizado: "RELÉ DE SOBRECARGA 9-12,5 A TAMANHO S0"
+      - codigo_origem: "3RU29263AA01"
+        nome_padronizado: "SUPORTE INDIVIDUAL PARA RELÉ DE SOBRECARGA TAMANHO S0"
+  - id_decisao: D-014
+    status: aprovado
+    regra: "Incluir o tipo de conexão em disjuntores motor e relés de sobrecarga somente quando confirmado pela referência técnica."
+    mapeamentos_confirmados:
+      - contexto: "Disjuntores motor Siemens 3RV2"
+        referencia: "sufixo ...10"
+        atributo: "CONEXÃO POR PARAFUSO"
+      - contexto: "Disjuntores motor Siemens 3RV2"
+        referencia: "sufixo ...20"
+        atributo: "CONEXÃO POR MOLA"
+      - contexto: "Relés de sobrecarga Siemens 3RU deste lote"
+        referencia: "sufixo ...B0"
+        atributo: "CONEXÃO POR PARAFUSO"
+    excecao_modelo_aprovada:
+      contexto: "Bloco de contato auxiliar frontal para disjuntor motor"
+      nome_padronizado: "BLOCO DE CONTATO AUXILIAR FRONTAL 3RV1901-1E (1NA+1NF)"
+      justificativa: "A referência identifica a compatibilidade técnica do bloco; aprovada expressamente para permanecer no nome."
+  - id_decisao: D-015
+    status: aprovado
+    escopo: "Itens tecnicamente equivalentes de fornecedores WEG e Schneider"
+    regra: "Reutilizar a classificação funcional e os formatos aprovados para contatores, disjuntores motor, relés de sobrecarga e acessórios, independentemente de marca ou fornecedor. Incluir somente atributos confirmados pela documentação técnica ou pelo cadastro confiável."
+    mapeamentos_confirmados:
+      - contexto: "Disjuntores motor WEG MPW"
+        atributo: "CONEXÃO POR PARAFUSO"
+      - contexto: "Relés de sobrecarga WEG RW17"
+        atributo: "CONEXÃO POR PARAFUSO"
+      - contexto: "Contatores WEG CWB e Schneider LC1D"
+        atributo: "CONEXÃO POR PARAFUSO"
+    regra_acessorios: "Acessórios devem ser diferenciados pela sua função e por atributos técnicos confirmados, como comprimento, corrente, tensão e número de polos. Não repetir marca, série, modelo ou código na descrição."
+    exemplos:
+      - codigo_origem: "BBS45-3"
+        nome_padronizado: "BARRAMENTO DE DISTRIBUIÇÃO ISOLADO 130 mm 690 V 50/60 Hz PARA DISJUNTOR MOTOR"
+      - codigo_origem: "FTBBS"
+        nome_padronizado: "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO PARA DISJUNTOR MOTOR 63 A 690 V 50/60 Hz"
+  - id_decisao: D-016
+    status: aprovado
+    tipo_tecnico: DISJUNTOR_CAIXA_MOLDADA
+    grupo:
+      caminho:
+        - "Disjuntores caixa moldada"
+    ordem_atributos:
+      - tipo
+      - caracteristica_construtiva_quando_confirmada
+      - polos
+      - corrente_nominal
+      - capacidade_interrupcao
+      - tensao
+      - observacao_funcional_quando_confirmada
+    regra: "Usar DISJUNTOR CAIXA MOLDADA seguido somente de atributos confirmados. Acionamentos, manoplas, acopladores, conexões, adaptadores e disparadores ficam em ACESSÓRIOS, indicando o equipamento atendido."
+    formato_medidas: "Para esta família, corrente, capacidade de interrupção e tensão são grafadas sem espaço entre número e unidade: 100A, 16kA e 380V."
+    excecao_modelo_aprovada:
+      regra: "Em manoplas, pode-se manter o modelo e a capacidade do disjuntor quando ambos forem indispensáveis para a compatibilidade e estiverem confirmados."
+      exemplos:
+        - codigo_origem: "3VT9300-3HF20"
+          nome_padronizado: "MANOPLA VERMELHA PARA ACIONAMENTO ROTATIVO DE DISJUNTOR CAIXA MOLDADA 3VT2 250A"
+        - codigo_origem: "12778353"
+          nome_padronizado: "MANOPLA ROTATIVA CINZA PARA DISJUNTOR CAIXA MOLDADA AGW250 250A"
+    exemplos:
+      - codigo_origem: "3VM10102ED320AA0"
+        nome_padronizado: "DISJUNTOR CAIXA MOLDADA 3P 100A 16kA 380V"
+      - codigo_origem: "C11N3TM025L"
+        nome_padronizado: "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO 3P 25A 50kA 415V"
+  - id_decisao: D-017
+    status: aprovado
+    tipo_tecnico: CHAVE_SEGURANCA
+    grupo:
+      caminho:
+        - "Segurança de máquinas"
+      filhos:
+        - "Chaves de segurança"
+        - "Atuadores para chaves de segurança"
+        - "Acessórios para chaves de segurança"
+    regra: "Classificar a chave completa em CHAVES DE SEGURANÇA, mesmo quando fornecida com atuador. Classificar o atuador vendido separadamente em ATUADORES PARA CHAVES DE SEGURANÇA. Fixadores, tensionadores e outros complementos ficam em ACESSÓRIOS PARA CHAVES DE SEGURANÇA."
+    ordem_atributos:
+      - tipo
+      - tecnologia_ou_funcao
+      - caracteristica_construtiva_confirmada
+      - contatos_quando_confirmados
+      - dados_eletricos_confirmados
+      - dimensoes_confirmadas
+    regra_marcas: "Aplicar o padrão independentemente de fabricante ou fornecedor; não repetir marca, modelo ou código na descrição."
+    exemplos:
+      - codigo_origem: "3SE63150BB01"
+        nome_padronizado: "CHAVE DE SEGURANÇA RFID SEM CONTATO 25 mm x 106 mm CONECTOR M12 8P"
+      - codigo_origem: "3SE63100BC01"
+        nome_padronizado: "ATUADOR PADRÃO PARA CHAVE DE SEGURANÇA RFID 91 mm x 25 mm"
+      - codigo_origem: "VFT8"
+        nome_padronizado: "PARAFUSO TENSIONADOR PARA KIT DE CORDA DE CHAVE DE SEGURANÇA"
+  - id_decisao: D-018
+    status: aprovado
+    tipo_tecnico: RELE_SEGURANCA
+    grupo:
+      caminho:
+        - "Segurança de máquinas"
+      filhos:
+        - "Relés de segurança"
+        - "Módulos de expansão para relés de segurança"
+        - "Módulos de segurança para inversores"
+        - "Módulos de segurança modulares"
+    regra: "Classificar relés de segurança, unidades básicas e controladores de segurança em RELÉS DE SEGURANÇA. Classificar expansões de entradas e saídas para relés em MÓDULOS DE EXPANSÃO PARA RELÉS DE SEGURANÇA. Módulos específicos para inversores permanecem em MÓDULOS DE SEGURANÇA PARA INVERSORES. Expansões de sistemas modulares de segurança ficam em MÓDULOS DE SEGURANÇA MODULARES."
+    ordem_atributos:
+      - tipo
+      - funcao
+      - contatos_ou_io_quando_confirmados
+      - tensao_alimentacao
+      - temporizacao_quando_confirmada
+      - tipo_conexao
+      - nivel_seguranca_quando_confirmado
+    regra_marcas: "Aplicar a classificação funcional a qualquer marca ou fornecedor; não repetir marca, série, modelo ou código na descrição."
+    exemplos:
+      - codigo_origem: "3SK11211CB41"
+        nome_padronizado: "RELÉ DE SEGURANÇA TEMPORIZADO 2NA IMEDIATOS + 2NA RETARDADOS 24 VCC 0,05-3 s CONEXÃO POR PARAFUSO"
+      - codigo_origem: "3SK1220-2AB40"
+        nome_padronizado: "MÓDULO DE EXPANSÃO DE ENTRADAS PARA RELÉ DE SEGURANÇA 2 CANAIS OU 2 x 1 CANAL 24 VCC CONEXÃO POR MOLA"
+      - codigo_origem: "15560296"
+        nome_padronizado: "MÓDULO DE SEGURANÇA PARA INVERSOR DE FREQUÊNCIA"
+      - codigo_origem: "3RK32211AA10"
+        nome_padronizado: "MÓDULO DE EXPANSÃO DE SEGURANÇA 2/4 DI DE SEGURANÇA 1/2 SAÍDAS A RELÉ DE SEGURANÇA 24 VCC 1 A"
+  - id_decisao: D-019
+    status: aprovado
+    tipo_tecnico: BLOCO_CONTATO_AUXILIAR_FRONTAL
+    grupo:
+      caminho:
+        - "Manobra e partida de motores"
+        - "Acessórios para contatores"
+    regra: "Blocos e interruptores auxiliares frontais para contatores são acessórios para contatores, não contatores auxiliares completos. Usar BLOCO DE CONTATO AUXILIAR FRONTAL seguido de contatos, tensão e tipo de conexão quando confirmados."
+    ordem_atributos:
+      - tipo
+      - contatos
+      - tensao_quando_confirmada
+      - tipo_conexao
+      - aplicacao
+    regra_marcas: "Aplicar o padrão independentemente de marca ou fornecedor; não repetir marca, série, modelo ou código na descrição."
+    exemplos:
+      - codigo_origem: "3RH2911-2FA40"
+        nome_padronizado: "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR MOLA PARA CONTATOR"
+      - codigo_origem: "12499350"
+        nome_padronizado: "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF 660/690 V CONEXÃO POR PARAFUSO PARA CONTATOR"
+  - id_decisao: D-020
+    status: aprovado
+    tipo_tecnico: RELE_INTERFACE
+    grupo:
+      caminho:
+        - "Relés e monitoramento"
+      filhos:
+        - "Relés de interface"
+        - "Acessórios para relés de interface"
+    regra: "Classificar relés e acopladores de interface em RELÉS DE INTERFACE. Pentes e demais complementos ficam em ACESSÓRIOS PARA RELÉS DE INTERFACE. Para acopladores semicondutores, declarar tipo de saída; para relés encaixáveis, declarar o contato, alimentação e conexão quando confirmados."
+    ordem_atributos:
+      - tipo
+      - tecnologia_ou_construcao
+      - contatos
+      - alimentacao
+      - dados_saida
+      - corrente
+      - tipo_conexao
+    regra_incerteza: "Quando o cadastro não confirmar atributos técnicos, usar somente RELÉ DE INTERFACE e manter código, fabricante e fornecedor em seus campos próprios."
+    exemplos:
+      - codigo_origem: "3RQ3052-1SM30"
+        nome_padronizado: "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24 VCC SAÍDA 30 VCC 2 A CONEXÃO POR PARAFUSO"
+      - codigo_origem: "3RQ3901-0D"
+        nome_padronizado: "PENTE DE CONEXÃO 16 POLOS PARA RELÉS DE INTERFACE"
+      - codigo_origem: "G2RV1SG"
+        nome_padronizado: "RELÉ DE INTERFACE"
+      - codigo_origem: "LZS:PT5A5L24"
+        nome_padronizado: "RELÉ DE INTERFACE ENCAIXÁVEL"
+      - codigo_origem: "2900369"
+        nome_padronizado: "RELÉ DE INTERFACE DE ESTADO SÓLIDO 1NA ENTRADA 24 VCC SAÍDA 24-253 VCA 0,75 A"
+      - codigo_origem: "857724"
+        nome_padronizado: "RELÉ DE INTERFACE DE ESTADO SÓLIDO 24 VCC SAÍDA 0-24 VCC 3 A 6 mm"
+  - id_decisao: D-021
+    status: aprovado
+    familias:
+      - CHAVE_SECCIONADORA
+      - FUSIVEL_NH
+      - BASE_FUSIVEL_NH
+      - INTERRUPTOR_DIFERENCIAL_RESIDUAL
+      - SOFT_STARTER
+      - ACESSORIO_SOFT_STARTER
+      - RELE_MONITORAMENTO_REDE
+      - ACESSORIO_RELE_SEGURANCA
+    grupos:
+      - "Proteção e seccionamento > Chaves seccionadoras"
+      - "Proteção e seccionamento > Acessórios para chaves seccionadoras"
+      - "Proteção e seccionamento > Fusíveis NH"
+      - "Proteção e seccionamento > Bases para fusíveis NH"
+      - "Proteção e seccionamento > Interruptores diferenciais residuais"
+      - "Acionamentos de motores > Soft-starters"
+      - "Acionamentos de motores > Acessórios para soft-starters"
+      - "Relés e monitoramento > Relés de monitoramento de rede"
+      - "Segurança de máquinas > Acessórios para relés de segurança"
+    regras:
+      - "A descrição deve indicar tipo de montagem da chave seccionadora somente quando confirmado, como MONTAGEM FRONTAL, MONTAGEM EM PAINEL ou MONTAGEM POR TOPO."
+      - "Em fusíveis NH e bases, declarar classe do fusível quando confirmada, tamanho, corrente e tensão."
+      - "Em DR, declarar polos, corrente nominal, corrente diferencial residual e tipo AC quando confirmados."
+      - "Em soft-starters, declarar corrente, tensões aplicáveis, grau de proteção e conexão somente quando confirmados."
+      - "Módulos de comunicação devem declarar o protocolo e a função; bases e conectores de relés de segurança devem declarar tipo e largura quando confirmados."
+      - "Todos os valores devem manter número e unidade juntos, sem espaço."
+    exemplos:
+      - codigo_origem: "3LD33540TK53"
+        nome_padronizado: "CHAVE SECCIONADORA PRINCIPAL 3P 40A MONTAGEM FRONTAL"
+      - codigo_origem: "3NA3260"
+        nome_padronizado: "FUSÍVEL NH TAMANHO 2 400A 500VCA"
+      - codigo_origem: "5SV43470MB"
+        nome_padronizado: "INTERRUPTOR DIFERENCIAL RESIDUAL 3P+N 80A 30mA TIPO AC"
+      - codigo_origem: "3RW59500CH00"
+        nome_padronizado: "MÓDULO DE COMUNICAÇÃO PROFINET COM SWITCH INTEGRADO PARA SOFT-STARTER"
+      - codigo_origem: "3UG55121BR20"
+        nome_padronizado: "RELÉ DE MONITORAMENTO DE REDE TRIFÁSICA PARA FALTA, SEQUÊNCIA E ASSIMETRIA DE FASE 160-690VCA"
+      - codigo_origem: "10194172"
+        nome_padronizado: "SOFT-STARTER 30A 220-575VCA IP20"
+  - id_decisao: D-022
+    status: aprovado
+    grupos:
+      - "Alimentação e energia > Fontes de alimentação"
+      - "Alimentação e energia > UPS CC"
+      - "Acionamentos de motores > Inversores de frequência"
+      - "Acionamentos de motores > Resistores de frenagem"
+      - "Acionamentos de motores > Acessórios para inversores de frequência"
+      - "Automação programável > Controladores programáveis S7-1200"
+      - "Automação programável > Módulos digitais e analógicos para PLC S7-1200"
+    regras:
+      - "Fontes declaram saída, corrente ou potência e tipo de entrada somente quando confirmados."
+      - "Acessórios de inversor mantêm a família compatível no nome quando ela distingue a aplicação, como SINAMICS G120, CFW500 ou CFW900."
+      - "Controladores e módulos PLC declaram a família. Para o lote Siemens, usar S7-1200."
+      - "Módulos analógicos declaram os sinais confirmados; não tratar tensão, corrente e RTD como equivalentes."
+    exemplos:
+      - codigo_origem: "6SL32550AA004CA1"
+        nome_padronizado: "PAINEL DE OPERAÇÃO BOP-2 PARA INVERSOR SINAMICS G120"
+      - codigo_origem: "6ES72314HF320XB0"
+        nome_padronizado: "MÓDULO DE ENTRADAS ANALÓGICAS PARA PLC S7-1200 8AI ±10V / ±5V / ±2,5V / 0-20mA / 4-20mA"
+      - codigo_origem: "6ES72315PA300XB0"
+        nome_padronizado: "MÓDULO DE ENTRADA RTD PARA PLC S7-1200 1AI Pt100/Pt1000"
+      - codigo_origem: "13059319"
+        nome_padronizado: "INVERSOR DE FREQUÊNCIA 200-240VCA MONOFÁSICO 1,6A IP20"
+  - id_decisao: D-023
+    status: aprovado
+    grupos:
+      - "Automação programável > Módulos de E/S digitais para PLC ET200SP"
+      - "Automação programável > Módulos de E/S analógicas para PLC ET200SP"
+      - "Automação programável > Módulos de E/S de segurança para PLC ET200SP"
+      - "Automação programável > Módulos de saídas de segurança para PLC S7-1200"
+      - "Automação programável > Módulos de E/S de segurança para PLC ET200MP"
+      - "Automação programável > Interfaces PROFINET para PLC ET200SP"
+      - "Automação programável > Acopladores para redes industriais"
+      - "Automação programável > Adaptadores de barramento para PLC ET200SP"
+      - "Automação programável > Bases para módulos ET200SP"
+      - "Automação programável > Acessórios para PLC ET200SP"
+      - "Automação programável > Acessórios para PLC S7-1500"
+    regras:
+      - "A família ET200SP, ET200MP, S7-1200 ou S7-1500 deve constar no nome quando ela define compatibilidade do módulo ou acessório."
+      - "Cabeças de rede ET200SP declaram PROFINET, capacidade de módulos de E/S e portas de rede quando confirmadas."
+      - "Acopladores declaram os protocolos conectados e a função técnica confirmada, como troca determinística de dados ou alimentação redundante."
+      - "Usar a denominação BusAdapter seguida do tipo técnico aprovado quando ela distinguir conexão física ou meio de transmissão."
+      - "Bases ET200SP declaram largura, terminais push-in, terminais auxiliares e comportamento do grupo de carga quando confirmados."
+      - "Não repetir fabricante no nome. SIMATIC DP é permitido por identificar a linha técnica do acoplador."
+    exemplos:
+      - codigo_origem: "6ES71556AU020BN0"
+        nome_padronizado: "CABEÇA DE REDE PROFINET PARA ESTAÇÃO ET200SP ATÉ 32 MÓDULOS DE E/S"
+      - codigo_origem: "6ES71936AF000AA0"
+        nome_padronizado: "BUSADAPTER BA 2xFC PARA ESTAÇÃO ET200SP, 2 CONEXÕES FASTCONNECT PROFINET"
+      - codigo_origem: "6ES71936BP200DA0"
+        nome_padronizado: "BASE PARA MÓDULO ET200SP 15mm, 16 TERMINAIS PUSH-IN, 10 TERMINAIS AUXILIARES, NOVO GRUPO DE CARGA"
+  - id_decisao: D-024
+    status: aprovado
+    grupos:
+      - "Conexões elétricas > Bornes de passagem"
+      - "Conexões elétricas > Bornes de passagem plug-in"
+      - "Conexões elétricas > Bornes de proteção"
+      - "Conexões elétricas > Pentes para bornes"
+      - "Conexões elétricas > Tampas finais para bornes"
+      - "Transformadores de comando"
+      - "Proteção e seccionamento > Chaves seccionadoras"
+      - "Proteção e seccionamento > Acessórios para chaves seccionadoras"
+      - "Relés e monitoramento > Relés temporizadores"
+      - "Relés e monitoramento > Relés de monitoramento de rede"
+    regras:
+      - "Usar PENTE, e não PONTE, para acessórios de ligação entre bornes. Declarar polos, seção e andares somente quando confirmados."
+      - "Bornes de passagem e de proteção são separados pela função; o atributo PLUG-IN permanece no nome quando confirmado."
+      - "Transformadores de comando declaram potência, tensão de entrada e tensão de saída somente quando confirmadas. A falta de uma dessas especificações impede a alteração do nome."
+      - "Chaves seccionadoras declaram polos, corrente e montagem. A manopla verde é mantida quando diferencia o item."
+    exemplos:
+      - codigo_origem: "8WA1838"
+        nome_padronizado: "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS 2 ANDARES 2,5mm²"
+      - codigo_origem: "A7B10001328580"
+        nome_padronizado: "TRANSFORMADOR DE COMANDO MONOFÁSICO 300VA ENTRADA 220/380/440/480VCA SAÍDA 24VCA IP00"
+      - codigo_origem: "A7B10001315425"
+        nome_padronizado: "CHAVE SECCIONADORA 3P 25A MONTAGEM FRONTAL COM MANOPLA VERDE"
+  - id_decisao: D-025
+    status: aprovado
+    grupos:
+      - "Acionamentos de motores > Servomotores"
+      - "Acionamentos de motores > Cabos para servomotores"
+      - "Manobra e partida de motores > Partidas diretas de segurança"
+      - "Proteção e seccionamento > Disjuntores abertos"
+      - "Proteção e seccionamento > Chaves seccionadoras porta-fusível"
+      - "Segurança de máquinas > Relés de segurança"
+      - "Automação programável > Controladores programáveis LOGO!"
+      - "Automação programável > Módulos de expansão para PLC LOGO!"
+      - "Automação programável > Módulos de comunicação para PLC S7-1200"
+      - "Automação programável > Módulos de comunicação para PLC S7-1500"
+      - "Automação programável > Módulos de pesagem para PLC S7-1200"
+      - "Automação programável > Interfaces homem-máquina"
+      - "Medição e instrumentação > Transformadores de corrente"
+      - "Comunicação industrial > Switches de rede industrial"
+      - "Comunicação industrial > Conectores de rede industrial"
+    regras:
+      - "Em servoacionamento, declarar família do servomotor e do drive somente quando a compatibilidade estiver confirmada. Cabos de sinal e de potência não são equivalentes."
+      - "Para sistemas de segurança modulares, nomear unidade central, relé ou partida pela função confirmada e pela família quando ela for necessária para compatibilidade."
+      - "Em redes industriais, switches devem declarar gerenciamento, camada, quantidade, meio e tipo das portas. Módulos de comunicação para PLC declaram família, protocolo e papel de rede quando confirmados."
+      - "Módulos de pesagem devem declarar a família de PLC ou a possibilidade de operação autônoma, bem como canal, E/S e interfaces confirmados."
+      - "A marca e o código permanecem nos campos próprios. A família técnica pode constar na descrição exclusivamente quando determina a compatibilidade do item."
+    exemplos:
+      - codigo_origem: "6FX3502-2XB11-1AD0"
+        nome_padronizado: "CABO DE SINAL 3m PARA SERVOMOTOR S-1FL2 E DRIVE SINAMICS S200"
+      - codigo_origem: "3RK3111-1AA10"
+        nome_padronizado: "UNIDADE CENTRAL PARA SISTEMA DE SEGURANÇA MODULAR 3RK3 BASIC"
+      - codigo_origem: "6GK5206-2BB00-2AC2"
+        nome_padronizado: "SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL LAYER 2 6 PORTAS RJ45 100Mbps E 2 PORTAS FIBRA ÓPTICA ST/BFOC 100Mbps"
+      - codigo_origem: "7MH4960-2AA01"
+        nome_padronizado: "MÓDULO DE PESAGEM SIWAREX WP231 PARA PLC S7-1200 OU OPERAÇÃO AUTÔNOMA, 1 CANAL, 4DI/4DO, 1AO, RS485 E ETHERNET"
+
+termos_ambiguos_pendentes:
+  - termo: "CAIXA"
+    status: pendente
+    observacao: "Não tratar automaticamente como painel, armário, gabinete ou quadro."
+  - termo: "ARMÁRIO"
+    status: pendente
+    observacao: "Exigir evidência de tipo construtivo e aplicação antes de equivaler a gabinete ou painel."
+  - termo: "GABINETE"
+    status: pendente
+    observacao: "Exigir evidência de aplicação antes de equivaler a armário ou painel."
+  - termo: "PAINEL"
+    status: pendente
+    observacao: "Pode indicar conjunto montado, invólucro ou contexto de aplicação; validar caso a caso."
+  - termo: "5SL1"
+    status: pendente
+    observacao: "Capacidade de interrupção não confirmada para os registros legados desta série; não incluí-la no nome até validação documental."
+
+historico_decisoes:
+  - id: D-001
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão humana do item #937"
+    decisao: "Nome e grupo aprovados para acessório de disjuntor caixa moldada."
+  - id: D-002
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão humana da linha Siemens 5SL"
+    decisao: "Usar o grupo DISJUNTORES MINI e o formato DISJUNTOR MINI, com corrente e capacidade sem espaço da unidade."
+  - id: D-003
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Lote complementar 5SL do fornecedor SIEMENS BRASIL LTDA."
+    decisao: "Aplicar a regra D-002 aos itens 5SL com curvas B e C, preservando fabricante e descrição existentes."
+  - id: D-004
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão de disjuntores mini WEG e itens equivalentes de outros fornecedores"
+    decisao: "Aplicar o nome técnico sem marca, série ou modelo. Preservar fornecedor e fabricante existentes; usar capacidade de interrupção apenas quando confirmada no cadastro."
+  - id: D-005
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão humana da família Siemens 5ST"
+    decisao: "Classificar blocos de distribuição, barramentos e bornes da família 5ST em DISJUNTORES MINI - ACESSÓRIOS; retirar código, marca e série do nome padronizado."
+  - id: D-006
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Definição humana para famílias Siemens 3SB e 3SU"
+    decisao: "Classificar botões em Pulsadores, Botões de emergência e Chaves e manoplas seletoras. Omitir front/frontal; registrar iluminação como atributo no nome e manter contatos quando confirmados."
+  - id: D-007
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão humana do lote Siemens 3SB e 3SU"
+    decisao: "Aplicar os padrões de pulsadores e botões de emergência; botões iluminados permanecem no grupo funcional e declaram iluminação no nome."
+  - id: D-008
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão humana dos acessórios e componentes Siemens 3SB e 3SU"
+    decisao: "Classificar botoeiras, sinaleiros, blocos de contato, módulos LED e acessórios em grupos funcionais próprios, sem repetir marca, série ou código no nome."
+  - id: D-009
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Aplicação aprovada aos fornecedores WEG e Schneider"
+    decisao: "Reutilizar os padrões funcionais de comando e sinalização para itens equivalentes de outras marcas, preservando fornecedor e fabricante existentes. Foram normalizados 45 itens: 32 Schneider e 13 WEG."
+  - id: D-010
+    data: "2026-08-17"
+    status: aprovado
+    origem: "Revisão humana da classificação de coluna sinalizadora"
+    decisao: "Criar o grupo Colunas sinalizadoras, subordinado a Botões de comando, para conjuntos pré-montados de sinalização."
+  - id: D-011
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Normalização aprovada da família Siemens de contatores"
+    decisao: "Criar Manobra e partida de motores com os grupos Contatores, Contatores auxiliares e Acessórios para contatores. Classificar 64 itens Siemens e normalizar nomes somente com atributos confirmados."
+  - id: D-012
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Normalização aprovada da família Siemens 3RV e 3RA"
+    decisao: "Criar Proteção e seccionamento com Disjuntores motor e Acessórios para disjuntores motor. Separar conexões 3RA para partida de motores. Classificar 50 itens e normalizar somente correntes/faixas explicitamente confirmadas."
+  - id: D-013
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Normalização aprovada da família Siemens 3RU e 3US"
+    decisao: "Criar Relés de sobrecarga e Acessórios para relés de sobrecarga. Classificar nove relés e um suporte, preservando somente faixas e tamanhos confirmados."
+  - id: D-014
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Revisão humana dos atributos de conexão"
+    decisao: "Adicionar conexão por parafuso ou mola aos disjuntores motor e relés de sobrecarga quando confirmada. Manter a referência 3RV1901-1E no bloco auxiliar frontal por compatibilidade técnica aprovada."
+  - id: D-015
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Aplicação aprovada aos itens WEG e Schneider equivalentes"
+    decisao: "Aplicar os grupos e os formatos técnicos já aprovados a 32 itens: 13 contatores, 1 acessório para contator, 11 disjuntores motor, 2 relés de sobrecarga e 5 acessórios para disjuntores motor. Diferenciar barramentos e terminais por atributos técnicos confirmados, sem inserir marca, série, modelo ou código no nome."
+  - id: D-016
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Revisão aprovada de disjuntores caixa moldada Siemens, WEG e Schneider"
+    decisao: "Classificar 36 itens entre Disjuntores caixa moldada e Acessórios. Usar medidas compactas nesta família, como 100A, 16kA e 380V. Autorizar modelo e capacidade apenas em manoplas cuja compatibilidade técnica dependa desses dados."
+  - id: D-017
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Revisão aprovada de chaves e atuadores de segurança Siemens e equivalentes"
+    decisao: "Criar Segurança de máquinas com os grupos Chaves de segurança, Atuadores para chaves de segurança e Acessórios para chaves de segurança. Classificar e normalizar 42 itens: 7 Siemens, 1 Omron, 30 Pizzato e 4 WEG, sem repetir marca, modelo ou código no nome."
+  - id: D-018
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Revisão aprovada de relés e módulos de segurança Siemens e equivalentes"
+    decisao: "Criar Relés de segurança, Módulos de expansão para relés de segurança, Módulos de segurança para inversores e Módulos de segurança modulares. Classificar e normalizar 24 itens: 11 Siemens de fornecedor direto, 7 Pizzato, 5 WEG e 1 Siemens adquirido por outro fornecedor."
+  - id: D-019
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Revisão aprovada de blocos auxiliares frontais Siemens e WEG"
+    decisao: "Classificar e normalizar 8 blocos auxiliares frontais em Acessórios para contatores: 7 Siemens e 1 WEG. Preservar somente contatos, tensão e tipo de conexão confirmados."
+  - id: D-020
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Revisão aprovada de relés de interface Siemens e Omron"
+    decisao: "Criar Relés e monitoramento com Relés de interface e Acessórios para relés de interface. Classificar e normalizar 26 itens: 8 Siemens, 1 Omron, 8 Phoenix e 9 WAGO. Usar o nome funcional mínimo quando faltarem atributos técnicos confirmados."
+  - id: D-021
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Aprovação humana do lote de chaves seccionadoras, fusíveis NH, DR, soft-starters, relés de monitoramento e acessórios de relés de segurança"
+    decisao: "Criar nove grupos filhos e o grupo Acionamentos de motores. Normalizar 61 itens: 34 Siemens e 27 WEG. Aplicar número e unidade sem espaço em todas as famílias, como 400A, 500VCA e 17,5mm."
+  - id: D-022
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Aprovação humana do lote de alimentação, inversores e automação S7-1200"
+    decisao: "Criar Alimentação e energia e Automação programável, com dez grupos filhos. Normalizar 71 itens: 35 Siemens e 36 de Schmersal, Omron, Phoenix Contact, Schneider e WEG. Registrar série/família quando necessária para compatibilidade, especialmente S7-1200 e acessórios de inversores."
+  - id: D-023
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Aprovação humana do lote Siemens ET200SP, ET200MP e acessórios S7-1500"
+    decisao: "Criar onze grupos filhos em Automação programável e normalizar 25 itens Siemens. Usar cabeça de rede para interfaces ET200SP, BusAdapter para adaptadores de barramento, linha SIMATIC DP em acoplador DP/DP e Base final para PLC ET200SP no módulo servidor."
+  - id: D-024
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Aprovação humana do lote Siemens de conexões elétricas, transformadores, chaves seccionadoras e relés"
+    decisao: "Criar Conexões elétricas com cinco grupos filhos, Transformadores de comando e Relés temporizadores. Classificar 47 itens Siemens e normalizar 43 nomes. Manter quatro transformadores apenas classificados porque a tensão de entrada não foi confirmada em cadastro ou XML fiscal. Usar PENTE, e não PONTE, nos acessórios para bornes."
+  - id: D-025
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Aprovação humana do lote final de itens Siemens"
+    decisao: "Criar os grupos de servomotores, cabos para servomotores, disjuntores abertos, chaves porta-fusível, controladores e expansões LOGO!, comunicação de PLC, interfaces homem-máquina, pesagem, medição e comunicação industrial. Classificar e normalizar 22 itens Siemens, detalhando compatibilidades, papel de rede, portas e interfaces somente quando confirmados."

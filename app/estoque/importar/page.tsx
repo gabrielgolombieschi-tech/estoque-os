@@ -75,6 +75,31 @@ type ItemCodigoRow = {
 
 type ItemCodigoMap = Map<string, ItemCodigoRow>;
 
+type NovoGrupoCadastroSuggestion = {
+  codigo: string;
+  nome: string;
+  grupo_pai_id: number | null;
+  justificativa: string;
+};
+
+type NormalizacaoCadastroSuggestion = {
+  codigo: string;
+  descricao_padronizada: string;
+  grupo_id: number | null;
+  novo_grupo: NovoGrupoCadastroSuggestion | null;
+  grupo_nome: string | null;
+  grupo_caminho: string | null;
+  justificativa: string;
+  dados_pendentes: string[];
+  confianca: "alta" | "media" | "baixa";
+};
+
+type NormalizacaoCadastroResponse = {
+  model?: string;
+  sugestoes?: NormalizacaoCadastroSuggestion[];
+  error?: string;
+};
+
 type OsLookupRow = {
   id: number;
   numero_os?: string | null;
@@ -594,6 +619,8 @@ export default function ImportarXmlPage() {
   const [cadBusy, setCadBusy] = useState(false);
 
   const [itemMap, setItemMap] = useState<ItemCodigoMap>(new Map());
+  const [normalizacoesCadastro, setNormalizacoesCadastro] = useState<Record<string, NormalizacaoCadastroSuggestion>>({});
+  const [normalizacaoCadastroBusy, setNormalizacaoCadastroBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [jobs, setJobs] = useState<ImportJob[]>([]);
@@ -1696,7 +1723,8 @@ export default function ImportarXmlPage() {
     it: ParsedItem,
     fornecedorIdLocal: number | null | undefined,
     dataEmissao: string | null | undefined,
-    finalidade: ItemFinalidade
+    finalidade: ItemFinalidade,
+    normalizacao?: NormalizacaoCadastroSuggestion | null
   ) {
     setImportErr(null);
 
@@ -1705,7 +1733,7 @@ export default function ImportarXmlPage() {
       return null;
     }
 
-    const nomeFinal = it.overrideNome?.trim() || it.nome || `Item ${it.codigo}`;
+    const nomeFinal = normalizacao?.descricao_padronizada?.trim() || it.overrideNome?.trim() || it.nome || `Item ${it.codigo}`;
     const nomeUpper = String(nomeFinal).trim().toUpperCase();
     const dataCompra = dataEmissao || new Date().toISOString();
     const margem = 52;
@@ -1735,6 +1763,7 @@ export default function ImportarXmlPage() {
         custo_medio: valorUnit,
         preco_unitario: valorUnit,
         fornecedor_id: fornecedorIdLocal ?? null,
+        grupo_id: normalizacao?.grupo_id ?? null,
         data_atualizacao_preco: dataCompra,
         data_ultima_compra: dataCompra,
         margem_lucro_percentual: margem,
@@ -1982,6 +2011,8 @@ export default function ImportarXmlPage() {
     setPedidoLookupError(null);
     clearOsSelection();
     setItemMap(new Map());
+    setNormalizacoesCadastro({});
+    setNormalizacaoCadastroBusy(false);
     setPedidoAnalyzerRows([]);
     setPedidosAnalyzerComItens([]);
     setPedidosAnalyzerError(null);
@@ -1997,6 +2028,186 @@ export default function ImportarXmlPage() {
 
     fornecedorCnpjBaseRef.current = null;
     chavesAddedRef.current = new Set();
+  }
+
+  async function solicitarNormalizacoesCadastro(itens: ParsedItem[]) {
+    if (!tenantId || !empresaId) throw new Error("Tenant ou empresa nao carregados.");
+
+    const porCodigo = new Map<string, ParsedItem>();
+    for (const item of itens) {
+      const codigo = normalizeItemCodigo(item.codigo);
+      if (codigo && !porCodigo.has(codigo)) porCodigo.set(codigo, item);
+    }
+    const itensUnicos = [...porCodigo.values()];
+    if (itensUnicos.length === 0) return {} as Record<string, NormalizacaoCadastroSuggestion>;
+
+    setNormalizacaoCadastroBusy(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? null;
+      if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+      const res = await fetch("/api/estoque/importar/normalizar-itens", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          itens: itensUnicos.map((item) => ({
+            codigo: normalizeItemCodigo(item.codigo),
+            descricao_nf: item.overrideNome?.trim() || item.nome,
+            ncm: item.ncm ?? null,
+            unidade: item.unidade ?? item.unidadeTrib ?? null,
+            informacoes_adicionais: item.informacoesAdicionais ?? null,
+          })),
+        }),
+      });
+
+      const json = (await res.json().catch(() => null)) as NormalizacaoCadastroResponse | null;
+      if (!res.ok) throw new Error(String(json?.error ?? "Erro ao solicitar sugestoes de cadastro com IA."));
+
+      const sugestoes = Array.isArray(json?.sugestoes) ? json.sugestoes : [];
+      const result = sugestoes.reduce<Record<string, NormalizacaoCadastroSuggestion>>((acc, sugestao) => {
+        const codigo = normalizeItemCodigo(sugestao.codigo);
+        if (codigo) acc[codigo] = { ...sugestao, codigo };
+        return acc;
+      }, {});
+
+      setNormalizacoesCadastro((prev) => ({ ...prev, ...result }));
+      return result;
+    } finally {
+      setNormalizacaoCadastroBusy(false);
+    }
+  }
+
+  async function garantirGrupoDaSugestao(sugestao: NormalizacaoCadastroSuggestion) {
+    if (sugestao.grupo_id) return sugestao;
+    const novoGrupo = sugestao.novo_grupo;
+    if (!novoGrupo) return sugestao;
+    if (!tenantId || !empresaId) throw new Error("Tenant ou empresa nao carregados.");
+
+    const encontrarGrupoPorCodigo = async () => {
+      const { data, error } = await applyTenantEmpresa(
+        supabase.schema("public").from("item_grupos").select("id,nome"),
+        tenantId,
+        empresaId
+      )
+        .eq("codigo", novoGrupo.codigo)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: number; nome: string | null } | null;
+    };
+
+    let grupo = await encontrarGrupoPorCodigo();
+    if (!grupo) {
+      const { data, error } = await supabase
+        .schema("public")
+        .from("item_grupos")
+        .insert({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          codigo: novoGrupo.codigo,
+          nome: novoGrupo.nome.toUpperCase(),
+          grupo_pai_id: novoGrupo.grupo_pai_id,
+          ativo: true,
+          descricao: `Criado após aprovação de sugestão da IA: ${novoGrupo.justificativa}`,
+        })
+        .select("id,nome")
+        .maybeSingle();
+
+      if (error) {
+        const dbError = error as DbError;
+        if (dbError.code !== "23505") throw error;
+        grupo = await encontrarGrupoPorCodigo();
+      } else {
+        grupo = data as { id: number; nome: string | null } | null;
+      }
+    }
+
+    if (!grupo?.id) throw new Error("Nao foi possivel criar ou localizar o grupo sugerido.");
+
+    const atualizada: NormalizacaoCadastroSuggestion = {
+      ...sugestao,
+      grupo_id: Number(grupo.id),
+      grupo_nome: grupo.nome ?? novoGrupo.nome,
+      grupo_caminho: novoGrupo.nome,
+      novo_grupo: null,
+    };
+    setNormalizacoesCadastro((prev) => ({ ...prev, [atualizada.codigo]: atualizada }));
+    return atualizada;
+  }
+
+  function validarSugestaoCadastro(sugestao: NormalizacaoCadastroSuggestion | undefined) {
+    if (!sugestao?.descricao_padronizada?.trim()) {
+      throw new Error("A IA nao retornou uma descricao segura. Revise o item antes de cadastrar.");
+    }
+    if (!sugestao.grupo_id && !sugestao.novo_grupo) {
+      throw new Error("A IA nao conseguiu classificar o item com seguranca. Revise os dados pendentes antes de cadastrar.");
+    }
+  }
+
+  async function cadastrarItemComIA(it: ParsedItem) {
+    setImportErr(null);
+    setImportOk(null);
+
+    if (!canCreateItem) {
+      setImportErr("Sem permissao para cadastrar itens.");
+      return;
+    }
+    if (!finalidadeLote) {
+      setImportErr("Selecione a finalidade antes de cadastrar itens.");
+      return;
+    }
+    if (!permiteAutoCadastrarItens) {
+      setImportErr(`Finalidade '${finalidadeLote}' nao permite cadastro automatico de itens.`);
+      return;
+    }
+
+    const codigo = normalizeItemCodigo(it.codigo);
+    let sugestao = normalizacoesCadastro[codigo];
+    if (!sugestao) {
+      try {
+        const sugestoes = await solicitarNormalizacoesCadastro([it]);
+        sugestao = sugestoes[codigo];
+        setImportOk("Sugestao da IA gerada. Confira descricao e grupo antes de confirmar o cadastro.");
+      } catch (error: unknown) {
+        setImportErr(getErrorMessage(error, "Erro ao gerar sugestao de cadastro com IA."));
+      }
+      return;
+    }
+
+    try {
+      validarSugestaoCadastro(sugestao);
+      sugestao = await garantirGrupoDaSugestao(sugestao);
+      validarSugestaoCadastro(sugestao);
+      setCadBusy(true);
+      const created = await criarItemRapido(
+        it,
+        fornecedorIdBase ?? fornecedorId ?? null,
+        selectedJob?.nfeInfo?.dataEmissao ?? null,
+        finalidadeLote as ItemFinalidade,
+        sugestao
+      );
+      if (!created) return;
+
+      setItemMap((prev) => {
+        const next = new Map(prev);
+        addItemCodigoToMap(next, {
+          id: created,
+          codigo_interno: codigo,
+          nome: sugestao.descricao_padronizada,
+          fornecedor_id: fornecedorIdBase ?? fornecedorId ?? null,
+          ativo: true,
+        });
+        return next;
+      });
+      setLoteMissing((prev) => (prev.length === 0 ? prev : prev.filter((itemCodigo) => itemCodigo !== it.codigo)));
+      setImportOk("Item cadastrado com a sugestao aprovada da IA.");
+    } catch (error: unknown) {
+      setImportErr(getErrorMessage(error, "Erro ao cadastrar item com IA."));
+    } finally {
+      setCadBusy(false);
+    }
   }
 
   async function cadastrarFornecedorEItens() {
@@ -2081,16 +2292,48 @@ export default function ImportarXmlPage() {
         throw new Error(`Sem permissao para cadastrar itens. Faltantes: ${missing.join(", ")}`);
       }
 
+      const itensFaltantesPorCodigo = new Map<string, ParsedItem>();
+      for (const item of todosItens) {
+        const codigo = normalizeItemCodigo(item.codigo);
+        if (missing.includes(item.codigo) && !itensFaltantesPorCodigo.has(codigo)) itensFaltantesPorCodigo.set(codigo, item);
+      }
+
+      const faltantesSemSugestao = [...itensFaltantesPorCodigo.values()].filter(
+        (item) => !normalizacoesCadastro[normalizeItemCodigo(item.codigo)]
+      );
+      if (faltantesSemSugestao.length > 0) {
+        await solicitarNormalizacoesCadastro(faltantesSemSugestao);
+        setImportOk("Sugestoes da IA geradas. Confira descricao e grupo de cada item antes de confirmar o cadastro.");
+        return;
+      }
+
+      const sugestoesConfirmadas = new Map<string, NormalizacaoCadastroSuggestion>();
+      for (const item of itensFaltantesPorCodigo.values()) {
+        const codigo = normalizeItemCodigo(item.codigo);
+        const sugestao = normalizacoesCadastro[codigo];
+        validarSugestaoCadastro(sugestao);
+        const sugestaoComGrupo = await garantirGrupoDaSugestao(sugestao!);
+        validarSugestaoCadastro(sugestaoComGrupo);
+        sugestoesConfirmadas.set(codigo, sugestaoComGrupo);
+      }
+
       for (const job of jobsToUse) {
         const dataCompra = job.nfeInfo?.dataEmissao ?? new Date().toISOString();
         for (const it of job.itens) {
           if (!hasItemCodigoInMap(map, it.codigo)) {
-            const created = await criarItemRapido(it, fornecedorFinal ?? null, dataCompra, finalidadeLote as ItemFinalidade);
+            const sugestao = sugestoesConfirmadas.get(normalizeItemCodigo(it.codigo));
+            const created = await criarItemRapido(
+              it,
+              fornecedorFinal ?? null,
+              dataCompra,
+              finalidadeLote as ItemFinalidade,
+              sugestao
+            );
             if (created) {
               addItemCodigoToMap(map, {
                 id: created,
                 codigo_interno: normalizeItemCodigo(it.codigo),
-                nome: it.overrideNome ?? it.nome ?? null,
+                nome: sugestao?.descricao_padronizada ?? it.overrideNome ?? it.nome ?? null,
                 fornecedor_id: fornecedorFinal ?? null,
                 ativo: true,
               });
@@ -2112,51 +2355,6 @@ export default function ImportarXmlPage() {
       setImportErr(getErrorMessage(e, "Erro ao cadastrar."));
     } finally {
       setCadBusy(false);
-    }
-  }
-
-  async function cadastrarItemManual(it: ParsedItem) {
-    setImportErr(null);
-
-    if (!canCreateItem) {
-      setImportErr("Sem permissao para cadastrar itens.");
-      return;
-    }
-
-    if (!finalidadeLote) {
-      setImportErr("Selecione a finalidade antes de cadastrar itens.");
-      return;
-    }
-
-    if (!permiteAutoCadastrarItens) {
-      setImportErr(`Finalidade '${finalidadeLote}' nao permite cadastro automatico de itens.`);
-      return;
-    }
-
-    const dataCompra = selectedJob?.nfeInfo?.dataEmissao ?? null;
-
-    const created = await criarItemRapido(
-      it,
-      fornecedorIdBase ?? fornecedorId ?? null,
-      dataCompra,
-      finalidadeLote as ItemFinalidade
-    );
-
-    if (created) {
-      setItemMap((prev) => {
-        const next = new Map(prev);
-        addItemCodigoToMap(next, {
-          id: created,
-          codigo_interno: normalizeItemCodigo(it.codigo),
-          nome: it.overrideNome ?? it.nome ?? null,
-          fornecedor_id: fornecedorIdBase ?? fornecedorId ?? null,
-          ativo: true,
-        });
-        return next;
-      });
-
-      // Remove o item da lista de faltantes para liberar importacao imediatamente.
-      setLoteMissing((prev) => (prev.length === 0 ? prev : prev.filter((c) => c !== it.codigo)));
     }
   }
 
@@ -3121,19 +3319,31 @@ export default function ImportarXmlPage() {
         const nfItem = pedidoItemLinkData?.nfItem ?? null;
         if (!nfItem) throw new Error("Item da NF nao encontrado para cadastro.");
 
+        const codigoNormalizado = normalizeItemCodigo(nfItem.codigo);
+        let sugestao = normalizacoesCadastro[codigoNormalizado];
+        if (!sugestao) {
+          const sugestoes = await solicitarNormalizacoesCadastro([nfItem]);
+          sugestao = sugestoes[codigoNormalizado];
+          throw new Error("Sugestao da IA gerada. Confira descricao e grupo do item na NF antes de confirmar o vinculo.");
+        }
+        validarSugestaoCadastro(sugestao);
+        sugestao = await garantirGrupoDaSugestao(sugestao);
+        validarSugestaoCadastro(sugestao);
+
         const fornecedorFinal = fornecedorIdBase ?? fornecedorId ?? null;
         const createdId = await criarItemRapido(
           nfItem,
           fornecedorFinal,
           selectedJob?.nfeInfo?.dataEmissao ?? new Date().toISOString(),
-          finalidadeLote as ItemFinalidade
+          finalidadeLote as ItemFinalidade,
+          sugestao
         );
         if (!createdId) throw new Error("Nao foi possivel cadastrar o item antes do vinculo.");
 
         const createdItem: XmlImportItemInterno = {
           id: createdId,
-          codigo_interno: normalizeItemCodigo(nfItem.codigo),
-          nome: nfItem.overrideNome ?? nfItem.nome ?? null,
+          codigo_interno: codigoNormalizado,
+          nome: sugestao.descricao_padronizada,
           fornecedor_id: fornecedorFinal,
         };
         internalItem = createdItem;
@@ -3859,7 +4069,7 @@ export default function ImportarXmlPage() {
           <div className="border border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="font-semibold text-zinc-100">Itens da NF</div>
-              <div className="text-xs text-zinc-400">Confirme codigos e cadastre os faltantes.</div>
+              <div className="text-xs text-zinc-400">Itens faltantes recebem sugestão do agente antes do cadastro.</div>
             </div>
 
             <div className="overflow-x-auto">
@@ -3879,6 +4089,7 @@ export default function ImportarXmlPage() {
                   <tbody className="divide-y divide-zinc-800">
                     {itensParaTabela.map((it, idx) => {
                       const foundItem = getItemCodigoFromMap(itemMap, it.codigo);
+                      const normalizacaoCadastro = normalizacoesCadastro[normalizeItemCodigo(it.codigo)] ?? null;
                       const itemAnalysis = xmlImportAnalysis?.itemSuggestions.find((item) => item.index === idx) ?? null;
                       const pedidosSugeridos = xmlImportAnalysis?.pedidoSuggestions ?? [];
                       const fallbackPedido = pedidosSugeridos.length === 1 ? pedidosSugeridos[0] : xmlImportAnalysis?.pedidoSuggestion ?? null;
@@ -3897,6 +4108,13 @@ export default function ImportarXmlPage() {
                               value={it.overrideNome ?? it.nome}
                               onChange={(e) => {
                                 const value = e.target.value;
+                                const codigo = normalizeItemCodigo(it.codigo);
+                                setNormalizacoesCadastro((prev) => {
+                                  if (!prev[codigo]) return prev;
+                                  const next = { ...prev };
+                                  delete next[codigo];
+                                  return next;
+                                });
                                 setJobs((prev) =>
                                   prev.map((j) =>
                                     j.id === selectedJobId
@@ -3909,6 +4127,33 @@ export default function ImportarXmlPage() {
                                 );
                               }}
                             />
+                            {!foundItem && normalizacaoCadastro && (
+                              <div className="mt-2 rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-2 text-xs text-sky-100 space-y-1">
+                                <div className="font-medium text-sky-200">Sugestão do agente de cadastro · confiança {normalizacaoCadastro.confianca}</div>
+                                <div>
+                                  <span className="text-sky-300">Nome: </span>
+                                  {normalizacaoCadastro.descricao_padronizada || "Sem descrição segura"}
+                                </div>
+                                <div>
+                                  <span className="text-sky-300">Grupo: </span>
+                                  {normalizacaoCadastro.grupo_caminho ??
+                                    (normalizacaoCadastro.novo_grupo
+                                      ? `Novo grupo sugerido: ${normalizacaoCadastro.novo_grupo.nome}`
+                                      : "Revisão necessária")}
+                                </div>
+                                {normalizacaoCadastro.novo_grupo && (
+                                  <div className="text-sky-100/90">
+                                    {normalizacaoCadastro.novo_grupo.justificativa}
+                                  </div>
+                                )}
+                                <div className="text-sky-100/90">{normalizacaoCadastro.justificativa}</div>
+                                {normalizacaoCadastro.dados_pendentes.length > 0 && (
+                                  <div className="text-amber-200">
+                                    Pendente: {normalizacaoCadastro.dados_pendentes.join("; ")}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(it.quantidade, 3)}</td>
                           <td className="px-3 py-2 text-right tabular-nums">R$ {it.valorUnit.toFixed(2)}</td>
@@ -3946,10 +4191,26 @@ export default function ImportarXmlPage() {
                               permiteAutoCadastrarItens && !foundItem && (
                               <Can perm="cad_itens.write">
                                 <button
-                                  onClick={() => void cadastrarItemManual(it)}
+                                  onClick={() => void cadastrarItemComIA(it)}
+                                  disabled={
+                                    cadBusy ||
+                                    normalizacaoCadastroBusy ||
+                                    Boolean(normalizacaoCadastro && !normalizacaoCadastro.grupo_id && !normalizacaoCadastro.novo_grupo)
+                                  }
                                   className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
+                                  title={
+                                    normalizacaoCadastro && !normalizacaoCadastro.grupo_id && !normalizacaoCadastro.novo_grupo
+                                      ? "A sugestão precisa de revisão antes do cadastro."
+                                      : undefined
+                                  }
                                 >
-                                  Cadastrar item
+                                  {normalizacaoCadastroBusy
+                                    ? "Analisando IA..."
+                                    : normalizacaoCadastro
+                                      ? normalizacaoCadastro.novo_grupo
+                                        ? "Criar grupo e cadastrar IA"
+                                        : "Cadastrar sugestão IA"
+                                      : "Sugerir com IA"}
                                 </button>
                               </Can>
                               )
@@ -3982,11 +4243,17 @@ export default function ImportarXmlPage() {
           {showBulkItemRegistrationButton && (
             <button
               onClick={() => void cadastrarFornecedorEItens()}
-              disabled={cadBusy || importBusy || isReading || bloqueiaCadastroItens}
+              disabled={cadBusy || normalizacaoCadastroBusy || importBusy || isReading || bloqueiaCadastroItens}
               className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100"
               title={!fornecedorResolvido ? "Cadastre/identifique o fornecedor para cadastrar itens." : undefined}
             >
-              {cadBusy ? "Cadastrando..." : "Cadastrar itens"}
+              {cadBusy
+                ? "Cadastrando..."
+                : normalizacaoCadastroBusy
+                  ? "Analisando com IA..."
+                  : loteMissing.some((codigo) => Boolean(normalizacoesCadastro[normalizeItemCodigo(codigo)]))
+                    ? "Cadastrar sugestões IA"
+                    : "Sugerir itens com IA"}
             </button>
           )}
 
