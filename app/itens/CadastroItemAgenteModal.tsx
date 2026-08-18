@@ -846,7 +846,7 @@ export default function CadastroItemAgenteModal({
                   <span className={FIELD_LABEL_CLASS}>Preço unitário pesquisado (R$)</span>
                   <input
                     className={`${INPUT_CLASS} cursor-default text-zinc-300`}
-                    value={precoFinal ?? ""}
+                    value={precoFinal === null ? "" : formatMoney(precoFinal)}
                     readOnly
                     placeholder="Sem preço verificado"
                   />
