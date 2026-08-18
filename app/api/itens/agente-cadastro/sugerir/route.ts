@@ -3,9 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAuthSupabase, jsonError, resolveTenantEmpresa } from "@/app/api/compras/_lib";
 import {
   asRecord,
+  buscarCotacaoCambioPtax,
   calcularPesquisaPreco,
   catalogoNormalizacao,
   caminhoGrupo,
+  criarTokenCotacaoAssinada,
   extrairFontesWeb,
   extrairTextoResposta,
   finalidade,
@@ -79,12 +81,20 @@ const DOMINIOS_PESQUISA_MARKETPLACE = [
   "ebay.de",
   "ebay.ca",
   "ebay.com.au",
-  "bcb.gov.br",
-  "www.bcb.gov.br",
-  "www4.bcb.gov.br",
-  "wise.com",
-  "xe.com",
 ];
+
+type PesquisaPrecoBruta = {
+  tipo_correspondencia: "exato" | "similar" | "nao_encontrado";
+  fonte: string | null;
+  titulo: string | null;
+  fonte_url: string | null;
+  moeda: string | null;
+  preco_origem: number | null;
+  taxa_cambio_brl: number | null;
+  fonte_cambio_url: string | null;
+  data_cambio: string | null;
+  observacao: string | null;
+};
 
 function schemaRespostaPesquisaMarketplace() {
   return {
@@ -130,6 +140,11 @@ function fontesUnicas(...listas: FonteWeb[][]): FonteWeb[] {
   return [...fontes.values()];
 }
 
+function fontesDaCotacao(pesquisa: PesquisaPreco, fontes: FonteWeb[]): FonteWeb[] {
+  const urls = new Set([pesquisa.fonte_url, pesquisa.fonte_cambio_url].filter((url): url is string => Boolean(url)));
+  return fontes.filter((fonte) => urls.has(fonte.url)).slice(0, 3);
+}
+
 function eMarketplace(marketplace: string | null): boolean {
   return marketplace === "Mercado Livre" || marketplace === "eBay";
 }
@@ -144,6 +159,32 @@ function deveUsarPesquisaMarketplace(atual: PesquisaPreco, candidata: PesquisaPr
   if (candidata.status === "encontrado" && atual.status !== "encontrado") return true;
   if (candidata.tipo_correspondencia === "exato" && atual.tipo_correspondencia !== "exato") return true;
   return candidata.status === "encontrado" && eMarketplace(candidata.marketplace) && !eMarketplace(atual.marketplace);
+}
+
+async function complementarCotacaoComPtax(input: {
+  pesquisa: PesquisaPreco;
+  pesquisaBruta: PesquisaPrecoBruta;
+  fontes: FonteWeb[];
+}): Promise<{ pesquisa: PesquisaPrecoBruta; fontes: FonteWeb[] } | null> {
+  if (
+    !eMarketplace(input.pesquisa.marketplace) ||
+    input.pesquisa.preco_origem === null ||
+    !input.pesquisa.moeda ||
+    input.pesquisa.moeda === "BRL"
+  ) {
+    return null;
+  }
+  const cambio = await buscarCotacaoCambioPtax(input.pesquisa.moeda);
+  if (!cambio) return null;
+  return {
+    pesquisa: {
+      ...input.pesquisaBruta,
+      taxa_cambio_brl: cambio.taxa_cambio_brl,
+      fonte_cambio_url: cambio.fonte.url,
+      data_cambio: cambio.data_cambio,
+    },
+    fontes: fontesUnicas(input.fontes, [cambio.fonte]),
+  };
 }
 
 async function pesquisarPrecoEmMarketplaces(input: {
@@ -164,7 +205,7 @@ async function pesquisarPrecoEmMarketplaces(input: {
         tools: [
           {
             type: "web_search",
-            search_context_size: "high",
+            search_context_size: "medium",
             filters: { allowed_domains: DOMINIOS_PESQUISA_MARKETPLACE },
           },
         ],
@@ -173,7 +214,7 @@ async function pesquisarPrecoEmMarketplaces(input: {
           {
             role: "system",
             content:
-              "Você é o pesquisador de preço do ERP. Use obrigatoriamente a pesquisa web e procure o código exato primeiro no Mercado Livre Brasil e no eBay. Faça consultas com o código informado e com o código normalizado; só use item similar quando o código exato não retornar anúncio. Uma página técnica do fabricante não é fonte de preço. Se houver anúncio de marketplace com preço visível, ele deve ser preferido. Retorne somente um JSON estruturado. fonte_url deve ser a URL exata de uma fonte devolvida pela ferramenta; preco_origem deve ser o número visto no anúncio, sem conversão. marketplace deve identificar Mercado Livre ou eBay. Para moeda estrangeira, pesquise também uma cotação BRL verificável: informe taxa_cambio_brl, fonte_cambio_url e data_cambio no formato AAAA-MM-DD; não estime câmbio. Sem preço ou câmbio verificável, use null e explique em observacao.",
+              "Você é o pesquisador de preço do ERP. Use obrigatoriamente a pesquisa web e procure o código exato primeiro no Mercado Livre Brasil e no eBay. Faça consultas com o código informado e com o código normalizado; só use item similar quando o código exato não retornar anúncio. Uma página técnica do fabricante não é fonte de preço. Se houver anúncio de marketplace com preço visível, ele deve ser preferido. Retorne somente um JSON estruturado. fonte_url deve ser a URL exata de uma fonte devolvida pela ferramenta; preco_origem deve ser o número visto no anúncio, sem conversão. marketplace deve identificar Mercado Livre ou eBay. Não pesquise nem estime câmbio nesta etapa: quando a moeda não for BRL, mantenha preco_origem e moeda do anúncio e preencha taxa_cambio_brl, fonte_cambio_url e data_cambio com null. O servidor consulta a PTAX do Banco Central separadamente. Sem anúncio com preço visível, use preco_origem null e explique em observacao.",
           },
           {
             role: "user",
@@ -522,6 +563,44 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // A busca de marketplace devolve o preço original do anúncio. Para valores
+    // estrangeiros, a taxa é buscada diretamente na PTAX, sem exigir que o
+    // modelo encontre preço e câmbio na mesma execução de web_search.
+    const complementoPtax = await complementarCotacaoComPtax({
+      pesquisa: pesquisaPreco,
+      pesquisaBruta: proposta.pesquisa_preco,
+      fontes,
+    });
+    if (complementoPtax) {
+      const propostaComPtax = {
+        ...proposta,
+        pesquisa_preco: complementoPtax.pesquisa,
+      };
+      const precoComPtax = calcularPesquisaPreco({
+        pesquisa: propostaComPtax.pesquisa_preco,
+        fontes: complementoPtax.fontes,
+      });
+      if (precoComPtax.status === "encontrado") {
+        fontes = complementoPtax.fontes;
+        proposta = propostaComPtax;
+        pesquisaPreco = precoComPtax;
+      }
+    }
+
+    const fontesCotacao = fontesDaCotacao(pesquisaPreco, fontes);
+    const cotacaoToken = criarTokenCotacaoAssinada({
+      tenant_id: ctx.tenantId,
+      empresa_id: ctx.empresaId,
+      usuario_id: String(auth.user.id ?? ""),
+      fornecedor_id: fornecedorId,
+      codigo,
+      quantidade_referencia: quantidade,
+      pesquisa_preco: pesquisaPreco,
+      fontes: fontesCotacao,
+    });
+    if (!cotacaoToken) return jsonError(503, "Não foi possível selar a cotação do agente. Tente novamente.");
+
     const podeFiscal = await podeEditarFiscal(auth.supabase);
     const { similar, fiscal } = await buscarSimilarEFiscal({
       supabase: auth.supabase,
@@ -573,7 +652,8 @@ export async function POST(req: NextRequest) {
         confianca: proposta.confianca,
         pesquisa_preco: pesquisaPreco,
       },
-      fontes,
+      cotacao_token: cotacaoToken,
+      fontes: fontesCotacao,
       similar_interno: similar,
       fiscal_sugerido: fiscal,
       pode_editar_fiscal: podeFiscal,

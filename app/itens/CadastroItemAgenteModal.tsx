@@ -108,6 +108,7 @@ export type CadastroItemAgenteSugestaoResposta = {
   model: string | null;
   fornecedor: CadastroItemAgenteFornecedor | null;
   duplicidade: CadastroItemAgenteDuplicidade | null;
+  cotacao_token: string | null;
   sugestao: CadastroItemAgenteSugestao | null;
   similar_interno: CadastroItemAgenteSimilarInterno | null;
   fiscal_sugerido: CadastroItemAgenteFiscal | null;
@@ -126,6 +127,7 @@ export type CadastroItemAgenteConfirmarPayload = {
   fornecedor_id: number;
   codigo: string;
   quantidade_referencia: number;
+  cotacao_token: string;
   model: string | null;
   sugestao: CadastroItemAgenteSugestao;
   fiscal_sugerido: CadastroItemAgenteFiscal | null;
@@ -145,6 +147,7 @@ type Fase = "entrada" | "revisao" | "concluido";
 
 type Rascunho = {
   model: string | null;
+  cotacaoToken: string;
   sugestao: CadastroItemAgenteSugestao;
   similarInterno: CadastroItemAgenteSimilarInterno | null;
   fiscal: CadastroItemAgenteFiscal | null;
@@ -336,6 +339,7 @@ export function decodeCadastroItemAgenteSugestaoResposta(value: unknown): Cadast
     model: text(raw.model),
     fornecedor: decodeFornecedor(raw.fornecedor),
     duplicidade: decodeDuplicidade(raw.duplicidade),
+    cotacao_token: text(raw.cotacao_token),
     sugestao: decodeSugestao(raw.sugestao),
     similar_interno: decodeSimilar(raw.similar_interno),
     fiscal_sugerido: decodeFiscal(raw.fiscal_sugerido),
@@ -548,6 +552,9 @@ export default function CadastroItemAgenteModal({
         setDuplicidade(resultado.duplicidade);
         return;
       }
+      if (!resultado.cotacao_token) {
+        throw new Error("A cotação não foi selada pelo servidor. Gere a sugestão novamente.");
+      }
       if (!resultado.sugestao?.descricao_padronizada.trim()) {
         throw new Error("O agente não retornou uma descrição segura. Revise o código e tente novamente.");
       }
@@ -559,6 +566,7 @@ export default function CadastroItemAgenteModal({
       setCodigo(sugestaoNormalizada.codigo);
       setRascunho({
         model: resultado.model,
+        cotacaoToken: resultado.cotacao_token,
         sugestao: sugestaoNormalizada,
         similarInterno: resultado.similar_interno,
         fiscal: fiscalNacional(resultado.fiscal_sugerido),
@@ -605,6 +613,7 @@ export default function CadastroItemAgenteModal({
       fornecedor_id: fornecedor,
       codigo: codigoNormalizado,
       quantidade_referencia: quantidadeReferencia,
+      cotacao_token: rascunho.cotacaoToken,
       model: rascunho.model,
       sugestao: sugestaoConfirmada,
       fiscal_sugerido: rascunho.fiscal,

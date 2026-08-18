@@ -6,17 +6,16 @@ import {
   asRecord,
   eCodigoComProdutoNaDescricao,
   finalidade,
-  fontesDeBody,
   inteiro,
   normalizarCodigo,
   normalizarCodigoGrupo,
   normalizarNome,
   normalizarQuantidade,
   normalizarUnidade,
-  pesquisaDeBody,
   sanitizarFiscal,
   texto,
   usuarioIdentificador,
+  verificarTokenCotacaoAssinada,
   uuidOuNulo,
   type FiscalValores,
   type FornecedorRow,
@@ -354,6 +353,19 @@ export async function POST(req: NextRequest) {
     if (!fornecedor) return jsonError(422, "Fornecedor inválido para a empresa atual.");
     if (fornecedor.ativo === false) return jsonError(422, "O fornecedor selecionado está inativo.");
 
+    const cotacaoAssinada = verificarTokenCotacaoAssinada(body.cotacao_token);
+    if (
+      !cotacaoAssinada ||
+      cotacaoAssinada.tenant_id !== ctx.tenantId ||
+      cotacaoAssinada.empresa_id !== ctx.empresaId ||
+      cotacaoAssinada.usuario_id !== String(auth.user.id ?? "") ||
+      cotacaoAssinada.fornecedor_id !== fornecedorId ||
+      cotacaoAssinada.codigo !== codigo ||
+      cotacaoAssinada.quantidade_referencia !== quantidade
+    ) {
+      return jsonError(422, "A cotação expirou ou não confere com esta sugestão. Gere uma nova sugestão antes de confirmar.");
+    }
+
     const duplicidade = await localizarDuplicidade({
       supabase: auth.supabase,
       tenantId: ctx.tenantId,
@@ -404,8 +416,10 @@ export async function POST(req: NextRequest) {
     // novo cadastro assistido e materia-prima.
     const finalidadeItem = finalidade(sugestao.finalidade) ?? "materia_prima";
 
-    const fontes = fontesDeBody(body.fontes);
-    const pesquisa = pesquisaDeBody(sugestao.pesquisa_preco ?? body.pesquisa_preco, fontes);
+    // Valor e fontes comerciais vêm exclusivamente do token emitido pelo
+    // servidor na sugestão; nunca do corpo editável enviado pelo navegador.
+    const fontes = cotacaoAssinada.fontes;
+    const pesquisa = cotacaoAssinada.pesquisa_preco;
     const fiscal = sanitizarFiscal(fiscalRaw);
     if (fiscal && !(await podeEditarFiscal(auth.supabase))) {
       return jsonError(403, "Sem permissão para gravar dados fiscais neste cadastro.");

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
 export type Confianca = "alta" | "media" | "baixa";
@@ -25,6 +26,16 @@ export type FonteWeb = {
   titulo: string;
   url: string;
   dominio: string;
+};
+
+/** Cotação oficial da PTAX, obtida diretamente da API pública do Banco Central. */
+export type CotacaoCambioPtax = {
+  moeda: string;
+  /** Quantos BRL correspondem a uma unidade da moeda de origem. */
+  taxa_cambio_brl: number;
+  fonte: FonteWeb;
+  /** Dia da cotação retornada pela própria PTAX, no formato YYYY-MM-DD. */
+  data_cambio: string;
 };
 
 export type NovoGrupo = {
@@ -53,6 +64,21 @@ export type PesquisaPreco = {
   preco_final_brl: number | null;
   regra_preco: string;
   observacao: string | null;
+};
+
+/** Conteúdo selado entre a sugestão e a confirmação de cadastro. */
+export type CotacaoAssinada = {
+  versao: 1;
+  expira_em: number;
+  tenant_id: string;
+  empresa_id: string;
+  usuario_id: string;
+  fornecedor_id: number;
+  codigo: string;
+  quantidade_referencia: number;
+  pesquisa_preco: PesquisaPreco;
+  /** Somente as fontes que fundamentam a cotação, para manter o token pequeno. */
+  fontes: FonteWeb[];
 };
 
 export type FiscalValores = {
@@ -128,6 +154,7 @@ let catalogoCache: string | null = null;
 const FINALIDADES: ItemFinalidade[] = ["consumo", "materia_prima", "revenda", "imobilizado", "outros"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const URL_PROTOCOLS = new Set(["http:", "https:"]);
+const DURACAO_COTACAO_ASSINADA_MS = 2 * 60 * 60 * 1000;
 const SEPARADORES_VISUAIS_CODIGO_RE =
   /[\s\u200B-\u200D\u2060\uFEFF\u002D\u058A\u05BE\u1400\u1806\u2010-\u2015\u2212\u2E17\u2E1A\u2E3A-\u2E3B\u2E40\u2E5D\u301C\u3030\u30A0\uFE31-\uFE32\uFE58\uFE63\uFF0D]+/gu;
 const CODIGO_COM_ALFANUMERICO_RE = /[\p{L}\p{N}]/u;
@@ -189,6 +216,117 @@ export function normalizarCodigo(value: unknown): string {
 /** Indica se o valor contém ao menos uma letra ou número após a normalização. */
 export function codigoNormalizadoValido(value: unknown): boolean {
   return normalizarCodigo(value).length > 0;
+}
+
+function segredoCotacaoAssinada(): string | null {
+  const segredo = String(
+    process.env.ITEM_CADASTRO_AGENTE_TOKEN_SECRET ??
+      process.env.OPENAI_API_KEY ??
+      process.env.ASSISTENTE_IA_OPENAI_API_KEY ??
+      ""
+  ).trim();
+  return segredo || null;
+}
+
+function codificarBase64Url(value: string): string {
+  return Buffer.from(value, "utf8").toString("base64url");
+}
+
+function decodificarBase64Url(value: string): string | null {
+  try {
+    return Buffer.from(value, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function assinarTextoCotacao(value: string, segredo: string): string {
+  return createHmac("sha256", segredo).update(value).digest("base64url");
+}
+
+/**
+ * Sela o resultado de preço retornado pelo servidor. A UI pode continuar
+ * permitindo a revisão dos campos de cadastro, mas não consegue trocar a
+ * origem, a moeda ou o valor da cotação antes de confirmar.
+ */
+export function criarTokenCotacaoAssinada(input: Omit<CotacaoAssinada, "versao" | "expira_em">): string | null {
+  const segredo = segredoCotacaoAssinada();
+  if (!segredo) return null;
+  const payload: CotacaoAssinada = {
+    versao: 1,
+    expira_em: Date.now() + DURACAO_COTACAO_ASSINADA_MS,
+    ...input,
+  };
+  const codificado = codificarBase64Url(JSON.stringify(payload));
+  return `${codificado}.${assinarTextoCotacao(codificado, segredo)}`;
+}
+
+function fonteAssinada(value: unknown): FonteWeb | null {
+  const fonte = fonteDeRegistro(value);
+  return fonte ? { titulo: fonte.titulo, url: fonte.url, dominio: fonte.dominio } : null;
+}
+
+/** Verifica assinatura, prazo e formato mínimo de uma cotação emitida pelo servidor. */
+export function verificarTokenCotacaoAssinada(token: unknown): CotacaoAssinada | null {
+  const segredo = segredoCotacaoAssinada();
+  const raw = texto(token, 50_000);
+  if (!segredo || !raw) return null;
+  const [codificado, assinatura, ...resto] = raw.split(".");
+  if (!codificado || !assinatura || resto.length) return null;
+  const assinaturaEsperada = assinarTextoCotacao(codificado, segredo);
+  const assinaturaRecebidaBuffer = Buffer.from(assinatura, "utf8");
+  const assinaturaEsperadaBuffer = Buffer.from(assinaturaEsperada, "utf8");
+  if (
+    assinaturaRecebidaBuffer.length !== assinaturaEsperadaBuffer.length ||
+    !timingSafeEqual(assinaturaRecebidaBuffer, assinaturaEsperadaBuffer)
+  ) {
+    return null;
+  }
+  const textoPayload = decodificarBase64Url(codificado);
+  if (!textoPayload) return null;
+  let payload: RecordValue | null = null;
+  try {
+    payload = asRecord(JSON.parse(textoPayload));
+  } catch {
+    payload = null;
+  }
+  if (!payload || Number(payload.versao) !== 1) return null;
+  const expiraEm = Number(payload.expira_em);
+  const fornecedorId = inteiro(payload.fornecedor_id);
+  const codigo = normalizarCodigo(payload.codigo);
+  const quantidade = normalizarQuantidade(payload.quantidade_referencia);
+  const tenantId = texto(payload.tenant_id, 100);
+  const empresaId = texto(payload.empresa_id, 100);
+  const usuarioId = texto(payload.usuario_id, 100);
+  const pesquisa = pesquisaDeBody(payload.pesquisa_preco, fontesDeBody(payload.fontes));
+  const fontes = Array.isArray(payload.fontes)
+    ? payload.fontes.map(fonteAssinada).filter((fonte): fonte is FonteWeb => fonte !== null).slice(0, 3)
+    : [];
+  if (
+    !Number.isFinite(expiraEm) ||
+    expiraEm <= Date.now() ||
+    expiraEm > Date.now() + DURACAO_COTACAO_ASSINADA_MS + 60_000 ||
+    !fornecedorId ||
+    !codigo ||
+    !quantidade ||
+    !tenantId ||
+    !empresaId ||
+    !usuarioId
+  ) {
+    return null;
+  }
+  return {
+    versao: 1,
+    expira_em: expiraEm,
+    tenant_id: tenantId,
+    empresa_id: empresaId,
+    usuario_id: usuarioId,
+    fornecedor_id: fornecedorId,
+    codigo,
+    quantidade_referencia: quantidade,
+    pesquisa_preco: pesquisa,
+    fontes,
+  };
 }
 
 export function normalizarCodigoGrupo(value: unknown): string {
@@ -331,7 +469,10 @@ export function extrairFontesWeb(value: unknown): FonteWeb[] {
       }
     }
   }
-  return [...fontes.values()].slice(0, 20);
+  // A Responses API pode devolver mais de vinte fontes. Manter somente as
+  // primeiras faria uma URL escolhida legitimamente pelo agente parecer não
+  // verificada, especialmente em buscas de marketplace com muitos anúncios.
+  return [...fontes.values()].slice(0, 100);
 }
 
 function fonteCorrespondente(url: string | null, fontes: FonteWeb[]): FonteWeb | null {
@@ -391,6 +532,92 @@ function dataCambio(value: unknown): string | null {
 function arredondarPreco(value: number): number | null {
   if (!Number.isFinite(value) || value < 0 || value > 999_999_999) return null;
   return Math.round((value + Number.EPSILON) * 10000) / 10000;
+}
+
+function dataPtax(date: Date): string {
+  const mes = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dia = String(date.getUTCDate()).padStart(2, "0");
+  return `${mes}-${dia}-${date.getUTCFullYear()}`;
+}
+
+function urlCotacaoPtax(moedaOrigem: string, data: Date): URL {
+  const url = new URL(
+    "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@moeda,dataCotacao=@dataCotacao)"
+  );
+  url.searchParams.set("@moeda", `'${moedaOrigem}'`);
+  url.searchParams.set("@dataCotacao", `'${dataPtax(data)}'`);
+  url.searchParams.set("$format", "json");
+  return url;
+}
+
+/**
+ * Obtém uma taxa oficial de câmbio diretamente da PTAX do Banco Central.
+ *
+ * A pesquisa de preço deve continuar restrita aos marketplaces: pedir preço e
+ * câmbio ao mesmo agente aumenta a chance de ele descartar um anúncio válido
+ * por não ter encontrado a taxa na mesma busca. Esta consulta é independente,
+ * auditável pela URL retornada e tenta dias anteriores para cobrir fins de
+ * semana e feriados. Em qualquer dúvida ou indisponibilidade, retorna nulo —
+ * nunca estima uma taxa.
+ */
+export async function buscarCotacaoCambioPtax(moedaOrigem: unknown): Promise<CotacaoCambioPtax | null> {
+  const moeda = moedaOrigem instanceof String ? moedaOrigem.toString().trim().toUpperCase() : String(moedaOrigem ?? "").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(moeda) || moeda === "BRL") return null;
+
+  const hoje = new Date();
+  for (let atraso = 0; atraso <= 7; atraso += 1) {
+    const dataConsulta = new Date(hoje);
+    dataConsulta.setUTCDate(dataConsulta.getUTCDate() - atraso);
+    const url = urlCotacaoPtax(moeda, dataConsulta);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!response.ok) continue;
+      const body = asRecord(await response.json());
+      const registros = (Array.isArray(body?.value) ? body.value : [])
+        .map(asRecord)
+        .filter((registro): registro is RecordValue => registro !== null)
+        .filter((registro) => taxaCambioParaBrl(registro.cotacaoVenda) !== null);
+      if (!registros.length) continue;
+
+      // Preferimos o fechamento PTAX; no pregão em curso, usamos o último
+      // boletim publicado pela fonte oficial em vez de inventar uma taxa.
+      const candidatosFechamento = registros.filter(
+        (registro) => texto(registro.tipoBoletim, 60)?.toLowerCase() === "fechamento ptax"
+      );
+      const candidato = (candidatosFechamento.length ? candidatosFechamento : registros)
+        .slice()
+        .sort((a, b) => String(a.dataHoraCotacao ?? "").localeCompare(String(b.dataHoraCotacao ?? "")))
+        .at(-1);
+      const taxa = taxaCambioParaBrl(candidato?.cotacaoVenda);
+      const dataHora = texto(candidato?.dataHoraCotacao, 40);
+      const dataCambio = dataHora?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+      if (taxa === null || !dataCambio) continue;
+
+      const boletim = texto(candidato?.tipoBoletim, 60) ?? "PTAX";
+      return {
+        moeda,
+        taxa_cambio_brl: taxa,
+        fonte: {
+          titulo: `Banco Central do Brasil — PTAX ${moeda}/BRL (${boletim})`,
+          url: url.toString(),
+          dominio: "olinda.bcb.gov.br",
+        },
+        data_cambio: dataCambio,
+      };
+    } catch {
+      // Uma indisponibilidade temporária da PTAX não invalida a proposta de
+      // cadastro; o preço permanece pendente para validação humana.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  return null;
 }
 
 export function calcularPesquisaPreco(input: {
