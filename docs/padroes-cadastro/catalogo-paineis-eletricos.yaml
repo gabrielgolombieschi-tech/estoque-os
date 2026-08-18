@@ -1,9 +1,10 @@
-versao_padrao: "1.13.0"
+versao_padrao: "1.16.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
   nome: "Painéis elétricos e componentes"
   escopo_inicial: "Acessórios de disjuntores caixa moldada e disjuntores mini"
+  escopo_atual: "Componentes para painéis elétricos, automação, segurança de máquinas, sensores e instrumentação."
 
 campos_erp:
   nome_padronizado: itens.nome
@@ -15,6 +16,19 @@ campos_erp:
   modelo:
     campo_proprio_existente: false
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável e houver aprovação humana."
+
+regras_cadastro_assistido:
+  codigo_produto:
+    normalizacao: "Gravar e comparar em maiúsculas, sem espaços nem hífens; preservar outros caracteres técnicos confirmados, como '/'."
+    consulta: "Aceitar o código digitado com separadores visuais, normalizá-lo antes de pesquisar, verificar duplicidade e gravar somente a forma normalizada."
+  finalidade_padrao: materia_prima
+  pesquisa_preco:
+    prioridade: ["Mercado Livre", "eBay", "lojas técnicas"]
+    regra: "Buscar item exato primeiro; quando não houver, buscar similar técnico e identificá-lo como similar. Não usar página oficial sem preço como única pesquisa de cotação."
+    ebay: "Para preço do eBay, converter a moeda de origem para BRL com taxa, URL e data verificáveis e só então aplicar o fator 1,80 de importação. Sem taxa verificável, manter o preço pendente."
+  fiscal:
+    origem_padrao: 0
+    origem_descricao: "Nacional"
 
 tipos_tecnicos_aceitos:
   - codigo: ACESSORIO_DISJUNTOR_CAIXA_MOLDADA
@@ -186,6 +200,36 @@ tipos_tecnicos_aceitos:
   - codigo: MODULO_PESAGEM
     nome: "Módulo de pesagem"
     atributos_condicionais: [familia, modo_operacao, canais, entradas_digitais, saidas_digitais, saidas_analogicas, interfaces]
+  - codigo: COMPONENTE_MONTAGEM_PAINEL
+    nome: "Componente para montagem de painel"
+    atributos_condicionais: [tipo_construtivo, dimensoes, material, tipo_montagem]
+  - codigo: CONECTOR_INDUSTRIAL
+    nome: "Conector industrial"
+    atributos_condicionais: [tipo_conector, polos, meio_transmissao, tipo_montagem]
+  - codigo: CABO_SENSOR_ATUADOR
+    nome: "Cabo para sensor e atuador"
+    atributos_condicionais: [tipo_conector, genero, pinos, comprimento, material_cabo]
+  - codigo: CABO_REDE_INDUSTRIAL
+    nome: "Cabo de rede industrial"
+    atributos_condicionais: [protocolo, categoria_cabo, blindagem, comprimento]
+  - codigo: SENSOR_INDUSTRIAL
+    nome: "Sensor industrial"
+    atributos_condicionais: [principio_medicao, tecnologia_saida, alcance, dimensao, conexao]
+  - codigo: ENCODER
+    nome: "Encoder"
+    atributos_condicionais: [tipo_encoder, resolucao, interface_saida]
+  - codigo: COMPONENTE_SEGURANCA_MAQUINAS
+    nome: "Componente de segurança de máquinas"
+    atributos_condicionais: [funcao, tecnologia, contatos_ou_io, dimensoes, alcance, cabo]
+  - codigo: MODULO_REDUNDANCIA
+    nome: "Módulo de redundância"
+    atributos_condicionais: [tensao_nominal, corrente_nominal]
+  - codigo: DISJUNTOR_ELETRONICO
+    nome: "Disjuntor eletrônico"
+    atributos_condicionais: [tensao_nominal, faixa_corrente]
+  - codigo: CONDICIONADOR_SINAL
+    nome: "Condicionador de sinal"
+    atributos_condicionais: [sinal_entrada, sinal_saida, alimentacao]
 
 grupos_controlados_propostos:
   - codigo: DISJUNTORES_CAIXA_MOLDADA
@@ -257,6 +301,8 @@ grupos_controlados_propostos:
         nome: "Disjuntores abertos"
       - codigo: CHAVES_SECCIONADORAS_PORTA_FUSIVEL
         nome: "Chaves seccionadoras porta-fusível"
+      - codigo: DISJUNTORES_ELETRONICOS
+        nome: "Disjuntores eletrônicos"
   - codigo: ACIONAMENTOS_MOTORES
     nome: "Acionamentos de motores"
     filhos:
@@ -281,6 +327,8 @@ grupos_controlados_propostos:
         nome: "Fontes de alimentação"
       - codigo: UPS_CC
         nome: "UPS CC"
+      - codigo: MODULOS_REDUNDANCIA
+        nome: "Módulos de redundância"
   - codigo: AUTOMACAO_PROGRAMAVEL
     nome: "Automação programável"
     filhos:
@@ -352,6 +400,19 @@ grupos_controlados_propostos:
         nome: "Pentes para bornes"
       - codigo: TAMPAS_FINAIS_PARA_BORNES
         nome: "Tampas finais para bornes"
+      - codigo: ACESSORIOS_PARA_BORNES
+        nome: "Acessórios para bornes"
+      - codigo: BLOCOS_DISTRIBUICAO
+        nome: "Blocos de distribuição"
+      - codigo: ACESSORIOS_BLOCOS_DISTRIBUICAO
+        nome: "Acessórios para blocos de distribuição"
+      - codigo: CONECTORES_INDUSTRIAIS
+        nome: "Conectores industriais"
+        filhos:
+          - codigo: CONECTORES_INDUSTRIAIS_MULTIPOLARES
+            nome: "Conectores industriais multipolares"
+      - codigo: TOMADAS_TRILHO_DIN
+        nome: "Tomadas para trilho DIN"
   - codigo: TRANSFORMADORES_COMANDO
     nome: "Transformadores de comando"
   - codigo: MEDICAO_INSTRUMENTACAO
@@ -359,6 +420,22 @@ grupos_controlados_propostos:
     filhos:
       - codigo: TRANSFORMADORES_CORRENTE
         nome: "Transformadores de corrente"
+      - codigo: CONDICIONADORES_SINAL
+        nome: "Condicionadores de sinal"
+      - codigo: ENCODERS
+        nome: "Encoders"
+      - codigo: ACESSORIOS_ENCODERS
+        nome: "Acessórios para encoders"
+      - codigo: SENSORES_NIVEL
+        nome: "Sensores de nível"
+      - codigo: SENSORES_ULTRASSONICOS
+        nome: "Sensores ultrassônicos"
+      - codigo: SENSORES_FLUXO
+        nome: "Sensores de fluxo"
+      - codigo: SENSORES_TEMPERATURA
+        nome: "Sensores de temperatura"
+      - codigo: SENSORES_PRESSAO
+        nome: "Sensores de pressão"
   - codigo: COMUNICACAO_INDUSTRIAL
     nome: "Comunicação industrial"
     filhos:
@@ -366,6 +443,8 @@ grupos_controlados_propostos:
         nome: "Switches de rede industrial"
       - codigo: CONECTORES_REDE_INDUSTRIAL
         nome: "Conectores de rede industrial"
+      - codigo: CABOS_REDE_INDUSTRIAL
+        nome: "Cabos de rede industrial"
   - codigo: SEGURANCA_MAQUINAS
     nome: "Segurança de máquinas"
     filhos:
@@ -373,6 +452,42 @@ grupos_controlados_propostos:
         nome: "Relés de segurança"
       - codigo: ACESSORIOS_RELES_SEGURANCA
         nome: "Acessórios para relés de segurança"
+      - codigo: CONTROLADORES_SEGURANCA
+        nome: "Controladores de segurança"
+      - codigo: CORTINAS_LUZ_SEGURANCA
+        nome: "Cortinas de luz de segurança"
+      - codigo: ACESSORIOS_CORTINAS_LUZ
+        nome: "Acessórios para cortinas de luz"
+      - codigo: DISPOSITIVOS_HABILITACAO
+        nome: "Dispositivos de habilitação"
+  - codigo: MONTAGEM_PAINEIS
+    nome: "Montagem de painéis"
+    filhos:
+      - codigo: CANALETAS_PARA_PAINEIS
+        nome: "Canaletas para painéis"
+      - codigo: TRILHOS_DIN
+        nome: "Trilhos DIN"
+      - codigo: PRENSA_CABOS
+        nome: "Prensa-cabos"
+      - codigo: IDENTIFICACAO_PARA_PAINEIS
+        nome: "Identificação para painéis"
+      - codigo: FERRAMENTAS_MONTAGEM_PAINEIS
+        nome: "Ferramentas para montagem de painéis"
+  - codigo: SENSORES_INDUSTRIAIS
+    nome: "Sensores industriais"
+    filhos:
+      - codigo: SENSORES_INDUTIVOS
+        nome: "Sensores indutivos"
+      - codigo: SENSORES_FOTOELETRICOS
+        nome: "Sensores fotoelétricos"
+      - codigo: SENSORES_TIPO_GARFO
+        nome: "Sensores tipo garfo"
+      - codigo: CABOS_PARA_SENSORES
+        nome: "Cabos para sensores e atuadores"
+      - codigo: CONECTORES_PARA_SENSORES
+        nome: "Conectores para sensores"
+      - codigo: ACESSORIOS_PARA_SENSORES
+        nome: "Acessórios para sensores"
 
 sinonimos_encontrados:
   - termo: "ACION ROT"
@@ -498,6 +613,45 @@ integracao_importacao_nf:
     - "grupo_id deve ser um grupo existente no escopo atual. Quando não houver grupo funcional adequado, novo_grupo propõe código, nome e grupo pai existentes."
     - "A criação do grupo e do item ocorre somente após confirmação humana explícita na tela."
     - "Descrição e grupo — existente ou novo aprovado — são obrigatórios para o cadastro."
+
+integracao_cadastro_novo_itens:
+  agente: "Agente de Cadastro Assistido de Itens"
+  endpoints:
+    sugestao: "/api/itens/agente-cadastro/sugerir"
+    confirmacao: "/api/itens/agente-cadastro/confirmar"
+  modelo_configuravel: "ASSISTENTE_IA_OPENAI_MODEL"
+  entradas_usuario:
+    - fornecedor_cadastrado_ativo
+    - codigo_origem
+    - quantidade_referencia_cotacao
+  fonte_contexto:
+    - "Este catalogo YAML, excluido o historico para reduzir contexto"
+    - "Grupos existentes no tenant e empresa correntes"
+    - "Fornecedor selecionado e seus padroes comerciais"
+    - "Itens internos semelhantes e seus perfis fiscais, somente como referencia revisavel"
+    - "Pesquisa Web para identificacao e preco, com fontes exibidas na revisao"
+  campos_sugeridos:
+    - nome_padronizado
+    - fabricante_em_campo_proprio
+    - grupo_controlado
+    - unidade_medida
+    - preco_unitario
+    - finalidade_e_motivo_padrao_fornecedor
+    - perfil_fiscal_referencia
+  regras_preco:
+    mercado_nacional: "Usar apenas preco com fonte, URL, moeda, data e indicacao de correspondencia exata ou similar."
+    ebay: "Quando a fonte eBay estiver em BRL, aplicar multiplicador 1,80 no servidor e exibir preco-base, fator e preco final."
+    moeda_estrangeira: "Nao inventar cambio. Manter a moeda de origem e registrar pendencia ate haver conversao verificavel ou revisao humana."
+    sem_preco: "Quando nao houver fonte confiavel, nao gravar preco estimado como se fosse confirmado; indicar a pendencia."
+  salvaguardas:
+    - "Quantidade de referencia e usada somente para cotacao; nunca cria saldo nem movimenta estoque."
+    - "O agente nao grava item, grupo, preco nem fiscal durante a sugestao."
+    - "Fornecedor, codigo e grupos sao validados no tenant e empresa antes da confirmacao."
+    - "Item ativo com o mesmo fornecedor e codigo nao pode ser duplicado; item inativo correspondente exige revisao ou reativacao explicita."
+    - "Grupo novo e apenas proposta: so e criado apos aprovacao humana explicita."
+    - "NCM, IPI, CST e aliquotas sao sugestoes de um item interno de referencia, nunca conclusao automatica da IA."
+    - "A confirmacao registra a proposta, fontes de preco, regra aplicada e item de referencia em auditoria imutavel."
+    - "Fabricante, codigo e modelo continuam fora do nome padronizado, exceto compatibilidade tecnica aprovada."
 
 exemplos_aprovados:
   - id_decisao: D-001
@@ -1029,6 +1183,42 @@ exemplos_aprovados:
         nome_padronizado: "SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL LAYER 2 6 PORTAS RJ45 100Mbps E 2 PORTAS FIBRA ÓPTICA ST/BFOC 100Mbps"
       - codigo_origem: "7MH4960-2AA01"
         nome_padronizado: "MÓDULO DE PESAGEM SIWAREX WP231 PARA PLC S7-1200 OU OPERAÇÃO AUTÔNOMA, 1 CANAL, 4DI/4DO, 1AO, RS485 E ETHERNET"
+  - id_decisao: D-026
+    status: aplicado
+    tipo_tecnico: COMPONENTES_WAGO_PHOENIX_SICK
+    fornecedores_origem:
+      - "WAGO"
+      - "PHOENIX CONTACT"
+      - "SICK"
+    grupos:
+      - "Montagem de painéis > Canaletas para painéis, Trilhos DIN, Prensa-cabos, Identificação para painéis e Ferramentas para montagem de painéis"
+      - "Conexões elétricas > Acessórios para bornes, Blocos de distribuição, Acessórios para blocos de distribuição, Conectores industriais e Tomadas para trilho DIN"
+      - "Alimentação e energia > Módulos de redundância"
+      - "Proteção e seccionamento > Disjuntores eletrônicos"
+      - "Medição e instrumentação > Condicionadores de sinal, Encoders, Acessórios para encoders e Sensores de processo"
+      - "Segurança de máquinas > Controladores de segurança, Cortinas de luz de segurança, Acessórios para cortinas de luz e Dispositivos de habilitação"
+      - "Sensores industriais > Sensores indutivos, Sensores fotoelétricos, Sensores tipo garfo, Cabos para sensores e atuadores, Conectores para sensores e Acessórios para sensores"
+    regras:
+      - "O fornecedor identifica a origem comercial do lote, não substitui o fabricante e não é repetido na descrição padronizada."
+      - "Bornes, pentes, tampas, blocos de distribuição, conectores e cabos devem ser separados pela função. Cabo não é conector; pente de borne não é pente para relé de interface."
+      - "Em sensores, declarar princípio de detecção, alcance, sinal de saída, dimensão, conector, pinos, cabo e material somente quando confirmados."
+      - "Em segurança de máquinas, manter a família técnica no nome apenas quando ela determina compatibilidade, como Flexi Compact, TR110 ou DFS60."
+      - "O item WAGO 60510362 permanece como BORNE DE PASSAGEM SEM PARAFUSO; não inferir bitola, número de condutores ou tensão."
+      - "Os cadastros SICK com códigos 2066614-COPIA e 2066614-COPIA-COPIA foram normalizados pela identificação técnica da descrição, mas seus códigos não foram corrigidos."
+      - "Valores e unidades permanecem juntos: 24VCC, 4MM, 20DI, 4DO, 4-20MA e 100MBPS."
+    exemplos:
+      - codigo_origem: "2004-1204"
+        nome_padronizado: "BORNE DE PASSAGEM 2 CONDUTORES 4MM²"
+      - codigo_origem: "2702881"
+        nome_padronizado: "SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL COM NAT 8 PORTAS RJ45 10/100MBPS"
+      - codigo_origem: "1416392"
+        nome_padronizado: "CABO DE REDE INDUSTRIAL PROFINET CAT5 BLINDADO 100M"
+      - codigo_origem: "1085351"
+        nome_padronizado: "CONTROLADOR DE SEGURANÇA FLEXI COMPACT 20DI 4DO"
+      - codigo_origem: "1220140"
+        nome_padronizado: "CORTINA DE LUZ DE SEGURANÇA RECEPTORA 750MM RESOLUÇÃO 30MM ALCANCE 30M"
+      - codigo_origem: "1036721"
+        nome_padronizado: "ENCODER INCREMENTAL DFS60 10000PPR TTL/HTL"
 
 termos_ambiguos_pendentes:
   - termo: "CAIXA"
@@ -1173,3 +1363,8 @@ historico_decisoes:
     status: aplicado
     origem: "Aprovação humana do lote final de itens Siemens"
     decisao: "Criar os grupos de servomotores, cabos para servomotores, disjuntores abertos, chaves porta-fusível, controladores e expansões LOGO!, comunicação de PLC, interfaces homem-máquina, pesagem, medição e comunicação industrial. Classificar e normalizar 22 itens Siemens, detalhando compatibilidades, papel de rede, portas e interfaces somente quando confirmados."
+  - id: D-026
+    data: "2026-08-17"
+    status: aplicado
+    origem: "Autorização humana para normalização completa dos fornecedores WAGO, Phoenix Contact e SICK"
+    decisao: "Criar 33 grupos funcionais e normalizar 216 cadastros efetivamente divergentes, entre 241 registros revisados. Preservar código, fornecedor, fabricante, preço e status. Os dois códigos SICK divergentes permanecem pendentes de correção específica."

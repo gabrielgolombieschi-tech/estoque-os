@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   // Incluí-lo explicitamente garante disponibilidade no bundle de produção.
   outputFileTracingIncludes: {
     "/api/estoque/importar/normalizar-itens": ["./docs/padroes-cadastro/catalogo-paineis-eletricos.yaml"],
+    "/api/itens/agente-cadastro/sugerir": ["./docs/padroes-cadastro/catalogo-paineis-eletricos.yaml"],
   },
 };
 

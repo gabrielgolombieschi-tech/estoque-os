@@ -188,3 +188,32 @@ O arquivo `catalogo-paineis-eletricos.yaml` é a fonte estruturada de verdade pa
 - A sugestão aparece na tabela da importação antes do cadastro. O usuário confere e confirma em `Cadastrar sugestão IA` ou `Criar grupo e cadastrar IA`; o agente não grava itens por conta própria.
 - Quando não houver descrição segura nem grupo existente ou novo sugerido, o cadastro é bloqueado até revisão humana. Isso evita inventar especificações ou criar itens sem classificação.
 - O modelo é configurado somente no servidor por `ASSISTENTE_IA_OPENAI_MODEL`. A chave da OpenAI nunca é enviada ao navegador.
+
+## Integração aprovada: novo cadastro assistido por IA
+
+Na tela **Itens > Novo**, o cadastro assistido começa com somente três informações: fornecedor já cadastrado e ativo, código de origem e quantidade de referência para cotação. Essa quantidade não cria saldo nem movimenta estoque.
+
+O agente consulta o catálogo estruturado, os grupos disponíveis e itens internos semelhantes. Ele propõe nome padronizado, fabricante em campo próprio, grupo, unidade, preço e uma referência fiscal interna. A pessoa usuária revisa todos esses dados antes de confirmar; o agente não grava nada durante a sugestão.
+
+- O código pode ser digitado com espaços ou hífens, mas o ERP consulta, compara e grava a forma em maiúsculas sem esses separadores visuais. Outros caracteres técnicos, como `/`, são preservados.
+- A finalidade inicial é sempre `matéria-prima`; a pessoa usuária pode revisá-la antes da confirmação quando houver exceção justificada.
+- O preço pesquisado deve priorizar Mercado Livre, eBay e lojas técnicas com página concreta. Página oficial sem preço confirma especificação, mas não encerra a pesquisa de cotação.
+- Para eBay em moeda estrangeira, o sistema registra a moeda de origem, taxa USD/BRL (ou equivalente) verificável, URL e data da cotação; calcula primeiro o valor em reais e aplica claramente o fator `1,80` de importação. Sem taxa verificável, o preço permanece pendente; o sistema não inventa câmbio.
+- NCM, IPI, CST e alíquotas são sugestões baseadas em item interno semelhante, identificando o item de referência. Exigem validação fiscal humana antes da gravação.
+- A origem fiscal inicial é sempre `0 — Nacional`; os demais campos fiscais continuam sujeitos à revisão humana.
+- Um grupo inexistente pode ser sugerido, mas só é criado com confirmação explícita. Itens com o mesmo fornecedor e código ativo não podem ser duplicados; um correspondente inativo exige revisão ou reativação explícita.
+- A confirmação gera uma trilha de auditoria com a proposta revisada, fontes de preço, regra de cálculo e referência interna utilizada.
+
+## Regra aplicada: componentes WAGO, Phoenix Contact e SICK
+
+O lote foi classificado por função técnica, mesmo quando o fornecedor é a única informação de origem preenchida no cadastro. Fornecedor e fabricante continuam em seus campos; não entram no nome padronizado.
+
+- Componentes de montagem ficam em `Montagem de painéis`: canaletas, trilhos DIN, prensa-cabos, identificação e ferramentas.
+- Bornes, pentes, tampas, blocos de distribuição, conectores multipolares e tomadas DIN ficam em `Conexões elétricas`. Um pente de borne não deve ser confundido com um pente de relé de interface.
+- Cabos e conectores M8/M12 ficam em `Sensores industriais` quando atendem sensores ou atuadores; cabos e conectores Ethernet/PROFINET ficam em `Comunicação industrial`.
+- Sensores são separados por princípio: indutivo, fotoelétrico, garfo, nível, ultrassônico, fluxo, temperatura e pressão. Declarar alcance, saída, dimensão, pinos, cabo e material somente quando confirmados.
+- Cortinas de luz, controladores, chaves, atuadores e dispositivos de habilitação pertencem a `Segurança de máquinas`. A família técnica pode aparecer na descrição apenas se determina compatibilidade, como `Flexi Compact`, `TR110` e `DFS60`.
+- Os itens SICK com códigos internos `2066614-COPIA` e `2066614-COPIA-COPIA` receberam nome e grupo técnicos, mas seus códigos não foram alterados porque divergem do item identificado na própria descrição.
+- O item WAGO `60510362` foi mantido como `BORNE DE PASSAGEM SEM PARAFUSO`, sem supor bitola, quantidade de condutores ou tensão.
+
+Exemplos registrados no catálogo: `CONTROLADOR DE SEGURANÇA FLEXI COMPACT 20DI 4DO`, `CORTINA DE LUZ DE SEGURANÇA RECEPTORA 750MM RESOLUÇÃO 30MM ALCANCE 30M` e `SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL COM NAT 8 PORTAS RJ45 10/100MBPS`.

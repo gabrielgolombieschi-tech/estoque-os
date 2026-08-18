@@ -8,6 +8,7 @@ import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { requireAny } from "@/lib/auth/capabilities";
+import CadastroItemAgenteModal from "./CadastroItemAgenteModal";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -365,6 +366,7 @@ export default function ItensClient({
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showCadastroAgente, setShowCadastroAgente] = useState(false);
   const [activeTab, setActiveTab] = useState<"geral" | "fiscal">("geral");
 
   // filtros
@@ -709,16 +711,7 @@ export default function ItensClient({
       setErr("Sem permissao para criar itens.");
       return;
     }
-    setEditingId(null);
-    setEditingAudit(null);
-    setForm(emptyFormForContext());
-    {
-      const emptyFiscal = emptyFiscalForm();
-      setFiscalForm(emptyFiscal);
-      setInitialFiscalSnapshot(serializeFiscalForm(emptyFiscal));
-    }
-    setActiveTab("geral");
-    setShowForm(true);
+    setShowCadastroAgente(true);
   }
 
   function openEditorForItem(r: Item, nextEditingId: number) {
@@ -1993,6 +1986,17 @@ export default function ItensClient({
           </div>
         </div>
       )}
+
+      <CadastroItemAgenteModal
+        open={showCadastroAgente}
+        onClose={() => setShowCadastroAgente(false)}
+        fornecedores={fornecedores}
+        onCreated={async (_itemId, mensagem) => {
+          setErr(null);
+          setOk(mensagem);
+          await load();
+        }}
+      />
     </div>
   );
 }
