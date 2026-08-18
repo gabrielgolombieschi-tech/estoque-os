@@ -671,7 +671,7 @@ export default function CadastroItemAgenteModal({
 
   if (!open) return null;
 
-  const grupoPendente = sugestao && !sugestao.grupo_id && sugestao.novo_grupo;
+  const grupoPendente = sugestao && !sugestao.grupo_id && sugestao.novo_grupo ? sugestao.novo_grupo : null;
   const fiscal = rascunho?.fiscal ?? null;
 
   return (
