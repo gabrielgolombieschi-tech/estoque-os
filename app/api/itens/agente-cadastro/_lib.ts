@@ -349,7 +349,10 @@ export function normalizarQuantidade(value: unknown): number | null {
 }
 
 export function numero(value: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): number | null {
-  const parsed = typeof value === "number" ? value : Number(String(value ?? "").trim().replace(",", "."));
+  if (value === null || value === undefined) return null;
+  const raw = typeof value === "string" ? value.trim() : String(value).trim();
+  if (!raw) return null;
+  const parsed = typeof value === "number" ? value : Number(raw.replace(",", "."));
   if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
   return Math.round(parsed * 10000) / 10000;
 }
@@ -630,7 +633,7 @@ export function calcularPesquisaPreco(input: {
     tipoRaw === "exato" || tipoRaw === "similar" || tipoRaw === "nao_encontrado" ? tipoRaw : "nao_encontrado";
   const fonteUrlSolicitada = urlSegura(pesquisa.fonte_url);
   const fonte = fonteCorrespondente(fonteUrlSolicitada, input.fontes);
-  const precoOrigem = numero(pesquisa.preco_origem, 0, 999999999);
+  const precoOrigem = numero(pesquisa.preco_origem, 0.0001, 999999999);
   const moedaOrigem = moeda(pesquisa.moeda);
   const nomeFonte = texto(pesquisa.fonte, 100);
   const titulo = fonte?.titulo ?? texto(pesquisa.titulo, 240);
@@ -899,7 +902,7 @@ export function sanitizarSugestaoModelo(input: {
       titulo: texto(pesquisa?.titulo, 240),
       fonte_url: urlSegura(pesquisa?.fonte_url),
       moeda: moeda(pesquisa?.moeda),
-      preco_origem: numero(pesquisa?.preco_origem, 0, 999999999),
+      preco_origem: numero(pesquisa?.preco_origem, 0.0001, 999999999),
       taxa_cambio_brl: taxaCambioParaBrl(pesquisa?.taxa_cambio_brl ?? pesquisa?.taxa_cambio_para_brl),
       fonte_cambio_url: urlSegura(pesquisa?.fonte_cambio_url),
       data_cambio: dataCambio(pesquisa?.data_cambio),
@@ -1050,7 +1053,7 @@ export function pesquisaDeBody(value: unknown, fontes: FonteWeb[]): PesquisaPrec
       titulo: texto(raw?.titulo, 240),
       fonte_url: urlSegura(raw?.fonte_url),
       moeda: moeda(raw?.moeda),
-      preco_origem: numero(raw?.preco_origem, 0, 999999999),
+      preco_origem: numero(raw?.preco_origem, 0.0001, 999999999),
       taxa_cambio_brl: taxaCambioParaBrl(raw?.taxa_cambio_brl ?? raw?.taxa_cambio_para_brl),
       fonte_cambio_url: urlSegura(raw?.fonte_cambio_url),
       data_cambio: dataCambio(raw?.data_cambio),
@@ -1058,7 +1061,7 @@ export function pesquisaDeBody(value: unknown, fontes: FonteWeb[]): PesquisaPrec
     },
     fontes,
   });
-  const precoRevisado = numero(raw?.preco_final_brl, 0, 999999999);
+  const precoRevisado = numero(raw?.preco_final_brl, 0.0001, 999999999);
   // O valor final e sempre calculado no servidor a partir das fontes validadas.
   // Esta ramificacao preserva somente respostas antigas que ja enviavam o mesmo valor.
   if (calculada.status === "encontrado" && precoRevisado !== null && precoRevisado === calculada.preco_final_brl) {
