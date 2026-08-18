@@ -421,7 +421,6 @@ function fiscalNacional(value: CadastroItemAgenteFiscal | null): CadastroItemAge
   return {
     ncm: null,
     cest: null,
-    origem: 0,
     cfop_padrao: null,
     cst_icms: null,
     cst_pis: null,
