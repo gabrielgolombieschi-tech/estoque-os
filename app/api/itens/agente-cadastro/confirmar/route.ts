@@ -378,6 +378,8 @@ export async function POST(req: NextRequest) {
     // A pessoa usuária pode ajustar o preço sugerido pela pesquisa ou informar um
     // preço que já conhece; o servidor apenas exige um valor positivo e plausível.
     const precoConfirmado = numero(body.preco_unitario_confirmado ?? body.preco_unitario, 0.01, 999999999);
+    // Peso de referência (kg) de uma unidade cadastrada; só faz sentido para itens em KG.
+    const pesoReferenciaKg = numero(body.peso_referencia_kg, 0.001, 999999);
     if (!fornecedorId) return jsonError(400, "Selecione um fornecedor cadastrado.");
     if (!codigo) return jsonError(400, "Informe o código do produto.");
     if (quantidade === null) return jsonError(400, "Informe uma quantidade válida (0 ou mais).");
@@ -494,6 +496,7 @@ export async function POST(req: NextRequest) {
         descricao: null,
         tipo: "produto",
         unidade_medida: normalizarUnidade(sugestao.unidade_medida),
+        peso_liquido: pesoReferenciaKg,
         controla_estoque: true,
         estoque_minimo: 0,
         estoque_maximo: 0,

@@ -128,6 +128,7 @@ export type CadastroItemAgenteConfirmarPayload = {
   codigo: string;
   quantidade_referencia: number;
   preco_unitario_confirmado: number;
+  peso_referencia_kg: number | null;
   cotacao_token: string;
   model: string | null;
   sugestao: CadastroItemAgenteSugestao;
@@ -457,6 +458,7 @@ export default function CadastroItemAgenteModal({
   const [codigo, setCodigo] = useState("");
   const [quantidade, setQuantidade] = useState("0");
   const [precoInput, setPrecoInput] = useState("");
+  const [pesoInput, setPesoInput] = useState("");
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [aceitarNovoGrupo, setAceitarNovoGrupo] = useState(false);
   const [duplicidade, setDuplicidade] = useState<CadastroItemAgenteDuplicidade | null>(null);
@@ -476,6 +478,8 @@ export default function CadastroItemAgenteModal({
   const precoFinal = pesquisaPreco?.preco_final_brl ?? pesquisaPreco?.preco_unitario_brl ?? null;
   const precoConfirmadoNumero = parseNumeroOpcional(precoInput);
   const totalEstimado = quantidadeReferencia !== null && precoConfirmadoNumero !== null ? quantidadeReferencia * precoConfirmadoNumero : null;
+  const isUnidadeKg = (sugestao?.unidade_medida ?? "").trim().toUpperCase() === "KG";
+  const pesoReferenciaNumero = parseNumeroOpcional(pesoInput);
 
   const limpar = useCallback(() => {
     setFase("entrada");
@@ -483,6 +487,7 @@ export default function CadastroItemAgenteModal({
     setCodigo("");
     setQuantidade("0");
     setPrecoInput("");
+    setPesoInput("");
     setRascunho(null);
     setAceitarNovoGrupo(false);
     setDuplicidade(null);
@@ -628,6 +633,7 @@ export default function CadastroItemAgenteModal({
       codigo: codigoNormalizado,
       quantidade_referencia: quantidadeReferencia,
       preco_unitario_confirmado: precoConfirmadoNumero,
+      peso_referencia_kg: isUnidadeKg ? pesoReferenciaNumero : null,
       cotacao_token: rascunho.cotacaoToken,
       model: rascunho.model,
       sugestao: sugestaoConfirmada,
@@ -668,6 +674,7 @@ export default function CadastroItemAgenteModal({
     setAceitarNovoGrupo(false);
     setErro(null);
     setPrecoInput("");
+    setPesoInput("");
   }
 
   const fontes = useMemo(() => {
@@ -858,6 +865,19 @@ export default function CadastroItemAgenteModal({
                     <span className="font-medium text-zinc-200">Modelo/referência identificado:</span> {sugestao.modelo_referencia}
                     <span className="ml-1 text-zinc-500">(mantido fora da descrição)</span>
                   </div>
+                )}
+                {isUnidadeKg && (
+                  <label>
+                    <span className={FIELD_LABEL_CLASS}>Peso de referência (kg)</span>
+                    <input
+                      className={INPUT_CLASS}
+                      value={pesoInput}
+                      onChange={(event) => setPesoInput(event.target.value)}
+                      inputMode="decimal"
+                      placeholder="Ex.: 42,500"
+                    />
+                    <span className="mt-1 block text-[11px] text-zinc-500">Peso desta chapa/peça; sugere a quantidade em kg no orçamento.</span>
+                  </label>
                 )}
                 <label>
                   <span className={FIELD_LABEL_CLASS}>Finalidade</span>

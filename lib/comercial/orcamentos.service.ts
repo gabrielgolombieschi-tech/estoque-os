@@ -786,6 +786,8 @@ export type ItemByIdRow = {
   descricao: string | null;
   tipo: string | null;
   unidade_medida: string | null;
+  /** Peso de referência (kg) de uma unidade cadastrada; só relevante quando unidade_medida = KG. */
+  peso_liquido: number | string | null;
   preco_unitario: number | string | null;
   custo_ultima_compra: number | string | null;
   fornecedor_id: number | null;
@@ -801,7 +803,7 @@ export async function getItemById(
     supabase
       .from("itens")
       .select(
-        "id,codigo_interno,nome,descricao,tipo,unidade_medida,preco_unitario,custo_ultima_compra,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo"
+        "id,codigo_interno,nome,descricao,tipo,unidade_medida,peso_liquido,preco_unitario,custo_ultima_compra,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo"
       )
       .eq("id", params.id)
       .maybeSingle<ItemByIdRow>(),
@@ -854,7 +856,7 @@ export async function getItemByCodigo(
     supabase
       .from("itens")
       .select(
-        "id,codigo_interno,nome,descricao,tipo,unidade_medida,preco_unitario,custo_ultima_compra,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo"
+        "id,codigo_interno,nome,descricao,tipo,unidade_medida,peso_liquido,preco_unitario,custo_ultima_compra,fornecedor_id,fornecedores!itens_tenant_empresa_fornecedor_fk(nome),ativo"
       )
       .eq("codigo_interno", codigo)
       .eq("ativo", true)

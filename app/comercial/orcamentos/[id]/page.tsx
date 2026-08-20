@@ -456,6 +456,12 @@ export default function OrcamentoPage() {
     () => String(inlineItem?.codigo_interno ?? "").trim().toUpperCase() === "9999",
     [inlineItem?.codigo_interno]
   );
+  const inlineItemIsKg = useMemo(() => upperTrim(String(inlineItem?.unidade_medida ?? "")) === "KG", [inlineItem?.unidade_medida]);
+  const inlineItemPesoReferencia = useMemo(() => {
+    if (!inlineItemIsKg) return null;
+    const peso = n(inlineItem?.peso_liquido);
+    return Number.isFinite(peso) && peso > 0 ? peso : null;
+  }, [inlineItemIsKg, inlineItem?.peso_liquido]);
   const isInlineTokenGenerico = useCallback((value: string) => /^[#@$]/.test(String(value ?? "").trim()), []);
   const inlineFormRef = useRef<HTMLDivElement | null>(null);
   const inlineCodigoInputRef = useRef<HTMLInputElement | null>(null);
@@ -544,6 +550,16 @@ export default function OrcamentoPage() {
     },
     [cfgMargemLucroPadraoPercent]
   );
+
+  // Para itens vendidos por peso (KG, ex.: chapas), a quantidade nao e "1
+  // unidade" — e o peso, em kg, da peca cadastrada. Sem isso, quem adiciona o
+  // item no orcamento tende a deixar "1" e subprecificar a chapa inteira.
+  const defaultQuantidadeFromItem = useCallback((item: ItemByIdRow | null): string => {
+    if (!item?.id) return "1";
+    const isKg = upperTrim(String(item.unidade_medida ?? "")) === "KG";
+    const peso = isKg ? n(item.peso_liquido) : 0;
+    return isKg && Number.isFinite(peso) && peso > 0 ? String(peso) : "1";
+  }, []);
 
   const reload = useCallback(async () => {
     setErr(null);
@@ -941,6 +957,7 @@ export default function OrcamentoPage() {
           setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
         }
         if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+        if (!inlineEditingItemId) setInlineQuantidade(defaultQuantidadeFromItem(item));
       } catch {
         if (reqId !== inlineItemReqRef.current) return;
         setInlineItem(null);
@@ -950,6 +967,7 @@ export default function OrcamentoPage() {
 
     return () => clearTimeout(t);
   }, [
+    defaultQuantidadeFromItem,
     defaultValorUnitarioFromItem,
     empresaId,
     inlineEditingItemId,
@@ -1300,6 +1318,7 @@ export default function OrcamentoPage() {
         setInlineErr(null);
         setInlineDescricaoLivre(textoLivre);
         if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+        if (!inlineEditingItemId) setInlineQuantidade(defaultQuantidadeFromItem(item));
         window.requestAnimationFrame(() => {
           inlineQuantidadeInputRef.current?.focus();
           inlineQuantidadeInputRef.current?.select();
@@ -1330,6 +1349,7 @@ export default function OrcamentoPage() {
         setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
       }
       if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+      if (!inlineEditingItemId) setInlineQuantidade(defaultQuantidadeFromItem(item));
       window.requestAnimationFrame(() => {
         inlineQuantidadeInputRef.current?.focus();
         inlineQuantidadeInputRef.current?.select();
@@ -2397,8 +2417,8 @@ export default function OrcamentoPage() {
 
             <div ref={inlineFormRef} className="p-4 border-b border-zinc-800">
               {inlineErr && <div className="text-sm text-red-400 mb-3">{inlineErr}</div>}
-              <div className="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
-                <label className="block text-xs text-zinc-400">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="block text-xs text-zinc-400 w-full sm:w-36">
                   Codigo
                   <input
                     ref={inlineCodigoInputRef}
@@ -2416,8 +2436,33 @@ export default function OrcamentoPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-zinc-400">
-                  Quantidade
+                <label className="block text-xs text-zinc-400 w-20">
+                  Unidade
+                  <input
+                    value={inlineItem?.id ? upperTrim(String(inlineItem.unidade_medida ?? "")) || "-" : "-"}
+                    disabled
+                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                  />
+                </label>
+
+                {inlineItemIsKg && (
+                  <label className="block text-xs text-zinc-400 w-36">
+                    Peso ref. (kg)
+                    <input
+                      value={inlineItemPesoReferencia !== null ? formatDecimalBR(inlineItemPesoReferencia) : "-"}
+                      disabled
+                      title={
+                        inlineItemPesoReferencia !== null
+                          ? `Peso cadastrado desta peca: ${formatDecimalBR(inlineItemPesoReferencia)} kg (ajuste a quantidade se for outra).`
+                          : "Item sem peso de referencia cadastrado; informe o peso real em kg na quantidade."
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                    />
+                  </label>
+                )}
+
+                <label className="block text-xs text-zinc-400 w-28">
+                  {inlineItemIsKg ? "Quantidade (kg)" : "Quantidade"}
                   <input
                     ref={inlineQuantidadeInputRef}
                     value={inlineQuantidade}
@@ -2433,8 +2478,8 @@ export default function OrcamentoPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-zinc-400">
-                  Valor unitario
+                <label className="block text-xs text-zinc-400 flex-1 min-w-[140px]">
+                  {inlineItemIsKg ? "Valor unitario (R$/kg)" : "Valor unitario"}
                   <input
                     value={inlineValorUnitario}
                     disabled={readOnly || !canWrite || inlineBusy}
@@ -2443,7 +2488,7 @@ export default function OrcamentoPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-zinc-400 w-24">
                   Desconto
                   <input
                     value={inlineDesconto}
@@ -2453,7 +2498,7 @@ export default function OrcamentoPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-zinc-400 w-24">
                   Estoque
                   <input
                     value={inlineItem?.id ? formatDecimalBR(inlineEstoqueAtual ?? 0) : "-"}
@@ -2462,7 +2507,7 @@ export default function OrcamentoPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-zinc-400 w-28">
                   Total
                   <input
                     value={formatMoneyBR(inlineTotal)}
@@ -2471,7 +2516,7 @@ export default function OrcamentoPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-zinc-400 w-32">
                   Valor Ultima compra
                   <input
                     value={inlineItem?.id ? formatMoneyBR(n(inlineItem.custo_ultima_compra)) : "-"}

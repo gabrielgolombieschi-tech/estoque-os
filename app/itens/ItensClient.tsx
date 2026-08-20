@@ -31,6 +31,7 @@ type Item = {
   motivo_compra_id: string | null;
 
   unidade_medida: string | null;
+  peso_liquido: number | null;
   controla_estoque: boolean | null;
   estoque_minimo: number | null;
   estoque_maximo: number | null;
@@ -78,6 +79,8 @@ type ItemForm = {
   motivo_compra_id: string; // f.motivo_compra ("" = null)
 
   unidade_medida: string;
+  /** Peso de referência (kg) de uma unidade cadastrada; usado só quando unidade_medida = KG. */
+  peso_liquido: string;
   controla_estoque: boolean;
   estoque_minimo: number;
   estoque_maximo: number;
@@ -129,6 +132,7 @@ type ItemPayload = {
   finalidade: string | null;
   motivo_compra_id: string | null;
   unidade_medida: string;
+  peso_liquido: number | null;
   controla_estoque: boolean;
   estoque_minimo: number;
   estoque_maximo: number;
@@ -209,6 +213,7 @@ function emptyForm(): ItemForm {
     motivo_compra_id: "",
 
     unidade_medida: "UN",
+    peso_liquido: "",
     controla_estoque: true,
     estoque_minimo: 0,
     estoque_maximo: 0,
@@ -252,6 +257,7 @@ function buildFormFromItem(r: Item): ItemForm {
     finalidade: r.finalidade ? String(r.finalidade) : "",
     motivo_compra_id: r.motivo_compra_id ? String(r.motivo_compra_id) : "",
     unidade_medida: upper(r.unidade_medida || "UN"),
+    peso_liquido: r.peso_liquido != null ? String(r.peso_liquido) : "",
     controla_estoque: !!r.controla_estoque,
     estoque_minimo: Number(r.estoque_minimo ?? 0),
     estoque_maximo: Number(r.estoque_maximo ?? 0),
@@ -841,6 +847,7 @@ export default function ItensClient({
         finalidade: copiedFinalidade,
         motivo_compra_id: supportsMotivoCompra ? r.motivo_compra_id ?? null : null,
         unidade_medida: upper(r.unidade_medida || "UN").trim(),
+        peso_liquido: r.peso_liquido ?? null,
         controla_estoque: controlaEstoque,
         estoque_minimo: controlaEstoque ? Number(r.estoque_minimo ?? 0) : 0,
         estoque_maximo: controlaEstoque ? Number(r.estoque_maximo ?? 0) : 0,
@@ -972,6 +979,7 @@ export default function ItensClient({
       motivo_compra_id: supportsMotivoCompra ? form.motivo_compra_id.trim() || null : null,
 
       unidade_medida: upper(form.unidade_medida || "UN").trim(),
+      peso_liquido: form.peso_liquido.trim() ? parseDecimalBR(form.peso_liquido) : null,
       controla_estoque: controlaEstoque,
       estoque_minimo: controlaEstoque ? Number(form.estoque_minimo ?? 0) : 0,
       estoque_maximo: controlaEstoque ? Number(form.estoque_maximo ?? 0) : 0,
@@ -1737,6 +1745,21 @@ export default function ItensClient({
                       <div className="text-xs text-zinc-400">Unidade</div>
                       <input className="w-full px-3 py-2" value={form.unidade_medida} onChange={(e) => setForm((s) => ({ ...s, unidade_medida: upper(e.target.value) }))} placeholder="UN, KG, LT..." />
                     </div>
+
+                    {form.unidade_medida.trim().toUpperCase() === "KG" && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-zinc-400">Peso de referência (kg)</div>
+                        <input
+                          aria-label="Peso de referência (kg)"
+                          className="w-full px-3 py-2"
+                          inputMode="decimal"
+                          value={form.peso_liquido}
+                          onChange={(e) => setForm((s) => ({ ...s, peso_liquido: e.target.value }))}
+                          placeholder="Ex.: 42,500"
+                        />
+                        <div className="text-[11px] text-zinc-500">Peso desta chapa/peça cadastrada; sugere a quantidade em kg no orçamento.</div>
+                      </div>
+                    )}
 
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Categoria</div>

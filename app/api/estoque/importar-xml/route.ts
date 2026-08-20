@@ -390,6 +390,14 @@ function normalizeItemCode(value: string | null | undefined): string {
   return normalizeXmlItemCode(cleaned);
 }
 
+function normalizeUnidadeMedida(value: string | null | undefined): string {
+  return String(value ?? "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toUpperCase()
+    .slice(0, 10);
+}
+
 function moneyDiff(a: number, b: number): number {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return Number.MAX_SAFE_INTEGER;
   return Math.abs(a - b);
@@ -561,6 +569,7 @@ async function ensureItemFromPedidoManual(opts: {
   pedidoItem: PedidoCompraItemRow;
   preferredCode: string | null;
   preferredName: string | null;
+  preferredUnidade: string | null;
   dataMov: string | null;
 }): Promise<number | null> {
   const admin = supabaseAdmin();
@@ -586,6 +595,7 @@ async function ensureItemFromPedidoManual(opts: {
   const nome = normalizeText(opts.preferredName || opts.pedidoItem.item_nome || finalCode);
   const valor = toNum(opts.pedidoItem.valor_unitario);
   const dataRef = opts.dataMov ?? new Date().toISOString();
+  const unidadeMedida = normalizeUnidadeMedida(opts.preferredUnidade) || "UN";
 
   const { data: created, error } = await admin
     .from("itens")
@@ -596,7 +606,7 @@ async function ensureItemFromPedidoManual(opts: {
       nome,
       tipo: "produto",
       controla_estoque: true,
-      unidade_medida: "UN",
+      unidade_medida: unidadeMedida,
       custo_ultima_compra: valor,
       custo_medio: valor,
       preco_unitario: valor,
@@ -974,6 +984,7 @@ async function bindImportItemsFromPedido(opts: {
           pedidoItem: row,
           preferredCode: codigo || normalizeItemCode(row.item_codigo),
           preferredName: String(rec.descricao ?? rec.nome ?? row.item_nome ?? ""),
+          preferredUnidade: readPayloadText(rec, "unidade", "uCom"),
           dataMov,
         });
         if (created && created > 0) itemId = created;
@@ -1992,6 +2003,164 @@ async function syncCadastroFinalidadeFromNfEntrada(opts: {
   if (upsertErr) throw new Error(upsertErr.message);
 }
 
+// A unidade de compra que vem na XML (uCom) e a fonte de verdade mais recente
+// pra unidade do item: cadastro nunca e corrigido automaticamente em nenhum
+// outro fluxo (nem manual, nem no agente de cadastro), entao cadastros feitos
+// antes desse item ter historico de compra ficam desatualizados pra sempre se
+// ninguem sincronizar aqui. Best-effort: nunca deve derrubar a importacao da NF.
+async function syncItemUnidadeMedidaFromNfEntrada(opts: {
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+  itensJson: unknown;
+}) {
+  try {
+    const admin = supabaseAdmin();
+    const payloadRows = Array.isArray(opts.itensJson)
+      ? opts.itensJson.map((row) => (row && typeof row === "object" ? (row as Record<string, unknown>) : null))
+      : [];
+    if (payloadRows.length === 0) return;
+
+    const { data: nfItens, error: nfItensErr } = await admin
+      .from("nf_entrada_itens")
+      .select("id,item_id")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("nf_entrada_id", opts.nfEntradaId)
+      .order("id", { ascending: true })
+      .returns<Array<{ id: number; item_id: number | null }>>();
+    if (nfItensErr || !Array.isArray(nfItens)) return;
+
+    const unidadeDesejadaPorItemId = new Map<number, string>();
+    nfItens.forEach((row, idx) => {
+      const itemId = Number(row.item_id ?? 0);
+      if (!Number.isFinite(itemId) || itemId <= 0) return;
+      const rec = payloadRows[idx] ?? null;
+      const unidade = normalizeUnidadeMedida(readPayloadText(rec, "unidade", "uCom"));
+      if (!unidade) return;
+      unidadeDesejadaPorItemId.set(itemId, unidade);
+    });
+    if (unidadeDesejadaPorItemId.size === 0) return;
+
+    const itemIds = Array.from(unidadeDesejadaPorItemId.keys());
+    const { data: itensCadastro, error: itensCadastroErr } = await admin
+      .from("itens")
+      .select("id,unidade_medida")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .in("id", itemIds)
+      .returns<Array<{ id: number; unidade_medida: string | null }>>();
+    if (itensCadastroErr || !Array.isArray(itensCadastro)) return;
+
+    for (const item of itensCadastro) {
+      const desejada = unidadeDesejadaPorItemId.get(item.id);
+      if (!desejada) continue;
+      const atual = normalizeUnidadeMedida(item.unidade_medida);
+      if (atual === desejada) continue;
+      try {
+        await admin
+          .from("itens")
+          .update({ unidade_medida: desejada })
+          .eq("tenant_id", opts.tenantId)
+          .eq("empresa_id", opts.empresaId)
+          .eq("id", item.id);
+      } catch {
+        // best-effort
+      }
+    }
+  } catch {
+    // best-effort: sincronizacao de unidade nunca deve falhar a importacao da NF.
+  }
+}
+
+// Peso de referencia (kg) de "1 unidade" cadastrada, pra item vendido/comprado
+// em KG (ex.: chapa). A NF-e nao registra quantas pecas fisicas vieram numa
+// compra por peso — so o total em kg da linha. A unica forma de inferir com
+// confianca o peso padrao de "1 chapa" e ver se compras independentes do mesmo
+// item bateram na mesma quantidade: se bateu 2x ou mais, e porque o fornecedor
+// sempre corta/vende essa peca no mesmo tamanho (validado manualmente nos itens
+// 238 e 604008 antes de automatizar isso). Nunca sobrescreve um valor ja
+// preenchido (respeita ajuste manual) e nunca decide com uma unica compra.
+async function syncItemPesoReferenciaFromNfEntrada(opts: {
+  tenantId: string;
+  empresaId: string;
+  nfEntradaId: number;
+}) {
+  try {
+    const admin = supabaseAdmin();
+    const { data: nfItens, error: nfItensErr } = await admin
+      .from("nf_entrada_itens")
+      .select("item_id")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .eq("nf_entrada_id", opts.nfEntradaId)
+      .returns<Array<{ item_id: number | null }>>();
+    if (nfItensErr || !Array.isArray(nfItens)) return;
+
+    const itemIdsNesteNf = Array.from(
+      new Set(nfItens.map((row) => Number(row.item_id ?? 0)).filter((id) => Number.isFinite(id) && id > 0))
+    );
+    if (itemIdsNesteNf.length === 0) return;
+
+    const { data: itensCadastro, error: itensCadastroErr } = await admin
+      .from("itens")
+      .select("id,unidade_medida,peso_liquido")
+      .eq("tenant_id", opts.tenantId)
+      .eq("empresa_id", opts.empresaId)
+      .in("id", itemIdsNesteNf)
+      .returns<Array<{ id: number; unidade_medida: string | null; peso_liquido: number | null }>>();
+    if (itensCadastroErr || !Array.isArray(itensCadastro)) return;
+
+    const candidatos = itensCadastro.filter(
+      (item) => normalizeUnidadeMedida(item.unidade_medida) === "KG" && item.peso_liquido == null
+    );
+    if (candidatos.length === 0) return;
+
+    for (const item of candidatos) {
+      const { data: historico, error: historicoErr } = await admin
+        .from("nf_entrada_itens")
+        .select("qtd")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .eq("item_id", item.id)
+        .returns<Array<{ qtd: number | null }>>();
+      if (historicoErr || !Array.isArray(historico)) continue;
+
+      const contagemPorQtd = new Map<string, { qtd: number; count: number }>();
+      for (const row of historico) {
+        const qtd = Number(row.qtd);
+        if (!Number.isFinite(qtd) || qtd <= 0) continue;
+        const chave = qtd.toFixed(2);
+        const atual = contagemPorQtd.get(chave);
+        if (atual) atual.count += 1;
+        else contagemPorQtd.set(chave, { qtd, count: 1 });
+      }
+
+      let maisFrequente: { qtd: number; count: number } | null = null;
+      for (const entrada of contagemPorQtd.values()) {
+        if (entrada.count >= 2 && (!maisFrequente || entrada.count > maisFrequente.count)) {
+          maisFrequente = entrada;
+        }
+      }
+      if (!maisFrequente) continue;
+
+      try {
+        await admin
+          .from("itens")
+          .update({ peso_liquido: maisFrequente.qtd })
+          .eq("tenant_id", opts.tenantId)
+          .eq("empresa_id", opts.empresaId)
+          .eq("id", item.id)
+          .is("peso_liquido", null);
+      } catch {
+        // best-effort
+      }
+    }
+  } catch {
+    // best-effort: sincronizacao de peso de referencia nunca deve falhar a importacao da NF.
+  }
+}
+
 async function syncMovimentacoesFromNfEntradaFallback(opts: {
   tenantId: string;
   empresaId: string;
@@ -2103,6 +2272,22 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
         : shouldUseSimplesScCreditoFallback && baseCalculo > 0
           ? round6(baseCalculo * 0.076)
           : 0;
+    // O custo de compra usado no orcamento tem que considerar todos os
+    // impostos (pelo menos o IPI, que nao e recuperavel na maioria dos casos
+    // e onera o custo real da peca) — nao so o valor de produto da nota. Esse
+    // fallback rodava so com v_unit puro, ignorando IPI, e o orcamento saia
+    // subprecificado.
+    //
+    // Nao descontamos credito_icms/pis/cofins aqui (diferente da tela manual
+    // de revisao de import): esse fallback nao tem a configuracao fiscal por
+    // item (fiscal.credita_icms etc.) que a pessoa confirma na tela — so sabe
+    // se a NF trouxe ICMS/PIS/COFINS destacado, nao se este item especifico
+    // tem direito ao credito. Descontar aqui sem essa validacao arriscaria
+    // subestimar o custo de novo, so que por outro motivo.
+    const vIpi = toNum(row.v_ipi);
+    const custoUnitarioComImpostos = qtd > 0 ? (baseCalculo + vIpi) / qtd : toNum(row.v_unit);
+    const custoUnitarioBruto = custoUnitarioComImpostos;
+    const custoUnitarioReal = custoUnitarioComImpostos;
     inserts.push({
       tenant_id: tenantId,
       empresa_id: empresaId,
@@ -2112,8 +2297,8 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
       motivo: `Backfill automatico da NF de entrada ${nfEntradaId}`,
       realizado_por: realizadoPor ?? "sistema",
       data_movimentacao: dataMov,
-      custo_unitario_bruto: toNum(row.v_unit) || null,
-      custo_unitario_real: toNum(row.v_unit) || null,
+      custo_unitario_bruto: round6(custoUnitarioBruto) || null,
+      custo_unitario_real: round6(custoUnitarioReal) || null,
       v_ipi: toNum(row.v_ipi),
       v_icms: toNum(row.v_icms),
       v_pis: toNum(row.v_pis),
@@ -3302,6 +3487,19 @@ export async function POST(req: NextRequest) {
       empresaId,
       nfEntradaId,
       itensJson: itensJsonToImport ?? null,
+    });
+
+    await syncItemUnidadeMedidaFromNfEntrada({
+      tenantId,
+      empresaId,
+      nfEntradaId,
+      itensJson: itensJsonToImport ?? null,
+    });
+
+    await syncItemPesoReferenciaFromNfEntrada({
+      tenantId,
+      empresaId,
+      nfEntradaId,
     });
 
     try {
