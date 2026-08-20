@@ -127,6 +127,7 @@ export type CadastroItemAgenteConfirmarPayload = {
   fornecedor_id: number;
   codigo: string;
   quantidade_referencia: number;
+  preco_unitario_confirmado: number;
   cotacao_token: string;
   model: string | null;
   sugestao: CadastroItemAgenteSugestao;
@@ -364,10 +365,11 @@ function responseError(value: unknown, fallback: string): string {
   return text(value.error, text(value.message, fallback)) ?? fallback;
 }
 
+/** Zero é um valor válido: significa "não lançar estoque inicial agora". */
 function parseQuantidade(value: string): number | null {
   const normalized = value.trim().replace(/\s+/g, "").replace(/\./g, "").replace(",", ".");
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function parseNumeroOpcional(value: string): number | null {
@@ -453,13 +455,15 @@ export default function CadastroItemAgenteModal({
   const [fase, setFase] = useState<Fase>("entrada");
   const [fornecedorId, setFornecedorId] = useState("");
   const [codigo, setCodigo] = useState("");
-  const [quantidade, setQuantidade] = useState("1");
+  const [quantidade, setQuantidade] = useState("0");
+  const [precoInput, setPrecoInput] = useState("");
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [aceitarNovoGrupo, setAceitarNovoGrupo] = useState(false);
   const [duplicidade, setDuplicidade] = useState<CadastroItemAgenteDuplicidade | null>(null);
   const [busy, setBusy] = useState<"sugerir" | "confirmar" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<CadastroItemAgenteItemCriado | null>(null);
+  const [avisoEstoque, setAvisoEstoque] = useState<string | null>(null);
 
   const fornecedoresAtivos = useMemo(
     () => fornecedores.filter((fornecedor) => fornecedor.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
@@ -470,19 +474,22 @@ export default function CadastroItemAgenteModal({
   const sugestao = rascunho?.sugestao ?? null;
   const pesquisaPreco = sugestao?.pesquisa_preco ?? null;
   const precoFinal = pesquisaPreco?.preco_final_brl ?? pesquisaPreco?.preco_unitario_brl ?? null;
-  const totalEstimado = quantidadeReferencia !== null && precoFinal !== null ? quantidadeReferencia * precoFinal : null;
+  const precoConfirmadoNumero = parseNumeroOpcional(precoInput);
+  const totalEstimado = quantidadeReferencia !== null && precoConfirmadoNumero !== null ? quantidadeReferencia * precoConfirmadoNumero : null;
 
   const limpar = useCallback(() => {
     setFase("entrada");
     setFornecedorId("");
     setCodigo("");
-    setQuantidade("1");
+    setQuantidade("0");
+    setPrecoInput("");
     setRascunho(null);
     setAceitarNovoGrupo(false);
     setDuplicidade(null);
     setBusy(null);
     setErro(null);
     setSucesso(null);
+    setAvisoEstoque(null);
   }, []);
 
   const fechar = useCallback(() => {
@@ -527,7 +534,7 @@ export default function CadastroItemAgenteModal({
       return;
     }
     if (quantidadeReferencia === null) {
-      setErro("Informe uma quantidade de referência maior que zero para a cotação.");
+      setErro("Informe uma quantidade válida (0 ou mais).");
       return;
     }
 
@@ -563,6 +570,9 @@ export default function CadastroItemAgenteModal({
         codigo: normalizarCodigo(resultado.sugestao.codigo || codigoNormalizado),
         finalidade: "materia_prima",
       };
+      const precoPesquisado =
+        sugestaoNormalizada.pesquisa_preco?.preco_final_brl ?? sugestaoNormalizada.pesquisa_preco?.preco_unitario_brl ?? null;
+      setPrecoInput(precoPesquisado !== null ? precoPesquisado.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : "");
       setCodigo(sugestaoNormalizada.codigo);
       setRascunho({
         model: resultado.model,
@@ -599,6 +609,10 @@ export default function CadastroItemAgenteModal({
       setErro("Confirme o grupo sugerido ou revise a classificação antes de cadastrar.");
       return;
     }
+    if (precoConfirmadoNumero === null || precoConfirmadoNumero <= 0) {
+      setErro("Informe um preço unitário válido maior que zero antes de confirmar.");
+      return;
+    }
 
     const sugestaoConfirmada: CadastroItemAgenteSugestao = {
       ...sugestao,
@@ -613,6 +627,7 @@ export default function CadastroItemAgenteModal({
       fornecedor_id: fornecedor,
       codigo: codigoNormalizado,
       quantidade_referencia: quantidadeReferencia,
+      preco_unitario_confirmado: precoConfirmadoNumero,
       cotacao_token: rascunho.cotacaoToken,
       model: rascunho.model,
       sugestao: sugestaoConfirmada,
@@ -632,6 +647,7 @@ export default function CadastroItemAgenteModal({
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(responseError(payload, "Não foi possível confirmar o cadastro do item."));
       const created = decodeCreatedItem(payload, sugestaoConfirmada);
+      setAvisoEstoque(isRecord(payload) ? text(payload.estoque_aviso) : null);
       setSucesso(created);
       setFase("concluido");
       try {
@@ -651,6 +667,7 @@ export default function CadastroItemAgenteModal({
     setRascunho(null);
     setAceitarNovoGrupo(false);
     setErro(null);
+    setPrecoInput("");
   }
 
   const fontes = useMemo(() => {
@@ -718,7 +735,7 @@ export default function CadastroItemAgenteModal({
         {fase === "entrada" && (
           <form onSubmit={sugerir} className="space-y-5 p-5">
             <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
-              Informe somente o fornecedor já cadastrado, o código e a quantidade. <strong>Quantidade somente para cotação — não movimenta estoque.</strong>
+              Informe o fornecedor já cadastrado e o código. <strong>Quantidade é opcional: deixe 0 para apenas cadastrar, ou informe um valor para lançar esse estoque inicial ao confirmar.</strong>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -746,15 +763,16 @@ export default function CadastroItemAgenteModal({
                 <span className="mt-1 block text-[11px] text-zinc-500">Espaços e hífens são removidos automaticamente.</span>
               </label>
               <label>
-                <span className={FIELD_LABEL_CLASS}>Quantidade para cotação *</span>
+                <span className={FIELD_LABEL_CLASS}>Quantidade (estoque inicial)</span>
                 <input
                   className={INPUT_CLASS}
                   value={quantidade}
                   onChange={(event) => setQuantidade(event.target.value)}
                   inputMode="decimal"
-                  placeholder="1"
+                  placeholder="0"
                   disabled={busy === "sugerir"}
                 />
+                <span className="mt-1 block text-[11px] text-zinc-500">0 = não lançar estoque agora.</span>
               </label>
             </div>
 
@@ -792,7 +810,10 @@ export default function CadastroItemAgenteModal({
               <div>
                 <span className="text-zinc-400">Código:</span> <span className="font-medium text-zinc-100">{codigo}</span>
                 <span className="mx-2 text-zinc-700">•</span>
-                <span className="text-zinc-400">Quantidade de referência:</span> <span className="font-medium text-zinc-100">{quantidade}</span>
+                <span className="text-zinc-400">Quantidade:</span> <span className="font-medium text-zinc-100">{quantidade}</span>
+                {quantidadeReferencia !== null && quantidadeReferencia > 0 && (
+                  <span className="ml-2 text-xs text-emerald-300">(vai para o estoque ao confirmar)</span>
+                )}
               </div>
               <span className={`w-fit rounded-full border px-2.5 py-1 text-xs font-medium ${confidenceClasses(sugestao.confianca)}`}>
                 Confiança {sugestao.confianca}
@@ -843,14 +864,19 @@ export default function CadastroItemAgenteModal({
                   <input className={`${INPUT_CLASS} cursor-default text-zinc-300`} value="Matéria-prima" readOnly />
                 </label>
                 <label>
-                  <span className={FIELD_LABEL_CLASS}>Preço unitário pesquisado (R$)</span>
+                  <span className={FIELD_LABEL_CLASS}>Preço unitário (R$) *</span>
                   <input
-                    className={`${INPUT_CLASS} cursor-default text-zinc-300`}
-                    value={precoFinal === null ? "" : formatMoney(precoFinal)}
-                    readOnly
-                    placeholder="Sem preço verificado"
+                    className={INPUT_CLASS}
+                    value={precoInput}
+                    onChange={(event) => setPrecoInput(event.target.value)}
+                    inputMode="decimal"
+                    placeholder="Ex.: 7145,59"
                   />
-                  <span className="mt-1 block text-[11px] text-zinc-500">O servidor aceita somente valor confirmado em uma fonte pesquisada.</span>
+                  <span className="mt-1 block text-[11px] text-zinc-500">
+                    {precoFinal !== null
+                      ? "Sugerido pela pesquisa do agente; ajuste se você já tiver um preço mais atual."
+                      : "O agente não encontrou um preço verificável nesta pesquisa; informe o valor antes de confirmar."}
+                  </span>
                 </label>
               </div>
             </section>
@@ -988,8 +1014,8 @@ export default function CadastroItemAgenteModal({
                           <div className="mt-0.5 font-medium text-zinc-100">{formatMoney(pesquisaPreco.preco_origem, pesquisaPreco.moeda ?? "BRL")}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-zinc-500">Preço usado</div>
-                          <div className="mt-0.5 font-medium text-zinc-100">{formatMoney(precoFinal)}</div>
+                          <div className="text-xs text-zinc-500">Preço confirmado</div>
+                          <div className="mt-0.5 font-medium text-zinc-100">{formatMoney(precoConfirmadoNumero)}</div>
                         </div>
                         <div>
                           <div className="text-xs text-zinc-500">Correspondência</div>
@@ -1052,7 +1078,12 @@ export default function CadastroItemAgenteModal({
               <button
                 type="button"
                 onClick={() => void confirmar()}
-                disabled={busy === "confirmar" || (!sugestao.grupo_id && (!aceitarNovoGrupo || !sugestao.novo_grupo))}
+                disabled={
+                  busy === "confirmar" ||
+                  (!sugestao.grupo_id && (!aceitarNovoGrupo || !sugestao.novo_grupo)) ||
+                  precoConfirmadoNumero === null ||
+                  precoConfirmadoNumero <= 0
+                }
                 className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
               >
                 {busy === "confirmar" ? "Confirmando cadastro..." : grupoPendente && aceitarNovoGrupo ? "Criar grupo e cadastrar" : "Confirmar cadastro"}
@@ -1066,8 +1097,17 @@ export default function CadastroItemAgenteModal({
             <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-4 text-emerald-100">
               <div className="font-medium">Item cadastrado com sucesso.</div>
               <div className="mt-1 text-sm text-emerald-100/90">{[sucesso?.id ? `Item #${sucesso.id}` : null, sucesso?.codigo, sucesso?.nome].filter(Boolean).join(" — ")}</div>
-              <div className="mt-2 text-xs text-emerald-200/85">A quantidade informada foi usada apenas como referência de cotação; nenhum movimento de estoque foi criado.</div>
+              <div className="mt-2 text-xs text-emerald-200/85">
+                {quantidadeReferencia !== null && quantidadeReferencia > 0
+                  ? `Estoque inicial de ${quantidade} unidade(s) lançado ao confirmar o cadastro.`
+                  : "Nenhuma quantidade foi informada; o item foi cadastrado sem estoque inicial."}
+              </div>
             </div>
+            {avisoEstoque && (
+              <div role="alert" className="rounded-lg border border-amber-500/45 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                {avisoEstoque}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={fechar} className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white">Fechar</button>
             </div>

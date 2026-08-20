@@ -308,7 +308,7 @@ export function verificarTokenCotacaoAssinada(token: unknown): CotacaoAssinada |
     expiraEm > Date.now() + DURACAO_COTACAO_ASSINADA_MS + 60_000 ||
     !fornecedorId ||
     !codigo ||
-    !quantidade ||
+    quantidade === null ||
     !tenantId ||
     !empresaId ||
     !usuarioId
@@ -339,12 +339,13 @@ export function normalizarCodigoGrupo(value: unknown): string {
     .slice(0, 80);
 }
 
+/** Zero é um valor válido: significa "sem estoque inicial informado". */
 export function normalizarQuantidade(value: unknown): number | null {
   const raw = typeof value === "number" ? String(value) : String(value ?? "").trim();
   if (!raw) return null;
   const normalized = raw.includes(",") && raw.includes(".") ? raw.replace(/\./g, "").replace(",", ".") : raw.replace(",", ".");
   const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 999999999) return null;
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 999999999) return null;
   return Math.round(parsed * 1000) / 1000;
 }
 

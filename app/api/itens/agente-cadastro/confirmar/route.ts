@@ -12,6 +12,7 @@ import {
   normalizarNome,
   normalizarQuantidade,
   normalizarUnidade,
+  numero,
   sanitizarFiscal,
   texto,
   usuarioIdentificador,
@@ -278,6 +279,7 @@ async function registrarAuditoria(input: {
   fornecedorId: number;
   codigo: string;
   quantidade: number;
+  precoConfirmado: number;
   sugestao: Record<string, unknown>;
   pesquisa: PesquisaPreco;
   fontes: unknown[];
@@ -285,37 +287,71 @@ async function registrarAuditoria(input: {
   fiscal: FiscalValores | null;
   modelo: string;
   usuario: string;
-}) {
+}): Promise<number> {
   const agora = new Date().toISOString();
   const admin = supabaseAdmin();
-  const { error } = await admin.from("item_cadastro_agente_sugestoes").insert({
-    tenant_id: input.tenantId,
-    empresa_id: input.empresaId,
-    item_id: input.itemId,
-    fornecedor_id: input.fornecedorId,
-    codigo_interno: input.codigo,
-    quantidade_referencia: input.quantidade,
-    sugestao_json: input.sugestao,
-    pesquisa_precos_json: [
-      ...input.fontes,
-      {
-        tipo_registro: "resumo_pesquisa",
-        pesquisa: input.pesquisa,
-      },
-    ],
-    preco_origem: input.pesquisa.preco_origem,
-    preco_final: input.pesquisa.preco_final_brl,
-    moeda_origem: input.pesquisa.moeda,
-    regra_preco: input.pesquisa.regra_preco,
-    multiplicador_preco: input.pesquisa.fator_importacao,
-    item_similar_id: input.similarId,
-    fiscal_sugerido_json: input.fiscal ?? {},
-    modelo: input.modelo,
-    confirmado_por: input.usuario,
-    confirmado_em: agora,
-    criado_em: agora,
-  });
-  if (error) throw new Error(error.message);
+  const { data, error } = await admin
+    .from("item_cadastro_agente_sugestoes")
+    .insert({
+      tenant_id: input.tenantId,
+      empresa_id: input.empresaId,
+      item_id: input.itemId,
+      fornecedor_id: input.fornecedorId,
+      codigo_interno: input.codigo,
+      quantidade_referencia: input.quantidade,
+      sugestao_json: input.sugestao,
+      pesquisa_precos_json: [
+        ...input.fontes,
+        {
+          tipo_registro: "resumo_pesquisa",
+          pesquisa: input.pesquisa,
+        },
+      ],
+      preco_origem: input.pesquisa.preco_origem,
+      preco_final: input.pesquisa.preco_final_brl,
+      preco_confirmado: input.precoConfirmado,
+      moeda_origem: input.pesquisa.moeda,
+      regra_preco: input.pesquisa.regra_preco,
+      multiplicador_preco: input.pesquisa.fator_importacao,
+      item_similar_id: input.similarId,
+      fiscal_sugerido_json: input.fiscal ?? {},
+      modelo: input.modelo,
+      confirmado_por: input.usuario,
+      confirmado_em: agora,
+      criado_em: agora,
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Falha ao registrar a auditoria da sugestão.");
+  return Number(data.id);
+}
+
+async function registrarEstoqueInicial(input: {
+  supabase: SupabaseClient;
+  tenantId: string;
+  empresaId: string;
+  itemId: number;
+  quantidade: number;
+  precoConfirmado: number;
+  usuario: string;
+}): Promise<number | null> {
+  const { data, error } = await input.supabase
+    .from("movimentacoes")
+    .insert({
+      tenant_id: input.tenantId,
+      empresa_id: input.empresaId,
+      item_id: input.itemId,
+      tipo: "entrada",
+      quantidade: input.quantidade,
+      custo_unitario_real: input.precoConfirmado,
+      motivo: "Estoque inicial via agente de cadastro",
+      realizado_por: input.usuario,
+      data_movimentacao: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return Number(data.id);
 }
 
 export async function POST(req: NextRequest) {
@@ -339,10 +375,27 @@ export async function POST(req: NextRequest) {
     const codigo = normalizarCodigo(body.codigo);
     const quantidade = normalizarQuantidade(body.quantidade_referencia ?? body.quantidade);
     const sugestao = asRecord(body.sugestao);
+    // A pessoa usuária pode ajustar o preço sugerido pela pesquisa ou informar um
+    // preço que já conhece; o servidor apenas exige um valor positivo e plausível.
+    const precoConfirmado = numero(body.preco_unitario_confirmado ?? body.preco_unitario, 0.01, 999999999);
     if (!fornecedorId) return jsonError(400, "Selecione um fornecedor cadastrado.");
     if (!codigo) return jsonError(400, "Informe o código do produto.");
-    if (!quantidade) return jsonError(400, "Informe uma quantidade de referência maior que zero.");
+    if (quantidade === null) return jsonError(400, "Informe uma quantidade válida (0 ou mais).");
     if (!sugestao) return jsonError(400, "A proposta do agente é obrigatória para confirmar o cadastro.");
+    if (precoConfirmado === null) return jsonError(422, "Informe um preço unitário válido maior que zero antes de confirmar.");
+
+    // A quantidade informada agora também define o estoque inicial do item; sem
+    // permissão de estoque, a pessoa só pode cadastrar com quantidade zero.
+    if (quantidade > 0) {
+      const { data: podeMovimentarEstoque, error: permissaoEstoqueErro } = await auth.supabase.rpc("can", {
+        p_resource: "estoque",
+        p_action: "write",
+      });
+      if (permissaoEstoqueErro) return jsonError(403, permissaoEstoqueErro.message);
+      if (!podeMovimentarEstoque) {
+        return jsonError(403, "Sem permissão para gravar estoque. Informe quantidade 0 ou solicite acesso ao módulo de estoque.");
+      }
+    }
 
     const fornecedor = await carregarFornecedor({
       supabase: auth.supabase,
@@ -425,7 +478,6 @@ export async function POST(req: NextRequest) {
       return jsonError(403, "Sem permissão para gravar dados fiscais neste cadastro.");
     }
 
-    const precoReferencia = pesquisa.preco_final_brl ?? 0;
     const margemSimilar = similar?.margem_lucro_percentual == null ? null : Number(similar.margem_lucro_percentual);
     // A margem só é aproveitada quando um item interno semelhante a confirma.
     // Sem essa referência, o ERP aplica sua regra comercial padrão ao consultar
@@ -446,9 +498,11 @@ export async function POST(req: NextRequest) {
         estoque_minimo: 0,
         estoque_maximo: 0,
         estoque_ideal: 0,
-        custo_ultima_compra: precoReferencia,
-        custo_medio: precoReferencia,
-        preco_unitario: precoReferencia,
+        // O preço gravado no cadastro é o valor revisado e confirmado pela
+        // pessoa usuária, não necessariamente o preço bruto da pesquisa.
+        custo_ultima_compra: precoConfirmado,
+        custo_medio: precoConfirmado,
+        preco_unitario: precoConfirmado,
         data_atualizacao_preco: agora,
         margem_lucro_percentual: margem,
         fornecedor_id: fornecedorId,
@@ -484,14 +538,16 @@ export async function POST(req: NextRequest) {
     }
 
     const modelo = String(process.env.ASSISTENTE_IA_OPENAI_MODEL ?? "gpt-5.4-mini").trim();
+    let auditoriaId: number;
     try {
-      await registrarAuditoria({
+      auditoriaId = await registrarAuditoria({
         tenantId: ctx.tenantId,
         empresaId: ctx.empresaId,
         itemId,
         fornecedorId,
         codigo,
         quantidade,
+        precoConfirmado,
         sugestao: {
           ...sugestao,
           grupo_id: grupoResolvido.grupo.id,
@@ -511,6 +567,37 @@ export async function POST(req: NextRequest) {
       return jsonError(500, `O cadastro não foi concluído porque a auditoria não pôde ser gravada. ${message}`);
     }
 
+    // As movimentações de estoque são imutáveis (não podem ser apagadas), por
+    // isso essa etapa fica por último: se falhar, o item e a auditoria já
+    // gravados permanecem válidos, só sem o lançamento automático do estoque.
+    let estoqueAviso: string | null = null;
+    if (quantidade > 0) {
+      const movimentacaoId = await registrarEstoqueInicial({
+        supabase: auth.supabase,
+        tenantId: ctx.tenantId,
+        empresaId: ctx.empresaId,
+        itemId,
+        quantidade,
+        precoConfirmado,
+        usuario,
+      });
+      if (movimentacaoId) {
+        const admin = supabaseAdmin();
+        await admin
+          .from("item_cadastro_agente_sugestoes")
+          .update({ movimentacao_estoque_id: movimentacaoId })
+          .eq("id", auditoriaId);
+      } else {
+        estoqueAviso =
+          "O item foi cadastrado, mas não foi possível lançar o estoque inicial automaticamente. Registre a entrada manualmente em Estoque.";
+      }
+    }
+
+    const mensagemEstoque =
+      quantidade > 0
+        ? estoqueAviso ?? `Estoque inicial de ${quantidade} ${normalizarUnidade(sugestao.unidade_medida)} lançado ao confirmar.`
+        : "Nenhuma quantidade foi informada; o item foi cadastrado sem estoque inicial.";
+
     return NextResponse.json(
       {
         item_id: itemId,
@@ -522,7 +609,9 @@ export async function POST(req: NextRequest) {
         },
         grupo_criado_agora: grupoResolvido.criadoAgora,
         pesquisa_preco: pesquisa,
-        message: "Item cadastrado com a proposta revisada do agente. A quantidade informada foi usada somente como referência de cotação e não movimentou estoque.",
+        preco_confirmado: precoConfirmado,
+        estoque_aviso: estoqueAviso,
+        message: `Item cadastrado com a proposta revisada do agente. ${mensagemEstoque}`,
       },
       { status: 201 }
     );

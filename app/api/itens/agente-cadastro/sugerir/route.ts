@@ -410,7 +410,7 @@ export async function POST(req: NextRequest) {
     const quantidade = normalizarQuantidade(body.quantidade_referencia ?? body.quantidade);
     if (!fornecedorId) return jsonError(400, "Selecione um fornecedor cadastrado.");
     if (!codigo) return jsonError(400, "Informe o código do produto.");
-    if (!quantidade) return jsonError(400, "Informe uma quantidade de referência maior que zero.");
+    if (quantidade === null) return jsonError(400, "Informe uma quantidade válida (0 ou mais).");
 
     const fornecedor = await carregarFornecedor({
       supabase: auth.supabase,
