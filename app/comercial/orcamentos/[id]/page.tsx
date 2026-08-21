@@ -478,6 +478,10 @@ export default function OrcamentoPage() {
   const [lookupConjuntoRows, setLookupConjuntoRows] = useState<ConjuntoCatalogoRow[]>([]);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupErr, setLookupErr] = useState<string | null>(null);
+  const [lookupMultiMode, setLookupMultiMode] = useState(false);
+  const [lookupSelecionados, setLookupSelecionados] = useState<Map<number, string>>(new Map());
+  const [lookupBulkBusy, setLookupBulkBusy] = useState(false);
+  const [lookupBulkErr, setLookupBulkErr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -1043,6 +1047,8 @@ export default function OrcamentoPage() {
 
     setLookupErr(null);
     setLookupBusy(true);
+    setLookupSelecionados(new Map());
+    setLookupBulkErr(null);
 
     const nomeTerm = (nextNome ?? lookupNome).trim();
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
@@ -1230,6 +1236,80 @@ export default function OrcamentoPage() {
       );
     } finally {
       setAddConjunto((p) => (p.open ? { ...p, busy: false } : p));
+    }
+  }
+
+  async function handleAddSelecionadosConfirm() {
+    if (!supabase) return;
+    if (!orc?.id) return;
+    if (!tenantId || !empresaId) return;
+    if (readOnly || !canWrite) return;
+    if (lookupSelecionados.size === 0) return;
+
+    const entradas = Array.from(lookupSelecionados.entries());
+    for (const [, qtdTexto] of entradas) {
+      const qtd = parseDecimalBR(qtdTexto);
+      if (!Number.isFinite(qtd) || qtd <= 0) {
+        setLookupBulkErr("Informe uma quantidade valida (maior que zero) para todos os itens selecionados.");
+        return;
+      }
+    }
+
+    setLookupBulkBusy(true);
+    setLookupBulkErr(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token ?? null;
+      if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+      const itensPayload = entradas.map(([itemId, qtdTexto], idx) => ({
+        linha: idx + 1,
+        produtoId: String(itemId),
+        qtd: parseDecimalBR(qtdTexto),
+      }));
+
+      const res = await fetch(`/api/comercial/orcamentos/${encodeURIComponent(idParam)}/assistente-ia/adicionar-itens`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ tenantId, empresaId, itens: itensPayload }),
+      });
+
+      const json = (await res.json().catch(() => ({}))) as {
+        resumo?: { totalAdicionado?: number; totalIgnorado?: number; totalErro?: number };
+        erros?: Array<{ erro?: string }>;
+        ignorados?: Array<{ motivo?: string }>;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(json.error || "Erro ao adicionar itens selecionados.");
+      }
+
+      const totalAdicionado = json.resumo?.totalAdicionado ?? 0;
+      const totalIgnorado = json.resumo?.totalIgnorado ?? 0;
+      const totalErro = json.resumo?.totalErro ?? 0;
+
+      if (totalAdicionado === 0) {
+        const motivo = json.erros?.[0]?.erro || json.ignorados?.[0]?.motivo || "Nenhum item foi adicionado.";
+        setLookupBulkErr(motivo);
+        return;
+      }
+
+      setLookupSelecionados(new Map());
+      setShowLookup(false);
+      await reload();
+
+      const partes = [`${totalAdicionado} item${totalAdicionado === 1 ? "" : "s"} adicionado${totalAdicionado === 1 ? "" : "s"}`];
+      if (totalIgnorado > 0) partes.push(`${totalIgnorado} ignorado${totalIgnorado === 1 ? "" : "s"} (ja no orcamento)`);
+      if (totalErro > 0) partes.push(`${totalErro} com erro`);
+      setOk(`${partes.join(", ")}.`);
+    } catch (e: unknown) {
+      setLookupBulkErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao adicionar itens selecionados."));
+    } finally {
+      setLookupBulkBusy(false);
     }
   }
 
@@ -1912,7 +1992,11 @@ export default function OrcamentoPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowLookup(false)}
+                  onClick={() => {
+                    setShowLookup(false);
+                    setLookupSelecionados(new Map());
+                    setLookupBulkErr(null);
+                  }}
                   className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                 >
                   Fechar
@@ -1934,6 +2018,21 @@ export default function OrcamentoPage() {
                 />
                 Buscar Conjuntos
               </label>
+
+              {!lookupBuscarConjuntos && (
+                <label className="flex items-center gap-2 text-sm text-zinc-200">
+                  <input
+                    type="checkbox"
+                    checked={lookupMultiMode}
+                    onChange={(e) => {
+                      setLookupMultiMode(e.target.checked);
+                      setLookupSelecionados(new Map());
+                      setLookupBulkErr(null);
+                    }}
+                  />
+                  Selecionar varios
+                </label>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -1990,6 +2089,8 @@ export default function OrcamentoPage() {
                     setLookupRows([]);
                     setLookupConjuntoRows([]);
                     setLookupErr(null);
+                    setLookupSelecionados(new Map());
+                    setLookupBulkErr(null);
                     void handleLookupSearch("", "");
                   }}
                   className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
@@ -2004,6 +2105,7 @@ export default function OrcamentoPage() {
                 {!lookupBuscarConjuntos ? (
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
+                      {lookupMultiMode && <col className="w-10" />}
                       <col className="w-16" />
                       <col className="w-40" />
                       <col className="w-[40%]" />
@@ -2011,9 +2113,32 @@ export default function OrcamentoPage() {
                       <col className="w-32" />
                       <col className="w-28" />
                       <col className="w-20" />
+                      {lookupMultiMode && <col className="w-28" />}
                     </colgroup>
                     <thead className="bg-zinc-900/70 sticky top-0 z-10">
                       <tr className="text-left text-zinc-200">
+                        {lookupMultiMode && (
+                          <th className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label="Selecionar todos"
+                              checked={
+                                sortedLookupRows.length > 0 && sortedLookupRows.every((it) => lookupSelecionados.has(it.id))
+                              }
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setLookupSelecionados((prev) => {
+                                  const next = new Map(prev);
+                                  sortedLookupRows.forEach((it) => {
+                                    if (checked) next.set(it.id, next.get(it.id) ?? "1");
+                                    else next.delete(it.id);
+                                  });
+                                  return next;
+                                });
+                              }}
+                            />
+                          </th>
+                        )}
                         <th className="px-4 py-3 cursor-pointer whitespace-nowrap" onClick={() => handleSort("id")}>
                           ID {sortKey === "id" && (sortDir === "asc" ? "^" : "v")}
                         </th>
@@ -2035,35 +2160,84 @@ export default function OrcamentoPage() {
                         <th className="px-4 py-3 text-right cursor-pointer whitespace-nowrap" onClick={() => handleSort("estoque")}>
                           Saldo {sortKey === "estoque" && (sortDir === "asc" ? "^" : "v")}
                         </th>
+                        {lookupMultiMode && <th className="px-4 py-3 text-right whitespace-nowrap">Qtd</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
-                      {sortedLookupRows.map((it) => (
-                        <tr
-                          key={it.id}
-                          className="hover:bg-zinc-900/40 cursor-pointer"
-                          onClick={() => {
-                            setInlineItemId(String(it.id));
-                            setShowLookup(false);
-                          }}
-                        >
-                          <td className="px-4 py-3 tabular-nums whitespace-nowrap">{it.id}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno}</td>
-                          <td className="px-4 py-3 whitespace-normal break-words">{it.nome}</td>
-                          <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "-"}</td>
-                          <td className="px-4 py-3 text-zinc-300">
-                            {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "-"}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(Number(it.preco_unitario ?? 0))}</td>
-                          <td className="px-4 py-3 text-right tabular-nums">
-                            {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "-"}
-                          </td>
-                        </tr>
-                      ))}
+                      {sortedLookupRows.map((it) => {
+                        const selecionado = lookupSelecionados.has(it.id);
+                        return (
+                          <tr
+                            key={it.id}
+                            className="hover:bg-zinc-900/40 cursor-pointer"
+                            onClick={() => {
+                              if (lookupMultiMode) {
+                                setLookupSelecionados((prev) => {
+                                  const next = new Map(prev);
+                                  if (next.has(it.id)) next.delete(it.id);
+                                  else next.set(it.id, "1");
+                                  return next;
+                                });
+                                return;
+                              }
+                              setInlineItemId(String(it.id));
+                              setShowLookup(false);
+                            }}
+                          >
+                            {lookupMultiMode && (
+                              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Selecionar ${it.nome ?? it.id}`}
+                                  checked={selecionado}
+                                  onChange={() => {
+                                    setLookupSelecionados((prev) => {
+                                      const next = new Map(prev);
+                                      if (next.has(it.id)) next.delete(it.id);
+                                      else next.set(it.id, "1");
+                                      return next;
+                                    });
+                                  }}
+                                />
+                              </td>
+                            )}
+                            <td className="px-4 py-3 tabular-nums whitespace-nowrap">{it.id}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{it.codigo_interno}</td>
+                            <td className="px-4 py-3 whitespace-normal break-words">{it.nome}</td>
+                            <td className="px-4 py-3 text-zinc-300 whitespace-normal break-words">{it.fornecedor ?? "-"}</td>
+                            <td className="px-4 py-3 text-zinc-300">
+                              {it.ultima_entrada ? new Date(it.ultima_entrada).toLocaleDateString("pt-BR") : "-"}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(Number(it.preco_unitario ?? 0))}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">
+                              {typeof it.estoque_atual === "number" ? formatDecimalBR(Number(it.estoque_atual), 3) : "-"}
+                            </td>
+                            {lookupMultiMode && (
+                              <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  value={lookupSelecionados.get(it.id) ?? ""}
+                                  disabled={!selecionado}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setLookupSelecionados((prev) => {
+                                      if (!prev.has(it.id)) return prev;
+                                      const next = new Map(prev);
+                                      next.set(it.id, value);
+                                      return next;
+                                    });
+                                  }}
+                                  inputMode="decimal"
+                                  className="w-full px-2 py-1 text-right rounded-md border border-zinc-800 bg-zinc-950 disabled:opacity-40"
+                                />
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
 
                       {lookupRows.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-4 py-6 text-zinc-400 text-center">
+                          <td colSpan={lookupMultiMode ? 9 : 7} className="px-4 py-6 text-zinc-400 text-center">
                             Nenhum resultado ainda. Informe filtros e busque.
                           </td>
                         </tr>
@@ -2117,6 +2291,24 @@ export default function OrcamentoPage() {
                   </table>
                 )}
               </div>
+
+              {lookupMultiMode && lookupSelecionados.size > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
+                  <div className="text-sm text-zinc-200">
+                    {lookupSelecionados.size} item{lookupSelecionados.size === 1 ? "" : "s"} selecionado
+                    {lookupSelecionados.size === 1 ? "" : "s"}
+                    {lookupBulkErr && <span className="ml-3 text-red-400">{lookupBulkErr}</span>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleAddSelecionadosConfirm()}
+                    disabled={lookupBulkBusy}
+                    className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                  >
+                    {lookupBulkBusy ? "Adicionando..." : `Adicionar ${lookupSelecionados.size} itens`}
+                  </button>
+                </div>
+              )}
 
               {addConjunto.open && (
                 <div

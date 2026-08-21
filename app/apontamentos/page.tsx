@@ -289,6 +289,9 @@ export default function ApontamentosPage() {
   const [osSearchResults, setOsSearchResults] = useState<OSRow[]>([]);
   const [colabId, setColabId] = useState<string>("");
   const [colabInput, setColabInput] = useState<string>("");
+  const [colabMultiMode, setColabMultiMode] = useState(false);
+  const [colabSelecionados, setColabSelecionados] = useState<Set<string>>(new Set());
+  const [colabMultiFiltro, setColabMultiFiltro] = useState("");
   const [data, setData] = useState<string>(todayISO());
   const [horasText, setHorasText] = useState<string>("");
   const [tipoHoraId, setTipoHoraId] = useState<string>(""); // empty = null
@@ -901,6 +904,105 @@ export default function ApontamentosPage() {
     }
   }
 
+  // Mesma OS/data/horas/tipo pra varios colaboradores de uma vez (ex.: 5
+  // pessoas no mesmo servico). Grava um colaborador por vez (nao tudo num
+  // unico insert) porque o trigger de vinculo colaborador x contrato do
+  // cliente pode rejeitar so alguns colaboradores da lista — assim quem
+  // passa fica gravado mesmo que outro falhe, e o erro fica claro por nome.
+  async function salvarApontamentoMultiplo() {
+    setMsg(null);
+
+    if (!osDbId) return alert("Selecione uma OS.");
+    if (osStatus !== "em_andamento") return alert("OS nao esta em andamento.");
+    if (colabSelecionados.size === 0) return alert("Selecione ao menos um colaborador.");
+    if (!data) return alert("Informe a data.");
+    if (tiposHoras.length === 0) {
+      return alert("Tipos de horas não carregaram. Recarregue a página.");
+    }
+    const horas = toNumberBR(horasText);
+    if (horas == null || horas <= 0 || horas > 24) return alert("Horas invalidas (0 a 24).");
+
+    setLoading(true);
+
+    if (!effectiveTenantId || !effectiveEmpresaId) {
+      setLoading(false);
+      return alert("Tenant/empresa não encontrado. Recarregue a página.");
+    }
+
+    try {
+      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
+      if (tenantErr) throw tenantErr;
+      try {
+        await supabase.rpc("set_current_empresa", { p_empresa_id: effectiveEmpresaId });
+      } catch {
+        // best-effort
+      }
+
+      const descricaoBase = descricao.trim();
+      const policy = await computeHourPolicy(data, horas);
+      const policyItems = policy.items.map((item) => {
+        const tipoId = tipoByCodigo.get(item.tipoCodigo);
+        if (!tipoId) {
+          throw new Error(`Tipo de hora nao encontrado: ${item.tipoCodigo}`);
+        }
+        const descFinal =
+          policy.mode === "SPLIT" && descricaoBase
+            ? `${descricaoBase} (${item.tipoCodigo})`
+            : descricaoBase || null;
+        return { horas: item.horas, tipo_hora_id: tipoId, descricao: descFinal };
+      });
+
+      const sucesso: string[] = [];
+      const falhas: { nome: string; erro: string }[] = [];
+
+      for (const colaboradorId of colabSelecionados) {
+        const nomeColab = colMap.get(colaboradorId)?.nome ?? colaboradorId;
+        const payloadBase = {
+          tenant_id: effectiveTenantId,
+          empresa_id: effectiveEmpresaId,
+          os_id: osDbId,
+          colaborador_id: colaboradorId,
+          data,
+          status: "lancado",
+        };
+        const payloads = policyItems.map((item) => ({ ...payloadBase, ...item }));
+
+        try {
+          const { error } = await applyTenantEmpresa(
+            supabase.from("apontamentos_horas").insert(payloads),
+            effectiveTenantId,
+            effectiveEmpresaId
+          );
+          if (error) throw error;
+          await autoEnableGestao(osDbId, colaboradorId);
+          sucesso.push(nomeColab);
+        } catch (e: unknown) {
+          falhas.push({ nome: nomeColab, erro: getErrorMessage(e, "Erro ao salvar.") });
+        }
+      }
+
+      setHorasText("");
+      setDescricao("");
+      setTipoHoraId("");
+      setColabSelecionados(new Set());
+      setColabMultiFiltro("");
+      await carregarApontamentos();
+
+      if (falhas.length === 0) {
+        setMsg(`${sucesso.length} lancamento(s) criado(s) com sucesso.`);
+      } else if (sucesso.length === 0) {
+        alert(`Nenhum lancamento criado.\n\n${falhas.map((f) => `${f.nome}: ${f.erro}`).join("\n")}`);
+      } else {
+        setMsg(`${sucesso.length} lancamento(s) criado(s). Falhou para: ${falhas.map((f) => f.nome).join(", ")}.`);
+        alert(`Falhou para:\n\n${falhas.map((f) => `${f.nome}: ${f.erro}`).join("\n")}`);
+      }
+    } catch (e: unknown) {
+      alert(getErrorMessage(e, "Erro ao salvar apontamentos."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function excluirApontamento(id: string) {
     if (!confirm("Excluir este apontamento?")) return;
     setLoading(true);
@@ -1113,36 +1215,95 @@ export default function ApontamentosPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 10, marginTop: 10 }}>
           <label>
-            Colaborador
-
-            <input
-              value={colabInput}
-              onChange={(e) => {
-                const value = e.target.value;
-                setColabInput(value);
-                const trimmed = value.trim();
-                if (!trimmed) {
+            <div className="flex items-center justify-between gap-2">
+              <span>{colabMultiMode ? `Colaboradores (${colabSelecionados.size} selecionado${colabSelecionados.size === 1 ? "" : "s"})` : "Colaborador"}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setColabMultiMode((v) => !v);
+                  setColabSelecionados(new Set());
+                  setColabMultiFiltro("");
                   setColabId("");
-                  return;
-                }
-                const seqMatch = trimmed.match(/^\d+/);
-                const seq = seqMatch ? seqMatch[0] : "";
-                const bySeq = colabOptions.find((c) => c.seq === seq);
-                if (bySeq) {
-                  setColabId(bySeq.id);
-                  return;
-                }
-                setColabId("");
-              }}
-              list="colaborador-options"
-              placeholder="Digite o ID sequencial do colaborador"
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <datalist id="colaborador-options">
-              {colabOptions.map((c) => (
-                <option key={c.id} value={`${c.seq} - ${c.nome}`} />
-              ))}
-            </datalist>
+                  setColabInput("");
+                }}
+                className="text-xs text-zinc-400 hover:text-zinc-200 underline"
+              >
+                {colabMultiMode ? "voltar pra um so" : "selecionar varios"}
+              </button>
+            </div>
+
+            {!colabMultiMode ? (
+              <>
+                <input
+                  value={colabInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setColabInput(value);
+                    const trimmed = value.trim();
+                    if (!trimmed) {
+                      setColabId("");
+                      return;
+                    }
+                    const seqMatch = trimmed.match(/^\d+/);
+                    const seq = seqMatch ? seqMatch[0] : "";
+                    const bySeq = colabOptions.find((c) => c.seq === seq);
+                    if (bySeq) {
+                      setColabId(bySeq.id);
+                      return;
+                    }
+                    setColabId("");
+                  }}
+                  list="colaborador-options"
+                  placeholder="Digite o ID sequencial do colaborador"
+                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <datalist id="colaborador-options">
+                  {colabOptions.map((c) => (
+                    <option key={c.id} value={`${c.seq} - ${c.nome}`} />
+                  ))}
+                </datalist>
+              </>
+            ) : (
+              <div className="rounded-md border border-zinc-700 bg-zinc-900">
+                <input
+                  value={colabMultiFiltro}
+                  onChange={(e) => setColabMultiFiltro(e.target.value)}
+                  placeholder="Filtrar por nome ou ID..."
+                  className="w-full px-3 py-2 bg-transparent text-zinc-100 border-b border-zinc-700"
+                />
+                <div className="max-h-52 overflow-y-auto">
+                  {colabOptions
+                    .filter((c) => {
+                      const termo = colabMultiFiltro.trim().toLowerCase();
+                      if (!termo) return true;
+                      return c.nome.toLowerCase().includes(termo) || c.seq.includes(termo);
+                    })
+                    .map((c) => {
+                      const checked = colabSelecionados.has(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-zinc-800 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setColabSelecionados((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(c.id)) next.delete(c.id);
+                                else next.add(c.id);
+                                return next;
+                              });
+                            }}
+                          />
+                          {c.seq} - {c.nome}
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
           </label>
 
           <label>
@@ -1202,7 +1363,8 @@ export default function ApontamentosPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  salvarApontamento({ preserveHoras: true, advanceDate: true, keepFocus: true });
+                  if (colabMultiMode) void salvarApontamentoMultiplo();
+                  else salvarApontamento({ preserveHoras: true, advanceDate: true, keepFocus: true });
                 }
               }}
               placeholder="Ex: 8,00"
@@ -1223,12 +1385,18 @@ export default function ApontamentosPage() {
           </label>
 
           <button
-            onClick={() => salvarApontamento()}
-            disabled={loading || osStatus !== "em_andamento" || !combosLoaded || tiposHoras.length === 0}
+            onClick={() => (colabMultiMode ? salvarApontamentoMultiplo() : salvarApontamento())}
+            disabled={
+              loading ||
+              osStatus !== "em_andamento" ||
+              !combosLoaded ||
+              tiposHoras.length === 0 ||
+              (colabMultiMode && colabSelecionados.size === 0)
+            }
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
             style={{ alignSelf: "end", height: 36 }}
           >
-            Salvar
+            {colabMultiMode ? `Salvar (${colabSelecionados.size})` : "Salvar"}
           </button>
         </div>
         </div>
