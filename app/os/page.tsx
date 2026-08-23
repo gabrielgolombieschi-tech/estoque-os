@@ -31,6 +31,7 @@ type OS = {
   cliente_id: number | null;
   status: string;
   criado_por?: string | null;
+  responsavel_aprovacao_id?: string | null;
   descricao_servico: string | null;
   data_abertura: string;
   valor_total: number;
@@ -369,7 +370,7 @@ export default function OsListPage() {
       supabase
         .from("ordens_servico")
         .select(
-          "id,numero_os,pedido_compra,cliente_nome,cliente_id,status,criado_por,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido,usa_relatorio_hh"
+          "id,numero_os,pedido_compra,cliente_nome,cliente_id,status,criado_por,responsavel_aprovacao_id,descricao_servico,data_abertura,valor_total,orcado,custo,tipo_pedido,usa_relatorio_hh"
         )
         .order("id", { ascending: false }),
       effectiveTenantId,
@@ -985,6 +986,9 @@ export default function OsListPage() {
                     {r.status}
                   </span>
                   <div className="mt-1 text-xs text-zinc-400">Aberta por: {r.criado_por?.trim() || "-"}</div>
+                  <div className="text-xs text-zinc-400">
+                    Responsável: {usuariosVendedores.find((usuario) => usuario.auth_user_id === r.responsavel_aprovacao_id)?.nome ?? "-"}
+                  </div>
                 </td>
 
                 <td className="px-4 py-3 text-zinc-300">

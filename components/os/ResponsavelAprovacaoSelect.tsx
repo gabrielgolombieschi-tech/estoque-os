@@ -34,16 +34,24 @@ export function sugerirUsuarioPorNome(
   if (exato) return exato;
 
   const partesAlvo = alvo.split(" ").filter(Boolean);
-  if (partesAlvo.length < 2) return null;
-
   const primeiro = partesAlvo[0];
-  const ultimo = partesAlvo.at(-1);
-  return (
-    usuarios.find((usuario) => {
+  const ultimo = partesAlvo.at(-1) ?? null;
+
+  if (partesAlvo.length >= 2) {
+    const porPrimeiroEUltimo = usuarios.find((usuario) => {
       const partesUsuario = normalizeNomePessoa(usuario.nome).split(" ").filter(Boolean);
       return partesUsuario[0] === primeiro && partesUsuario.at(-1) === ultimo;
-    }) ?? null
-  );
+    });
+    if (porPrimeiroEUltimo) return porPrimeiroEUltimo;
+  }
+
+  // Perfis de sistema frequentemente usam apenas o primeiro nome. Só sugere
+  // quando ele identifica uma única pessoa, sem gravar o vínculo automaticamente.
+  const porPrimeiroNome = usuarios.filter((usuario) => {
+    const partesUsuario = normalizeNomePessoa(usuario.nome).split(" ").filter(Boolean);
+    return partesUsuario[0] === primeiro;
+  });
+  return porPrimeiroNome.length === 1 ? porPrimeiroNome[0] : null;
 }
 
 export default function ResponsavelAprovacaoSelect({
