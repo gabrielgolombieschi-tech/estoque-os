@@ -16,6 +16,7 @@ function hasAny(caps: Capabilities | null, keys: CapabilityKey[]): boolean {
 
 type ConfigForm = {
   margem_lucro_padrao_percent: string;
+  margem_mao_obra_padrao_percent: string;
   desconto_max_percent: string;
   condicao_pagamento_padrao_id: string | null;
   conjunto_categorias_text: string;
@@ -42,6 +43,7 @@ export default function ConfigOrcamentosPage() {
   const [condicoes, setCondicoes] = useState<Array<{ id: string; nome: string | null }>>([]);
   const [form, setForm] = useState<ConfigForm>({
     margem_lucro_padrao_percent: "53",
+    margem_mao_obra_padrao_percent: "30",
     desconto_max_percent: "25",
     condicao_pagamento_padrao_id: null,
     conjunto_categorias_text: DEFAULT_CONJUNTO_CATEGORIAS.join("\n"),
@@ -125,6 +127,7 @@ export default function ConfigOrcamentosPage() {
       setCfgId(cfg.id);
       setForm({
         margem_lucro_padrao_percent: String(cfg.margem_lucro_padrao_percent ?? "53"),
+        margem_mao_obra_padrao_percent: String(cfg.margem_mao_obra_padrao_percent ?? "30"),
         desconto_max_percent: String(cfg.desconto_max_percent ?? "25"),
         condicao_pagamento_padrao_id: cfg.condicao_pagamento_padrao_id ?? null,
         conjunto_categorias_text: getConjuntoCategorias(cfg).join("\n"),
@@ -147,10 +150,15 @@ export default function ConfigOrcamentosPage() {
       if (!supabase || !tenantId || !empresaId || !cfgId) return;
 
       const margem = n(form.margem_lucro_padrao_percent);
+      const margemMaoObra = n(form.margem_mao_obra_padrao_percent);
       const descontoMax = n(form.desconto_max_percent);
       const conjuntoCategorias = normalizeConjuntoCategorias(form.conjunto_categorias_text.split(/\r?\n/g));
       if (margem < 0 || margem > 100) {
         setErr("Margem padrão deve estar entre 0 e 100.");
+        return;
+      }
+      if (margemMaoObra < 0 || margemMaoObra > 100) {
+        setErr("Margem de mão de obra deve estar entre 0 e 100.");
         return;
       }
       if (descontoMax < 0 || descontoMax > 100) {
@@ -168,6 +176,7 @@ export default function ConfigOrcamentosPage() {
           id: cfgId,
           patch: {
             margem_lucro_padrao_percent: margem,
+            margem_mao_obra_padrao_percent: margemMaoObra,
             desconto_max_percent: descontoMax,
             condicao_pagamento_padrao_id: form.condicao_pagamento_padrao_id ?? null,
             conjunto_categorias: conjuntoCategorias,
@@ -229,6 +238,15 @@ export default function ConfigOrcamentosPage() {
               <input
                 value={form.margem_lucro_padrao_percent}
                 onChange={(e) => setForm((p) => ({ ...p, margem_lucro_padrao_percent: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              />
+            </label>
+
+            <label className="block text-xs text-zinc-400">
+              Margem mão de obra padrão (%)
+              <input
+                value={form.margem_mao_obra_padrao_percent}
+                onChange={(e) => setForm((p) => ({ ...p, margem_mao_obra_padrao_percent: e.target.value }))}
                 className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
               />
             </label>

@@ -3,13 +3,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { applyTenantEmpresa } from "@/lib/db/scopes";
 
 type Cargo = {
   id: number;
   nome: string;
   tipo_gestao: string | null;
+  item_servico_id: number | null;
   ativo: boolean;
   criado_em: string;
+};
+
+type ItemServico = {
+  id: number;
+  nome: string;
+  codigo_interno: string;
 };
 
 const TIPO_GESTAO_OPTS: { value: string; label: string }[] = [
@@ -33,8 +42,10 @@ export default function CargosPage() {
     return supabaseBrowser();
   }, []);
   const { tenantId } = usePermissions();
+  const { empresaId } = useTenantEmpresa();
 
   const [rows, setRows] = useState<Cargo[]>([]);
+  const [servicoItens, setServicoItens] = useState<ItemServico[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -47,6 +58,7 @@ export default function CargosPage() {
 
   const [nome, setNome] = useState("");
   const [tipoGestao, setTipoGestao] = useState("");
+  const [itemServicoId, setItemServicoId] = useState<number | null>(null);
   const [ativo, setAtivo] = useState(true);
 
   const carregar = useCallback(async () => {
@@ -59,7 +71,7 @@ export default function CargosPage() {
 
       const { data, error } = await supabase
         .from("cargos")
-        .select("id,nome,tipo_gestao,ativo,criado_em")
+        .select("id,nome,tipo_gestao,item_servico_id,ativo,criado_em")
         .order("nome", { ascending: true });
 
       if (error) throw error;
@@ -71,9 +83,29 @@ export default function CargosPage() {
     }
   }, [supabase, tenantId]);
 
+  const carregarServicoItens = useCallback(async () => {
+    if (!tenantId || !empresaId || !supabase) return;
+    try {
+      const { data, error } = await applyTenantEmpresa(
+        supabase.from("itens").select("id,nome,codigo_interno").eq("tipo", "servico").eq("ativo", true).order("nome", { ascending: true }),
+        tenantId,
+        empresaId
+      );
+      if (error) throw error;
+      setServicoItens((data ?? []) as ItemServico[]);
+    } catch (e: unknown) {
+      console.warn("[Cargos] carregarServicoItens:error", e);
+      setServicoItens([]);
+    }
+  }, [empresaId, supabase, tenantId]);
+
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    void carregarServicoItens();
+  }, [carregarServicoItens]);
 
   const rowsFiltrados = useMemo(() => {
     let list = rows;
@@ -88,6 +120,7 @@ export default function CargosPage() {
     setEditId(null);
     setNome("");
     setTipoGestao("");
+    setItemServicoId(null);
     setAtivo(true);
     setErrorMsg(null);
     setOkMsg(null);
@@ -98,6 +131,7 @@ export default function CargosPage() {
     setEditId(r.id);
     setNome(r.nome);
     setTipoGestao(r.tipo_gestao ?? "");
+    setItemServicoId(r.item_servico_id ?? null);
     setAtivo(r.ativo);
     setErrorMsg(null);
     setOkMsg(null);
@@ -122,6 +156,7 @@ export default function CargosPage() {
         tenant_id: tenantId,
         nome: nome.trim().toUpperCase(),
         tipo_gestao: tipoGestao || null,
+        item_servico_id: itemServicoId,
         ativo,
       };
 
@@ -321,6 +356,26 @@ export default function CargosPage() {
                 </select>
                 <p className="text-xs text-zinc-500 mt-1">
                   Define qual área de gestão é habilitada automaticamente ao lançar horas neste cargo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Serviço para faturar mão de obra</label>
+                <select
+                  value={itemServicoId ?? ""}
+                  onChange={(e) => setItemServicoId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+                >
+                  <option value="">— Sem vínculo —</option>
+                  {servicoItens.map((it) => (
+                    <option key={it.id} value={it.id}>
+                      {it.codigo_interno} — {it.nome}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Item de catálogo (tipo serviço) usado para faturar horas apontadas por colaboradores deste cargo
+                  ao gerar orçamento a partir de uma OS Fiado. Sem esse vínculo, as horas ficam pendentes.
                 </p>
               </div>
 

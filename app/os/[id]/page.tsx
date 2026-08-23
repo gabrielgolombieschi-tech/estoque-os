@@ -13,6 +13,8 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { getOsDetailAccess } from "@/lib/auth/osAccess";
 import { calcHhPedidoTotal, getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
 import ResponsavelAprovacaoSelect from "@/components/os/ResponsavelAprovacaoSelect";
+import { createOrcamento } from "@/lib/comercial/orcamentos.service";
+import { ensureConfig } from "@/src/services/configOrcamento";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 
@@ -37,6 +39,8 @@ type OS = {
   vendedor?: string | null;
   usa_relatorio_hh?: boolean | null;
   responsavel_aprovacao_id?: string | null;
+  is_fiado?: boolean | null;
+  orcamento_gerado_id?: string | null;
 };
 
 type OsItemRow = {
@@ -380,6 +384,27 @@ export default function OsDetailPage() {
   const [orcadoInput, setOrcadoInput] = useState("");
   const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
 
+  // Gerar/atualizar orcamento a partir de OS Fiado
+  const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
+  const [gerarOrcamentoLoading, setGerarOrcamentoLoading] = useState(false);
+  const [gerarOrcamentoBusy, setGerarOrcamentoBusy] = useState(false);
+  const [gerarOrcamentoErr, setGerarOrcamentoErr] = useState<string | null>(null);
+  const [gerarOrcamentoResumo, setGerarOrcamentoResumo] = useState<{
+    orcamentoId: string;
+    itensMateriaisCriados: number;
+    gruposMaoObraCriados: number;
+    hhValorAdicionado: number;
+    cargosSemMapeamento: string[];
+  } | null>(null);
+  const [margemMateriais, setMargemMateriais] = useState("0");
+  const [margemMaoObra, setMargemMaoObra] = useState("0");
+  const [vendedoresOrcamento, setVendedoresOrcamento] = useState<Array<{ id: string; nome: string; email: string }>>([]);
+  const [vendedorOrcamentoId, setVendedorOrcamentoId] = useState("");
+  const [servicoItensOrcamento, setServicoItensOrcamento] = useState<
+    Array<{ id: number; nome: string; codigo_interno: string }>
+  >([]);
+  const [itemServicoHHId, setItemServicoHHId] = useState<number | null>(null);
+
   const [activeTab, setActiveTab] = useState<"itens" | "hh">("itens");
   const [addMode, setAddMode] = useState<AddMode>("item");
 
@@ -436,6 +461,7 @@ export default function OsDetailPage() {
   };
 
   const osIsHH = Boolean(os?.usa_relatorio_hh);
+  const isFiado = Boolean(os?.is_fiado);
   const hhClientEnabled = clienteHabilitaHH || osIsHH;
   // IMPORTANTE: a OS já carrega usa_relatorio_hh. Para perfis sem acesso a `clientes` (RLS),
   // não bloquear a UI de HH baseada em `habilita_hh` do cliente.
@@ -1127,8 +1153,10 @@ export default function OsDetailPage() {
     let total = 0;
     if (hhEnabled) {
       // HH: 19% sobre o total de HH
+      // OS Fiado com cliente HH tambem pode ter materiais/despesas lancados (mutuamente
+      // exclusivo apenas fora do Fiado); somam-se ao total nesse caso.
       impostos = hhPedidoTotal * 0.15;
-      total = hhPedidoTotal + despesas;
+      total = hhPedidoTotal + materiais + despesas + maoObra;
     } else if (tipoPedidoAtual === "material") {
       // Tem material: 21% sobre material
       impostos = orcado * 0.27;
@@ -1155,6 +1183,124 @@ export default function OsDetailPage() {
     const final = base * (1 + ipiPerc / 100);
     return Math.round(final * 100) / 100;
   };
+
+  async function fetchVendedoresOrcamento(): Promise<Array<{ id: string; nome: string; email: string }>> {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token ?? null;
+    if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+    const res = await fetch(`/api/comercial/vendedores?tenantId=${effectiveTenantId}&empresaId=${effectiveEmpresaId}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const json = (await res.json().catch(() => null)) as
+      | { vendedores?: Array<{ id?: string | null; nome?: string | null; email?: string | null }>; error?: string }
+      | null;
+    if (!res.ok) throw new Error(typeof json?.error === "string" ? json.error : "Erro ao carregar vendedores.");
+
+    return (Array.isArray(json?.vendedores) ? json.vendedores : [])
+      .map((row) => ({
+        id: String(row?.id ?? "").trim(),
+        nome: String(row?.nome ?? "").trim(),
+        email: String(row?.email ?? "").trim(),
+      }))
+      .filter((row) => row.id && row.nome);
+  }
+
+  async function abrirGerarOrcamento() {
+    setGerarOrcamentoErr(null);
+    setGerarOrcamentoResumo(null);
+    setItemServicoHHId(null);
+    setShowGerarOrcamento(true);
+    setGerarOrcamentoLoading(true);
+    try {
+      const cfg = await ensureConfig(supabase, { tenantId: effectiveTenantId, empresaId: effectiveEmpresaId });
+      setMargemMateriais(String(cfg.margem_lucro_padrao_percent ?? 0));
+      setMargemMaoObra(String(cfg.margem_mao_obra_padrao_percent ?? 0));
+
+      if (!os?.orcamento_gerado_id) {
+        const vends = await fetchVendedoresOrcamento();
+        setVendedoresOrcamento(vends);
+        setVendedorOrcamentoId((prev) => prev || vends[0]?.id || "");
+      }
+
+      if (hhEnabled) {
+        const { data, error } = await applyTenantEmpresa(
+          supabase.from("itens").select("id,nome,codigo_interno").eq("tipo", "servico").eq("ativo", true).order("nome", { ascending: true }),
+          effectiveTenantId,
+          effectiveEmpresaId
+        );
+        if (error) throw error;
+        setServicoItensOrcamento((data ?? []) as Array<{ id: number; nome: string; codigo_interno: string }>);
+      }
+    } catch (e: unknown) {
+      setGerarOrcamentoErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGerarOrcamentoLoading(false);
+    }
+  }
+
+  async function submitGerarOrcamento() {
+    if (!os) return;
+    setGerarOrcamentoErr(null);
+
+    const margemMat = Number(margemMateriais || 0);
+    const margemMo = Number(margemMaoObra || 0);
+    if (!Number.isFinite(margemMat) || margemMat < 0) return setGerarOrcamentoErr("Margem de materiais invalida.");
+    if (!Number.isFinite(margemMo) || margemMo < 0) return setGerarOrcamentoErr("Margem de mao de obra invalida.");
+
+    setGerarOrcamentoBusy(true);
+    try {
+      let orcamentoId = os.orcamento_gerado_id ?? null;
+
+      if (!orcamentoId) {
+        if (!vendedorOrcamentoId) throw new Error("Selecione o vendedor do orcamento.");
+        if (!os.cliente_id) throw new Error("Esta OS nao tem um cliente valido vinculado.");
+
+        const created = await createOrcamento(supabase, {
+          tenantId: effectiveTenantId,
+          empresaId: effectiveEmpresaId,
+          titulo: os.descricao_servico?.trim() || `OS ${os.numero_os}`,
+          clienteId: os.cliente_id,
+          vendedorUsuarioId: vendedorOrcamentoId,
+        });
+        orcamentoId = created.id;
+      }
+
+      const { data, error } = await supabase.rpc("fn_gerar_ou_atualizar_orcamento_de_os", {
+        p_tenant_id: effectiveTenantId,
+        p_empresa_id: effectiveEmpresaId,
+        p_os_id: osId,
+        p_orcamento_id: orcamentoId,
+        p_margem_materiais_percent: margemMat,
+        p_margem_mao_obra_percent: margemMo,
+        p_item_servico_hh_id: itemServicoHHId,
+      });
+      if (error) throw error;
+
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | {
+            itens_materiais_criados?: number;
+            grupos_mao_obra_criados?: number;
+            hh_valor_adicionado?: number;
+            cargos_sem_mapeamento?: string[];
+          }
+        | undefined;
+
+      setGerarOrcamentoResumo({
+        orcamentoId,
+        itensMateriaisCriados: Number(row?.itens_materiais_criados ?? 0),
+        gruposMaoObraCriados: Number(row?.grupos_mao_obra_criados ?? 0),
+        hhValorAdicionado: Number(row?.hh_valor_adicionado ?? 0),
+        cargosSemMapeamento: Array.isArray(row?.cargos_sem_mapeamento) ? row!.cargos_sem_mapeamento! : [],
+      });
+
+      await load();
+    } catch (e: unknown) {
+      setGerarOrcamentoErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGerarOrcamentoBusy(false);
+    }
+  }
 
   async function loadClientes() {
     const { data, error } = await applyTenant(
@@ -2156,6 +2302,16 @@ export default function OsDetailPage() {
           >
             Cancelar
           </button>
+
+          {isFiado && canWriteOs && (
+            <button
+              onClick={abrirGerarOrcamento}
+              disabled={busy}
+              className="px-3 py-2 rounded-md bg-amber-200 text-amber-950 hover:bg-amber-100 font-medium"
+            >
+              {os?.orcamento_gerado_id ? "Atualizar Orçamento" : "Gerar Orçamento"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -2185,7 +2341,7 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {!hhEnabled && (
+      {(!hhEnabled || isFiado) && (
         <>
           {/* Adicionar item / despesa */}
       <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-950">
@@ -2616,7 +2772,7 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {!hhEnabled && (
+      {(!hhEnabled || isFiado) && (
         <>
           {showLookup && (
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
@@ -3171,6 +3327,138 @@ export default function OsDetailPage() {
           effectiveTenantId={effectiveTenantId}
           effectiveEmpresaId={effectiveEmpresaId}
         />
+      )}
+
+      {showGerarOrcamento && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto z-50">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4 my-4">
+            <div>
+              <div className="text-lg font-semibold">
+                {os?.orcamento_gerado_id ? "Atualizar Orçamento" : "Gerar Orçamento"}
+              </div>
+              <div className="text-sm text-zinc-400 mt-1">
+                {os?.orcamento_gerado_id
+                  ? "Adiciona ao orçamento já vinculado apenas o que foi lançado nesta OS desde a última geração. Edições manuais no orçamento não são alteradas."
+                  : "Cria um orçamento a partir do que já foi lançado nesta OS, aplicando margem sobre o custo de materiais e mão de obra por apontamento. Valor de HH entra sem markup (já é preço de venda)."}
+              </div>
+            </div>
+
+            {gerarOrcamentoLoading ? (
+              <div className="text-sm text-zinc-400">Carregando...</div>
+            ) : gerarOrcamentoResumo ? (
+              <div className="space-y-3">
+                <div className="text-sm text-emerald-300">Orçamento sincronizado com sucesso.</div>
+                <ul className="text-sm text-zinc-300 space-y-1">
+                  <li>Itens de material/despesa criados: {gerarOrcamentoResumo.itensMateriaisCriados}</li>
+                  <li>Grupos de mão de obra (apontamento) criados: {gerarOrcamentoResumo.gruposMaoObraCriados}</li>
+                  <li>Valor de HH adicionado: R$ {formatMoney(gerarOrcamentoResumo.hhValorAdicionado)}</li>
+                </ul>
+                {gerarOrcamentoResumo.cargosSemMapeamento.length > 0 && (
+                  <div className="text-xs text-amber-300 border border-amber-900/60 rounded-lg p-3 bg-amber-950/20">
+                    Cargos sem serviço vinculado (horas não incluídas, configure em Cadastros → Cargos e gere de novo):{" "}
+                    {gerarOrcamentoResumo.cargosSemMapeamento.join(", ")}
+                  </div>
+                )}
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <a
+                    href={`/comercial/orcamentos/${gerarOrcamentoResumo.orcamentoId}`}
+                    className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
+                  >
+                    Ver orçamento
+                  </a>
+                  <button
+                    onClick={() => setShowGerarOrcamento(false)}
+                    className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium text-sm"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-400">Margem materiais (%)</div>
+                    <input
+                      type="number"
+                      className="w-full px-3 py-2"
+                      value={margemMateriais}
+                      onChange={(e) => setMargemMateriais(e.target.value)}
+                      disabled={gerarOrcamentoBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-400">Margem mão de obra (%)</div>
+                    <input
+                      type="number"
+                      className="w-full px-3 py-2"
+                      value={margemMaoObra}
+                      onChange={(e) => setMargemMaoObra(e.target.value)}
+                      disabled={gerarOrcamentoBusy}
+                    />
+                  </div>
+                </div>
+
+                {!os?.orcamento_gerado_id && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-400">Vendedor do orçamento</div>
+                    <select
+                      className="w-full px-3 py-2"
+                      value={vendedorOrcamentoId}
+                      onChange={(e) => setVendedorOrcamentoId(e.target.value)}
+                      disabled={gerarOrcamentoBusy}
+                    >
+                      <option value="">-</option>
+                      {vendedoresOrcamento.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {hhEnabled && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-400">Serviço para faturar HH (se houver valor pendente)</div>
+                    <select
+                      className="w-full px-3 py-2"
+                      value={itemServicoHHId ?? ""}
+                      onChange={(e) => setItemServicoHHId(e.target.value ? Number(e.target.value) : null)}
+                      disabled={gerarOrcamentoBusy}
+                    >
+                      <option value="">-</option>
+                      {servicoItensOrcamento.map((it) => (
+                        <option key={it.id} value={it.id}>
+                          {it.codigo_interno} — {it.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {gerarOrcamentoErr && <div className="text-sm text-red-400">{gerarOrcamentoErr}</div>}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setShowGerarOrcamento(false)}
+                    disabled={gerarOrcamentoBusy}
+                    className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={submitGerarOrcamento}
+                    disabled={gerarOrcamentoBusy}
+                    className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                  >
+                    {gerarOrcamentoBusy ? "Gerando..." : os?.orcamento_gerado_id ? "Atualizar" : "Gerar"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

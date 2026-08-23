@@ -192,6 +192,7 @@ export default function OsListPage() {
   // criacao
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [createMode, setCreateMode] = useState<"hh" | "fiado">("hh");
   const [clienteId, setClienteId] = useState<number | null>(null);
   const [descricao, setDescricao] = useState("");
   const [pedidoCompra, setPedidoCompra] = useState("");
@@ -214,7 +215,9 @@ export default function OsListPage() {
     () => (isApontamentoRh ? clientes : clientes.filter((cliente) => cliente.habilita_hh)),
     [clientes, isApontamentoRh]
   );
-  const clienteSelecionadoNaoHabilitaHH = Boolean(clienteId && !clienteHabilitaHH && !isApontamentoRh);
+  const clientesParaModal = createMode === "fiado" ? clientes : clientesNovaOsHh;
+  const clienteSelecionadoNaoHabilitaHH =
+    createMode === "hh" && Boolean(clienteId && !clienteHabilitaHH && !isApontamentoRh);
 
   const logDebug = (...args: unknown[]) => {
     if (debugEnabled) console.debug(...args);
@@ -651,7 +654,7 @@ export default function OsListPage() {
 
     if (!canWriteOs) return setErr("Sem permissão para criar OS.");
     if (!clienteId) return setErr("Selecione um cliente.");
-    if (!clienteHabilitaHH && !isApontamentoRh) {
+    if (createMode === "hh" && !clienteHabilitaHH && !isApontamentoRh) {
       return setErr("Cliente nao habilitado para HH. Crie OS comum a partir do orcamento.");
     }
 
@@ -700,7 +703,7 @@ export default function OsListPage() {
     }
 
     const numeroGerado = await gerarNumeroOs(effectiveTenantId, effectiveEmpresaId);
-    const usaRelatorioHHFinal = true;
+    const usaRelatorioHHFinal = createMode === "hh" ? true : clienteHabilitaHH;
 
     const { data, error } = await supabase
       .from("ordens_servico")
@@ -712,11 +715,12 @@ export default function OsListPage() {
         cliente_nome: clienteNomeFinal,
         descricao_servico: descricao.trim() ? descricao.trim().toLocaleUpperCase("pt-BR") : null,
         pedido_compra: pedidoCompra.trim() || null,
-        tipo_pedido: "servico",
+        tipo_pedido: createMode === "fiado" ? tipoPedido : "servico",
         vendedor: vendedor.trim() || null,
         orcado: orcadoValor,
         tem_gestao: temGestao,
         usa_relatorio_hh: usaRelatorioHHFinal,
+        is_fiado: createMode === "fiado",
         status: "em_andamento",
         criado_por: userEmail,
         responsavel_aprovacao_id: responsavelAprovacaoId,
@@ -920,6 +924,7 @@ export default function OsListPage() {
           {!readOnly && (
             <button
               onClick={() => {
+                setCreateMode("hh");
                 setShowCreate(true);
                 setErr(null);
                 setOkMsg(null);
@@ -931,6 +936,24 @@ export default function OsListPage() {
               className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
             >
               Nova OS HH
+            </button>
+          )}
+
+          {!readOnly && (
+            <button
+              onClick={() => {
+                setCreateMode("fiado");
+                setShowCreate(true);
+                setErr(null);
+                setOkMsg(null);
+                setClienteId(null);
+                setTipoPedido("servico");
+                setUsaRelatorioHH(false);
+                setResponsavelAprovacaoId(session?.user?.id ?? null);
+              }}
+              className="px-4 py-2 rounded-md bg-amber-200 text-amber-950 hover:bg-amber-100 font-medium"
+            >
+              Nova OS Fiado
             </button>
           )}
         </div>
@@ -1070,8 +1093,12 @@ export default function OsListPage() {
           <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl space-y-4 my-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-lg font-semibold">Nova OS HH</div>
-                <div className="text-sm text-zinc-400">Crie aqui somente OS de HH. As demais OS devem nascer pelo orçamento.</div>
+                <div className="text-lg font-semibold">{createMode === "hh" ? "Nova OS HH" : "Nova OS Fiado"}</div>
+                <div className="text-sm text-zinc-400">
+                  {createMode === "hh"
+                    ? "Crie aqui somente OS de HH. As demais OS devem nascer pelo orçamento."
+                    : "OS híbrida: aberta direto, sem orçamento prévio. Permite lançar material/despesa e mão de obra (HH ou apontamento) ao mesmo tempo. Depois dá para gerar um orçamento a partir do que foi executado."}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1085,7 +1112,7 @@ export default function OsListPage() {
                   disabled={creating}
                   className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
                 >
-                  {creating ? "Criando..." : "Criar OS HH"}
+                  {creating ? "Criando..." : createMode === "hh" ? "Criar OS HH" : "Criar OS Fiado"}
                 </button>
               </div>
             </div>
@@ -1109,11 +1136,18 @@ export default function OsListPage() {
                   className="w-full px-3 py-2"
                   value={tipoPedido}
                   onChange={(e) => setTipoPedido(e.target.value as "servico" | "material")}
-                  disabled
+                  disabled={createMode === "hh"}
                   aria-label="Tipo de pedido"
                   title="Tipo de pedido"
                 >
-                  <option value="servico">Serviço HH</option>
+                  {createMode === "hh" ? (
+                    <option value="servico">Serviço HH</option>
+                  ) : (
+                    <>
+                      <option value="servico">Serviço</option>
+                      <option value="material">Material</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -1125,19 +1159,21 @@ export default function OsListPage() {
                   onChange={(e) => {
                     const nextId = e.target.value ? Number(e.target.value) : null;
                     setClienteId(nextId);
-                    setUsaRelatorioHH(true);
+                    setUsaRelatorioHH(
+                      createMode === "hh" ? true : Boolean(clientes.find((c) => c.id === nextId)?.habilita_hh)
+                    );
                   }}
                   aria-label="Cliente (cadastro)"
                   title="Cliente (cadastro)"
                 >
                   <option value="">-</option>
-                  {clientesNovaOsHh.map((c) => (
+                  {clientesParaModal.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome}
                     </option>
                   ))}
                 </select>
-                {!isApontamentoRh && clientesNovaOsHh.length === 0 && (
+                {createMode === "hh" && !isApontamentoRh && clientesNovaOsHh.length === 0 && (
                   <div className="text-xs text-amber-300">Nenhum cliente habilitado para HH.</div>
                 )}
               </div>
@@ -1147,14 +1183,19 @@ export default function OsListPage() {
                   <input type="checkbox" className="h-4 w-4" checked={usaRelatorioHH} readOnly disabled />
                   <span className="font-medium">OS HH</span>
                 </label>
-                {clienteSelecionadoNaoHabilitaHH && (
+                {createMode === "hh" && clienteSelecionadoNaoHabilitaHH && (
                   <div className="mt-2 text-xs text-amber-300">
                     Este cliente não está habilitado para HH. OS comum deve ser criada pelo orçamento.
                   </div>
                 )}
+                {createMode === "fiado" && clienteId && !usaRelatorioHH && (
+                  <div className="mt-2 text-xs text-zinc-400">
+                    Este cliente não usa HH — a mão de obra desta OS será registrada por apontamento (por cargo).
+                  </div>
+                )}
               </div>
 
-              {clienteSelecionadoNaoHabilitaHH && (
+              {createMode === "hh" && clienteSelecionadoNaoHabilitaHH && (
                 <div className="md:col-span-3 text-sm text-amber-300">
                   Selecione um cliente habilitado para HH para criar esta OS por aqui.
                 </div>

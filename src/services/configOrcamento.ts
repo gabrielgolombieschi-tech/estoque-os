@@ -62,7 +62,11 @@ export async function updateConfig(
     id: string;
     patch: Pick<
       ConfigOrcamentoRow,
-      "margem_lucro_padrao_percent" | "desconto_max_percent" | "condicao_pagamento_padrao_id" | "conjunto_categorias"
+      | "margem_lucro_padrao_percent"
+      | "margem_mao_obra_padrao_percent"
+      | "desconto_max_percent"
+      | "condicao_pagamento_padrao_id"
+      | "conjunto_categorias"
     >;
   }
 ): Promise<void> {

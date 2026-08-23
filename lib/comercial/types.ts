@@ -121,6 +121,7 @@ export type ConfigOrcamentoRow = {
   tenant_id: string;
   empresa_id: string;
   margem_lucro_padrao_percent: number | string;
+  margem_mao_obra_padrao_percent: number | string;
   desconto_max_percent: number | string;
   condicao_pagamento_padrao_id: string | null;
   conjunto_categorias: string[] | null;
