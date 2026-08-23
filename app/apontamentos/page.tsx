@@ -37,6 +37,8 @@ type ApontamentoRow = {
   descricao: string | null;
   status: string;
   criado_em: string;
+  gerado_por_hh?: boolean | null;
+  hh_lancamento_id?: string | number | null;
 };
 
 const feriadosCache = new Map<number, Set<string>>();
@@ -304,6 +306,7 @@ export default function ApontamentosPage() {
   const horasInputRef = useRef<HTMLInputElement | null>(null);
 
   const [editing, setEditing] = useState<ApontamentoRow | null>(null);
+  const [formEditing, setFormEditing] = useState<ApontamentoRow | null>(null);
   const [editHasTimes, setEditHasTimes] = useState(false);
   const [editData, setEditData] = useState<string>(todayISO());
   const [editHorasText, setEditHorasText] = useState<string>("");
@@ -315,6 +318,12 @@ export default function ApontamentosPage() {
   const [editHoraS2, setEditHoraS2] = useState("17:00");
 
   const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
+  const [existentesDoFormulario, setExistentesDoFormulario] = useState<ApontamentoRow[]>([]);
+  const [existentesLoading, setExistentesLoading] = useState(false);
+  const [duplicateDialog, setDuplicateDialog] = useState<{ existing: ApontamentoRow; incomingHoras: number } | null>(null);
+  const [duplicateBatchDialog, setDuplicateBatchDialog] = useState<Array<{ existing: ApontamentoRow; nome: string; incomingHoras: number }> | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<ApontamentoRow | null>(null);
+  const submitLockRef = useRef(false);
 
   const carregarCombos = useCallback(async () => {
     if (effectiveLoading) return;
@@ -377,7 +386,7 @@ export default function ApontamentosPage() {
 
       // A tabela apontamentos_horas possui: horas, hora_entrada_1, hora_saida_1, hora_entrada_2, hora_saida_2
       const baseFields =
-        "id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,tenant_id,hh_especialidade_id";
+        "id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,tenant_id,hh_especialidade_id,gerado_por_hh,hh_lancamento_id";
       
       const timeFields = "hora_entrada_1,hora_saida_1,hora_entrada_2,hora_saida_2";
       const timeFieldsAlias =
@@ -427,6 +436,60 @@ export default function ApontamentosPage() {
       carregarApontamentos();
     }
   }, [carregarApontamentos, osDbId]);
+
+  const buscarApontamentosDaCombinacao = useCallback(
+    async (osId: number, colaboradorId: string, dataISO: string): Promise<ApontamentoRow[]> => {
+      if (!effectiveTenantId || !effectiveEmpresaId) return [];
+      await ensureContext();
+      const select =
+        "id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,tenant_id,hh_especialidade_id,gerado_por_hh,hh_lancamento_id,entrada_1:hora_entrada_1,saida_1:hora_saida_1,entrada_2:hora_entrada_2,saida_2:hora_saida_2";
+      const result = await applyTenantEmpresa(
+        supabase.from("apontamentos_horas").select(select),
+        effectiveTenantId,
+        effectiveEmpresaId
+      )
+        .eq("os_id", osId)
+        .eq("colaborador_id", colaboradorId)
+        .eq("data", dataISO)
+        .order("criado_em", { ascending: true });
+      if (result.error) throw result.error;
+      return (result.data ?? []).map(normalizeApontamentoRow);
+    },
+    [effectiveEmpresaId, effectiveTenantId, ensureContext, supabase]
+  );
+
+  useEffect(() => {
+    if (!osDbId || !colabId || !data || colabMultiMode || effectiveLoading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setExistentesDoFormulario([]);
+      return;
+    }
+    let active = true;
+    setExistentesLoading(true);
+    void buscarApontamentosDaCombinacao(osDbId, colabId, data)
+      .then((rows) => {
+        if (active) setExistentesDoFormulario(rows);
+      })
+      .catch((error: unknown) => {
+        if (active) setMsg(getErrorMessage(error, "Não foi possível consultar os lançamentos existentes."));
+      })
+      .finally(() => {
+        if (active) setExistentesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [buscarApontamentosDaCombinacao, colabId, colabMultiMode, data, effectiveLoading, osDbId]);
+
+  useEffect(() => {
+    if (
+      formEditing &&
+      (formEditing.os_id !== osDbId || formEditing.colaborador_id !== colabId || formEditing.data !== data)
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormEditing(null);
+    }
+  }, [colabId, data, formEditing, osDbId]);
 
   const fetchOsDescricao = useCallback(async (osDigitada: string) => {
     if (effectiveLoading) return;
@@ -810,26 +873,21 @@ export default function ApontamentosPage() {
   }
 
   async function salvarApontamento(options?: { preserveHoras?: boolean; advanceDate?: boolean; keepFocus?: boolean }) {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    setLoading(true);
     setMsg(null);
 
-    if (!osDbId) return alert("Selecione uma OS.");
-    if (osStatus !== "em_andamento") return alert("OS nao esta em andamento.");
-    if (!colabId) return alert("Selecione um colaborador.");
-    if (!data) return alert("Informe a data.");
-    if (tiposHoras.length === 0) {
-      return alert("Tipos de horas não carregaram. Recarregue a página.");
-    }
-    const horas = toNumberBR(horasText);
-    if (horas == null || horas <= 0 || horas > 24) return alert("Horas invalidas (0 a 24).");
-
-    setLoading(true);
-
-    if (!effectiveTenantId || !effectiveEmpresaId) {
-      setLoading(false);
-      return alert("Tenant/empresa não encontrado. Recarregue a página.");
-    }
-
     try {
+      if (!osDbId) throw new Error("Selecione uma OS antes de salvar.");
+      if (osStatus !== "em_andamento") throw new Error("A OS precisa estar em andamento para receber apontamentos.");
+      if (!colabId) throw new Error("Selecione um colaborador antes de salvar.");
+      if (!data) throw new Error("Informe a data do apontamento.");
+      if (tiposHoras.length === 0) throw new Error("Os tipos de hora não foram carregados. Recarregue a página.");
+      const horas = toNumberBR(horasText);
+      if (horas == null || horas <= 0 || horas > 24) throw new Error("Informe uma quantidade de horas entre 0 e 24.");
+      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
+
       const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
       if (tenantErr) throw tenantErr;
       try {
@@ -848,6 +906,35 @@ export default function ApontamentosPage() {
         status: "lancado",
       };
 
+      const existentes = await buscarApontamentosDaCombinacao(osDbId, colabId, data);
+      if (formEditing) {
+        if (formEditing.gerado_por_hh) throw new Error("Este apontamento é gerado pelo módulo HH e deve ser alterado por lá.");
+        const tipoFinal = tipoHoraId || normalTipoId || null;
+        const conflito = existentes.find(
+          (item) => !item.gerado_por_hh && item.id !== formEditing.id && item.tipo_hora_id === tipoFinal
+        );
+        if (conflito) {
+          setDuplicateDialog({ existing: conflito, incomingHoras: horas });
+          return;
+        }
+        const { error } = await applyTenantEmpresa(
+          supabase
+            .from("apontamentos_horas")
+            .update({ data, tipo_hora_id: tipoFinal, horas, descricao: descricao.trim() || null })
+            .eq("id", formEditing.id),
+          effectiveTenantId,
+          effectiveEmpresaId
+        );
+        if (error) throw error;
+        setFormEditing(null);
+        setHorasText("");
+        setDescricao("");
+        setTipoHoraId("");
+        await carregarApontamentos();
+        setMsg("Apontamento atualizado. Nenhuma nova linha foi criada.");
+        return;
+      }
+
       const policy = await computeHourPolicy(data, horas);
       const payloads = policy.items.map((item) => {
         const tipoId = tipoByCodigo.get(item.tipoCodigo);
@@ -865,6 +952,17 @@ export default function ApontamentosPage() {
           descricao: descFinal,
         };
       });
+
+      const conflito = payloads
+        .map((payload) => ({
+          existing: existentes.find((item) => !item.gerado_por_hh && item.tipo_hora_id === payload.tipo_hora_id),
+          incomingHoras: Number(payload.horas),
+        }))
+        .find((item) => item.existing);
+      if (conflito?.existing) {
+        setDuplicateDialog({ existing: conflito.existing, incomingHoras: conflito.incomingHoras });
+        return;
+      }
 
       const { error } = await applyTenantEmpresa(
         supabase.from("apontamentos_horas").insert(payloads),
@@ -896,40 +994,33 @@ export default function ApontamentosPage() {
         }, 0);
       }
       await carregarApontamentos();
-      setMsg("Apontamento lancado com sucesso.");
+      setMsg("Apontamento lançado com sucesso.");
     } catch (e: unknown) {
-      alert(getErrorMessage(e, "Erro ao salvar apontamento."));
+      setMsg(getErrorMessage(e, "Erro ao salvar apontamento."));
     } finally {
       setLoading(false);
+      submitLockRef.current = false;
     }
   }
 
-  // Mesma OS/data/horas/tipo pra varios colaboradores de uma vez (ex.: 5
-  // pessoas no mesmo servico). Grava um colaborador por vez (nao tudo num
-  // unico insert) porque o trigger de vinculo colaborador x contrato do
-  // cliente pode rejeitar so alguns colaboradores da lista — assim quem
-  // passa fica gravado mesmo que outro falhe, e o erro fica claro por nome.
+  // O lançamento em lote é deliberadamente um único INSERT: se uma linha for
+  // rejeitada, a operação inteira falha e não deixa a equipe pela metade.
   async function salvarApontamentoMultiplo() {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    setLoading(true);
     setMsg(null);
 
-    if (!osDbId) return alert("Selecione uma OS.");
-    if (osStatus !== "em_andamento") return alert("OS nao esta em andamento.");
-    if (colabSelecionados.size === 0) return alert("Selecione ao menos um colaborador.");
-    if (!data) return alert("Informe a data.");
-    if (tiposHoras.length === 0) {
-      return alert("Tipos de horas não carregaram. Recarregue a página.");
-    }
-    const horas = toNumberBR(horasText);
-    if (horas == null || horas <= 0 || horas > 24) return alert("Horas invalidas (0 a 24).");
-
-    setLoading(true);
-
-    if (!effectiveTenantId || !effectiveEmpresaId) {
-      setLoading(false);
-      return alert("Tenant/empresa não encontrado. Recarregue a página.");
-    }
-
     try {
+      if (!osDbId) throw new Error("Selecione uma OS antes de salvar.");
+      if (osStatus !== "em_andamento") throw new Error("A OS precisa estar em andamento para receber apontamentos.");
+      if (colabSelecionados.size === 0) throw new Error("Selecione ao menos um colaborador.");
+      if (!data) throw new Error("Informe a data do apontamento.");
+      if (tiposHoras.length === 0) throw new Error("Os tipos de hora não foram carregados. Recarregue a página.");
+      const horas = toNumberBR(horasText);
+      if (horas == null || horas <= 0 || horas > 24) throw new Error("Informe uma quantidade de horas entre 0 e 24.");
+      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
+
       const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
       if (tenantErr) throw tenantErr;
       try {
@@ -952,11 +1043,35 @@ export default function ApontamentosPage() {
         return { horas: item.horas, tipo_hora_id: tipoId, descricao: descFinal };
       });
 
-      const sucesso: string[] = [];
-      const falhas: { nome: string; erro: string }[] = [];
+      const colaboradoresSelecionados = Array.from(colabSelecionados);
+      const existentesResult = await applyTenantEmpresa(
+        supabase
+          .from("apontamentos_horas")
+          .select("id,os_id,colaborador_id,data,horas,tipo_hora_id,descricao,status,criado_em,gerado_por_hh,hh_lancamento_id")
+          .eq("os_id", osDbId)
+          .eq("data", data)
+          .eq("gerado_por_hh", false)
+          .in("colaborador_id", colaboradoresSelecionados),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+      if (existentesResult.error) throw existentesResult.error;
+      const existentes = (existentesResult.data ?? []).map(normalizeApontamentoRow);
+      const conflitos = colaboradoresSelecionados.flatMap((colaboradorId) => {
+        const nome = colMap.get(colaboradorId)?.nome ?? colaboradorId;
+        return policyItems.flatMap((item) => {
+          const existing = existentes.find(
+            (apontamento) => apontamento.colaborador_id === colaboradorId && apontamento.tipo_hora_id === item.tipo_hora_id
+          );
+          return existing ? [{ existing, nome, incomingHoras: item.horas }] : [];
+        });
+      });
+      if (conflitos.length > 0) {
+        setDuplicateBatchDialog(conflitos);
+        return;
+      }
 
-      for (const colaboradorId of colabSelecionados) {
-        const nomeColab = colMap.get(colaboradorId)?.nome ?? colaboradorId;
+      const payloads = colaboradoresSelecionados.flatMap((colaboradorId) => {
         const payloadBase = {
           tenant_id: effectiveTenantId,
           empresa_id: effectiveEmpresaId,
@@ -965,21 +1080,15 @@ export default function ApontamentosPage() {
           data,
           status: "lancado",
         };
-        const payloads = policyItems.map((item) => ({ ...payloadBase, ...item }));
-
-        try {
-          const { error } = await applyTenantEmpresa(
-            supabase.from("apontamentos_horas").insert(payloads),
-            effectiveTenantId,
-            effectiveEmpresaId
-          );
-          if (error) throw error;
-          await autoEnableGestao(osDbId, colaboradorId);
-          sucesso.push(nomeColab);
-        } catch (e: unknown) {
-          falhas.push({ nome: nomeColab, erro: getErrorMessage(e, "Erro ao salvar.") });
-        }
-      }
+        return policyItems.map((item) => ({ ...payloadBase, ...item }));
+      });
+      const { error } = await applyTenantEmpresa(
+        supabase.from("apontamentos_horas").insert(payloads),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+      if (error) throw new Error(`Nada foi salvo para a equipe. ${getErrorMessage(error, "Erro ao gravar os apontamentos.")}`);
+      await Promise.all(colaboradoresSelecionados.map((colaboradorId) => autoEnableGestao(osDbId, colaboradorId)));
 
       setHorasText("");
       setDescricao("");
@@ -988,41 +1097,43 @@ export default function ApontamentosPage() {
       setColabMultiFiltro("");
       await carregarApontamentos();
 
-      if (falhas.length === 0) {
-        setMsg(`${sucesso.length} lancamento(s) criado(s) com sucesso.`);
-      } else if (sucesso.length === 0) {
-        alert(`Nenhum lancamento criado.\n\n${falhas.map((f) => `${f.nome}: ${f.erro}`).join("\n")}`);
-      } else {
-        setMsg(`${sucesso.length} lancamento(s) criado(s). Falhou para: ${falhas.map((f) => f.nome).join(", ")}.`);
-        alert(`Falhou para:\n\n${falhas.map((f) => `${f.nome}: ${f.erro}`).join("\n")}`);
-      }
+      setMsg(`${colaboradoresSelecionados.length} lançamento(s) criado(s) com sucesso.`);
     } catch (e: unknown) {
-      alert(getErrorMessage(e, "Erro ao salvar apontamentos."));
+      setMsg(getErrorMessage(e, "Nada foi salvo para a equipe."));
     } finally {
       setLoading(false);
+      submitLockRef.current = false;
     }
   }
 
-  async function excluirApontamento(id: string) {
-    if (!confirm("Excluir este apontamento?")) return;
+  async function excluirApontamento(apontamento: ApontamentoRow) {
+    if (apontamento.gerado_por_hh) {
+      setMsg("Este apontamento foi gerado pelo módulo HH e não pode ser excluído aqui. Altere o lançamento de origem no módulo HH.");
+      return;
+    }
     setLoading(true);
     try {
       if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant/empresa não definido.");
       const { error } = await applyTenantEmpresa(
-        supabase.from("apontamentos_horas").delete().eq("id", id),
+        supabase.from("apontamentos_horas").delete().eq("id", apontamento.id),
         effectiveTenantId,
         effectiveEmpresaId
       );
       if (error) throw error;
       await carregarApontamentos();
+      setMsg("Apontamento excluído.");
     } catch (e: unknown) {
-      alert(getErrorMessage(e, "Erro ao excluir."));
+      setMsg(getErrorMessage(e, "Erro ao excluir."));
     } finally {
       setLoading(false);
     }
   }
 
   function openEdit(ap: ApontamentoRow) {
+    if (ap.gerado_por_hh) {
+      setMsg("Este apontamento foi gerado pelo módulo HH e deve ser alterado no lançamento HH de origem.");
+      return;
+    }
     setEditing(ap);
     setEditData(ap.data);
     setEditDescricao(ap.descricao ?? "");
@@ -1045,12 +1156,30 @@ export default function ApontamentosPage() {
     }
   }
 
-  async function salvarEdicao() {
-    if (!editing) return;
-    if (!effectiveTenantId || !effectiveEmpresaId) return alert("Tenant/empresa não encontrado. Recarregue a página.");
+  function editarNoFormulario(ap: ApontamentoRow) {
+    if (ap.gerado_por_hh) {
+      setMsg("Este apontamento foi gerado pelo módulo HH e deve ser alterado no lançamento HH de origem.");
+      return;
+    }
+    if (ap.entrada_1 || ap.saida_1 || ap.entrada_2 || ap.saida_2) {
+      openEdit(ap);
+      return;
+    }
+    setFormEditing(ap);
+    setHorasText(String(ap.horas ?? ap.horas_trabalhadas ?? ""));
+    setTipoHoraId(ap.tipo_hora_id ?? normalTipoId ?? "");
+    setTipoHoraTouched(true);
+    setDescricao(ap.descricao ?? "");
+  }
 
+  async function salvarEdicao() {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
     setLoading(true);
     try {
+      if (!editing) return;
+      if (editing.gerado_por_hh) throw new Error("Este apontamento foi gerado pelo módulo HH e deve ser alterado por lá.");
+      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
       const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
       if (tenantErr) throw tenantErr;
       try {
@@ -1115,9 +1244,10 @@ export default function ApontamentosPage() {
       await carregarApontamentos();
       setMsg("Apontamento atualizado.");
     } catch (e: unknown) {
-      alert(getErrorMessage(e, "Erro ao salvar edição."));
+      setMsg(getErrorMessage(e, "Erro ao salvar edição."));
     } finally {
       setLoading(false);
+      submitLockRef.current = false;
     }
   }
 
@@ -1155,7 +1285,22 @@ export default function ApontamentosPage() {
       {/* FORM */}
       {canWrite && (
         <div style={{ marginTop: 12, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 10 }}>Novo lancamento</div>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>
+            {formEditing ? "Editando lançamento existente" : "Novo lançamento"}
+          </div>
+          {formEditing && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+              <span>Você está alterando um apontamento já salvo. Ao salvar, nenhuma nova linha será criada.</span>
+              <button
+                type="button"
+                onClick={() => setFormEditing(null)}
+                disabled={loading}
+                className="rounded-md border border-amber-500/40 bg-amber-950/40 px-3 py-1.5 text-xs hover:bg-amber-900/50 disabled:opacity-60"
+              >
+                Cancelar edição
+              </button>
+            </div>
+          )}
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr 2fr 1fr", gap: 10 }}>
           <label>
@@ -1373,6 +1518,52 @@ export default function ApontamentosPage() {
           </label>
         </div>
 
+        {!colabMultiMode && (existentesLoading || existentesDoFormulario.length > 0) && (
+          <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-3">
+            <div className="text-sm font-medium text-sky-100">Lançamentos já registrados para esta OS, colaborador e data</div>
+            {existentesLoading ? (
+              <div className="mt-1 text-xs text-zinc-400">Consultando lançamentos existentes...</div>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {existentesDoFormulario.map((apontamento) => {
+                  const tipo = apontamento.tipo_hora_id ? tipoMap.get(apontamento.tipo_hora_id) : null;
+                  const hh = Boolean(apontamento.gerado_por_hh);
+                  return (
+                    <div key={apontamento.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm">
+                      <span>
+                        <b>{Number(apontamento.horas ?? apontamento.horas_trabalhadas ?? 0).toFixed(2)}h</b>
+                        {" · "}{tipo?.codigo ?? "NORMAL"}
+                        {hh && (
+                          <span
+                            title="Este apontamento foi gerado pelo módulo HH. Altere o lançamento de origem no módulo HH."
+                            className="ml-2 inline-flex rounded-full border border-violet-400/50 bg-violet-950/50 px-2 py-0.5 text-xs font-medium text-violet-200"
+                          >
+                            HH
+                          </span>
+                        )}
+                      </span>
+                      {hh ? (
+                        <a href={`/os/${apontamento.os_id}`} className="text-xs text-violet-300 underline hover:text-violet-200">
+                          Alterar no módulo HH
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => editarNoFormulario(apontamento)}
+                          disabled={loading}
+                          className="rounded-md border border-sky-500/40 bg-sky-950/40 px-3 py-1.5 text-xs text-sky-100 hover:bg-sky-900/40 disabled:opacity-60"
+                        >
+                          Editar este lançamento
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
           <label>
             Descricao
@@ -1396,7 +1587,7 @@ export default function ApontamentosPage() {
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
             style={{ alignSelf: "end", height: 36 }}
           >
-            {colabMultiMode ? `Salvar (${colabSelecionados.size})` : "Salvar"}
+            {loading ? "Salvando..." : colabMultiMode ? `Salvar (${colabSelecionados.size})` : formEditing ? "Salvar alteração" : "Salvar"}
           </button>
         </div>
         </div>
@@ -1473,6 +1664,7 @@ export default function ApontamentosPage() {
                   const clienteNome = os?.cliente_nome ?? "-";
                   const horasNum = Number(a.horas ?? a.horas_trabalhadas ?? 0);
                   const hasTimes = Boolean(a.entrada_1 || a.saida_1 || a.entrada_2 || a.saida_2);
+                  const geradoPorHh = Boolean(a.gerado_por_hh);
                   const horariosLabel = hasTimes
                     ? `${a.entrada_1 ?? "--"}-${a.saida_1 ?? "--"} / ${a.entrada_2 ?? "--"}-${a.saida_2 ?? "--"}`
                     : "—";
@@ -1481,7 +1673,19 @@ export default function ApontamentosPage() {
                     <tr key={a.id} className="hover:bg-zinc-900/40">
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{formatDateBR(a.data)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{col?.nome || "-"}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{horasNum.toFixed(2)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <div className="flex items-center gap-2">
+                          <span>{horasNum.toFixed(2)}</span>
+                          {geradoPorHh && (
+                            <span
+                              title="Este apontamento foi gerado pelo módulo HH. Altere o lançamento de origem no módulo HH."
+                              className="inline-flex rounded-full border border-violet-400/50 bg-violet-950/50 px-2 py-0.5 text-xs font-medium text-violet-200"
+                            >
+                              HH
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{horariosLabel}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{tipo ? tipo.codigo : "NORMAL"}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
@@ -1491,20 +1695,31 @@ export default function ApontamentosPage() {
                       {canWrite && (
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(a)}
-                              className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => excluirApontamento(a.id)}
-                              className="px-3 py-1.5 rounded-md border border-red-700/50 bg-red-950/40 hover:bg-red-950 text-red-200"
-                            >
-                              Excluir
-                            </button>
+                            {geradoPorHh ? (
+                              <div className="flex flex-col gap-1 text-xs text-violet-200">
+                                <span title="Este apontamento é somente leitura nesta tela porque é sincronizado pelo módulo HH.">Somente leitura — HH</span>
+                                <a href={`/os/${a.os_id}`} className="text-violet-300 underline hover:text-violet-100">Alterar no módulo HH</a>
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openEdit(a)}
+                                  disabled={loading}
+                                  className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirm(a)}
+                                  disabled={loading}
+                                  className="px-3 py-1.5 rounded-md border border-red-700/50 bg-red-950/40 hover:bg-red-950 text-red-200 disabled:opacity-60"
+                                >
+                                  Excluir
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       )}
@@ -1523,6 +1738,90 @@ export default function ApontamentosPage() {
           </table>
         </div>
       </div>
+
+      {duplicateDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
+          <div role="dialog" aria-modal="true" aria-label="Lançamento já existente" className="w-full max-w-lg overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+            <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-4">
+              <div className="text-lg font-semibold text-zinc-100">Lançamento já existente</div>
+              <div className="mt-2 text-sm leading-6 text-zinc-300">
+                <b>{colMap.get(duplicateDialog.existing.colaborador_id)?.nome ?? "Este colaborador"}</b> já possui {Number(duplicateDialog.existing.horas ?? duplicateDialog.existing.horas_trabalhadas ?? 0).toFixed(2)}h nesta OS em {formatDateBR(duplicateDialog.existing.data)}, tipo {duplicateDialog.existing.tipo_hora_id ? tipoMap.get(duplicateDialog.existing.tipo_hora_id)?.codigo ?? "NORMAL" : "NORMAL"}.
+                <br />
+                Para alterar o valor, edite o lançamento existente. Criar um segundo registro faria a OS somar {Number(duplicateDialog.existing.horas ?? duplicateDialog.existing.horas_trabalhadas ?? 0).toFixed(2)}h + {Number(duplicateDialog.incomingHoras).toFixed(2)}h.
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4">
+              <button type="button" onClick={() => setDuplicateDialog(null)} className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 hover:bg-zinc-800">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const existing = duplicateDialog.existing;
+                  setDuplicateDialog(null);
+                  editarNoFormulario(existing);
+                }}
+                className="rounded-md bg-zinc-100 px-4 py-2 font-medium text-zinc-900 hover:bg-white"
+              >
+                Editar o existente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {duplicateBatchDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
+          <div role="dialog" aria-modal="true" aria-label="Lançamentos já existentes" className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+            <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-4">
+              <div className="text-lg font-semibold text-zinc-100">Lançamentos já existentes</div>
+              <div className="mt-2 text-sm leading-6 text-zinc-300">
+                Nada foi salvo para a equipe. Os colaboradores abaixo já possuem lançamento para esta OS e data; edite o lançamento existente antes de tentar novamente.
+              </div>
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-300">
+                {duplicateBatchDialog.map(({ existing, nome, incomingHoras }) => (
+                  <li key={`${existing.id}-${incomingHoras}`}>
+                    {nome}: {Number(existing.horas ?? existing.horas_trabalhadas ?? 0).toFixed(2)}h em {tipoMap.get(existing.tipo_hora_id ?? "")?.codigo ?? "NORMAL"}; o novo lançamento seria de {Number(incomingHoras).toFixed(2)}h.
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex justify-end px-5 py-4">
+              <button type="button" onClick={() => setDuplicateBatchDialog(null)} className="rounded-md bg-zinc-100 px-4 py-2 font-medium text-zinc-900 hover:bg-white">
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
+          <div role="dialog" aria-modal="true" aria-label="Excluir apontamento" className="w-full max-w-lg overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+            <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-4">
+              <div className="text-lg font-semibold text-zinc-100">Excluir apontamento?</div>
+              <div className="mt-1 text-sm text-zinc-400">Esta ação remove o lançamento manual da OS. Lançamentos gerados pelo módulo HH não podem ser excluídos nesta tela.</div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4">
+              <button type="button" onClick={() => setDeleteConfirm(null)} disabled={loading} className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 hover:bg-zinc-800 disabled:opacity-60">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  const apontamento = deleteConfirm;
+                  setDeleteConfirm(null);
+                  void excluirApontamento(apontamento);
+                }}
+                className="rounded-md bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-500 disabled:opacity-60"
+              >
+                {loading ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {canWrite && editing && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">

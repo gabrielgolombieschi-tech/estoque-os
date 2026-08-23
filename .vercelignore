@@ -1,11 +1,5 @@
-# Artefatos locais que não fazem parte do build nem do runtime.
-.next-dev/
-tmp/
-.agents/
-.claude/
-.vscode/
-coverage/
-.turbo/
-*.log
-eslint-report.json
-tsconfig.tsbuildinfo
+# Backups locais do Supabase não pertencem ao artefato de deploy.
+backup_schema.sql
+backup_dados.sql
+.next
+node_modules

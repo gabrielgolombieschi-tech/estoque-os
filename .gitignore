@@ -55,3 +55,7 @@ out/
 
 # misc
 *.log
+
+# backups locais do Supabase (não versionar nem enviar ao deploy)
+/backup_schema.sql
+/backup_dados.sql
