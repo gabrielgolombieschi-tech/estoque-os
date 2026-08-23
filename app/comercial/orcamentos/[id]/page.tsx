@@ -1729,6 +1729,7 @@ export default function OrcamentoPage() {
           valorFechado: payload.valorFechado,
           abrirOs: payload.abrirOs,
           importarItensOs: payload.importarItensOs,
+          responsavelAprovacaoId: payload.responsavelAprovacaoId,
         });
         setStatusDialog({ open: false });
         if (payload.abrirOs && result.osId) {
@@ -3476,6 +3477,8 @@ export default function OrcamentoPage() {
           initialValorFechado={orc?.valor_fechado}
           valorOrcado={orc?.total_liquido}
           canOpenOs={canOpenOs}
+          tenantId={tenantId}
+          empresaId={empresaId}
           onCancel={closeStatusDialog}
           onSave={saveStatusDialog}
         />

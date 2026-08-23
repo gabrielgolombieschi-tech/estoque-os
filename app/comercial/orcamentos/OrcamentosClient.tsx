@@ -174,6 +174,7 @@ export default function OrcamentosClient() {
           valorFechado: payload.valorFechado,
           abrirOs: payload.abrirOs,
           importarItensOs: payload.importarItensOs,
+          responsavelAprovacaoId: payload.responsavelAprovacaoId,
         });
         setRows((prev) =>
           prev.map((row) =>
@@ -491,6 +492,8 @@ export default function OrcamentosClient() {
           initialValorFechado={statusDialog.row.valor_fechado}
           valorOrcado={statusDialog.row.total_liquido}
           canOpenOs={canOpenOs}
+          tenantId={tenantId}
+          empresaId={empresaId}
           onCancel={closeStatusDialog}
           onSave={submitStatusDialog}
         />

@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { upper, upperOrNull, upperTrim } from "@/lib/text";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import {
+  sugerirUsuarioPorNome,
+  type UsuarioResponsavelOption,
+} from "@/components/os/ResponsavelAprovacaoSelect";
 
 type RowView = {
   id: string;
@@ -16,6 +21,9 @@ type RowView = {
   valor_hora: number | null;
   vigencia_inicio: string | null;
   vigencia_fim: string | null;
+
+  user_id: string | null;
+  email: string | null;
 };
 
 function getErrorMessage(err: unknown, fallback: string) {
@@ -83,9 +91,11 @@ export default function ColaboradoresPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { tenantId } = usePermissions();
+  const { empresaId } = useTenantEmpresa();
 
   const [rows, setRows] = useState<RowView[]>([]);
   const [cargosOpts, setCargosOpts] = useState<{ id: number; nome: string }[]>([]);
+  const [usuariosSistema, setUsuariosSistema] = useState<UsuarioResponsavelOption[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -93,6 +103,8 @@ export default function ColaboradoresPage() {
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
   const [ativo, setAtivo] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
 
   // taxa / vigencia
   const [valorHora, setValorHora] = useState<string>("");
@@ -111,13 +123,31 @@ export default function ColaboradoresPage() {
       const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
       if (tenantErr) throw tenantErr;
       
-      const { data, error } = await supabase
+      const [{ data, error }, { data: vinculosData, error: vinculosError }] = await Promise.all([
+        supabase
         .from("vw_colaboradores_taxa_atual")
         .select("*")
-        .order("nome", { ascending: true });
+        .order("nome", { ascending: true }),
+        supabase.from("colaboradores").select("id,user_id,email"),
+      ]);
 
       if (error) throw error;
-      setRows((data ?? []) as RowView[]);
+      if (vinculosError) throw vinculosError;
+      const vinculos = new Map(
+        (vinculosData ?? []).map((vinculo) => [
+          vinculo.id,
+          {
+            user_id: String((vinculo as { user_id?: string | null }).user_id ?? "").trim() || null,
+            email: String((vinculo as { email?: string | null }).email ?? "").trim() || null,
+          },
+        ])
+      );
+      setRows(
+        (data ?? []).map((row) => ({
+          ...(row as Omit<RowView, "user_id" | "email">),
+          ...(vinculos.get(row.id) ?? { user_id: null, email: null }),
+        })) as RowView[]
+      );
 
       const { data: cargosData } = await supabase
         .from("cargos")
@@ -137,11 +167,62 @@ export default function ColaboradoresPage() {
     carregar();
   }, [carregar]);
 
+  useEffect(() => {
+    let active = true;
+    const carregarUsuarios = async () => {
+      if (!tenantId || !empresaId) {
+        if (active) setUsuariosSistema([]);
+        return;
+      }
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
+        if (!session) throw new Error("Sessão expirada. Faça login novamente.");
+        const response = await fetch(
+          `/api/estoque/usuarios-solicitantes?tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`,
+          { headers: { authorization: `Bearer ${session.access_token}` } }
+        );
+        const payload = (await response.json().catch(() => null)) as {
+          usuarios?: Array<{ auth_user_id?: string | null; nome?: string | null; email?: string | null }>;
+          error?: string;
+        } | null;
+        if (!response.ok) throw new Error(payload?.error ?? "Não foi possível carregar os usuários do sistema.");
+        const usuarios = (payload?.usuarios ?? [])
+          .map((usuario) => ({
+            auth_user_id: String(usuario.auth_user_id ?? "").trim(),
+            nome: String(usuario.nome ?? "").trim(),
+            email: String(usuario.email ?? "").trim(),
+          }))
+          .filter((usuario) => usuario.auth_user_id && usuario.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }));
+        if (active) setUsuariosSistema(usuarios);
+      } catch (cause: unknown) {
+        if (active) setErrorMsg(getErrorMessage(cause, "Não foi possível carregar os usuários do sistema."));
+      }
+    };
+    void carregarUsuarios();
+    return () => {
+      active = false;
+    };
+  }, [empresaId, supabase, tenantId]);
+
+  const sugestaoUsuario = useMemo(
+    () => (userId ? null : sugerirUsuarioPorNome(nome, usuariosSistema)),
+    [nome, userId, usuariosSistema]
+  );
+
+  function selecionarUsuario(usuario: UsuarioResponsavelOption | null) {
+    setUserId(usuario?.auth_user_id ?? null);
+    setEmail(usuario?.email ?? "");
+  }
+
   function abrirNovo() {
     setEditId(null);
     setNome("");
     setCargo("");
     setAtivo(true);
+    selecionarUsuario(null);
 
     setValorHora("");
     setVigenciaInicio(todayISO());
@@ -156,6 +237,8 @@ export default function ColaboradoresPage() {
     setNome(upper(r.nome));
     setCargo(r.cargo ?? "");
     setAtivo(!!r.ativo);
+    setUserId(r.user_id);
+    setEmail(r.email ?? usuariosSistema.find((usuario) => usuario.auth_user_id === r.user_id)?.email ?? "");
 
     setValorHoraOriginal(r.valor_hora ?? null);
 
@@ -268,7 +351,9 @@ export default function ColaboradoresPage() {
             tenant_id: tenantId, 
             nome: upperTrim(nome), 
             cargo: upperOrNull(cargo), 
-            ativo
+            ativo,
+            user_id: userId,
+            email: email.trim() || null,
           }])
           .select("id")
           .single();
@@ -293,7 +378,9 @@ export default function ColaboradoresPage() {
           .update({ 
             nome: upperTrim(nome), 
             cargo: upperOrNull(cargo), 
-            ativo
+            ativo,
+            user_id: userId,
+            email: email.trim() || null,
           })
           .eq("id", editId);
 
@@ -398,6 +485,9 @@ export default function ColaboradoresPage() {
                 Ativo
               </th>
               <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
+                Usuário do sistema
+              </th>
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Ações
               </th>
             </tr>
@@ -420,6 +510,24 @@ export default function ColaboradoresPage() {
                 <td className="px-3 py-2 text-zinc-300">
                   {r.ativo ? "Sim" : "Não"}
                 </td>
+                <td className="px-3 py-2 text-zinc-300">
+                  {(() => {
+                    const usuario = usuariosSistema.find((item) => item.auth_user_id === r.user_id);
+                    const sugestao = !usuario ? sugerirUsuarioPorNome(r.nome, usuariosSistema) : null;
+                    if (usuario) {
+                      return (
+                        <div>
+                          <div>{usuario.nome}</div>
+                          <div className="text-xs text-zinc-500">{usuario.email}</div>
+                        </div>
+                      );
+                    }
+                    if (sugestao) {
+                      return <span className="text-xs text-amber-300">Sugestão: {sugestao.nome}</span>;
+                    }
+                    return "-";
+                  })()}
+                </td>
                 <td className="px-3 py-2 space-x-2">
                   <button
                     onClick={() => abrirEditar(r)}
@@ -440,7 +548,7 @@ export default function ColaboradoresPage() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="px-3 py-4 text-zinc-400 text-center" colSpan={6}>
+                <td className="px-3 py-4 text-zinc-400 text-center" colSpan={7}>
                   Nenhum colaborador cadastrado.
                 </td>
               </tr>
@@ -486,6 +594,40 @@ export default function ColaboradoresPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm text-zinc-300">Vínculo com usuário do sistema</label>
+                <select
+                  value={userId ?? ""}
+                  onChange={(event) => {
+                    const usuario = usuariosSistema.find((item) => item.auth_user_id === event.target.value) ?? null;
+                    selecionarUsuario(usuario);
+                  }}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                  aria-label="Usuário do sistema vinculado"
+                >
+                  <option value="">Sem vínculo</option>
+                  {usuariosSistema.map((usuario) => (
+                    <option key={usuario.auth_user_id} value={usuario.auth_user_id}>
+                      {usuario.nome}{usuario.email ? ` (${usuario.email})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {sugestaoUsuario ? (
+                  <div className="flex items-center justify-between gap-3 rounded border border-amber-700/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+                    <span>Sugestão por nome: {sugestaoUsuario.nome} ({sugestaoUsuario.email})</span>
+                    <button
+                      type="button"
+                      onClick={() => selecionarUsuario(sugestaoUsuario)}
+                      className="shrink-0 underline hover:text-amber-100"
+                    >
+                      Usar sugestão
+                    </button>
+                  </div>
+                ) : null}
+                {userId && email ? <small className="text-zinc-400 block">E-mail do usuário vinculado: {email}</small> : null}
+                <small className="text-zinc-500 block">O vínculo é opcional e pode ser alterado depois.</small>
               </div>
 
               <div className="space-y-1">
@@ -557,4 +699,3 @@ export default function ColaboradoresPage() {
     </div>
   );
 }
-

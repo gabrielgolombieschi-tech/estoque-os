@@ -12,6 +12,7 @@ import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { getOsDetailAccess } from "@/lib/auth/osAccess";
 import { calcHhPedidoTotal, getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
+import ResponsavelAprovacaoSelect from "@/components/os/ResponsavelAprovacaoSelect";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 
@@ -35,6 +36,7 @@ type OS = {
   pedido_compra?: string | null;
   vendedor?: string | null;
   usa_relatorio_hh?: boolean | null;
+  responsavel_aprovacao_id?: string | null;
 };
 
 type OsItemRow = {
@@ -374,6 +376,7 @@ export default function OsDetailPage() {
   const [pedidoCompra, setPedidoCompra] = useState("");
   const [tipoPedido, setTipoPedido] = useState<"servico" | "material">("servico");
   const [vendedor, setVendedor] = useState("");
+  const [responsavelAprovacaoId, setResponsavelAprovacaoId] = useState<string | null>(null);
   const [orcadoInput, setOrcadoInput] = useState("");
   const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
 
@@ -1280,7 +1283,17 @@ export default function OsDetailPage() {
       return;
     }
 
-    setOs(osRow);
+    const { data: responsavelData } = await applyTenantEmpresa(
+      supabase
+        .from("ordens_servico")
+        .select("responsavel_aprovacao_id")
+        .eq("id", osRow.id)
+        .maybeSingle(),
+      effectiveTenantId,
+      effectiveEmpresaId
+    );
+    const responsavelAprovacaoId = String(responsavelData?.responsavel_aprovacao_id ?? "").trim() || null;
+    setOs({ ...osRow, responsavel_aprovacao_id: responsavelAprovacaoId });
     setTemGestao(Boolean(osRow.tem_gestao));
 
     setClienteHabilitaHH(Boolean(payload.cliente_habilita_hh));
@@ -1332,6 +1345,7 @@ export default function OsDetailPage() {
     // Avoid React warning: <select value> must not be null.
     setTipoPedido(os.tipo_pedido === "material" ? "material" : "servico");
     setVendedor(os.vendedor ?? "");
+    setResponsavelAprovacaoId(os.responsavel_aprovacao_id ?? null);
     setOrcadoInput(String(os.orcado ?? ""));
     setUsaRelatorioHH(Boolean(os.usa_relatorio_hh) && hhClientEnabled);
     setEditErr(null);
@@ -1372,6 +1386,7 @@ export default function OsDetailPage() {
         pedido_compra: pedidoCompra.trim() || null,
         tipo_pedido: tipoPedido,
         vendedor: vendedor.trim() || null,
+        responsavel_aprovacao_id: responsavelAprovacaoId,
         orcado: orcadoValor,
         usa_relatorio_hh: usaRelatorioHHFinal,
         atualizado_em: new Date().toISOString(),
@@ -3059,6 +3074,17 @@ export default function OsDetailPage() {
                     <option value="servico">Serviço</option>
                     <option value="material">Material</option>
                   </select>
+                </div>
+
+                <div className="space-y-1">
+                  <ResponsavelAprovacaoSelect
+                    tenantId={effectiveTenantId}
+                    empresaId={effectiveEmpresaId}
+                    value={responsavelAprovacaoId}
+                    onChange={(userId) => setResponsavelAprovacaoId(userId)}
+                    disabled={editSaving || locked}
+                    label="Responsável da OS"
+                  />
                 </div>
 
                 <div className="space-y-1">

@@ -592,6 +592,7 @@ export async function atualizarStatusOrcamento(
     valorFechado?: number | null;
     abrirOs?: boolean;
     importarItensOs?: boolean;
+    responsavelAprovacaoId?: string | null;
   }
 ): Promise<{
   osId: number | null;
@@ -601,13 +602,14 @@ export async function atualizarStatusOrcamento(
   descontoValor: number;
   itensImportados: boolean;
 }> {
-  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_atualizar_status", {
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_atualizar_status_com_responsavel", {
     p_orcamento_id: params.id,
     p_status: params.status,
     p_followup: params.followup,
     p_valor_fechado: params.status === "FECHADO" ? params.valorFechado ?? null : null,
     p_abrir_os: params.abrirOs ?? false,
     p_importar_itens_os: params.importarItensOs ?? false,
+    p_responsavel_aprovacao_id: params.responsavelAprovacaoId ?? null,
   });
 
   if (error) throw error;

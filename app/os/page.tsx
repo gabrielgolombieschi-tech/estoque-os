@@ -10,11 +10,13 @@ import { useSessionReady } from "@/lib/auth/useSessionReady";
 import { getOsListAccess } from "@/lib/auth/osAccess";
 import { getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLancamentosCalc";
 import { fetchFaturadoByOs } from "@/lib/os/faturadoPorOs";
+import ResponsavelAprovacaoSelect from "@/components/os/ResponsavelAprovacaoSelect";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh: boolean };
 
 type UsuarioVendedor = {
   id: string;
+  auth_user_id: string;
   nome: string;
   email: string;
 };
@@ -194,6 +196,7 @@ export default function OsListPage() {
   const [pedidoCompra, setPedidoCompra] = useState("");
   const [tipoPedido, setTipoPedido] = useState<"servico" | "material">("servico");
   const [vendedor, setVendedor] = useState("");
+  const [responsavelAprovacaoId, setResponsavelAprovacaoId] = useState<string | null>(null);
   const [orcado, setOrcado] = useState("");
   const [temGestao, setTemGestao] = useState(false);
   const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
@@ -601,10 +604,11 @@ export default function OsListPage() {
         const next = (Array.isArray(json?.usuarios) ? json.usuarios : [])
           .map((row) => ({
             id: String(row.id ?? ""),
+            auth_user_id: String((row as UsuarioVendedor & { auth_user_id?: string | null }).auth_user_id ?? "").trim(),
             nome: String(row.nome ?? "").trim(),
             email: String(row.email ?? "").trim(),
           }))
-          .filter((row) => row.id && row.nome);
+          .filter((row) => row.id && row.auth_user_id && row.nome);
 
         setUsuariosVendedores(next);
         setUsuariosVendedoresLoading(false);
@@ -714,6 +718,7 @@ export default function OsListPage() {
         usa_relatorio_hh: usaRelatorioHHFinal,
         status: "em_andamento",
         criado_por: userEmail,
+        responsavel_aprovacao_id: responsavelAprovacaoId,
       })
       .select("id")
       .single();
@@ -754,6 +759,7 @@ export default function OsListPage() {
     setPedidoCompra("");
     setTipoPedido("servico");
     setVendedor("");
+    setResponsavelAprovacaoId(null);
     setOrcado("");
     setTemGestao(false);
     setUsaRelatorioHH(false);
@@ -919,6 +925,7 @@ export default function OsListPage() {
                 setClienteId(null);
                 setTipoPedido("servico");
                 setUsaRelatorioHH(true);
+                setResponsavelAprovacaoId(session?.user?.id ?? null);
               }}
               className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
             >
@@ -1148,6 +1155,18 @@ export default function OsListPage() {
                   Selecione um cliente habilitado para HH para criar esta OS por aqui.
                 </div>
               )}
+
+              <div className="space-y-1">
+                <ResponsavelAprovacaoSelect
+                  tenantId={effectiveTenantId}
+                  empresaId={effectiveEmpresaId}
+                  value={responsavelAprovacaoId}
+                  onChange={(userId) => setResponsavelAprovacaoId(userId)}
+                  defaultToCurrentUser
+                  disabled={creating}
+                  label="Responsável da OS"
+                />
+              </div>
 
               <div className="space-y-1">
                 <div className="text-xs text-zinc-400">Vendedor</div>

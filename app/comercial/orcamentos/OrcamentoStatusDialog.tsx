@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMoneyBR, parseMoneyBR } from "@/lib/decimal";
 import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
+import ResponsavelAprovacaoSelect from "@/components/os/ResponsavelAprovacaoSelect";
 
 // ── Gestão types ─────────────────────────────────────────────────────────────
 type GestaoTipo = "projeto" | "execucao";
@@ -52,6 +53,7 @@ export type OrcamentoStatusDialogPayload = {
   valorFechado: number | null;
   abrirOs: boolean;
   importarItensOs: boolean;
+  responsavelAprovacaoId: string | null;
   gestao: GestaoConfig | null;
 };
 
@@ -63,6 +65,8 @@ export type OrcamentoStatusDialogProps = {
   initialValorFechado?: number | string | null;
   valorOrcado?: number | string | null;
   canOpenOs?: boolean;
+  tenantId?: string | null;
+  empresaId?: string | null;
   onCancel: () => void;
   onSave: (payload: OrcamentoStatusDialogPayload) => Promise<void>;
 };
@@ -152,6 +156,8 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     initialValorFechado = null,
     valorOrcado = null,
     canOpenOs = false,
+    tenantId = null,
+    empresaId = null,
     onCancel,
     onSave,
   } = props;
@@ -165,6 +171,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   const [lostReasonOtherText, setLostReasonOtherText] = useState(() => initialLostReason.freeText);
   const [abrirOs, setAbrirOs] = useState(false);
   const [importarItensOs, setImportarItensOs] = useState(false);
+  const [responsavelAprovacaoId, setResponsavelAprovacaoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Gestão state
@@ -186,6 +193,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
       setAbrirOs(canOpenOs);
       setGestaoHabilitado(true);
       setGestaoItems(makeDefaultGestaoItems());
+      setResponsavelAprovacaoId(null);
     }
   }, [open, canOpenOs]);
 
@@ -258,6 +266,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
       valorFechado: valorFechadoNumero,
       abrirOs: status === "FECHADO" ? abrirOs : false,
       importarItensOs: status === "FECHADO" ? abrirOs && importarItensOs : false,
+      responsavelAprovacaoId: status === "FECHADO" && abrirOs ? responsavelAprovacaoId : null,
       gestao:
         status === "FECHADO" && abrirOs
           ? { habilitarGestao: gestaoHabilitado, items: gestaoItems }
@@ -406,16 +415,28 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
                       <span>Abrir OS</span>
                     </label>
                     {abrirOs ? (
-                      <label className="flex items-center gap-2 pl-6 text-sm text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={importarItensOs}
-                          onChange={(e) => setImportarItensOs(e.target.checked)}
+                      <>
+                        <label className="flex items-center gap-2 pl-6 text-sm text-zinc-300">
+                          <input
+                            type="checkbox"
+                            checked={importarItensOs}
+                            onChange={(e) => setImportarItensOs(e.target.checked)}
+                            disabled={loading}
+                            className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
+                          />
+                          <span>Importar os itens do orcamento para OS</span>
+                        </label>
+                        <ResponsavelAprovacaoSelect
+                          tenantId={tenantId}
+                          empresaId={empresaId}
+                          value={responsavelAprovacaoId}
+                          onChange={(userId) => setResponsavelAprovacaoId(userId)}
+                          defaultToCurrentUser
                           disabled={loading}
-                          className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
+                          label="Responsável da OS"
+                          className="pl-6"
                         />
-                        <span>Importar os itens do orcamento para OS</span>
-                      </label>
+                      </>
                     ) : null}
                   </div>
                 ) : null}

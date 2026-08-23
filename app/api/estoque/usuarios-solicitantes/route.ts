@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
 
     const usuarios = candidates
       .filter((u) => allowedAuth.has(u.auth_user_id!))
-      .map((u) => ({ id: u.id, nome: u.nome, email: u.email }))
+      .map((u) => ({ id: u.id, auth_user_id: u.auth_user_id!, nome: u.nome, email: u.email }))
       .sort((a, b) => {
         const byNome = a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
         if (byNome !== 0) return byNome;
@@ -110,4 +110,3 @@ export async function GET(req: NextRequest) {
     return jerr(500, message);
   }
 }
-
