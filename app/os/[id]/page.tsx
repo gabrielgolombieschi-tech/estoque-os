@@ -1153,10 +1153,10 @@ export default function OsDetailPage() {
     let total = 0;
     if (hhEnabled) {
       // HH: 19% sobre o total de HH
-      // OS Fiado com cliente HH tambem pode ter materiais/despesas lancados (mutuamente
-      // exclusivo apenas fora do Fiado); somam-se ao total nesse caso.
+      // O total operacional segue a mesma composição exibida na tela:
+      // material + mão de obra + despesas + impostos.
       impostos = hhPedidoTotal * 0.15;
-      total = hhPedidoTotal + materiais + despesas + maoObra;
+      total = materiais + despesas + maoObra + impostos;
     } else if (tipoPedidoAtual === "material") {
       // Tem material: 21% sobre material
       impostos = orcado * 0.27;

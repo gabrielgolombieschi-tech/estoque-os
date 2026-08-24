@@ -41,15 +41,9 @@ type OS = {
   usa_relatorio_hh?: boolean | null;
 };
 
-type OsItemTotalRow = {
+type CustoOperacionalRow = {
   os_id: number;
-  valor_total: number | null;
-  itens?: { tipo?: string | null } | { tipo?: string | null }[] | null;
-};
-
-type MaoObraRow = {
-  os_id: number;
-  custo_mao_obra: number | null;
+  custo_total: number | null;
 };
 
 type HHTotalRow = {
@@ -183,8 +177,7 @@ export default function OsListPage() {
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("todos_sem_hh");
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
-  const [maoObraPorOs, setMaoObraPorOs] = useState<Record<number, number>>({});
-  const [materiaisPorOs, setMateriaisPorOs] = useState<Record<number, number>>({});
+  const [custoPorOs, setCustoPorOs] = useState<Record<number, number>>({});
   const [hhTotalPorOs, setHhTotalPorOs] = useState<Record<number, number>>({});
   const [hhPedidoPorOs, setHhPedidoPorOs] = useState<Record<number, number>>({});
   const [faturadoPorOs, setFaturadoPorOs] = useState<Record<number, number>>({});
@@ -352,8 +345,7 @@ export default function OsListPage() {
     const reqId = ++osReqIdRef.current;
     setLoading(true);
     setErr(null);
-    setMaoObraPorOs({});
-    setMateriaisPorOs({});
+    setCustoPorOs({});
     setHhTotalPorOs({});
     setHhPedidoPorOs({});
     logDebug("[OS] load:start", {
@@ -417,44 +409,28 @@ export default function OsListPage() {
 
     const osIds = osList.map((r) => r.id);
     if (osIds.length > 0) {
-      const { data: itensData } = await applyTenantEmpresa(
-        supabase.from("os_itens").select("os_id,valor_total,itens(tipo)").in("os_id", osIds),
-        effectiveTenantId,
-        effectiveEmpresaId
-      );
+      const { data: custosData, error: custosError } = await supabase.rpc("get_os_lista_custos_operacionais", {
+        p_tenant_id: effectiveTenantId,
+        p_empresa_id: effectiveEmpresaId,
+        p_os_ids: osIds,
+      });
       if (reqId !== osReqIdRef.current) return;
 
-      const materiaisTotals: Record<number, number> = {};
-      const itemRows = (itensData ?? []) as OsItemTotalRow[];
-      itemRows.forEach((row) => {
+      if (custosError) {
+        logDebug("[OS] load:costs-error", { error: custosError.message, reqId });
+        setErr("Não foi possível calcular o custo operacional das ordens de serviço. Tente atualizar a tela.");
+        setLoading(false);
+        return;
+      }
+
+      const custosTotals: Record<number, number> = {};
+      const custosRows = (custosData ?? []) as CustoOperacionalRow[];
+      custosRows.forEach((row) => {
         const osId = Number(row.os_id);
         if (!Number.isFinite(osId)) return;
-        const valor = Number(row.valor_total ?? 0);
-        const itensTipo = Array.isArray(row.itens)
-          ? row.itens[0]?.tipo
-          : row.itens?.tipo;
-        if (itensTipo === "produto") {
-          const prevMat = materiaisTotals[osId] ?? 0;
-          materiaisTotals[osId] = prevMat + valor;
-        }
+        custosTotals[osId] = Number(row.custo_total ?? 0);
       });
-      setMateriaisPorOs(materiaisTotals);
-
-      // View sem tenant/empresa; não aplicar scope para evitar erro de coluna inexistente.
-      const { data: maoData } = await supabase
-        .from("vw_custo_mao_obra_os")
-        .select("os_id,custo_mao_obra")
-        .in("os_id", osIds);
-      if (reqId !== osReqIdRef.current) return;
-
-      const maoTotals: Record<number, number> = {};
-      const maoRows = (maoData ?? []) as MaoObraRow[];
-      maoRows.forEach((row) => {
-        const osId = Number(row.os_id);
-        if (!Number.isFinite(osId)) return;
-        maoTotals[osId] = Number(row.custo_mao_obra ?? 0);
-      });
-      setMaoObraPorOs(maoTotals);
+      setCustoPorOs(custosTotals);
 
       // Totais de HH por OS
       const { data: hhData } = await supabase.from("vw_hh_total_os").select("os_id,total_hh").in("os_id", osIds);
@@ -1021,23 +997,11 @@ export default function OsListPage() {
                 {(() => {
                   // HH deve depender da flag da OS; alguns perfis podem não ter SELECT em `clientes`.
                   const hhEnabled = Boolean(r.usa_relatorio_hh);
-                  const materiais = materiaisPorOs[r.id] ?? 0;
-                  const maoObraExtra = maoObraPorOs[r.id] ?? 0;
+                  const custo = custoPorOs[r.id] ?? 0;
                   const hhBruto = hhTotalPorOs[r.id] ?? 0;
                   const hhPedido = hhPedidoPorOs[r.id] ?? hhBruto;
                   const pedidoCadastro = Number(r.orcado ?? 0);
-                  const tipoPedidoAtual = r.tipo_pedido === "material" ? "material" : "servico";
 
-                  let impostos = 0;
-                  if (hhEnabled) {
-                    impostos = hhPedido * 0.15;
-                  } else if (tipoPedidoAtual === "material") {
-                    impostos = pedidoCadastro * 0.27;
-                  } else {
-                    impostos = pedidoCadastro * 0.15;
-                  }
-
-                  const custo = materiais + maoObraExtra + impostos;
                   const pedidoCalculado = hhEnabled ? hhPedido : pedidoCadastro;
                   const pedido = hideValorPedido ? 0 : pedidoCalculado;
 
