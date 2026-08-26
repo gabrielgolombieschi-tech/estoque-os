@@ -1666,6 +1666,14 @@ export default function OsDetailPage() {
     setBusy(true);
     setErr(null);
 
+    if (newStatus === "em_andamento") {
+      const { error } = await supabase.rpc("os_reabrir_correcao", { p_os_id: os.id });
+      setBusy(false);
+      if (error) return setErr(error.message);
+      await load();
+      return;
+    }
+
     const patch: { status: OS["status"]; atualizado_em: string; data_conclusao?: string } = {
       status: newStatus,
       atualizado_em: new Date().toISOString(),
@@ -1693,7 +1701,7 @@ export default function OsDetailPage() {
     setOkMsg(null);
 
     const osIdNumber = Number(os.id);
-    const { error } = await supabase.rpc("concluir_os", { os_id_param: osIdNumber });
+    const { error } = await supabase.rpc("os_concluir", { p_os_id: osIdNumber });
 
     setIsConcluding(false);
 

@@ -147,15 +147,6 @@ function isTimeRangeValid(e1: number, s1: number, e2: number, s2: number): boole
   return true;
 }
 
-function isMissingColumnError(err: unknown): boolean {
-  const message =
-    err && typeof err === "object" && "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
-  return (
-    /column\s+"?\w+"?\s+does not exist/i.test(message) ||
-    /could not find the '\w+' column/i.test(message)
-  );
-}
-
 function normalizeApontamentoRow(raw: unknown): ApontamentoRow {
   const r = raw as Record<string, unknown>;
   const entrada_1 = (r.entrada_1 ?? r.hora_entrada_1 ?? null) as string | null;
@@ -766,38 +757,29 @@ export default function ApontamentosPage() {
   }, [data, horasText, tipoByCodigo, tipoHoraTouched]);
 
   async function updateApontamentoWithTimes(id: string, payloadBase: Record<string, unknown>, times: { e1: string; s1: string; e2: string; s2: string }) {
-    const tryPayload = {
+    const payload = {
       ...payloadBase,
       hora_entrada_1: times.e1,
       hora_saida_1: times.s1,
       hora_entrada_2: times.e2,
       hora_saida_2: times.s2,
     };
-    if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant/empresa não definido.");
-    const first = await applyTenantEmpresa(
-      supabase.from("apontamentos_horas").update(tryPayload).eq("id", id),
-      effectiveTenantId,
-      effectiveEmpresaId
-    );
-    if (!first.error) return;
-    if (!isMissingColumnError(first.error)) throw first.error;
+    await atualizarApontamentoFluxo(id, payload);
+  }
 
-    const fallbackPayload = {
-      ...payloadBase,
-      entrada_1: times.e1,
-      saida_1: times.s1,
-      entrada_2: times.e2,
-      saida_2: times.s2,
-    };
-    const second = await applyTenantEmpresa(
-      supabase
-        .from("apontamentos_horas")
-        .update(fallbackPayload as Record<string, unknown>)
-        .eq("id", id),
-      effectiveTenantId,
-      effectiveEmpresaId
-    );
-    if (second.error) throw second.error;
+  async function atualizarApontamentoFluxo(id: string, dados: Record<string, unknown>) {
+    const { error } = await supabase.rpc("web_atualizar_apontamento_horas", {
+      p_apontamento_id: id,
+      p_dados: dados,
+    });
+    if (error) throw error;
+  }
+
+  async function criarApontamentosFluxo(lancamentos: Record<string, unknown>[]) {
+    const { error } = await supabase.rpc("web_criar_apontamentos_horas", {
+      p_lancamentos: lancamentos,
+    });
+    if (error) throw error;
   }
 
   async function autoEnableGestao(osId: number, colaboradorId: string) {
@@ -917,15 +899,12 @@ export default function ApontamentosPage() {
           setDuplicateDialog({ existing: conflito, incomingHoras: horas });
           return;
         }
-        const { error } = await applyTenantEmpresa(
-          supabase
-            .from("apontamentos_horas")
-            .update({ data, tipo_hora_id: tipoFinal, horas, descricao: descricao.trim() || null })
-            .eq("id", formEditing.id),
-          effectiveTenantId,
-          effectiveEmpresaId
-        );
-        if (error) throw error;
+        await atualizarApontamentoFluxo(formEditing.id, {
+          data,
+          tipo_hora_id: tipoFinal,
+          horas,
+          descricao: descricao.trim() || null,
+        });
         setFormEditing(null);
         setHorasText("");
         setDescricao("");
@@ -964,12 +943,7 @@ export default function ApontamentosPage() {
         return;
       }
 
-      const { error } = await applyTenantEmpresa(
-        supabase.from("apontamentos_horas").insert(payloads),
-        effectiveTenantId,
-        effectiveEmpresaId
-      );
-      if (error) throw error;
+      await criarApontamentosFluxo(payloads);
 
       // Auto-habilita gestão com base no cargo do colaborador (silencioso)
       await autoEnableGestao(osDbId, colabId);
@@ -1082,12 +1056,11 @@ export default function ApontamentosPage() {
         };
         return policyItems.map((item) => ({ ...payloadBase, ...item }));
       });
-      const { error } = await applyTenantEmpresa(
-        supabase.from("apontamentos_horas").insert(payloads),
-        effectiveTenantId,
-        effectiveEmpresaId
-      );
-      if (error) throw new Error(`Nada foi salvo para a equipe. ${getErrorMessage(error, "Erro ao gravar os apontamentos.")}`);
+      try {
+        await criarApontamentosFluxo(payloads);
+      } catch (error: unknown) {
+        throw new Error(`Nada foi salvo para a equipe. ${getErrorMessage(error, "Erro ao gravar os apontamentos.")}`);
+      }
       await Promise.all(colaboradoresSelecionados.map((colaboradorId) => autoEnableGestao(osDbId, colaboradorId)));
 
       setHorasText("");
@@ -1114,11 +1087,9 @@ export default function ApontamentosPage() {
     setLoading(true);
     try {
       if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant/empresa não definido.");
-      const { error } = await applyTenantEmpresa(
-        supabase.from("apontamentos_horas").delete().eq("id", apontamento.id),
-        effectiveTenantId,
-        effectiveEmpresaId
-      );
+      const { error } = await supabase.rpc("web_excluir_apontamento_horas", {
+        p_apontamento_id: apontamento.id,
+      });
       if (error) throw error;
       await carregarApontamentos();
       setMsg("Apontamento excluído.");
@@ -1206,15 +1177,7 @@ export default function ApontamentosPage() {
           hora_entrada_2: null,
           hora_saida_2: null,
         };
-        const { error } = await applyTenantEmpresa(
-          supabase
-            .from("apontamentos_horas")
-            .update(payload as Record<string, unknown>)
-            .eq("id", editing.id),
-          effectiveTenantId,
-          effectiveEmpresaId
-        );
-        if (error) throw error;
+        await atualizarApontamentoFluxo(editing.id, payload);
       } else {
         const tipoFinal = editTipoHoraId || normalTipoId;
         if (!tipoFinal) throw new Error("Tipos de horas ainda não carregaram.");
