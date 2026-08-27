@@ -180,7 +180,7 @@ export default function ColaboradoresPage() {
         const session = sessionData.session;
         if (!session) throw new Error("Sessão expirada. Faça login novamente.");
         const response = await fetch(
-          `/api/estoque/usuarios-solicitantes?tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`,
+          `/api/colaboradores/usuarios-vinculaveis?tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`,
           { headers: { authorization: `Bearer ${session.access_token}` } }
         );
         const payload = (await response.json().catch(() => null)) as {
