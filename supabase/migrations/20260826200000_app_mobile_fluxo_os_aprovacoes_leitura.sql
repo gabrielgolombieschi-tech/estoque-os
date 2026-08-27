@@ -39,6 +39,7 @@ declare
   v_empresa_id uuid := public.current_empresa_id();
   v_status text := lower(coalesce(nullif(btrim(p_status_fluxo), ''), 'em_andamento'));
   v_papel text;
+  v_colaborador_id uuid;
 begin
   if v_auth_uid is null or v_tenant_id is null or v_empresa_id is null
      or not public.has_active_empresa_access(v_tenant_id, v_empresa_id) then
@@ -55,8 +56,26 @@ begin
   where u.auth_user_id = v_auth_uid and u.ativo and u.deleted_at is null
     and ue.empresa_id = v_empresa_id and ue.ativo and ue.deleted_at is null
   limit 1;
+  if v_papel is null then
+    raise exception 'Não foi possível identificar o papel deste usuário na empresa.';
+  end if;
 
-  return query
+  select c.id into v_colaborador_id
+  from public.colaboradores c
+  where c.user_id = v_auth_uid
+    and c.tenant_id = v_tenant_id
+    and c.empresa_id = v_empresa_id
+    and c.ativo;
+
+  if upper(v_papel) = 'APONTAMENTO_RH' and v_colaborador_id is null then
+    raise exception 'Seu usuário de apontamento não está vinculado a um colaborador ativo nesta empresa.';
+  end if;
+
+  -- Mantém o cálculo de margem da RPC existente quando há colaborador vinculado.
+  -- Para perfis administrativos sem colaborador, a alternativa abaixo evita que a
+  -- leitura da OS falhe por uma vinculação que não é necessária ao papel.
+  if v_colaborador_id is not null then
+    return query
   select
     base.id,
     base.numero_os,
@@ -74,9 +93,19 @@ begin
     os.garantia_motivo,
     os.faturado_em,
     os.faturada_presumida_legado,
-    upper(coalesce(v_papel, '')) in ('ADMIN', 'DIRETOR', 'COORDENACAO'),
-    upper(coalesce(v_papel, '')) = 'FINANCEIRO',
-    upper(coalesce(v_papel, '')) in ('COORDENACAO', 'FINANCEIRO'),
+    upper(v_papel) in ('ADMIN', 'DIRETOR', 'COORDENACAO'),
+    upper(v_papel) = 'FINANCEIRO' and exists (
+      select 1 from f.documento_fiscal documento
+      where documento.tenant_id = v_tenant_id and documento.empresa_id = v_empresa_id and documento.os_id_import = os.id
+        and documento.operacao = 'SAIDA' and documento.deleted_at is null
+        and ((upper(coalesce(documento.modelo, '')) = 'NFSE' and upper(coalesce(documento.nfse_status, '')) = 'EMITIDA')
+          or (upper(coalesce(documento.modelo, '')) <> 'NFSE' and (nullif(upper(btrim(coalesce(documento.nfe_status, ''))), '') is null or upper(coalesce(documento.nfe_status, '')) = 'EMITIDA')))
+    ),
+    upper(v_papel) in ('COORDENACAO', 'FINANCEIRO')
+      and os.status_fluxo = 'faturada'
+      and not coalesce(os.faturada_presumida_legado, false)
+      and os.faturado_em is not null
+      and os.faturado_em >= now() - interval '6 months',
     upper(coalesce(v_papel, '')) = 'COORDENACAO'
   from public.app_listar_os(true, p_busca) as base
   join public.ordens_servico as os
@@ -96,6 +125,63 @@ begin
     when 'concluida' then os.status_fluxo in ('concluida', 'concluida_garantia')
     when 'faturada' then os.status_fluxo = 'faturada'
   end
+  order by os.data_abertura desc nulls last, os.id desc;
+    return;
+  end if;
+
+  return query
+  select
+    os.id,
+    os.numero_os,
+    os.os_num,
+    os.cliente_nome,
+    os.descricao_servico,
+    os.status,
+    os.status_fluxo,
+    os.usa_relatorio_hh,
+    coalesce(horas.total_horas, 0)::numeric,
+    coalesce(nullif(perfil_responsavel.nome, ''), nullif(usuario_responsavel.nome, ''), nullif(colaborador_responsavel.nome, ''))::text,
+    null::text,
+    (os.responsavel_aprovacao_id is not distinct from v_auth_uid),
+    coalesce(pendencias.quantidade, 0)::integer,
+    os.garantia_motivo,
+    os.faturado_em,
+    os.faturada_presumida_legado,
+    upper(v_papel) in ('ADMIN', 'DIRETOR', 'COORDENACAO'),
+    upper(v_papel) = 'FINANCEIRO' and exists (
+      select 1 from f.documento_fiscal documento
+      where documento.tenant_id = v_tenant_id and documento.empresa_id = v_empresa_id and documento.os_id_import = os.id
+        and documento.operacao = 'SAIDA' and documento.deleted_at is null
+        and ((upper(coalesce(documento.modelo, '')) = 'NFSE' and upper(coalesce(documento.nfse_status, '')) = 'EMITIDA')
+          or (upper(coalesce(documento.modelo, '')) <> 'NFSE' and (nullif(upper(btrim(coalesce(documento.nfe_status, ''))), '') is null or upper(coalesce(documento.nfe_status, '')) = 'EMITIDA')))
+    ),
+    upper(v_papel) in ('COORDENACAO', 'FINANCEIRO')
+      and os.status_fluxo = 'faturada'
+      and not coalesce(os.faturada_presumida_legado, false)
+      and os.faturado_em is not null
+      and os.faturado_em >= now() - interval '6 months',
+    upper(v_papel) = 'COORDENACAO'
+  from public.ordens_servico os
+  left join lateral (
+    select sum(ah.horas)::numeric as total_horas
+    from public.apontamentos_horas ah
+    where ah.os_id = os.id and ah.tenant_id = v_tenant_id and ah.empresa_id = v_empresa_id
+  ) horas on true
+  left join lateral (
+    select count(*)::integer as quantidade
+    from public.apontamentos_horas ah
+    where ah.os_id = os.id and ah.tenant_id = v_tenant_id and ah.empresa_id = v_empresa_id and ah.status_aprovacao = 'pendente'
+  ) pendencias on true
+  left join public.profiles perfil_responsavel on perfil_responsavel.id = os.responsavel_aprovacao_id
+  left join a.usuario usuario_responsavel on usuario_responsavel.auth_user_id = os.responsavel_aprovacao_id and usuario_responsavel.ativo and usuario_responsavel.deleted_at is null
+  left join public.colaboradores colaborador_responsavel on colaborador_responsavel.user_id = os.responsavel_aprovacao_id and colaborador_responsavel.tenant_id = v_tenant_id and colaborador_responsavel.empresa_id = v_empresa_id
+  where os.tenant_id = v_tenant_id and os.empresa_id = v_empresa_id
+    and (p_busca is null or os.numero_os ilike '%' || btrim(p_busca) || '%' or os.os_num::text ilike '%' || btrim(p_busca) || '%' or os.cliente_nome ilike '%' || btrim(p_busca) || '%')
+    and case v_status
+      when 'em_andamento' then os.status_fluxo in ('em_andamento', 'em_andamento_garantia')
+      when 'concluida' then os.status_fluxo in ('concluida', 'concluida_garantia')
+      when 'faturada' then os.status_fluxo = 'faturada'
+    end
   order by os.data_abertura desc nulls last, os.id desc;
 end;
 $$;
@@ -140,13 +226,6 @@ begin
     raise exception 'Autenticação e contexto de empresa são obrigatórios.';
   end if;
 
-  select c.id into v_colaborador_id
-  from public.colaboradores c
-  where c.user_id = v_auth_uid and c.tenant_id = v_tenant_id and c.empresa_id = v_empresa_id and c.ativo;
-  if v_colaborador_id is null then
-    raise exception 'Seu usuário não está vinculado a um colaborador ativo nesta empresa.';
-  end if;
-
   select ue.papel into v_papel
   from a.usuario u
   join a.usuario_empresa ue on ue.usuario_id = u.id
@@ -155,6 +234,15 @@ begin
   limit 1;
   if v_papel is null then
     raise exception 'Não foi possível identificar o papel deste usuário na empresa.';
+  end if;
+
+  if upper(v_papel) = 'APONTAMENTO_RH' then
+    select c.id into v_colaborador_id
+    from public.colaboradores c
+    where c.user_id = v_auth_uid and c.tenant_id = v_tenant_id and c.empresa_id = v_empresa_id and c.ativo;
+    if v_colaborador_id is null then
+      raise exception 'Seu usuário de apontamento não está vinculado a um colaborador ativo nesta empresa.';
+    end if;
   end if;
 
   return query
@@ -168,7 +256,7 @@ begin
   left join public.tipos_horas th on th.id = ah.tipo_hora_id and th.tenant_id = v_tenant_id
   where ah.os_id = p_os_id
     and ah.tenant_id = v_tenant_id and ah.empresa_id = v_empresa_id
-    and (upper(v_papel) <> 'APONTADOR' or ah.colaborador_id = v_colaborador_id)
+    and (upper(v_papel) <> 'APONTAMENTO_RH' or ah.colaborador_id = v_colaborador_id)
   order by ah.data desc, ah.criado_em desc, ah.id desc;
 end;
 $$;
