@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { parseDecimalBR } from "../../lib/decimal";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
@@ -365,6 +365,8 @@ export default function ItensClient({
 
   const [rows, setRows] = useState<Item[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [fornecedoresLoading, setFornecedoresLoading] = useState(false);
+  const [fornecedoresError, setFornecedoresError] = useState<string | null>(null);
   const [motivos, setMotivos] = useState<Array<{ id: string; codigo: string; nome: string }>>([]);
   const [motivosLoading, setMotivosLoading] = useState(false);
   const [supportsMotivoCompra, setSupportsMotivoCompra] = useState(true);
@@ -441,20 +443,26 @@ export default function ItensClient({
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  async function loadFornecedores() {
+  const loadFornecedores = useCallback(async () => {
     if (tenantEmpresaLoading) return;
     if (!tenantId || !empresaId) return;
-    const { data, error } = await supabase
-      .from("fornecedores")
-      .select("id,nome,ativo")
-      .eq("tenant_id", tenantId)
-      .eq("empresa_id", empresaId)
-      .eq("ativo", true)
-      .order("nome", { ascending: true })
-      .limit(500);
-
-    if (!error) setFornecedores((data ?? []) as unknown as Fornecedor[]);
-  }
+    setFornecedoresLoading(true);
+    setFornecedoresError(null);
+    try {
+      const { data, error } = await supabase.rpc("list_fornecedores_cadastro_itens", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+      });
+      if (error) throw error;
+      setFornecedores((data ?? []) as unknown as Fornecedor[]);
+    } catch (error: unknown) {
+      console.error("fornecedores", error);
+      setFornecedores([]);
+      setFornecedoresError("Não foi possível carregar os fornecedores. Feche e abra esta janela novamente.");
+    } finally {
+      setFornecedoresLoading(false);
+    }
+  }, [empresaId, supabase, tenantEmpresaLoading, tenantId]);
 
   async function loadMotivos() {
     if (tenantEmpresaLoading) return;
@@ -631,9 +639,13 @@ export default function ItensClient({
   }
 
   useEffect(() => {
-    void loadFornecedores();
-    if (supportsMotivoCompra) void loadMotivos();
-  }, [tenantId, empresaId, tenantEmpresaLoading]);
+    const handle = window.setTimeout(() => {
+      void loadFornecedores();
+      if (supportsMotivoCompra) void loadMotivos();
+    }, 0);
+
+    return () => window.clearTimeout(handle);
+  }, [empresaId, loadFornecedores, supportsMotivoCompra, tenantEmpresaLoading, tenantId]);
 
   // If the page previously fell back due to missing column, keep rechecking periodically.
   // This lets the UI recover automatically after the migration is applied.
@@ -718,6 +730,7 @@ export default function ItensClient({
       return;
     }
     setShowCadastroAgente(true);
+    void loadFornecedores();
   }
 
   function openEditorForItem(r: Item, nextEditingId: number) {
@@ -2014,6 +2027,8 @@ export default function ItensClient({
         open={showCadastroAgente}
         onClose={() => setShowCadastroAgente(false)}
         fornecedores={fornecedores}
+        fornecedoresLoading={fornecedoresLoading}
+        fornecedoresError={fornecedoresError}
         onCreated={async (_itemId, mensagem) => {
           setErr(null);
           setOk(mensagem);

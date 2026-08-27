@@ -141,6 +141,8 @@ export type CadastroItemAgenteModalProps = {
   open: boolean;
   onClose: () => void;
   fornecedores: Array<{ id: number; nome: string; ativo: boolean }>;
+  fornecedoresLoading?: boolean;
+  fornecedoresError?: string | null;
   /** Chamado depois de o servidor confirmar a criação, para a grade se recarregar. */
   onCreated: (itemId: number, mensagem: string) => void | Promise<void>;
 };
@@ -451,6 +453,8 @@ export default function CadastroItemAgenteModal({
   open,
   onClose,
   fornecedores,
+  fornecedoresLoading = false,
+  fornecedoresError = null,
   onCreated,
 }: CadastroItemAgenteModalProps) {
   const [fase, setFase] = useState<Fase>("entrada");
@@ -745,10 +749,13 @@ export default function CadastroItemAgenteModal({
               Informe o fornecedor já cadastrado e o código. <strong>Quantidade é opcional: deixe 0 para apenas cadastrar, ou informe um valor para lançar esse estoque inicial ao confirmar.</strong>
             </div>
 
+            {fornecedoresLoading && <div className="text-sm text-zinc-400">Carregando fornecedores...</div>}
+            {fornecedoresError && <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{fornecedoresError}</div>}
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <label>
                 <span className={FIELD_LABEL_CLASS}>Fornecedor *</span>
-                <select className={INPUT_CLASS} value={fornecedorId} onChange={(event) => setFornecedorId(event.target.value)} disabled={busy === "sugerir"}>
+                <select className={INPUT_CLASS} value={fornecedorId} onChange={(event) => setFornecedorId(event.target.value)} disabled={busy === "sugerir" || fornecedoresLoading}>
                   <option value="">Selecione</option>
                   {fornecedoresAtivos.map((fornecedor) => (
                     <option key={fornecedor.id} value={fornecedor.id}>
