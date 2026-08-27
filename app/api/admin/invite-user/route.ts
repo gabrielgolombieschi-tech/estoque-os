@@ -134,6 +134,7 @@ const EMPRESA_ROLES = new Set([
   "TECNICO",
   "APONTAMENTO_RH",
   "PAINEL_TV",
+  "APONTADOR",
 ]);
 
 export async function POST(req: NextRequest) {

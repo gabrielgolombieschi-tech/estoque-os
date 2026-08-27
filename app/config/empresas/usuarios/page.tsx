@@ -23,7 +23,8 @@ type EmpresaRole =
   | "ALMOXARIFADO"
   | "TECNICO"
   | "APONTAMENTO_RH"
-  | "PAINEL_TV";
+  | "PAINEL_TV"
+  | "APONTADOR";
 
 type UsuarioEmpresaRow = {
   id: string;
@@ -49,6 +50,7 @@ const roleOptions: EmpresaRole[] = [
   "TECNICO",
   "APONTAMENTO_RH",
   "PAINEL_TV",
+  "APONTADOR",
 ];
 
 function getErrorMessage(err: unknown, fallback: string) {

@@ -39,7 +39,8 @@ type EmpresaRole =
   | "ALMOXARIFADO"
   | "TECNICO"
   | "APONTAMENTO_RH"
-  | "PAINEL_TV";
+  | "PAINEL_TV"
+  | "APONTADOR";
 
 type EditUserForm = {
   nome: string;
@@ -69,6 +70,7 @@ const EMPRESA_ROLES: EmpresaRole[] = [
   "TECNICO",
   "APONTAMENTO_RH",
   "PAINEL_TV",
+  "APONTADOR",
 ];
 
 const FOCUSABLE_SELECTOR =
@@ -128,7 +130,7 @@ function getFriendlyRoleError(err: unknown): string | null {
     return "Nome, telefone, e-mail ou status global não podem ser alterados porque esse usuário também pertence a outro tenant ativo.";
   }
   if (t.includes("invalid_empresa_role")) {
-    return "Papel da empresa inválido. Use: ADMIN, DIRETOR, FINANCEIRO, FATURAMENTO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV.";
+    return "Papel da empresa inválido. Use: ADMIN, DIRETOR, FINANCEIRO, FATURAMENTO, COORDENACAO, COMPRAS, ALMOXARIFADO, TECNICO, APONTAMENTO_RH, PAINEL_TV, APONTADOR.";
   }
   return null;
 }
