@@ -633,7 +633,7 @@ export default function ItensClient({
   useEffect(() => {
     void loadFornecedores();
     if (supportsMotivoCompra) void loadMotivos();
-  }, [tenantId, tenantEmpresaLoading]);
+  }, [tenantId, empresaId, tenantEmpresaLoading]);
 
   // If the page previously fell back due to missing column, keep rechecking periodically.
   // This lets the UI recover automatically after the migration is applied.
