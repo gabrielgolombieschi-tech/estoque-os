@@ -21,28 +21,16 @@ function toNum(v: unknown, def = 0): number {
   return Number.isFinite(n) ? n : def;
 }
 
-type ItemLookupBaseRow = {
+type ItemLookupSearchRow = {
   id: number;
   codigo_interno: string | null;
   nome: string | null;
   unidade_medida: string | null;
   preco_unitario: number | null;
-  fornecedores?: { nome?: string | null } | Array<{ nome?: string | null }> | null;
-};
-
-type FiscalItemRow = {
-  item_id: number;
-  aliq_ipi: number | null;
-};
-
-type MovRow = {
-  item_id: number;
-  data_movimentacao: string;
-};
-
-type EstoqueRow = {
-  item_id: number;
-  quantidade_atual: number | null;
+  aliquota_ipi: number | null;
+  fornecedor: string | null;
+  ultima_entrada: string | null;
+  estoque_atual: number | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -85,106 +73,36 @@ export async function GET(req: NextRequest) {
   const fornecedorId = fornecedorIdRaw ? Number(fornecedorIdRaw) : null;
 
   if (!codigo && (nome || fornecedor)) {
-    const baseSelect = fornecedor
-      ? "id,codigo_interno,nome,unidade_medida,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk!inner(nome)"
-      : "id,codigo_interno,nome,unidade_medida,preco_unitario,fornecedores!itens_tenant_empresa_fornecedor_fk(nome)";
-
-    let query = db
-      .from("itens")
-      .select(baseSelect)
-      .eq("tenant_id", ctx.tenantId)
-      .eq("empresa_id", ctx.empresaId)
-      .eq("ativo", true);
-
-    if (nome) {
-      const termo = nome.replace(/[%]/g, "").trim();
-      if (termo) {
-        query = query.or(`nome.ilike.%${termo}%,codigo_interno.ilike.%${termo}%`);
-      }
-    }
-
-    if (fornecedor) {
-      query = query.ilike("fornecedores.nome", `%${fornecedor}%`);
-    }
-
-    const { data, error } = await query.order("nome", { ascending: true }).limit(100);
+    // A RPC valida o acesso uma vez e consulta saldo/ultima entrada no banco.
+    // A consulta direta por nome + fornecedor reavaliava RLS para cada linha e
+    // podia ultrapassar o statement_timeout em empresas com muitos itens.
+    const { data, error } = await supabase.rpc("search_os_itens", {
+      p_tenant_id: ctx.tenantId,
+      p_empresa_id: ctx.empresaId,
+      p_term: nome || null,
+      p_fornecedor: fornecedor || null,
+      p_despesa_only: false,
+      p_limit: 100,
+    });
     if (error) return jsonError(400, error.message);
 
-    const baseRows = (data ?? []) as ItemLookupBaseRow[];
-    const itemIds = baseRows
-      .map((row) => Number(row.id))
-      .filter((id) => Number.isFinite(id) && id > 0);
-
-    const ultimaEntradaPorItem = new Map<number, string>();
-    const saldoPorItem = new Map<number, number>();
-    const aliquotaIpiPorItem = new Map<number, number>();
-
-    if (itemIds.length > 0) {
-      const fiscalDb = supabaseAdmin();
-      const [movRes, estoqueRes, fiscalRes] = await Promise.all([
-        db
-          .from("movimentacoes")
-          .select("item_id,data_movimentacao")
-          .eq("tenant_id", ctx.tenantId)
-          .eq("empresa_id", ctx.empresaId)
-          .eq("tipo", "entrada")
-          .in("item_id", itemIds)
-          .order("data_movimentacao", { ascending: false }),
-        db
-          .from("estoque")
-          .select("item_id,quantidade_atual")
-          .eq("tenant_id", ctx.tenantId)
-          .eq("empresa_id", ctx.empresaId)
-          .in("item_id", itemIds),
-        fiscalDb
-          .from("fiscal_itens")
-          .select("item_id,aliq_ipi")
-          .eq("tenant_id", ctx.tenantId)
-          .eq("empresa_id", ctx.empresaId)
-          .in("item_id", itemIds),
-      ]);
-
-      if (!movRes.error) {
-        ((movRes.data ?? []) as MovRow[]).forEach((row) => {
-          if (!ultimaEntradaPorItem.has(row.item_id)) {
-            ultimaEntradaPorItem.set(row.item_id, row.data_movimentacao);
-          }
-        });
-      }
-
-      const { data: estoqueData, error: estoqueErr } = estoqueRes;
-      if (!estoqueErr) {
-        ((estoqueData ?? []) as EstoqueRow[]).forEach((row) => {
-          saldoPorItem.set(row.item_id, Number(row.quantidade_atual ?? 0));
-        });
-      }
-
-      if (!fiscalRes.error) {
-        ((fiscalRes.data ?? []) as FiscalItemRow[]).forEach((row) => {
-          aliquotaIpiPorItem.set(row.item_id, Math.max(0, toNum(row.aliq_ipi, 0)));
-        });
-      }
-    }
+    const baseRows = (data ?? []) as ItemLookupSearchRow[];
 
     return Response.json({
       data: baseRows.map((row) => {
-        const fornecedorNome = Array.isArray(row.fornecedores)
-          ? String(row.fornecedores[0]?.nome ?? "").trim() || null
-          : String(row.fornecedores?.nome ?? "").trim() || null;
-
         const precoUnitario = Math.max(0, toNum(row.preco_unitario, 0));
-        const aliquotaIpi = aliquotaIpiPorItem.get(Number(row.id)) ?? 0;
+        const aliquotaIpi = Math.max(0, toNum(row.aliquota_ipi, 0));
         return {
           id: Number(row.id),
           codigo_interno: String(row.codigo_interno ?? "").trim() || null,
           nome: String(row.nome ?? "").trim() || null,
           unidade: String(row.unidade_medida ?? "UN").trim() || "UN",
-          fornecedor: fornecedorNome,
-          ultima_entrada: ultimaEntradaPorItem.get(Number(row.id)) ?? null,
+          fornecedor: String(row.fornecedor ?? "").trim() || null,
+          ultima_entrada: row.ultima_entrada ?? null,
           preco_unitario: precoUnitario,
           aliquota_ipi: aliquotaIpi,
           valor_ipi_unitario: Math.round(precoUnitario * aliquotaIpi * 100) / 10000,
-          estoque_atual: saldoPorItem.has(Number(row.id)) ? saldoPorItem.get(Number(row.id)) ?? 0 : null,
+          estoque_atual: row.estoque_atual == null ? null : toNum(row.estoque_atual, 0),
         };
       }),
     });

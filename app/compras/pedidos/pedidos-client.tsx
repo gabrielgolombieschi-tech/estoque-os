@@ -2432,21 +2432,36 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                     <div className={`grid grid-cols-1 gap-2 ${selectedPedido.destacar_ipi ? "md:grid-cols-8" : "md:grid-cols-7"}`}>
                       <label className="space-y-1">
                         <div className="text-[11px] text-zinc-400">Codigo existente</div>
-                        <input
-                          className="w-full px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50"
-                          placeholder="Codigo existente"
-                          value={manualCodigo}
-                          disabled={!canEditPedidoItems || manualCodigoLookupBusy}
-                          onChange={(e) => {
-                            setManualCodigo(e.target.value);
-                            setManualValorIpi("");
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key !== "Enter") return;
-                            e.preventDefault();
-                            abrirLookupCodigo();
-                          }}
-                        />
+                        <div className="flex gap-1">
+                          <input
+                            className="min-w-0 flex-1 px-2 py-2 rounded border border-zinc-800 bg-zinc-950 disabled:opacity-50"
+                            placeholder="Codigo existente"
+                            value={manualCodigo}
+                            disabled={!canEditPedidoItems || manualCodigoLookupBusy}
+                            onChange={(e) => {
+                              setManualCodigo(e.target.value);
+                              setManualValorIpi("");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter") return;
+                              e.preventDefault();
+                              void buscarCodigoExistente(e.currentTarget.value).then(() => {
+                                manualQtdInputRef.current?.focus();
+                                manualQtdInputRef.current?.select();
+                              });
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={abrirLookupCodigo}
+                            disabled={!canEditPedidoItems || manualCodigoLookupBusy}
+                            className="px-2 rounded border border-zinc-800 bg-zinc-900 text-xs hover:bg-zinc-800 disabled:opacity-50"
+                            title="Localizar item por nome, codigo ou fornecedor"
+                            aria-label="Localizar item"
+                          >
+                            Buscar
+                          </button>
+                        </div>
                       </label>
                       <label className="space-y-1 md:col-span-2">
                         <div className="text-[11px] text-zinc-400">Descricao do item (manual)</div>
@@ -2521,7 +2536,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                       </label>
                     </div>
                     <div className="text-xs text-zinc-500">
-                      No campo codigo, pode informar o codigo interno (ex.: 199.19240) ou o ID do item (ex.: 1733).
+                      No campo codigo, informe o codigo interno (ex.: 199.19240) ou o ID do item (ex.: 1733) e pressione Enter para localizar. Use Buscar para pesquisar por nome ou fornecedor.
                     </div>
                     <button className="px-3 py-2 rounded border border-zinc-800 disabled:opacity-50" onClick={() => void addManualItem()} disabled={busy || !canEditPedidoItems}>
                       Adicionar item
