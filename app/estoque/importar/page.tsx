@@ -426,6 +426,19 @@ function normalizeCnpj(doc: string | null): string | null {
   return onlyDigits.length === 14 ? onlyDigits : null;
 }
 
+function formatCnpjBR(doc: string | null | undefined): string {
+  const onlyDigits = String(doc ?? "").replace(/\D/g, "");
+  if (onlyDigits.length !== 14) return doc || "—";
+  return onlyDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+}
+
+function compactAccessKey(key: string | null | undefined): string {
+  const normalized = String(key ?? "").replace(/\s/g, "");
+  if (!normalized) return "—";
+  if (normalized.length <= 24) return normalized;
+  return `${normalized.slice(0, 16)} … ${normalized.slice(-10)}`;
+}
+
 function toDateOnly(value: string | null | undefined): string | null {
   const v = (value ?? "").trim();
   if (!v) return null;
@@ -625,6 +638,9 @@ export default function ImportarXmlPage() {
 
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"importar" | "notas">("importar");
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
   const [pagamentoModo, setPagamentoModo] = useState<PagamentoModoImportacao>("seguir_nota");
   const [pagamentoParcelasQtd, setPagamentoParcelasQtd] = useState(1);
@@ -633,6 +649,17 @@ export default function ImportarXmlPage() {
 
   const [fornecedorCnpjBase, setFornecedorCnpjBase] = useState<string | null>(null);
   const [fornecedorIdBase, setFornecedorIdBase] = useState<number | null>(null);
+
+  useEffect(() => {
+    const syncTabFromUrl = () => {
+      const tab = new URLSearchParams(window.location.search).get("aba");
+      setActiveTab(tab === "notas" ? "notas" : "importar");
+    };
+
+    syncTabFromUrl();
+    window.addEventListener("popstate", syncTabFromUrl);
+    return () => window.removeEventListener("popstate", syncTabFromUrl);
+  }, []);
 
   // Fonte de verdade durante parsing (evita race/stale setState ao ler múltiplos XMLs)
   const fornecedorCnpjBaseRef = useRef<string | null>(null);
@@ -1316,6 +1343,7 @@ export default function ImportarXmlPage() {
 
   useEffect(() => {
     if (osEnabled) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- limpa a seleção quando a finalidade deixa de aceitar OS.
     clearOsSelection();
   }, [clearOsSelection, osEnabled]);
 
@@ -1323,6 +1351,7 @@ export default function ImportarXmlPage() {
     if (!osEnabled) return;
     const trimmed = osNumero.trim();
     if (!trimmed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mantém os dados derivados da busca sincronizados com o campo vazio.
       setOsId(null);
       setOsLabel(null);
       setOsLoading(false);
@@ -1585,6 +1614,7 @@ export default function ImportarXmlPage() {
     if (!motivoCompraId) return;
     const ok = motivos.some((m) => m.id === motivoCompraId);
     if (ok) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- remove um padrão incompatível assim que a lista aplicável é carregada.
     setMotivoCompraId("");
     setDefaultsToast({
       kind: "warn",
@@ -2699,6 +2729,7 @@ export default function ImportarXmlPage() {
 
   useEffect(() => {
     if (jobs.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- a seleção depende diretamente da fila atual.
       setSelectedJobId(null);
       return;
     }
@@ -2724,6 +2755,7 @@ export default function ImportarXmlPage() {
 
   useEffect(() => {
     if (!showPagamentoModal || pagamentoModo !== "faturado") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- recalcula o rascunho quando a configuração de parcelas muda.
     setFaturadoParcelasForm((prev) =>
       buildFaturadoDrafts(
         pagamentoParcelasQtd,
@@ -2828,6 +2860,7 @@ export default function ImportarXmlPage() {
     const hasXmlSelecionado = Boolean(selectedJob?.nfeInfo);
 
     if (!tenantId || !empresaId || !fornecedorFinalId || !hasXmlSelecionado || importBusy || isReading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpa resultados derivados quando o contexto de análise deixa de existir.
       setPedidosAnalyzerComItens([]);
       setPedidosAnalyzerError(null);
       setPedidosAnalyzerLoading(false);
@@ -3112,36 +3145,54 @@ export default function ImportarXmlPage() {
     isReading;
 
   const renderNfeResumo = (nfe: ParsedNfe, itemCount: number) => (
-    <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-      <div>
-        <div className="text-xs text-zinc-500">Chave</div>
-        <div className="font-mono text-zinc-200 break-all">{nfe.chave ?? "-"}</div>
-      </div>
-      <div>
-        <div className="text-xs text-zinc-500">Numero/serie</div>
-        <div className="text-zinc-200">
-          {nfe.numero ?? "-"}/{nfe.serie ?? "-"}
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-4 pb-4">
+        <div>
+          <div className="font-semibold text-zinc-100">{nfe.emitente ?? "Emitente não informado"}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            <span>CNPJ {formatCnpjBR(nfe.cnpjEmitente)}</span>
+            <span className={`h-1.5 w-1.5 rounded-full ${fornecedorResolvido ? "bg-emerald-400" : "bg-amber-400"}`} />
+            <span>{fornecedorResolvido ? "fornecedor cadastrado" : "fornecedor não cadastrado"}</span>
+            {fornecedorResolvido && <span>· contas a pagar automático {fornecedorGerarContasAuto ? "ativado" : "desativado"}</span>}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">NF-e nº / série</div>
+          <div className="mt-1 font-mono text-base text-zinc-200">{nfe.numero ?? "—"}<span className="text-zinc-600">/</span>{nfe.serie ?? "—"}</div>
         </div>
       </div>
-      <div>
-        <div className="text-xs text-zinc-500">Emitente</div>
-        <div className="text-zinc-200">{nfe.emitente ?? "-"}</div>
-      </div>
-      <div>
-        <div className="text-xs text-zinc-500">CNPJ</div>
-        <div className="font-mono text-zinc-200">{nfe.cnpjEmitente ?? "-"}</div>
-      </div>
-      <div>
-        <div className="text-xs text-zinc-500">Data emissao</div>
-        <div className="text-zinc-200">{formatDateBR(nfe.dataEmissao) || "-"}</div>
-      </div>
-      <div>
-        <div className="text-xs text-zinc-500">Valor total</div>
-        <div className="text-right tabular-nums text-zinc-200 sm:text-left">R$ {formatMoneyBR(Number(nfe.valorTotal ?? 0))}</div>
-      </div>
-      <div>
-        <div className="text-xs text-zinc-500">Itens</div>
-        <div className="text-right tabular-nums text-zinc-200 sm:text-left">{itemCount}</div>
+      <div className="grid gap-4 border-y border-zinc-800 py-4 sm:grid-cols-2 lg:grid-cols-[0.8fr_0.5fr_0.9fr_1.8fr]">
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">Emissão</div>
+          <div className="mt-1 text-sm tabular-nums text-zinc-300">{formatDateBR(nfe.dataEmissao) || "—"}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">Itens</div>
+          <div className="mt-1 text-sm tabular-nums text-zinc-300">{itemCount}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">Valor total</div>
+          <div className="mt-1 text-sm font-semibold tabular-nums text-zinc-100">R$ {formatMoneyBR(Number(nfe.valorTotal ?? 0))}</div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">Chave de acesso</div>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <span className="truncate font-mono text-xs text-zinc-500" title={nfe.chave ?? undefined}>{compactAccessKey(nfe.chave)}</span>
+            {nfe.chave && (
+              <button
+                type="button"
+                onClick={() => void (async () => {
+                  await copyTextToClipboard(nfe.chave!);
+                  setCopiedKey(true);
+                  window.setTimeout(() => setCopiedKey(false), 1800);
+                })()}
+                className="shrink-0 text-xs text-sky-400 hover:text-sky-300"
+              >
+                {copiedKey ? "copiada" : "copiar"}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -3533,33 +3584,81 @@ export default function ImportarXmlPage() {
   const hasRecentFilters =
     recentUseDateFilter || recentFilterEmitente.trim() !== "" || recentFilterNumero.trim() !== "";
 
+  const importPendingLabels: string[] = [];
+  if (!hasSelectedOkJobs) importPendingLabels.push("XML válido");
+  if (!finalidadeSelecionada) importPendingLabels.push("finalidade");
+  if (!motivoSelecionadoOk) importPendingLabels.push("classificação");
+  if (!solicitanteSelecionado) importPendingLabels.push("solicitante");
+  if (!fornecedorResolvido) importPendingLabels.push("fornecedor");
+  if (permiteVincularItens && itensFaltantes) {
+    importPendingLabels.push(`${loteMissing.length} ${loteMissing.length === 1 ? "item sem cadastro" : "itens sem cadastro"}`);
+  }
+  if (bloqueiaPedidoCompativelNaoAplicado) importPendingLabels.push("pedido sugerido");
+  if (bloqueiaVinculoManualPedido) importPendingLabels.push("vínculo de item do pedido");
+  if (bloqueiaDivergenciaPedido) importPendingLabels.push("divergência no pedido");
+  if (!tenantId || !empresaId) importPendingLabels.push("contexto da empresa");
+
+  const checklistOkCount = Object.values(requisitosChecklist).filter(Boolean).length;
+
+  const changeTab = (tab: "importar" | "notas") => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(window.location.search);
+    if (tab === "notas") params.set("aba", "notas");
+    else params.delete("aba");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+    <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-4 pb-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Importar NF-e (XML)</h1>
-          <p className="mt-1 text-sm text-zinc-400">Selecione um XML de NF-e para validar e preparar a entrada no estoque.</p>
+          <div className="mb-2 text-xs text-zinc-500">Estoque <span className="px-1 text-zinc-700">›</span> Entradas</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Importar NF-e</h1>
+          <p className="mt-1 text-sm text-zinc-400">Leia o XML, confirme o destino e importe a entrada no estoque.</p>
+        </div>
+        <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-950 p-1" role="tablist" aria-label="Seções da importação">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "importar"}
+            onClick={() => changeTab("importar")}
+            className={`rounded-md px-4 py-2 text-sm transition ${activeTab === "importar" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-400 hover:text-zinc-200"}`}
+          >
+            Importar
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "notas"}
+            onClick={() => changeTab("notas")}
+            className={`rounded-md px-4 py-2 text-sm transition ${activeTab === "notas" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-400 hover:text-zinc-200"}`}
+          >
+            Notas importadas
+          </button>
         </div>
       </div>
 
-      {shouldShowImportForm && (
-      <div className="order-3 border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-4">
+      {activeTab === "importar" && shouldShowImportForm && (
+      <div className="order-4 rounded-xl border border-zinc-800 bg-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
+        <div className="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">Destino da entrada</div>
+          {(fornecedorFinalidadePadrao || fornecedorMotivoPadraoId) && (
+            <div className="text-xs text-zinc-500">preenchido pelo padrão do fornecedor</div>
+          )}
+        </div>
         {!canImport && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-            Voce nao tem permissao para importar NF-e. Voce ainda pode ler XML e cadastrar fornecedor/itens.
+          <div className="mx-4 mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+            Você não tem permissão para importar NF-e. Ainda é possível ler XML e cadastrar fornecedor ou itens.
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="border border-zinc-800 rounded-lg p-3 space-y-3">
-            <div>
-              <div className="text-lg font-semibold">Finalidade e vínculo</div>
-              <div className="text-sm text-zinc-400">Dados operacionais para cadastrar itens e importar a NF.</div>
-            </div>
+        <div>
+          <div>
 
-            <div className="grid gap-4">
-              <label className="flex flex-col gap-1">
-                <span className="text-sm text-zinc-200">Finalidade</span>
+            <div className="grid gap-4 p-4 lg:grid-cols-6">
+              <label className="flex flex-col gap-1 lg:col-span-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">Finalidade</span>
                 <select
                   value={finalidadeLote}
                   onChange={(e) => {
@@ -3586,8 +3685,8 @@ export default function ImportarXmlPage() {
                 </select>
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="text-sm text-zinc-200">Classificacao / Motivo</span>
+              <label className="flex flex-col gap-1 lg:col-span-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">Classificação / motivo</span>
                 <MotivoCompraCombobox
                   motivos={motivos}
                   value={motivoCompraId}
@@ -3628,12 +3727,12 @@ export default function ImportarXmlPage() {
                 )}
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="text-sm text-zinc-200">Solicitante (Usuario) (obrigatorio)</span>
+              <label className="flex flex-col gap-1 lg:col-span-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">Solicitante <span className="normal-case tracking-normal text-amber-300">obrigatório</span></span>
                 <select
                   value={solicitanteUsuarioId}
                   onChange={(e) => setSolicitanteUsuarioId(e.target.value)}
-                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
+                  className={`rounded-md border px-3 py-2 text-zinc-100 ${!solicitanteSelecionado ? "border-amber-500/60 bg-amber-500/10" : "border-zinc-700 bg-zinc-900"}`}
                   disabled={usuariosSolicitantesLoading || importBusy || isReading}
                 >
                   <option value="">Selecione...</option>
@@ -3652,8 +3751,8 @@ export default function ImportarXmlPage() {
                 )}
               </label>
 
-              <label className="flex flex-col gap-1">
-                <span className="text-sm text-zinc-200">Pedido de compra (opcional)</span>
+              <label className="flex flex-col gap-1 lg:col-span-3">
+                <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">Pedido de compra <span className="normal-case tracking-normal">opcional</span></span>
                 <div className="flex items-center gap-2">
                   <input
                     value={pedidoCompraRef}
@@ -3669,7 +3768,7 @@ export default function ImportarXmlPage() {
                       openPedidoLookup((e.currentTarget as HTMLInputElement).value);
                     }}
                     className="flex-1 px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    placeholder="Codigo(s) do pedido ou UUID (Enter abre busca)"
+                    placeholder="Código ou UUID · vários separados por vírgula"
                     disabled={importBusy || isReading}
                     autoComplete="off"
                     enterKeyHint="search"
@@ -3680,19 +3779,23 @@ export default function ImportarXmlPage() {
                     className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
                     disabled={importBusy || isReading}
                   >
-                    Buscar
+                    <span aria-hidden="true">⌕</span><span className="sr-only">Buscar pedido</span>
                   </button>
                 </div>
                 <div className="text-xs text-zinc-400">
-                  Se informado, a importacao tenta vincular itens ao pedido. Para NF com itens de mais de um pedido, separe os pedidos por virgula.
+                  {pedidosAnalyzerLoading
+                    ? "Buscando pedidos compatíveis…"
+                    : hasPedidoSuggestion
+                      ? "Há pedido compatível sugerido no diagnóstico."
+                      : "Nenhum pedido aberto tem itens claramente compatíveis com esta NF."}
                 </div>
               </label>
 
               {osEnabled && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm text-zinc-200">
-                    OS (opcional)
-                    <span className="text-xs text-zinc-500"> — apenas para Matéria-prima</span>
+                <label className="flex flex-col gap-1 lg:col-span-3">
+                  <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">
+                    Ordem de serviço
+                    <span className="normal-case tracking-normal"> opcional · só matéria-prima</span>
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -3711,7 +3814,7 @@ export default function ImportarXmlPage() {
                             openOsLookup();
                           }
                         }}
-                        placeholder="Numero da OS (Enter abre busca)"
+                        placeholder="Número da OS"
                         className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
                         disabled={importBusy || isReading}
                         autoComplete="off"
@@ -3731,7 +3834,7 @@ export default function ImportarXmlPage() {
                       className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm"
                       disabled={importBusy || isReading}
                     >
-                      Buscar
+                      <span aria-hidden="true">⌕</span><span className="sr-only">Buscar OS</span>
                     </button>
 
                     <button
@@ -3746,27 +3849,28 @@ export default function ImportarXmlPage() {
                       disabled={importBusy || isReading || (!osNumero && osId === null)}
                       title="Limpar OS"
                     >
-                      Limpar
+                      <span aria-hidden="true">×</span><span className="sr-only">Limpar OS</span>
                     </button>
                   </div>
 
                   {osLabel && <div className="text-xs text-zinc-400">{osLabel}</div>}
                   {osError && <div className="text-xs text-red-400">{osError}</div>}
+                  {!osLabel && !osError && <div className="text-xs text-zinc-500">Vincula a entrada direto à OS, sem passar pelo saldo livre.</div>}
                 </label>
               )}
 
               {fornecedorResolvido && (
-                <div className="text-sm text-zinc-200">
-                  <span className="text-zinc-400">Fornecedor identificado:</span>{" "}
-                  <span className="font-medium">{fornecedorNome ?? "—"}</span>
-                  <span className="text-zinc-500"> — contas a pagar automático: </span>
-                  <span className="font-medium">{fornecedorGerarContasAuto ? "Sim" : "Não"}</span>
+                <div className="text-sm text-zinc-400 lg:col-span-6">
+                  <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Fornecedor identificado: <span className="font-medium text-zinc-200">{fornecedorNome ?? "—"}</span>
+                  <span className="text-zinc-600"> · </span>
+                  contas a pagar automático: <span className="font-medium text-zinc-200">{fornecedorGerarContasAuto ? "Sim" : "Não"}</span>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="border border-zinc-800 rounded-lg p-3">
+          <div className="hidden" aria-hidden="true">
             <div className="text-sm font-semibold text-zinc-100">Requisitos</div>
             <div className="mt-2 space-y-1 text-sm">
               <div className={requisitosChecklist.xml ? "text-emerald-300" : "text-amber-300"}>
@@ -3814,51 +3918,29 @@ export default function ImportarXmlPage() {
           </div>
         </div>
 
-        {shouldShowAssistant && (
-          <>
-            <XmlImportAssistantPanel
-              result={xmlImportAnalysis}
-              currentPedidoRef={pedidoCompraRef}
-              currentSolicitanteUsuarioId={solicitanteUsuarioId}
-              currentFinalidade={finalidadeLote || null}
-              currentMotivoId={motivoCompraId || null}
-              currentOsId={osId}
-              hasManualPedidoItems={pedidoSugeridoPossuiItensManuais}
-              onApplyPedidoSuggestion={aplicarPedidoSugerido}
-              onApplySolicitanteSuggestion={aplicarSolicitanteSugerido}
-              onApplyOsSuggestion={aplicarOsSugerida}
-              onApplyFinalidadeSuggestion={aplicarFinalidadeSugerida}
-              onApplyMotivoSuggestion={aplicarMotivoSugerido}
-              onCopyDiagnostics={copiarDiagnosticoAssistente}
-              onOpenPedidoItemLink={abrirVinculoItemPedido}
-            />
-            {pedidosAnalyzerLoading && (
-              <div className="text-xs text-zinc-500">Buscando pedidos candidatos para o assistente...</div>
-            )}
-            {pedidosAnalyzerError && <div className="text-xs text-amber-300">{pedidosAnalyzerError}</div>}
-            {assistantCopyMessage && (
-              <div className={assistantCopyMessage.kind === "ok" ? "text-xs text-emerald-300" : "text-xs text-amber-300"}>
-                {assistantCopyMessage.message}
-              </div>
-            )}
-          </>
-        )}
       </div>
       )}
 
-      <div className="order-2 border border-zinc-800 rounded-xl bg-zinc-950">
-        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-zinc-800">
-          <div>
-            <div className="text-lg font-semibold">Selecionar XML</div>
-            <div className="text-sm text-zinc-400">Escolha um ou mais arquivos XML de NF-e para leitura.</div>
-          </div>
+      {activeTab === "importar" && <div className={hasAnyXmlJob ? "contents" : "order-2 rounded-xl border border-zinc-800 bg-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.14)]"}>
+        <div className={hasAnyXmlJob ? "order-1 flex items-center justify-between gap-2 rounded-t-xl border border-zinc-800 bg-zinc-950 px-4 py-3" : "flex items-center justify-between gap-2 border-b border-zinc-800 px-4 py-3"}>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">Nota fiscal</div>
 
           <div className="flex items-center gap-2">
+            {hasAnyXmlJob && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-700 hover:text-zinc-100"
+                disabled={isReading || importBusy}
+              >
+                Trocar XML
+              </button>
+            )}
             {hasXmlStateToClear && (
               <button
                 type="button"
                 onClick={clearQueue}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-700 hover:text-zinc-100"
                 disabled={isReading || importBusy}
               >
                 Limpar
@@ -3867,151 +3949,117 @@ export default function ImportarXmlPage() {
           </div>
         </div>
 
-        <div className="px-5 py-4 space-y-3">
-          <div className="space-y-2">
-            <div className="flex gap-2 items-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xml"
-                multiple
-                aria-label="Selecionar arquivos XML"
-                title="Selecionar arquivos XML"
-                onChange={handleFile}
-                className="text-sm text-zinc-200"
-                disabled={isReading || importBusy}
-              />
+        <div className={hasAnyXmlJob ? "contents" : "flex flex-col gap-3 p-4"}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xml"
+            multiple
+            aria-label="Selecionar arquivos XML"
+            title="Selecionar arquivos XML"
+            onChange={handleFile}
+            className="sr-only"
+            disabled={isReading || importBusy}
+          />
 
-              <button
-                onClick={() => void parseXmlAndCheck()}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                disabled={isReading || ((selectedFiles.length === 0 && !selectedFile) && !xmlText) || importBusy}
-              >
-                {isReading ? "Lendo..." : "Ler XML"}
-              </button>
-            </div>
-          </div>
-
-          {selectedFiles.length > 0 && !hasAnyXmlJob && !isReading && (
-            <div className="text-xs text-zinc-400">
-              {selectedFiles.length === 1 ? selectedFiles[0]?.name : `${selectedFiles.length} arquivos selecionados`}
-            </div>
-          )}
-          {isReading && <div className="text-sm text-zinc-300">Lendo XML...</div>}
-          {importErr && <div className="text-sm text-red-400">{importErr}</div>}
-          {importWarn && <div className="text-sm text-amber-300">{importWarn}</div>}
-          {importOk && <div className="text-sm text-emerald-300">{importOk}</div>}
-
-          {shouldShowQueue && (
-          <div className="border border-zinc-800 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold text-zinc-100">Fila de XMLs</div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400">{jobs.length} arquivos na fila</span>
+          {!hasAnyXmlJob && (
+            <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 px-6 py-8 text-center">
+              <div className="mb-3 grid h-11 w-11 place-items-center rounded-full border border-zinc-700 bg-zinc-900 text-xl text-zinc-400" aria-hidden="true">↥</div>
+              <div className="font-medium text-zinc-100">Selecione os arquivos XML da NF-e</div>
+              <div className="mt-1 max-w-md text-sm text-zinc-500">Você pode escolher um ou vários arquivos do mesmo fornecedor para validar em lote.</div>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
                 <button
-                  onClick={clearQueue}
-                  disabled={jobs.length === 0}
-                  className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 hover:bg-zinc-800"
+                  disabled={isReading || importBusy}
                 >
-                  Limpar fila
+                  Escolher arquivos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void parseXmlAndCheck()}
+                  className="rounded-md border border-zinc-800 bg-transparent px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100 disabled:opacity-50"
+                  disabled={isReading || ((selectedFiles.length === 0 && !selectedFile) && !xmlText) || importBusy}
+                >
+                  {isReading ? "Lendo…" : "Ler XML"}
                 </button>
               </div>
             </div>
+          )}
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-zinc-900/60 text-zinc-200 sticky top-0">
-                  <tr>
-                    <th className="px-2 py-1 text-center">Ver</th>
-                    <th className="px-2 py-1 text-center">Importar</th>
-                    <th className="px-2 py-1 text-left">Chave</th>
-                    <th className="px-2 py-1 text-left">Numero/Serie</th>
-                    <th className="px-2 py-1 text-left">Emissao</th>
-                    <th className="px-2 py-1 text-left">Emitente</th>
-                    <th className="px-2 py-1 text-left">Status</th>
-                    <th className="px-2 py-1 text-center">Acoes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {jobs.map((j) => (
-                    <tr key={j.id} className="hover:bg-zinc-900/40">
-                      <td className="px-2 py-1 text-center">
-                        <input
-                          type="radio"
-                          name="job-view"
-                          aria-label={`Selecionar XML ${j.nfeInfo?.chave ?? j.id}`}
-                          title={`Selecionar XML ${j.nfeInfo?.chave ?? j.id}`}
-                          checked={selectedJobId === j.id}
-                          onChange={() => selectJob(j.id)}
-                        />
-                      </td>
-                      <td className="px-2 py-1 text-center">
-                        <input
-                          type="checkbox"
-                          aria-label={`Marcar XML ${j.nfeInfo?.chave ?? j.id} para importar`}
-                          title={`Marcar XML ${j.nfeInfo?.chave ?? j.id} para importar`}
-                          checked={j.selected}
-                          onChange={() => toggleJobSelected(j.id)}
-                        />
-                      </td>
-                      <td className="px-2 py-1">{j.nfeInfo?.chave ?? "?"}</td>
-                      <td className="px-2 py-1">
-                        {j.nfeInfo?.numero ?? "?"}/{j.nfeInfo?.serie ?? "?"}
-                      </td>
-                      <td className="px-2 py-1">{j.nfeInfo?.dataEmissao ?? "?"}</td>
-                      <td className="px-2 py-1">
-                        {j.nfeInfo?.emitente ?? "?"}
-                        {j.nfeInfo?.cnpjEmitente ? ` (${j.nfeInfo.cnpjEmitente})` : ""}
-                      </td>
-                      <td className="px-2 py-1">
-                        {j.status === "ok" && <span className="text-emerald-300">OK</span>}
-                        {j.status === "erro" && <span className="text-red-400">Erro {j.error ? `- ${j.error}` : ""}</span>}
-                        {j.status === "importando" && <span className="text-amber-300">Importando...</span>}
-                        {j.status === "importado" && (
-                          <span className="text-emerald-300">{j.error ? `Importada (${j.error})` : "Importada"}</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-1 text-center">
-                        <button
-                          onClick={() => removeJob(j.id)}
-                          className="px-2 py-1 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                        >
-                          Remover
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {jobs.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="px-2 py-3 text-center text-zinc-400">
-                        Nenhum XML na fila.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {selectedFiles.length > 0 && !hasAnyXmlJob && !isReading && (
+            <div className="order-2 text-xs text-zinc-400">
+              {selectedFiles.length === 1 ? selectedFiles[0]?.name : `${selectedFiles.length} arquivos selecionados`}
             </div>
-          </div>
+          )}
+          {isReading && <div className="order-2 text-sm text-zinc-300">Lendo XML…</div>}
+          {importErr && <div className="order-2 text-sm text-red-400">{importErr}</div>}
+          {importWarn && <div className="order-2 text-sm text-amber-300">{importWarn}</div>}
+          {importOk && <div className="order-2 text-sm text-emerald-300">{importOk}</div>}
+
+          {shouldShowQueue && (
+          <div className="order-3 flex flex-wrap items-center gap-2 rounded-b-xl border border-t-0 border-zinc-800 bg-zinc-950 px-4 py-3">
+            <div className="mr-1 text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-600">Fila</div>
+            {jobs.map((job) => {
+              const keyLabel = job.nfeInfo?.chave ? `…${job.nfeInfo.chave.slice(-6)}` : job.fileName;
+              const selectedForView = selectedJobId === job.id;
+              return (
+                <div
+                  key={job.id}
+                  className={`inline-flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${selectedForView ? "border-zinc-600 bg-zinc-800 text-zinc-100" : "border-zinc-800 bg-zinc-900/70 text-zinc-400"}`}
+                  title={`${job.fileName} · ${job.nfeInfo?.numero ?? "?"}/${job.nfeInfo?.serie ?? "?"}`}
+                >
+                  <input
+                    type="radio"
+                    name="job-view"
+                    aria-label={`Visualizar XML ${job.nfeInfo?.chave ?? job.id}`}
+                    checked={selectedForView}
+                    onChange={() => selectJob(job.id)}
+                    className="accent-sky-400"
+                  />
+                  <input
+                    type="checkbox"
+                    aria-label={`Marcar XML ${job.nfeInfo?.chave ?? job.id} para importar`}
+                    checked={job.selected}
+                    onChange={() => toggleJobSelected(job.id)}
+                    className="accent-emerald-400"
+                  />
+                  <span className="font-mono">{keyLabel}</span>
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${job.status === "erro" ? "bg-red-400" : job.status === "importando" ? "bg-amber-400" : "bg-emerald-400"}`}
+                    title={job.error ?? job.status}
+                  />
+                  <button type="button" onClick={() => removeJob(job.id)} className="text-zinc-600 hover:text-zinc-100" aria-label={`Remover ${job.fileName} da fila`}>×</button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-1.5 text-xs text-zinc-400 hover:border-zinc-700 hover:text-zinc-100"
+              disabled={isReading || importBusy}
+            >
+              + Adicionar XML
+            </button>
+            <span className="ml-auto text-[10px] text-zinc-600">todas as marcadas entram na importação</span>
+            </div>
           )}
 
           {hasSelectedNfeInfo && selectedJob?.nfeInfo && (
             <div
               className={
                 selectedJobAlreadyImported
-                  ? "border border-amber-500/40 rounded-lg bg-amber-500/10 p-3 space-y-3"
+                  ? "order-2 border-x border-amber-500/40 bg-amber-500/10 p-4 space-y-3"
                   : selectedJobHasError
-                    ? "border border-red-500/40 rounded-lg bg-red-500/10 p-3 space-y-3"
-                    : "border border-zinc-800 rounded-lg p-3 space-y-3"
+                    ? "order-2 border-x border-red-500/40 bg-red-500/10 p-4 space-y-3"
+                    : "order-2 border-x border-zinc-800 bg-zinc-950 px-4 pt-4"
               }
             >
               <div>
-                <div className="font-semibold text-zinc-100">
-                  {selectedJobAlreadyImported
-                    ? "Esta NF-e já foi importada."
-                    : selectedJobHasError
-                      ? "XML com erro"
-                      : "Dados básicos da NF"}
-                </div>
+                {(selectedJobAlreadyImported || selectedJobHasError) && (
+                  <div className="font-semibold text-zinc-100">{selectedJobAlreadyImported ? "Esta NF-e já foi importada." : "XML com erro"}</div>
+                )}
                 {selectedJobAlreadyImported && (
                   <div className="text-sm text-amber-200">
                     NF-e já importada. Escolha outro XML ou abra a nota na lista de notas importadas.
@@ -4026,7 +4074,7 @@ export default function ImportarXmlPage() {
           )}
 
           {shouldShowImportForm && !fornecedorResolvido && (
-            <div className="border border-zinc-800 rounded-lg p-3 text-sm text-zinc-300 space-y-2">
+            <div className="order-2 border-x border-amber-500/35 bg-amber-500/5 px-4 pb-4 text-sm text-zinc-300 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-semibold text-zinc-100">Fornecedor</div>
@@ -4066,24 +4114,27 @@ export default function ImportarXmlPage() {
           )}
 
           {shouldShowItens && (
-          <div className="border border-zinc-800 rounded-lg p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold text-zinc-100">Itens da NF</div>
-              <div className="text-xs text-zinc-400">Itens faltantes recebem sugestão do agente antes do cadastro.</div>
+          <div className="order-5 flex flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-950 pt-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
+            <div className="flex items-center justify-between px-4">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">Itens da nota</div>
+              <div className={`text-xs ${itensFaltantes ? "text-amber-300" : "text-emerald-300"}`}>
+                <span className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${itensFaltantes ? "bg-amber-400" : "bg-emerald-400"}`} />
+                {itensFaltantes ? `${loteMissing.length} de ${itensParaTabela.length} sem cadastro` : `${itensParaTabela.length} ${itensParaTabela.length === 1 ? "item cadastrado" : "itens cadastrados"}`}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
-              <div className="max-h-[55vh] overflow-auto rounded-lg border border-zinc-800">
+              <div className="max-h-[55vh] overflow-auto border-t border-zinc-800">
                 <table className="w-full text-sm">
                   <thead className="bg-zinc-900/60 text-zinc-200 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left">Codigo</th>
-                      <th className="px-3 py-2 text-left">Descricao NF</th>
+                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">Código</th>
+                      <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">Descrição na nota</th>
                       <th className="px-3 py-2 text-right">Qtd</th>
                       <th className="px-3 py-2 text-right">V.Unit</th>
                       <th className="px-3 py-2 text-right">Total</th>
-                      <th className="px-3 py-2 text-center">Status</th>
-                      <th className="px-3 py-2 text-center">Acoes</th>
+                      <th className="hidden">Status</th>
+                      <th className="hidden">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
@@ -4099,10 +4150,10 @@ export default function ImportarXmlPage() {
                       const canOpenPedidoLink = Boolean(pedidoLinkId && hasManualPedidoItems);
                       return (
                         <tr key={`${it.codigo}-${idx}`} className="hover:bg-zinc-900/40">
-                          <td className="px-3 py-2 font-medium">{it.codigo}</td>
+                          <td className="px-4 py-3 align-top font-mono text-xs text-zinc-400">{it.codigo}</td>
                           <td className="px-3 py-2 align-top">
                             <textarea
-                              className="w-full px-2 py-2 bg-zinc-900 border border-zinc-700 rounded min-h-[64px] text-sm leading-snug"
+                              className="min-h-10 w-full resize-none rounded border border-transparent bg-transparent px-1 py-1 text-sm font-medium leading-snug text-zinc-100 hover:border-zinc-800 focus:border-zinc-700 focus:bg-zinc-900 focus:outline-none"
                               aria-label={`Descricao NF do item ${it.codigo}`}
                               title={`Descricao NF do item ${it.codigo}`}
                               value={it.overrideNome ?? it.nome}
@@ -4127,8 +4178,26 @@ export default function ImportarXmlPage() {
                                 );
                               }}
                             />
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
+                              {!permiteVincularItens ? (
+                                <span className="text-zinc-400"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-zinc-500" />{finalidadeLote === "imobilizado" ? "cadastro imobilizado" : finalidadeLote === "consumo" ? "cadastro consumo" : `não cadastrado (${finalidadeLote || "sem finalidade"})`}</span>
+                              ) : foundItem ? (
+                                <span className="text-emerald-300"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />cadastrado · id {foundItem.id}</span>
+                              ) : (
+                                <span className="text-amber-300"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />não cadastrado</span>
+                              )}
+                              {canOpenPedidoLink ? (
+                                <button type="button" onClick={() => abrirVinculoItemPedidoDaTabela(it, idx)} className="text-sky-400 hover:text-sky-300">Vincular ao pedido</button>
+                              ) : permiteAutoCadastrarItens && !foundItem && !normalizacaoCadastro ? (
+                                <Can perm="cad_itens.write">
+                                  <button type="button" onClick={() => void cadastrarItemComIA(it)} disabled={cadBusy || normalizacaoCadastroBusy} className="text-sky-400 hover:text-sky-300 disabled:opacity-50">
+                                    {normalizacaoCadastroBusy ? "Analisando IA…" : "Sugerir com IA"}
+                                  </button>
+                                </Can>
+                              ) : null}
+                            </div>
                             {!foundItem && normalizacaoCadastro && (
-                              <div className="mt-2 rounded-md border border-sky-500/35 bg-sky-500/10 px-2 py-2 text-xs text-sky-100 space-y-1">
+                              <div className="mt-3 space-y-2 rounded-md border border-sky-500/30 border-l-2 bg-sky-500/[0.07] px-3 py-3 text-xs text-sky-100">
                                 <div className="font-medium text-sky-200">Sugestão do agente de cadastro · confiança {normalizacaoCadastro.confianca}</div>
                                 <div>
                                   <span className="text-sky-300">Nome: </span>
@@ -4149,16 +4218,39 @@ export default function ImportarXmlPage() {
                                 <div className="text-sky-100/90">{normalizacaoCadastro.justificativa}</div>
                                 {normalizacaoCadastro.dados_pendentes.length > 0 && (
                                   <div className="text-amber-200">
-                                    Pendente: {normalizacaoCadastro.dados_pendentes.join("; ")}
+                                    Falta preencher: {normalizacaoCadastro.dados_pendentes.join(" · ")}
                                   </div>
                                 )}
+                                <div className="flex flex-wrap justify-end gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setNormalizacoesCadastro((current) => {
+                                      const next = { ...current };
+                                      delete next[normalizeItemCodigo(it.codigo)];
+                                      return next;
+                                    })}
+                                    className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-zinc-300 hover:text-zinc-100"
+                                  >
+                                    Descartar
+                                  </button>
+                                  <Can perm="cad_itens.write">
+                                    <button
+                                      type="button"
+                                      onClick={() => void cadastrarItemComIA(it)}
+                                      disabled={cadBusy || normalizacaoCadastroBusy || Boolean(!normalizacaoCadastro.grupo_id && !normalizacaoCadastro.novo_grupo)}
+                                      className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 font-medium text-sky-200 hover:bg-sky-500/15 disabled:opacity-50"
+                                    >
+                                      {normalizacaoCadastro.novo_grupo ? "Criar grupo e cadastrar" : "Cadastrar com esta sugestão"}
+                                    </button>
+                                  </Can>
+                                </div>
                               </div>
                             )}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">{formatDecimalBR(it.quantidade, 3)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">R$ {it.valorUnit.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">R$ {it.total.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-3 py-3 text-right tabular-nums text-zinc-300">R$ {formatMoneyBR(it.valorUnit)}</td>
+                          <td className="px-4 py-3 text-right font-medium tabular-nums text-zinc-100">R$ {formatMoneyBR(it.total)}</td>
+                          <td className="hidden">
                             {!permiteVincularItens ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-md border border-zinc-600/50 text-zinc-300 text-xs">
                                 {finalidadeLote === "imobilizado"
@@ -4177,7 +4269,7 @@ export default function ImportarXmlPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="hidden">
                             {canOpenPedidoLink ? (
                               <button
                                 type="button"
@@ -4237,9 +4329,27 @@ export default function ImportarXmlPage() {
           </div>
           )}
         </div>
+      </div>}
 
-        {shouldShowImportActions && (
-        <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
+        {activeTab === "importar" && shouldShowImportActions && (
+        <div className="sticky bottom-3 z-30 order-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-700 bg-zinc-950/95 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur">
+          <div className="min-w-0 text-sm">
+            {importPendingLabels.length > 0 ? (
+              <div className="flex min-w-0 items-center gap-2 text-zinc-400">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                <strong className="shrink-0 text-zinc-100">{importPendingLabels.length} {importPendingLabels.length === 1 ? "pendência" : "pendências"}</strong>
+                <span className="truncate">— {importPendingLabels.join(" · ")}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" /><strong>Pronto para importar</strong></div>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {shouldShowAssistant && (
+              <button type="button" onClick={() => setDiagnosticOpen(true)} className="px-3 py-2 text-sm text-sky-400 hover:text-sky-300">
+                ver diagnóstico <span aria-hidden="true">›</span>
+              </button>
+            )}
           {showBulkItemRegistrationButton && (
             <button
               onClick={() => void cadastrarFornecedorEItens()}
@@ -4260,15 +4370,15 @@ export default function ImportarXmlPage() {
           <button
             onClick={abrirModalPagamento}
             disabled={isReading || importBusy || bloqueiaImportacao || !canImport}
-            className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+            className="rounded-md bg-zinc-100 px-5 py-2 font-medium text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
           >
-            {importBusy ? "Importando..." : "Importar"}
+            {importBusy ? "Importando…" : "Importar"}
           </button>
+          </div>
         </div>
         )}
-      </div>
 
-      <div className="order-4 border border-zinc-800 rounded-xl bg-zinc-950 p-4 space-y-3">
+      {activeTab === "notas" && <div className="order-4 space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <div className="flex items-end justify-between gap-3 flex-wrap">
           <div>
             <div className="text-lg font-semibold">Notas importadas</div>
@@ -4495,7 +4605,61 @@ export default function ImportarXmlPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
+
+      {diagnosticOpen && shouldShowAssistant && xmlImportAnalysis && (
+        <div className="fixed inset-0 z-40 bg-black/65 backdrop-blur-sm" onClick={(event) => event.target === event.currentTarget && setDiagnosticOpen(false)}>
+          <aside className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl" role="dialog" aria-modal="true" aria-label="Diagnóstico da importação">
+            <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-semibold text-zinc-100">Diagnóstico</h2>
+                  <span className={`rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${xmlImportAnalysis.status === "OK" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" : xmlImportAnalysis.status === "ATENCAO" ? "border-amber-500/40 bg-amber-500/10 text-amber-200" : "border-red-500/40 bg-red-500/10 text-red-200"}`}>{xmlImportAnalysis.status === "ATENCAO" ? "atenção" : xmlImportAnalysis.status.toLowerCase()}</span>
+                  <span className="rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 font-mono text-xs text-zinc-400">{xmlImportAnalysis.score}/100</span>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">Diagnóstico local e informativo. Nenhuma sugestão é aplicada automaticamente.</p>
+              </div>
+              <button type="button" onClick={() => setDiagnosticOpen(false)} className="grid h-8 w-8 place-items-center rounded-md border border-zinc-800 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100" aria-label="Fechar diagnóstico">×</button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                <div className="mb-3 flex items-center justify-between text-sm"><strong className="text-zinc-200">Requisitos</strong><span className="text-zinc-500">{checklistOkCount} de {Object.keys(requisitosChecklist).length}</span></div>
+                <div className="grid gap-2 text-xs sm:grid-cols-2">
+                  {[
+                    [requisitosChecklist.xml, "XML lido e validado"],
+                    [requisitosChecklist.finalidade, "Finalidade selecionada"],
+                    [requisitosChecklist.motivo, "Classificação / motivo selecionado"],
+                    [requisitosChecklist.solicitante, "Solicitante selecionado"],
+                    [requisitosChecklist.fornecedor, "Fornecedor encontrado / cadastrado"],
+                    [requisitosChecklist.itens && !itensFaltantes, itensFaltantes ? `${loteMissing.length} ${loteMissing.length === 1 ? "item sem cadastro" : "itens sem cadastro"}` : "Itens cadastrados"],
+                  ].map(([ok, label]) => (
+                    <div key={String(label)} className={ok ? "text-emerald-300" : "text-amber-300"}><span className="mr-2">{ok ? "✓" : "○"}</span>{String(label)}</div>
+                  ))}
+                </div>
+              </section>
+              <XmlImportAssistantPanel
+                result={xmlImportAnalysis}
+                currentPedidoRef={pedidoCompraRef}
+                currentSolicitanteUsuarioId={solicitanteUsuarioId}
+                currentFinalidade={finalidadeLote || null}
+                currentMotivoId={motivoCompraId || null}
+                currentOsId={osId}
+                hasManualPedidoItems={pedidoSugeridoPossuiItensManuais}
+                onApplyPedidoSuggestion={aplicarPedidoSugerido}
+                onApplySolicitanteSuggestion={aplicarSolicitanteSugerido}
+                onApplyOsSuggestion={aplicarOsSugerida}
+                onApplyFinalidadeSuggestion={aplicarFinalidadeSugerida}
+                onApplyMotivoSuggestion={aplicarMotivoSugerido}
+                onCopyDiagnostics={copiarDiagnosticoAssistente}
+                onOpenPedidoItemLink={abrirVinculoItemPedido}
+              />
+              {pedidosAnalyzerLoading && <div className="text-xs text-zinc-500">Buscando pedidos candidatos para o assistente…</div>}
+              {pedidosAnalyzerError && <div className="text-xs text-amber-300">{pedidosAnalyzerError}</div>}
+              {assistantCopyMessage && <div className={assistantCopyMessage.kind === "ok" ? "text-xs text-emerald-300" : "text-xs text-amber-300"}>{assistantCopyMessage.message}</div>}
+            </div>
+          </aside>
+        </div>
+      )}
 
       {pedidoItemLink && (
         <div
