@@ -94,6 +94,13 @@ function statusClass(status: string) {
   return "border-amber-800 bg-amber-950/40 text-amber-300";
 }
 
+function compraClass(status: CompraStatus) {
+  if (status === "RECEBIDO") return "border-emerald-800 bg-emerald-950/50 text-emerald-300";
+  if (status === "EM_PEDIDO") return "border-sky-800 bg-sky-950/50 text-sky-300";
+  if (status === "PENDENTE") return "border-amber-800 bg-amber-950/40 text-amber-300";
+  return "border-zinc-700 text-zinc-400";
+}
+
 export default function VendasClient() {
   const te = useTenantEmpresa();
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
@@ -329,7 +336,17 @@ export default function VendasClient() {
         <div className="overflow-x-auto">
           <table className="min-w-[1100px] w-full text-sm">
             <thead className="bg-zinc-900/70 text-left text-xs uppercase tracking-wide text-zinc-500">
-              <tr><th className="px-3 py-3">Venda</th><th className="px-3 py-3">Cliente</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Abertura</th><th className="px-3 py-3 text-right">Valor</th><th className="px-3 py-3">Compra</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Faturada</th><th className="px-3 py-3">Vendedor</th></tr>
+              <tr>
+                <th className="whitespace-nowrap px-3 py-3">Venda</th>
+                <th className="whitespace-nowrap px-3 py-3">Cliente</th>
+                <th className="px-3 py-3">Descrição</th>
+                <th className="whitespace-nowrap px-3 py-3">Abertura</th>
+                <th className="whitespace-nowrap px-3 py-3 text-right">Valor</th>
+                <th className="whitespace-nowrap px-3 py-3">Compra</th>
+                <th className="whitespace-nowrap px-3 py-3">Status</th>
+                <th className="whitespace-nowrap px-3 py-3">Faturada</th>
+                <th className="whitespace-nowrap px-3 py-3">Vendedor</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900">
               {loading ? <tr><td colSpan={9} className="px-3 py-10 text-center text-zinc-500">Carregando...</td></tr> : null}
@@ -340,15 +357,19 @@ export default function VendasClient() {
                 const billed = rowStatus === "faturada" || (documentosByVenda.get(row.id) ?? []).some(documentoEmitido);
                 return (
                   <tr key={row.id} className="hover:bg-zinc-900/40">
-                    <td className="px-3 py-3"><Link href={`/comercial/vendas/${row.id}`} className="font-medium text-sky-300 hover:underline">{row.codigo}</Link></td>
-                    <td className="px-3 py-3">{row.cliente_nome}</td>
+                    <td className="whitespace-nowrap px-3 py-3"><Link href={`/comercial/vendas/${row.id}`} className="font-medium text-sky-300 hover:underline">{row.codigo}</Link></td>
+                    <td className="whitespace-nowrap px-3 py-3">{row.cliente_nome}</td>
                     <td className="max-w-xs truncate px-3 py-3 text-zinc-300" title={row.descricao_servico ?? ""}>{row.descricao_servico || "—"}</td>
-                    <td className="px-3 py-3 text-zinc-400">{dateBR(row.data_abertura)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(row.orcado || row.valor_total))}</td>
-                    <td className="px-3 py-3"><span className="rounded-full border border-zinc-700 px-2 py-1 text-xs text-zinc-300">{COMPRA_LABEL[purchase]}</span></td>
-                    <td className="px-3 py-3"><span className={`rounded-full border px-2 py-1 text-xs ${statusClass(rowStatus)}`}>{STATUS_LABEL[rowStatus] ?? rowStatus}</span></td>
-                    <td className="px-3 py-3">{billed ? <span className="text-emerald-300">Sim</span> : <span className="text-zinc-500">Não</span>}</td>
-                    <td className="px-3 py-3 text-zinc-400">{row.vendedor || "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-zinc-400">{dateBR(row.data_abertura)}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(row.orcado || row.valor_total))}</td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-1 text-xs ${compraClass(purchase)}`}>{COMPRA_LABEL[purchase]}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-1 text-xs ${statusClass(rowStatus)}`}>{STATUS_LABEL[rowStatus] ?? rowStatus}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">{billed ? <span className="text-emerald-300">Sim</span> : <span className="text-zinc-500">Não</span>}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-zinc-400">{row.vendedor || "—"}</td>
                   </tr>
                 );
               })}

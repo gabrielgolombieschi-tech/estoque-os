@@ -4147,7 +4147,7 @@ export default function ImportarXmlPage() {
             <div className="overflow-x-auto">
               <div className="max-h-[55vh] overflow-auto border-t border-zinc-800">
                 <table className="w-full text-sm">
-                  <thead className="bg-zinc-900/60 text-zinc-200 sticky top-0">
+                  <thead className="bg-zinc-900 text-zinc-200 sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">Código</th>
                       <th className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">Descrição na nota</th>
@@ -4629,8 +4629,9 @@ export default function ImportarXmlPage() {
       </div>}
 
       {diagnosticOpen && shouldShowAssistant && xmlImportAnalysis && (
-        <div className="fixed inset-0 z-40 bg-black/65 backdrop-blur-sm" onClick={(event) => event.target === event.currentTarget && setDiagnosticOpen(false)}>
-          <aside className="ml-auto flex h-full w-full max-w-2xl flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl" role="dialog" aria-modal="true" aria-label="Diagnóstico da importação">
+        <div className="fixed inset-0 z-40 bg-black/40" onClick={(event) => event.target === event.currentTarget && setDiagnosticOpen(false)}>
+          <div className="pointer-events-none mx-auto flex h-full w-full max-w-[1080px]">
+          <aside className="pointer-events-auto ml-auto flex h-full w-full max-w-2xl flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl" role="dialog" aria-modal="true" aria-label="Diagnóstico da importação">
             <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -4679,6 +4680,7 @@ export default function ImportarXmlPage() {
               {assistantCopyMessage && <div className={assistantCopyMessage.kind === "ok" ? "text-xs text-emerald-300" : "text-xs text-amber-300"}>{assistantCopyMessage.message}</div>}
             </div>
           </aside>
+          </div>
         </div>
       )}
 
