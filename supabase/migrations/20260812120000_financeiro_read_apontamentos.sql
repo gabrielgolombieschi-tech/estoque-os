@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260812120000_financeiro_read_apontamentos.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

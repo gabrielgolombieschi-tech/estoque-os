@@ -3,6 +3,12 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSupabase, jsonError, resolveTenantEmpresa } from "@/app/api/compras/_lib";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  aplicarCorrecoesExatas,
+  erroTabelaCorrecaoAusente,
+  normalizarDescricaoAprendizado,
+  type CorrecaoDescricaoAgente,
+} from "@/lib/nfe/descricaoCorrecaoIa";
 
 export const runtime = "nodejs";
 
@@ -19,6 +25,10 @@ type GrupoRow = {
   codigo: string | null;
   nome: string | null;
   grupo_pai_id: number | null;
+};
+
+type CorrecaoDescricaoRow = CorrecaoDescricaoAgente & {
+  updated_at: string;
 };
 
 type SugestaoModelo = {
@@ -64,6 +74,24 @@ function texto(value: unknown, max = 800): string | null {
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function correcoesLocais(value: unknown): CorrecaoDescricaoAgente[] {
+  return (Array.isArray(value) ? value : [])
+    .slice(0, 100)
+    .map((raw): CorrecaoDescricaoAgente | null => {
+      const row = record(raw);
+      const descricaoOrigem = texto(row?.descricao_origem, 500);
+      const descricaoCorrigida = texto(row?.descricao_corrigida, 300);
+      const descricaoOrigemNormalizada = normalizarDescricaoAprendizado(descricaoOrigem);
+      if (!descricaoOrigem || !descricaoCorrigida || !descricaoOrigemNormalizada) return null;
+      return {
+        descricao_origem: descricaoOrigem,
+        descricao_origem_normalizada: descricaoOrigemNormalizada,
+        descricao_corrigida: descricaoCorrigida,
+      };
+    })
+    .filter((row): row is CorrecaoDescricaoAgente => Boolean(row));
 }
 
 function extrairTextoResposta(value: unknown): string {
@@ -181,6 +209,28 @@ export async function POST(req: NextRequest) {
     const grupos = (gruposData ?? []) as GrupoRow[];
     if (grupos.length === 0) return jsonError(422, "Nao ha grupos cadastrados para esta empresa.");
 
+    const { data: correcoesData, error: correcoesError } = await admin
+      .from("parametro_importacao_xml_descricao_ia")
+      .select("descricao_origem,descricao_origem_normalizada,descricao_corrigida,updated_at")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("empresa_id", ctx.empresaId)
+      .eq("ativo", true)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    const tabelaCorrecaoAusente = erroTabelaCorrecaoAusente(correcoesError);
+    if (correcoesError && !tabelaCorrecaoAusente) return jsonError(400, correcoesError.message);
+    const correcoesBanco = ((correcoesData ?? []) as CorrecaoDescricaoRow[]).filter(
+      (correcao) =>
+        Boolean(correcao.descricao_origem_normalizada) && Boolean(String(correcao.descricao_corrigida ?? "").trim())
+    );
+    const correcoesPorOrigem = new Map<string, CorrecaoDescricaoAgente>();
+    for (const correcao of correcoesBanco) correcoesPorOrigem.set(correcao.descricao_origem_normalizada, correcao);
+    for (const correcao of correcoesLocais(body.correcoes_descricao_locais)) {
+      correcoesPorOrigem.set(correcao.descricao_origem_normalizada, correcao);
+    }
+    const correcoes = [...correcoesPorOrigem.values()];
+
     const porId = new Map(grupos.map((grupo) => [Number(grupo.id), grupo]));
     const gruposParaAgente = grupos.map((grupo) => {
       const pai = grupo.grupo_pai_id ? porId.get(Number(grupo.grupo_pai_id)) : null;
@@ -207,6 +257,8 @@ export async function POST(req: NextRequest) {
       "Escolha grupo_id exclusivamente dentre os grupos recebidos quando existir grupo funcional adequado. Não use um grupo apenas parecido: cabo de rede não é conector, módulo SFP não é switch e conector não é cabo.",
       "Quando não houver grupo funcional adequado, use grupo_id nulo e preencha novo_grupo com um grupo simples, reutilizável e tecnicamente claro. O codigo do novo grupo deve ter apenas A-Z, 0-9 e _. grupo_pai_id deve ser um id de grupo existente, preferencialmente o grupo raiz funcional. Não proponha grupo novo se um grupo existente já servir.",
       "O novo grupo é somente uma sugestão e será criado apenas após confirmação humana. Nunca altere código ou fabricante do item.",
+      "As correções humanas aprovadas recebidas são exemplos exclusivamente para a descrição padronizada. Use-as para reconhecer vocabulário equivalente em novas descrições, mas nunca copie delas grupo, NCM, dados fiscais ou qualquer outro atributo.",
+      "Quando a descrição de origem for exatamente igual a uma correção aprovada, preserve a descrição final humana.",
       "Retorne exclusivamente o JSON estruturado solicitado.",
     ].join(" ");
 
@@ -223,6 +275,10 @@ export async function POST(req: NextRequest) {
             content: JSON.stringify({
               catalogo_padrao_aprovado: catalogo,
               grupos_disponiveis: gruposParaAgente,
+              correcoes_descricao_aprovadas: correcoes.map((correcao) => ({
+                descricao_nf: correcao.descricao_origem,
+                descricao_final: correcao.descricao_corrigida,
+              })),
               itens_nf: itens,
             }),
           },
@@ -253,12 +309,15 @@ export async function POST(req: NextRequest) {
     const respostaTexto = extrairTextoResposta(responseJson);
     const resposta = record(JSON.parse(respostaTexto));
     const porCodigo = new Map(itens.map((item) => [normalizarCodigo(item.codigo), item]));
+    const correcoesExatas = aplicarCorrecoesExatas(itens, correcoes);
     const sugestoesRecebidas = Array.isArray(resposta?.sugestoes) ? resposta.sugestoes : [];
     const sugestoes = sugestoesRecebidas
       .map((raw): SugestaoModelo | null => {
         const sugestao = record(raw);
         const codigo = normalizarCodigo(sugestao?.codigo);
-        if (!porCodigo.has(codigo)) return null;
+        const itemOrigem = porCodigo.get(codigo);
+        if (!itemOrigem) return null;
+        const descricaoCorrigida = correcoesExatas.get(normalizarDescricaoAprendizado(itemOrigem.descricao_nf));
         const grupoId = sugestao?.grupo_id == null ? null : Number(sugestao.grupo_id);
         const grupo = grupoId && Number.isFinite(grupoId) ? porId.get(grupoId) : null;
         const novoGrupoRaw = record(sugestao?.novo_grupo);
@@ -277,10 +336,12 @@ export async function POST(req: NextRequest) {
             : null;
         return {
           codigo,
-          descricao_padronizada: texto(sugestao?.descricao_padronizada, 300) ?? "",
+          descricao_padronizada: descricaoCorrigida ?? texto(sugestao?.descricao_padronizada, 300) ?? "",
           grupo_id: grupo ? grupo.id : null,
           novo_grupo: novoGrupo,
-          justificativa: texto(sugestao?.justificativa, 500) ?? "Revisar sugestão antes de cadastrar.",
+          justificativa: descricaoCorrigida
+            ? "Descrição reaplicada de uma correção humana aprovada para esta empresa."
+            : texto(sugestao?.justificativa, 500) ?? "Revisar sugestão antes de cadastrar.",
           dados_pendentes: Array.isArray(sugestao?.dados_pendentes)
             ? sugestao.dados_pendentes.map((value) => texto(value, 160)).filter((value): value is string => Boolean(value))
             : [],
@@ -292,12 +353,15 @@ export async function POST(req: NextRequest) {
     const existentes = new Set(sugestoes.map((sugestao) => sugestao.codigo));
     for (const item of itens) {
       if (existentes.has(item.codigo)) continue;
+      const descricaoCorrigida = correcoesExatas.get(normalizarDescricaoAprendizado(item.descricao_nf));
       sugestoes.push({
         codigo: item.codigo,
-        descricao_padronizada: "",
+        descricao_padronizada: descricaoCorrigida ?? "",
         grupo_id: null,
         novo_grupo: null,
-        justificativa: "O agente não retornou uma sugestão utilizável para este item.",
+        justificativa: descricaoCorrigida
+          ? "Descrição reaplicada de uma correção humana aprovada para esta empresa."
+          : "O agente não retornou uma sugestão utilizável para este item.",
         dados_pendentes: ["Revisar manualmente a classificação e a descrição técnica."],
         confianca: "baixa",
       });

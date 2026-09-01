@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260830203000_apontamentos_edicao_por_status_e_papel.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

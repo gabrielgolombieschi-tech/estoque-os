@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260306161000_fix_importacao_xml_revenda_finalidades.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

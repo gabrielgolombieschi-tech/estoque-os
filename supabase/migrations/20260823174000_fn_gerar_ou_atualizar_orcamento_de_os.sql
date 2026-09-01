@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260823174000_fn_gerar_ou_atualizar_orcamento_de_os.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

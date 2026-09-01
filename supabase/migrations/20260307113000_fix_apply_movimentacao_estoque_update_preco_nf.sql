@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260307113000_fix_apply_movimentacao_estoque_update_preco_nf.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

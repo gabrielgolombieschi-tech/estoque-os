@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260827183000_app_mobile_material_por_item_id.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260830204000_app_mobile_editar_remover_material_proprio.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

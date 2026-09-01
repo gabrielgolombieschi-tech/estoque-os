@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260307123000_orcamento_status_followup_fluxo.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

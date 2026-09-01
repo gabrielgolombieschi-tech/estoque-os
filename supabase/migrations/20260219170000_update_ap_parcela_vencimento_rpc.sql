@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260219170000_update_ap_parcela_vencimento_rpc.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

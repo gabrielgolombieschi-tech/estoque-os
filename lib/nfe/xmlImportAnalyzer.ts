@@ -193,6 +193,7 @@ export type XmlImportItemSuggestion = {
   pedidoMatchOsNumero?: string | null;
   pedidoMatchOsLabel?: string | null;
   pedidoMatchScore?: number | null;
+  pedidoManualMatches?: XmlImportPedidoItemMatch[];
   recommendedAction?: string | null;
   findings: XmlImportDiagnostic[];
   suggestions: XmlImportDiagnostic[];
@@ -772,16 +773,16 @@ function scorePedidoItem(
     matchedBy.push(manualItem ? "descricao_manual_exata" : "descricao_exata");
   } else if (manualItem) {
     if (descSimilarity >= 80) {
-      score += 48;
+      score += 48 + Math.floor((descSimilarity - 80) / 5);
       matchedBy.push("descricao_manual_forte");
     } else if (descSimilarity >= 65) {
-      score += 38;
+      score += 38 + Math.floor((descSimilarity - 65) / 5);
       matchedBy.push("descricao_manual_compativel");
     } else if (descSimilarity >= 50) {
-      score += 24;
+      score += 24 + Math.floor((descSimilarity - 50) / 5);
       matchedBy.push("descricao_manual_parcial");
     } else if (descSimilarity >= 35) {
-      score += 12;
+      score += 12 + Math.floor((descSimilarity - 35) / 5);
       matchedBy.push("descricao_manual_fraca");
     }
   } else if (descSimilarity >= 70) {
@@ -1991,6 +1992,51 @@ function enrichItemSuggestionsWithPedidoMatches(opts: {
   }
 }
 
+function enrichItemSuggestionsWithManualPedidoScores(opts: {
+  input: XmlImportAnalyzerInput;
+  nfItems: NormalizedNfItem[];
+  itemMap: Map<string, XmlImportItemInterno>;
+  pedidoSuggestion: XmlImportPedidoSuggestion | null;
+  pedidoSuggestions?: XmlImportPedidoSuggestion[];
+  itemSuggestions: XmlImportItemSuggestion[];
+  params: Required<Pick<
+    XmlImportAnalyzerParams,
+    "valorUnitarioToleranciaAbsoluta" | "valorUnitarioToleranciaPercentual"
+  >>;
+}): void {
+  const suggestedPedidoIds = new Set(
+    (opts.pedidoSuggestions?.length
+      ? opts.pedidoSuggestions
+      : opts.pedidoSuggestion
+        ? [opts.pedidoSuggestion]
+        : [])
+      .map((pedido) => pedido.pedidoId)
+  );
+  const pedidos = (opts.input.pedidosCandidatos ?? []).filter(
+    (pedido) => suggestedPedidoIds.size === 0 || suggestedPedidoIds.has(pedido.id)
+  );
+  if (pedidos.length === 0) return;
+
+  const nfItemByIndex = new Map(opts.nfItems.map((item) => [item.index, item]));
+
+  for (const itemSuggestion of opts.itemSuggestions) {
+    const nfItem = nfItemByIndex.get(itemSuggestion.index);
+    if (!nfItem) continue;
+
+    const itemInterno = opts.itemMap.get(nfItem.codigoNormalizado);
+    const matches = pedidos.flatMap((pedido) => {
+      return (pedido.itens ?? [])
+        .filter(isPedidoItemManual)
+        .map((pedidoItem) => scorePedidoItem(nfItem, pedido, pedidoItem, itemInterno, opts.params));
+    });
+
+    matches.sort(
+      (a, b) => b.score - a.score || (b.descricaoSimilarity ?? 0) - (a.descricaoSimilarity ?? 0)
+    );
+    itemSuggestion.pedidoManualMatches = matches;
+  }
+}
+
 function enrichUnmatchedItemSuggestionsWithManualPedidoItems(opts: {
   input: XmlImportAnalyzerInput;
   nfItems: NormalizedNfItem[];
@@ -2439,6 +2485,16 @@ export function analyzeXmlImport(input: XmlImportAnalyzerInput): XmlImportAnalyz
     pedidoSuggestion: pedidoAnalysis.pedidoSuggestion,
     pedidoSuggestions: pedidoAnalysis.pedidoSuggestions,
     itemSuggestions: itemAnalysis.itemSuggestions,
+  });
+
+  enrichItemSuggestionsWithManualPedidoScores({
+    input,
+    nfItems,
+    itemMap,
+    pedidoSuggestion: pedidoAnalysis.pedidoSuggestion,
+    pedidoSuggestions: pedidoAnalysis.pedidoSuggestions,
+    itemSuggestions: itemAnalysis.itemSuggestions,
+    params,
   });
 
   enrichUnmatchedItemSuggestionsWithManualPedidoItems({

@@ -51,6 +51,11 @@ type ItemMetaRow = {
   unidade_medida: string | null;
 };
 
+type FiscalItemNcmRow = {
+  item_id: number;
+  ncm: string | null;
+};
+
 type EstoqueRow = {
   item_id: number;
   quantidade_atual: number | null;
@@ -302,7 +307,8 @@ export default function OrcamentoImprimirPage() {
           setCondicaoNome(null);
         }
 
-        // Enrich itens: marca/ncm/unidade/codigo (para garantir o campo Codigo no doc).
+        // Enrich itens: dados comerciais em itens e NCM oficial em fiscal_itens.
+        // itens.ncm permanece somente como fallback durante a transicao.
         try {
           const itemIds = Array.from(
             new Set(
@@ -326,6 +332,23 @@ export default function OrcamentoImprimirPage() {
                 const id = Number(r.id);
                 if (Number.isFinite(id) && id > 0) map[id] = r;
               }
+
+              const { data: fiscais, error: fiscaisErr } = await applyTenantEmpresa(
+                supabase
+                  .from("fiscal_itens")
+                  .select("item_id,ncm")
+                  .in("item_id", itemIds),
+                tenantId,
+                empresaId
+              ).returns<FiscalItemNcmRow[]>();
+              if (!fiscaisErr) {
+                for (const fiscal of fiscais ?? []) {
+                  const itemId = Number(fiscal.item_id);
+                  const atual = map[itemId];
+                  if (atual && fiscal.ncm) map[itemId] = { ...atual, ncm: fiscal.ncm };
+                }
+              }
+
               setItemMetaById(map);
             }
 

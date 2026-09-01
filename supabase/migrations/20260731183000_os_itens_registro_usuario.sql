@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260731183000_os_itens_registro_usuario.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

@@ -353,8 +353,6 @@ async function createPlaceholderItens(opts: {
     const nomeRaw = it?.nome ? String(it.nome) : `ITEM IMPORTADO ${codigo}`;
     const nome = nomeRaw.replace(/\s+/g, " ").trim().toUpperCase().slice(0, 255) || `ITEM IMPORTADO ${codigo}`;
     const unidade = (it?.unidade ? String(it.unidade) : "UN").replace(/\s+/g, "").trim().toUpperCase().slice(0, 10) || "UN";
-    const ncm = it?.ncm ? String(it.ncm).trim().slice(0, 10) : null;
-    const cfop = it?.cfop ? String(it.cfop).trim().slice(0, 10) : null;
 
     return {
       tenant_id: tenantId,
@@ -363,8 +361,6 @@ async function createPlaceholderItens(opts: {
       nome,
       tipo: "produto",
       unidade_medida: unidade,
-      ncm,
-      cfop_padrao: cfop,
       controla_estoque: false,
       ativo: true,
       observacoes: "IMPORT_XML (PLACEHOLDER) - REVISAR",
@@ -378,6 +374,35 @@ async function createPlaceholderItens(opts: {
   if (insErr) {
     const code = typeof insErr.code === "string" ? insErr.code : "";
     if (code !== "23505") throw insErr;
+  }
+
+  const { data: placeholderItens, error: placeholderItensErr } = await admin
+    .from("itens")
+    .select("id,codigo_interno")
+    .eq("tenant_id", tenantId)
+    .eq("empresa_id", empresaId)
+    .in("codigo_interno", toCreate)
+    .returns<Array<{ id: number; codigo_interno: string }>>();
+  if (placeholderItensErr) throw placeholderItensErr;
+
+  const fiscalRows = (placeholderItens ?? []).flatMap((item) => {
+    const ncm = byCodigo.get(String(item.codigo_interno))?.ncm;
+    const ncmNormalizado = ncm ? String(ncm).trim().slice(0, 12) : "";
+    if (!ncmNormalizado) return [];
+
+    return [{
+      tenant_id: tenantId,
+      empresa_id: empresaId,
+      item_id: Number(item.id),
+      ncm: ncmNormalizado,
+    }];
+  });
+
+  if (fiscalRows.length > 0) {
+    const { error: fiscalErr } = await admin
+      .from("fiscal_itens")
+      .upsert(fiscalRows, { onConflict: "tenant_id,empresa_id,item_id" });
+    if (fiscalErr) throw fiscalErr;
   }
 }
 

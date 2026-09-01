@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260306001000_fix_nfse_piscofins_fallback_all_keys_backfill_jan_fev.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

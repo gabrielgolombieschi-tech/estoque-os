@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260305201000_fix_xml_import_trigger_permission.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

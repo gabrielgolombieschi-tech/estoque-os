@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260803164000_documento_fiscal_chave_unica_somente_ativo.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

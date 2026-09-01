@@ -1,14 +1,23 @@
 begin;
 
-alter table public.itens
-  add column origem_mercadoria text
-    check (origem_mercadoria in ('0', '1', '2', '3', '4', '5', '6', '7', '8')),
-  add column cst_icms text,
-  add column csosn text,
-  add column cst_ipi text,
-  add column cst_pis text,
-  add column cst_cofins text,
-  add column unidade_tributavel text,
-  add column c_class_trib text;
+-- fiscal_itens.item_id nasceu bigint, mas public.itens.id e integer. As FKs
+-- antigas aceitavam tipos numericos compativeis e, por isso, esconderam a
+-- divergencia. A coluna passa a usar exatamente o tipo do cadastro real.
+alter table public.fiscal_itens
+  drop constraint if exists fiscal_itens_item_id_fkey,
+  drop constraint if exists fiscal_itens_tenant_item_fk;
+
+alter table public.fiscal_itens
+  alter column item_id type integer using item_id::integer,
+  add column unidade_tributavel text;
+
+alter table public.fiscal_itens
+  add constraint fiscal_itens_item_escopo_fk
+    foreign key (tenant_id, empresa_id, item_id)
+    references public.itens(tenant_id, empresa_id, id)
+    on delete cascade;
+
+comment on column public.fiscal_itens.unidade_tributavel is
+  'Unidade tributavel do produto na NF-e. Nao define CFOP, CST/CSOSN ou tributacao da operacao.';
 
 commit;

@@ -12,6 +12,11 @@ import { useImportMotivos, type MotivoCompra } from "./ImportMotivosProvider";
 import MotivoCompraCombobox from "./MotivoCompraCombobox";
 import { parseNfeXml, type ParsedItem, type ParsedNfe } from "@/lib/nfe/parseNfeXml";
 import {
+  normalizarDescricaoAprendizado,
+  substituirDescricaoSugestao,
+  type CorrecaoDescricaoAgente,
+} from "@/lib/nfe/descricaoCorrecaoIa";
+import {
   analyzeXmlImport,
   normalizeXmlItemCode,
   type XmlImportItemInterno,
@@ -19,7 +24,7 @@ import {
   type XmlImportPedidoItem,
 } from "@/lib/nfe/xmlImportAnalyzer";
 import { getImportacaoXmlParams, type ItemFinalidade as ParamItemFinalidade } from "@/src/lib/importacaoXmlParams";
-import XmlImportAssistantPanel from "./XmlImportAssistantPanel";
+import XmlImportAssistantPanel, { XmlImportPedidoSuggestionCard } from "./XmlImportAssistantPanel";
 import {
   imprimirRelatorioDestinos,
   isRelatorioDestinoImportacao,
@@ -98,6 +103,13 @@ type NormalizacaoCadastroResponse = {
   model?: string;
   sugestoes?: NormalizacaoCadastroSuggestion[];
   error?: string;
+};
+
+type DescricaoCorrecaoDraft = {
+  codigo: string;
+  descricaoOrigem: string;
+  descricaoSugerida: string;
+  descricaoFinal: string;
 };
 
 type OsLookupRow = {
@@ -636,6 +648,13 @@ export default function ImportarXmlPage() {
   const [itemMap, setItemMap] = useState<ItemCodigoMap>(new Map());
   const [normalizacoesCadastro, setNormalizacoesCadastro] = useState<Record<string, NormalizacaoCadastroSuggestion>>({});
   const [normalizacaoCadastroBusy, setNormalizacaoCadastroBusy] = useState(false);
+  const [descricaoCorrecaoDraft, setDescricaoCorrecaoDraft] = useState<DescricaoCorrecaoDraft | null>(null);
+  const [descricaoCorrecaoBusy, setDescricaoCorrecaoBusy] = useState(false);
+  const [descricaoCorrecaoMessage, setDescricaoCorrecaoMessage] = useState<{
+    codigo: string;
+    kind: "ok" | "pending" | "error";
+    message: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [jobs, setJobs] = useState<ImportJob[]>([]);
@@ -1779,7 +1798,7 @@ export default function ImportarXmlPage() {
   ) {
     setImportErr(null);
 
-    if (!finalidadeLote) {
+    if (!finalidade) {
       setImportErr("Selecione a finalidade antes de cadastrar itens.");
       return null;
     }
@@ -1809,7 +1828,7 @@ export default function ImportarXmlPage() {
         nome: nomeUpper,
         tipo: "produto",
         controla_estoque: true,
-        unidade_medida: "UN",
+        unidade_medida: String(it.unidade ?? it.unidadeTrib ?? "UN").trim().toUpperCase() || "UN",
         custo_ultima_compra: valorUnit,
         custo_medio: valorUnit,
         preco_unitario: valorUnit,
@@ -1829,6 +1848,19 @@ export default function ImportarXmlPage() {
       .single();
 
     if (error) {
+      const dbError = error as DbError;
+      if (dbError.code === "23505") {
+        const codigoInterno = normalizeItemCodigo(it.codigo);
+        const { data: existing, error: existingError } = await applyTenantEmpresa(
+          supabase.schema("public").from("itens").select("id"),
+          tenantId,
+          empresaId
+        )
+          .eq("codigo_interno", codigoInterno)
+          .maybeSingle();
+
+        if (!existingError && existing?.id) return Number(existing.id);
+      }
       setImportErr(error.message);
       return null;
     }
@@ -1855,6 +1887,7 @@ export default function ImportarXmlPage() {
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setImportErr(null);
     setImportOk(null);
+    setImportWarn(null);
 
     const files = Array.from(e.target.files ?? []);
     const file = files[0] ?? null;
@@ -1948,7 +1981,9 @@ export default function ImportarXmlPage() {
     if (didAdd && setAsBase && status !== "erro") {
       await checkFornecedor(
         { documento: parsed.nfe.cnpjEmitente, nome: parsed.nfe.emitente },
-        { allowCreate: status === "ok" && selected }
+        // A leitura apenas resolve o cadastro existente. Criar fornecedor e
+        // gravar seus padroes exige a finalidade e a confirmacao no botao.
+        { allowCreate: false }
       );
     }
   }
@@ -1969,6 +2004,7 @@ export default function ImportarXmlPage() {
 
     setImportErr(null);
     setImportOk(null);
+    setImportWarn(null);
 
     setIsReading(true);
     const reqId = ++readReqIdRef.current;
@@ -2064,6 +2100,9 @@ export default function ImportarXmlPage() {
     setItemMap(new Map());
     setNormalizacoesCadastro({});
     setNormalizacaoCadastroBusy(false);
+    setDescricaoCorrecaoDraft(null);
+    setDescricaoCorrecaoBusy(false);
+    setDescricaoCorrecaoMessage(null);
     setPedidoAnalyzerRows([]);
     setPedidosAnalyzerComItens([]);
     setPedidosAnalyzerError(null);
@@ -2079,6 +2118,69 @@ export default function ImportarXmlPage() {
 
     fornecedorCnpjBaseRef.current = null;
     chavesAddedRef.current = new Set();
+  }
+
+  function descricaoCorrecaoStorageKey() {
+    return tenantId && empresaId ? `estoque-os:descricao-ia:${tenantId}:${empresaId}` : null;
+  }
+
+  function lerCorrecoesDescricaoPendentes(): CorrecaoDescricaoAgente[] {
+    const key = descricaoCorrecaoStorageKey();
+    if (!key || typeof window === "undefined") return [];
+    try {
+      const rows = JSON.parse(window.localStorage.getItem(key) ?? "[]") as unknown;
+      return (Array.isArray(rows) ? rows : [])
+        .filter((row): row is CorrecaoDescricaoAgente => {
+          if (!row || typeof row !== "object") return false;
+          const value = row as CorrecaoDescricaoAgente;
+          return Boolean(value.descricao_origem && value.descricao_origem_normalizada && value.descricao_corrigida);
+        })
+        .slice(-100);
+    } catch {
+      return [];
+    }
+  }
+
+  function salvarCorrecaoDescricaoPendente(correcao: CorrecaoDescricaoAgente) {
+    const key = descricaoCorrecaoStorageKey();
+    if (!key || typeof window === "undefined") return;
+    const rows = lerCorrecoesDescricaoPendentes().filter(
+      (row) => row.descricao_origem_normalizada !== correcao.descricao_origem_normalizada
+    );
+    window.localStorage.setItem(key, JSON.stringify([...rows, correcao].slice(-100)));
+  }
+
+  function removerCorrecaoDescricaoPendente(descricaoOrigemNormalizada: string) {
+    const key = descricaoCorrecaoStorageKey();
+    if (!key || typeof window === "undefined") return;
+    const rows = lerCorrecoesDescricaoPendentes().filter(
+      (row) => row.descricao_origem_normalizada !== descricaoOrigemNormalizada
+    );
+    if (rows.length > 0) window.localStorage.setItem(key, JSON.stringify(rows));
+    else window.localStorage.removeItem(key);
+  }
+
+  async function sincronizarCorrecoesDescricaoPendentes(token: string) {
+    for (const correcao of lerCorrecoesDescricaoPendentes()) {
+      try {
+        const res = await fetch("/api/estoque/importar/correcoes-descricao", {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            empresa_id: empresaId,
+            descricao_origem: correcao.descricao_origem,
+            descricao_corrigida: correcao.descricao_corrigida,
+          }),
+        });
+        const json = (await res.json().catch(() => null)) as { persisted?: boolean } | null;
+        if (res.ok && json?.persisted) {
+          removerCorrecaoDescricaoPendente(correcao.descricao_origem_normalizada);
+        }
+      } catch {
+        // Mantem a correcao local para a proxima tentativa.
+      }
+    }
   }
 
   async function solicitarNormalizacoesCadastro(itens: ParsedItem[]) {
@@ -2104,6 +2206,7 @@ export default function ImportarXmlPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           empresa_id: empresaId,
+          correcoes_descricao_locais: lerCorrecoesDescricaoPendentes(),
           itens: itensUnicos.map((item) => ({
             codigo: normalizeItemCodigo(item.codigo),
             descricao_nf: item.overrideNome?.trim() || item.nome,
@@ -2125,9 +2228,105 @@ export default function ImportarXmlPage() {
       }, {});
 
       setNormalizacoesCadastro((prev) => ({ ...prev, ...result }));
+      void sincronizarCorrecoesDescricaoPendentes(token);
       return result;
     } finally {
       setNormalizacaoCadastroBusy(false);
+    }
+  }
+
+  function abrirCorrecaoDescricao(params: {
+    codigo: string;
+    descricaoOrigem: string;
+    sugestao: NormalizacaoCadastroSuggestion;
+  }) {
+    const codigo = normalizeItemCodigo(params.codigo);
+    if (!codigo) return;
+
+    setDescricaoCorrecaoDraft({
+      codigo,
+      descricaoOrigem: params.descricaoOrigem.trim(),
+      descricaoSugerida: params.sugestao.descricao_padronizada,
+      descricaoFinal: params.sugestao.descricao_padronizada,
+    });
+    setDescricaoCorrecaoMessage(null);
+  }
+
+  async function salvarCorrecaoDescricao() {
+    if (!descricaoCorrecaoDraft || !tenantId || !empresaId || descricaoCorrecaoBusy) return;
+
+    const descricaoFinal = descricaoCorrecaoDraft.descricaoFinal.trim().replace(/\s+/g, " ");
+    if (!descricaoFinal) {
+      setDescricaoCorrecaoMessage({
+        codigo: descricaoCorrecaoDraft.codigo,
+        kind: "error",
+        message: "Informe o nome final do item.",
+      });
+      return;
+    }
+
+    setDescricaoCorrecaoBusy(true);
+    setDescricaoCorrecaoMessage(null);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token ?? null;
+      if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
+      const res = await fetch("/api/estoque/importar/correcoes-descricao", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          empresa_id: empresaId,
+          codigo_item: descricaoCorrecaoDraft.codigo,
+          descricao_origem: descricaoCorrecaoDraft.descricaoOrigem,
+          descricao_sugerida: descricaoCorrecaoDraft.descricaoSugerida,
+          descricao_corrigida: descricaoFinal,
+        }),
+      });
+
+      const json = (await res.json().catch(() => null)) as {
+        error?: string;
+        persisted?: boolean;
+        pendingMigration?: boolean;
+      } | null;
+      if (!res.ok) throw new Error(String(json?.error ?? "Nao foi possivel salvar a correcao de descricao."));
+
+      const descricaoOrigemNormalizada = normalizarDescricaoAprendizado(descricaoCorrecaoDraft.descricaoOrigem);
+      if (json?.persisted) {
+        removerCorrecaoDescricaoPendente(descricaoOrigemNormalizada);
+      } else {
+        salvarCorrecaoDescricaoPendente({
+          descricao_origem: descricaoCorrecaoDraft.descricaoOrigem,
+          descricao_origem_normalizada: descricaoOrigemNormalizada,
+          descricao_corrigida: descricaoFinal,
+        });
+      }
+
+      setNormalizacoesCadastro((prev) => {
+        const sugestao = prev[descricaoCorrecaoDraft.codigo];
+        if (!sugestao) return prev;
+        return {
+          ...prev,
+          [descricaoCorrecaoDraft.codigo]: substituirDescricaoSugestao(sugestao, descricaoFinal),
+        };
+      });
+      setDescricaoCorrecaoDraft(null);
+      setDescricaoCorrecaoMessage({
+        codigo: descricaoCorrecaoDraft.codigo,
+        kind: json?.persisted ? "ok" : "pending",
+        message: json?.persisted
+          ? "Descricao corrigida e salva como referencia para as proximas sugestoes desta empresa."
+          : "Descricao corrigida. O aprendizado ficou salvo neste navegador e sera sincronizado quando o parametro for habilitado no banco.",
+      });
+    } catch (error: unknown) {
+      setDescricaoCorrecaoMessage({
+        codigo: descricaoCorrecaoDraft.codigo,
+        kind: "error",
+        message: getErrorMessage(error, "Nao foi possivel salvar a correcao de descricao."),
+      });
+    } finally {
+      setDescricaoCorrecaoBusy(false);
     }
   }
 
@@ -2798,7 +2997,9 @@ export default function ImportarXmlPage() {
         return;
       }
 
-      if (!permiteVincularItens) {
+      // Antes de a finalidade ser escolhida, ainda precisamos reconhecer itens
+      // já cadastrados. Isso evita tentar duplicá-los no vínculo com o pedido.
+      if (finalidadeLote && !permiteVincularItens) {
         setItemMap(new Map());
         return;
       }
@@ -2816,7 +3017,7 @@ export default function ImportarXmlPage() {
       }
     };
     void loadMap();
-  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo, permiteVincularItens, fornecedorIdBase, fornecedorId]);
+  }, [selectedJob, tenantId, empresaId, carregarItensPorCodigo, finalidadeLote, permiteVincularItens, fornecedorIdBase, fornecedorId]);
 
   useEffect(() => {
     let active = true;
@@ -2950,7 +3151,7 @@ export default function ImportarXmlPage() {
 
   const fornecedorResolvido = Boolean(fornecedorIdBase ?? fornecedorId);
   const pedidoCompraInformado = Boolean(pedidoCompraRef.trim());
-  const finalidadeSelecionada = pedidoCompraInformado || Boolean(finalidadeLote);
+  const finalidadeSelecionada = Boolean(finalidadeLote);
   const solicitanteSelecionado = Boolean(solicitanteUsuarioId || pedidoCompraInformado);
   const itensFaltantes = loteMissing.length > 0;
 
@@ -3089,12 +3290,18 @@ export default function ImportarXmlPage() {
       manualItems.find((item) => item.id === selectedPedidoItemId) ??
       (pedido?.itens ?? []).find((item) => item.id === selectedPedidoItemId) ??
       null;
+    const manualMatchByPedidoItemId = new Map(
+      (itemSuggestion?.pedidoManualMatches ?? [])
+        .filter((match) => match.pedidoId === pedidoItemLink.pedidoId)
+        .map((match) => [match.pedidoItemId, match])
+    );
 
     return {
       itemSuggestion,
       internalItem: itemSuggestion?.internalItem ?? null,
       pedido,
       manualItems,
+      manualMatchByPedidoItemId,
       selectedPedidoItem,
       nfItem: selectedJob?.itens[pedidoItemLink.xmlItemIndex] ?? null,
     };
@@ -3108,6 +3315,20 @@ export default function ImportarXmlPage() {
       finalidadeLote &&
       fornecedorResolvido
   );
+  const pedidoItemLinkCadastroBloqueio = pedidoItemLinkData?.internalItem
+    ? null
+    : !canCreateItem
+      ? "Você não tem permissão para cadastrar itens."
+      : !fornecedorResolvido
+        ? "Identifique o fornecedor antes de cadastrar e vincular."
+        : !finalidadeLote
+          ? "Selecione a finalidade do item para cadastrar e vincular."
+          : !permiteAutoCadastrarItens
+            ? `A finalidade '${formatFinalidadeImportada(finalidadeLote)}' não permite cadastro automático de itens.`
+            : null;
+  const pedidoItemLinkNormalizacaoCadastro = pedidoItemLink
+    ? normalizacoesCadastro[normalizeItemCodigo(pedidoItemLink.codigoOriginal)] ?? null
+    : null;
   const bloqueiaVinculoManualPedido = Boolean(
     xmlImportAnalysis?.findings.some((finding) => finding.code === "VINCULAR_ITENS_MANUAIS_PEDIDO_OBRIGATORIO")
   );
@@ -3164,6 +3385,61 @@ export default function ImportarXmlPage() {
     Boolean(importOk) ||
     Boolean(importWarn) ||
     isReading;
+
+  const renderCorrecaoDescricao = (codigoOriginal: string) => {
+    const codigo = normalizeItemCodigo(codigoOriginal);
+    if (descricaoCorrecaoDraft?.codigo !== codigo) return null;
+
+    return (
+      <div className="space-y-2 rounded-md border border-amber-500/35 bg-amber-500/[0.07] p-3">
+        <label className="block space-y-1.5">
+          <span className="text-xs font-medium text-amber-100">Nome final do item</span>
+          <input
+            value={descricaoCorrecaoDraft.descricaoFinal}
+            onChange={(event) =>
+              setDescricaoCorrecaoDraft((current) =>
+                current ? { ...current, descricaoFinal: event.target.value } : current
+              )
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void salvarCorrecaoDescricao();
+              }
+            }}
+            maxLength={300}
+            disabled={descricaoCorrecaoBusy}
+            className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-400/70 disabled:opacity-60"
+            aria-label="Nome final corrigido do item"
+          />
+        </label>
+        <div className="text-xs leading-relaxed text-zinc-400">
+          Ao salvar, esta correção será usada como exemplo nas próximas sugestões desta empresa. Somente a descrição é aprendida; grupo e dados fiscais não são alterados.
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setDescricaoCorrecaoDraft(null);
+              setDescricaoCorrecaoMessage(null);
+            }}
+            disabled={descricaoCorrecaoBusy}
+            className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100 disabled:opacity-60"
+          >
+            Voltar
+          </button>
+          <button
+            type="button"
+            onClick={() => void salvarCorrecaoDescricao()}
+            disabled={descricaoCorrecaoBusy || !descricaoCorrecaoDraft.descricaoFinal.trim()}
+            className="rounded-md border border-amber-400/50 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-400/15 disabled:opacity-60"
+          >
+            {descricaoCorrecaoBusy ? "Salvando..." : "Salvar descrição"}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderNfeResumo = (nfe: ParsedNfe, itemCount: number) => (
     <div>
@@ -3326,6 +3602,31 @@ export default function ImportarXmlPage() {
     setPedidoItemLinkSelectedId(params.pedidoItemId);
     setPedidoItemLinkError(null);
     setPedidoItemLinkBusy(false);
+    setDescricaoCorrecaoDraft(null);
+    setDescricaoCorrecaoMessage(null);
+  };
+
+  const carregarSugestaoCadastroParaVinculo = async (it: ParsedItem) => {
+    const codigo = normalizeItemCodigo(it.codigo);
+    if (
+      !codigo ||
+      normalizacaoCadastroBusy ||
+      normalizacoesCadastro[codigo] ||
+      getItemCodigoFromMap(itemMap, codigo) ||
+      !canCreateItem ||
+      !permiteAutoCadastrarItens ||
+      !finalidadeLote ||
+      !fornecedorResolvido
+    ) return;
+
+    try {
+      const sugestoes = await solicitarNormalizacoesCadastro([it]);
+      if (!sugestoes[codigo]) {
+        throw new Error("A IA nao retornou uma sugestao de cadastro para este item.");
+      }
+    } catch (error: unknown) {
+      setPedidoItemLinkError(getErrorMessage(error, "Nao foi possivel gerar a sugestao de cadastro com IA."));
+    }
   };
 
   const abrirVinculoItemPedidoDaTabela = (it: ParsedItem, index: number) => {
@@ -3342,12 +3643,15 @@ export default function ImportarXmlPage() {
 
     const pedidoCompleto = pedidosAnalyzerComItens.find((row) => row.id === pedidoId) ?? null;
     const manualItems = (pedidoCompleto?.itens ?? []).filter(isPedidoItemManualParaVinculo);
-    const pedidoItemId = suggestion?.pedidoMatchItemId ?? manualItems[0]?.id ?? "";
 
-    if (!pedidoItemId) {
+    if (manualItems.length === 0) {
       setImportErr("Pedido sugerido nao possui item manual disponivel para vinculo.");
       return;
     }
+
+    // Sem sugestao automatica confiavel, o dialogo abre sem pre-selecao — o
+    // usuario deve escolher o item manual correto (nunca adivinhar o primeiro).
+    const pedidoItemId = suggestion?.pedidoMatchItemId ?? "";
 
     abrirVinculoItemPedido({
       xmlItemIndex: index,
@@ -3358,13 +3662,22 @@ export default function ImportarXmlPage() {
       pedidoCodigo,
       pedidoItemId,
     });
+
+    // O modal deve abrir com a mesma sugestao exibida na linha. Quando ela
+    // ainda nao existe, inicia a analise imediatamente para que o primeiro
+    // clique em "Cadastrar e vincular" ja conclua as duas operacoes.
+    if (!getItemCodigoFromMap(itemMap, it.codigo) && !normalizacoesCadastro[normalizeItemCodigo(it.codigo)]) {
+      void carregarSugestaoCadastroParaVinculo(it);
+    }
   };
 
   const fecharVinculoItemPedido = () => {
-    if (pedidoItemLinkBusy) return;
+    if (pedidoItemLinkBusy || descricaoCorrecaoBusy) return;
     setPedidoItemLink(null);
     setPedidoItemLinkSelectedId("");
     setPedidoItemLinkError(null);
+    setDescricaoCorrecaoDraft(null);
+    setDescricaoCorrecaoMessage(null);
   };
 
   const confirmarVinculoItemPedido = async () => {
@@ -3394,9 +3707,7 @@ export default function ImportarXmlPage() {
         const codigoNormalizado = normalizeItemCodigo(nfItem.codigo);
         let sugestao = normalizacoesCadastro[codigoNormalizado];
         if (!sugestao) {
-          const sugestoes = await solicitarNormalizacoesCadastro([nfItem]);
-          sugestao = sugestoes[codigoNormalizado];
-          throw new Error("Sugestao da IA gerada. Confira descricao e grupo do item na NF antes de confirmar o vinculo.");
+          throw new Error("Aguarde a sugestao da IA antes de cadastrar e vincular o item.");
         }
         validarSugestaoCadastro(sugestao);
         sugestao = await garantirGrupoDaSugestao(sugestao);
@@ -3660,8 +3971,21 @@ export default function ImportarXmlPage() {
         </div>
       </div>
 
+      {activeTab === "importar" && shouldShowAssistant && xmlImportAnalysis && (
+        <div className="order-4">
+          <XmlImportPedidoSuggestionCard
+            result={xmlImportAnalysis}
+            currentPedidoRef={pedidoCompraRef}
+            currentSolicitanteUsuarioId={solicitanteUsuarioId}
+            hasManualPedidoItems={pedidoSugeridoPossuiItensManuais}
+            onApplyPedidoSuggestion={aplicarPedidoSugerido}
+            onApplySolicitanteSuggestion={aplicarSolicitanteSugerido}
+          />
+        </div>
+      )}
+
       {activeTab === "importar" && shouldShowImportForm && (
-      <div className="order-4 rounded-xl border border-zinc-800 bg-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
+      <div className="order-5 rounded-xl border border-zinc-800 bg-zinc-950 shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
         <div className="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
           <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">Destino da entrada</div>
           {(fornecedorFinalidadePadrao || fornecedorMotivoPadraoId) && (
@@ -4135,7 +4459,7 @@ export default function ImportarXmlPage() {
           )}
 
           {shouldShowItens && (
-          <div className="order-5 flex flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-950 pt-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
+          <div className="order-6 flex flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-950 pt-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
             <div className="flex items-center justify-between px-4">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">Itens da nota</div>
               <div className={`text-xs ${itensFaltantes ? "text-amber-300" : "text-emerald-300"}`}>
@@ -4200,10 +4524,10 @@ export default function ImportarXmlPage() {
                               }}
                             />
                             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
-                              {!permiteVincularItens ? (
-                                <span className="text-zinc-400"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-zinc-500" />{finalidadeLote === "imobilizado" ? "cadastro imobilizado" : finalidadeLote === "consumo" ? "cadastro consumo" : `não cadastrado (${finalidadeLote || "sem finalidade"})`}</span>
-                              ) : foundItem ? (
+                              {foundItem ? (
                                 <span className="text-emerald-300"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />cadastrado · id {foundItem.id}</span>
+                              ) : !permiteVincularItens ? (
+                                <span className="text-zinc-400"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-zinc-500" />{finalidadeLote === "imobilizado" ? "cadastro imobilizado" : finalidadeLote === "consumo" ? "cadastro consumo" : `não cadastrado (${finalidadeLote || "sem finalidade"})`}</span>
                               ) : (
                                 <span className="text-amber-300"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />não cadastrado</span>
                               )}
@@ -4242,13 +4566,26 @@ export default function ImportarXmlPage() {
                                     Falta preencher: {normalizacaoCadastro.dados_pendentes.join(" · ")}
                                   </div>
                                 )}
-                                <div className="flex flex-wrap justify-end gap-2 pt-1">
+                                {renderCorrecaoDescricao(it.codigo)}
+                                {descricaoCorrecaoMessage?.codigo === normalizeItemCodigo(it.codigo) && (
+                                  <div className={
+                                    descricaoCorrecaoMessage.kind === "ok"
+                                      ? "text-emerald-300"
+                                      : descricaoCorrecaoMessage.kind === "pending"
+                                        ? "text-amber-300"
+                                        : "text-red-300"
+                                  }>
+                                    {descricaoCorrecaoMessage.message}
+                                  </div>
+                                )}
+                                {descricaoCorrecaoDraft?.codigo !== normalizeItemCodigo(it.codigo) && (
+                                  <div className="flex flex-wrap justify-end gap-2 pt-1">
                                   <button
                                     type="button"
-                                    onClick={() => setNormalizacoesCadastro((current) => {
-                                      const next = { ...current };
-                                      delete next[normalizeItemCodigo(it.codigo)];
-                                      return next;
+                                    onClick={() => abrirCorrecaoDescricao({
+                                      codigo: it.codigo,
+                                      descricaoOrigem: it.overrideNome?.trim() || it.nome,
+                                      sugestao: normalizacaoCadastro,
                                     })}
                                     className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-zinc-300 hover:text-zinc-100"
                                   >
@@ -4265,6 +4602,7 @@ export default function ImportarXmlPage() {
                                     </button>
                                   </Can>
                                 </div>
+                                )}
                               </div>
                             )}
                           </td>
@@ -4344,9 +4682,6 @@ export default function ImportarXmlPage() {
               </div>
             </div>
 
-            {importErr && <div className="text-sm text-red-400">{importErr}</div>}
-            {importWarn && <div className="text-sm text-amber-300">{importWarn}</div>}
-            {importOk && <div className="text-sm text-emerald-300">{importOk}</div>}
           </div>
           )}
         </div>
@@ -4702,7 +5037,7 @@ export default function ImportarXmlPage() {
                   type="button"
                   onClick={fecharVinculoItemPedido}
                   className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                  disabled={pedidoItemLinkBusy}
+                  disabled={pedidoItemLinkBusy || descricaoCorrecaoBusy}
                 >
                   Fechar
                 </button>
@@ -4719,7 +5054,26 @@ export default function ImportarXmlPage() {
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
                     {pedidoItemLinkPodeCadastrar
                       ? "Este item ainda nao tem cadastro interno. Ao confirmar, o sistema vai cadastrar o item e vincular ao item manual escolhido."
-                      : "Este item da NF ainda nao tem cadastro interno. Cadastre o item antes de vincular ao pedido."}
+                      : pedidoItemLinkCadastroBloqueio ?? "Este item da NF ainda nao tem cadastro interno. Cadastre o item antes de vincular ao pedido."}
+                    {!finalidadeLote && canCreateItem && fornecedorResolvido && (
+                      <label className="mt-3 flex max-w-xs flex-col gap-1 text-zinc-200">
+                        <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Finalidade do item</span>
+                        <select
+                          value=""
+                          onChange={(event) => {
+                            if (event.target.value) aplicarFinalidadeSugerida(event.target.value);
+                          }}
+                          className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        >
+                          <option value="">Selecione...</option>
+                          {allowedAutoCadastrarFinalidades.map((finalidade) => (
+                            <option key={finalidade} value={finalidade}>
+                              {formatFinalidadeImportada(finalidade)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                   </div>
                 )}
 
@@ -4748,10 +5102,80 @@ export default function ImportarXmlPage() {
                         <div><span className="text-zinc-500">Codigo: </span>{pedidoItemLinkData.internalItem.codigo_interno || "-"}</div>
                         <div><span className="text-zinc-500">Nome: </span>{pedidoItemLinkData.internalItem.nome ?? pedidoItemLinkData.internalItem.descricao ?? "-"}</div>
                       </div>
+                    ) : normalizacaoCadastroBusy ? (
+                      <div className="mt-2 text-sm text-zinc-500">Gerando sugestão de cadastro com IA…</div>
+                    ) : pedidoItemLinkNormalizacaoCadastro ? (
+                      <div className="mt-2 space-y-2 rounded-md border border-sky-500/30 border-l-2 bg-sky-500/[0.07] px-3 py-3 text-sm text-sky-100">
+                        <div className="font-medium text-sky-200">
+                          Sugestão do agente de cadastro · confiança {pedidoItemLinkNormalizacaoCadastro.confianca}
+                        </div>
+                        <div className="text-zinc-300">
+                          <span className="text-sky-300">Nome: </span>
+                          {pedidoItemLinkNormalizacaoCadastro.descricao_padronizada || "Sem descrição segura"}
+                        </div>
+                        <div className="text-zinc-300">
+                          <span className="text-sky-300">Grupo: </span>
+                          {pedidoItemLinkNormalizacaoCadastro.grupo_caminho ??
+                            (pedidoItemLinkNormalizacaoCadastro.novo_grupo
+                              ? `Novo grupo sugerido: ${pedidoItemLinkNormalizacaoCadastro.novo_grupo.nome}`
+                              : "Revisão necessária")}
+                        </div>
+                        {pedidoItemLinkNormalizacaoCadastro.novo_grupo && (
+                          <div className="text-xs text-sky-100/90">
+                            {pedidoItemLinkNormalizacaoCadastro.novo_grupo.justificativa}
+                          </div>
+                        )}
+                        <div className="text-xs text-sky-100/90">{pedidoItemLinkNormalizacaoCadastro.justificativa}</div>
+                        {pedidoItemLinkNormalizacaoCadastro.dados_pendentes.length > 0 && (
+                          <div className="text-xs text-amber-300">
+                            Falta preencher: {pedidoItemLinkNormalizacaoCadastro.dados_pendentes.join(" · ")}
+                          </div>
+                        )}
+                        {renderCorrecaoDescricao(pedidoItemLink.codigoOriginal)}
+                        {descricaoCorrecaoMessage?.codigo === normalizeItemCodigo(pedidoItemLink.codigoOriginal) && (
+                          <div className={
+                            descricaoCorrecaoMessage.kind === "ok"
+                              ? "text-xs text-emerald-300"
+                              : descricaoCorrecaoMessage.kind === "pending"
+                                ? "text-xs text-amber-300"
+                                : "text-xs text-red-300"
+                          }>
+                            {descricaoCorrecaoMessage.message}
+                          </div>
+                        )}
+                        {descricaoCorrecaoDraft?.codigo !== normalizeItemCodigo(pedidoItemLink.codigoOriginal) && (
+                          <button
+                            type="button"
+                            onClick={() => abrirCorrecaoDescricao({
+                              codigo: pedidoItemLink.codigoOriginal,
+                              descricaoOrigem:
+                                pedidoItemLinkData?.nfItem?.overrideNome?.trim() ||
+                                pedidoItemLinkData?.nfItem?.nome ||
+                                pedidoItemLink.descricao,
+                              sugestao: pedidoItemLinkNormalizacaoCadastro,
+                            })}
+                            className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300 hover:text-zinc-100"
+                          >
+                            Descartar sugestão
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <div className="mt-2 text-sm text-zinc-500">
                         {pedidoItemLinkPodeCadastrar
-                          ? "Sera criado a partir dos dados do XML ao confirmar."
+                          ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nfItem = pedidoItemLinkData?.nfItem;
+                                if (nfItem) void carregarSugestaoCadastroParaVinculo(nfItem);
+                              }}
+                              disabled={normalizacaoCadastroBusy || !pedidoItemLinkData?.nfItem}
+                              className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-200 hover:bg-sky-500/15 disabled:opacity-50"
+                            >
+                              {normalizacaoCadastroBusy ? "Gerando sugestão com IA…" : "Gerar sugestão com IA"}
+                            </button>
+                          )
                           : "Nenhum cadastro interno encontrado para este codigo."}
                       </div>
                     )}
@@ -4783,6 +5207,7 @@ export default function ImportarXmlPage() {
                       <tbody className="divide-y divide-zinc-800">
                         {(pedidoItemLinkData?.manualItems ?? []).map((item) => {
                           const osLabel = item.origem_os_label ?? (item.origem_os_numero ? `OS ${item.origem_os_numero}` : item.origem_os_id ? `OS ${item.origem_os_id}` : "-");
+                          const manualMatch = pedidoItemLinkData?.manualMatchByPedidoItemId.get(item.id) ?? null;
                           return (
                             <tr key={item.id} className="hover:bg-zinc-900/40">
                               <td className="px-3 py-2">
@@ -4796,10 +5221,11 @@ export default function ImportarXmlPage() {
                               <td className="px-3 py-2">{item.seq ?? "-"}</td>
                               <td className="px-3 py-2">{item.item_nome ?? item.descricao ?? "-"}</td>
                               <td className="px-3 py-2">{osLabel}</td>
-                              <td className="px-3 py-2 text-right tabular-nums">
-                                {item.id === pedidoItemLink.pedidoItemId && pedidoItemLinkData?.itemSuggestion?.pedidoMatchScore
-                                  ? `${pedidoItemLinkData.itemSuggestion.pedidoMatchScore}/100`
-                                  : "-"}
+                              <td
+                                className="px-3 py-2 text-right tabular-nums"
+                                title={manualMatch?.matchedBy.join(", ") || undefined}
+                              >
+                                {manualMatch ? `${manualMatch.score}/100` : "-"}
                               </td>
                             </tr>
                           );
@@ -4828,7 +5254,7 @@ export default function ImportarXmlPage() {
                   type="button"
                   onClick={fecharVinculoItemPedido}
                   className="px-4 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                  disabled={pedidoItemLinkBusy}
+                  disabled={pedidoItemLinkBusy || descricaoCorrecaoBusy}
                 >
                   Cancelar
                 </button>
@@ -4838,9 +5264,15 @@ export default function ImportarXmlPage() {
                   className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
                   disabled={
                     pedidoItemLinkBusy ||
-                    (!pedidoItemLinkData?.internalItem && !pedidoItemLinkPodeCadastrar) ||
+                    descricaoCorrecaoBusy ||
+                    descricaoCorrecaoDraft?.codigo === normalizeItemCodigo(pedidoItemLink.codigoOriginal) ||
+                    (!pedidoItemLinkData?.internalItem &&
+                      (!pedidoItemLinkPodeCadastrar ||
+                        normalizacaoCadastroBusy ||
+                        !pedidoItemLinkNormalizacaoCadastro)) ||
                     !(pedidoItemLinkSelectedId || pedidoItemLink.pedidoItemId)
                   }
+                  title={pedidoItemLinkCadastroBloqueio ?? undefined}
                 >
                   {pedidoItemLinkBusy
                     ? "Vinculando..."

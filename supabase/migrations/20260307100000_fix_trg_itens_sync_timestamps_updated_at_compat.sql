@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260307100000_fix_trg_itens_sync_timestamps_updated_at_compat.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

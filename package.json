@@ -11,6 +11,8 @@
     "db:restore:dev": "node scripts/db-restore.js",
     "db:migrate": "node scripts/db-migrate.js",
     "db:test:xml-import": "node scripts/db-test-xml-import.js",
+    "test:xml-import-link": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-xml-import-link.mjs",
+    "test:descricao-correcao-ia": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-descricao-correcao-ia.mjs",
     "audit:ap-nf-entrada": "node scripts/audit-ap-nf-entrada.js"
   },
   "dependencies": {

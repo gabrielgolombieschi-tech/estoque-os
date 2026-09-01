@@ -58,6 +58,12 @@ type NfEntradaItemRow = {
   itens?: { nome: string | null; cfop_padrao: string | null; unidade_medida?: string | null; codigo_interno?: string | null } | null;
 };
 
+type FiscalItemFallbackRow = {
+  item_id: number | string;
+  ncm: string | null;
+  cfop_padrao: string | null;
+};
+
 type ImpostoRow = {
   id: string;
   imposto: string;
@@ -205,6 +211,33 @@ async function loadPedidoCodesByItemId(opts: {
   }
 }
 
+async function loadFiscalItemFallbacks(opts: {
+  supabase: ReturnType<typeof supabaseBrowser>;
+  tenantId: string;
+  empresaId: string;
+  itemIds: number[];
+}): Promise<Map<number, FiscalItemFallbackRow>> {
+  if (opts.itemIds.length === 0) return new Map();
+
+  const { data, error } = await applyTenantEmpresa(
+    opts.supabase
+      .from("fiscal_itens")
+      .select("item_id,ncm,cfop_padrao")
+      .in("item_id", opts.itemIds),
+    opts.tenantId,
+    opts.empresaId
+  ).returns<FiscalItemFallbackRow[]>();
+
+  if (error) {
+    console.warn("[NFE_DETAIL] nao foi possivel carregar o fallback de fiscal_itens", error);
+    return new Map();
+  }
+
+  return new Map(
+    (data ?? []).map((row) => [Number(row.item_id), row])
+  );
+}
+
 async function buildRelatorioDestinoImportacao(opts: {
   supabase: ReturnType<typeof supabaseBrowser>;
   tenantId: string;
@@ -219,7 +252,7 @@ async function buildRelatorioDestinoImportacao(opts: {
     opts.supabase
       .schema("public")
       .from("nf_entrada_itens")
-      .select("id,item_id,descricao,ncm,cfop,qtd,v_unit,v_prod,codigo_fornecedor,itens(nome,cfop_padrao,unidade_medida,codigo_interno)")
+      .select("id,item_id,descricao,ncm,cfop,qtd,v_unit,v_prod,codigo_fornecedor,itens(nome,unidade_medida,codigo_interno)")
       .eq("nf_entrada_id", nfEntradaId)
       .order("id", { ascending: true }),
     opts.tenantId,
@@ -558,17 +591,33 @@ export default function NfeDetail({
           ).returns<NfEntradaItemRow[]>();
           if (nfItensErr) throw nfItensErr;
 
-          resolvedItens = (nfItens ?? []).map((r, idx) => ({
-            id: String(r.id),
-            item_n: idx + 1,
-            item_tipo: "IMPORT_XML",
-            descricao: String(r.descricao ?? r.itens?.nome ?? r.codigo_fornecedor ?? "").trim() || "—",
-            ncm: r.ncm ?? null,
-            cfop: r.cfop ?? r.itens?.cfop_padrao ?? null,
-            quantidade: r.qtd ?? 0,
-            valor_unitario: r.v_unit ?? 0,
-            valor_total: r.v_prod ?? 0,
-          }));
+          const fiscalByItemId = await loadFiscalItemFallbacks({
+            supabase,
+            tenantId,
+            empresaId,
+            itemIds: Array.from(
+              new Set(
+                (nfItens ?? [])
+                  .map((row) => Number(row.item_id ?? 0))
+                  .filter((itemId) => Number.isFinite(itemId) && itemId > 0)
+              )
+            ),
+          });
+
+          resolvedItens = (nfItens ?? []).map((r, idx) => {
+            const fiscal = fiscalByItemId.get(Number(r.item_id ?? 0));
+            return {
+              id: String(r.id),
+              item_n: idx + 1,
+              item_tipo: "IMPORT_XML",
+              descricao: String(r.descricao ?? r.itens?.nome ?? r.codigo_fornecedor ?? "").trim() || "—",
+              ncm: r.ncm ?? fiscal?.ncm ?? null,
+              cfop: r.cfop ?? fiscal?.cfop_padrao ?? r.itens?.cfop_padrao ?? null,
+              quantidade: r.qtd ?? 0,
+              valor_unitario: r.v_unit ?? 0,
+              valor_total: r.v_prod ?? 0,
+            };
+          });
         }
 
         const titulosVisiveis = (titData ?? []).filter((titulo) => {

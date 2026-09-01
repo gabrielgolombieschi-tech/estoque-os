@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260806120000_contas_pagar_receber_multiempresa_resumo_hoje.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.

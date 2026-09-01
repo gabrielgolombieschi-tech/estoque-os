@@ -1,0 +1,3 @@
+-- Marcador historico: esta versao ja foi aplicada em producao.
+-- O SQL original permanece em supabase/migrations/_arquivo/20260216_fix_empresa_eletrica_segau_default.sql.
+-- O efeito acumulado desta versao ja integra 00000000000000_baseline_producao.sql.
