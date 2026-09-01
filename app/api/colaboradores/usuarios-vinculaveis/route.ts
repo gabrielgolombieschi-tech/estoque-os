@@ -81,7 +81,10 @@ export async function GET(req: NextRequest) {
         return porNome !== 0 ? porNome : a.email.localeCompare(b.email, "pt-BR", { sensitivity: "base" });
       });
 
-    return NextResponse.json({ usuarios });
+    return NextResponse.json(
+      { usuarios },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+    );
   } catch (error: unknown) {
     return jsonError(500, error instanceof Error ? error.message : "Erro inesperado.");
   }

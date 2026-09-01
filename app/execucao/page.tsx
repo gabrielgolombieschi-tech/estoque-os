@@ -112,7 +112,10 @@ export default function ExecucaoPage() {
 
       if (osIds.length > 0) {
         const { data: osData, error: osErr } = await applyTenantEmpresa(
-          supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+          supabase
+            .from("ordens_servico")
+            .select("id,numero_os,cliente_nome,descricao_servico,status")
+            .eq("tipo_documento", "OS"),
           effectiveTenantId,
           empresaId ?? ""
         ).in("id", osIds);

@@ -103,6 +103,8 @@ type NormalizacaoCadastroResponse = {
 type OsLookupRow = {
   id: number;
   numero_os?: string | null;
+  tipo_documento?: "OS" | "OV" | null;
+  codigo?: string | null;
   cliente_nome?: string | null;
   descricao_servico?: string | null;
   status?: string | null;
@@ -872,6 +874,7 @@ export default function ImportarXmlPage() {
   const [osLookupError, setOsLookupError] = useState<string | null>(null);
   const osLookupDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const osResolveReqIdRef = useRef(0);
+  const documentoInicialAplicadoRef = useRef(false);
 
   const [loteMissing, setLoteMissing] = useState<string[]>([]);
 
@@ -1152,7 +1155,7 @@ export default function ImportarXmlPage() {
       }
 
       const { data, error } = await applyTenantEmpresa(
-        supabase.schema("public").from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+        supabase.schema("public").from("ordens_servico").select("id,numero_os,tipo_documento,codigo,cliente_nome,descricao_servico,status"),
         tenantId,
         empresaId
       )
@@ -1181,13 +1184,31 @@ export default function ImportarXmlPage() {
       setOsId(Number(row.id));
       const numeroDb = row.numero_os ?? String(row.id);
       const cliente = row.cliente_nome ?? "-";
-      setOsLabel(`OS ${numeroDb} - ${cliente}`);
+      const documento = row.codigo || `${row.tipo_documento === "OV" ? "OV" : "OS"} ${numeroDb}`;
+      setOsLabel(`${documento} - ${cliente}`);
       setOsError(null);
       setOsLoading(false);
       aplicarMotivoAutomatico({ origem: "os", temOs: true });
     },
     [aplicarMotivoAutomatico, supabase, tenantId, empresaId]
   );
+
+  useEffect(() => {
+    if (documentoInicialAplicadoRef.current || !tenantId || !empresaId || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const documentoId = Number(params.get("documento") ?? 0);
+    const numero = String(params.get("numero") ?? "").trim();
+    if ((!Number.isInteger(documentoId) || documentoId <= 0) && !numero) return;
+
+    documentoInicialAplicadoRef.current = true;
+    // Sincroniza a selecao inicial recebida pela URL da OV.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFinalidadeLote("materia_prima");
+    if (numero) {
+      setOsNumero(numero);
+      void resolveOsByNumero(numero);
+    }
+  }, [empresaId, resolveOsByNumero, tenantId]);
 
   const loadOsLookup = useCallback(
     async (term: string) => {
@@ -1209,7 +1230,7 @@ export default function ImportarXmlPage() {
       }
 
       let query = applyTenantEmpresa(
-        supabase.schema("public").from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status"),
+        supabase.schema("public").from("ordens_servico").select("id,numero_os,tipo_documento,codigo,cliente_nome,descricao_servico,status"),
         tenantId,
         empresaId
       )
@@ -1217,7 +1238,7 @@ export default function ImportarXmlPage() {
         .limit(50);
 
       const likeTerm = `%${trimmed}%`;
-      query = query.or(`numero_os.ilike.${likeTerm},cliente_nome.ilike.${likeTerm}`);
+      query = query.or(`numero_os.ilike.${likeTerm},codigo.ilike.${likeTerm},cliente_nome.ilike.${likeTerm}`);
 
       const { data, error } = await query;
       if (error) {
@@ -5154,7 +5175,7 @@ export default function ImportarXmlPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-zinc-900/70">
                       <tr className="text-zinc-200">
-                        <th className="px-3 py-2 text-left">OS</th>
+                        <th className="px-3 py-2 text-left">Documento</th>
                         <th className="px-3 py-2 text-left">Cliente</th>
                         <th className="px-3 py-2 text-left">Descricao</th>
                         <th className="px-3 py-2 text-center">Acao</th>
@@ -5163,7 +5184,7 @@ export default function ImportarXmlPage() {
                     <tbody className="divide-y divide-zinc-800">
                       {osLookupRows.map((row) => (
                         <tr key={row.id} className="hover:bg-zinc-900/40">
-                          <td className="px-3 py-2">{row.numero_os ?? row.id}</td>
+                          <td className="px-3 py-2">{row.codigo || `${row.tipo_documento === "OV" ? "OV" : "OS"} ${row.numero_os ?? row.id}`}</td>
                           <td className="px-3 py-2">{row.cliente_nome ?? "-"}</td>
                           <td className="px-3 py-2">{row.descricao_servico ?? "-"}</td>
                           <td className="px-3 py-2 text-center">
@@ -5173,7 +5194,7 @@ export default function ImportarXmlPage() {
                                 const numero = row.numero_os ?? String(row.id);
                                 setOsNumero(numero);
                                 setOsId(Number(row.id));
-                                setOsLabel(`OS ${numero} - ${(row.cliente_nome ?? "-")}`);
+                                setOsLabel(`${row.codigo || `${row.tipo_documento === "OV" ? "OV" : "OS"} ${numero}`} - ${(row.cliente_nome ?? "-")}`);
                                 setOsError(null);
                                 aplicarMotivoAutomatico({ origem: "os", temOs: true });
                                 closeOsLookup();
@@ -5188,7 +5209,7 @@ export default function ImportarXmlPage() {
                       {!osLookupLoading && osLookupRows.length === 0 && osLookupTerm.trim() !== "" && (
                         <tr>
                           <td colSpan={4} className="px-3 py-4 text-zinc-400">
-                            Nenhuma OS encontrada.
+                            Nenhuma OS ou OV encontrada.
                           </td>
                         </tr>
                       )}

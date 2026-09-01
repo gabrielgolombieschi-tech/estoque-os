@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
 import { formatMoneyBR, parseMoneyBR } from "@/lib/decimal";
@@ -10,6 +11,9 @@ import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
 import type { OsSelection } from "@/lib/os-vinculo";
 
 type Kind = "AP" | "AR";
+type DateBase = "vencimento" | "emissao" | "competencia";
+type SortMode = "vencimento" | "valor" | "fornecedor" | "emissao";
+type ActionTab = "APROVAR" | "PAGAR" | "REVISAR_VALOR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO";
 
 type UnifiedRow = {
   empresaId: string;
@@ -21,7 +25,9 @@ type UnifiedRow = {
   parcelaNumero: string | null;
   parcelaTotal: number | null;
   emissao: string | null; // yyyy-mm-dd (AP manual / XML)
+  competencia: string | null;
   vencimento: string; // yyyy-mm-dd
+  dataBase: string;
   pessoaNome: string;
   descricao: string | null;
   motivoCodigo: string | null; // AP only
@@ -32,6 +38,22 @@ type UnifiedRow = {
   tituloStatus: string;
   formaPagamentoResumo: string | null;
   contaBancariaResumo: string | null;
+  osId: number | null;
+  osNumero: string | null;
+};
+
+type DisplayEntry = {
+  id: string;
+  primary: UnifiedRow;
+  rows: UnifiedRow[];
+  valor: number;
+  valorAberto: number;
+};
+
+type DisplayGroup = {
+  id: string;
+  date: string | null;
+  entries: DisplayEntry[];
 };
 
 type ContaSaldo = {
@@ -251,35 +273,28 @@ function isOverdue(vencimentoISO: string): boolean {
   return toDateOnly(vencimentoISO).getTime() < today0.getTime();
 }
 
-function statusBadge(row: UnifiedRow): { label: string; className: string } {
+function statusDisplay(row: UnifiedRow): {
+  label: string;
+  variant: "open" | "overdue" | "paid" | "partial" | "cancelled";
+} {
   const status = String(row.tituloStatus ?? "").toUpperCase();
   if (status === "CANCELADO") {
-    return { label: "Cancelado", className: "bg-rose-500/15 text-rose-300 border border-rose-500/30" };
+    return { label: "Cancelado", variant: "cancelled" };
   }
 
   if (row.valorAberto <= 0) {
-    if (row.kind === "AP") {
-      return { label: "Pago", className: "bg-blue-500/15 text-blue-300 border border-blue-500/30" };
-    }
-    return { label: "Recebido", className: "bg-blue-500/15 text-blue-300 border border-blue-500/30" };
+    return { label: row.kind === "AP" ? "Pago" : "Recebido", variant: "paid" };
   }
 
-  const overdue = isOverdue(row.vencimento) && row.valorAberto > 0;
-  if (overdue) {
-    return { label: "Atrasado", className: "bg-red-500/15 text-red-300 border border-red-500/30" };
+  if (isOverdue(row.vencimento)) {
+    return { label: "Vencido", variant: "overdue" };
   }
 
-  if (row.kind === "AP") {
-    if ((row.motivoCodigo ?? "").toUpperCase() === "NAO_CLASSIFICADO") {
-      return {
-        label: "Pendente aprovação",
-        className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-      };
-    }
-    return { label: "Aprovado", className: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" };
+  if (row.valorAberto < Math.abs(row.valor) - 0.005) {
+    return { label: "Parcial", variant: "partial" };
   }
 
-  return { label: "A receber", className: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" };
+  return { label: "Em aberto", variant: "open" };
 }
 
 function isCancelledRow(row: UnifiedRow): boolean {
@@ -292,15 +307,118 @@ function fmtParcela(n: string | null, total?: number | null) {
   return `Parc. ${n}`;
 }
 
+function titleCaseDisplay(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return "—";
+
+  const lowercaseWords = new Set(["a", "as", "da", "das", "de", "do", "dos", "e", "em"]);
+  const words = normalized.split(" ");
+  return words
+    .map((word, index) => {
+      const lower = word.toLocaleLowerCase("pt-BR");
+      const isInitial = /^[A-ZÀ-Ý]$/.test(word);
+      const isInitialSequence =
+        isInitial &&
+        (Boolean(words[index - 1] && /^[A-ZÀ-Ý]$/.test(words[index - 1])) ||
+          Boolean(words[index + 1] && /^[A-ZÀ-Ý]$/.test(words[index + 1])));
+      if (isInitialSequence || /^[A-Z0-9]+(?:[./-][A-Z0-9]+)+$/.test(word) || word === "SGU") return word;
+      if (index > 0 && lowercaseWords.has(lower)) return lower;
+      return lower.charAt(0).toLocaleUpperCase("pt-BR") + lower.slice(1);
+    })
+    .join(" ");
+}
+
+function cleanDescriptionDisplay(row: UnifiedRow): string {
+  const original = String(row.descricao ?? "").trim().replace(/\s+/g, " ");
+  const person = String(row.pessoaNome ?? "").trim().replace(/\s+/g, " ");
+  const originalLower = original.toLocaleLowerCase("pt-BR");
+  const personLower = person.toLocaleLowerCase("pt-BR");
+  let cleaned = original;
+
+  if (cleaned && person && originalLower.startsWith(personLower)) {
+    cleaned = cleaned.slice(person.length).replace(/^[\s\-–—:|]+/, "").trim();
+  } else if (cleaned && person && originalLower.endsWith(personLower)) {
+    cleaned = cleaned.slice(0, cleaned.length - person.length).replace(/[\s\-–—:|]+$/, "").trim();
+  }
+
+  if (!cleaned) {
+    const nf = String(row.nfNumero ?? "").trim();
+    cleaned = nf ? (/^nf/i.test(nf) ? nf : `NF-e ${nf}`) : original || "Sem descrição";
+  }
+
+  if (row.parcelaTotal && row.parcelaTotal > 1 && row.parcelaNumero) {
+    const parcelaNumero = Number(row.parcelaNumero);
+    const parcelaLabel = Number.isFinite(parcelaNumero) ? parcelaNumero : row.parcelaNumero;
+    cleaned += ` · parcela ${parcelaLabel} de ${row.parcelaTotal}`;
+  }
+
+  return cleaned;
+}
+
+function relativeDueLabel(vencimentoISO: string): string {
+  const today = toDateOnly(todayISO()).getTime();
+  const due = toDateOnly(vencimentoISO).getTime();
+  const days = Math.round((due - today) / 86_400_000);
+  if (days === 0) return "vence hoje";
+  if (days === 1) return "vence amanhã";
+  if (days > 1) return `vence em ${days} dias`;
+  const elapsed = Math.abs(days);
+  return `há ${elapsed} ${elapsed === 1 ? "dia" : "dias"}`;
+}
+
+function relativeDateLabel(iso: string, base: DateBase): string {
+  if (base === "vencimento") return relativeDueLabel(iso);
+  const today = toDateOnly(todayISO()).getTime();
+  const date = toDateOnly(iso).getTime();
+  const days = Math.round((date - today) / 86_400_000);
+  if (days === 0) return "hoje";
+  if (days > 0) return `em ${days} ${days === 1 ? "dia" : "dias"}`;
+  const elapsed = Math.abs(days);
+  return `há ${elapsed} ${elapsed === 1 ? "dia" : "dias"}`;
+}
+
+function signedValueDisplay(row: UnifiedRow): string {
+  return `${row.kind === "AP" ? "−" : "+"} ${formatMoneyBR(Math.abs(row.valor))}`;
+}
+
+function signedMoneyDisplay(kind: Kind, value: number): string {
+  return `${kind === "AP" ? "−" : "+"} ${formatMoneyBR(Math.abs(value))}`;
+}
+
+function signedDeltaDisplay(value: number): string {
+  if (Math.abs(value) < 0.005) return "—";
+  return `${value < 0 ? "−" : "+"} ${formatMoneyBR(Math.abs(value))}`;
+}
+
+function dateBaseLabel(base: DateBase): string {
+  if (base === "emissao") return "Emissão";
+  if (base === "competencia") return "Competência";
+  return "Vencimento";
+}
+
+function monthDisplay(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(
+    new Date(year, Math.max(0, monthNumber - 1), 1)
+  );
+  return label.charAt(0).toLocaleUpperCase("pt-BR") + label.slice(1);
+}
+
+function groupDateDisplay(iso: string, base: DateBase): { date: string; weekday: string; relative: string } {
+  const date = toDateOnly(iso);
+  const dateLabel = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" }).format(date);
+  const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(date);
+  return { date: dateLabel, weekday, relative: relativeDateLabel(iso, base) };
+}
+
+function csvCell(value: unknown): string {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return <div className="text-sm text-red-300">{message}</div>;
-}
-
-function buildYearOptions(centerYear: number, span = 3) {
-  const years: number[] = [];
-  for (let y = centerYear - span; y <= centerYear + span; y++) years.push(y);
-  return years;
 }
 
 function todayISO(): string {
@@ -315,16 +433,23 @@ function formatDateBR(iso: string | null | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function ContasPagarReceberPage() {
+function ContasPagarReceberContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const te = useTenantEmpresa();
   const supabase = useMemo(() => getSupabaseBrowser(), []);
 
-  const canFinanceiro = (te.has("financeiro.read") ?? false) || (te.has("financeiro.write") ?? false);
+  const canWriteFinanceiro = te.has("financeiro.write") ?? false;
+  const canFinanceiro = (te.has("financeiro.read") ?? false) || canWriteFinanceiro;
 
-  const [month, setMonth] = useState<string>(() => monthIso());
+  const initialMonth = /^\d{4}-\d{2}$/.test(searchParams.get("periodo") ?? "")
+    ? String(searchParams.get("periodo"))
+    : monthIso();
+  const [month, setMonth] = useState<string>(initialMonth);
   const range = useMemo(() => monthRange(month), [month]);
-  const [year, setYear] = useState<number>(() => Number(month.split("-")[0] ?? new Date().getFullYear()));
-  const [monthNum, setMonthNum] = useState<number>(() => Number(month.split("-")[1] ?? new Date().getMonth() + 1));
+  const [year, setYear] = useState<number>(() => Number(initialMonth.split("-")[0] ?? new Date().getFullYear()));
+  const [monthNum, setMonthNum] = useState<number>(() => Number(initialMonth.split("-")[1] ?? new Date().getMonth() + 1));
 
   useEffect(() => {
     const next = `${year}-${pad2(monthNum)}`;
@@ -332,15 +457,36 @@ export default function ContasPagarReceberPage() {
     if (next !== month) setMonth(next);
   }, [month, monthNum, year]);
 
-  const [q, setQ] = useState("");
-  const [nfQuery, setNfQuery] = useState("");
-  const [only, setOnly] = useState<"ALL" | Kind>("ALL");
-  const [onlyPendentes, setOnlyPendentes] = useState(false);
+  const [q, setQ] = useState(() => searchParams.get("q") ?? "");
+  const [nfQuery, setNfQuery] = useState(() => searchParams.get("nf") ?? "");
+  const [only, setOnly] = useState<"ALL" | Kind>(() => {
+    const value = String(searchParams.get("tipo") ?? "").toUpperCase();
+    return value === "AP" || value === "AR" ? value : "ALL";
+  });
+  const [onlyPendentes, setOnlyPendentes] = useState(() => searchParams.get("pendentes") === "1");
   const [onlyToday, setOnlyToday] = useState(false);
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>(() => searchParams.get("de") ?? "");
+  const [dateTo, setDateTo] = useState<string>(() => searchParams.get("ate") ?? "");
+  const [dateBase, setDateBase] = useState<DateBase>(() => {
+    const value = searchParams.get("base");
+    return value === "emissao" || value === "competencia" ? value : "vencimento";
+  });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const value = searchParams.get("ordem");
+    return value === "valor" || value === "fornecedor" || value === "emissao" ? value : "vencimento";
+  });
+  const [groupByDay, setGroupByDay] = useState(() => searchParams.get("agrupar") !== "nao");
+  const [contaFilter, setContaFilter] = useState(() => searchParams.get("conta") ?? "");
+  const [motivoFilter, setMotivoFilter] = useState(() => searchParams.get("motivo") ?? "");
+  const [aprovadorFilter, setAprovadorFilter] = useState(() => searchParams.get("aprovador") ?? "");
+  const [formaFilter, setFormaFilter] = useState(() => searchParams.get("forma") ?? "");
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
   const empresaOptions = useMemo(() => buildEmpresaDisplayOptions(te.empresas), [te.empresas]);
-  const [empresaFilter, setEmpresaFilter] = useState<string>("ALL");
+  const [empresaFilter, setEmpresaFilter] = useState<string>(() => {
+    const value = searchParams.get("empresa");
+    return value && value !== "ambas" ? value : "ALL";
+  });
   const effectiveEmpresaFilter = useMemo(
     () => (empresaFilter === "ALL" || empresaOptions.some((empresa) => empresa.id === empresaFilter) ? empresaFilter : "ALL"),
     [empresaFilter, empresaOptions]
@@ -356,6 +502,58 @@ export default function ContasPagarReceberPage() {
     () => new Map(empresaOptions.map((empresa) => [empresa.id, empresa.label])),
     [empresaOptions]
   );
+  const lastFilterUrlRef = useRef("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("periodo", month);
+    params.set("tipo", only === "ALL" ? "ap+ar" : only.toLowerCase());
+    params.set("empresa", effectiveEmpresaFilter === "ALL" ? "ambas" : effectiveEmpresaFilter);
+    params.set("base", dateBase);
+    params.set("pendentes", onlyPendentes ? "1" : "0");
+    params.set("ordem", sortMode);
+    params.set("agrupar", groupByDay ? "dia" : "nao");
+
+    const optional: Array<[string, string]> = [
+      ["q", q.trim()],
+      ["nf", nfQuery.trim()],
+      ["de", dateFrom.trim()],
+      ["ate", dateTo.trim()],
+      ["conta", contaFilter],
+      ["motivo", motivoFilter],
+      ["aprovador", aprovadorFilter],
+      ["forma", formaFilter],
+    ];
+    for (const [key, value] of optional) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+
+    const queryString = params.toString();
+    const nextUrl = `${pathname}?${queryString}`;
+    if (lastFilterUrlRef.current === nextUrl || queryString === searchParams.toString()) return;
+    lastFilterUrlRef.current = nextUrl;
+    router.replace(nextUrl, { scroll: false });
+  }, [
+    aprovadorFilter,
+    contaFilter,
+    dateBase,
+    dateFrom,
+    dateTo,
+    effectiveEmpresaFilter,
+    formaFilter,
+    groupByDay,
+    month,
+    motivoFilter,
+    nfQuery,
+    only,
+    onlyPendentes,
+    pathname,
+    q,
+    router,
+    searchParams,
+    sortMode,
+  ]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -364,9 +562,7 @@ export default function ContasPagarReceberPage() {
   const [accountBalances, setAccountBalances] = useState<ContaSaldo[]>([]);
 
   const [selected, setSelected] = useState<UnifiedRow | null>(null);
-  const [tab, setTab] = useState<
-    "APROVAR" | "PAGAR" | "REVISAR_VALOR" | "VENCIMENTO" | "RECEBER" | "CANCELAR_PAGAMENTO"
-  >("APROVAR");
+  const [tab, setTab] = useState<ActionTab>("APROVAR");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createKind, setCreateKind] = useState<Kind>("AP");
@@ -635,7 +831,9 @@ export default function ContasPagarReceberPage() {
         parcelaNumero: r.parcela_numero ? String(r.parcela_numero) : null,
         parcelaTotal: r.total_parcelas ? Number(r.total_parcelas) : null,
         emissao: null,
+        competencia: null,
         vencimento: String(r.vencimento_date),
+        dataBase: String(r.vencimento_date),
         pessoaNome: r.fornecedor_nome ? String(r.fornecedor_nome) : "Fornecedor",
         descricao: r.descricao ? String(r.descricao) : null,
         motivoCodigo: r.motivo_codigo ? String(r.motivo_codigo) : null,
@@ -646,6 +844,8 @@ export default function ContasPagarReceberPage() {
         tituloStatus: String(r.status ?? ""),
         formaPagamentoResumo: null,
         contaBancariaResumo: null,
+        osId: null,
+        osNumero: null,
       }));
 
       type ApParcelaPaidRow = {
@@ -732,7 +932,9 @@ export default function ContasPagarReceberPage() {
           parcelaNumero: r.numero ? String(r.numero) : null,
           parcelaTotal: null,
           emissao: null,
+          competencia: null,
           vencimento: String(r.vencimento_date),
+          dataBase: String(r.vencimento_date),
           pessoaNome: Number.isFinite(fornecedorId)
             ? fornecedorNomeById.get(fornecedorId) ?? `Fornecedor ${fornecedorId}`
             : "Fornecedor",
@@ -745,6 +947,8 @@ export default function ContasPagarReceberPage() {
           tituloStatus: String(r?.titulo?.status ?? ""),
           formaPagamentoResumo: null,
           contaBancariaResumo: null,
+          osId: null,
+          osNumero: null,
         };
       });
 
@@ -897,7 +1101,9 @@ export default function ContasPagarReceberPage() {
           parcelaNumero: r.numero ? String(r.numero) : null,
           parcelaTotal: null,
           emissao: null,
+          competencia: null,
           vencimento: String(r.vencimento_date),
+          dataBase: String(r.vencimento_date),
           pessoaNome,
           descricao: r?.titulo?.descricao ? String(r.titulo.descricao) : null,
           motivoCodigo: null,
@@ -908,6 +1114,8 @@ export default function ContasPagarReceberPage() {
           tituloStatus: String(r?.titulo?.status ?? ""),
           formaPagamentoResumo: null,
           contaBancariaResumo: null,
+          osId: null,
+          osNumero: null,
         };
       });
 
@@ -1065,11 +1273,12 @@ export default function ContasPagarReceberPage() {
 
     try {
       const [listaRes, hojeRes, saldosRes] = await Promise.all([
-        supabase.schema("f").rpc("contas_pagar_receber_listar_v3", {
+        supabase.schema("f").rpc("contas_pagar_receber_listar_v4", {
           p_tenant_id: te.tenantId,
           p_empresa_ids: selectedEmpresaIds,
           p_data_inicio: ini,
           p_data_fim: fim,
+          p_data_base: dateBase,
         }),
         supabase.schema("f").rpc("contas_pagar_receber_resumo_hoje", {
           p_tenant_id: te.tenantId,
@@ -1099,12 +1308,16 @@ export default function ContasPagarReceberPage() {
         parcela_numero: unknown;
         total_parcelas: unknown;
         emissao_date: unknown;
+        competencia_date: unknown;
         vencimento_date: unknown;
+        data_base: unknown;
         pessoa_nome: unknown;
         descricao: unknown;
         motivo_codigo: unknown;
         motivo_nome: unknown;
         aprovado_por_nome: unknown;
+        os_id: unknown;
+        os_numero: unknown;
         valor: unknown;
         valor_aberto: unknown;
         titulo_status: unknown;
@@ -1142,7 +1355,9 @@ export default function ContasPagarReceberPage() {
             parcelaNumero: row.parcela_numero ? String(row.parcela_numero) : null,
             parcelaTotal: parcelasNoTitulo,
             emissao: row.emissao_date ? String(row.emissao_date) : null,
+            competencia: row.competencia_date ? String(row.competencia_date) : null,
             vencimento: String(row.vencimento_date),
+            dataBase: row.data_base ? String(row.data_base) : String(row.vencimento_date),
             pessoaNome: row.pessoa_nome ? String(row.pessoa_nome) : kind === "AP" ? "Fornecedor" : "Cliente",
             descricao: row.descricao ? String(row.descricao) : null,
             motivoCodigo: row.motivo_codigo ? String(row.motivo_codigo) : null,
@@ -1159,6 +1374,8 @@ export default function ContasPagarReceberPage() {
             }),
             contaBancariaResumo:
               summarizeAccountLabels(contasAplicadas, empresaNome) ?? summarizeAccountLabels(contasAgendadas, empresaNome),
+            osId: row.os_id === null || row.os_id === undefined ? null : Number(row.os_id),
+            osNumero: row.os_numero ? String(row.os_numero) : null,
           };
         })
         .filter((row): row is UnifiedRow => row !== null);
@@ -1209,7 +1426,7 @@ export default function ContasPagarReceberPage() {
       });
     } catch (e: unknown) {
       if (requestIdRef.current !== reqId) return;
-      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar_v3");
+      const missingListRpc = isMissingRpc(e, "f.contas_pagar_receber_listar_v4");
       const missingTodayRpc = isMissingRpc(e, "f.contas_pagar_receber_resumo_hoje");
       const missingBalancesRpc = isMissingRpc(e, "f.contas_bancarias_saldos_ativos");
       if (
@@ -1227,6 +1444,7 @@ export default function ContasPagarReceberPage() {
     }
   }, [
     canFinanceiro,
+    dateBase,
     dateFrom,
     dateTo,
     empresaNomeById,
@@ -1628,11 +1846,15 @@ export default function ContasPagarReceberPage() {
       if (only !== "ALL" && r.kind !== only) return false;
       if (onlyPendentes && r.valorAberto <= 0) return false;
       if (useDateRange) {
-        if (from && r.vencimento < from) return false;
-        if (to && r.vencimento > to) return false;
+        if (from && r.dataBase < from) return false;
+        if (to && r.dataBase > to) return false;
       } else {
-        if (onlyToday && r.vencimento !== today) return false;
+        if (onlyToday && r.dataBase !== today) return false;
       }
+      if (contaFilter && r.contaBancariaResumo !== contaFilter) return false;
+      if (motivoFilter && r.motivoNome !== motivoFilter) return false;
+      if (aprovadorFilter && r.aprovadoPorNome !== aprovadorFilter) return false;
+      if (formaFilter && r.formaPagamentoResumo !== formaFilter) return false;
       const matchText = !query || (
         r.pessoaNome.toLowerCase().includes(query) ||
         (r.descricao ?? "").toLowerCase().includes(query) ||
@@ -1644,12 +1866,110 @@ export default function ContasPagarReceberPage() {
       const matchNf = !nfTerm || (r.nfNumero ?? "").toLowerCase().includes(nfTerm);
       return matchText && matchNf;
     });
-  }, [dateFrom, dateTo, nfQuery, only, onlyPendentes, onlyToday, q, rows]);
+  }, [
+    aprovadorFilter,
+    contaFilter,
+    dateFrom,
+    dateTo,
+    formaFilter,
+    motivoFilter,
+    nfQuery,
+    only,
+    onlyPendentes,
+    onlyToday,
+    q,
+    rows,
+  ]);
+
+  const filterOptions = useMemo(() => {
+    const unique = (values: Array<string | null>) =>
+      Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort((a, b) =>
+        a.localeCompare(b, "pt-BR")
+      );
+    return {
+      contas: unique(rows.map((row) => row.contaBancariaResumo)),
+      motivos: unique(rows.map((row) => row.motivoNome)),
+      aprovadores: unique(rows.map((row) => row.aprovadoPorNome)),
+      formas: unique(rows.map((row) => row.formaPagamentoResumo)),
+    };
+  }, [rows]);
+
+  const displayGroups = useMemo<DisplayGroup[]>(() => {
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortMode === "valor") return Math.abs(b.valor) - Math.abs(a.valor);
+      if (sortMode === "fornecedor") return a.pessoaNome.localeCompare(b.pessoaNome, "pt-BR");
+      if (sortMode === "emissao") {
+        const byEmission = String(a.emissao ?? a.dataBase).localeCompare(String(b.emissao ?? b.dataBase));
+        if (byEmission !== 0) return byEmission;
+      }
+      const byDate = a.dataBase.localeCompare(b.dataBase);
+      if (byDate !== 0) return byDate;
+      if (a.kind !== b.kind) return a.kind === "AP" ? -1 : 1;
+      return a.pessoaNome.localeCompare(b.pessoaNome, "pt-BR");
+    });
+
+    const shouldGroup = groupByDay && sortMode === "vencimento";
+    const rawGroups = new Map<string, UnifiedRow[]>();
+    if (shouldGroup) {
+      for (const row of sorted) {
+        const current = rawGroups.get(row.dataBase) ?? [];
+        current.push(row);
+        rawGroups.set(row.dataBase, current);
+      }
+    } else {
+      rawGroups.set("all", sorted);
+    }
+
+    return Array.from(rawGroups.entries()).map(([groupKey, groupRows]) => {
+      const duplicateMap = new Map<string, UnifiedRow[]>();
+      for (const row of groupRows) {
+        const duplicateKey = shouldGroup
+          ? [
+              row.kind,
+              row.empresaId,
+              row.dataBase,
+              row.pessoaNome.trim().toLocaleLowerCase("pt-BR"),
+              Math.round(Math.abs(row.valor) * 100),
+              String(row.motivoNome ?? "").trim().toLocaleLowerCase("pt-BR"),
+            ].join("|")
+          : `${row.kind}:${row.parcelaId}`;
+        const current = duplicateMap.get(duplicateKey) ?? [];
+        current.push(row);
+        duplicateMap.set(duplicateKey, current);
+      }
+
+      const entries = Array.from(duplicateMap.entries()).map(([duplicateKey, duplicateRows]): DisplayEntry => {
+        const activeRows = duplicateRows.filter((row) => !isCancelledRow(row));
+        const rowsForTotal = activeRows.length > 0 ? activeRows : duplicateRows;
+        return {
+          id: duplicateRows.length > 1 ? `duplicate:${duplicateKey}` : `${duplicateRows[0].kind}:${duplicateRows[0].parcelaId}`,
+          primary: activeRows[0] ?? duplicateRows[0],
+          rows: duplicateRows,
+          valor: rowsForTotal.reduce((total, row) => total + row.valor, 0),
+          valorAberto: rowsForTotal.reduce((total, row) => total + row.valorAberto, 0),
+        };
+      });
+
+      return { id: groupKey, date: shouldGroup ? groupKey : null, entries };
+    });
+  }, [filtered, groupByDay, sortMode]);
 
   const totalsOpen = useMemo(() => {
     const sumAP = filtered.filter((r) => r.kind === "AP" && r.valorAberto > 0).reduce((acc, r) => acc + r.valorAberto, 0);
     const sumAR = filtered.filter((r) => r.kind === "AR" && r.valorAberto > 0).reduce((acc, r) => acc + r.valorAberto, 0);
     return { sumAP, sumAR };
+  }, [filtered]);
+
+  const tableTotals = useMemo(() => {
+    const activeRows = filtered.filter((row) => !isCancelledRow(row));
+    const calculate = (kind: Kind) =>
+      activeRows
+        .filter((row) => row.kind === kind)
+        .reduce(
+          (total, row) => ({ valor: total.valor + row.valor, aberto: total.aberto + row.valorAberto }),
+          { valor: 0, aberto: 0 }
+        );
+    return { AP: calculate("AP"), AR: calculate("AR") };
   }, [filtered]);
 
   const resumo = useMemo(() => {
@@ -1658,9 +1978,12 @@ export default function ContasPagarReceberPage() {
     const previstoDespesas = rowsResumo.filter((r) => r.kind === "AP").reduce((acc, r) => acc + Number(r.valor || 0), 0);
     const saldosConfigurados = accountBalances.filter((conta) => conta.configurada);
     const saldoInicial = saldosConfigurados.reduce((acc, conta) => acc + (conta.saldoInicialPeriodo ?? 0), 0);
-    const realizadoReceitas = accountBalances.reduce((acc, conta) => acc + conta.entradasPeriodo, 0);
-    const realizadoDespesas = accountBalances.reduce((acc, conta) => acc + conta.saidasPeriodo, 0);
-    const transferencias = accountBalances.reduce((acc, conta) => acc + conta.transferenciasPeriodo, 0);
+    const realizadoReceitas = rowsResumo
+      .filter((r) => r.kind === "AR")
+      .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
+    const realizadoDespesas = rowsResumo
+      .filter((r) => r.kind === "AP")
+      .reduce((acc, r) => acc + Math.max(0, Number(r.valor || 0) - Number(r.valorAberto || 0)), 0);
     const saldoAtual = saldosConfigurados.reduce((acc, conta) => acc + (conta.saldoAtual ?? 0), 0);
 
     return {
@@ -1674,14 +1997,95 @@ export default function ContasPagarReceberPage() {
         saldoInicial,
         receitas: realizadoReceitas,
         despesas: realizadoDespesas,
-        transferencias,
-        saldoFinal: saldoInicial + realizadoReceitas - realizadoDespesas + transferencias,
+        transferencias: 0,
+        saldoFinal: saldoInicial + realizadoReceitas - realizadoDespesas,
       },
       saldoAtual,
       contasConfiguradas: saldosConfigurados.length,
       contasPendentes: accountBalances.length - saldosConfigurados.length,
     };
   }, [accountBalances, filtered]);
+
+  const balanceSummary = useMemo(() => {
+    const configured = accountBalances
+      .filter((conta) => conta.configurada)
+      .sort((a, b) => Number(b.saldoAtual ?? 0) - Number(a.saldoAtual ?? 0));
+    const referenceDates = configured
+      .map((conta) => conta.saldoReferenciaData)
+      .filter((value): value is string => Boolean(value))
+      .sort();
+    const latestReference = referenceDates.at(-1) ?? null;
+    const ageDays = latestReference
+      ? Math.max(0, Math.round((toDateOnly(todayISO()).getTime() - toDateOnly(latestReference).getTime()) / 86_400_000))
+      : null;
+    return { configured, latestReference, ageDays };
+  }, [accountBalances]);
+
+  const toggleExpanded = useCallback((entryId: string) => {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(entryId)) next.delete(entryId);
+      else next.add(entryId);
+      return next;
+    });
+  }, []);
+
+  const exportCsv = useCallback(() => {
+    const header = [
+      "Tipo",
+      "Empresa",
+      "NF",
+      "Fornecedor/Cliente",
+      "Descrição",
+      "Motivo",
+      "Aprovado por",
+      "Parcela",
+      "Forma de pagamento",
+      "Conta bancária",
+      "Emissão",
+      "Competência",
+      "Vencimento",
+      "Base da data",
+      "OS",
+      "Valor",
+      "Aberto",
+      "Situação",
+    ];
+    const lines = filtered.map((row) => {
+      const status = statusDisplay(row);
+      return [
+        row.kind,
+        row.empresaNome,
+        row.nfNumero ?? "",
+        row.pessoaNome,
+        row.descricao ?? "",
+        row.motivoNome ?? "",
+        row.aprovadoPorNome ?? "",
+        row.parcelaTotal && row.parcelaTotal > 1 ? fmtParcela(row.parcelaNumero, row.parcelaTotal) : "",
+        row.formaPagamentoResumo ?? "",
+        row.contaBancariaResumo ?? "",
+        row.emissao ? formatDateBR(row.emissao) : "",
+        row.competencia ? formatDateBR(row.competencia) : "",
+        formatDateBR(row.vencimento),
+        formatDateBR(row.dataBase),
+        row.osNumero ?? "",
+        formatMoneyBR(row.valor),
+        formatMoneyBR(row.valorAberto),
+        status.label,
+      ]
+        .map(csvCell)
+        .join(";");
+    });
+    const csv = `\uFEFF${header.map(csvCell).join(";")}\n${lines.join("\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `contas-pagar-receber-${month}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }, [filtered, month]);
 
   const selectedMotivo = useMemo(() => {
     if (!motivoId) return null;
@@ -1694,10 +2098,10 @@ export default function ContasPagarReceberPage() {
   }, [aplicacoes, cancelPagamentoId]);
 
   const open = useCallback(
-    async (row: UnifiedRow) => {
+    async (row: UnifiedRow, initialTab?: ActionTab) => {
       resetModalState();
       setSelected(row);
-      setTab(row.kind === "AP" ? "APROVAR" : "RECEBER");
+      setTab(initialTab ?? (row.kind === "AP" ? "APROVAR" : "RECEBER"));
       setEditVencimentoDate(row.vencimento);
       setEditDescricao(row.descricao ?? "");
       setNovoValorFinal(formatMoneyBR(row.valor));
@@ -2335,444 +2739,357 @@ export default function ContasPagarReceberPage() {
     return <div className="text-sm text-zinc-300">Sem permissão financeira.</div>;
   }
 
-  const now = new Date();
-  const years = buildYearOptions(now.getFullYear(), 5);
+  const showEmpresaInRows = empresaOptions.length > 1 && effectiveEmpresaFilter === "ALL";
+  const selectedEmpresaLabel =
+    effectiveEmpresaFilter === "ALL"
+      ? empresaOptions.map((empresa) => empresa.label).join(" + ") || "Empresas"
+      : empresaNomeById.get(effectiveEmpresaFilter) ?? "Empresa";
+  const positionOpen = totalsOpen.sumAR - totalsOpen.sumAP;
+  const additionalFilterCount = [dateFrom, dateTo, nfQuery, contaFilter, motivoFilter, aprovadorFilter, formaFilter].filter(
+    Boolean
+  ).length;
+  const comparisonRows = [
+    {
+      label: "Saldo inicial",
+      planned: resumo.previsto.saldoInicial,
+      actual: resumo.realizado.saldoInicial,
+      delta: resumo.realizado.saldoInicial - resumo.previsto.saldoInicial,
+      tone: "neutral",
+      percent: null,
+    },
+    {
+      label: "Receitas (+)",
+      planned: resumo.previsto.receitas,
+      actual: resumo.realizado.receitas,
+      delta: resumo.realizado.receitas - resumo.previsto.receitas,
+      tone: resumo.realizado.receitas >= resumo.previsto.receitas ? "positive" : "negative",
+      percent: resumo.previsto.receitas > 0 ? (resumo.realizado.receitas / resumo.previsto.receitas) * 100 : null,
+    },
+    {
+      label: "Despesas (−)",
+      planned: resumo.previsto.despesas,
+      actual: resumo.realizado.despesas,
+      delta: resumo.realizado.despesas - resumo.previsto.despesas,
+      tone: resumo.realizado.despesas <= resumo.previsto.despesas ? "positive" : "negative",
+      percent: resumo.previsto.despesas > 0 ? (resumo.realizado.despesas / resumo.previsto.despesas) * 100 : null,
+    },
+    {
+      label: "Saldo final",
+      planned: resumo.previsto.saldoFinal,
+      actual: resumo.realizado.saldoFinal,
+      delta: resumo.realizado.saldoFinal - resumo.previsto.saldoFinal,
+      tone: resumo.realizado.saldoFinal >= resumo.previsto.saldoFinal ? "positive" : "negative",
+      percent: null,
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="border border-zinc-800 rounded-xl bg-zinc-950/60 p-3 sm:p-4 space-y-4 shadow-sm">
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3">
-            <div className="border border-zinc-800 rounded-xl p-4 bg-gradient-to-br from-zinc-900/70 to-zinc-950">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-zinc-100">Previsto</div>
-                <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-200">Competência</span>
-              </div>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Saldo Inicial:</span>
-                  <span>{formatMoneyBR(resumo.previsto.saldoInicial)}</span>
-                </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Receitas (+):</span>
-                  <span className="text-emerald-300">{formatMoneyBR(resumo.previsto.receitas)}</span>
-                </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Despesas (-):</span>
-                  <span className="text-red-300">{formatMoneyBR(resumo.previsto.despesas)}</span>
-                </div>
-                <div className="border-t border-zinc-800 pt-1 mt-1 flex items-center justify-between font-medium text-zinc-100">
-                  <span>Saldo Final:</span>
-                  <span>{formatMoneyBR(resumo.previsto.saldoFinal)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="border border-zinc-800 rounded-xl p-4 bg-gradient-to-br from-zinc-900/70 to-zinc-950">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-zinc-100">Realizado</div>
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-200">Baixas</span>
-              </div>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Saldo Inicial:</span>
-                  <span>{formatMoneyBR(resumo.realizado.saldoInicial)}</span>
-                </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Receitas (+):</span>
-                  <span className="text-emerald-300">{formatMoneyBR(resumo.realizado.receitas)}</span>
-                </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Despesas (-):</span>
-                  <span className="text-red-300">{formatMoneyBR(resumo.realizado.despesas)}</span>
-                </div>
-                {resumo.realizado.transferencias !== 0 && (
-                  <div className="flex items-center justify-between text-zinc-400">
-                    <span>Transferências:</span>
-                    <span>{formatMoneyBR(resumo.realizado.transferencias)}</span>
-                  </div>
-                )}
-                <div className="border-t border-zinc-800 pt-1 mt-1 flex items-center justify-between font-medium text-zinc-100">
-                  <span>Saldo Final:</span>
-                  <span>{formatMoneyBR(resumo.realizado.saldoFinal)}</span>
-                </div>
-              </div>
-            </div>
-            <div className="border border-zinc-800 rounded-xl p-4 bg-gradient-to-br from-zinc-900/70 to-zinc-950">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-zinc-100">Hoje</div>
-                <span className="text-xs text-zinc-500">{formatDateBR(todayISO())}</span>
-              </div>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Entradas (+):</span>
-                  <span className="text-emerald-300">{formatMoneyBR(todaySummary.entradas)}</span>
-                </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span>Saídas (-):</span>
-                  <span className="text-red-300">{formatMoneyBR(todaySummary.saidas)}</span>
-                </div>
-              </div>
-            </div>
+    <div className="carteira-theme contas-financeiras-page space-y-4">
+      <header className="cf-page-header">
+        <div>
+          <div className="cf-breadcrumb">
+            <Link href="/financeiro">Financeiro</Link><span>›</span><span>Contas a pagar e receber</span>
+          </div>
+          <h1>Contas a pagar e receber</h1>
+          <p>{monthDisplay(month)} · {selectedEmpresaLabel} · base: {dateBaseLabel(dateBase).toLocaleLowerCase("pt-BR")}</p>
+        </div>
+        <div className="cf-header-actions">
+          <button type="button" className="cf-outline-button" onClick={exportCsv}>Exportar</button>
+          <button type="button" className="cf-outline-button" onClick={() => void load()}>Atualizar</button>
+          {canWriteFinanceiro && only !== "AR" ? <button type="button" className="cf-outline-button" onClick={() => void openCreate("AP")}>Novo AP</button> : null}
+          {canWriteFinanceiro && only !== "AP" ? <button type="button" className="cf-outline-button" onClick={() => void openCreate("AR")}>Novo AR</button> : null}
+        </div>
+      </header>
 
-            <div className="border border-emerald-500/20 rounded-xl p-4 bg-gradient-to-br from-emerald-500/10 via-zinc-950 to-zinc-950">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div>
-                  <div className="text-sm font-semibold text-zinc-100">Saldo atual</div>
-                  <div className="text-[11px] text-zinc-500">Por conta bancária</div>
-                </div>
-                <div className="text-right">
-                  <div className={`text-lg font-semibold ${resumo.saldoAtual < 0 ? "text-red-300" : "text-emerald-300"}`}>
-                    {formatMoneyBR(resumo.saldoAtual)}
-                  </div>
-                  <Link
-                    href="/financeiro/cadastros/contas-bancarias"
-                    className="text-[11px] text-emerald-300 hover:text-emerald-200 hover:underline"
-                  >
-                    Ajustar saldos
-                  </Link>
-                </div>
+      <section className="cf-top-grid">
+        <div className="cf-panel cf-comparison-panel">
+          <div className="cf-panel-heading">
+            <div>
+              <h2>Previsto × Realizado</h2>
+              <p>mesmo conjunto de títulos · {monthDisplay(month)}</p>
+            </div>
+            <span>{dateBaseLabel(dateBase)}</span>
+          </div>
+          <div className="cf-comparison-table" role="table" aria-label="Comparativo previsto e realizado">
+            <div className="cf-comparison-row cf-comparison-head" role="row">
+              <span role="columnheader" />
+              <span role="columnheader">Previsto</span>
+              <span role="columnheader">Realizado</span>
+              <span role="columnheader">Diferença</span>
+            </div>
+            {comparisonRows.map((item, index) => (
+              <div className={`cf-comparison-row ${index === comparisonRows.length - 1 ? "cf-comparison-total" : ""}`} role="row" key={item.label}>
+                <strong role="rowheader">{item.label}</strong>
+                <span className="cf-panel-money" role="cell">{formatMoneyBR(item.planned)}</span>
+                <span className="cf-panel-money" role="cell">{formatMoneyBR(item.actual)}</span>
+                <span className={`cf-comparison-delta cf-tone-${item.tone}`} role="cell">
+                  <span>{signedDeltaDisplay(item.delta)}</span>
+                  {item.percent !== null ? <small>{Math.round(item.percent)}% realizado</small> : null}
+                </span>
               </div>
-              <div className="space-y-1.5 text-xs">
-                {accountBalances.map((conta) => (
-                  <div key={conta.contaId} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div
-                        className="min-w-0 truncate font-semibold text-zinc-200"
-                        title={conta.saldoReferenciaMotivo ?? undefined}
-                      >
-                        {accountDisplayLabel(conta.codigo, conta.nome, conta.empresaNome)}
-                        {conta.configurada && conta.saldoReferenciaData && (
-                          <span className="text-zinc-500"> - Ajuste: {formatDateBR(conta.saldoReferenciaData)}</span>
-                        )}
-                      </div>
-                      {conta.saldoAtual === null ? (
-                        <span className="shrink-0 text-amber-300">Configurar</span>
-                      ) : (
-                        <span className={`shrink-0 tabular-nums ${conta.saldoAtual < 0 ? "text-red-300" : "text-zinc-100"}`}>
-                          {formatMoneyBR(conta.saldoAtual)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {accountBalances.length === 0 && <div className="text-zinc-500">Nenhuma conta cadastrada.</div>}
-              </div>
-              {resumo.contasPendentes > 0 && (
-                <div className="mt-2 text-[11px] text-amber-300">
-                  {resumo.contasPendentes} {resumo.contasPendentes === 1 ? "conta sem saldo configurado" : "contas sem saldo configurado"}
-                </div>
-              )}
+            ))}
+          </div>
+        </div>
+
+        <div className="cf-panel cf-balance-panel">
+          <div className="cf-panel-heading">
+            <div><h2>Saldo atual</h2><p>soma das {balanceSummary.configured.length} contas bancárias</p></div>
+            <Link href="/financeiro/cadastros/contas-bancarias">Ajustar saldos ›</Link>
+          </div>
+          <div className="cf-balance-total">R$ {formatMoneyBR(resumo.saldoAtual)}</div>
+          <div className="cf-balance-accounts">
+            {balanceSummary.configured.map((conta) => (
+              <div key={conta.contaId}><span>{accountDisplayLabel(conta.codigo, conta.nome, conta.empresaNome)}</span><strong>{formatMoneyBR(conta.saldoAtual)}</strong></div>
+            ))}
+            {balanceSummary.configured.length === 0 ? <div><span>Nenhuma conta configurada</span><strong>—</strong></div> : null}
+          </div>
+          {balanceSummary.latestReference && balanceSummary.ageDays !== null && balanceSummary.ageDays > 7 ? (
+            <div className="cf-balance-warning">⚠ Último ajuste em {formatDateBR(balanceSummary.latestReference)} — há {balanceSummary.ageDays} dias</div>
+          ) : null}
+          <div className="cf-today-line"><strong>Hoje, {formatDateBR(todayISO())}:</strong> {todaySummary.entradas === 0 && todaySummary.saidas === 0 ? "nenhuma entrada ou saída" : `+ ${formatMoneyBR(todaySummary.entradas)} · − ${formatMoneyBR(todaySummary.saidas)}`}</div>
+        </div>
+      </section>
+
+      <section className="cf-open-indicators" aria-label="Posição em aberto">
+        <div><span>AP em aberto</span><strong className="cf-value-negative">R$ {formatMoneyBR(totalsOpen.sumAP)}</strong><small>a pagar no conjunto filtrado</small></div>
+        <div><span>AR em aberto</span><strong className="cf-value-positive">R$ {formatMoneyBR(totalsOpen.sumAR)}</strong><small>a receber no conjunto filtrado</small></div>
+        <div><span>Posição líquida</span><strong className={positionOpen >= 0 ? "cf-value-positive" : "cf-value-negative"}>{positionOpen >= 0 ? "+ " : "− "}R$ {formatMoneyBR(Math.abs(positionOpen))}</strong><small>a receber menos a pagar</small></div>
+      </section>
+
+      <section className="cf-filter-section" aria-label="Filtros financeiros">
+        <div className="cf-filter-bar">
+          <input aria-label="Buscar" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Fornecedor, cliente, descrição, motivo ou conta" />
+          <input aria-label="Período" type="month" value={month} onChange={(event) => {
+            const next = event.target.value;
+            if (!/^\d{4}-\d{2}$/.test(next)) return;
+            setOnlyToday(false);
+            setYear(Number(next.slice(0, 4)));
+            setMonthNum(Number(next.slice(5, 7)));
+          }} />
+          <select aria-label="Tipo" value={only} onChange={(event) => setOnly(event.target.value as "ALL" | Kind)}>
+            <option value="ALL">AP + AR</option><option value="AP">AP</option><option value="AR">AR</option>
+          </select>
+          <select aria-label="Empresa" value={effectiveEmpresaFilter} onChange={(event) => setEmpresaFilter(event.target.value)}>
+            {empresaOptions.length > 1 ? <option value="ALL">Ambas</option> : null}
+            {empresaOptions.map((empresa) => <option key={empresa.id} value={empresa.id}>{empresa.label}</option>)}
+          </select>
+          <label className="cf-switch-label">
+            <button type="button" role="switch" aria-checked={onlyPendentes} className={`cf-switch ${onlyPendentes ? "cf-switch-active" : ""}`} onClick={() => setOnlyPendentes((current) => !current)}><span /></button>
+            Somente pendentes
+          </label>
+          <div className="cf-filter-divider" />
+          <button type="button" className="cf-more-button" aria-expanded={moreFiltersOpen} onClick={() => setMoreFiltersOpen((current) => !current)}>
+            Mais filtros{additionalFilterCount ? ` (${additionalFilterCount})` : ""} ▾
+          </button>
+        </div>
+
+        {moreFiltersOpen ? (
+          <div className="cf-more-panel">
+            <div className="cf-more-panel-head"><div><strong>Mais filtros</strong><span>Refine o conjunto sem sair da tela.</span></div><button type="button" onClick={() => setMoreFiltersOpen(false)}>Fechar</button></div>
+            <div className="cf-more-grid">
+              <label><span>De</span><input type="date" value={dateFrom} onChange={(event) => { setOnlyToday(false); setDateFrom(event.target.value); }} /></label>
+              <label><span>Até</span><input type="date" value={dateTo} onChange={(event) => { setOnlyToday(false); setDateTo(event.target.value); }} /></label>
+              <label><span>Nota fiscal</span><input value={nfQuery} onChange={(event) => setNfQuery(event.target.value)} placeholder="Número da NF" /></label>
+              <label><span>Conta bancária</span><select value={contaFilter} onChange={(event) => setContaFilter(event.target.value)}><option value="">Todas</option>{filterOptions.contas.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+              <label><span>Motivo</span><select value={motivoFilter} onChange={(event) => setMotivoFilter(event.target.value)}><option value="">Todos</option>{filterOptions.motivos.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+              <label><span>Aprovado por</span><select value={aprovadorFilter} onChange={(event) => setAprovadorFilter(event.target.value)}><option value="">Todos</option>{filterOptions.aprovadores.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+              <label><span>Forma de pagamento</span><select value={formaFilter} onChange={(event) => setFormaFilter(event.target.value)}><option value="">Todas</option>{filterOptions.formas.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+              <label><span>Base da data</span><select value={dateBase} onChange={(event) => setDateBase(event.target.value as DateBase)}><option value="vencimento">Vencimento</option><option value="emissao">Emissão</option><option value="competencia">Competência</option></select></label>
+              <label><span>Ordenar por</span><select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}><option value="vencimento">Vencimento</option><option value="valor">Valor</option><option value="fornecedor">Fornecedor</option><option value="emissao">Emissão</option></select></label>
+              <label className="cf-group-option"><span>Agrupamento</span><button type="button" role="switch" aria-checked={groupByDay} className={`cf-switch ${groupByDay ? "cf-switch-active" : ""}`} onClick={() => setGroupByDay((current) => !current)}><span /></button><em>Faixa por dia</em></label>
+            </div>
+            <div className="cf-more-actions">
+              <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); setNfQuery(""); setContaFilter(""); setMotivoFilter(""); setAprovadorFilter(""); setFormaFilter(""); }}>Limpar adicionais</button>
+              <button type="button" onClick={() => setMoreFiltersOpen(false)}>Aplicar filtros</button>
             </div>
           </div>
+        ) : null}
 
-          <section aria-label="Filtros financeiros" className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/70 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold text-zinc-100">Filtros</div>
-                <div className="mt-0.5 text-xs text-zinc-500">Organize os títulos por período, empresa e situação.</div>
-              </div>
-              <div className="rounded-full border border-zinc-800 bg-black/30 px-2.5 py-1 text-[11px] text-zinc-500">
-                Baseado no vencimento
-              </div>
-            </div>
-
-            <div className="space-y-4 p-4">
-              <div className="grid gap-3 2xl:grid-cols-[minmax(300px,0.8fr)_minmax(460px,1.2fr)_minmax(210px,0.45fr)]">
-                <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Período mensal</div>
-                  <div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
-                    <select
-                      aria-label="Ano"
-                      value={String(year)}
-                      onChange={(e) => {
-                        setOnlyToday(false);
-                        setYear(Number(e.target.value));
-                      }}
-                      className="h-10 min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
-                    >
-                      {years.map((y) => (
-                        <option key={y} value={String(y)}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label="Mes"
-                      value={String(monthNum)}
-                      onChange={(e) => {
-                        setOnlyToday(false);
-                        setMonthNum(Number(e.target.value));
-                      }}
-                      className="h-10 min-w-0 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
-                    >
-                      {Array.from({ length: 12 }).map((_, i) => {
-                        const m = i + 1;
-                        return (
-                          <option key={m} value={String(m)}>
-                            {pad2(m)}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <button
-                      type="button"
-                      aria-pressed={onlyToday}
-                      onClick={() => {
-                        const d = new Date();
-                        setYear(d.getFullYear());
-                        setMonthNum(d.getMonth() + 1);
-                        setDateFrom("");
-                        setDateTo("");
-                        setOnlyToday((s) => !s);
-                      }}
-                      className={
-                        onlyToday
-                          ? "h-10 rounded-md bg-emerald-400 px-3 text-sm font-semibold text-emerald-950 hover:bg-emerald-300"
-                          : "h-10 rounded-md border border-zinc-700 px-3 text-sm font-medium text-zinc-200 hover:border-zinc-600 hover:bg-zinc-900"
-                      }
-                    >
-                      Hoje
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-zinc-800 bg-black/20 p-3">
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Intervalo personalizado</div>
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <label className="relative block">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-zinc-500">DE</span>
-                      <input
-                        type="date"
-                        aria-label="Data de"
-                        value={dateFrom}
-                        onChange={(e) => {
-                          setOnlyToday(false);
-                          setDateFrom(e.target.value);
-                        }}
-                        className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 pl-10 pr-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
-                      />
-                    </label>
-                    <label className="relative block">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-zinc-500">ATÉ</span>
-                      <input
-                        type="date"
-                        aria-label="Data ate"
-                        value={dateTo}
-                        onChange={(e) => {
-                          setOnlyToday(false);
-                          setDateTo(e.target.value);
-                        }}
-                        className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 pl-12 pr-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <label
-                  className={`flex min-h-[82px] cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
-                    onlyPendentes
-                      ? "border-amber-500/40 bg-amber-500/10"
-                      : "border-zinc-800 bg-black/20 hover:border-zinc-700"
-                  }`}
-                >
-                  <span>
-                    <span className="block text-sm font-medium text-zinc-200">Somente pendentes</span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">Ocultar títulos baixados</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={onlyPendentes}
-                    onChange={(e) => setOnlyPendentes(e.target.checked)}
-                    className="h-4 w-4 shrink-0 accent-amber-400"
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(180px,0.65fr)_minmax(280px,0.9fr)_minmax(380px,1.5fr)_minmax(210px,0.7fr)]">
-                <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Tipo</span>
-                  <select
-                    aria-label="Tipo"
-                    value={only}
-                    onChange={(e) => setOnly(e.target.value as "ALL" | Kind)}
-                    className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-500/60"
-                  >
-                    <option value="ALL">AP + AR</option>
-                    <option value="AP">AP (pagar)</option>
-                    <option value="AR">AR (receber)</option>
-                  </select>
-                </label>
-
-                <div>
-                  <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Empresa</div>
-                  <div
-                    role="group"
-                    aria-label="Empresa"
-                    className="flex h-10 w-full overflow-hidden rounded-md border border-zinc-700 bg-zinc-950"
-                  >
-                    {empresaOptions.length > 1 && (
-                      <button
-                        type="button"
-                        aria-pressed={effectiveEmpresaFilter === "ALL"}
-                        onClick={() => setEmpresaFilter("ALL")}
-                        className={
-                          effectiveEmpresaFilter === "ALL"
-                            ? "min-w-0 flex-1 bg-zinc-100 px-3 text-sm font-semibold text-zinc-950"
-                            : "min-w-0 flex-1 px-3 text-sm text-zinc-300 hover:bg-zinc-900"
-                        }
-                      >
-                        Ambas
-                      </button>
-                    )}
-                    {empresaOptions.map((empresa) => (
-                      <button
-                        key={empresa.id}
-                        type="button"
-                        aria-pressed={effectiveEmpresaFilter === empresa.id}
-                        onClick={() => setEmpresaFilter(empresa.id)}
-                        className={
-                          effectiveEmpresaFilter === empresa.id
-                            ? "min-w-0 flex-1 border-l border-zinc-700 bg-zinc-100 px-3 text-sm font-semibold text-zinc-950"
-                            : "min-w-0 flex-1 border-l border-zinc-700 px-3 text-sm text-zinc-300 hover:bg-zinc-900"
-                        }
-                      >
-                        {empresa.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Busca rápida</span>
-                  <input
-                    aria-label="Buscar"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Fornecedor, cliente, descrição, motivo ou conta"
-                    className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500/60"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Nota fiscal</span>
-                  <input
-                    aria-label="NF"
-                    value={nfQuery}
-                    onChange={(e) => setNfQuery(e.target.value)}
-                    placeholder="Número da NF"
-                    className="h-10 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500/60"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-col gap-3 border-t border-zinc-800 pt-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => load()}
-                    className="h-10 rounded-md bg-emerald-400 px-4 text-sm font-semibold text-emerald-950 hover:bg-emerald-300"
-                  >
-                    Atualizar resultados
-                  </button>
-                  {only !== "AR" && (
-                    <button
-                      type="button"
-                      onClick={() => void openCreate("AP")}
-                      className="h-10 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900"
-                    >
-                      Novo AP
-                    </button>
-                  )}
-                  {only !== "AP" && (
-                    <button
-                      type="button"
-                      onClick={() => void openCreate("AR")}
-                      className="h-10 rounded-md border border-zinc-700 px-4 text-sm font-medium text-zinc-100 hover:border-zinc-600 hover:bg-zinc-900"
-                    >
-                      Novo AR
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-zinc-400">
-                    AP em aberto <span className="ml-1 font-semibold tabular-nums text-red-200">{formatMoneyBR(totalsOpen.sumAP)}</span>
-                  </div>
-                  <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-zinc-400">
-                    AR em aberto <span className="ml-1 font-semibold tabular-nums text-emerald-200">{formatMoneyBR(totalsOpen.sumAR)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
+        <div className="cf-filter-chips">
+          <div>
+            <span>{monthDisplay(month)}</span>
+            <button type="button" onClick={() => setOnly("ALL")}>{only === "ALL" ? "AP + AR" : only}{only !== "ALL" ? " ×" : ""}</button>
+            <button type="button" onClick={() => setEmpresaFilter("ALL")}>{selectedEmpresaLabel}{effectiveEmpresaFilter !== "ALL" ? " ×" : ""}</button>
+            <button type="button" onClick={() => setDateBase("vencimento")}>Base: {dateBaseLabel(dateBase)}{dateBase !== "vencimento" ? " ×" : ""}</button>
+            {q ? <button type="button" onClick={() => setQ("")}>Busca: {q} ×</button> : null}
+            {nfQuery ? <button type="button" onClick={() => setNfQuery("")}>NF: {nfQuery} ×</button> : null}
+            {contaFilter ? <button type="button" onClick={() => setContaFilter("")}>Conta: {contaFilter} ×</button> : null}
+            {motivoFilter ? <button type="button" onClick={() => setMotivoFilter("")}>Motivo: {motivoFilter} ×</button> : null}
+          </div>
+          <strong>{filtered.length} título(s) · AP {formatMoneyBR(tableTotals.AP.valor)} · AR {formatMoneyBR(tableTotals.AR.valor)}</strong>
         </div>
-      </div>
+      </section>
+
 
       {error && <div className="text-sm text-red-300">{error}</div>}
       {toastMsg && <div className="text-sm text-emerald-300">{toastMsg}</div>}
       {loading && <div className="text-sm text-zinc-400">Carregando...</div>}
 
-      <div className="w-full overflow-x-auto rounded-md border border-zinc-800">
-        <table className="w-full min-w-[1800px] text-sm">
-          <thead className="bg-zinc-950/80">
-            <tr className="text-left text-zinc-300">
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Empresa</th>
-              <th className="px-3 py-2">NF</th>
-              <th className="px-3 py-2">Fornecedor / Cliente</th>
-              <th className="px-3 py-2">Descrição</th>
-              <th className="px-3 py-2">Motivo</th>
-              <th className="px-3 py-2">Aprovado por</th>
-              <th className="px-3 py-2">Parcela</th>
-              <th className="px-3 py-2">Forma pgto</th>
-              <th className="px-3 py-2">Conta bancária</th>
-              <th className="px-3 py-2">Emissão</th>
-              <th className="px-3 py-2">Vencimento</th>
-              <th className="px-3 py-2 text-right">Valor</th>
-              <th className="px-3 py-2 text-right">Aberto</th>
-              <th className="px-3 py-2">Status</th>
+      <div className="cf-table-shell">
+        <table className="cf-table">
+          <colgroup>
+            <col className="w-[8%]" />
+            <col className="w-[40%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[2%]" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Fornecedor / cliente</th>
+              <th>{dateBaseLabel(dateBase)}</th>
+              <th className="cf-numeric">Valor</th>
+              <th className="cf-numeric">Aberto</th>
+              <th>Situação</th>
+              <th aria-label="Abrir detalhes" />
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r) => {
-              const badge = statusBadge(r);
-              const tint = r.kind === "AR" ? "bg-emerald-900/5" : "bg-red-900/5";
+            {displayGroups.map((group) => {
+            const groupMeta = group.date ? groupDateDisplay(group.date, dateBase) : null;
+              const groupRows = group.entries.flatMap((entry) => entry.rows);
+              const groupActiveRows = groupRows.filter((row) => !isCancelledRow(row));
+              const groupNet = groupActiveRows.reduce(
+                (total, row) => total + (row.kind === "AR" ? row.valor : -row.valor),
+                0
+              );
+              const cancelledCount = groupRows.length - groupActiveRows.length;
               return (
-                <tr
-                  key={`${r.kind}:${r.parcelaId}`}
-                  className={`border-t border-zinc-800 hover:bg-zinc-900/40 cursor-pointer ${tint}`}
-                  onClick={() => open(r)}
-                >
-                  <td className="px-3 py-2 font-medium text-zinc-100">{r.kind}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.empresaNome}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.nfNumero ?? "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.pessoaNome}</td>
-                  <td className="px-3 py-2 text-zinc-100">{r.descricao ?? "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.motivoNome ?? "-" : "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.kind === "AP" ? r.aprovadoPorNome ?? "-" : "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{fmtParcela(r.parcelaNumero, r.parcelaTotal)}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.formaPagamentoResumo ?? "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.contaBancariaResumo ?? "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{r.emissao ? formatDateBR(r.emissao) : "-"}</td>
-                  <td className="px-3 py-2 text-zinc-200">{formatDateBR(r.vencimento)}</td>
-                  <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valor)}</td>
-                  <td className="px-3 py-2 text-right text-zinc-200">{formatMoneyBR(r.valorAberto)}</td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs ${badge.className}`}>
-                      {badge.label}
-                    </span>
-                  </td>
-                </tr>
+                <Fragment key={group.id}>
+                  {groupMeta ? (
+                    <tr className="cf-day-row">
+                      <td colSpan={7}>
+                        <div>
+                          <span><strong>{groupMeta.date}</strong><small>{groupMeta.weekday} · {groupMeta.relative}</small></span>
+                          <span><strong className={groupNet >= 0 ? "cf-value-positive" : "cf-value-negative"}>{signedDeltaDisplay(groupNet)}</strong><small>{groupRows.length} título(s){cancelledCount ? ` · ${cancelledCount} cancelado(s)` : ""}</small></span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  {group.entries.map((entry) => {
+                    const row = entry.primary;
+                    const status = statusDisplay(row);
+                    const cancelled = isCancelledRow(row);
+                    const overdue = !cancelled && entry.valorAberto > 0 && isOverdue(row.vencimento);
+                    const reason = row.kind === "AP" ? row.motivoNome : null;
+                    const expanded = expandedRows.has(entry.id);
+                    const duplicate = entry.rows.length > 1;
+                    return (
+                      <Fragment key={entry.id}>
+                        <tr
+                          className="cf-main-row"
+                          onClick={() => toggleExpanded(entry.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              toggleExpanded(entry.id);
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-expanded={expanded}
+                        >
+                          <td>
+                            <span className={`cf-kind ${row.kind === "AR" ? "cf-kind--ar" : ""}`}>{row.kind}</span>
+                            {showEmpresaInRows ? <div className="cf-company" title={row.empresaNome}>{titleCaseDisplay(row.empresaNome)}</div> : null}
+                          </td>
+                          <td>
+                            <div className="cf-party">{titleCaseDisplay(row.pessoaNome)}</div>
+                            <div className="cf-description-line">
+                              <span className="cf-description" title={cleanDescriptionDisplay(row)}>{cleanDescriptionDisplay(row)}</span>
+                              {duplicate ? <span className="cf-duplicate-badge">conferir · {entry.rows.length} iguais</span> : null}
+                              {reason ? <span className="cf-reason" title={reason}>{reason}</span> : null}
+                            </div>
+                          </td>
+                          <td className={overdue && dateBase === "vencimento" ? "cf-overdue" : undefined}>
+                            <div className="cf-date">{formatDateBR(row.dataBase)}</div>
+                            <div className="cf-relative">{relativeDateLabel(row.dataBase, dateBase)}</div>
+                          </td>
+                          <td className="cf-numeric">
+                            <span className={`cf-money ${row.kind === "AR" ? "cf-money--income" : ""} ${cancelled && !duplicate ? "cf-money--cancelled" : ""}`}>
+                              {signedMoneyDisplay(row.kind, entry.valor)}
+                            </span>
+                          </td>
+                          <td className="cf-numeric">
+                            <span className={`cf-money ${entry.valorAberto <= 0 ? "cf-open--zero" : ""} ${overdue ? "cf-open--overdue" : ""}`}>
+                              {entry.valorAberto <= 0 ? "—" : formatMoneyBR(entry.valorAberto)}
+                            </span>
+                          </td>
+                          <td><span className={`cf-status cf-status--${status.variant}`}>{status.label}</span></td>
+                          <td className="cf-numeric" aria-hidden="true"><span className={`cf-arrow ${expanded ? "cf-arrow-open" : ""}`}>›</span></td>
+                        </tr>
+                        {expanded ? (
+                          <tr className="cf-detail-row">
+                            <td colSpan={7}>
+                              {duplicate ? (
+                                <div className="cf-duplicate-list">
+                                  <strong>{entry.rows.length} títulos com fornecedor, valor, data e motivo idênticos</strong>
+                                  {entry.rows.map((child) => {
+                                    const childStatus = statusDisplay(child);
+                                    return (
+                                      <div key={child.parcelaId}>
+                                        <span>{child.nfNumero ? `NF ${child.nfNumero}` : fmtParcela(child.parcelaNumero, child.parcelaTotal)}</span>
+                                        <span>{formatDateBR(child.vencimento)}</span>
+                                        <span>{signedValueDisplay(child)}</span>
+                                        <span className={`cf-status cf-status--${childStatus.variant}`}>{childStatus.label}</span>
+                                        <button type="button" onClick={() => void open(child)}>Ver</button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+                              <div className="cf-detail-grid">
+                                <div><span>Nota fiscal</span><strong>{row.nfNumero ?? "—"}</strong></div>
+                                <div><span>Emissão</span><strong>{row.emissao ? formatDateBR(row.emissao) : "—"}</strong></div>
+                                <div><span>Parcela</span><strong>{row.parcelaTotal && row.parcelaTotal > 1 ? fmtParcela(row.parcelaNumero, row.parcelaTotal) : "Única"}</strong></div>
+                                <div><span>Forma de pagamento</span><strong>{row.formaPagamentoResumo ?? "—"}</strong></div>
+                                <div><span>Conta bancária</span><strong>{row.contaBancariaResumo ?? "—"}</strong></div>
+                                <div><span>Empresa</span><strong>{titleCaseDisplay(row.empresaNome)}</strong></div>
+                                <div><span>Aprovado por</span><strong>{row.aprovadoPorNome ? titleCaseDisplay(row.aprovadoPorNome) : "—"}</strong></div>
+                                <div><span>Vínculo</span><strong>{row.osId ? <Link href={`/os/${row.osId}`}>OS {row.osNumero ?? row.osId} ›</Link> : "—"}</strong></div>
+                              </div>
+                              <div className="cf-detail-actions">
+                                <button type="button" onClick={() => void open(row)}>Ver título</button>
+                                <button type="button" disabled title="Nenhum anexo disponível para este título">Anexos</button>
+                                <button type="button" disabled={!canWriteFinanceiro} onClick={() => void open(row, "VENCIMENTO")}>Editar</button>
+                                <button type="button" disabled={!canWriteFinanceiro || row.kind !== "AP" || row.valorAberto >= row.valor || cancelled} onClick={() => void open(row, "CANCELAR_PAGAMENTO")}>Estornar baixa</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </Fragment>
               );
             })}
             {!filtered.length && !loading && (
               <tr>
-                <td colSpan={15} className="px-3 py-6 text-center text-zinc-400">
+                <td colSpan={7} className="cf-empty">
                   Nenhum item neste período.
                 </td>
               </tr>
             )}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={7}>
+                <div className="cf-footer">
+                  <span className="cf-footer-label">Totais do conjunto filtrado</span>
+                  <span>
+                    AP · Valor <strong>− {formatMoneyBR(tableTotals.AP.valor)}</strong> · Aberto
+                    <strong>{formatMoneyBR(tableTotals.AP.aberto)}</strong>
+                  </span>
+                  <span className="cf-footer-ar">
+                    AR · Valor <strong>+ {formatMoneyBR(tableTotals.AR.valor)}</strong> · Aberto
+                    <strong>{formatMoneyBR(tableTotals.AR.aberto)}</strong>
+                  </span>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
@@ -3841,5 +4158,13 @@ export default function ContasPagarReceberPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ContasPagarReceberPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-zinc-400">Carregando financeiro...</div>}>
+      <ContasPagarReceberContent />
+    </Suspense>
   );
 }

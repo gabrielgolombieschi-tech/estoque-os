@@ -108,7 +108,7 @@ export async function PATCH(
       .select("id")
       .eq("tenant_id", ctx.tenantId)
       .eq("empresa_id", ctx.empresaId)
-      .eq("numero_os", osNumeroRaw)
+      .or(`numero_os.eq.${osNumeroRaw},codigo.eq.${osNumeroRaw}`)
       .limit(1)
       .maybeSingle();
 

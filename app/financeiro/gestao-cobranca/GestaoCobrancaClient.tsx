@@ -448,6 +448,7 @@ export default function GestaoCobrancaClient() {
   }, [empresaId, periodo.endDate, periodo.startDate, ready, supabase, tenantId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -485,6 +486,12 @@ export default function GestaoCobrancaClient() {
           <p className="text-sm text-zinc-400">Resumo por cliente de notas de material e servico.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/financeiro/venda-a-credito"
+            className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-500/20"
+          >
+            Venda a crédito
+          </Link>
           <Link
             href="/financeiro"
             className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"

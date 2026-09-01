@@ -54,6 +54,7 @@ export type OrcamentoStatusDialogPayload = {
   abrirOs: boolean;
   importarItensOs: boolean;
   responsavelAprovacaoId: string | null;
+  tipoDocumento: "OS" | "OV" | null;
   gestao: GestaoConfig | null;
 };
 
@@ -65,6 +66,7 @@ export type OrcamentoStatusDialogProps = {
   initialValorFechado?: number | string | null;
   valorOrcado?: number | string | null;
   canOpenOs?: boolean;
+  suggestedTipoDocumento?: "OS" | "OV";
   tenantId?: string | null;
   empresaId?: string | null;
   onCancel: () => void;
@@ -156,6 +158,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     initialValorFechado = null,
     valorOrcado = null,
     canOpenOs = false,
+    suggestedTipoDocumento = "OS",
     tenantId = null,
     empresaId = null,
     onCancel,
@@ -172,6 +175,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   const [abrirOs, setAbrirOs] = useState(false);
   const [importarItensOs, setImportarItensOs] = useState(false);
   const [responsavelAprovacaoId, setResponsavelAprovacaoId] = useState<string | null>(null);
+  const [tipoDocumento, setTipoDocumento] = useState<"OS" | "OV">(suggestedTipoDocumento);
   const [error, setError] = useState<string | null>(null);
 
   // Gestão state
@@ -190,12 +194,16 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   // Reset ao abrir o dialog
   useEffect(() => {
     if (open) {
+      // Estado do formulário é reiniciado somente quando uma nova abertura é solicitada.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAbrirOs(canOpenOs);
+      setImportarItensOs(false);
+      setTipoDocumento(suggestedTipoDocumento);
       setGestaoHabilitado(true);
       setGestaoItems(makeDefaultGestaoItems());
       setResponsavelAprovacaoId(null);
     }
-  }, [open, canOpenOs]);
+  }, [open, canOpenOs, suggestedTipoDocumento]);
 
   useEffect(() => {
     if (!open) return;
@@ -266,16 +274,18 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
       valorFechado: valorFechadoNumero,
       abrirOs: status === "FECHADO" ? abrirOs : false,
       importarItensOs: status === "FECHADO" ? abrirOs && importarItensOs : false,
-      responsavelAprovacaoId: status === "FECHADO" && abrirOs ? responsavelAprovacaoId : null,
+      responsavelAprovacaoId:
+        status === "FECHADO" && abrirOs && tipoDocumento === "OS" ? responsavelAprovacaoId : null,
+      tipoDocumento: status === "FECHADO" && abrirOs ? tipoDocumento : null,
       gestao:
-        status === "FECHADO" && abrirOs
+        status === "FECHADO" && abrirOs && tipoDocumento === "OS"
           ? { habilitarGestao: gestaoHabilitado, items: gestaoItems }
           : null,
     });
   }
 
   // Show gestão column only when FECHADO + Abrir OS checked
-  const showGestao = status === "FECHADO" && abrirOs && canOpenOs;
+  const showGestao = status === "FECHADO" && abrirOs && canOpenOs && tipoDocumento === "OS";
 
   const projetos = gestaoDefs.filter((d) => d.grupo === "projetos");
   const execucoes = gestaoDefs.filter((d) => d.grupo === "execucoes");
@@ -399,7 +409,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
                   </div>
                 ) : null}
                 {canOpenOs ? (
-                  <div className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
+                  <div className="space-y-3 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
                     <label className="flex items-center gap-2 text-sm text-zinc-200">
                       <input
                         type="checkbox"
@@ -412,11 +422,64 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
                         disabled={loading}
                         className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
                       />
-                      <span>Abrir OS</span>
+                      <span>Gerar documento ao fechar</span>
                     </label>
+
                     {abrirOs ? (
                       <>
-                        <label className="flex items-center gap-2 pl-6 text-sm text-zinc-300">
+                        <div>
+                          <div className="text-sm font-medium text-zinc-100">Este fechamento gera</div>
+                          <div className="mt-0.5 text-xs text-zinc-500">
+                            A sugestão considera os tipos de item, mas você pode escolher o fluxo correto.
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            {
+                              value: "OS" as const,
+                              title: "Projeto · OS",
+                              description: "Horas, gestão e execução",
+                            },
+                            {
+                              value: "OV" as const,
+                              title: "Material · OV",
+                              description: "Estoque, compras e faturamento",
+                            },
+                          ]).map((option) => {
+                            const selected = tipoDocumento === option.value;
+                            const suggested = suggestedTipoDocumento === option.value;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  setTipoDocumento(option.value);
+                                  if (option.value === "OV") setResponsavelAprovacaoId(null);
+                                }}
+                                disabled={loading}
+                                aria-pressed={selected}
+                                className={`rounded-lg border p-3 text-left transition disabled:opacity-60 ${
+                                  selected
+                                    ? "border-sky-500 bg-sky-500/10 ring-1 ring-sky-500/40"
+                                    : "border-zinc-800 bg-zinc-950 hover:border-zinc-700"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-zinc-100">{option.title}</span>
+                                  {suggested ? (
+                                    <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300">
+                                      Sugerido
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="mt-1 text-xs text-zinc-500">{option.description}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm text-zinc-300">
                           <input
                             type="checkbox"
                             checked={importarItensOs}
@@ -424,18 +487,20 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
                             disabled={loading}
                             className="h-4 w-4 rounded border-zinc-700 bg-zinc-950"
                           />
-                          <span>Importar os itens do orcamento para OS</span>
+                          <span>Importar os itens para o documento</span>
                         </label>
-                        <ResponsavelAprovacaoSelect
-                          tenantId={tenantId}
-                          empresaId={empresaId}
-                          value={responsavelAprovacaoId}
-                          onChange={(userId) => setResponsavelAprovacaoId(userId)}
-                          defaultToCurrentUser
-                          disabled={loading}
-                          label="Responsável da OS"
-                          className="pl-6"
-                        />
+
+                        {tipoDocumento === "OS" ? (
+                          <ResponsavelAprovacaoSelect
+                            tenantId={tenantId}
+                            empresaId={empresaId}
+                            value={responsavelAprovacaoId}
+                            onChange={(userId) => setResponsavelAprovacaoId(userId)}
+                            defaultToCurrentUser
+                            disabled={loading}
+                            label="Responsável da OS"
+                          />
+                        ) : null}
                       </>
                     ) : null}
                   </div>

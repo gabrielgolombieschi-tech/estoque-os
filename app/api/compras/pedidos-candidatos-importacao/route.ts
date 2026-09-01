@@ -45,6 +45,8 @@ type OsLookupRow = {
   id: number;
   numero_os: string | number | null;
   os_num: string | number | null;
+  tipo_documento: "OS" | "OV" | null;
+  codigo: string | null;
 };
 
 type CatalogItemRow = {
@@ -182,7 +184,7 @@ export async function GET(req: NextRequest) {
   if (osIds.length > 0) {
     const { data: osData, error: osErr } = await db
       .from("ordens_servico")
-      .select("id,numero_os,os_num")
+      .select("id,numero_os,os_num,tipo_documento,codigo")
       .eq("tenant_id", ctx.tenantId)
       .eq("empresa_id", ctx.empresaId)
       .in("id", osIds)
@@ -199,7 +201,9 @@ export async function GET(req: NextRequest) {
       const numero = numeroOs || (Number.isFinite(osNum) && osNum > 0 ? String(osNum) : null);
       osById.set(osId, {
         numero,
-        label: numero ? `OS ${numero}` : `OS ${osId}`,
+        label:
+          String(row.codigo ?? "").trim() ||
+          `${row.tipo_documento === "OV" ? "OV" : "OS"} ${numero || osId}`,
       });
     }
   }

@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     if (Number.isFinite(numeroParsed) && Number.isInteger(numeroParsed)) {
       q = q.or(`numero_os.eq.${numeroParsed},os_num.eq.${numeroParsed}`);
     } else {
-      q = q.eq("numero_os", origemOsNumero);
+      q = q.or(`numero_os.eq.${origemOsNumero},codigo.eq.${origemOsNumero}`);
     }
 
     const { data: osRows, error: osErr } = await q;

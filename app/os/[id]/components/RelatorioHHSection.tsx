@@ -1028,6 +1028,7 @@ export default function RelatorioHHSection({
         supabase
           .from("ordens_servico")
           .select("numero_os, cliente_nome, descricao_servico")
+          .eq("tipo_documento", "OS")
           .eq("id", osId)
           .maybeSingle(),
         tenant

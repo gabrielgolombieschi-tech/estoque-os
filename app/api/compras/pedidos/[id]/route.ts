@@ -275,7 +275,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (osIdsTotal.length > 0) {
       const { data: osRows, error: osErr } = await db
         .from("ordens_servico")
-        .select("id,numero_os,os_num")
+        .select("id,numero_os,os_num,tipo_documento,codigo")
         .eq("tenant_id", ctx.tenantId)
         .eq("empresa_id", ctx.empresaId)
         .in("id", osIdsTotal);
@@ -288,7 +288,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const osNum = Number(os.os_num);
         const numero =
           numeroOs.length > 0 ? numeroOs : Number.isFinite(osNum) && osNum > 0 ? String(osNum) : String(osId);
-        osLabelById.set(osId, `OS ${numero}`);
+        const codigo = String(os.codigo ?? "").trim();
+        const tipoDocumento = String(os.tipo_documento ?? "OS").trim().toUpperCase();
+        osLabelById.set(osId, codigo || `${tipoDocumento === "OV" ? "OV" : "OS"} ${numero}`);
       }
     }
 

@@ -175,6 +175,7 @@ export default function OrcamentosClient() {
           abrirOs: payload.abrirOs,
           importarItensOs: payload.importarItensOs,
           responsavelAprovacaoId: payload.responsavelAprovacaoId,
+          tipoDocumento: payload.tipoDocumento,
         });
         setRows((prev) =>
           prev.map((row) =>
@@ -212,7 +213,7 @@ export default function OrcamentosClient() {
                 .eq("id", result.osId);
             }
           }
-          router.push(`/os/${result.osId}`);
+          router.push(payload.tipoDocumento === "OV" ? `/comercial/vendas/${result.osId}` : `/os/${result.osId}`);
           return;
         }
         setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
@@ -492,6 +493,7 @@ export default function OrcamentosClient() {
           initialValorFechado={statusDialog.row.valor_fechado}
           valorOrcado={statusDialog.row.total_liquido}
           canOpenOs={canOpenOs}
+          suggestedTipoDocumento={Number(statusDialog.row.total_servicos ?? 0) > 0 ? "OS" : "OV"}
           tenantId={tenantId}
           empresaId={empresaId}
           onCancel={closeStatusDialog}

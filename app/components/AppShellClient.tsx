@@ -31,12 +31,15 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/auth/reset-password/";
   const isPublic = isLoginPage || isResetPasswordPage;
   const isFullWidth =
+    pathname === "/" ||
     pathname === "/itens" ||
     pathname === "/itens/imprimir" ||
     pathname === "/faturamento/nfe" ||
     pathname === "/faturamento/nfse" ||
     pathname === "/os" ||
     pathname === "/os/analitico" ||
+    pathname === "/apontamentos" ||
+    pathname === "/apontamentos/resumo-mensal" ||
     pathname === "/compras/pedidos" ||
     pathname === "/estoque/pedidos" ||
     pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
@@ -48,6 +51,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/financeiro/impostos" ||
     pathname === "/financeiro/contas_pagar_receber" ||
     pathname === "/financeiro/gestao-cobranca" ||
+    pathname === "/financeiro/venda-a-credito" ||
     pathname === "/financeiro/relatorios/saude-financeira" ||
     pathname === "/financeiro/relatorios/inconsistencias" ||
     pathname?.startsWith("/financeiro/contas_pagar_receber/");
@@ -373,7 +377,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         )}
                         {canAccessApontamentos && (
                           <Link href="/apontamentos/resumo-mensal" className="block px-3 py-2 hover:bg-zinc-900">
-                            Resumo Horas (Mês)
+                            Resumo de horas
                           </Link>
                         )}
                       </div>
@@ -510,6 +514,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         </Link>
                         <Link href="/financeiro/gestao-cobranca" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Gestão Cobrança
+                        </Link>
+                        <Link href="/financeiro/venda-a-credito" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Venda a Crédito
                         </Link>
 
                         <div className="border-t border-zinc-800 my-2" />
@@ -705,6 +712,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                       >
                         <Link href="/comercial/orcamentos" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Orçamentos
+                        </Link>
+                        <Link href="/comercial/vendas" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                          Vendas
                         </Link>
 
                         <div className="border-t border-zinc-800 my-2" />

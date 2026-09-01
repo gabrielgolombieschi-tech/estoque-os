@@ -1,648 +1,763 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
+import { getDiasUteisJoinville } from "@/lib/datas/feriadosJoinville";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-type Colaborador = { id: string; nome: string; ativo: boolean };
-
-type ApontamentoRow = {
-  data?: string | null;
-  os_id: number | null;
-  colaborador_id: string;
-  horas: number | null;
-  horas_trabalhadas?: number | null;
+type Colaborador = {
+  id: string;
+  nome: string;
+  ativo: boolean;
 };
 
-type ResumoHhFilter = "todos" | "os_hh";
-type ActiveTab = "resumo" | "extrato";
-
-type ExtratoRow = {
+type ApontamentoRow = {
   data: string;
-  os_id: number | null;
+  os_id: number;
+  colaborador_id: string;
+  horas: number | string | null;
+};
+
+type OsInfo = {
+  id: number;
+  numero_os: string;
+  cliente_nome: string;
+  descricao_servico: string;
+  usa_relatorio_hh: boolean;
+};
+
+type TipoOsFilter = "todos" | "os_hh";
+type ActiveTab = "resumo" | "extrato";
+type SortOrder = "horas" | "nome" | "dias";
+
+type LancamentoDia = {
+  data: string;
+  os_id: number;
   numero_os: string;
   cliente_nome: string;
   descricao_servico: string;
   total_horas: number;
 };
 
-function describeSupabaseError(err: unknown): string {
-  if (!err) return "(sem detalhes)";
-  if (err instanceof Error) return err.message || "(erro sem mensagem)";
-  if (typeof err === "string") return err;
-  if (typeof err !== "object") return String(err);
+type TimelineDia = {
+  data: string;
+  sem_apontamento: boolean;
+  total_horas: number;
+  lancamentos: LancamentoDia[];
+};
 
-  const anyErr = err as {
-    message?: unknown;
-    details?: unknown;
-    hint?: unknown;
-    code?: unknown;
-    status?: unknown;
-  };
+type ResumoRow = {
+  colaborador_id: string;
+  colaborador_nome: string;
+  total_horas: number;
+  dias_apontados: number;
+  media_dia: number;
+  dias_sem_apontamento: number;
+  os_distintas: number;
+  timeline: TimelineDia[];
+};
 
-  const parts = [
-    anyErr.message,
-    anyErr.details,
-    anyErr.hint,
-    anyErr.code ? `code=${String(anyErr.code)}` : null,
-    anyErr.status ? `status=${String(anyErr.status)}` : null,
-  ]
-    .filter((p) => (typeof p === "string" ? p.trim() !== "" : p != null))
-    .map((p) => String(p));
-
-  if (parts.length) return parts.join(" | ");
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return "(erro não serializável)";
-  }
-}
-
-function startOfMonthISO(year: number, month1to12: number) {
-  const mm = String(month1to12).padStart(2, "0");
-  return `${year}-${mm}-01`;
-}
-
-function endOfMonthISO(year: number, month1to12: number) {
-  const d = new Date(year, month1to12, 0); // day 0 => last day of previous month; month1to12 is 1-based here
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isMissingColumnError(err: unknown): boolean {
-  const message =
-    err && typeof err === "object" && "message" in err ? String((err as { message?: unknown }).message ?? "") : "";
-  return (
-    /column\s+"?[\w\.]+"?\s+does not exist/i.test(message) ||
-    /could not find the '[\w\.]+' column/i.test(message)
-  );
-}
-
-const MONTHS: Array<{ value: number; label: string }> = [
-  { value: 1, label: "Jan" },
-  { value: 2, label: "Fev" },
-  { value: 3, label: "Mar" },
-  { value: 4, label: "Abr" },
-  { value: 5, label: "Mai" },
-  { value: 6, label: "Jun" },
-  { value: 7, label: "Jul" },
-  { value: 8, label: "Ago" },
-  { value: 9, label: "Set" },
-  { value: 10, label: "Out" },
-  { value: 11, label: "Nov" },
-  { value: 12, label: "Dez" },
+const MONTHS = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
-function formatHoras(n: number) {
-  return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+const TITLE_CASE_LOWER = new Set(["da", "das", "de", "do", "dos", "e"]);
+
+function numeric(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatData(value: string) {
-  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR", {
-    weekday: "long",
+function round2(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function startOfMonthISO(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}-01`;
+}
+
+function endOfMonthISO(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0, 12).getDate()).padStart(2, "0")}`;
+}
+
+function describeSupabaseError(error: unknown) {
+  if (!error) return "sem detalhes";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (typeof error !== "object") return String(error);
+  const candidate = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+  return [candidate.message, candidate.details, candidate.hint, candidate.code ? `code=${candidate.code}` : null]
+    .filter(Boolean)
+    .map(String)
+    .join(" | ");
+}
+
+function titleCase(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("pt-BR")
+    .split(/(\s+|-)/)
+    .map((part, index) => {
+      if (/^(\s+|-)$/.test(part)) return part;
+      if (index > 0 && TITLE_CASE_LOWER.has(part)) return part;
+      return part ? `${part.charAt(0).toLocaleUpperCase("pt-BR")}${part.slice(1)}` : part;
+    })
+    .join("");
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
+}
+
+function formatHoras(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatHoraMinuto(value: number) {
+  const totalMinutes = Math.round(value * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h${String(minutes).padStart(2, "0")}`;
+}
+
+function formatDateShort(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric",
   });
 }
 
-export default function ApontamentosResumoMensalPage() {
-  const supabase = useMemo(() => {
-    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
-    return supabaseBrowser();
-  }, []);
+function formatDayHeader(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  const weekday = date.toLocaleDateString("pt-BR", { weekday: "long" });
+  return `${formatDateShort(value)} · ${weekday}`;
+}
 
+function parseOpenIds(value: string | null) {
+  return new Set((value ?? "").split(",").map((item) => item.trim()).filter(Boolean));
+}
+
+function downloadCsv(filename: string, lines: Array<Array<string | number>>) {
+  const csv = lines
+    .map((line) =>
+      line
+        .map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`)
+        .join(";")
+    )
+    .join("\r\n");
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
+function buildTimeline(
+  apontamentos: ApontamentoRow[],
+  osById: Map<number, OsInfo>,
+  businessDates: string[]
+): TimelineDia[] {
+  const grouped = new Map<string, LancamentoDia>();
+
+  for (const apontamento of apontamentos) {
+    const date = String(apontamento.data ?? "").slice(0, 10);
+    const osId = Number(apontamento.os_id);
+    if (!date || !Number.isFinite(osId)) continue;
+    const os = osById.get(osId);
+    if (!os) continue;
+    const key = `${date}|${osId}`;
+    const current = grouped.get(key);
+    grouped.set(key, {
+      data: date,
+      os_id: osId,
+      numero_os: os.numero_os || String(osId),
+      cliente_nome: os.cliente_nome || "—",
+      descricao_servico: os.descricao_servico || "—",
+      total_horas: round2((current?.total_horas ?? 0) + numeric(apontamento.horas)),
+    });
+  }
+
+  const recordsByDate = new Map<string, LancamentoDia[]>();
+  for (const row of grouped.values()) {
+    const current = recordsByDate.get(row.data) ?? [];
+    current.push(row);
+    recordsByDate.set(row.data, current);
+  }
+
+  const dates = new Set([...businessDates, ...recordsByDate.keys()]);
+  return Array.from(dates)
+    .sort((a, b) => a.localeCompare(b))
+    .map((date) => {
+      const lancamentos = (recordsByDate.get(date) ?? []).sort((a, b) =>
+        a.numero_os.localeCompare(b.numero_os, "pt-BR", { numeric: true })
+      );
+      return {
+        data: date,
+        sem_apontamento: lancamentos.length === 0,
+        total_horas: round2(lancamentos.reduce((sum, row) => sum + row.total_horas, 0)),
+        lancamentos,
+      };
+    });
+}
+
+function ExtratoContent({
+  row,
+  fullPage = false,
+  onFullPage,
+  onExport,
+}: {
+  row: ResumoRow;
+  fullPage?: boolean;
+  onFullPage?: () => void;
+  onExport: () => void;
+}) {
+  const [showAll, setShowAll] = useState(fullPage);
+  const visible = fullPage || showAll ? row.timeline : row.timeline.slice(0, 5);
+  const remaining = Math.max(0, row.timeline.length - visible.length);
+
+  return (
+    <div className={fullPage ? "rh-extract-full" : "rh-extract-inline"}>
+      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-5">
+        {[
+          ["Dias apontados", String(row.dias_apontados)],
+          ["Total no mês", `${formatHoras(row.total_horas)} h`],
+          ["Média por dia", `${formatHoras(row.media_dia)} h`],
+          ["Dias úteis sem apontamento", String(row.dias_sem_apontamento)],
+          ["OS distintas", String(row.os_distintas)],
+        ].map(([label, value], index) => (
+          <div key={label} className={`rh-mini-stat ${index === 3 && row.dias_sem_apontamento > 0 ? "is-warning" : ""}`}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="rh-timeline">
+        {visible.length === 0 ? (
+          <div className="rh-empty">Nenhum apontamento encontrado no período.</div>
+        ) : (
+          visible.map((day) => (
+            <section key={day.data} className={`rh-day ${day.sem_apontamento ? "is-missing" : ""}`}>
+              <div className="rh-day-header">
+                <span>{formatDayHeader(day.data)}</span>
+                {day.sem_apontamento ? (
+                  <strong>Sem apontamento</strong>
+                ) : (
+                  <span className="rh-hour-pair is-inline">
+                    <strong>{formatHoras(day.total_horas)}</strong>
+                    <small>{formatHoraMinuto(day.total_horas)}</small>
+                  </span>
+                )}
+              </div>
+              {!day.sem_apontamento && (
+                <div className="rh-day-lines">
+                  {day.lancamentos.map((entry) => (
+                    <div key={`${day.data}-${entry.os_id}`} className="rh-day-line">
+                      <Link href={`/os/${entry.os_id}`} onClick={(event) => event.stopPropagation()}>
+                        OS {entry.numero_os}
+                      </Link>
+                      <span title={entry.cliente_nome}>{entry.cliente_nome}</span>
+                      <span title={entry.descricao_servico}>{entry.descricao_servico}</span>
+                      <span className="rh-hour-pair">
+                        <strong>{formatHoras(entry.total_horas)}</strong>
+                        <small>{formatHoraMinuto(entry.total_horas)}</small>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          ))
+        )}
+      </div>
+
+      <div className="rh-extract-footer">
+        {!fullPage && row.timeline.length > 5 && (
+          <button type="button" onClick={() => setShowAll((current) => !current)}>
+            {showAll ? "Mostrar menos" : `Ver os outros ${remaining} dias`}
+          </button>
+        )}
+        {!fullPage && onFullPage && (
+          <button type="button" onClick={onFullPage}>Abrir folha completa</button>
+        )}
+        <button type="button" onClick={onExport}>Exportar</button>
+        {fullPage && <button type="button" onClick={() => window.print()}>Imprimir</button>}
+      </div>
+    </div>
+  );
+}
+
+export default function ApontamentosResumoMensalPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const te = useTenantEmpresa();
   const tenantId = te.tenantId;
   const empresaId = te.empresaId;
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const today = useMemo(() => new Date(), []);
 
-  const now = useMemo(() => new Date(), []);
-  const [year, setYear] = useState<number>(now.getFullYear());
-  const [month, setMonth] = useState<number>(now.getMonth() + 1);
-  const [colaboradorId, setColaboradorId] = useState<string>("");
-  const [resumoHhFilter, setResumoHhFilter] = useState<ResumoHhFilter>("todos");
-  const [activeTab, setActiveTab] = useState<ActiveTab>("resumo");
+  const parsedYear = Number(searchParams.get("ano"));
+  const parsedMonth = Number(searchParams.get("mes"));
+  const [year, setYear] = useState(Number.isInteger(parsedYear) && parsedYear > 2000 ? parsedYear : today.getFullYear());
+  const [month, setMonth] = useState(parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : today.getMonth() + 1);
+  const [colaboradorId, setColaboradorId] = useState(searchParams.get("colaborador") ?? "");
+  const [tipo, setTipo] = useState<TipoOsFilter>(searchParams.get("tipo") === "os_hh" ? "os_hh" : "todos");
+  const [order, setOrder] = useState<SortOrder>(
+    searchParams.get("ordem") === "nome" || searchParams.get("ordem") === "dias"
+      ? (searchParams.get("ordem") as SortOrder)
+      : "horas"
+  );
+  const [activeTab, setActiveTab] = useState<ActiveTab>(searchParams.get("aba") === "extrato" ? "extrato" : "resumo");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [openIds, setOpenIds] = useState<Set<string>>(() => parseOpenIds(searchParams.get("aberto")));
 
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
+  const [osById, setOsById] = useState<Map<number, OsInfo>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [rows, setRows] = useState<Array<{ colaborador_id: string; colaborador_nome: string; total_horas: number }>>(
-    []
-  );
-  const [extratoRows, setExtratoRows] = useState<ExtratoRow[]>([]);
-  const [extratoLoading, setExtratoLoading] = useState(false);
-  const totalHorasResumo = useMemo(() => rows.reduce((sum, row) => sum + row.total_horas, 0), [rows]);
-  const totalHorasExtrato = useMemo(
-    () => extratoRows.reduce((sum, row) => sum + row.total_horas, 0),
-    [extratoRows]
-  );
-  const extratoPorDia = useMemo(() => {
-    const grouped = new Map<string, ExtratoRow[]>();
-    for (const row of extratoRows) {
-      const list = grouped.get(row.data) ?? [];
-      list.push(row);
-      grouped.set(row.data, list);
-    }
-    return Array.from(grouped.entries()).map(([data, lancamentos]) => ({
-      data,
-      lancamentos,
-      total_horas: lancamentos.reduce((sum, row) => sum + row.total_horas, 0),
-    }));
-  }, [extratoRows]);
-  const colaboradorSelecionado = useMemo(
-    () => colaboradores.find((colaborador) => colaborador.id === colaboradorId) ?? null,
-    [colaboradorId, colaboradores]
-  );
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("ano", String(year));
+    params.set("mes", String(month));
+    params.set("tipo", tipo);
+    params.set("ordem", order);
+    params.set("aba", activeTab);
+    if (colaboradorId) params.set("colaborador", colaboradorId);
+    else params.delete("colaborador");
+    if (search.trim()) params.set("q", search.trim());
+    else params.delete("q");
+    if (openIds.size) params.set("aberto", Array.from(openIds).join(","));
+    else params.delete("aberto");
+    const next = params.toString();
+    if (next !== searchParams.toString()) router.replace(`${pathname}?${next}`, { scroll: false });
+  }, [activeTab, colaboradorId, month, openIds, order, pathname, router, search, searchParams, tipo, year]);
 
   const ensureContext = useCallback(async () => {
     if (!tenantId || !empresaId) return;
-    try {
-      await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
-      await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
-    } catch {
-      // best-effort
-    }
+    const tenantContext = await supabase.rpc("set_current_tenant", { p_tenant_id: tenantId });
+    if (tenantContext.error) throw tenantContext.error;
+    const empresaContext = await supabase.rpc("set_current_empresa", { p_empresa_id: empresaId });
+    if (empresaContext.error) throw empresaContext.error;
   }, [empresaId, supabase, tenantId]);
 
-  const years = useMemo(() => {
-    const y = now.getFullYear();
-    return [y - 2, y - 1, y, y + 1, y + 2];
-  }, [now]);
-
-  useEffect(() => {
-    let active = true;
-
-    const run = async () => {
-      if (!tenantId || !empresaId) return;
-      setError(null);
-      try {
-        await ensureContext();
-        const { data, error: e } = await applyTenantEmpresa(
-          supabase.from("colaboradores").select("id,nome,ativo").eq("ativo", true).order("nome"),
-          tenantId,
-          empresaId
-        );
-        if (e) throw e;
-        if (!active) return;
-        setColaboradores((data ?? []) as Colaborador[]);
-      } catch (e: unknown) {
-        if (!active) return;
-        setError(`Erro ao carregar colaboradores: ${describeSupabaseError(e)}`);
-      }
-    };
-
-    void run();
-    return () => {
-      active = false;
-    };
-  }, [empresaId, ensureContext, supabase, tenantId]);
-
-  const loadResumo = useCallback(async () => {
-    if (!tenantId || !empresaId || activeTab !== "resumo") return;
-
+  const load = useCallback(async () => {
+    if (!tenantId || !empresaId) return;
     setLoading(true);
     setError(null);
     try {
       await ensureContext();
+      const start = startOfMonthISO(year, month);
+      const end = endOfMonthISO(year, month);
 
-      const dataIni = startOfMonthISO(year, month);
-      const dataFim = endOfMonthISO(year, month);
-
-      const candidates = ["os_id,colaborador_id,horas,horas_trabalhadas", "os_id,colaborador_id,horas"];
-
-      let data: ApontamentoRow[] | null = null;
-      const attempts: string[] = [];
-
-      for (const sel of candidates) {
-        let q = applyTenantEmpresa(supabase.from("apontamentos_horas").select(sel), tenantId, empresaId)
+      const collaboratorsPromise = applyTenantEmpresa(
+        supabase
+          .from("colaboradores")
+          .select("id,nome,ativo")
           .eq("empresa_id", empresaId)
-          .gte("data", dataIni)
-          .lte("data", dataFim);
+          .order("nome"),
+        tenantId,
+        empresaId
+      );
 
-        if (colaboradorId) q = q.eq("colaborador_id", colaboradorId);
-
-        const res = await q;
-        if (!res.error) {
-          data = (res.data ?? []) as unknown as ApontamentoRow[];
-          break;
-        }
-
-        attempts.push(
-          `select=${sel} | status=${String(res.status)} ${String(res.statusText ?? "").trim()} | ${describeSupabaseError(res.error)}`
-        );
-
-        if (!isMissingColumnError(res.error)) {
-          break;
-        }
-      }
-
-      if (!data) {
-        throw new Error(`Falha ao consultar apontamentos_horas. Tentativas: ${attempts.join(" || ") || "(sem detalhes)"}`);
-      }
-
-      let filteredData = data;
-      if (resumoHhFilter === "os_hh") {
-        const osIds = Array.from(
-          new Set(
-            data
-              .map((r) => Number(r.os_id))
-              .filter((id) => Number.isFinite(id) && id > 0)
-          )
-        );
-
-        if (osIds.length === 0) {
-          filteredData = [];
-        } else {
-          const { data: osHhRows, error: osHhError } = await applyTenantEmpresa(
-            supabase.from("ordens_servico").select("id").in("id", osIds).eq("usa_relatorio_hh", true),
-            tenantId,
-            empresaId
-          );
-          if (osHhError) throw osHhError;
-
-          const osHhIds = new Set((osHhRows ?? []).map((row) => Number(row.id)).filter((id) => Number.isFinite(id)));
-          filteredData = data.filter((row) => osHhIds.has(Number(row.os_id)));
-        }
-      }
-
-      const nomeById = new Map(colaboradores.map((c) => [c.id, c.nome] as const));
-      const totals = new Map<string, number>();
-      for (const r of filteredData ?? []) {
-        const horas =
-          (typeof r.horas === "number" ? r.horas : null) ??
-          (typeof r.horas_trabalhadas === "number" ? r.horas_trabalhadas : null) ??
-          0;
-        if (!r.colaborador_id) continue;
-        totals.set(r.colaborador_id, (totals.get(r.colaborador_id) ?? 0) + horas);
-      }
-
-      const computed = Array.from(totals.entries())
-        .map(([id, total]) => ({
-          colaborador_id: id,
-          colaborador_nome: nomeById.get(id) ?? id,
-          total_horas: Number(total.toFixed(2)),
-        }))
-        .filter((r) => r.total_horas > 0)
-        .sort((a, b) => b.total_horas - a.total_horas);
-
-      setRows(computed);
-    } catch (e: unknown) {
-      setRows([]);
-      console.error("[Resumo Horas] erro ao carregar", e);
-      setError(`Erro ao carregar resumo: ${describeSupabaseError(e)}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab, colaboradores, colaboradorId, empresaId, ensureContext, month, resumoHhFilter, supabase, tenantId, year]);
-
-  const loadExtrato = useCallback(async () => {
-    if (!tenantId || !empresaId || activeTab !== "extrato") return;
-    if (!colaboradorId) {
-      setExtratoRows([]);
-      setError(null);
-      return;
-    }
-
-    setExtratoLoading(true);
-    setError(null);
-    try {
-      await ensureContext();
-
-      const dataIni = startOfMonthISO(year, month);
-      const dataFim = endOfMonthISO(year, month);
-      const candidates = ["data,os_id,colaborador_id,horas,horas_trabalhadas", "data,os_id,colaborador_id,horas"];
-
-      let data: ApontamentoRow[] | null = null;
-      const attempts: string[] = [];
-
-      for (const sel of candidates) {
-        const res = await applyTenantEmpresa(
-          supabase.from("apontamentos_horas").select(sel),
+      const allPoints: ApontamentoRow[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      while (true) {
+        const response = await applyTenantEmpresa(
+          supabase
+            .from("apontamentos_horas")
+            .select("data,os_id,colaborador_id,horas")
+            .eq("empresa_id", empresaId)
+            .gte("data", start)
+            .lte("data", end)
+            .order("data", { ascending: true })
+            .order("colaborador_id", { ascending: true })
+            .order("os_id", { ascending: true })
+            .range(page * pageSize, page * pageSize + pageSize - 1),
           tenantId,
           empresaId
-        )
-          .eq("empresa_id", empresaId)
-          .eq("colaborador_id", colaboradorId)
-          .gte("data", dataIni)
-          .lte("data", dataFim)
-          .order("data", { ascending: true })
-          .order("os_id", { ascending: true });
-
-        if (!res.error) {
-          data = (res.data ?? []) as unknown as ApontamentoRow[];
-          break;
-        }
-
-        attempts.push(
-          `select=${sel} | status=${String(res.status)} ${String(res.statusText ?? "").trim()} | ${describeSupabaseError(res.error)}`
         );
-        if (!isMissingColumnError(res.error)) break;
+        if (response.error) throw response.error;
+        const batch = (response.data ?? []) as unknown as ApontamentoRow[];
+        allPoints.push(...batch);
+        if (batch.length < pageSize) break;
+        page += 1;
       }
 
-      if (!data) {
-        throw new Error(`Falha ao consultar apontamentos_horas. Tentativas: ${attempts.join(" || ") || "(sem detalhes)"}`);
-      }
+      const collaboratorsResponse = await collaboratorsPromise;
+      if (collaboratorsResponse.error) throw collaboratorsResponse.error;
 
-      const osIds = Array.from(
-        new Set(data.map((row) => Number(row.os_id)).filter((id) => Number.isFinite(id) && id > 0))
-      );
-      const osById = new Map<
-        number,
-        { numero_os: string | null; cliente_nome: string | null; descricao_servico: string | null }
-      >();
-
-      if (osIds.length > 0) {
-        let osQuery = applyTenantEmpresa(
+      const uniqueOsIds = Array.from(new Set(allPoints.map((row) => Number(row.os_id)).filter(Number.isFinite)));
+      const loadedOs = new Map<number, OsInfo>();
+      for (let index = 0; index < uniqueOsIds.length; index += 200) {
+        const ids = uniqueOsIds.slice(index, index + 200);
+        const response = await applyTenantEmpresa(
           supabase
             .from("ordens_servico")
             .select("id,numero_os,cliente_nome,descricao_servico,usa_relatorio_hh")
-            .in("id", osIds),
+            .eq("empresa_id", empresaId)
+            .eq("tipo_documento", "OS")
+            .in("id", ids),
           tenantId,
           empresaId
         );
-        if (resumoHhFilter === "os_hh") osQuery = osQuery.eq("usa_relatorio_hh", true);
-
-        const { data: osData, error: osError } = await osQuery;
-        if (osError) throw osError;
-
-        for (const osRow of osData ?? []) {
-          osById.set(Number(osRow.id), {
-            numero_os: osRow.numero_os,
-            cliente_nome: osRow.cliente_nome,
-            descricao_servico: osRow.descricao_servico,
+        if (response.error) throw response.error;
+        for (const raw of response.data ?? []) {
+          loadedOs.set(Number(raw.id), {
+            id: Number(raw.id),
+            numero_os: String(raw.numero_os ?? raw.id),
+            cliente_nome: String(raw.cliente_nome ?? "—"),
+            descricao_servico: String(raw.descricao_servico ?? "—"),
+            usa_relatorio_hh: Boolean(raw.usa_relatorio_hh),
           });
         }
       }
 
-      const totals = new Map<string, ExtratoRow>();
-      for (const row of data) {
-        const dataRow = String(row.data ?? "").slice(0, 10);
-        if (!dataRow) continue;
-
-        const osId = row.os_id == null ? null : Number(row.os_id);
-        const osInfo = osId == null ? null : osById.get(osId);
-        if (resumoHhFilter === "os_hh" && !osInfo) continue;
-
-        const horas =
-          (typeof row.horas === "number" ? row.horas : null) ??
-          (typeof row.horas_trabalhadas === "number" ? row.horas_trabalhadas : null) ??
-          0;
-        const key = `${dataRow}|${osId ?? "sem-os"}`;
-        const current = totals.get(key);
-
-        totals.set(key, {
-          data: dataRow,
-          os_id: osId,
-          numero_os: osInfo?.numero_os?.trim() || (osId ? String(osId) : "Sem OS"),
-          cliente_nome: osInfo?.cliente_nome?.trim() || "—",
-          descricao_servico: osInfo?.descricao_servico?.trim() || "—",
-          total_horas: Number(((current?.total_horas ?? 0) + horas).toFixed(2)),
-        });
-      }
-
-      setExtratoRows(
-        Array.from(totals.values())
-          .filter((row) => row.total_horas > 0)
-          .sort((a, b) => a.data.localeCompare(b.data) || a.numero_os.localeCompare(b.numero_os, "pt-BR"))
-      );
-    } catch (e: unknown) {
-      setExtratoRows([]);
-      console.error("[Extrato Horas] erro ao carregar", e);
-      setError(`Erro ao carregar extrato: ${describeSupabaseError(e)}`);
+      setColaboradores((collaboratorsResponse.data ?? []) as Colaborador[]);
+      setApontamentos(allPoints);
+      setOsById(loadedOs);
+    } catch (loadError) {
+      console.error("[Resumo de horas] falha ao carregar", loadError);
+      setColaboradores([]);
+      setApontamentos([]);
+      setOsById(new Map());
+      setError(`Erro ao carregar o resumo de horas: ${describeSupabaseError(loadError)}`);
     } finally {
-      setExtratoLoading(false);
+      setLoading(false);
     }
-  }, [activeTab, colaboradorId, empresaId, ensureContext, month, resumoHhFilter, supabase, tenantId, year]);
+  }, [empresaId, ensureContext, month, supabase, tenantId, year]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadResumo();
-  }, [loadResumo]);
+    void load();
+  }, [load]);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadExtrato();
-  }, [loadExtrato]);
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1;
+  const isPastMonth = year < today.getFullYear() || (year === today.getFullYear() && month < today.getMonth() + 1);
+  const elapsedThrough = isCurrentMonth ? today.getDate() : isPastMonth ? undefined : 0;
+  const businessDates = useMemo(
+    () => getDiasUteisJoinville(year, month, elapsedThrough),
+    [elapsedThrough, month, year]
+  );
+  const fullBusinessDates = useMemo(() => getDiasUteisJoinville(year, month), [month, year]);
+
+  const filteredPoints = useMemo(() => {
+    if (tipo === "todos") return apontamentos.filter((row) => osById.has(Number(row.os_id)));
+    return apontamentos.filter((row) => osById.get(Number(row.os_id))?.usa_relatorio_hh);
+  }, [apontamentos, osById, tipo]);
+
+  const allResumoRows = useMemo(() => {
+    const nameById = new Map(colaboradores.map((row) => [row.id, row.nome]));
+    const pointsByCollaborator = new Map<string, ApontamentoRow[]>();
+    for (const point of filteredPoints) {
+      const current = pointsByCollaborator.get(point.colaborador_id) ?? [];
+      current.push(point);
+      pointsByCollaborator.set(point.colaborador_id, current);
+    }
+
+    return Array.from(pointsByCollaborator.entries()).map(([id, points]) => {
+      const timeline = buildTimeline(points, osById, businessDates);
+      const pointedDates = new Set(points.map((point) => String(point.data).slice(0, 10)));
+      const total = round2(points.reduce((sum, point) => sum + numeric(point.horas), 0));
+      const pointedDays = pointedDates.size;
+      return {
+        colaborador_id: id,
+        colaborador_nome: nameById.get(id) ?? id,
+        total_horas: total,
+        dias_apontados: pointedDays,
+        media_dia: pointedDays ? round2(total / pointedDays) : 0,
+        dias_sem_apontamento: timeline.filter((day) => day.sem_apontamento).length,
+        os_distintas: new Set(points.map((point) => Number(point.os_id))).size,
+        timeline,
+      } satisfies ResumoRow;
+    });
+  }, [businessDates, colaboradores, filteredPoints, osById]);
+
+  const visibleRows = useMemo(() => {
+    const normalized = normalizeSearch(search);
+    const rows = allResumoRows.filter((row) => {
+      if (colaboradorId && row.colaborador_id !== colaboradorId) return false;
+      return !normalized || normalizeSearch(row.colaborador_nome).includes(normalized);
+    });
+    return rows.sort((a, b) => {
+      if (order === "nome") return a.colaborador_nome.localeCompare(b.colaborador_nome, "pt-BR");
+      if (order === "dias") return b.dias_apontados - a.dias_apontados || b.total_horas - a.total_horas;
+      return b.total_horas - a.total_horas || a.colaborador_nome.localeCompare(b.colaborador_nome, "pt-BR");
+    });
+  }, [allResumoRows, colaboradorId, order, search]);
+
+  const totalHours = useMemo(() => round2(visibleRows.reduce((sum, row) => sum + row.total_horas, 0)), [visibleRows]);
+  const averageHours = visibleRows.length ? round2(totalHours / visibleRows.length) : 0;
+  const maxHours = Math.max(0, ...visibleRows.map((row) => row.total_horas));
+  const visibleCollaboratorIds = useMemo(
+    () => new Set(visibleRows.map((row) => row.colaborador_id)),
+    [visibleRows]
+  );
+  const distinctOs = useMemo(
+    () => new Set(filteredPoints.filter((row) => visibleCollaboratorIds.has(row.colaborador_id)).map((row) => row.os_id)).size,
+    [filteredPoints, visibleCollaboratorIds]
+  );
+  const selectedRow = useMemo(
+    () => allResumoRows.find((row) => row.colaborador_id === colaboradorId) ?? null,
+    [allResumoRows, colaboradorId]
+  );
+
+  const years = useMemo(() => {
+    const values: number[] = [];
+    for (let value = today.getFullYear() - 6; value <= today.getFullYear() + 1; value += 1) values.push(value);
+    return values;
+  }, [today]);
+
+  const updateMonth = (value: string) => {
+    const [nextYear, nextMonth] = value.split("-").map(Number);
+    setYear(nextYear);
+    setMonth(nextMonth);
+  };
+
+  const toggleRow = (id: string) => {
+    setOpenIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const openFullPage = (id: string) => {
+    setColaboradorId(id);
+    setActiveTab("extrato");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const exportCollaborator = (row: ResumoRow) => {
+    const lines: Array<Array<string | number>> = [["Data", "OS", "Cliente", "Serviço", "Horas decimais", "Horas (h:min)"]];
+    for (const day of row.timeline) {
+      if (day.sem_apontamento) {
+        lines.push([day.data, "", "", "Sem apontamento", "", ""]);
+      } else {
+        for (const entry of day.lancamentos) {
+          lines.push([
+            day.data,
+            entry.numero_os,
+            entry.cliente_nome,
+            entry.descricao_servico,
+            formatHoras(entry.total_horas),
+            formatHoraMinuto(entry.total_horas),
+          ]);
+        }
+      }
+    }
+    downloadCsv(`extrato-horas-${normalizeSearch(row.colaborador_nome).replace(/\s+/g, "-")}-${year}-${String(month).padStart(2, "0")}.csv`, lines);
+  };
+
+  const exportCurrent = () => {
+    if (activeTab === "extrato" && selectedRow) {
+      exportCollaborator(selectedRow);
+      return;
+    }
+    downloadCsv(
+      `resumo-horas-${year}-${String(month).padStart(2, "0")}.csv`,
+      [
+        ["Colaborador", "Dias apontados", "Dias úteis decorridos", "Total (h)", "Média por dia", "OS distintas"],
+        ...visibleRows.map((row) => [
+          row.colaborador_nome,
+          row.dias_apontados,
+          businessDates.length,
+          formatHoras(row.total_horas),
+          formatHoras(row.media_dia),
+          row.os_distintas,
+        ]),
+        ["Total da equipe", "", "", formatHoras(totalHours), "", distinctOs],
+      ]
+    );
+  };
+
+  const monthLabel = `${MONTHS[month - 1]} de ${year}`;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-zinc-100">Resumo de Horas (Mês)</h1>
+    <div className="carteira-theme resumo-horas-page w-full space-y-3">
+      <header className="rh-page-header">
+        <div>
+          <div className="rh-breadcrumb"><span>Apontamentos</span><b>›</b><strong>Resumo de horas</strong></div>
+          <h1>Resumo de horas</h1>
+          <p>
+            {monthLabel} · {businessDates.length} de {fullBusinessDates.length} dias úteis transcorridos · horas aplicadas em OS
+          </p>
+        </div>
+        <div className="rh-page-actions">
+          <button type="button" className="carteira-button" onClick={exportCurrent}>Exportar CSV</button>
+          <button type="button" className="carteira-button" onClick={() => void load()} disabled={loading}>
+            {loading ? "Atualizando..." : "Atualizar"}
+          </button>
+        </div>
+      </header>
+
+      <nav className="rh-tabs" aria-label="Visões do resumo de horas">
+        <button type="button" className={activeTab === "resumo" ? "is-active" : ""} onClick={() => setActiveTab("resumo")}>Resumo</button>
+        <button type="button" className={activeTab === "extrato" ? "is-active" : ""} onClick={() => setActiveTab("extrato")}>Extrato</button>
+      </nav>
+
+      <div className="rh-filter-bar">
+        <label className="rh-search-pill">
+          <span aria-hidden="true">⌕</span>
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar colaborador" />
+        </label>
+        <select className="carteira-control rh-filter-pill" value={`${year}-${month}`} onChange={(event) => updateMonth(event.target.value)} aria-label="Mês e ano">
+          {years.flatMap((optionYear) => MONTHS.map((name, index) => (
+            <option key={`${optionYear}-${index + 1}`} value={`${optionYear}-${index + 1}`}>{name} {optionYear}</option>
+          )))}
+        </select>
+        <select className="carteira-control rh-filter-pill" value={colaboradorId} onChange={(event) => setColaboradorId(event.target.value)} aria-label="Colaborador">
+          <option value="">Todos os colaboradores</option>
+          {colaboradores.map((collaborator) => <option key={collaborator.id} value={collaborator.id}>{titleCase(collaborator.nome)}</option>)}
+        </select>
+        <select className="carteira-control rh-filter-pill" value={tipo} onChange={(event) => setTipo(event.target.value as TipoOsFilter)} aria-label="Tipo de OS">
+          <option value="todos">Todos os tipos de OS</option>
+          <option value="os_hh">Somente OS HH</option>
+        </select>
+        <select className="carteira-control rh-filter-pill rh-order-pill" value={order} onChange={(event) => setOrder(event.target.value as SortOrder)} aria-label="Ordenação">
+          <option value="horas">Ordenar: horas</option>
+          <option value="nome">Ordenar: nome A–Z</option>
+          <option value="dias">Ordenar: dias apontados</option>
+        </select>
       </div>
 
-      <div className="flex gap-1 border-b border-zinc-800">
-        <button
-          type="button"
-          onClick={() => setActiveTab("resumo")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "resumo"
-              ? "border-emerald-400 text-emerald-300"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
-          }`}
-        >
-          Resumo
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("extrato")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "extrato"
-              ? "border-emerald-400 text-emerald-300"
-              : "border-transparent text-zinc-400 hover:text-zinc-200"
-          }`}
-        >
-          Extrato
-        </button>
+      {error && <div className="rh-error" role="alert">{error}</div>}
+
+      <section className="rh-stats" aria-label="Indicadores do período">
+        <article>
+          <span>Horas apontadas</span>
+          <strong>{formatHoras(totalHours)} h</strong>
+          <small>{visibleRows.length} colaborador(es) · média {formatHoras(averageHours)} h</small>
+        </article>
+        <article>
+          <span>Dias úteis oficiais</span>
+          <strong>{businessDates.length} / {fullBusinessDates.length}</strong>
+          <small>{isCurrentMonth ? `Até ${today.toLocaleDateString("pt-BR")}` : isPastMonth ? "Período fechado" : "Período futuro"}</small>
+        </article>
+        <article>
+          <span>Colaboradores com registro</span>
+          <strong>{visibleRows.length}</strong>
+          <small>No recorte atual</small>
+        </article>
+        <article>
+          <span>OS distintas</span>
+          <strong>{distinctOs}</strong>
+          <small>Horas aplicadas em OS · cobertura não calculada</small>
+        </article>
+      </section>
+
+      <div className="rh-scope-note">
+        Este painel confere horas vinculadas a ordens de serviço. Não compara os registros com a jornada contratual, férias ou afastamentos.
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <label className="space-y-1">
-          <div className="text-xs text-zinc-400">Ano</div>
-          <select
-            value={String(year)}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-          >
-            {years.map((y) => (
-              <option key={y} value={String(y)}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <div className="text-xs text-zinc-400">Mês</div>
-          <select
-            value={String(month)}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-          >
-            {MONTHS.map((m) => (
-              <option key={m.value} value={String(m.value)}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <div className="text-xs text-zinc-400">Colaborador</div>
-          <select
-            value={colaboradorId}
-            onChange={(e) => setColaboradorId(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-          >
-            <option value="">{activeTab === "extrato" ? "Selecione..." : "Todos"}</option>
-            {colaboradores.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <div className="text-xs text-zinc-400">Tipo de OS</div>
-          <select
-            value={resumoHhFilter}
-            onChange={(e) => setResumoHhFilter(e.target.value as ResumoHhFilter)}
-            className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-          >
-            <option value="todos">Todas</option>
-            <option value="os_hh">Somente OS HH</option>
-          </select>
-        </label>
-      </div>
-
-      {error && <div className="text-sm text-red-400">{error}</div>}
 
       {activeTab === "resumo" ? (
-        <div className="border border-zinc-800 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-950/60 border-b border-zinc-800">
-              <tr>
-                <th className="text-left px-3 py-2 text-zinc-200 font-medium">Colaborador</th>
-                <th className="text-right px-3 py-2 text-zinc-200 font-medium">Total (h)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td className="px-3 py-3 text-zinc-400" colSpan={2}>
-                    Carregando...
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-3 text-zinc-400" colSpan={2}>
-                    Nenhum apontamento encontrado para o período.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => (
-                  <tr key={r.colaborador_id} className="border-t border-zinc-800">
-                    <td className="px-3 py-2 text-zinc-100">{r.colaborador_nome}</td>
-                    <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">
-                      {formatHoras(r.total_horas)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {!loading && rows.length > 0 ? (
-              <tfoot className="border-t border-zinc-700 bg-zinc-950/80">
-                <tr>
-                  <td className="px-3 py-2 text-left text-zinc-100 font-semibold">Total</td>
-                  <td className="px-3 py-2 text-right text-zinc-100 font-semibold tabular-nums">
-                    {formatHoras(totalHorasResumo)}
-                  </td>
-                </tr>
-              </tfoot>
-            ) : null}
-          </table>
-        </div>
-      ) : !colaboradorId ? (
-        <div className="border border-dashed border-zinc-700 rounded-lg px-4 py-10 text-center text-zinc-400">
-          Selecione um colaborador para visualizar o extrato diário de horas e OS trabalhadas.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-3 sm:col-span-1">
-              <div className="text-xs text-zinc-400">Colaborador</div>
-              <div className="mt-1 text-sm font-medium text-zinc-100">{colaboradorSelecionado?.nome ?? "—"}</div>
+        <section className="rh-list-shell">
+          <div className="rh-list-scroll">
+            <div className="rh-list-grid rh-list-head">
+              <button type="button" onClick={() => setOrder("nome")}>Colaborador</button>
+              <button type="button" onClick={() => setOrder("dias")}>Dias apontados</button>
+              <span>Horas no período</span>
+              <button type="button" onClick={() => setOrder("horas")}>Total (h)</button>
+              <span aria-hidden="true" />
             </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-3">
-              <div className="text-xs text-zinc-400">Dias trabalhados</div>
-              <div className="mt-1 text-lg font-semibold text-zinc-100 tabular-nums">{extratoPorDia.length}</div>
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 px-4 py-3">
-              <div className="text-xs text-zinc-400">Total no mês</div>
-              <div className="mt-1 text-lg font-semibold text-emerald-300 tabular-nums">
-                {formatHoras(totalHorasExtrato)} h
-              </div>
-            </div>
+
+            {loading ? (
+              <div className="rh-empty">Carregando resumo de horas...</div>
+            ) : visibleRows.length === 0 ? (
+              <div className="rh-empty">Nenhum apontamento encontrado para os filtros selecionados.</div>
+            ) : (
+              visibleRows.map((row) => {
+                const open = openIds.has(row.colaborador_id);
+                const percentage = maxHours > 0 ? Math.max(2, (row.total_horas / maxHours) * 100) : 0;
+                return (
+                  <div key={row.colaborador_id} className="rh-person-block">
+                    <button
+                      type="button"
+                      className={`rh-list-grid rh-person-row ${open ? "is-open" : ""}`}
+                      onClick={() => toggleRow(row.colaborador_id)}
+                      aria-expanded={open}
+                    >
+                      <strong title={row.colaborador_nome}>{titleCase(row.colaborador_nome)}</strong>
+                      <span className="rh-days-value"><b>{row.dias_apontados}</b><i>/ {businessDates.length}</i></span>
+                      <span className="rh-hours-track"><i style={{ width: `${percentage}%` }} /></span>
+                      <span className="rh-hour-pair">
+                        <strong>{formatHoras(row.total_horas)}</strong>
+                        <small>{formatHoraMinuto(row.total_horas)}</small>
+                      </span>
+                      <span className={`rh-chevron ${open ? "is-open" : ""}`}>›</span>
+                    </button>
+                    {open && (
+                      <ExtratoContent
+                        row={row}
+                        onFullPage={() => openFullPage(row.colaborador_id)}
+                        onExport={() => exportCollaborator(row)}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
 
-          <div className="border border-zinc-800 rounded-lg overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead className="bg-zinc-950/60 border-b border-zinc-800">
-                <tr>
-                  <th className="text-left px-3 py-2 text-zinc-200 font-medium">OS</th>
-                  <th className="text-left px-3 py-2 text-zinc-200 font-medium">Cliente</th>
-                  <th className="text-left px-3 py-2 text-zinc-200 font-medium">Serviço</th>
-                  <th className="text-right px-3 py-2 text-zinc-200 font-medium">Horas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {extratoLoading ? (
-                  <tr>
-                    <td className="px-3 py-3 text-zinc-400" colSpan={4}>Carregando...</td>
-                  </tr>
-                ) : extratoPorDia.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-3 text-zinc-400" colSpan={4}>
-                      Nenhum apontamento encontrado para o colaborador no período.
-                    </td>
-                  </tr>
-                ) : (
-                  extratoPorDia.map((dia) => (
-                    <Fragment key={dia.data}>
-                      <tr className="bg-zinc-900/80">
-                        <th colSpan={4} className="px-3 py-2 text-left font-semibold text-zinc-100 capitalize">
-                          {formatData(dia.data)}
-                        </th>
-                      </tr>
-                      {dia.lancamentos.map((row) => (
-                        <tr key={`${row.data}-${row.os_id ?? "sem-os"}`} className="border-t border-zinc-800/70">
-                          <td className="px-3 py-2 text-zinc-100 whitespace-nowrap">
-                            {row.os_id ? `OS ${row.numero_os}` : "Sem OS"}
-                          </td>
-                          <td className="px-3 py-2 text-zinc-300">{row.cliente_nome}</td>
-                          <td className="px-3 py-2 text-zinc-300">{row.descricao_servico}</td>
-                          <td className="px-3 py-2 text-right text-zinc-100 tabular-nums">
-                            {formatHoras(row.total_horas)}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="border-t border-zinc-700 bg-zinc-950/60">
-                        <td colSpan={3} className="px-3 py-2 text-right text-zinc-400 font-medium">Total do dia</td>
-                        <td className="px-3 py-2 text-right text-zinc-100 font-semibold tabular-nums">
-                          {formatHoras(dia.total_horas)}
-                        </td>
-                      </tr>
-                    </Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {!loading && visibleRows.length > 0 && (
+            <footer className="rh-team-total">
+              <span>Total da equipe · {visibleRows.length} colaborador(es)</span>
+              <strong>{formatHoras(totalHours)} h</strong>
+            </footer>
+          )}
+        </section>
+      ) : !colaboradorId ? (
+        <section className="rh-select-empty">
+          <strong>Selecione um colaborador</strong>
+          <span>Use a busca ou o filtro acima para abrir a folha completa do período.</span>
+        </section>
+      ) : loading ? (
+        <div className="rh-empty rh-bordered">Carregando extrato...</div>
+      ) : selectedRow ? (
+        <section className="rh-full-sheet">
+          <div className="rh-full-sheet-head">
+            <div>
+              <span>Folha de apontamentos</span>
+              <h2>{titleCase(selectedRow.colaborador_nome)}</h2>
+              <p>{monthLabel} · {tipo === "os_hh" ? "Somente OS HH" : "Todos os tipos de OS"}</p>
+            </div>
           </div>
-        </div>
+          <ExtratoContent row={selectedRow} fullPage onExport={() => exportCollaborator(selectedRow)} />
+        </section>
+      ) : (
+        <section className="rh-select-empty">
+          <strong>Sem apontamentos no recorte</strong>
+          <span>O colaborador selecionado não possui horas nos filtros atuais.</span>
+        </section>
       )}
     </div>
   );

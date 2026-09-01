@@ -164,7 +164,10 @@ export default function ColaboradoresPage() {
   }, [supabase, tenantId]);
 
   useEffect(() => {
-    carregar();
+    const timer = window.setTimeout(() => {
+      void carregar();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [carregar]);
 
   useEffect(() => {
@@ -181,7 +184,10 @@ export default function ColaboradoresPage() {
         if (!session) throw new Error("Sessão expirada. Faça login novamente.");
         const response = await fetch(
           `/api/colaboradores/usuarios-vinculaveis?tenantId=${encodeURIComponent(tenantId)}&empresaId=${encodeURIComponent(empresaId)}`,
-          { headers: { authorization: `Bearer ${session.access_token}` } }
+          {
+            cache: "no-store",
+            headers: { authorization: `Bearer ${session.access_token}` },
+          }
         );
         const payload = (await response.json().catch(() => null)) as {
           usuarios?: Array<{ auth_user_id?: string | null; nome?: string | null; email?: string | null }>;
@@ -205,7 +211,7 @@ export default function ColaboradoresPage() {
     return () => {
       active = false;
     };
-  }, [empresaId, supabase, tenantId]);
+  }, [empresaId, modalOpen, supabase, tenantId]);
 
   const sugestaoUsuario = useMemo(
     () => (userId ? null : sugerirUsuarioPorNome(nome, usuariosSistema)),

@@ -88,19 +88,19 @@ function parsePedidoCompraRefs(...values: unknown[]): string[] {
 async function findMotivoCompraByPriority(opts: {
   tenantId: string;
   codes: string[];
-}): Promise<{ id: string; codigo: string | null; ativo: boolean; deleted_at: string | null } | null> {
+}): Promise<{ id: string; codigo: string | null; requires_os: boolean; ativo: boolean; deleted_at: string | null } | null> {
   if (opts.codes.length === 0) return null;
 
   const admin = supabaseAdmin();
   const { data } = await admin
     .schema("f")
     .from("motivo_compra")
-    .select("id,codigo,ativo,deleted_at")
+    .select("id,codigo,requires_os,ativo,deleted_at")
     .eq("tenant_id", opts.tenantId)
     .eq("ativo", true)
     .is("deleted_at", null)
     .in("codigo", opts.codes)
-    .returns<Array<{ id: string; codigo: string | null; ativo: boolean; deleted_at: string | null }>>();
+    .returns<Array<{ id: string; codigo: string | null; requires_os: boolean; ativo: boolean; deleted_at: string | null }>>();
 
   const rows = Array.isArray(data) ? data : [];
   const byCodigo = new Map(rows.map((row) => [String(row.codigo ?? "").trim().toUpperCase(), row]));
@@ -3263,12 +3263,12 @@ export async function POST(req: NextRequest) {
     const { data: motivoData, error: motivoErr } = await admin
       .schema("f")
       .from("motivo_compra")
-      .select("id,codigo,ativo,deleted_at")
+      .select("id,codigo,requires_os,ativo,deleted_at")
       .eq("tenant_id", tenantId)
       .eq("id", motivoCompraId)
       .eq("ativo", true)
       .is("deleted_at", null)
-      .maybeSingle<{ id: string; codigo: string | null; ativo: boolean; deleted_at: string | null }>();
+      .maybeSingle<{ id: string; codigo: string | null; requires_os: boolean; ativo: boolean; deleted_at: string | null }>();
     let motivoRow = motivoData;
 
     if (motivoErr || !motivoRow) return jerr(422, "Motivo invalido ou inativo.");
@@ -3292,6 +3292,29 @@ export async function POST(req: NextRequest) {
 
     if (!codigo || codigo === "NAO_CLASSIFICADO") {
       return jerr(422, "Selecione um motivo valido (nao pode ser NAO_CLASSIFICADO).");
+    }
+
+    const approvalOsIds = Array.from(
+      new Set(
+        [
+          ...(Number.isFinite(Number(osId)) && Number(osId) > 0 ? [Number(osId)] : []),
+          ...pedidoOsVinculos.map((row) => Number(row.os_id)),
+        ].filter((id) => Number.isFinite(id) && id > 0)
+      )
+    );
+    const approvalOsId = approvalOsIds.length === 1 ? approvalOsIds[0] : null;
+
+    // A aprovacao financeira aceita uma unica OS. Em pedidos vinculados, a OS
+    // vem dos itens do pedido (osId da tela e intencionalmente ignorado).
+    // Validar antes da importacao evita gravar NF/estoque e falhar apenas no fim.
+    if (motivoRow.requires_os && approvalOsIds.length === 0) {
+      return jerr(422, "O motivo selecionado exige uma OS, mas o pedido/importacao nao possui OS vinculada.");
+    }
+    if (motivoRow.requires_os && approvalOsIds.length > 1) {
+      return jerr(
+        422,
+        "O motivo selecionado exige uma unica OS, mas o pedido possui itens de mais de uma OS. Separe a importacao por OS ou selecione um motivo sem OS."
+      );
     }
 
     if (!solicitanteUsuarioId && solicitanteFromPedido) {
@@ -3686,7 +3709,7 @@ export async function POST(req: NextRequest) {
       p_nf_entrada_id: nfEntradaId,
       p_titulo_id: tituloId,
       p_motivo_compra_id: motivoCompraId,
-      p_os_id: osId,
+      p_os_id: approvalOsId,
       p_aprovado_por: aprovadoPorUsuarioId,
     });
     if (syncErr) {

@@ -181,11 +181,10 @@ async function getValorUnitarioSugerido(
   supabase: AuthedSupabase,
   params: { tenantId: string; empresaId: string; item: ItemRow }
 ): Promise<{ valorUnitario: number; aviso: string | null }> {
-  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_preco_sugerido_item", {
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_preco_sugerido_item_por_id", {
     p_tenant_id: params.tenantId,
     p_empresa_id: params.empresaId,
-    p_custo_ultima_compra: params.item.custo_ultima_compra,
-    p_preco_unitario: params.item.preco_unitario,
+    p_item_id: params.item.id,
   });
 
   if (error) throw error;

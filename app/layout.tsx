@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./styles/carteira-tokens.css";
 import AppShell from "./components/AppShellClient";
 import ClientProviders from "@/components/auth/ClientProviders";
 import AuthGate from "@/components/auth/AuthGate";

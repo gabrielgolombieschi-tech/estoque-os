@@ -14,7 +14,10 @@ import { getHorasTrabalhadasEfetivas, getValorTotalEfetivo } from "@/lib/hh/hhLa
 import { fetchFaturadoByOs } from "@/lib/os/faturadoPorOs";
 
 type ViewMode = "mes" | "mes-cliente" | "ano" | "ano-cliente";
+type Granularity = "mes" | "ano";
 type StatusScope = "em_andamento" | "concluida" | "todas";
+type RankingOrder = "valor" | "os" | "ticket" | "nome";
+type RangeMode = "anos" | "ultimos-12";
 
 type OsSourceRow = {
   id: number;
@@ -63,14 +66,6 @@ type OsAnalitico = {
   valor: number;
 };
 
-type AnoResumo = {
-  ano: number;
-  totalValor: number;
-  quantidade: number;
-  clientes: number;
-  ticketMedio: number;
-};
-
 type ClienteMesResumo = {
   clienteKey: string;
   clienteNome: string;
@@ -97,9 +92,20 @@ type ClienteRanking = {
   ticketMedio: number;
 };
 
-type MonthBucket = {
-  valores: number[];
-  quantidades: number[];
+type TemporalBucket = {
+  key: string;
+  label: string;
+  totalValor: number;
+  quantidade: number;
+  dominantOs: string[];
+};
+
+type AgingBucket = {
+  key: "ate-30" | "30-90" | "90-365" | "mais-365";
+  label: string;
+  totalValor: number;
+  quantidade: number;
+  rows: OsAnalitico[];
 };
 
 const BASE_YEAR = 2017;
@@ -112,13 +118,8 @@ const FIXED_EMPRESA_ID = "f0e74f49-a127-46b4-901b-f7b37e43c690";
 
 const statusScopeLabels: Record<StatusScope, string> = {
   em_andamento: "Em andamento",
-  concluida: "Concluidas",
+  concluida: "Concluídas",
   todas: "Todas",
-};
-
-const statusBadge: Record<OsAnalitico["status"], string> = {
-  em_andamento: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  concluida: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
 };
 
 function n(value: unknown): number {
@@ -140,6 +141,11 @@ function parseViewMode(value: string | null): ViewMode {
   if (value === "ano") return "ano";
   if (value === "ano-cliente") return "ano-cliente";
   return "mes";
+}
+
+function parseRankingOrder(value: string | null): RankingOrder {
+  if (value === "os" || value === "ticket" || value === "nome") return value;
+  return "valor";
 }
 
 function parseStatusScope(value: string | null): StatusScope {
@@ -171,15 +177,51 @@ function formatDateBR(value: string | null | undefined): string {
 }
 
 function resolveReferenceDate(row: OsSourceRow): string | null {
-  if (row.status === "concluida") return toDateOnly(row.data_conclusao) ?? toDateOnly(row.data_abertura);
-  if (row.status === "em_andamento") return toDateOnly(row.data_abertura);
-  return null;
+  return toDateOnly(row.data_abertura);
 }
 
-function getDateBasisLabel(scope: StatusScope): string {
-  if (scope === "concluida") return "Data de referencia: conclusao da OS.";
-  if (scope === "todas") return "Data de referencia: abertura para OS em andamento e conclusao para OS concluidas.";
-  return "Data de referencia: abertura da OS.";
+function isoToday(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function rollingTwelveMonthStart(): string {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() - 11);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}
+
+function daysSince(iso: string): number {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
+  const start = new Date(year, month - 1, day).getTime();
+  const today = new Date();
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.max(0, Math.floor((end - start) / 86400000));
+}
+
+function formatCompactMoney(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `R$ ${(value / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (abs >= 1_000) return `R$ ${(value / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  return formatMoneyBR(value);
+}
+
+function formatPercent(value: number): string {
+  return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
+function formatMonthYear(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" })
+    .format(new Date(year, month - 1, 1))
+    .replace(" de ", "/")
+    .replace(".", "");
 }
 
 function getClientKey(row: { cliente_id: number | null; cliente_nome: string | null }): string {
@@ -308,16 +350,20 @@ function StatCard({
   title,
   value,
   subtitle,
+  hero = false,
+  warning = false,
 }: {
   title: string;
   value: string;
   subtitle?: string;
+  hero?: boolean;
+  warning?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-      <div className="text-xs text-zinc-400">{title}</div>
-      <div className="mt-2 text-2xl font-semibold text-zinc-100">{value}</div>
-      {subtitle ? <div className="mt-1 text-xs text-zinc-500">{subtitle}</div> : null}
+    <div className={`oa-stat-card${hero ? " oa-stat-card-hero" : ""}`}>
+      <div className="oa-stat-label">{title}</div>
+      <div className="oa-stat-value">{value}</div>
+      {subtitle ? <div className={`oa-stat-caption${warning ? " oa-stat-caption-warning" : ""}`}>{subtitle}</div> : null}
     </div>
   );
 }
@@ -335,12 +381,8 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "rounded-md border px-3 py-2 text-sm transition-colors",
-        active
-          ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
-          : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900",
-      ].join(" ")}
+      className={`oa-segment-button${active ? " is-active" : ""}`}
+      aria-pressed={active}
     >
       {label}
     </button>
@@ -360,13 +402,10 @@ function StatusButton({
     <button
       type="button"
       onClick={onClick}
-      className={[
-        "rounded-md border px-3 py-2 text-sm transition-colors",
-        active
-          ? "border-amber-500/40 bg-amber-500/15 text-amber-200"
-          : "border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900",
-      ].join(" ")}
+      className={`oa-status-button${active ? " is-active" : ""}`}
+      aria-pressed={active}
     >
+      <span className="oa-status-dot" aria-hidden="true" />
       {label}
     </button>
   );
@@ -382,12 +421,12 @@ function TableCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-950">
-      <div className="border-b border-zinc-800 px-4 py-3">
-        <div className="text-sm font-medium text-zinc-100">{title}</div>
-        {subtitle ? <div className="mt-1 text-xs text-zinc-500">{subtitle}</div> : null}
+    <section className="oa-card">
+      <div className="oa-card-head">
+        <div className="oa-card-title">{title}</div>
+        {subtitle ? <div className="oa-card-subtitle">{subtitle}</div> : null}
       </div>
-      <div className="overflow-x-auto">{children}</div>
+      <div className="oa-table-scroll">{children}</div>
     </section>
   );
 }
@@ -403,17 +442,17 @@ function MetricBlock({
   hideValue: boolean;
   strong?: boolean;
 }) {
-  const valueClass = strong ? "text-zinc-100 font-semibold" : "text-zinc-100";
-  const countClass = strong ? "text-zinc-400" : "text-zinc-500";
+  const valueClass = strong ? "oa-metric-value is-strong" : "oa-metric-value";
+  const countClass = strong ? "oa-metric-count is-strong" : "oa-metric-count";
 
   if (hideValue) {
-    return <div className={`tabular-nums ${valueClass}`}>{formatCount(count)}</div>;
+    return <div className={valueClass}>{formatCount(count)}</div>;
   }
 
   return (
     <>
-      <div className={`tabular-nums ${valueClass}`}>{formatMoneyBR(value)}</div>
-      <div className={`mt-1 text-[11px] ${countClass}`}>{formatCount(count)} OS</div>
+      <div className={valueClass}>{formatMoneyBR(value)}</div>
+      <div className={countClass}>{formatCount(count)} OS</div>
     </>
   );
 }
@@ -431,9 +470,10 @@ export default function AnaliticoOsClient() {
   }, []);
 
   const currentYear = new Date().getFullYear();
-  const defaultFromYear = Math.max(BASE_YEAR, currentYear - 9);
-  const initialFromYear = clamp(parsePositiveInt(searchParams.get("from"), defaultFromYear), BASE_YEAR, currentYear);
-  const initialToYear = clamp(parsePositiveInt(searchParams.get("to"), currentYear), BASE_YEAR, currentYear);
+  const initialFromParam = searchParams.get("de") ?? searchParams.get("from");
+  const initialToParam = searchParams.get("ate") ?? searchParams.get("to");
+  const initialFromYear = clamp(parsePositiveInt(initialFromParam?.slice(0, 4) ?? null, BASE_YEAR), BASE_YEAR, currentYear);
+  const initialToYear = clamp(parsePositiveInt(initialToParam?.slice(0, 4) ?? null, currentYear), BASE_YEAR, currentYear);
   const normalizedInitialFromYear = Math.min(initialFromYear, initialToYear);
   const normalizedInitialToYear = Math.max(initialFromYear, initialToYear);
   const initialFocusYear = clamp(
@@ -442,13 +482,22 @@ export default function AnaliticoOsClient() {
     normalizedInitialToYear
   );
 
-  const [view, setView] = useState<ViewMode>(parseViewMode(searchParams.get("view")));
+  const initialGranularity: Granularity = searchParams.get("granularidade") === "ano" ? "ano" : "mes";
+  const initialOpenByClient = searchParams.get("abrir_cliente") === "1";
+  const initialView = searchParams.has("granularidade")
+    ? (`${initialGranularity}${initialOpenByClient ? "-cliente" : ""}` as ViewMode)
+    : parseViewMode(searchParams.get("view"));
+  const [view, setView] = useState<ViewMode>(initialView);
   const [statusScope, setStatusScope] = useState<StatusScope>(parseStatusScope(searchParams.get("status")));
   const [fromYear, setFromYear] = useState<number>(normalizedInitialFromYear);
   const [toYear, setToYear] = useState<number>(normalizedInitialToYear);
+  const [rangeMode, setRangeMode] = useState<RangeMode>(
+    searchParams.get("periodo") === "ultimos-12" || String(initialFromParam ?? "").length > 4 ? "ultimos-12" : "anos"
+  );
   const [focusYear, setFocusYear] = useState<number>(initialFocusYear);
   const [clientQuery, setClientQuery] = useState<string>(searchParams.get("cliente") ?? "");
   const [topN, setTopN] = useState<number>(clamp(parsePositiveInt(searchParams.get("top"), DEFAULT_TOP_N), 5, 200));
+  const [rankingOrder, setRankingOrder] = useState<RankingOrder>(parseRankingOrder(searchParams.get("ordem")));
 
   const [rows, setRows] = useState<OsSourceRow[]>([]);
   const [clientesById, setClientesById] = useState<Record<number, string>>({});
@@ -475,6 +524,8 @@ export default function AnaliticoOsClient() {
   const hideValorPedido = osAccess.hideValorPedido;
 
   const ready = sessionReady && Boolean(session?.access_token) && Boolean(supabase) && canView;
+  const granularity: Granularity = view.startsWith("ano") ? "ano" : "mes";
+  const openByClient = view.endsWith("-cliente");
 
   const yearOptions = useMemo(() => {
     const years: number[] = [];
@@ -487,11 +538,15 @@ export default function AnaliticoOsClient() {
     for (let year = fromYear; year <= toYear; year += 1) list.push(year);
     return list;
   }, [fromYear, toYear]);
+  const effectiveFocusYear = clamp(focusYear, fromYear, toYear);
 
-  useEffect(() => {
-    if (focusYear < fromYear) setFocusYear(fromYear);
-    if (focusYear > toYear) setFocusYear(toYear);
-  }, [focusYear, fromYear, toYear]);
+  const rangeBounds = useMemo(
+    () =>
+      rangeMode === "ultimos-12"
+        ? { from: rollingTwelveMonthStart(), to: isoToday() }
+        : { from: `${fromYear}-01-01`, to: `${toYear}-12-31` },
+    [fromYear, rangeMode, toYear]
+  );
 
   useEffect(() => {
     if (!sessionReady || te.loading) return;
@@ -500,20 +555,23 @@ export default function AnaliticoOsClient() {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    params.set("view", view);
+    params.set("granularidade", granularity);
+    if (openByClient) params.set("abrir_cliente", "1");
     params.set("status", statusScope);
-    params.set("from", String(fromYear));
-    params.set("to", String(toYear));
-    if (view === "mes-cliente") params.set("focus", String(focusYear));
+    params.set("de", rangeMode === "ultimos-12" ? rangeBounds.from : String(fromYear));
+    params.set("ate", rangeMode === "ultimos-12" ? rangeBounds.to : String(toYear));
+    if (rangeMode === "ultimos-12") params.set("periodo", "ultimos-12");
+    if (view === "mes-cliente") params.set("focus", String(effectiveFocusYear));
     if (clientQuery.trim()) params.set("cliente", clientQuery.trim());
     if (topN !== DEFAULT_TOP_N) params.set("top", String(topN));
+    if (rankingOrder !== "valor") params.set("ordem", rankingOrder);
 
     const nextQuery = params.toString();
     const currentQuery = searchParams.toString();
     if (nextQuery !== currentQuery) {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
     }
-  }, [clientQuery, focusYear, fromYear, pathname, router, searchParams, statusScope, toYear, topN, view]);
+  }, [clientQuery, effectiveFocusYear, fromYear, granularity, openByClient, pathname, rangeBounds.from, rangeBounds.to, rangeMode, rankingOrder, router, searchParams, statusScope, toYear, topN, view]);
 
   useEffect(() => {
     if (!ready || !supabase) return;
@@ -533,6 +591,7 @@ export default function AnaliticoOsClient() {
             supabase
               .from("ordens_servico")
               .select("id,numero_os,cliente_nome,cliente_id,status,data_abertura,data_conclusao,orcado,usa_relatorio_hh")
+              .eq("tipo_documento", "OS")
               .order("id", { ascending: true })
               .range(offset, offset + FETCH_BATCH_SIZE - 1),
             effectiveTenantId,
@@ -607,7 +666,7 @@ export default function AnaliticoOsClient() {
         setHhFallbackByOs({});
         setHhPedidoByOs({});
         setFaturadoByOs({});
-        setError(loadError instanceof Error ? loadError.message : "Erro ao carregar o analitico de OS.");
+        setError(loadError instanceof Error ? loadError.message : "Erro ao carregar o analítico de OS.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -629,7 +688,7 @@ export default function AnaliticoOsClient() {
         const year = Number(referenceDate.slice(0, 4));
         const month = Number(referenceDate.slice(5, 7));
         if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
-        if (year < fromYear || year > toYear) return null;
+        if (referenceDate < rangeBounds.from || referenceDate > rangeBounds.to) return null;
         if (row.status !== "em_andamento" && row.status !== "concluida") return null;
 
         const clientKey = getClientKey(row);
@@ -675,7 +734,7 @@ export default function AnaliticoOsClient() {
       ...row,
       clienteNome: preferredNameByKey.get(row.clientKey) ?? row.clienteNome,
     }));
-  }, [clientesById, faturadoByOs, fromYear, hhFallbackByOs, hhPedidoByOs, rows, toYear]);
+  }, [clientesById, faturadoByOs, hhFallbackByOs, hhPedidoByOs, rangeBounds.from, rangeBounds.to, rows]);
 
   const osExcedentes = useMemo(() => {
     return rows
@@ -701,30 +760,34 @@ export default function AnaliticoOsClient() {
   }, [clientesById, faturadoByOs, hhFallbackByOs, hhPedidoByOs, rows]);
 
   const filteredClientTerm = clientQuery.trim().toLowerCase();
-  const activeClientTerm = view === "mes-cliente" || view === "ano-cliente" ? filteredClientTerm : "";
-
-  const rankingSourceRows = useMemo(
+  const filteredOrdens = useMemo(
     () =>
-      activeClientTerm
-        ? ordens.filter((row) => row.clienteNome.toLowerCase().includes(activeClientTerm))
+      filteredClientTerm
+        ? ordens.filter((row) => row.clienteNome.toLowerCase() === filteredClientTerm)
         : ordens,
-    [activeClientTerm, ordens]
+    [filteredClientTerm, ordens]
   );
 
-  const totalValor = useMemo(() => ordens.reduce((acc, row) => acc + row.valor, 0), [ordens]);
-  const totalOs = ordens.length;
-  const clientesAtivos = useMemo(() => new Set(ordens.map((row) => row.clientKey)).size, [ordens]);
+  const totalValor = useMemo(() => filteredOrdens.reduce((acc, row) => acc + row.valor, 0), [filteredOrdens]);
+  const totalOs = filteredOrdens.length;
+  const clientesAtivos = useMemo(() => new Set(filteredOrdens.map((row) => row.clientKey)).size, [filteredOrdens]);
   const ticketMedio = totalOs > 0 ? totalValor / totalOs : 0;
-  const valorResumoTitulo = statusScope === "em_andamento" ? "Valor a faturar no periodo" : "Valor total no periodo";
+  const periodLabel =
+    rangeMode === "ultimos-12"
+      ? `${formatMonthYear(rangeBounds.from.slice(0, 7))} – ${formatMonthYear(rangeBounds.to.slice(0, 7))}`
+      : fromYear === toYear
+        ? String(fromYear)
+        : `${fromYear} – ${toYear}`;
+  const valorResumoTitulo = statusScope === "em_andamento" ? "Valor a faturar no período" : "Valor total no período";
   const valorResumoSubtitulo =
     statusScope === "em_andamento"
-      ? `${statusScopeLabels[statusScope]} | ${fromYear} ate ${toYear} | faturamento vinculado descontado`
-      : `${statusScopeLabels[statusScope]} | ${fromYear} ate ${toYear}`;
+      ? `${formatCount(totalOs)} OS em andamento · faturamento vinculado já descontado`
+      : `${formatCount(totalOs)} OS ${statusScopeLabels[statusScope].toLocaleLowerCase("pt-BR")} · ${periodLabel}`;
 
   const rankingsBase = useMemo<ClienteRanking[]>(() => {
     const byClient = new Map<string, ClienteRanking>();
 
-    for (const row of rankingSourceRows) {
+    for (const row of filteredOrdens) {
       const current =
         byClient.get(row.clientKey) ??
         {
@@ -742,88 +805,44 @@ export default function AnaliticoOsClient() {
     }
 
     return Array.from(byClient.values());
-  }, [rankingSourceRows]);
+  }, [filteredOrdens]);
 
-  const topClientesPorQuantidade = useMemo(
-    () =>
-      [...rankingsBase]
-        .sort((a, b) => b.quantidade - a.quantidade || b.totalValor - a.totalValor || a.clienteNome.localeCompare(b.clienteNome))
-        .slice(0, topN),
-    [rankingsBase, topN]
+  const clientesOrdenados = useMemo(() => {
+    const next = [...rankingsBase];
+    next.sort((a, b) => {
+      if (hideValorPedido) return b.quantidade - a.quantidade || a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
+      if (rankingOrder === "os") return b.quantidade - a.quantidade || b.totalValor - a.totalValor;
+      if (rankingOrder === "ticket") return b.ticketMedio - a.ticketMedio || b.totalValor - a.totalValor;
+      if (rankingOrder === "nome") return a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
+      return b.totalValor - a.totalValor || b.quantidade - a.quantidade;
+    });
+    return next;
+  }, [hideValorPedido, rankingOrder, rankingsBase]);
+
+  const clientesPorValor = useMemo(
+    () => [...rankingsBase].sort((a, b) => b.totalValor - a.totalValor || b.quantidade - a.quantidade),
+    [rankingsBase]
   );
-
-  const topClientesPorValor = useMemo(
-    () =>
-      [...rankingsBase]
-        .sort((a, b) => b.totalValor - a.totalValor || b.quantidade - a.quantidade || a.clienteNome.localeCompare(b.clienteNome))
-        .slice(0, topN),
-    [rankingsBase, topN]
-  );
-
   const maioresOs = useMemo(
     () =>
-      [...rankingSourceRows]
+      [...filteredOrdens]
         .sort((a, b) => b.valor - a.valor || b.referenceDate.localeCompare(a.referenceDate) || a.numeroOs.localeCompare(b.numeroOs))
         .slice(0, topN),
-    [rankingSourceRows, topN]
+    [filteredOrdens, topN]
   );
 
-  const clienteLiderQuantidade = topClientesPorQuantidade[0] ?? null;
-  const maiorOsRow = maioresOs[0] ?? null;
+  const topTwoOsValue = useMemo(() => [...filteredOrdens].sort((a, b) => b.valor - a.valor).slice(0, 2).reduce((sum, row) => sum + row.valor, 0), [filteredOrdens]);
+  const topTwoOsShare = totalValor > 0 ? (topTwoOsValue / totalValor) * 100 : 0;
+  const topTwoClientsValue = clientesPorValor.slice(0, 2).reduce((sum, row) => sum + row.totalValor, 0);
+  const topTwoClientsShare = totalValor > 0 ? (topTwoClientsValue / totalValor) * 100 : 0;
 
   const yearIndexMap = useMemo(() => new Map(years.map((year, index) => [year, index])), [years]);
-
-  const yearRows = useMemo<AnoResumo[]>(() => {
-    const totals = new Map<number, { totalValor: number; quantidade: number; clientes: Set<string> }>();
-
-    for (const year of years) {
-      totals.set(year, { totalValor: 0, quantidade: 0, clientes: new Set<string>() });
-    }
-
-    for (const row of ordens) {
-      const bucket = totals.get(row.year);
-      if (!bucket) continue;
-      bucket.totalValor += row.valor;
-      bucket.quantidade += 1;
-      bucket.clientes.add(row.clientKey);
-    }
-
-    return years.map((year) => {
-      const bucket = totals.get(year) ?? { totalValor: 0, quantidade: 0, clientes: new Set<string>() };
-      return {
-        ano: year,
-        totalValor: bucket.totalValor,
-        quantidade: bucket.quantidade,
-        clientes: bucket.clientes.size,
-        ticketMedio: bucket.quantidade > 0 ? bucket.totalValor / bucket.quantidade : 0,
-      };
-    });
-  }, [ordens, years]);
-
-  const monthByYear = useMemo(() => {
-    const byYear = new Map<number, MonthBucket>();
-    for (const year of years) {
-      byYear.set(year, {
-        valores: Array.from({ length: 12 }, () => 0),
-        quantidades: Array.from({ length: 12 }, () => 0),
-      });
-    }
-
-    for (const row of ordens) {
-      const bucket = byYear.get(row.year);
-      if (!bucket) continue;
-      bucket.valores[row.month - 1] += row.valor;
-      bucket.quantidades[row.month - 1] += 1;
-    }
-
-    return byYear;
-  }, [ordens, years]);
 
   const monthClientRows = useMemo<ClienteMesResumo[]>(() => {
     const byClient = new Map<string, ClienteMesResumo>();
 
-    for (const row of ordens) {
-      if (row.year !== focusYear) continue;
+    for (const row of filteredOrdens) {
+      if (row.year !== effectiveFocusYear) continue;
 
       const current =
         byClient.get(row.clientKey) ??
@@ -845,19 +864,18 @@ export default function AnaliticoOsClient() {
     }
 
     return Array.from(byClient.values())
-      .filter((row) => (activeClientTerm ? row.clienteNome.toLowerCase().includes(activeClientTerm) : true))
       .sort((a, b) =>
         hideValorPedido
           ? b.quantidade - a.quantidade || b.totalValor - a.totalValor || a.clienteNome.localeCompare(b.clienteNome)
           : b.totalValor - a.totalValor || b.quantidade - a.quantidade || a.clienteNome.localeCompare(b.clienteNome)
       )
       .slice(0, topN);
-  }, [activeClientTerm, focusYear, hideValorPedido, ordens, topN]);
+  }, [effectiveFocusYear, filteredOrdens, hideValorPedido, topN]);
 
   const yearClientRows = useMemo<ClienteAnoResumo[]>(() => {
     const byClient = new Map<string, ClienteAnoResumo>();
 
-    for (const row of ordens) {
+    for (const row of filteredOrdens) {
       const yearIndex = yearIndexMap.get(row.year);
       if (yearIndex === undefined) continue;
 
@@ -881,14 +899,13 @@ export default function AnaliticoOsClient() {
     }
 
     return Array.from(byClient.values())
-      .filter((row) => (activeClientTerm ? row.clienteNome.toLowerCase().includes(activeClientTerm) : true))
       .sort((a, b) =>
         hideValorPedido
           ? b.quantidade - a.quantidade || b.totalValor - a.totalValor || a.clienteNome.localeCompare(b.clienteNome)
           : b.totalValor - a.totalValor || b.quantidade - a.quantidade || a.clienteNome.localeCompare(b.clienteNome)
       )
       .slice(0, topN);
-  }, [activeClientTerm, hideValorPedido, ordens, topN, yearIndexMap, years.length]);
+  }, [filteredOrdens, hideValorPedido, topN, yearIndexMap, years.length]);
 
   const subtotalMesCliente = useMemo(
     () =>
@@ -930,622 +947,422 @@ export default function AnaliticoOsClient() {
     [yearClientRows, years.length]
   );
 
-  const monthRowTotals = useMemo(
-    () =>
-      MONTH_LABELS.map((_, monthIndex) => ({
-        valor: years.reduce((acc, year) => acc + (monthByYear.get(year)?.valores[monthIndex] ?? 0), 0),
-        quantidade: years.reduce((acc, year) => acc + (monthByYear.get(year)?.quantidades[monthIndex] ?? 0), 0),
-      })),
-    [monthByYear, years]
+  const clientOptions = useMemo(
+    () => Array.from(new Set(ordens.map((row) => row.clienteNome))).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [ordens]
   );
 
-  const yearColumnTotals = useMemo(
-    () =>
-      years.map((year) => ({
-        valor: monthByYear.get(year)?.valores.reduce((acc, value) => acc + value, 0) ?? 0,
-        quantidade: monthByYear.get(year)?.quantidades.reduce((acc, value) => acc + value, 0) ?? 0,
-      })),
-    [monthByYear, years]
+  const temporalBuckets = useMemo<TemporalBucket[]>(() => {
+    const grouped = new Map<string, OsAnalitico[]>();
+    for (const row of filteredOrdens) {
+      const key = granularity === "mes" ? row.referenceDate.slice(0, 7) : String(row.year);
+      const bucket = grouped.get(key) ?? [];
+      bucket.push(row);
+      grouped.set(key, bucket);
+    }
+
+    return Array.from(grouped.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, bucketRows]) => {
+        const total = bucketRows.reduce((sum, row) => sum + row.valor, 0);
+        const sortedRows = [...bucketRows].sort((a, b) => b.valor - a.valor);
+        const dominant = sortedRows.filter((row) => total > 0 && row.valor / total >= 0.25).slice(0, 2);
+        return {
+          key,
+          label: granularity === "mes" ? formatMonthYear(key) : key,
+          totalValor: total,
+          quantidade: bucketRows.length,
+          dominantOs: dominant.map((row) => row.numeroOs),
+        };
+      });
+  }, [filteredOrdens, granularity]);
+
+  const chartMax = Math.max(1, ...temporalBuckets.map((bucket) => bucket.totalValor));
+  const concentrationTop = clientesPorValor.slice(0, 6);
+  const concentrationOther = clientesPorValor.slice(6).reduce(
+    (acc, row) => ({ totalValor: acc.totalValor + row.totalValor, quantidade: acc.quantidade + 1 }),
+    { totalValor: 0, quantidade: 0 }
   );
+  const concentrationSecondGroup = clientesPorValor.slice(2, 6).reduce((sum, row) => sum + row.totalValor, 0);
+  const concentrationRest = Math.max(0, totalValor - topTwoClientsValue - concentrationSecondGroup);
+
+  const agingBuckets = useMemo<AgingBucket[]>(() => {
+    const buckets: AgingBucket[] = [
+      { key: "ate-30", label: "até 30 dias", totalValor: 0, quantidade: 0, rows: [] },
+      { key: "30-90", label: "30 a 90 dias", totalValor: 0, quantidade: 0, rows: [] },
+      { key: "90-365", label: "90 dias a 1 ano", totalValor: 0, quantidade: 0, rows: [] },
+      { key: "mais-365", label: "mais de 1 ano", totalValor: 0, quantidade: 0, rows: [] },
+    ];
+
+    for (const row of filteredOrdens.filter((item) => item.status === "em_andamento")) {
+      const age = daysSince(row.referenceDate);
+      const index = age <= 30 ? 0 : age <= 90 ? 1 : age <= 365 ? 2 : 3;
+      buckets[index].totalValor += row.valor;
+      buckets[index].quantidade += 1;
+      buckets[index].rows.push(row);
+    }
+    return buckets;
+  }, [filteredOrdens]);
+  const agingMax = Math.max(1, ...agingBuckets.map((bucket) => bucket.totalValor));
+
+  const setGranularity = (next: Granularity) => {
+    setView(`${next}${openByClient ? "-cliente" : ""}` as ViewMode);
+  };
+
+  const setOpenByClient = (next: boolean) => {
+    setView(`${granularity}${next ? "-cliente" : ""}` as ViewMode);
+  };
+
+  const visibleOsIds = new Set(filteredOrdens.map((row) => row.id));
+  const visibleExcess = osExcedentes.filter((row) => visibleOsIds.has(row.id));
+
+  const exportCsv = () => {
+    const header = ["OS", "Cliente", "Status", "Data de abertura", "Valor"];
+    const lines = filteredOrdens.map((row) => [
+      row.numeroOs,
+      row.clienteNome,
+      statusScopeLabels[row.status],
+      formatDateBR(row.referenceDate),
+      row.valor.toFixed(2).replace(".", ","),
+    ]);
+    const csv = [header, ...lines]
+      .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
+      .join("\r\n");
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `os-analitico-${periodLabel.replace(/[^0-9]+/g, "-")}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 500);
+  };
 
   if (!canView) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="carteira-theme os-analytics-page">
+      <header className="oa-page-header">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">OS</div>
-          <h1 className="mt-1 text-2xl font-semibold text-zinc-100">Analitico</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Valor considerado: OS comuns usam o valor orcado; OS com relatorio HH usam o total efetivo dos lancamentos.
-            Para OS em andamento, o faturamento vinculado a OS e descontado do saldo a faturar.
+          <div className="oa-breadcrumb">
+            <Link href="/os">OS</Link><span>›</span><span>Analítico</span>
+          </div>
+          <h1>Analítico de OS</h1>
+          <p>
+            OS comuns usam o valor orçado; OS com relatório HH usam o total efetivo dos lançamentos. Em OS em andamento,
+            o faturamento já vinculado é descontado do saldo a faturar. Data de referência: abertura da OS.
           </p>
-          <p className="mt-1 text-xs text-zinc-500">{getDateBasisLabel(statusScope)}</p>
-          {hideValorPedido ? (
-            <p className="mt-1 text-xs text-amber-300">Seu perfil pode acompanhar quantidades, mas os valores ficam ocultos.</p>
-          ) : null}
+          {hideValorPedido ? <div className="oa-permission-note">Seu perfil pode acompanhar quantidades, mas os valores ficam ocultos.</div> : null}
         </div>
-        <Link
-          href="/os"
-          className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
-        >
-          Voltar para OS
-        </Link>
-      </div>
-
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-        <div className="flex flex-wrap gap-2">
-          <TabButton active={view === "mes"} onClick={() => setView("mes")} label="Mes" />
-          <TabButton active={view === "mes-cliente"} onClick={() => setView("mes-cliente")} label="Mes / Cliente" />
-          <TabButton active={view === "ano"} onClick={() => setView("ano")} label="Ano" />
-          <TabButton active={view === "ano-cliente"} onClick={() => setView("ano-cliente")} label="Ano / Cliente" />
+        <div className="oa-page-actions">
+          <button type="button" onClick={exportCsv} disabled={loading || filteredOrdens.length === 0} className="carteira-button">
+            Exportar
+          </button>
+          <Link href="/os" className="carteira-button">Voltar para OS</Link>
         </div>
+      </header>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <StatusButton
-            active={statusScope === "em_andamento"}
-            onClick={() => setStatusScope("em_andamento")}
-            label="Em andamento"
-          />
-          <StatusButton active={statusScope === "concluida"} onClick={() => setStatusScope("concluida")} label="Concluidas" />
+      <section className="oa-toolbar" aria-label="Controles do analítico">
+        <div className="oa-status-group" role="group" aria-label="Situação das OS">
+          <StatusButton active={statusScope === "em_andamento"} onClick={() => setStatusScope("em_andamento")} label="Em andamento" />
+          <StatusButton active={statusScope === "concluida"} onClick={() => setStatusScope("concluida")} label="Concluídas" />
           <StatusButton active={statusScope === "todas"} onClick={() => setStatusScope("todas")} label="Todas" />
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-6">
-          <label className="block">
-            <span className="text-xs text-zinc-400">Ano inicial</span>
-            <select
-              className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"
-              value={fromYear}
-              onChange={(event) => {
-                const next = clamp(Number(event.target.value), BASE_YEAR, currentYear);
-                setFromYear(next);
-                if (next > toYear) setToYear(next);
-                if (focusYear < next) setFocusYear(next);
-              }}
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
+        <span className="oa-toolbar-divider" aria-hidden="true" />
 
-          <label className="block">
-            <span className="text-xs text-zinc-400">Ano final</span>
-            <select
-              className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"
-              value={toYear}
-              onChange={(event) => {
-                const next = clamp(Number(event.target.value), BASE_YEAR, currentYear);
-                setToYear(next);
-                if (next < fromYear) setFromYear(next);
-                if (focusYear > next) setFocusYear(next);
-              }}
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          {view === "mes-cliente" ? (
-            <label className="block">
-              <span className="text-xs text-zinc-400">Ano foco</span>
-              <select
-                className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"
-                value={focusYear}
-                onChange={(event) => setFocusYear(clamp(Number(event.target.value), fromYear, toYear))}
-              >
-                {years
-                  .slice()
-                  .reverse()
-                  .map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          ) : null}
+        <div className="oa-segmented" role="group" aria-label="Granularidade">
+          <TabButton active={granularity === "mes"} onClick={() => setGranularity("mes")} label="Mês" />
+          <TabButton active={granularity === "ano"} onClick={() => setGranularity("ano")} label="Ano" />
+        </div>
 
-          {view === "mes-cliente" || view === "ano-cliente" ? (
-            <>
-              <label className="block md:col-span-2">
-                <span className="text-xs text-zinc-400">Buscar cliente</span>
-                <input
-                  type="text"
-                  value={clientQuery}
-                  onChange={(event) => setClientQuery(event.target.value)}
-                  placeholder="Nome do cliente"
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
-                />
-              </label>
+        <label className="oa-switch-label">
+          <input type="checkbox" checked={openByClient} onChange={(event) => setOpenByClient(event.target.checked)} />
+          <span className="oa-switch-track" aria-hidden="true"><span /></span>
+          Abrir por cliente
+        </label>
 
-              <label className="block">
-                <span className="text-xs text-zinc-400">Top clientes</span>
-                <select
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none"
-                  value={topN}
-                  onChange={(event) => setTopN(clamp(Number(event.target.value), 5, 200))}
-                >
-                  {[10, 20, 50, 100, 200].map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
+        <span className="oa-toolbar-divider" aria-hidden="true" />
+
+        <details className="oa-toolbar-details oa-range-details">
+          <summary className="carteira-control">{periodLabel}<span>▾</span></summary>
+          <div className="oa-popover oa-range-popover">
+            <div className="oa-popover-title">Intervalo</div>
+            <div className="oa-range-selects">
+              <label>De
+                <select value={fromYear} onChange={(event) => {
+                  const next = clamp(Number(event.target.value), BASE_YEAR, currentYear);
+                  setRangeMode("anos");
+                  setFromYear(Math.min(next, toYear));
+                }}>
+                  {yearOptions.map((year) => <option key={`from-${year}`} value={year}>{year}</option>)}
                 </select>
               </label>
-            </>
-          ) : (
-            <div className="flex items-end md:col-span-3">
-              <div className="rounded-md border border-dashed border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-                Filtros sincronizados na URL para compartilhamento desta visao.
-              </div>
+              <label>Até
+                <select value={toYear} onChange={(event) => {
+                  const next = clamp(Number(event.target.value), BASE_YEAR, currentYear);
+                  setRangeMode("anos");
+                  setToYear(Math.max(next, fromYear));
+                }}>
+                  {yearOptions.map((year) => <option key={`to-${year}`} value={year}>{year}</option>)}
+                </select>
+              </label>
             </div>
-          )}
-        </div>
+            <div className="oa-shortcuts">
+              <button type="button" onClick={() => { setRangeMode("anos"); setFromYear(currentYear); setToYear(currentYear); }}>este ano</button>
+              <button type="button" onClick={() => { setRangeMode("ultimos-12"); setFromYear(Number(rollingTwelveMonthStart().slice(0, 4))); setToYear(currentYear); }}>últimos 12 meses</button>
+              <button type="button" onClick={() => { setRangeMode("anos"); setFromYear(BASE_YEAR); setToYear(currentYear); }}>tudo</button>
+            </div>
+          </div>
+        </details>
+
+        <select className="carteira-control oa-client-select" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} aria-label="Cliente">
+          <option value="">Todos os clientes</option>
+          {clientOptions.map((cliente) => <option key={cliente} value={cliente}>{cliente}</option>)}
+        </select>
+
+        <details className="oa-toolbar-details oa-more-details">
+          <summary className="carteira-control">Mais filtros <span>▾</span></summary>
+          <div className="oa-popover oa-more-popover">
+            {granularity === "mes" && openByClient ? (
+              <label>Ano em foco
+                <select value={effectiveFocusYear} onChange={(event) => setFocusYear(Number(event.target.value))}>
+                  {years.slice().reverse().map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </label>
+            ) : null}
+            <label>Linhas nos rankings
+              <select value={topN} onChange={(event) => setTopN(clamp(Number(event.target.value), 5, 200))}>
+                {[10, 20, 50, 100, 200].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <div className="oa-reference-note">Referência temporal: abertura da OS.</div>
+          </div>
+        </details>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <section className="oa-stats" aria-label="Indicadores do período">
+        <StatCard title={valorResumoTitulo} value={hideValorPedido ? "—" : formatMoneyBR(totalValor)} subtitle={valorResumoSubtitulo} hero />
+        <StatCard title="Quantidade de OS" value={formatCount(totalOs)} subtitle={`em ${formatCount(clientesAtivos)} clientes distintos`} />
         <StatCard
-          title={valorResumoTitulo}
-          value={hideValorPedido ? "-" : formatMoneyBR(totalValor)}
-          subtitle={valorResumoSubtitulo}
+          title="Ticket médio"
+          value={hideValorPedido ? "—" : formatMoneyBR(ticketMedio)}
+          subtitle={topTwoOsShare > 40 ? `distorcido — 2 OS somam ${Math.round(topTwoOsShare)}%` : "valor médio por OS"}
+          warning={topTwoOsShare > 40}
         />
         <StatCard
-          title="Quantidade de OS"
-          value={formatCount(totalOs)}
-          subtitle={`${statusScopeLabels[statusScope]} no recorte`}
+          title="Concentração"
+          value={hideValorPedido ? "—" : formatPercent(topTwoClientsShare)}
+          subtitle={`do valor está em 2 dos ${formatCount(clientesAtivos)} clientes`}
         />
-        <StatCard
-          title="Clientes com OS"
-          value={formatCount(clientesAtivos)}
-          subtitle="Clientes distintos no periodo"
-        />
-        <StatCard
-          title="Ticket medio"
-          value={hideValorPedido ? "-" : formatMoneyBR(ticketMedio)}
-          subtitle="Valor medio por OS"
-        />
-        <StatCard
-          title="Cliente com mais OS"
-          value={clienteLiderQuantidade?.clienteNome ?? "-"}
-          subtitle={clienteLiderQuantidade ? `${formatCount(clienteLiderQuantidade.quantidade)} OS` : "Sem registros"}
-        />
-        <StatCard
-          title={hideValorPedido ? "Maior volume em OS" : "Maior OS"}
-          value={maiorOsRow ? `OS ${maiorOsRow.numeroOs}` : "-"}
-          subtitle={
-            maiorOsRow
-              ? hideValorPedido
-                ? `${maiorOsRow.clienteNome} | ${formatDateBR(maiorOsRow.referenceDate)}`
-                : `${maiorOsRow.clienteNome} | ${formatMoneyBR(maiorOsRow.valor)}`
-              : "Sem registros"
-          }
-        />
-      </div>
+      </section>
 
-      {!hideValorPedido && statusScope === "em_andamento" && ready && !loading && osExcedentes.length > 0 ? (
-        <section className="rounded-xl border border-rose-900/60 bg-rose-950/10 p-4">
-          <h2 className="text-sm font-semibold text-rose-200">OS faturadas acima do orçado</h2>
-          <p className="mt-1 text-xs text-rose-300/80">
-            Estas OS em andamento já têm mais faturado do que o valor orçado. Corrija o valor orçado da OS ou
-            revise o faturamento vinculado.
-          </p>
-          <div className="mt-3 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-rose-900/40 text-rose-300/80">
-                  <th className="px-3 py-2 text-left font-medium">OS</th>
-                  <th className="px-3 py-2 text-left font-medium">Cliente</th>
-                  <th className="px-3 py-2 text-right font-medium">Valor pedido</th>
-                  <th className="px-3 py-2 text-right font-medium">Valor faturado</th>
-                  <th className="px-3 py-2 text-right font-medium">Excesso</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rose-900/20">
-                {osExcedentes.map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-3 py-2">
-                      <Link href={`/os/${row.id}`} className="text-rose-200 underline-offset-2 hover:underline">
-                        OS {row.numeroOs}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 text-zinc-200">{row.clienteNome}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-zinc-300">{formatMoneyBR(row.valorPedido)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-zinc-300">{formatMoneyBR(row.valorFaturado)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-rose-200">
-                      {formatMoneyBR(row.excesso)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-xl border border-rose-900/60 bg-rose-950/20 px-4 py-3 text-sm text-rose-200">{error}</div>
-      ) : null}
-
-      {!ready || loading ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-400">
-          Carregando analitico de OS...
-        </div>
-      ) : null}
+      {error ? <div className="oa-error">{error}</div> : null}
+      {!ready || loading ? <div className="oa-loading">Carregando analítico de OS...</div> : null}
 
       {ready && !loading ? (
-        <div className={`grid grid-cols-1 gap-3 ${hideValorPedido ? "xl:grid-cols-1" : "xl:grid-cols-3"}`}>
-          <TableCard title="Clientes com mais OS" subtitle="Ranking por quantidade de OS no recorte atual.">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-800 text-zinc-400">
-                  <th className="px-4 py-3 text-left font-medium">Cliente</th>
-                  <th className="px-4 py-3 text-right font-medium">OS</th>
-                  {!hideValorPedido ? <th className="px-4 py-3 text-right font-medium">Valor</th> : null}
-                  {!hideValorPedido ? <th className="px-4 py-3 text-right font-medium">Ticket</th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {topClientesPorQuantidade.map((row) => (
-                  <tr key={`qtd-${row.clienteKey}`} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                    <td className="px-4 py-3 text-zinc-100">{row.clienteNome}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatCount(row.quantidade)}</td>
-                    {!hideValorPedido ? (
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(row.totalValor)}</td>
-                    ) : null}
-                    {!hideValorPedido ? (
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatMoneyBR(row.ticketMedio)}</td>
-                    ) : null}
-                  </tr>
-                ))}
-                {topClientesPorQuantidade.length === 0 ? (
-                  <tr>
-                    <td colSpan={hideValorPedido ? 2 : 4} className="px-4 py-6 text-zinc-400">
-                      Nenhum cliente encontrado para os filtros selecionados.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </TableCard>
-
+        <>
           {!hideValorPedido ? (
-            <TableCard title="Clientes com maior valor" subtitle="Ranking por valor acumulado das OS no periodo.">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-zinc-400">
-                    <th className="px-4 py-3 text-left font-medium">Cliente</th>
-                    <th className="px-4 py-3 text-right font-medium">Valor</th>
-                    <th className="px-4 py-3 text-right font-medium">OS</th>
-                    <th className="px-4 py-3 text-right font-medium">Ticket</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topClientesPorValor.map((row) => (
-                    <tr key={`valor-${row.clienteKey}`} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                      <td className="px-4 py-3 text-zinc-100">{row.clienteNome}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(row.totalValor)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatCount(row.quantidade)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatMoneyBR(row.ticketMedio)}</td>
-                    </tr>
-                  ))}
-                  {topClientesPorValor.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-6 text-zinc-400">
-                        Nenhum cliente encontrado para os filtros selecionados.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </TableCard>
+            <section className="oa-card oa-chart-card">
+              <div className="oa-card-head oa-card-head-inline">
+                <div>
+                  <div className="oa-card-title">Valor a faturar por {granularity === "mes" ? "mês" : "ano"} de abertura</div>
+                  <div className="oa-card-subtitle">Valor no eixo; quantidade de OS disponível ao passar o mouse.</div>
+                </div>
+                <div className="oa-mini-segmented">
+                  <TabButton active={granularity === "mes"} onClick={() => setGranularity("mes")} label="Mês" />
+                  <TabButton active={granularity === "ano"} onClick={() => setGranularity("ano")} label="Ano" />
+                </div>
+              </div>
+
+              {temporalBuckets.length ? (
+                <div className="oa-chart-viewport">
+                  <div className="oa-y-axis" aria-hidden="true">
+                    <span>{formatCompactMoney(chartMax)}</span>
+                    <span>{formatCompactMoney(chartMax / 2)}</span>
+                    <span>0</span>
+                  </div>
+                  <div className="oa-chart-plot" style={{ minWidth: `${Math.max(620, temporalBuckets.length * 44)}px` }}>
+                    <span className="oa-grid-line oa-grid-line-top" aria-hidden="true" />
+                    <span className="oa-grid-line oa-grid-line-mid" aria-hidden="true" />
+                    <span className="oa-zero-line" aria-hidden="true" />
+                    <div className="oa-bars">
+                      {temporalBuckets.map((bucket) => {
+                        const dominantText = bucket.dominantOs.length ? ` · OS ${bucket.dominantOs.join(" e ")}` : "";
+                        return (
+                          <div key={bucket.key} className="oa-bar-column">
+                            <button
+                              type="button"
+                              className="oa-chart-bar"
+                              style={{ height: `${Math.max(2, (bucket.totalValor / chartMax) * 100)}%` }}
+                              aria-label={`${bucket.label}: ${formatMoneyBR(bucket.totalValor)}, ${formatCount(bucket.quantidade)} OS${dominantText}`}
+                            >
+                              <span className="oa-chart-tooltip">
+                                <strong>{bucket.label}</strong>
+                                <span>{formatMoneyBR(bucket.totalValor)}</span>
+                                <span>{formatCount(bucket.quantidade)} OS{dominantText}</span>
+                              </span>
+                            </button>
+                            <span className="oa-bar-label">{bucket.label.replace(/\/\d{4}$/, "")}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : <div className="oa-empty">Nenhum valor encontrado no período.</div>}
+
+              <div className="oa-table-scroll oa-aggregate-table-wrap">
+                <table className="oa-data-table">
+                  <thead><tr><th>{granularity === "mes" ? "Mês" : "Ano"}</th><th className="is-number">Valor</th><th className="is-number">OS</th><th className="is-number">Ticket</th></tr></thead>
+                  <tbody>
+                    {temporalBuckets.map((bucket) => (
+                      <tr key={`table-${bucket.key}`}><td>{bucket.label}</td><td className="is-number">{formatMoneyBR(bucket.totalValor)}</td><td className="is-number">{formatCount(bucket.quantidade)}</td><td className="is-number">{formatMoneyBR(bucket.quantidade ? bucket.totalValor / bucket.quantidade : 0)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           ) : null}
 
           {!hideValorPedido ? (
-            <TableCard title="Maiores OS do periodo" subtitle="As OS com maior valor calculado dentro do recorte selecionado.">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-zinc-400">
-                    <th className="px-4 py-3 text-left font-medium">OS</th>
-                    <th className="px-4 py-3 text-left font-medium">Cliente</th>
-                    <th className="px-4 py-3 text-left font-medium">Status</th>
-                    <th className="px-4 py-3 text-right font-medium">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {maioresOs.map((row) => (
-                    <tr key={`os-${row.id}`} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                      <td className="px-4 py-3 text-zinc-100">
-                        <div>{row.numeroOs}</div>
-                        <div className="text-xs text-zinc-500">{formatDateBR(row.referenceDate)}</div>
-                      </td>
-                      <td className="px-4 py-3 text-zinc-100">{row.clienteNome}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={[
-                            "inline-flex items-center rounded-md border px-2 py-1 text-xs",
-                            statusBadge[row.status] ?? "",
-                          ].join(" ")}
-                        >
-                          {row.status === "em_andamento" ? "em_andamento" : "concluida"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(row.valor)}</td>
-                    </tr>
+            <div className={`oa-analysis-grid${statusScope === "concluida" ? " is-single" : ""}`}>
+              <section className="oa-card oa-concentration-card">
+                <div className="oa-card-head">
+                  <div className="oa-card-title">Concentração por cliente</div>
+                  <div className="oa-card-subtitle">Valor acumulado. À direita, a fatia de cada cliente no total.</div>
+                </div>
+                <div className="oa-concentration-list">
+                  {concentrationTop.map((row, index) => (
+                    <div key={row.clienteKey} className="oa-concentration-row">
+                      <span className="oa-concentration-name">{row.clienteNome}</span>
+                      <span className="oa-concentration-track"><span className={`oa-concentration-fill tone-${Math.min(index + 1, 3)}`} style={{ width: `${concentrationTop[0]?.totalValor ? (row.totalValor / concentrationTop[0].totalValor) * 100 : 0}%` }} /></span>
+                      <strong>{formatMoneyBR(row.totalValor)}</strong>
+                      <span>{formatPercent(totalValor ? (row.totalValor / totalValor) * 100 : 0)}</span>
+                    </div>
                   ))}
-                  {maioresOs.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-6 text-zinc-400">
-                        Nenhuma OS encontrada para os filtros selecionados.
-                      </td>
-                    </tr>
+                  {concentrationOther.quantidade > 0 ? (
+                    <div className="oa-concentration-row is-other">
+                      <span className="oa-concentration-name">Outros {formatCount(concentrationOther.quantidade)} clientes</span>
+                      <span className="oa-concentration-track"><span className="oa-concentration-fill tone-3" style={{ width: `${concentrationTop[0]?.totalValor ? (concentrationOther.totalValor / concentrationTop[0].totalValor) * 100 : 0}%` }} /></span>
+                      <strong>{formatMoneyBR(concentrationOther.totalValor)}</strong>
+                      <span>{formatPercent(totalValor ? (concentrationOther.totalValor / totalValor) * 100 : 0)}</span>
+                    </div>
                   ) : null}
+                </div>
+                <div className="oa-concentration-strip" aria-label="Distribuição da concentração">
+                  <span className="tone-1" style={{ width: `${topTwoClientsShare}%` }} />
+                  <span className="tone-2" style={{ width: `${totalValor ? (concentrationSecondGroup / totalValor) * 100 : 0}%` }} />
+                  <span className="tone-3" style={{ width: `${totalValor ? (concentrationRest / totalValor) * 100 : 0}%` }} />
+                </div>
+                <div className="oa-strip-legend">
+                  <span><i className="tone-1" />2 clientes · <strong>{formatPercent(topTwoClientsShare)}</strong></span>
+                  <span><i className="tone-2" />4 seguintes · <strong>{formatPercent(totalValor ? (concentrationSecondGroup / totalValor) * 100 : 0)}</strong></span>
+                  <span><i className="tone-3" />{Math.max(0, clientesAtivos - 6)} restantes · <strong>{formatPercent(totalValor ? (concentrationRest / totalValor) * 100 : 0)}</strong></span>
+                </div>
+              </section>
+
+              {statusScope !== "concluida" ? (
+                <section className="oa-card oa-aging-card">
+                  <div className="oa-card-head">
+                    <div className="oa-card-title">Envelhecimento das OS em andamento</div>
+                    <div className="oa-card-subtitle">Tempo desde a abertura. Valor a faturar em cada faixa.</div>
+                  </div>
+                  <div className="oa-aging-chart">
+                    {agingBuckets.map((bucket) => {
+                      const content = (
+                        <>
+                          <strong>{formatCompactMoney(bucket.totalValor)}</strong>
+                          <span className={`oa-aging-bar${bucket.key === "mais-365" ? " is-alert" : ""}`} style={{ height: `${Math.max(3, (bucket.totalValor / agingMax) * 100)}%` }} />
+                          <span className="oa-aging-label">{bucket.label}</span>
+                          <small>{formatCount(bucket.quantidade)} OS</small>
+                        </>
+                      );
+                      return bucket.key === "mais-365" ? (
+                        <Link key={bucket.key} href="/os?status=em_andamento&idade=mais_de_1_ano" className="oa-aging-column is-clickable" aria-label={`${bucket.label}: ${formatMoneyBR(bucket.totalValor)}, ${formatCount(bucket.quantidade)} OS. Abrir lista filtrada.`}>{content}</Link>
+                      ) : <div key={bucket.key} className="oa-aging-column">{content}</div>;
+                    })}
+                  </div>
+                  <div className="oa-aging-note">A faixa em âmbar abre a lista de OS já filtrada.</div>
+                </section>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className={`oa-rankings-grid${hideValorPedido ? " is-single" : ""}`}>
+            <TableCard title="Clientes" subtitle={`Ordenado por ${rankingOrder === "os" ? "quantidade de OS" : rankingOrder === "ticket" ? "ticket" : rankingOrder === "nome" ? "nome" : "valor"}. Clique no cabeçalho para trocar a ordem.`}>
+              <table className="oa-data-table">
+                <thead><tr>
+                  <th><button type="button" onClick={() => setRankingOrder("nome")}>Cliente {rankingOrder === "nome" ? "↓" : ""}</button></th>
+                  <th className="is-number"><button type="button" onClick={() => setRankingOrder("os")}>OS {rankingOrder === "os" ? "↓" : ""}</button></th>
+                  {!hideValorPedido ? <th className="is-number"><button type="button" onClick={() => setRankingOrder("valor")}>Valor {rankingOrder === "valor" ? "↓" : ""}</button></th> : null}
+                  {!hideValorPedido ? <th className="is-number"><button type="button" onClick={() => setRankingOrder("ticket")}>Ticket {rankingOrder === "ticket" ? "↓" : ""}</button></th> : null}
+                </tr></thead>
+                <tbody>
+                  {clientesOrdenados.slice(0, topN).map((row) => (
+                    <tr key={row.clienteKey}><td>{row.clienteNome}</td><td className="is-number">{formatCount(row.quantidade)}</td>{!hideValorPedido ? <td className="is-number">{formatMoneyBR(row.totalValor)}</td> : null}{!hideValorPedido ? <td className="is-number">{formatMoneyBR(row.ticketMedio)}</td> : null}</tr>
+                  ))}
+                  {!clientesOrdenados.length ? <tr><td colSpan={hideValorPedido ? 2 : 4} className="oa-empty-cell">Nenhum cliente encontrado.</td></tr> : null}
                 </tbody>
               </table>
             </TableCard>
+
+            {!hideValorPedido ? (
+              <TableCard title="Maiores OS do período" subtitle="Por valor calculado dentro do recorte.">
+                <table className="oa-data-table">
+                  <thead><tr><th>OS</th><th>Cliente</th><th className="is-number">Valor ↓</th></tr></thead>
+                  <tbody>
+                    {maioresOs.map((row) => {
+                      const age = daysSince(row.referenceDate);
+                      return (
+                        <tr key={row.id}>
+                          <td><Link href={`/os/${row.id}`} className="oa-os-link">{row.numeroOs}</Link><span className={`oa-os-age${age > 365 ? " is-alert" : ""}`}>{formatCount(age)} dias</span></td>
+                          <td>{row.clienteNome}</td>
+                          <td className="is-number">{formatMoneyBR(row.valor)}</td>
+                        </tr>
+                      );
+                    })}
+                    {!maioresOs.length ? <tr><td colSpan={3} className="oa-empty-cell">Nenhuma OS encontrada.</td></tr> : null}
+                  </tbody>
+                </table>
+              </TableCard>
+            ) : null}
+          </div>
+
+          {openByClient ? (
+            <TableCard
+              title={granularity === "mes" ? `Mês / Cliente (${effectiveFocusYear})` : "Ano / Cliente"}
+              subtitle={hideValorPedido ? "Cada célula mostra a quantidade de OS." : "Cada célula mostra valor acumulado e quantidade de OS."}
+            >
+              {granularity === "mes" ? (
+                <table className="oa-data-table oa-client-breakdown">
+                  <thead><tr><th>Cliente</th>{MONTH_LABELS.map((label) => <th key={label} className="is-number">{label}</th>)}<th className="is-number">OS</th>{!hideValorPedido ? <th className="is-number">Valor total</th> : null}</tr></thead>
+                  <tbody>
+                    {monthClientRows.map((row) => <tr key={row.clienteKey}><td>{row.clienteNome}</td>{MONTH_LABELS.map((label, index) => <td key={`${row.clienteKey}-${label}`} className="is-number"><MetricBlock value={row.valores[index] ?? 0} count={row.quantidades[index] ?? 0} hideValue={hideValorPedido} /></td>)}<td className="is-number">{formatCount(row.quantidade)}</td>{!hideValorPedido ? <td className="is-number">{formatMoneyBR(row.totalValor)}</td> : null}</tr>)}
+                    {monthClientRows.length ? <tr className="oa-total-row"><td>Subtotal</td>{MONTH_LABELS.map((label, index) => <td key={`subtotal-${label}`} className="is-number"><MetricBlock value={subtotalMesCliente.valores[index] ?? 0} count={subtotalMesCliente.quantidades[index] ?? 0} hideValue={hideValorPedido} strong /></td>)}<td className="is-number">{formatCount(subtotalMesCliente.quantidades[12] ?? 0)}</td>{!hideValorPedido ? <td className="is-number">{formatMoneyBR(subtotalMesCliente.valores[12] ?? 0)}</td> : null}</tr> : null}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="oa-data-table oa-client-breakdown">
+                  <thead><tr><th>Cliente</th>{years.map((year) => <th key={year} className="is-number">{year}</th>)}<th className="is-number">OS</th>{!hideValorPedido ? <th className="is-number">Valor total</th> : null}</tr></thead>
+                  <tbody>
+                    {yearClientRows.map((row) => <tr key={row.clienteKey}><td>{row.clienteNome}</td>{years.map((year, index) => <td key={`${row.clienteKey}-${year}`} className="is-number"><MetricBlock value={row.valores[index] ?? 0} count={row.quantidades[index] ?? 0} hideValue={hideValorPedido} /></td>)}<td className="is-number">{formatCount(row.quantidade)}</td>{!hideValorPedido ? <td className="is-number">{formatMoneyBR(row.totalValor)}</td> : null}</tr>)}
+                    {yearClientRows.length ? <tr className="oa-total-row"><td>Subtotal</td>{years.map((year, index) => <td key={`subtotal-${year}`} className="is-number"><MetricBlock value={subtotalAnoCliente.valores[index] ?? 0} count={subtotalAnoCliente.quantidades[index] ?? 0} hideValue={hideValorPedido} strong /></td>)}<td className="is-number">{formatCount(subtotalAnoCliente.quantidades[years.length] ?? 0)}</td>{!hideValorPedido ? <td className="is-number">{formatMoneyBR(subtotalAnoCliente.valores[years.length] ?? 0)}</td> : null}</tr> : null}
+                  </tbody>
+                </table>
+              )}
+            </TableCard>
           ) : null}
-        </div>
-      ) : null}
 
-      {ready && !loading && view === "mes" ? (
-        <TableCard
-          title="Mes a mes por ano"
-          subtitle={hideValorPedido ? "Cada celula mostra apenas a quantidade de OS." : "Cada celula mostra valor acumulado e quantidade de OS."}
-        >
-          <table className="min-w-full text-sm">
-            <thead className="bg-zinc-950/95">
-              <tr className="border-b border-zinc-800 text-zinc-400">
-                <th className="sticky left-0 bg-zinc-950 px-4 py-3 text-left font-medium">Mes</th>
-                {years.map((year) => (
-                  <th key={year} className="px-4 py-3 text-right font-medium">
-                    {year}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MONTH_LABELS.map((label, monthIndex) => (
-                <tr key={label} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                  <td className="sticky left-0 bg-zinc-950 px-4 py-3 text-zinc-200">{label}</td>
-                  {years.map((year) => {
-                    const bucket = monthByYear.get(year);
-                    return (
-                      <td key={`${year}-${label}`} className="px-4 py-3 text-right align-top">
-                        <MetricBlock
-                          value={bucket?.valores[monthIndex] ?? 0}
-                          count={bucket?.quantidades[monthIndex] ?? 0}
-                          hideValue={hideValorPedido}
-                        />
-                      </td>
-                    );
-                  })}
-                  <td className="px-4 py-3 text-right align-top">
-                    <MetricBlock
-                      value={monthRowTotals[monthIndex]?.valor ?? 0}
-                      count={monthRowTotals[monthIndex]?.quantidade ?? 0}
-                      hideValue={hideValorPedido}
-                      strong
-                    />
-                  </td>
-                </tr>
-              ))}
-              <tr className="bg-zinc-900/60">
-                <td className="sticky left-0 bg-zinc-900 px-4 py-3 font-semibold text-zinc-100">Total</td>
-                {yearColumnTotals.map((bucket, index) => (
-                  <td key={years[index]} className="px-4 py-3 text-right align-top">
-                    <MetricBlock value={bucket.valor} count={bucket.quantidade} hideValue={hideValorPedido} strong />
-                  </td>
-                ))}
-                <td className="px-4 py-3 text-right align-top">
-                  <MetricBlock value={totalValor} count={totalOs} hideValue={hideValorPedido} strong />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </TableCard>
-      ) : null}
-
-      {ready && !loading && view === "ano" ? (
-        <TableCard
-          title="Resumo anual"
-          subtitle="Consolidado por ano com quantidade de OS, clientes atendidos e ticket medio."
-        >
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800 text-zinc-400">
-                <th className="px-4 py-3 text-left font-medium">Ano</th>
-                {!hideValorPedido ? <th className="px-4 py-3 text-right font-medium">Valor</th> : null}
-                <th className="px-4 py-3 text-right font-medium">OS</th>
-                <th className="px-4 py-3 text-right font-medium">Clientes</th>
-                {!hideValorPedido ? <th className="px-4 py-3 text-right font-medium">Ticket medio</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {yearRows.map((row) => (
-                <tr key={row.ano} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                  <td className="px-4 py-3 text-zinc-100">{row.ano}</td>
-                  {!hideValorPedido ? (
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(row.totalValor)}</td>
-                  ) : null}
-                  <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatCount(row.quantidade)}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatCount(row.clientes)}</td>
-                  {!hideValorPedido ? (
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatMoneyBR(row.ticketMedio)}</td>
-                  ) : null}
-                </tr>
-              ))}
-              <tr className="bg-zinc-900/60 font-semibold">
-                <td className="px-4 py-3 text-zinc-100">Total</td>
-                {!hideValorPedido ? (
-                  <td className="px-4 py-3 text-right tabular-nums text-emerald-200">{formatMoneyBR(totalValor)}</td>
-                ) : null}
-                <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatCount(totalOs)}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatCount(clientesAtivos)}</td>
-                {!hideValorPedido ? (
-                  <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(ticketMedio)}</td>
-                ) : null}
-              </tr>
-            </tbody>
-          </table>
-        </TableCard>
-      ) : null}
-
-      {ready && !loading && view === "mes-cliente" ? (
-        <TableCard
-          title={`Mes / Cliente (${focusYear})`}
-          subtitle={
-            hideValorPedido
-              ? "Cada celula mostra a quantidade de OS do cliente no mes."
-              : "Cada celula mostra valor acumulado e, abaixo, a quantidade de OS do cliente no mes."
-          }
-        >
-          <table className="min-w-full text-sm">
-            <thead className="bg-zinc-950/95">
-              <tr className="border-b border-zinc-800 text-zinc-400">
-                <th className="sticky left-0 bg-zinc-950 px-4 py-3 text-left font-medium">Cliente</th>
-                {MONTH_LABELS.map((label) => (
-                  <th key={label} className="px-4 py-3 text-right font-medium">
-                    {label}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-right font-medium">OS</th>
-                {!hideValorPedido ? <th className="px-4 py-3 text-right font-medium">Valor total</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {monthClientRows.map((row) => (
-                <tr key={row.clienteKey} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                  <td className="sticky left-0 bg-zinc-950 px-4 py-3 text-zinc-100">{row.clienteNome}</td>
-                  {MONTH_LABELS.map((label, monthIndex) => (
-                    <td key={`${row.clienteKey}-${label}`} className="px-4 py-3 text-right align-top">
-                      <MetricBlock
-                        value={row.valores[monthIndex] ?? 0}
-                        count={row.quantidades[monthIndex] ?? 0}
-                        hideValue={hideValorPedido}
-                      />
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatCount(row.quantidade)}</td>
-                  {!hideValorPedido ? (
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(row.totalValor)}</td>
-                  ) : null}
-                </tr>
-              ))}
-              {monthClientRows.length === 0 ? (
-                <tr>
-                  <td colSpan={hideValorPedido ? 14 : 15} className="px-4 py-6 text-zinc-400">
-                    Nenhum cliente encontrado para os filtros selecionados.
-                  </td>
-                </tr>
-              ) : null}
-              {monthClientRows.length > 0 ? (
-                <tr className="bg-zinc-900/60">
-                  <td className="sticky left-0 bg-zinc-900 px-4 py-3 font-semibold text-zinc-100">Subtotal</td>
-                  {MONTH_LABELS.map((label, monthIndex) => (
-                    <td key={`subtotal-${label}`} className="px-4 py-3 text-right align-top">
-                      <MetricBlock
-                        value={subtotalMesCliente.valores[monthIndex] ?? 0}
-                        count={subtotalMesCliente.quantidades[monthIndex] ?? 0}
-                        hideValue={hideValorPedido}
-                        strong
-                      />
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 text-right tabular-nums font-semibold text-zinc-100">
-                    {formatCount(subtotalMesCliente.quantidades[12] ?? 0)}
-                  </td>
-                  {!hideValorPedido ? (
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-zinc-100">
-                      {formatMoneyBR(subtotalMesCliente.valores[12] ?? 0)}
-                    </td>
-                  ) : null}
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </TableCard>
-      ) : null}
-
-      {ready && !loading && view === "ano-cliente" ? (
-        <TableCard
-          title="Ano / Cliente"
-          subtitle={
-            hideValorPedido
-              ? "Cada celula mostra a quantidade de OS do cliente no ano."
-              : "Cada celula mostra valor acumulado e, abaixo, a quantidade de OS do cliente no ano."
-          }
-        >
-          <table className="min-w-full text-sm">
-            <thead className="bg-zinc-950/95">
-              <tr className="border-b border-zinc-800 text-zinc-400">
-                <th className="sticky left-0 bg-zinc-950 px-4 py-3 text-left font-medium">Cliente</th>
-                {years.map((year) => (
-                  <th key={year} className="px-4 py-3 text-right font-medium">
-                    {year}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-right font-medium">OS</th>
-                {!hideValorPedido ? <th className="px-4 py-3 text-right font-medium">Valor total</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {yearClientRows.map((row) => (
-                <tr key={row.clienteKey} className="border-b border-zinc-900/70 hover:bg-zinc-900/30">
-                  <td className="sticky left-0 bg-zinc-950 px-4 py-3 text-zinc-100">{row.clienteNome}</td>
-                  {years.map((year, yearIndex) => (
-                    <td key={`${row.clienteKey}-${year}`} className="px-4 py-3 text-right align-top">
-                      <MetricBlock
-                        value={row.valores[yearIndex] ?? 0}
-                        count={row.quantidades[yearIndex] ?? 0}
-                        hideValue={hideValorPedido}
-                      />
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 text-right tabular-nums text-zinc-200">{formatCount(row.quantidade)}</td>
-                  {!hideValorPedido ? (
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-100">{formatMoneyBR(row.totalValor)}</td>
-                  ) : null}
-                </tr>
-              ))}
-              {yearClientRows.length === 0 ? (
-                <tr>
-                  <td colSpan={hideValorPedido ? years.length + 2 : years.length + 3} className="px-4 py-6 text-zinc-400">
-                    Nenhum cliente encontrado para os filtros selecionados.
-                  </td>
-                </tr>
-              ) : null}
-              {yearClientRows.length > 0 ? (
-                <tr className="bg-zinc-900/60">
-                  <td className="sticky left-0 bg-zinc-900 px-4 py-3 font-semibold text-zinc-100">Subtotal</td>
-                  {years.map((year, yearIndex) => (
-                    <td key={`subtotal-${year}`} className="px-4 py-3 text-right align-top">
-                      <MetricBlock
-                        value={subtotalAnoCliente.valores[yearIndex] ?? 0}
-                        count={subtotalAnoCliente.quantidades[yearIndex] ?? 0}
-                        hideValue={hideValorPedido}
-                        strong
-                      />
-                    </td>
-                  ))}
-                  <td className="px-4 py-3 text-right tabular-nums font-semibold text-zinc-100">
-                    {formatCount(subtotalAnoCliente.quantidades[years.length] ?? 0)}
-                  </td>
-                  {!hideValorPedido ? (
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-zinc-100">
-                      {formatMoneyBR(subtotalAnoCliente.valores[years.length] ?? 0)}
-                    </td>
-                  ) : null}
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </TableCard>
+          {!hideValorPedido && statusScope === "em_andamento" && visibleExcess.length > 0 ? (
+            <section className="oa-excess-card">
+              <div className="oa-card-title">OS faturadas acima do orçado</div>
+              <div className="oa-card-subtitle">Corrija o valor orçado da OS ou revise o faturamento vinculado.</div>
+              <div className="oa-table-scroll"><table className="oa-data-table"><thead><tr><th>OS</th><th>Cliente</th><th className="is-number">Valor orçado</th><th className="is-number">Faturado</th><th className="is-number">Excesso</th></tr></thead><tbody>{visibleExcess.map((row) => <tr key={row.id}><td><Link href={`/os/${row.id}`} className="oa-os-link">OS {row.numeroOs}</Link></td><td>{row.clienteNome}</td><td className="is-number">{formatMoneyBR(row.valorPedido)}</td><td className="is-number">{formatMoneyBR(row.valorFaturado)}</td><td className="is-number oa-excess-value">{formatMoneyBR(row.excesso)}</td></tr>)}</tbody></table></div>
+            </section>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

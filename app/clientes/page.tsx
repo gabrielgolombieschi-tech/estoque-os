@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { getSupabaseBrowser } from "@/lib/auth/supabase";
@@ -109,6 +110,7 @@ export default function ClientesPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativo]);
@@ -207,6 +209,12 @@ export default function ClientesPage() {
           <p className="text-sm text-zinc-400 mt-1">Cadastro e gerenciamento de clientes.</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/clientes/unidades" className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
+            Unidades
+          </Link>
+          <Link href="/clientes/documentos-pendentes" className="px-3 py-2 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20">
+            CNPJ pendente
+          </Link>
           <button onClick={novo} className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
             Novo
           </button>

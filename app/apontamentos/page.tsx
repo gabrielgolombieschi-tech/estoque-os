@@ -1,2017 +1,984 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
+import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { getFeriadosJoinville } from "@/lib/datas/feriadosJoinville";
+import { normalizeOsStatusFluxo, type OsStatusExibicao } from "@/lib/os/statusFluxo";
+import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { supabaseBrowser } from "@/lib/supabase/client";
 
-type Colaborador = { id: string; nome: string; ativo: boolean };
+type Colaborador = { id: string; nome: string; ativo: boolean; cargo?: string | null; user_id?: string | null };
 type TipoHora = { id: string; codigo: string; descricao: string; fator: number; ativo: boolean };
 
 type OSRow = {
   id: number;
   numero_os: string | null;
   cliente_nome: string | null;
-  descricao_servico?: string | null;
+  descricao_servico: string | null;
   status: string | null;
+  status_fluxo: string | null;
 };
 
 type ApontamentoRow = {
   id: string;
   os_id: number;
+  numero_os: string | null;
+  cliente_nome: string | null;
+  descricao_servico: string | null;
   colaborador_id: string;
-  data: string; // yyyy-mm-dd
-  horas: number | null;
-  horas_trabalhadas?: number | null;
+  colaborador_nome: string;
+  data: string;
+  horas: number;
   tipo_hora_id: string | null;
-  fator_aplicado?: number | null;
-  hh_especialidade_id?: string | null;
-  tenant_id?: string;
-  // Horarios (modo novo). Alguns bancos usam entrada_1/saida_1; outros hora_entrada_1/hora_saida_1.
-  entrada_1?: string | null;
-  saida_1?: string | null;
-  entrada_2?: string | null;
-  saida_2?: string | null;
+  tipo_codigo: string | null;
+  tipo_descricao: string | null;
+  fator_aplicado: number | null;
   descricao: string | null;
   status: string;
+  status_aprovacao: string | null;
   criado_em: string;
-  gerado_por_hh?: boolean | null;
-  hh_lancamento_id?: string | number | null;
+  criado_por_user_id: string | null;
+  criado_por_nome: string | null;
+  gerado_por_hh: boolean;
+  hh_lancamento_id: number | null;
+  entrada_1: string | null;
+  saida_1: string | null;
+  entrada_2: string | null;
+  saida_2: string | null;
 };
 
-const feriadosCache = new Map<number, Set<string>>();
-const feriadosPending = new Map<number, Promise<Set<string>>>();
+type DuplicateWarning = {
+  id: string;
+  colaborador_id: string;
+  colaborador_nome: string;
+  horas: number;
+  tipo_codigo: string | null;
+};
 
-function getErrorMessage(err: unknown, fallback: string) {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  if (err && typeof err === "object" && "message" in err) {
-    const msg = (err as { message?: string }).message;
-    if (typeof msg === "string" && msg.trim() !== "") return msg;
-  }
-  return fallback;
-}
+type Suggestion = {
+  codigo: string;
+  reason: string;
+  split?: Array<{ codigo: string; horas: number }>;
+};
 
-function describeSupabaseError(err: unknown): string {
-  if (!err) return "(sem detalhes)";
-  if (err instanceof Error) return err.message || "(erro sem mensagem)";
-  if (typeof err === "string") return err;
-  if (typeof err !== "object") return String(err);
-
-  const anyErr = err as {
-    message?: unknown;
-    details?: unknown;
-    hint?: unknown;
-    code?: unknown;
-    status?: unknown;
-  };
-
-  const parts = [
-    anyErr.message,
-    anyErr.details,
-    anyErr.hint,
-    anyErr.code ? `code=${String(anyErr.code)}` : null,
-    anyErr.status ? `status=${String(anyErr.status)}` : null,
-  ]
-    .filter((p) => typeof p === "string" ? p.trim() !== "" : p != null)
-    .map((p) => String(p));
-
-  if (parts.length) return parts.join(" | ");
-  // Next dev overlay costuma serializar objetos/Errors como {}.
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return "(erro não serializável)";
-  }
-}
-
-function todayISO() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function toNumberBR(v: string): number | null {
-  const s = v.trim();
-  if (!s) return null;
-  const noCurrency = s.replace(/R\$\s?/gi, "").replace(/\s/g, "");
-  const hasDot = noCurrency.includes(".");
-  const hasComma = noCurrency.includes(",");
-  let normalized = noCurrency;
-
-  if (hasDot && hasComma) {
-    const lastDot = noCurrency.lastIndexOf(".");
-    const lastComma = noCurrency.lastIndexOf(",");
-    if (lastComma > lastDot) {
-      normalized = noCurrency.replace(/\./g, "").replace(",", ".");
-    } else {
-      normalized = noCurrency.replace(/,/g, "");
-    }
-  } else if (hasComma) {
-    normalized = noCurrency.replace(",", ".");
-  } else if (hasDot) {
-    const dotCount = (noCurrency.match(/\./g) || []).length;
-    normalized = dotCount > 1 ? noCurrency.replace(/\./g, "") : noCurrency;
-  }
-
-  const n = Number(normalized);
-  return Number.isFinite(n) ? n : null;
-}
-
-function isWeekend(dateISO: string): "SAT" | "SUN" | null {
-  const d = new Date(`${dateISO}T00:00:00`);
-  const day = d.getDay();
-  if (day === 6) return "SAT";
-  if (day === 0) return "SUN";
-  return null;
-}
-
-function parseHHMM(value: string): number | null {
-  const raw = String(value ?? "").trim();
-  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(raw);
-  if (!m) return null;
-  const hh = Number(m[1]);
-  const mm = Number(m[2]);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-  return hh * 60 + mm;
-}
-
-function isTimeRangeValid(e1: number, s1: number, e2: number, s2: number): boolean {
-  if (!(s1 > e1)) return false;
-  if (!(s2 > e2)) return false;
-  if (s1 > e2) return false;
-  return true;
-}
-
-function normalizeApontamentoRow(raw: unknown): ApontamentoRow {
-  const r = raw as Record<string, unknown>;
-  const entrada_1 = (r.entrada_1 ?? r.hora_entrada_1 ?? null) as string | null;
-  const saida_1 = (r.saida_1 ?? r.hora_saida_1 ?? null) as string | null;
-  const entrada_2 = (r.entrada_2 ?? r.hora_entrada_2 ?? null) as string | null;
-  const saida_2 = (r.saida_2 ?? r.hora_saida_2 ?? null) as string | null;
-  return {
-    ...(r as unknown as ApontamentoRow),
-    entrada_1,
-    saida_1,
-    entrada_2,
-    saida_2,
-  };
-}
-
-async function getNationalHolidays(year: number): Promise<Set<string>> {
-  if (feriadosCache.has(year)) return feriadosCache.get(year)!;
-  if (feriadosPending.has(year)) return feriadosPending.get(year)!;
-
-  const promise = (async () => {
-    try {
-      const res = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
-      if (!res.ok) throw new Error(`BrasilAPI status ${res.status}`);
-      const data = (await res.json()) as Array<{ date: string }>;
-      const set = new Set<string>((data ?? []).map((f) => f.date));
-      feriadosCache.set(year, set);
-      return set;
-    } catch {
-      return new Set<string>();
-    } finally {
-      feriadosPending.delete(year);
-    }
-  })();
-
-  feriadosPending.set(year, promise);
-  return promise;
-}
+type DateValidation = { fechada: boolean; motivo: string | null };
 
 const GESTAO_MAP: Record<string, { item_tipo: string; area: string }> = {
-  projeto_eletrico:  { item_tipo: "projeto",  area: "eletrico" },
-  projeto_mecanico:  { item_tipo: "projeto",  area: "mecanico" },
-  projeto_seguranca: { item_tipo: "projeto",  area: "seguranca" },
-  projeto_software:  { item_tipo: "projeto",  area: "software" },
+  projeto_eletrico: { item_tipo: "projeto", area: "eletrico" },
+  projeto_mecanico: { item_tipo: "projeto", area: "mecanico" },
+  projeto_seguranca: { item_tipo: "projeto", area: "seguranca" },
+  projeto_software: { item_tipo: "projeto", area: "software" },
   execucao_eletrica: { item_tipo: "execucao", area: "eletrico" },
   execucao_mecanica: { item_tipo: "execucao", area: "mecanico" },
 };
 
-async function isNationalHoliday(dateISO: string): Promise<boolean> {
-  const year = Number(dateISO.slice(0, 4));
-  if (!Number.isFinite(year)) return false;
-  const set = await getNationalHolidays(year);
-  return set.has(dateISO);
+const PAPEIS_GESTAO_HORAS = new Set(["ADMIN", "DIRETOR", "COORDENACAO"]);
+
+function podeEditarApontamento(row: ApontamentoRow, papelEmpresa: string, meuColaboradorId: string | null) {
+  if (row.gerado_por_hh || row.status.toLowerCase() === "fechado") return false;
+  if (row.status_aprovacao === "aprovado") return PAPEIS_GESTAO_HORAS.has(papelEmpresa);
+  return Boolean(meuColaboradorId) && row.colaborador_id === meuColaboradorId;
 }
 
-type HourPolicy =
-  | { mode: "SINGLE"; items: Array<{ tipoCodigo: string; horas: number }> }
-  | { mode: "SPLIT"; items: Array<{ tipoCodigo: string; horas: number }> };
+function podeExcluirApontamento(row: ApontamentoRow, meuColaboradorId: string | null) {
+  return !row.gerado_por_hh
+    && row.status.toLowerCase() !== "fechado"
+    && row.status_aprovacao !== "aprovado"
+    && Boolean(meuColaboradorId)
+    && row.colaborador_id === meuColaboradorId;
+}
 
-async function computeHourPolicy(dateISO: string, horas: number): Promise<HourPolicy> {
-  const weekend = isWeekend(dateISO);
-  const holiday = await isNationalHoliday(dateISO);
+const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
+const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
+const dateLongFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "long",
+  weekday: "long",
+});
 
-  if (weekend === "SUN" || holiday) {
-    return { mode: "SINGLE", items: [{ tipoCodigo: "EXTRA_100", horas }] };
+function localDate(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function todayISO() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function monthStartISO(iso = todayISO()) {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+function dateBR(iso: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || "—";
+  const [year, month, day] = iso.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function dateMask(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function dateFromBR(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const iso = `${match[3]}-${match[2]}-${match[1]}`;
+  const parsed = localDate(iso);
+  return parsed.getFullYear() === Number(match[3]) && parsed.getMonth() + 1 === Number(match[2]) && parsed.getDate() === Number(match[1])
+    ? iso
+    : null;
+}
+
+function parseHours(value: string) {
+  const raw = value.trim().toLowerCase().replace(/\s/g, "");
+  if (!raw) return null;
+  const timeMatch = /^(\d{1,2})(?::|h)(\d{0,2})$/.exec(raw);
+  if (timeMatch) {
+    const hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2] || 0);
+    if (minutes > 59) return null;
+    return hours + minutes / 60;
   }
+  const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
-  if (weekend === "SAT") {
-    return { mode: "SINGLE", items: [{ tipoCodigo: "EXTRA_50", horas }] };
+function formatHours(value: number) {
+  return Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatHoursClock(value: number) {
+  let totalMinutes = Math.round(Number(value || 0) * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  totalMinutes -= hours * 60;
+  return `${hours}h${String(totalMinutes).padStart(2, "0")}`;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = String((error as { message?: unknown }).message ?? "");
+    if (message.trim()) return message;
   }
+  return fallback;
+}
 
-  if (horas > 9) {
+function osStatus(row: OSRow | null): OsStatusExibicao | null {
+  if (!row) return null;
+  return normalizeOsStatusFluxo(row.status_fluxo, row.status);
+}
+
+function statusLabel(status: OsStatusExibicao | null) {
+  switch (status) {
+    case "aberta": return "Aberta";
+    case "em_andamento": return "Em andamento";
+    case "concluida": return "Concluída";
+    case "faturada": return "Faturada";
+    case "em_andamento_garantia": return "Em andamento · garantia";
+    case "concluida_garantia": return "Concluída · garantia";
+    case "cancelada": return "Cancelada";
+    default: return "Sem status";
+  }
+}
+
+function isClosedOs(status: OsStatusExibicao | null) {
+  return status === "concluida" || status === "faturada" || status === "concluida_garantia";
+}
+
+function isAllowedOs(status: OsStatusExibicao | null) {
+  return status === "em_andamento" || status === "em_andamento_garantia" || isClosedOs(status);
+}
+
+function suggestionFor(dateISO: string, hours: number | null): Suggestion {
+  const date = localDate(dateISO);
+  const weekday = date.getDay();
+  const holiday = getFeriadosJoinville(date.getFullYear()).find((item) => item.data === dateISO);
+  const shortDate = dateBR(dateISO).slice(0, 5);
+
+  if (holiday) return { codigo: "EXTRA_100", reason: `Sugerido porque ${shortDate} é feriado (${holiday.descricao}).` };
+  if (weekday === 0) return { codigo: "EXTRA_100", reason: `Sugerido porque ${shortDate} é domingo.` };
+  if (weekday === 6) return { codigo: "EXTRA_50", reason: `Sugerido porque ${shortDate} é sábado.` };
+  if (hours != null && hours > 9) {
     return {
-      mode: "SPLIT",
-      items: [
-        { tipoCodigo: "NORMAL", horas: 9 },
-        { tipoCodigo: "EXTRA_50", horas: Number((horas - 9).toFixed(2)) },
+      codigo: "NORMAL",
+      reason: "Sugerido dividir 9,00 h normais e o excedente em hora extra 50%.",
+      split: [
+        { codigo: "NORMAL", horas: 9 },
+        { codigo: "EXTRA_50", horas: Number((hours - 9).toFixed(2)) },
       ],
     };
   }
+  return { codigo: "NORMAL", reason: `Sugerido porque ${shortDate} é dia útil.` };
+}
 
-  return { mode: "SINGLE", items: [{ tipoCodigo: "NORMAL", horas }] };
+function DateInputBR({ value, onChange, disabled, ariaLabel }: { value: string; onChange: (value: string) => void; disabled?: boolean; ariaLabel: string }) {
+  const [text, setText] = useState(dateBR(value));
+
+  useEffect(() => {
+    // Mantém a máscara sincronizada quando a data muda pelo calendário nativo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setText(dateBR(value));
+  }, [value]);
+
+  return (
+    <div className="ah-date-input">
+      <input
+        aria-label={ariaLabel}
+        value={text}
+        inputMode="numeric"
+        placeholder="dd/mm/aaaa"
+        disabled={disabled}
+        onChange={(event) => {
+          const masked = dateMask(event.target.value);
+          setText(masked);
+          const parsed = dateFromBR(masked);
+          if (parsed) onChange(parsed);
+        }}
+        onBlur={() => setText(dateBR(value))}
+      />
+      <span aria-hidden="true">▣</span>
+      <input
+        className="ah-native-date"
+        type="date"
+        tabIndex={-1}
+        aria-hidden="true"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
 }
 
 export default function ApontamentosPage() {
-  const supabase = useMemo(() => {
-    if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
-    return supabaseBrowser();
-  }, []);
-  const { tenantId, empresaId: ctxEmpresaId } = useTenantEmpresa();
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const { tenantId, empresaId, sessionUserId, empresa: empresaAtual } = useTenantEmpresa();
   const { has } = usePermissions();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const effectiveTenantId = tenantId ?? "";
-  const effectiveEmpresaId = ctxEmpresaId ?? "";
-  const effectiveLoading = !effectiveTenantId || !effectiveEmpresaId;
   const canWrite = Boolean(has("apontamentos.write"));
+  const papelEmpresa = String(empresaAtual?.papel ?? "").trim().toUpperCase();
+  const tenant = tenantId ?? "";
+  const empresa = empresaId ?? "";
 
-  const ensureContext = useCallback(async () => {
-    if (!effectiveTenantId || !effectiveEmpresaId) return;
-    try {
-      await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
-      await supabase.rpc("set_current_empresa", { p_empresa_id: effectiveEmpresaId });
-    } catch {
-      // best-effort
-    }
-  }, [effectiveEmpresaId, effectiveTenantId, supabase]);
-  
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const initialFrom = searchParams.get("de") || monthStartISO();
+  const initialTo = searchParams.get("ate") || todayISO();
+  const [dateFrom, setDateFrom] = useState(initialFrom);
+  const [dateTo, setDateTo] = useState(initialTo);
+  const [filterOs, setFilterOs] = useState(searchParams.get("os") || "");
+  const [filterColab, setFilterColab] = useState(searchParams.get("colaborador") || "");
+  const [filterType, setFilterType] = useState(searchParams.get("tipo") || "");
+  const [filterSearch, setFilterSearch] = useState(searchParams.get("busca") || "");
+  const [filterSearchInput, setFilterSearchInput] = useState(searchParams.get("busca") || "");
 
-  // filtros
-  const [filtroOsId, setFiltroOsId] = useState<string>(""); // string p/ select
-  const [filtroColabId, setFiltroColabId] = useState<string>("");
-
-  // combos
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ tone: "ok" | "error" | "info"; text: string } | null>(null);
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [tiposHoras, setTiposHoras] = useState<TipoHora[]>([]);
-  const [osList, setOsList] = useState<OSRow[]>([]);
-  const [combosLoaded, setCombosLoaded] = useState(false);
+  const [filterOsOptions, setFilterOsOptions] = useState<OSRow[]>([]);
+  const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
 
-  // formulario novo apontamento
-  const [osNumero, setOsNumero] = useState<string>("");
-  const [osDbId, setOsDbId] = useState<number | null>(null);
-  const [osDescricao, setOsDescricao] = useState<string>("");
-  const [osDescLoading, setOsDescLoading] = useState(false);
-  const [osDescError, setOsDescError] = useState<string | null>(null);
-  const [osCliente, setOsCliente] = useState<string>("");
-  const [osStatus, setOsStatus] = useState<string>("");
-  const [showOsModal, setShowOsModal] = useState(false);
-  const [osSearch, setOsSearch] = useState("");
-  const [osSearchLoading, setOsSearchLoading] = useState(false);
-  const [osSearchError, setOsSearchError] = useState<string | null>(null);
-  const [osSearchResults, setOsSearchResults] = useState<OSRow[]>([]);
-  const [colabId, setColabId] = useState<string>("");
-  const [colabInput, setColabInput] = useState<string>("");
-  const [colabMultiMode, setColabMultiMode] = useState(false);
-  const [colabSelecionados, setColabSelecionados] = useState<Set<string>>(new Set());
-  const [colabMultiFiltro, setColabMultiFiltro] = useState("");
-  const [data, setData] = useState<string>(todayISO());
-  const [horasText, setHorasText] = useState<string>("");
-  const [tipoHoraId, setTipoHoraId] = useState<string>(""); // empty = null
-  const [tipoHoraTouched, setTipoHoraTouched] = useState(false);
-  const [descricao, setDescricao] = useState<string>("");
-  const [tipoSugerido, setTipoSugerido] = useState<string>("");
-  const [tipoSugeridoLoading, setTipoSugeridoLoading] = useState(false);
-  const osDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const osSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const horasInputRef = useRef<HTMLInputElement | null>(null);
+  const [osQuery, setOsQuery] = useState("");
+  const [osResults, setOsResults] = useState<OSRow[]>([]);
+  const [osSearching, setOsSearching] = useState(false);
+  const [selectedOs, setSelectedOs] = useState<OSRow | null>(null);
+  const [colabQuery, setColabQuery] = useState("");
+  const [selectedColabs, setSelectedColabs] = useState<string[]>([]);
+  const [date, setDate] = useState(todayISO());
+  const [hoursText, setHoursText] = useState("");
+  const [typeId, setTypeId] = useState("");
+  const [typeTouched, setTypeTouched] = useState(false);
+  const [description, setDescription] = useState("");
+  const [validationAttempted, setValidationAttempted] = useState(false);
+  const [duplicates, setDuplicates] = useState<DuplicateWarning[]>([]);
+  const [dateValidation, setDateValidation] = useState<DateValidation>({ fechada: false, motivo: null });
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
   const [editing, setEditing] = useState<ApontamentoRow | null>(null);
-  const [formEditing, setFormEditing] = useState<ApontamentoRow | null>(null);
-  const [editHasTimes, setEditHasTimes] = useState(false);
-  const [editData, setEditData] = useState<string>(todayISO());
-  const [editHorasText, setEditHorasText] = useState<string>("");
-  const [editTipoHoraId, setEditTipoHoraId] = useState<string>("");
-  const [editDescricao, setEditDescricao] = useState<string>("");
-  const [editHoraE1, setEditHoraE1] = useState("07:30");
-  const [editHoraS1, setEditHoraS1] = useState("12:00");
-  const [editHoraE2, setEditHoraE2] = useState("13:00");
-  const [editHoraS2, setEditHoraS2] = useState("17:00");
+  const [editDate, setEditDate] = useState(todayISO());
+  const [editHours, setEditHours] = useState("");
+  const [editType, setEditType] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<ApontamentoRow | null>(null);
+  const osSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const osInputRef = useRef<HTMLInputElement | null>(null);
+  const collaboratorInputRef = useRef<HTMLInputElement | null>(null);
+  const hoursInputRef = useRef<HTMLInputElement | null>(null);
+  const typeSelectRef = useRef<HTMLSelectElement | null>(null);
+  const descriptionInputRef = useRef<HTMLInputElement | null>(null);
+  const submitLock = useRef(false);
 
-  const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
-  const [existentesDoFormulario, setExistentesDoFormulario] = useState<ApontamentoRow[]>([]);
-  const [existentesLoading, setExistentesLoading] = useState(false);
-  const [duplicateDialog, setDuplicateDialog] = useState<{ existing: ApontamentoRow; incomingHoras: number } | null>(null);
-  const [duplicateBatchDialog, setDuplicateBatchDialog] = useState<Array<{ existing: ApontamentoRow; nome: string; incomingHoras: number }> | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<ApontamentoRow | null>(null);
-  const submitLockRef = useRef(false);
+  const ensureContext = useCallback(async () => {
+    if (!tenant || !empresa) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
+    const { error: tenantError } = await supabase.rpc("set_current_tenant", { p_tenant_id: tenant });
+    if (tenantError) throw tenantError;
+    const { error: empresaError } = await supabase.rpc("set_current_empresa", { p_empresa_id: empresa });
+    if (empresaError) throw empresaError;
+  }, [empresa, supabase, tenant]);
 
-  const carregarCombos = useCallback(async () => {
-    if (effectiveLoading) return;
+  const typeMap = useMemo(() => new Map(tiposHoras.map((item) => [item.id, item])), [tiposHoras]);
+  const typeByCode = useMemo(() => new Map(tiposHoras.map((item) => [item.codigo.toUpperCase(), item])), [tiposHoras]);
+  const collaboratorMap = useMemo(() => new Map(colaboradores.map((item) => [item.id, item])), [colaboradores]);
+  const meuColaboradorId = useMemo(
+    () => colaboradores.find((item) => item.user_id === sessionUserId)?.id ?? null,
+    [colaboradores, sessionUserId]
+  );
+  const hours = useMemo(() => parseHours(hoursText), [hoursText]);
+  const suggestion = useMemo(() => suggestionFor(date, hours), [date, hours]);
+  const selectedType = typeMap.get(typeId) ?? null;
+  const selectedStatus = osStatus(selectedOs);
+  const typeIsSpecial = (selectedType?.codigo ?? suggestion.codigo).toUpperCase() !== "NORMAL";
+
+  const filteredCollaborators = useMemo(() => {
+    const term = colabQuery.trim().toLocaleLowerCase("pt-BR");
+    if (!term) return [];
+    return colaboradores
+      .filter((item) => !selectedColabs.includes(item.id) && item.nome.toLocaleLowerCase("pt-BR").includes(term))
+      .slice(0, 8);
+  }, [colabQuery, colaboradores, selectedColabs]);
+
+  const loadCombos = useCallback(async () => {
     await ensureContext();
-    const [{ data: c, error: e1 }, { data: th, error: e2 }, { data: os, error: e3 }] =
-      await Promise.all([
-        applyTenantEmpresa(
-          supabase.from("colaboradores").select("id,nome,ativo").eq("ativo", true).order("nome"),
-          effectiveTenantId,
-          effectiveEmpresaId
-        ),
-        applyTenant(
-          supabase.from("tipos_horas").select("id,codigo,descricao,fator,ativo").eq("ativo", true).order("codigo"),
-          effectiveTenantId
-        ),
-        applyTenantEmpresa(
-          supabase
-            .from("ordens_servico")
-            .select("id,numero_os,cliente_nome,descricao_servico,status")
-            .in("status", ["aberta", "em_andamento"])
-            .order("id", { ascending: false })
-            .limit(200),
-          effectiveTenantId,
-          effectiveEmpresaId
-        ),
-      ]);
+    const [collaboratorResult, typeResult, osResult] = await Promise.all([
+      applyTenantEmpresa(
+        supabase.from("colaboradores").select("id,nome,ativo,cargo,user_id").eq("ativo", true).order("nome"),
+        tenant,
+        empresa
+      ),
+      applyTenant(supabase.from("tipos_horas").select("id,codigo,descricao,fator,ativo").eq("ativo", true).order("codigo"), tenant),
+      applyTenantEmpresa(
+        supabase
+          .from("ordens_servico")
+          .select("id,numero_os,cliente_nome,descricao_servico,status,status_fluxo")
+          .eq("tipo_documento", "OS")
+          .order("id", { ascending: false })
+          .limit(500),
+        tenant,
+        empresa
+      ),
+    ]);
+    if (collaboratorResult.error) throw collaboratorResult.error;
+    if (typeResult.error) throw typeResult.error;
+    if (osResult.error) throw osResult.error;
+    setColaboradores((collaboratorResult.data ?? []) as Colaborador[]);
+    setTiposHoras((typeResult.data ?? []) as TipoHora[]);
+    setFilterOsOptions((osResult.data ?? []) as OSRow[]);
+  }, [empresa, ensureContext, supabase, tenant]);
 
-    if (e1) throw e1;
-    if (e2) throw e2;
-    if (e3) throw e3;
-
-    setColaboradores((c ?? []) as Colaborador[]);
-    setTiposHoras((th ?? []) as TipoHora[]);
-    setOsList((os ?? []) as OSRow[]);
-    setCombosLoaded(true);
-  }, [effectiveEmpresaId, effectiveTenantId, supabase, effectiveLoading, ensureContext]);
-
-  const carregarApontamentos = useCallback(async () => {
+  const loadEntries = useCallback(async () => {
+    if (!tenant || !empresa) return;
     setLoading(true);
-    setMsg(null);
     try {
-      if (effectiveLoading) return;
       await ensureContext();
-      
-      const build = (selectStr: string) => {
-        const q = applyTenantEmpresa(
-          supabase
-            .from("apontamentos_horas")
-            .select(selectStr)
-            .order("data", { ascending: false })
-            .order("criado_em", { ascending: false }),
-          effectiveTenantId,
-          effectiveEmpresaId
-        );
-        if (osDbId) q.eq("os_id", osDbId);
-        else if (filtroOsId) q.eq("os_id", Number(filtroOsId));
-        if (filtroColabId) q.eq("colaborador_id", filtroColabId);
-        return q;
-      };
-
-      // A tabela apontamentos_horas possui: horas, hora_entrada_1, hora_saida_1, hora_entrada_2, hora_saida_2
-      const baseFields =
-        "id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,tenant_id,hh_especialidade_id,gerado_por_hh,hh_lancamento_id";
-      
-      const timeFields = "hora_entrada_1,hora_saida_1,hora_entrada_2,hora_saida_2";
-      const timeFieldsAlias =
-        "entrada_1:hora_entrada_1,saida_1:hora_saida_1,entrada_2:hora_entrada_2,saida_2:hora_saida_2";
-
-      const candidates = [`${baseFields},${timeFieldsAlias}`, `${baseFields},${timeFields}`];
-
-      const errors: string[] = [];
-      for (const sel of candidates) {
-        const res = await build(sel);
-        if (!res.error) {
-          const normalized = (res.data ?? []).map(normalizeApontamentoRow);
-          setApontamentos(normalized);
-          return;
-        }
-        errors.push(describeSupabaseError(res.error));
-      }
-
-      console.error("Erro na query apontamentos_horas (todas as tentativas falharam):", errors);
-      throw new Error(`Erro ao carregar apontamentos_horas. Tentativas: ${errors.join(" || ")}`);
-    } catch (e: unknown) {
-      console.error("Erro em carregarApontamentos:", e);
-      setMsg(getErrorMessage(e, "Erro ao carregar apontamentos."));
+      const { data: rows, error } = await supabase.rpc("web_listar_apontamentos_horas", {
+        p_data_inicio: dateFrom,
+        p_data_fim: dateTo,
+        p_os_id: filterOs ? Number(filterOs) : null,
+        p_colaborador_id: filterColab || null,
+        p_tipo_hora_id: filterType || null,
+        p_busca: filterSearch.trim() || null,
+        p_limite: 5000,
+      });
+      if (error) throw error;
+      setApontamentos((rows ?? []) as ApontamentoRow[]);
+    } catch (error) {
+      setMessage({ tone: "error", text: getErrorMessage(error, "Erro ao carregar apontamentos.") });
+      setApontamentos([]);
     } finally {
       setLoading(false);
     }
-  }, [effectiveEmpresaId, effectiveTenantId, filtroColabId, filtroOsId, osDbId, supabase, effectiveLoading, ensureContext]);
+  }, [dateFrom, dateTo, empresa, ensureContext, filterColab, filterOs, filterSearch, filterType, supabase, tenant]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        await carregarCombos();
-        await carregarApontamentos();
-      } catch (e: unknown) {
-        setMsg(getErrorMessage(e, "Erro ao iniciar tela."));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [carregarApontamentos, carregarCombos]);
-
-  useEffect(() => {
-    if (osDbId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFiltroOsId(String(osDbId));
-      carregarApontamentos();
-    }
-  }, [carregarApontamentos, osDbId]);
-
-  const buscarApontamentosDaCombinacao = useCallback(
-    async (osId: number, colaboradorId: string, dataISO: string): Promise<ApontamentoRow[]> => {
-      if (!effectiveTenantId || !effectiveEmpresaId) return [];
-      await ensureContext();
-      const select =
-        "id,os_id,colaborador_id,data,horas,tipo_hora_id,fator_aplicado,descricao,status,criado_em,tenant_id,hh_especialidade_id,gerado_por_hh,hh_lancamento_id,entrada_1:hora_entrada_1,saida_1:hora_saida_1,entrada_2:hora_entrada_2,saida_2:hora_saida_2";
-      const result = await applyTenantEmpresa(
-        supabase.from("apontamentos_horas").select(select),
-        effectiveTenantId,
-        effectiveEmpresaId
-      )
-        .eq("os_id", osId)
-        .eq("colaborador_id", colaboradorId)
-        .eq("data", dataISO)
-        .order("criado_em", { ascending: true });
-      if (result.error) throw result.error;
-      return (result.data ?? []).map(normalizeApontamentoRow);
-    },
-    [effectiveEmpresaId, effectiveTenantId, ensureContext, supabase]
-  );
-
-  useEffect(() => {
-    if (!osDbId || !colabId || !data || colabMultiMode || effectiveLoading) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExistentesDoFormulario([]);
-      return;
-    }
-    let active = true;
-    setExistentesLoading(true);
-    void buscarApontamentosDaCombinacao(osDbId, colabId, data)
-      .then((rows) => {
-        if (active) setExistentesDoFormulario(rows);
-      })
-      .catch((error: unknown) => {
-        if (active) setMsg(getErrorMessage(error, "Não foi possível consultar os lançamentos existentes."));
-      })
-      .finally(() => {
-        if (active) setExistentesLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [buscarApontamentosDaCombinacao, colabId, colabMultiMode, data, effectiveLoading, osDbId]);
-
-  useEffect(() => {
-    if (
-      formEditing &&
-      (formEditing.os_id !== osDbId || formEditing.colaborador_id !== colabId || formEditing.data !== data)
-    ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFormEditing(null);
-    }
-  }, [colabId, data, formEditing, osDbId]);
-
-  const fetchOsDescricao = useCallback(async (osDigitada: string) => {
-    if (effectiveLoading) return;
-    await ensureContext();
-    const trimmed = osDigitada.trim();
-
-    if (!trimmed) {
-      setOsDescricao("");
-      setOsDbId(null);
-      setOsDescError(null);
-      setOsCliente("");
-      setOsStatus("");
-      return;
-    }
-
-    setOsDescLoading(true);
-    setOsDescError(null);
-
-    try {
-      const isNumeric = /^\d+$/.test(trimmed);
-      let found: (OSRow & { cliente_id?: number | null }) | null = null;
-
-      const base = applyTenantEmpresa(
-        supabase
-          .from("ordens_servico")
-          .select("id,numero_os,descricao_servico,cliente_nome,cliente_id,status"),
-        effectiveTenantId,
-        effectiveEmpresaId
-      );
-      const byNumero = await base.eq("numero_os", trimmed).maybeSingle();
-      if (byNumero.error) throw byNumero.error;
-      found = byNumero.data ?? null;
-
-      if (!found) {
-        const { data: list, error: listErr } = await base
-          .ilike("numero_os", `%${trimmed}%`)
-          .limit(50);
-        if (listErr) throw listErr;
-        const rows = (list ?? []) as (OSRow & { cliente_id?: number | null })[];
-        if (isNumeric) {
-          found =
-            rows.find((o) => {
-              const num = String(o?.numero_os ?? "").replace(/\D/g, "").replace(/^0+/, "");
-              return num === trimmed;
-            }) ?? null;
-        } else {
-          found = rows[0] ?? null;
-        }
-      }
-
-      if (!found) {
-        setOsDescricao("");
-        setOsDbId(null);
-        setOsDescError("OS nao encontrada");
-        setOsCliente("");
-        setOsStatus("");
-        return;
-      }
-
-      const desc = found?.descricao_servico ?? "";
-      setOsDescricao(desc || "");
-      setOsDbId(found?.id ?? null);
-      setOsCliente(found?.cliente_nome ?? "");
-      setOsStatus(found?.status ?? "");
-    } catch {
-      setOsDescricao("");
-      setOsDbId(null);
-      setOsDescError("Erro ao buscar OS");
-      setOsCliente("");
-      setOsStatus("");
-    } finally {
-      setOsDescLoading(false);
-    }
-  }, [effectiveEmpresaId, effectiveTenantId, supabase, effectiveLoading, ensureContext]);
-
-  const fetchOsById = useCallback(
-    async (id: number) => {
-      if (effectiveLoading) return false;
-      await ensureContext();
-      if (!Number.isFinite(id)) return false;
-      setOsDescLoading(true);
-      setOsDescError(null);
-
-      try {
-        const { data, error } = await applyTenantEmpresa(
-          supabase
-            .from("ordens_servico")
-            .select("id,numero_os,descricao_servico,cliente_nome,status"),
-          effectiveTenantId,
-          effectiveEmpresaId
-        )
-          .eq("id", id)
-          .maybeSingle();
-        if (error) throw error;
-        if (!data) return false;
-
-        const numero = data.numero_os ?? String(data.id);
-        setOsNumero(numero);
-        setOsDescricao(data.descricao_servico ?? "");
-        setOsDbId(data.id ?? null);
-        setOsCliente(data.cliente_nome ?? "");
-        setOsStatus(data.status ?? "");
-        setOsDescError(null);
-
-        return true;
-      } catch {
-        setOsDescError("Erro ao buscar OS");
-        setOsDescricao("");
-        setOsDbId(null);
-        setOsCliente("");
-        setOsStatus("");
-        return false;
-      } finally {
-        setOsDescLoading(false);
-      }
-    },
-    [effectiveEmpresaId, effectiveTenantId, supabase, effectiveLoading, ensureContext]
-  );
-
-  useEffect(() => {
-    const osParam = searchParams.get("os");
-    if (!osParam) return;
-    const normalized = osParam.trim();
-    if (!normalized) return;
+    if (!tenant || !empresa) return;
     const timer = setTimeout(() => {
-      const isNumeric = /^\d+$/.test(normalized);
-      if (isNumeric) {
-        void fetchOsById(Number(normalized)).then((found) => {
-          if (!found) {
-            fetchOsDescricao(normalized);
-          }
-        });
-        return;
-      }
-      fetchOsDescricao(normalized);
+      void loadCombos().catch((error: unknown) => {
+        setMessage({ tone: "error", text: getErrorMessage(error, "Erro ao carregar os campos de apoio.") });
+      });
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchOsById, fetchOsDescricao, searchParams]);
+  }, [empresa, loadCombos, tenant]);
 
-  const buscarOs = async (term: string) => {
-    if (effectiveLoading) return;
-    await ensureContext();
-    const trimmed = term.trim();
-    if (!trimmed) {
-      setOsSearchResults([]);
-      setOsSearchError(null);
+  useEffect(() => {
+    if (!tenant || !empresa) return;
+    const timer = setTimeout(() => void loadEntries(), 0);
+    return () => clearTimeout(timer);
+  }, [empresa, loadEntries, tenant]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setFilterSearch(filterSearchInput), 350);
+    return () => clearTimeout(timer);
+  }, [filterSearchInput]);
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    next.set("de", dateFrom);
+    next.set("ate", dateTo);
+    if (filterOs) next.set("os", filterOs);
+    if (filterColab) next.set("colaborador", filterColab);
+    if (filterType) next.set("tipo", filterType);
+    if (filterSearch.trim()) next.set("busca", filterSearch.trim());
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }, [dateFrom, dateTo, filterColab, filterOs, filterSearch, filterType, pathname, router]);
+
+  useEffect(() => {
+    if (!tiposHoras.length || typeTouched) return;
+    const suggested = typeByCode.get(suggestion.codigo);
+    // O tipo sugerido acompanha a data até o usuário escolher manualmente.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (suggested) setTypeId(suggested.id);
+  }, [suggestion.codigo, typeByCode, typeTouched, tiposHoras.length]);
+
+  useEffect(() => {
+    if (!tenant || !empresa || !date) return;
+    let active = true;
+    void (async () => {
+      try {
+        await ensureContext();
+        const { data: result, error } = await supabase.rpc("web_validar_data_apontamento", { p_data: date });
+        if (error) throw error;
+        if (active) {
+          const value = (result ?? {}) as { fechada?: boolean; motivo?: string | null };
+          setDateValidation({ fechada: Boolean(value.fechada), motivo: value.motivo ?? null });
+        }
+      } catch {
+        if (active) setDateValidation({ fechada: false, motivo: null });
+      }
+    })();
+    return () => { active = false; };
+  }, [date, empresa, ensureContext, supabase, tenant]);
+
+  useEffect(() => {
+    if (!selectedOs || !selectedColabs.length || !date || !tenant || !empresa) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDuplicates([]);
       return;
     }
-
-    setOsSearchLoading(true);
-    setOsSearchError(null);
-    try {
-      const { data, error } = await applyTenantEmpresa(
-        supabase
-          .from("ordens_servico")
-          .select("id,numero_os,cliente_nome,descricao_servico,status"),
-        effectiveTenantId,
-        effectiveEmpresaId
-      )
-        .or(`numero_os.ilike.%${trimmed}%,cliente_nome.ilike.%${trimmed}%`)
-        .eq("status", "em_andamento")
-        .order("id", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      setOsSearchResults((data ?? []) as OSRow[]);
-    } catch (e: unknown) {
-      setOsSearchError(getErrorMessage(e, "Erro ao buscar OS."));
-    } finally {
-      setOsSearchLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!effectiveTenantId || !effectiveEmpresaId) return;
-    void ensureContext();
-  }, [effectiveEmpresaId, effectiveTenantId, ensureContext]);
-
-  useEffect(() => {
-    return () => {
-      if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
-      if (osSearchDebounceRef.current) clearTimeout(osSearchDebounceRef.current);
-    };
-  }, []);
-
-  const totalHoras = apontamentos.reduce(
-    (acc, a) => acc + (Number(a.horas ?? a.horas_trabalhadas ?? 0) || 0),
-    0
-  );
-  const osMap = useMemo(() => new Map(osList.map((o) => [o.id, o])), [osList]);
-  const colMap = useMemo(() => new Map(colaboradores.map((c) => [String(c.id), c])), [colaboradores]);
-  const tipoMap = useMemo(() => new Map(tiposHoras.map((t) => [t.id, t])), [tiposHoras]);
-  const tipoByCodigo = useMemo(
-    () => new Map(tiposHoras.map((t) => [t.codigo.toUpperCase(), t.id])),
-    [tiposHoras]
-  );
-
-  const normalTipoId = useMemo(
-    () => (tiposHoras.find((t) => t.codigo?.toUpperCase() === "NORMAL")?.id ?? ""),
-    [tiposHoras]
-  );
-
-  useEffect(() => {
-    if (!combosLoaded || tiposHoras.length === 0) return;
-    if (tipoHoraTouched) return;
-    if (!tipoHoraId && normalTipoId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTipoHoraId(normalTipoId);
-    }
-  }, [combosLoaded, tiposHoras.length, tipoHoraId, normalTipoId, tipoHoraTouched]);
-
-  useEffect(() => {
-    if (editing && !editTipoHoraId && normalTipoId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEditTipoHoraId(normalTipoId);
-    }
-  }, [editing, editTipoHoraId, normalTipoId]);
-
-  const colabOptions = useMemo(
-    () =>
-      colaboradores.map((c, idx) => ({
-        id: c.id,
-        seq: String(idx + 1),
-        nome: c.nome,
-      })),
-    [colaboradores]
-  );
-
-  useEffect(() => {
-    if (!combosLoaded || tiposHoras.length === 0) return;
-    if (tipoHoraTouched) return;
     let active = true;
-    (async () => {
-      const policy = await computeHourPolicy(data, 1);
-      if (!active) return;
-      const codigo = policy.items[0]?.tipoCodigo ?? "";
-      const id = codigo ? tipoByCodigo.get(codigo) : undefined;
-      if (id) setTipoHoraId(id);
-      if (codigo) setTipoSugerido(codigo);
+    void (async () => {
+      try {
+        await ensureContext();
+        const result = await applyTenantEmpresa(
+          supabase
+            .from("apontamentos_horas")
+            .select("id,colaborador_id,horas,tipo_hora_id")
+            .eq("os_id", selectedOs.id)
+            .eq("data", date)
+            .in("colaborador_id", selectedColabs),
+          tenant,
+          empresa
+        );
+        if (result.error) throw result.error;
+        if (!active) return;
+        setDuplicates((result.data ?? []).map((item) => ({
+          id: String(item.id),
+          colaborador_id: String(item.colaborador_id),
+          colaborador_nome: collaboratorMap.get(String(item.colaborador_id))?.nome ?? "Colaborador",
+          horas: Number(item.horas ?? 0),
+          tipo_codigo: typeMap.get(String(item.tipo_hora_id ?? ""))?.codigo ?? null,
+        })));
+      } catch {
+        if (active) setDuplicates([]);
+      }
     })();
-    return () => {
-      active = false;
-    };
-  }, [combosLoaded, data, tipoByCodigo, tipoHoraTouched, tiposHoras.length]);
+    return () => { active = false; };
+  }, [collaboratorMap, date, empresa, ensureContext, selectedColabs, selectedOs, supabase, tenant, typeMap]);
 
-  useEffect(() => {
-    let active = true;
-    const horas = toNumberBR(horasText);
-
-    if (!data || horas == null || horas <= 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTipoSugerido("");
+  const searchOs = useCallback((term: string) => {
+    const clean = term.trim().replace(/[,%()]/g, " ").trim();
+    if (!clean) {
+      setOsResults([]);
       return;
     }
+    setOsSearching(true);
+    const normalized = clean.toLocaleLowerCase("pt-BR");
+    setOsResults(filterOsOptions.filter((item) =>
+      String(item.numero_os ?? item.id).toLocaleLowerCase("pt-BR").includes(normalized)
+      || String(item.cliente_nome ?? "").toLocaleLowerCase("pt-BR").includes(normalized)
+      || String(item.descricao_servico ?? "").toLocaleLowerCase("pt-BR").includes(normalized)
+    ).slice(0, 12));
+    setOsSearching(false);
+  }, [filterOsOptions]);
 
-    setTipoSugeridoLoading(true);
-    (async () => {
-      const policy = await computeHourPolicy(data, horas);
-      if (!active) return;
-      const label =
-        policy.mode === "SPLIT"
-          ? policy.items.map((i) => i.tipoCodigo).join(" + ")
-          : policy.items[0]?.tipoCodigo ?? "";
-      setTipoSugerido(label);
-
-      const first = policy.items[0]?.tipoCodigo ?? "";
-      const tipoId = tipoByCodigo.get(first);
-      if (!tipoHoraTouched && tipoId) setTipoHoraId(tipoId);
-      setTipoSugeridoLoading(false);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [data, horasText, tipoByCodigo, tipoHoraTouched]);
-
-  async function updateApontamentoWithTimes(id: string, payloadBase: Record<string, unknown>, times: { e1: string; s1: string; e2: string; s2: string }) {
-    const payload = {
-      ...payloadBase,
-      hora_entrada_1: times.e1,
-      hora_saida_1: times.s1,
-      hora_entrada_2: times.e2,
-      hora_saida_2: times.s2,
-    };
-    await atualizarApontamentoFluxo(id, payload);
+  function handleOsQuery(value: string) {
+    setOsQuery(value);
+    setSelectedOs(null);
+    if (osSearchTimer.current) clearTimeout(osSearchTimer.current);
+    osSearchTimer.current = setTimeout(() => searchOs(value), 150);
   }
 
-  async function atualizarApontamentoFluxo(id: string, dados: Record<string, unknown>) {
-    const { error } = await supabase.rpc("web_atualizar_apontamento_horas", {
-      p_apontamento_id: id,
-      p_dados: dados,
-    });
-    if (error) throw error;
+  function chooseOs(item: OSRow) {
+    setSelectedOs(item);
+    setOsQuery(item.numero_os || String(item.id));
+    setOsResults([]);
+    setMessage(null);
   }
 
-  async function criarApontamentosFluxo(lancamentos: Record<string, unknown>[]) {
-    const { error } = await supabase.rpc("web_criar_apontamentos_horas", {
-      p_lancamentos: lancamentos,
-    });
-    if (error) throw error;
+  function addCollaborator(id: string) {
+    setSelectedColabs((current) => current.includes(id) ? current : [...current, id]);
+    setColabQuery("");
+    requestAnimationFrame(() => collaboratorInputRef.current?.focus());
   }
 
-  async function autoEnableGestao(osId: number, colaboradorId: string) {
-    if (!effectiveTenantId || !effectiveEmpresaId) return;
+  const entriesToCreate = useMemo(() => {
+    if (hours == null || hours <= 0) return [];
+    if (!typeTouched && suggestion.split) return suggestion.split;
+    const currentType = selectedType?.codigo || suggestion.codigo;
+    return [{ codigo: currentType, horas: hours }];
+  }, [hours, selectedType?.codigo, suggestion.codigo, suggestion.split, typeTouched]);
+
+  const totalHoursToCreate = useMemo(
+    () => entriesToCreate.reduce((sum, item) => sum + item.horas, 0) * selectedColabs.length,
+    [entriesToCreate, selectedColabs.length]
+  );
+
+  const missingReason = useMemo(() => {
+    if (!selectedOs) return "Selecione a OS";
+    if (!isAllowedOs(selectedStatus)) return selectedStatus === "cancelada" ? "OS cancelada" : "A OS não está disponível";
+    if (!selectedColabs.length) return "Selecione ao menos um colaborador";
+    if (!date) return "Informe a data";
+    if (dateValidation.fechada) return dateValidation.motivo || "Competência fechada";
+    if (hours == null || hours <= 0 || hours > 24) return "Informe horas entre 0 e 24";
+    if (!typeId) return "Selecione o tipo de hora";
+    if (!description.trim()) return "Falta a descrição";
+    return null;
+  }, [date, dateValidation, description, hours, selectedColabs.length, selectedOs, selectedStatus, typeId]);
+
+  async function autoEnableGestao(osId: number, collaboratorId: string) {
     try {
-      await ensureContext();
-
-      // 1. Cargo do colaborador
-      const { data: colabRow } = await supabase
-        .from("colaboradores")
-        .select("cargo")
-        .eq("id", colaboradorId)
-        .maybeSingle();
-      const cargoNome = (colabRow as { cargo?: string | null } | null)?.cargo;
-      if (!cargoNome) return;
-
-      // 2. tipo_gestao do cargo
-      const { data: cargoRow } = await supabase
-        .from("cargos")
-        .select("tipo_gestao")
-        .eq("nome", cargoNome)
-        .maybeSingle();
-      const tipoGestao = (cargoRow as { tipo_gestao?: string | null } | null)?.tipo_gestao;
-      if (!tipoGestao) return;
-
-      // 3. Mapear para item_tipo + area
-      const target = GESTAO_MAP[tipoGestao];
+      const collaboratorResult = await applyTenantEmpresa(
+        supabase.from("colaboradores").select("cargo").eq("id", collaboratorId),
+        tenant,
+        empresa
+      ).maybeSingle();
+      const cargo = (collaboratorResult.data as { cargo?: string | null } | null)?.cargo;
+      if (!cargo) return;
+      const cargoResult = await applyTenant(
+        supabase.from("cargos").select("tipo_gestao").eq("nome", cargo),
+        tenant
+      ).maybeSingle();
+      const tipoGestao = (cargoResult.data as { tipo_gestao?: string | null } | null)?.tipo_gestao;
+      const target = tipoGestao ? GESTAO_MAP[tipoGestao] : null;
       if (!target) return;
-
-      // 4. Verificar se o item já está habilitado
-      const { data: itemRow } = await supabase
-        .from("os_gestao_itens")
-        .select("id,habilitado")
-        .eq("os_id", osId)
-        .eq("item_tipo", target.item_tipo)
-        .eq("area", target.area)
-        .maybeSingle();
-
-      if ((itemRow as { habilitado?: boolean } | null)?.habilitado) return;
-
-      // 5. data_prevista = hoje + 30 dias
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      const dataPrevista = d.toISOString().slice(0, 10);
-
-      // 6. Upsert o item de gestão
-      await supabase.from("os_gestao_itens").upsert(
-        {
-          tenant_id: effectiveTenantId,
-          os_id: osId,
-          item_tipo: target.item_tipo,
-          area: target.area,
-          habilitado: true,
-          data_prevista: dataPrevista,
-          responsavel_id: null,
-          progresso_percent: 0,
-        },
-        { onConflict: "os_id,item_tipo,area" }
-      );
-
-      // 7. Garantir tem_gestao = true na OS
-      await applyTenantEmpresa(
+      const current = await applyTenantEmpresa(
         supabase
-          .from("ordens_servico")
-          .update({ tem_gestao: true, atualizado_em: new Date().toISOString() })
-          .eq("id", osId),
-        effectiveTenantId,
-        effectiveEmpresaId
+          .from("os_gestao_itens")
+          .select("id,habilitado")
+          .eq("os_id", osId)
+          .eq("item_tipo", target.item_tipo)
+          .eq("area", target.area),
+        tenant,
+        empresa
+      ).maybeSingle();
+      if ((current.data as { habilitado?: boolean } | null)?.habilitado) return;
+      const forecast = new Date();
+      forecast.setDate(forecast.getDate() + 30);
+      await supabase.from("os_gestao_itens").upsert({
+        tenant_id: tenant,
+        empresa_id: empresa,
+        os_id: osId,
+        item_tipo: target.item_tipo,
+        area: target.area,
+        habilitado: true,
+        data_prevista: forecast.toISOString().slice(0, 10),
+        responsavel_id: null,
+        progresso_percent: 0,
+      }, { onConflict: "os_id,item_tipo,area" });
+      await applyTenantEmpresa(
+        supabase.from("ordens_servico").update({ tem_gestao: true, atualizado_em: new Date().toISOString() }).eq("id", osId),
+        tenant,
+        empresa
       );
     } catch {
-      // silencioso — não bloqueia o fluxo principal
+      // Gestão é complementar e nunca deve interromper o apontamento principal.
     }
   }
 
-  async function salvarApontamento(options?: { preserveHoras?: boolean; advanceDate?: boolean; keepFocus?: boolean }) {
-    if (submitLockRef.current) return;
-    submitLockRef.current = true;
-    setLoading(true);
-    setMsg(null);
-
-    try {
-      if (!osDbId) throw new Error("Selecione uma OS antes de salvar.");
-      if (osStatus !== "em_andamento") throw new Error("A OS precisa estar em andamento para receber apontamentos.");
-      if (!colabId) throw new Error("Selecione um colaborador antes de salvar.");
-      if (!data) throw new Error("Informe a data do apontamento.");
-      if (tiposHoras.length === 0) throw new Error("Os tipos de hora não foram carregados. Recarregue a página.");
-      const horas = toNumberBR(horasText);
-      if (horas == null || horas <= 0 || horas > 24) throw new Error("Informe uma quantidade de horas entre 0 e 24.");
-      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
-
-      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
-      if (tenantErr) throw tenantErr;
-      try {
-        await supabase.rpc("set_current_empresa", { p_empresa_id: effectiveEmpresaId });
-      } catch {
-        // best-effort
-      }
-
-      const descricaoBase = descricao.trim();
-      const payloadBase = {
-        tenant_id: effectiveTenantId,
-        empresa_id: effectiveEmpresaId,
-        os_id: osDbId,
-        colaborador_id: colabId,
-        data,
-        status: "lancado",
-      };
-
-      const existentes = await buscarApontamentosDaCombinacao(osDbId, colabId, data);
-      if (formEditing) {
-        if (formEditing.gerado_por_hh) throw new Error("Este apontamento é gerado pelo módulo HH e deve ser alterado por lá.");
-        const tipoFinal = tipoHoraId || normalTipoId || null;
-        const conflito = existentes.find(
-          (item) => !item.gerado_por_hh && item.id !== formEditing.id && item.tipo_hora_id === tipoFinal
-        );
-        if (conflito) {
-          setDuplicateDialog({ existing: conflito, incomingHoras: horas });
-          return;
-        }
-        await atualizarApontamentoFluxo(formEditing.id, {
-          data,
-          tipo_hora_id: tipoFinal,
-          horas,
-          descricao: descricao.trim() || null,
-        });
-        setFormEditing(null);
-        setHorasText("");
-        setDescricao("");
-        setTipoHoraId("");
-        await carregarApontamentos();
-        setMsg("Apontamento atualizado. Nenhuma nova linha foi criada.");
-        return;
-      }
-
-      const policy = await computeHourPolicy(data, horas);
-      const payloads = policy.items.map((item) => {
-        const tipoId = tipoByCodigo.get(item.tipoCodigo);
-        if (!tipoId) {
-          throw new Error(`Tipo de hora nao encontrado: ${item.tipoCodigo}`);
-        }
-        const descFinal =
-          policy.mode === "SPLIT" && descricaoBase
-            ? `${descricaoBase} (${item.tipoCodigo})`
-            : descricaoBase || null;
-        return {
-          ...payloadBase,
-          horas: item.horas,
-          tipo_hora_id: tipoId,
-          descricao: descFinal,
-        };
-      });
-
-      const conflito = payloads
-        .map((payload) => ({
-          existing: existentes.find((item) => !item.gerado_por_hh && item.tipo_hora_id === payload.tipo_hora_id),
-          incomingHoras: Number(payload.horas),
-        }))
-        .find((item) => item.existing);
-      if (conflito?.existing) {
-        setDuplicateDialog({ existing: conflito.existing, incomingHoras: conflito.incomingHoras });
-        return;
-      }
-
-      await criarApontamentosFluxo(payloads);
-
-      // Auto-habilita gestão com base no cargo do colaborador (silencioso)
-      await autoEnableGestao(osDbId, colabId);
-
-      if (!options?.preserveHoras) {
-        setHorasText("");
-      }
-      setDescricao("");
-      setTipoHoraId("");
-      if (options?.advanceDate && data) {
-        const base = new Date(`${data}T00:00:00`);
-        base.setDate(base.getDate() + 1);
-        const yyyy = base.getFullYear();
-        const mm = String(base.getMonth() + 1).padStart(2, "0");
-        const dd = String(base.getDate()).padStart(2, "0");
-        setData(`${yyyy}-${mm}-${dd}`);
-      }
-      if (options?.keepFocus) {
-        setTimeout(() => {
-          horasInputRef.current?.focus();
-          horasInputRef.current?.select();
-        }, 0);
-      }
-      await carregarApontamentos();
-      setMsg("Apontamento lançado com sucesso.");
-    } catch (e: unknown) {
-      setMsg(getErrorMessage(e, "Erro ao salvar apontamento."));
-    } finally {
-      setLoading(false);
-      submitLockRef.current = false;
-    }
-  }
-
-  // O lançamento em lote é deliberadamente um único INSERT: se uma linha for
-  // rejeitada, a operação inteira falha e não deixa a equipe pela metade.
-  async function salvarApontamentoMultiplo() {
-    if (submitLockRef.current) return;
-    submitLockRef.current = true;
-    setLoading(true);
-    setMsg(null);
-
-    try {
-      if (!osDbId) throw new Error("Selecione uma OS antes de salvar.");
-      if (osStatus !== "em_andamento") throw new Error("A OS precisa estar em andamento para receber apontamentos.");
-      if (colabSelecionados.size === 0) throw new Error("Selecione ao menos um colaborador.");
-      if (!data) throw new Error("Informe a data do apontamento.");
-      if (tiposHoras.length === 0) throw new Error("Os tipos de hora não foram carregados. Recarregue a página.");
-      const horas = toNumberBR(horasText);
-      if (horas == null || horas <= 0 || horas > 24) throw new Error("Informe uma quantidade de horas entre 0 e 24.");
-      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
-
-      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
-      if (tenantErr) throw tenantErr;
-      try {
-        await supabase.rpc("set_current_empresa", { p_empresa_id: effectiveEmpresaId });
-      } catch {
-        // best-effort
-      }
-
-      const descricaoBase = descricao.trim();
-      const policy = await computeHourPolicy(data, horas);
-      const policyItems = policy.items.map((item) => {
-        const tipoId = tipoByCodigo.get(item.tipoCodigo);
-        if (!tipoId) {
-          throw new Error(`Tipo de hora nao encontrado: ${item.tipoCodigo}`);
-        }
-        const descFinal =
-          policy.mode === "SPLIT" && descricaoBase
-            ? `${descricaoBase} (${item.tipoCodigo})`
-            : descricaoBase || null;
-        return { horas: item.horas, tipo_hora_id: tipoId, descricao: descFinal };
-      });
-
-      const colaboradoresSelecionados = Array.from(colabSelecionados);
-      const existentesResult = await applyTenantEmpresa(
-        supabase
-          .from("apontamentos_horas")
-          .select("id,os_id,colaborador_id,data,horas,tipo_hora_id,descricao,status,criado_em,gerado_por_hh,hh_lancamento_id")
-          .eq("os_id", osDbId)
-          .eq("data", data)
-          .eq("gerado_por_hh", false)
-          .in("colaborador_id", colaboradoresSelecionados),
-        effectiveTenantId,
-        effectiveEmpresaId
-      );
-      if (existentesResult.error) throw existentesResult.error;
-      const existentes = (existentesResult.data ?? []).map(normalizeApontamentoRow);
-      const conflitos = colaboradoresSelecionados.flatMap((colaboradorId) => {
-        const nome = colMap.get(colaboradorId)?.nome ?? colaboradorId;
-        return policyItems.flatMap((item) => {
-          const existing = existentes.find(
-            (apontamento) => apontamento.colaborador_id === colaboradorId && apontamento.tipo_hora_id === item.tipo_hora_id
-          );
-          return existing ? [{ existing, nome, incomingHoras: item.horas }] : [];
-        });
-      });
-      if (conflitos.length > 0) {
-        setDuplicateBatchDialog(conflitos);
-        return;
-      }
-
-      const payloads = colaboradoresSelecionados.flatMap((colaboradorId) => {
-        const payloadBase = {
-          tenant_id: effectiveTenantId,
-          empresa_id: effectiveEmpresaId,
-          os_id: osDbId,
-          colaborador_id: colaboradorId,
-          data,
-          status: "lancado",
-        };
-        return policyItems.map((item) => ({ ...payloadBase, ...item }));
-      });
-      try {
-        await criarApontamentosFluxo(payloads);
-      } catch (error: unknown) {
-        throw new Error(`Nada foi salvo para a equipe. ${getErrorMessage(error, "Erro ao gravar os apontamentos.")}`);
-      }
-      await Promise.all(colaboradoresSelecionados.map((colaboradorId) => autoEnableGestao(osDbId, colaboradorId)));
-
-      setHorasText("");
-      setDescricao("");
-      setTipoHoraId("");
-      setColabSelecionados(new Set());
-      setColabMultiFiltro("");
-      await carregarApontamentos();
-
-      setMsg(`${colaboradoresSelecionados.length} lançamento(s) criado(s) com sucesso.`);
-    } catch (e: unknown) {
-      setMsg(getErrorMessage(e, "Nada foi salvo para a equipe."));
-    } finally {
-      setLoading(false);
-      submitLockRef.current = false;
-    }
-  }
-
-  async function excluirApontamento(apontamento: ApontamentoRow) {
-    if (apontamento.gerado_por_hh) {
-      setMsg("Este apontamento foi gerado pelo módulo HH e não pode ser excluído aqui. Altere o lançamento de origem no módulo HH.");
+  function attemptSaveEntry() {
+    if (saving || submitLock.current) return;
+    if (!missingReason) {
+      setValidationAttempted(false);
+      void saveEntry();
       return;
     }
-    setLoading(true);
+
+    setValidationAttempted(true);
+    const text = missingReason === "Falta a descrição"
+      ? "Informe a descrição do trabalho realizado antes de salvar."
+      : `${missingReason}. Revise o campo indicado antes de salvar.`;
+    setMessage({ tone: "error", text });
+
+    const target = missingReason === "Selecione a OS"
+      ? osInputRef.current
+      : missingReason === "Selecione ao menos um colaborador"
+        ? collaboratorInputRef.current
+        : missingReason === "Informe horas entre 0 e 24"
+          ? hoursInputRef.current
+          : missingReason === "Selecione o tipo de hora"
+            ? typeSelectRef.current
+            : missingReason === "Falta a descrição"
+              ? descriptionInputRef.current
+              : null;
+
+    requestAnimationFrame(() => {
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  async function saveEntry() {
+    if (submitLock.current || missingReason || !selectedOs || hours == null) return;
+    if (date > todayISO() && !window.confirm(`A data ${dateBR(date)} está no futuro. Deseja continuar?`)) return;
+    if (hours > 12 && !window.confirm(`O lançamento é de ${formatHours(hours)} h por colaborador. Confirma esse total?`)) return;
+    const closed = isClosedOs(selectedStatus);
+    if (closed && !window.confirm(`A OS ${selectedOs.numero_os || selectedOs.id} está ${statusLabel(selectedStatus).toLowerCase()}. Este lançamento pode alterar um período já concluído ou faturado. Deseja continuar?`)) return;
+
+    submitLock.current = true;
+    setSaving(true);
+    setMessage(null);
     try {
-      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant/empresa não definido.");
-      const { error } = await supabase.rpc("web_excluir_apontamento_horas", {
-        p_apontamento_id: apontamento.id,
+      await ensureContext();
+      const payload: Record<string, unknown>[] = [];
+      for (const collaboratorId of selectedColabs) {
+        for (const entry of entriesToCreate) {
+          const type = typeByCode.get(entry.codigo);
+          if (!type) throw new Error(`O tipo ${entry.codigo} não está cadastrado ou está inativo.`);
+          payload.push({
+            os_id: selectedOs.id,
+            colaborador_id: collaboratorId,
+            data: date,
+            horas: Number(entry.horas.toFixed(2)),
+            tipo_hora_id: type.id,
+            fator_aplicado: Number(type.fator),
+            descricao: description.trim(),
+            confirmar_os_encerrada: closed,
+          });
+        }
+      }
+      const { data: result, error } = await supabase.rpc("web_criar_apontamentos_horas", { p_lancamentos: payload });
+      if (error) throw error;
+      const value = (result ?? {}) as { ids?: string[]; gravados?: number };
+      setNewIds(new Set(value.ids ?? []));
+      await Promise.all(selectedColabs.map((id) => autoEnableGestao(selectedOs.id, id)));
+      const count = value.gravados ?? payload.length;
+      setSelectedColabs([]);
+      setColabQuery("");
+      setHoursText("");
+      setDescription("");
+      setValidationAttempted(false);
+      setTypeTouched(false);
+      setDuplicates([]);
+      setMessage({ tone: "ok", text: `${count} lançamento${count === 1 ? "" : "s"} salvo${count === 1 ? "" : "s"}. A OS e a data foram mantidas para o próximo lançamento.` });
+      await loadEntries();
+      requestAnimationFrame(() => collaboratorInputRef.current?.focus());
+    } catch (error) {
+      setMessage({ tone: "error", text: getErrorMessage(error, "Erro ao salvar apontamento.") });
+    } finally {
+      submitLock.current = false;
+      setSaving(false);
+    }
+  }
+
+  function openEdit(row: ApontamentoRow) {
+    if (row.gerado_por_hh) {
+      setMessage({ tone: "info", text: "Este lançamento é gerado pelo módulo HH e deve ser alterado na OS de origem." });
+      return;
+    }
+    setEditing(row);
+    setEditDate(row.data);
+    setEditHours(String(row.horas).replace(".", ","));
+    setEditType(row.tipo_hora_id ?? "");
+    setEditDescription(row.descricao ?? "");
+  }
+
+  async function saveEdit() {
+    if (!editing || submitLock.current) return;
+    const parsedHours = parseHours(editHours);
+    if (parsedHours == null || parsedHours <= 0 || parsedHours > 24) {
+      setMessage({ tone: "error", text: "Informe horas entre 0 e 24." });
+      return;
+    }
+    if (!editDescription.trim()) {
+      setMessage({ tone: "error", text: "Informe a descrição do trabalho realizado." });
+      return;
+    }
+    if (editDate > todayISO() && !window.confirm(`A data ${dateBR(editDate)} está no futuro. Deseja continuar?`)) return;
+    if (parsedHours > 12 && !window.confirm(`O lançamento é de ${formatHours(parsedHours)} h. Confirma esse total?`)) return;
+    submitLock.current = true;
+    setSaving(true);
+    try {
+      await ensureContext();
+      const { error } = await supabase.rpc("web_atualizar_apontamento_horas", {
+        p_apontamento_id: editing.id,
+        p_dados: {
+          data: editDate,
+          horas: Number(parsedHours.toFixed(2)),
+          tipo_hora_id: editType,
+          descricao: editDescription.trim(),
+        },
       });
       if (error) throw error;
-      await carregarApontamentos();
-      setMsg("Apontamento excluído.");
-    } catch (e: unknown) {
-      setMsg(getErrorMessage(e, "Erro ao excluir."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function openEdit(ap: ApontamentoRow) {
-    if (ap.gerado_por_hh) {
-      setMsg("Este apontamento foi gerado pelo módulo HH e deve ser alterado no lançamento HH de origem.");
-      return;
-    }
-    setEditing(ap);
-    setEditData(ap.data);
-    setEditDescricao(ap.descricao ?? "");
-    setEditTipoHoraId(ap.tipo_hora_id ?? normalTipoId ?? "");
-
-    const hasTimes = Boolean(ap.entrada_1 || ap.saida_1 || ap.entrada_2 || ap.saida_2);
-    setEditHasTimes(hasTimes);
-    if (hasTimes) {
-      setEditHoraE1(ap.entrada_1 ?? "07:30");
-      setEditHoraS1(ap.saida_1 ?? "12:00");
-      setEditHoraE2(ap.entrada_2 ?? "13:00");
-      setEditHoraS2(ap.saida_2 ?? "17:00");
-      setEditHorasText("");
-    } else {
-      setEditHorasText(String(ap.horas ?? ap.horas_trabalhadas ?? ""));
-      setEditHoraE1("07:30");
-      setEditHoraS1("12:00");
-      setEditHoraE2("13:00");
-      setEditHoraS2("17:00");
-    }
-  }
-
-  function editarNoFormulario(ap: ApontamentoRow) {
-    if (ap.gerado_por_hh) {
-      setMsg("Este apontamento foi gerado pelo módulo HH e deve ser alterado no lançamento HH de origem.");
-      return;
-    }
-    if (ap.entrada_1 || ap.saida_1 || ap.entrada_2 || ap.saida_2) {
-      openEdit(ap);
-      return;
-    }
-    setFormEditing(ap);
-    setHorasText(String(ap.horas ?? ap.horas_trabalhadas ?? ""));
-    setTipoHoraId(ap.tipo_hora_id ?? normalTipoId ?? "");
-    setTipoHoraTouched(true);
-    setDescricao(ap.descricao ?? "");
-  }
-
-  async function salvarEdicao() {
-    if (submitLockRef.current) return;
-    submitLockRef.current = true;
-    setLoading(true);
-    try {
-      if (!editing) return;
-      if (editing.gerado_por_hh) throw new Error("Este apontamento foi gerado pelo módulo HH e deve ser alterado por lá.");
-      if (!effectiveTenantId || !effectiveEmpresaId) throw new Error("Tenant ou empresa não encontrados. Recarregue a página.");
-      const { error: tenantErr } = await supabase.rpc("set_current_tenant", { p_tenant_id: effectiveTenantId });
-      if (tenantErr) throw tenantErr;
-      try {
-        await supabase.rpc("set_current_empresa", { p_empresa_id: effectiveEmpresaId });
-      } catch {
-        // best-effort
-      }
-
-      const base: Record<string, unknown> = {
-        data: editData,
-        tipo_hora_id: editTipoHoraId || null,
-        descricao: editDescricao.trim() || null,
-      };
-
-      if (!editHasTimes) {
-        const horas = toNumberBR(editHorasText);
-        if (horas == null || horas <= 0 || horas > 24) throw new Error("Horas invalidas (0 a 24).");
-
-        const payload = {
-          ...base,
-          horas,
-          hora_entrada_1: null,
-          hora_saida_1: null,
-          hora_entrada_2: null,
-          hora_saida_2: null,
-        };
-        await atualizarApontamentoFluxo(editing.id, payload);
-      } else {
-        const tipoFinal = editTipoHoraId || normalTipoId;
-        if (!tipoFinal) throw new Error("Tipos de horas ainda não carregaram.");
-        const e1 = parseHHMM(editHoraE1);
-        const s1 = parseHHMM(editHoraS1);
-        const e2 = parseHHMM(editHoraE2);
-        const s2 = parseHHMM(editHoraS2);
-        if (e1 === null || s1 === null || e2 === null || s2 === null) throw new Error("Horários inválidos.");
-        if (!isTimeRangeValid(e1, s1, e2, s2)) {
-          throw new Error("Horários inválidos. Regras: Saída 1 > Entrada 1, Saída 2 > Entrada 2 e Saída 1 <= Entrada 2.");
-        }
-
-        const payloadBase: Record<string, unknown> = {
-          ...base,
-          tipo_hora_id: tipoFinal,
-          horas: null,
-        };
-        await updateApontamentoWithTimes(editing.id, payloadBase, {
-          e1: editHoraE1,
-          s1: editHoraS1,
-          e2: editHoraE2,
-          s2: editHoraS2,
-        });
-      }
-
       setEditing(null);
-      await carregarApontamentos();
-      setMsg("Apontamento atualizado.");
-    } catch (e: unknown) {
-      setMsg(getErrorMessage(e, "Erro ao salvar edição."));
+      setMessage({ tone: "ok", text: "Apontamento atualizado." });
+      await loadEntries();
+    } catch (error) {
+      setMessage({ tone: "error", text: getErrorMessage(error, "Erro ao atualizar apontamento.") });
     } finally {
-      setLoading(false);
-      submitLockRef.current = false;
+      submitLock.current = false;
+      setSaving(false);
     }
   }
 
-  const formatDateBR = (iso: string) => {
-    if (!iso) return "-";
-    const [yyyy, mm, dd] = iso.split("-");
-    if (!yyyy || !mm || !dd) return iso;
-    return `${dd}/${mm}/${yyyy}`;
-  };
+  async function deleteEntry() {
+    if (!deleteTarget || submitLock.current) return;
+    submitLock.current = true;
+    setSaving(true);
+    try {
+      await ensureContext();
+      const { error } = await supabase.rpc("web_excluir_apontamento_horas", { p_apontamento_id: deleteTarget.id });
+      if (error) throw error;
+      setDeleteTarget(null);
+      setMessage({ tone: "ok", text: "Apontamento excluído. O responsável pela exclusão foi registrado na auditoria." });
+      await loadEntries();
+    } catch (error) {
+      setMessage({ tone: "error", text: getErrorMessage(error, "Erro ao excluir apontamento.") });
+    } finally {
+      submitLock.current = false;
+      setSaving(false);
+    }
+  }
+
+  const groupedEntries = useMemo(() => {
+    const groups = new Map<string, ApontamentoRow[]>();
+    for (const row of apontamentos) {
+      const list = groups.get(row.data) ?? [];
+      list.push(row);
+      groups.set(row.data, list);
+    }
+    return Array.from(groups.entries());
+  }, [apontamentos]);
+
+  const totalPeriod = useMemo(() => apontamentos.reduce((sum, row) => sum + Number(row.horas || 0), 0), [apontamentos]);
+  const periodLabel = dateFrom.slice(0, 7) === dateTo.slice(0, 7)
+    ? monthFormatter.format(localDate(dateFrom))
+    : `${dateBR(dateFrom)} a ${dateBR(dateTo)}`;
+
+  function setCurrentMonth() {
+    setDateFrom(monthStartISO());
+    setDateTo(todayISO());
+  }
 
   return (
-    <div style={{ padding: 16 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 0 }}>Apontamento de horas</h1>
-
-      {msg && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: 10,
-            border: "1px solid #333",
-            borderRadius: 8,
-            background: "rgba(255,255,255,0.04)",
-          }}
-        >
-          {msg}
+    <main className="carteira-theme apontamentos-page">
+      <header className="ah-page-header">
+        <div>
+          <nav className="ah-breadcrumb" aria-label="Navegação estrutural"><span>Apontamentos</span><b>›</b><strong>Lançar horas</strong></nav>
+          <h1>Apontamento de horas</h1>
+          <p>Registre as horas trabalhadas por OS e colaborador com conferência antes de salvar.</p>
         </div>
-      )}
-
-      {!canWrite && (
-        <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-300">
-          Consulta somente leitura. Seu perfil pode visualizar os apontamentos, mas não pode incluir, editar ou excluir.
+        <div className="ah-header-actions">
+          <button type="button" className="ah-button" onClick={() => setMessage({ tone: "info", text: "A importação por planilha será disponibilizada em uma etapa dedicada, com validação e prévia antes da gravação." })}>Importar planilha</button>
+          <Link href="/apontamentos/resumo-mensal" className="ah-button ah-button-primary">Resumo do mês</Link>
         </div>
-      )}
+      </header>
 
-      {/* FORM */}
+      {message && <div className={`ah-message is-${message.tone}`} role={message.tone === "error" ? "alert" : "status"}><span>{message.text}</span><button type="button" onClick={() => setMessage(null)} aria-label="Fechar mensagem">×</button></div>}
+      {!canWrite && <div className="ah-message is-info">Consulta somente leitura. Seu perfil não pode incluir, editar ou excluir apontamentos.</div>}
+
       {canWrite && (
-        <div style={{ marginTop: 12, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 10 }}>
-            {formEditing ? "Editando lançamento existente" : "Novo lançamento"}
+        <section className="ah-card ah-form-card" aria-labelledby="new-entry-title">
+          <div className="ah-section-title">
+            <div><span>NOVO LANÇAMENTO</span><h2 id="new-entry-title">Quem trabalhou, onde e por quanto tempo?</h2></div>
+            <small>As horas são lançadas separadamente para cada colaborador.</small>
           </div>
-          {formEditing && (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
-              <span>Você está alterando um apontamento já salvo. Ao salvar, nenhuma nova linha será criada.</span>
-              <button
-                type="button"
-                onClick={() => setFormEditing(null)}
-                disabled={loading}
-                className="rounded-md border border-amber-500/40 bg-amber-950/40 px-3 py-1.5 text-xs hover:bg-amber-900/50 disabled:opacity-60"
-              >
-                Cancelar edição
-              </button>
+
+          <div className="ah-field ah-os-field">
+            <label htmlFor="ah-os-search">Ordem de serviço</label>
+            <div className="ah-autocomplete">
+              <input ref={osInputRef} id="ah-os-search" value={osQuery} onChange={(event) => handleOsQuery(event.target.value)} placeholder="Número, cliente ou trecho da descrição" autoComplete="off" />
+              {osSearching && <span className="ah-input-status">Buscando…</span>}
+              {!osSearching && osQuery.trim() && !selectedOs && osResults.length === 0 && <div className="ah-not-found">Nenhuma OS encontrada para “{osQuery}”.</div>}
+              {osResults.length > 0 && !selectedOs && (
+                <div className="ah-options" role="listbox">
+                  {osResults.map((item) => (
+                    <button type="button" key={item.id} onClick={() => chooseOs(item)} role="option" aria-selected="false">
+                      <b>OS {item.numero_os || item.id}</b><span>{item.cliente_nome || "Cliente não informado"}</span><small>{item.descricao_servico || "Sem descrição"} · {statusLabel(osStatus(item))}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selectedOs && (
+            <div className={`ah-os-confirmation ${isClosedOs(selectedStatus) ? "is-warning" : "is-ok"}`}>
+              <span className="ah-confirm-icon">{isClosedOs(selectedStatus) ? "!" : "✓"}</span>
+              <div><b>OS {selectedOs.numero_os || selectedOs.id} · {selectedOs.cliente_nome || "Cliente não informado"}</b><p>{selectedOs.descricao_servico || "Sem descrição cadastrada"} · {statusLabel(selectedStatus)}</p></div>
+              <button type="button" onClick={() => { setSelectedOs(null); setOsQuery(""); }}>Trocar</button>
             </div>
           )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr 2fr 1fr", gap: 10 }}>
-          <label>
-            OS
-            <input
-              value={osNumero}
-              onChange={(e) => {
-                const value = e.target.value;
-                setOsNumero(value);
-                if (osDebounceRef.current) clearTimeout(osDebounceRef.current);
-                osDebounceRef.current = setTimeout(() => {
-                  fetchOsDescricao(value);
-                }, 300);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !osNumero.trim()) {
-                  e.preventDefault();
-                  setShowOsModal(true);
-                  setOsSearch("");
-                  setOsSearchResults([]);
-                  setOsSearchError(null);
-                }
-              }}
-              onBlur={(e) => fetchOsDescricao(e.target.value)}
-              placeholder="Digite o numero da OS"
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-
-          <label>
-            Descricao OS
-            <input
-              value={osDescLoading ? "Buscando..." : osDescError ? osDescError : osDescricao || "-"}
-              readOnly
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-
-          <label>
-            Cliente
-            <input
-              value={osDescLoading ? "Buscando..." : osDescError ? "-" : osCliente || "-"}
-              readOnly
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-
-          <label>
-            Status
-            <input
-              value={osDescLoading ? "Buscando..." : osDescError ? "-" : osStatus || "-"}
-              readOnly
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr", gap: 10, marginTop: 10 }}>
-          <label>
-            <div className="flex items-center justify-between gap-2">
-              <span>{colabMultiMode ? `Colaboradores (${colabSelecionados.size} selecionado${colabSelecionados.size === 1 ? "" : "s"})` : "Colaborador"}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setColabMultiMode((v) => !v);
-                  setColabSelecionados(new Set());
-                  setColabMultiFiltro("");
-                  setColabId("");
-                  setColabInput("");
-                }}
-                className="text-xs text-zinc-400 hover:text-zinc-200 underline"
-              >
-                {colabMultiMode ? "voltar pra um so" : "selecionar varios"}
-              </button>
-            </div>
-
-            {!colabMultiMode ? (
-              <>
-                <input
-                  value={colabInput}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setColabInput(value);
-                    const trimmed = value.trim();
-                    if (!trimmed) {
-                      setColabId("");
-                      return;
-                    }
-                    const seqMatch = trimmed.match(/^\d+/);
-                    const seq = seqMatch ? seqMatch[0] : "";
-                    const bySeq = colabOptions.find((c) => c.seq === seq);
-                    if (bySeq) {
-                      setColabId(bySeq.id);
-                      return;
-                    }
-                    setColabId("");
-                  }}
-                  list="colaborador-options"
-                  placeholder="Digite o ID sequencial do colaborador"
-                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <datalist id="colaborador-options">
-                  {colabOptions.map((c) => (
-                    <option key={c.id} value={`${c.seq} - ${c.nome}`} />
-                  ))}
-                </datalist>
-              </>
-            ) : (
-              <div className="rounded-md border border-zinc-700 bg-zinc-900">
-                <input
-                  value={colabMultiFiltro}
-                  onChange={(e) => setColabMultiFiltro(e.target.value)}
-                  placeholder="Filtrar por nome ou ID..."
-                  className="w-full px-3 py-2 bg-transparent text-zinc-100 border-b border-zinc-700"
-                />
-                <div className="max-h-52 overflow-y-auto">
-                  {colabOptions
-                    .filter((c) => {
-                      const termo = colabMultiFiltro.trim().toLowerCase();
-                      if (!termo) return true;
-                      return c.nome.toLowerCase().includes(termo) || c.seq.includes(termo);
-                    })
-                    .map((c) => {
-                      const checked = colabSelecionados.has(c.id);
-                      return (
-                        <label
-                          key={c.id}
-                          className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-zinc-800 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              setColabSelecionados((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(c.id)) next.delete(c.id);
-                                else next.add(c.id);
-                                return next;
-                              });
-                            }}
-                          />
-                          {c.seq} - {c.nome}
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-          </label>
-
-          <label>
-            Data
-            <input
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-
-          <label>
-            Tipo
-            <select
-              value={tipoHoraId}
-              onChange={(e) => {
-                setTipoHoraId(e.target.value);
-                setTipoHoraTouched(true);
-              }}
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            >
-              {!combosLoaded ? (
-                <option value="" disabled>
-                  Carregando tipos...
-                </option>
-              ) : tiposHoras.length === 0 ? (
-                <option value="" disabled>
-                  Nenhum tipo ativo encontrado
-                </option>
-              ) : (
-                tiposHoras.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.codigo} - {t.descricao} (x{Number(t.fator).toFixed(2)})
-                  </option>
-                ))
-              )}
-            </select>
-            <div className="text-xs text-zinc-400 mt-1">
-              Tipo sugerido: {tipoSugeridoLoading ? "calculando..." : tipoSugerido || "-"}
-            </div>
-            {combosLoaded && tiposHoras.length === 0 && (
-              <div className="text-xs text-red-400 mt-1">
-                Nenhum tipo de hora ativo encontrado para este tenant.
-              </div>
-            )}
-          </label>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginTop: 10 }}>
-          <label>
-            Horas
-            <input
-              ref={horasInputRef}
-              value={horasText}
-              onChange={(e) => setHorasText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (colabMultiMode) void salvarApontamentoMultiplo();
-                  else salvarApontamento({ preserveHoras: true, advanceDate: true, keepFocus: true });
-                }
-              }}
-              placeholder="Ex: 8,00"
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-        </div>
-
-        {!colabMultiMode && (existentesLoading || existentesDoFormulario.length > 0) && (
-          <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-3">
-            <div className="text-sm font-medium text-sky-100">Lançamentos já registrados para esta OS, colaborador e data</div>
-            {existentesLoading ? (
-              <div className="mt-1 text-xs text-zinc-400">Consultando lançamentos existentes...</div>
-            ) : (
-              <div className="mt-2 space-y-2">
-                {existentesDoFormulario.map((apontamento) => {
-                  const tipo = apontamento.tipo_hora_id ? tipoMap.get(apontamento.tipo_hora_id) : null;
-                  const hh = Boolean(apontamento.gerado_por_hh);
-                  return (
-                    <div key={apontamento.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm">
-                      <span>
-                        <b>{Number(apontamento.horas ?? apontamento.horas_trabalhadas ?? 0).toFixed(2)}h</b>
-                        {" · "}{tipo?.codigo ?? "NORMAL"}
-                        {hh && (
-                          <span
-                            title="Este apontamento foi gerado pelo módulo HH. Altere o lançamento de origem no módulo HH."
-                            className="ml-2 inline-flex rounded-full border border-violet-400/50 bg-violet-950/50 px-2 py-0.5 text-xs font-medium text-violet-200"
-                          >
-                            HH
-                          </span>
-                        )}
-                      </span>
-                      {hh ? (
-                        <a href={`/os/${apontamento.os_id}`} className="text-xs text-violet-300 underline hover:text-violet-200">
-                          Alterar no módulo HH
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => editarNoFormulario(apontamento)}
-                          disabled={loading}
-                          className="rounded-md border border-sky-500/40 bg-sky-950/40 px-3 py-1.5 text-xs text-sky-100 hover:bg-sky-900/40 disabled:opacity-60"
-                        >
-                          Editar este lançamento
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 10 }}>
-          <label>
-            Descricao
-            <input
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              placeholder="Ex: Montagem painel, passagem de cabos..."
-              className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            />
-          </label>
-
-          <button
-            onClick={() => (colabMultiMode ? salvarApontamentoMultiplo() : salvarApontamento())}
-            disabled={
-              loading ||
-              osStatus !== "em_andamento" ||
-              !combosLoaded ||
-              tiposHoras.length === 0 ||
-              (colabMultiMode && colabSelecionados.size === 0)
-            }
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-            style={{ alignSelf: "end", height: 36 }}
-          >
-            {loading ? "Salvando..." : colabMultiMode ? `Salvar (${colabSelecionados.size})` : formEditing ? "Salvar alteração" : "Salvar"}
-          </button>
-        </div>
-        </div>
-      )}
-
-      {/* FILTROS + LISTA */}
-      <div style={{ marginTop: 14, border: "1px solid #333", borderRadius: 10, padding: 12 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
-          <label className="flex flex-col gap-1">
-            <span>Filtrar OS</span>
-            <select
-              value={filtroOsId}
-              onChange={(e) => setFiltroOsId(e.target.value)}
-              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            >
-              <option value="">Todas</option>
-              {osList.map((o) => (
-                <option key={o.id} value={String(o.id)}>
-                  {o.numero_os}
-                </option>
+          <div className="ah-field ah-collaborator-field">
+            <label htmlFor="ah-collaborator-search">Colaboradores</label>
+            <div className="ah-chip-input">
+              {selectedColabs.map((id) => (
+                <span className="ah-chip" key={id}>{collaboratorMap.get(id)?.nome ?? "Colaborador"}<button type="button" onClick={() => setSelectedColabs((current) => current.filter((item) => item !== id))} aria-label={`Remover ${collaboratorMap.get(id)?.nome ?? "colaborador"}`}>×</button></span>
               ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span>Filtrar Colaborador</span>
-            <select
-              value={filtroColabId}
-              onChange={(e) => setFiltroColabId(e.target.value)}
-              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-            >
-              <option value="">Todos</option>
-              {colaboradores.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            onClick={carregarApontamentos}
-            disabled={loading}
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-          >
-            Atualizar
-          </button>
-
-          <div style={{ marginLeft: "auto", opacity: 0.9 }}>
-            Total horas no filtro: <b>{totalHoras.toFixed(2)}</b>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 12, border: "1px solid #222", borderRadius: 8, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ textAlign: "left" }}>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Data</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Colaborador</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Horas</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Horários</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Tipo</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>OS / Descricao</th>
-                  <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Cliente</th>
-                  {canWrite && <th style={{ padding: 10, borderBottom: "1px solid #333" }}>Ações</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {apontamentos.map((a) => {
-                  const os = osMap.get(a.os_id);
-                  const col = colMap.get(a.colaborador_id);
-                  const tipo = a.tipo_hora_id ? tipoMap.get(a.tipo_hora_id) : null;
-                  const osDesc = os?.descricao_servico ?? "-";
-                  const clienteNome = os?.cliente_nome ?? "-";
-                  const horasNum = Number(a.horas ?? a.horas_trabalhadas ?? 0);
-                  const hasTimes = Boolean(a.entrada_1 || a.saida_1 || a.entrada_2 || a.saida_2);
-                  const geradoPorHh = Boolean(a.gerado_por_hh);
-                  const horariosLabel = hasTimes
-                    ? `${a.entrada_1 ?? "--"}-${a.saida_1 ?? "--"} / ${a.entrada_2 ?? "--"}-${a.saida_2 ?? "--"}`
-                    : "—";
-
-                  return (
-                    <tr key={a.id} className="hover:bg-zinc-900/40">
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{formatDateBR(a.data)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{col?.nome || "-"}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                        <div className="flex items-center gap-2">
-                          <span>{horasNum.toFixed(2)}</span>
-                          {geradoPorHh && (
-                            <span
-                              title="Este apontamento foi gerado pelo módulo HH. Altere o lançamento de origem no módulo HH."
-                              className="inline-flex rounded-full border border-violet-400/50 bg-violet-950/50 px-2 py-0.5 text-xs font-medium text-violet-200"
-                            >
-                              HH
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{horariosLabel}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{tipo ? tipo.codigo : "NORMAL"}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                        {os?.numero_os || a.os_id} - {osDesc}
-                      </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{clienteNome}</td>
-                      {canWrite && (
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                          <div className="flex items-center gap-2">
-                            {geradoPorHh ? (
-                              <div className="flex flex-col gap-1 text-xs text-violet-200">
-                                <span title="Este apontamento é somente leitura nesta tela porque é sincronizado pelo módulo HH.">Somente leitura — HH</span>
-                                <a href={`/os/${a.os_id}`} className="text-violet-300 underline hover:text-violet-100">Alterar no módulo HH</a>
-                              </div>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => openEdit(a)}
-                                  disabled={loading}
-                                  className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirm(a)}
-                                  disabled={loading}
-                                  className="px-3 py-1.5 rounded-md border border-red-700/50 bg-red-950/40 hover:bg-red-950 text-red-200 disabled:opacity-60"
-                                >
-                                  Excluir
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-
-                {apontamentos.length === 0 && (
-                  <tr>
-                    <td style={{ padding: 10 }} colSpan={canWrite ? 8 : 7}>
-                      Nenhum apontamento no periodo.
-                    </td>
-                  </tr>
-                )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {duplicateDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-label="Lançamento já existente" className="w-full max-w-lg overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
-            <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-4">
-              <div className="text-lg font-semibold text-zinc-100">Lançamento já existente</div>
-              <div className="mt-2 text-sm leading-6 text-zinc-300">
-                <b>{colMap.get(duplicateDialog.existing.colaborador_id)?.nome ?? "Este colaborador"}</b> já possui {Number(duplicateDialog.existing.horas ?? duplicateDialog.existing.horas_trabalhadas ?? 0).toFixed(2)}h nesta OS em {formatDateBR(duplicateDialog.existing.data)}, tipo {duplicateDialog.existing.tipo_hora_id ? tipoMap.get(duplicateDialog.existing.tipo_hora_id)?.codigo ?? "NORMAL" : "NORMAL"}.
-                <br />
-                Para alterar o valor, edite o lançamento existente. Criar um segundo registro faria a OS somar {Number(duplicateDialog.existing.horas ?? duplicateDialog.existing.horas_trabalhadas ?? 0).toFixed(2)}h + {Number(duplicateDialog.incomingHoras).toFixed(2)}h.
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 px-5 py-4">
-              <button type="button" onClick={() => setDuplicateDialog(null)} className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 hover:bg-zinc-800">
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const existing = duplicateDialog.existing;
-                  setDuplicateDialog(null);
-                  editarNoFormulario(existing);
-                }}
-                className="rounded-md bg-zinc-100 px-4 py-2 font-medium text-zinc-900 hover:bg-white"
-              >
-                Editar o existente
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {duplicateBatchDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-label="Lançamentos já existentes" className="w-full max-w-xl overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
-            <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-4">
-              <div className="text-lg font-semibold text-zinc-100">Lançamentos já existentes</div>
-              <div className="mt-2 text-sm leading-6 text-zinc-300">
-                Nada foi salvo para a equipe. Os colaboradores abaixo já possuem lançamento para esta OS e data; edite o lançamento existente antes de tentar novamente.
-              </div>
-              <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-300">
-                {duplicateBatchDialog.map(({ existing, nome, incomingHoras }) => (
-                  <li key={`${existing.id}-${incomingHoras}`}>
-                    {nome}: {Number(existing.horas ?? existing.horas_trabalhadas ?? 0).toFixed(2)}h em {tipoMap.get(existing.tipo_hora_id ?? "")?.codigo ?? "NORMAL"}; o novo lançamento seria de {Number(incomingHoras).toFixed(2)}h.
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex justify-end px-5 py-4">
-              <button type="button" onClick={() => setDuplicateBatchDialog(null)} className="rounded-md bg-zinc-100 px-4 py-2 font-medium text-zinc-900 hover:bg-white">
-                Entendi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-label="Excluir apontamento" className="w-full max-w-lg overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
-            <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-4">
-              <div className="text-lg font-semibold text-zinc-100">Excluir apontamento?</div>
-              <div className="mt-1 text-sm text-zinc-400">Esta ação remove o lançamento manual da OS. Lançamentos gerados pelo módulo HH não podem ser excluídos nesta tela.</div>
-            </div>
-            <div className="flex items-center justify-end gap-2 px-5 py-4">
-              <button type="button" onClick={() => setDeleteConfirm(null)} disabled={loading} className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 hover:bg-zinc-800 disabled:opacity-60">
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => {
-                  const apontamento = deleteConfirm;
-                  setDeleteConfirm(null);
-                  void excluirApontamento(apontamento);
-                }}
-                className="rounded-md bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-500 disabled:opacity-60"
-              >
-                {loading ? "Excluindo..." : "Excluir"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {canWrite && editing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-3xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl">
-            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <div className="text-lg font-semibold">Editar apontamento</div>
-                <div className="text-sm text-zinc-400">OS #{editing.os_id} · Colaborador {editing.colaborador_id}</div>
-              </div>
-              <button
-                onClick={() => setEditing(null)}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Fechar
-              </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <label className="space-y-1">
-                  <div className="text-xs text-zinc-400">Data</div>
-                  <input
-                    type="date"
-                    value={editData}
-                    onChange={(e) => setEditData(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                  />
-                </label>
-
-                <label className="space-y-1 md:col-span-2">
-                  <div className="text-xs text-zinc-400">Tipo</div>
-                  <select
-                    value={editTipoHoraId}
-                    onChange={(e) => setEditTipoHoraId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                  >
-                    {!combosLoaded ? (
-                      <option value="" disabled>
-                        Carregando tipos...
-                      </option>
-                    ) : tiposHoras.length === 0 ? (
-                      <option value="" disabled>
-                        Nenhum tipo ativo encontrado
-                      </option>
-                    ) : (
-                      tiposHoras.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.codigo} - {t.descricao} (x{Number(t.fator).toFixed(2)})
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </label>
-              </div>
-
-              {!editHasTimes ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label className="space-y-1 md:col-span-1">
-                    <div className="text-xs text-zinc-400">Horas</div>
-                    <input
-                      value={editHorasText}
-                      onChange={(e) => setEditHorasText(e.target.value)}
-                      placeholder="Ex: 8,00"
-                      className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    />
-                  </label>
-                  <div className="md:col-span-2 text-xs text-zinc-500 flex items-center">
-                    No modo manual, os horários ficam vazios.
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <label className="space-y-1">
-                    <div className="text-xs text-zinc-400">Entrada 1</div>
-                    <input
-                      type="time"
-                      value={editHoraE1}
-                      onChange={(e) => setEditHoraE1(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <div className="text-xs text-zinc-400">Saída 1</div>
-                    <input
-                      type="time"
-                      value={editHoraS1}
-                      onChange={(e) => setEditHoraS1(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <div className="text-xs text-zinc-400">Entrada 2</div>
-                    <input
-                      type="time"
-                      value={editHoraE2}
-                      onChange={(e) => setEditHoraE2(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <div className="text-xs text-zinc-400">Saída 2</div>
-                    <input
-                      type="time"
-                      value={editHoraS2}
-                      onChange={(e) => setEditHoraS2(e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                    />
-                  </label>
+              <input ref={collaboratorInputRef} id="ah-collaborator-search" value={colabQuery} onChange={(event) => setColabQuery(event.target.value)} placeholder={selectedColabs.length ? "Adicionar outra pessoa…" : "Busque pelo nome"} autoComplete="off" />
+              {filteredCollaborators.length > 0 && (
+                <div className="ah-options ah-collaborator-options" role="listbox">
+                  {filteredCollaborators.map((item) => <button type="button" key={item.id} onClick={() => addCollaborator(item.id)} role="option" aria-selected="false"><b>{item.nome}</b><small>{item.cargo || "Colaborador ativo"}</small></button>)}
                 </div>
               )}
-
-              <label className="space-y-1">
-                <div className="text-xs text-zinc-400">Descrição</div>
-                <input
-                  value={editDescricao}
-                  onChange={(e) => setEditDescricao(e.target.value)}
-                  placeholder="Ex: Montagem painel, passagem de cabos..."
-                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                />
-              </label>
             </div>
+            <small>Selecione uma ou várias pessoas. O total informado será aplicado a cada uma.</small>
+          </div>
 
-            <div className="px-5 py-3 border-t border-zinc-800 bg-zinc-950 flex justify-end gap-2">
-              <button
-                onClick={() => setEditing(null)}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={salvarEdicao}
-                disabled={loading}
-                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
-              >
-                {loading ? "Salvando..." : "Salvar"}
-              </button>
+          <div className="ah-form-grid">
+            <div className="ah-field">
+              <label>Data</label>
+              <DateInputBR value={date} onChange={setDate} ariaLabel="Data do apontamento" />
+              <small className={dateValidation.fechada ? "is-danger" : ""}>{dateValidation.fechada ? dateValidation.motivo : weekdayFormatter.format(localDate(date))}</small>
             </div>
+            <div className="ah-field">
+              <label htmlFor="ah-hours">Horas por colaborador</label>
+              <input ref={hoursInputRef} id="ah-hours" value={hoursText} onChange={(event) => setHoursText(event.target.value)} placeholder="Ex.: 8,5 ou 8h30" inputMode="decimal" />
+              <small>{hours != null && hours > 0 ? `${formatHours(hours)} h · ${formatHoursClock(hours)}` : "Aceita decimal ou h:min"}</small>
+            </div>
+            <div className={`ah-field ah-type-field ${typeIsSpecial ? "is-special" : ""}`}>
+              <label htmlFor="ah-type">Tipo de hora</label>
+              <select ref={typeSelectRef} id="ah-type" value={typeId} onChange={(event) => { setTypeId(event.target.value); setTypeTouched(true); }}>
+                {tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao} (×{Number(item.fator).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})</option>)}
+              </select>
+              <small>{suggestion.reason}{typeTouched ? " Tipo alterado manualmente." : ""}</small>
+            </div>
+          </div>
+
+          {duplicates.length > 0 && (
+            <div className="ah-duplicate-warning">
+              <b>Possível duplicidade</b>
+              {duplicates.map((item) => <p key={item.id}>{item.colaborador_nome} já tem {formatHours(item.horas)} h lançadas nesta OS em {dateBR(date)}{item.tipo_codigo ? ` (${item.tipo_codigo})` : ""}. <a href={`#apontamento-${item.id}`}>Ver lançamento</a></p>)}
+              <small>O aviso não impede salvar, mas confirme se o trabalho não foi lançado antes.</small>
+            </div>
+          )}
+
+          <div className={`ah-field ${validationAttempted && !description.trim() ? "is-invalid" : ""}`}>
+            <label htmlFor="ah-description">Descrição do trabalho</label>
+            <input
+              ref={descriptionInputRef}
+              id="ah-description"
+              value={description}
+              onChange={(event) => {
+                setDescription(event.target.value);
+                if (event.target.value.trim()) {
+                  setValidationAttempted(false);
+                  setMessage(null);
+                }
+              }}
+              placeholder="Ex.: Montagem do painel e passagem de cabos"
+              aria-required="true"
+              aria-invalid={validationAttempted && !description.trim()}
+              aria-describedby={validationAttempted && !description.trim() ? "ah-description-error" : undefined}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                attemptSaveEntry();
+              }}
+            />
+            {validationAttempted && !description.trim() && <small id="ah-description-error" className="is-danger" role="alert">Informe a descrição do trabalho realizado.</small>}
+          </div>
+
+          <div className="ah-save-bar">
+            <div>
+              <span>RESUMO</span>
+              <strong>{selectedColabs.length || 0} colaborador{selectedColabs.length === 1 ? "" : "es"} × {formatHours(hours || 0)} h = {formatHours(totalHoursToCreate)} h</strong>
+              <small>{entriesToCreate.length > 1 ? entriesToCreate.map((item) => `${formatHours(item.horas)} h ${item.codigo}`).join(" + ") : selectedType ? `${selectedType.descricao} · ×${Number(selectedType.fator).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Selecione o tipo de hora"}</small>
+            </div>
+            <div className="ah-save-action"><span className={missingReason ? "is-missing" : ""} aria-live="polite">{missingReason || "Tudo pronto para salvar"}</span><button type="button" className="ah-button ah-button-primary" disabled={saving} onClick={attemptSaveEntry}>{saving ? "Salvando…" : `Salvar${selectedColabs.length > 1 ? ` ${selectedColabs.length} lançamentos` : ""}`}</button></div>
+          </div>
+        </section>
+      )}
+
+      <section className="ah-card ah-list-card" aria-labelledby="entries-title">
+        <div className="ah-list-head">
+          <div><span>LANÇAMENTOS</span><h2 id="entries-title">Horas no período</h2><p>{periodLabel} · {formatHours(totalPeriod)} h · {apontamentos.length} lançamento{apontamentos.length === 1 ? "" : "s"}</p></div>
+          <button type="button" className="ah-button" onClick={() => void loadEntries()} disabled={loading}>{loading ? "Atualizando…" : "Atualizar"}</button>
+        </div>
+
+        <div className="ah-filters">
+          <div className="ah-quick-period"><button type="button" onClick={() => { const now = todayISO(); setDateFrom(now); setDateTo(now); }}>Hoje</button><button type="button" onClick={setCurrentMonth}>Este mês</button></div>
+          <label><span>De</span><DateInputBR value={dateFrom} onChange={setDateFrom} ariaLabel="Data inicial" /></label>
+          <label><span>Até</span><DateInputBR value={dateTo} onChange={setDateTo} ariaLabel="Data final" /></label>
+          <label><span>OS</span><select value={filterOs} onChange={(event) => setFilterOs(event.target.value)}><option value="">Todas</option>{filterOsOptions.map((item) => <option key={item.id} value={item.id}>{item.numero_os || item.id}</option>)}</select></label>
+          <label><span>Colaborador</span><select value={filterColab} onChange={(event) => setFilterColab(event.target.value)}><option value="">Todos</option>{colaboradores.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+          <label><span>Tipo</span><select value={filterType} onChange={(event) => setFilterType(event.target.value)}><option value="">Todos</option>{tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select></label>
+          <label className="ah-search-filter"><span>Buscar</span><input value={filterSearchInput} onChange={(event) => setFilterSearchInput(event.target.value)} placeholder="OS, cliente ou descrição" /></label>
+        </div>
+
+        <div className="ah-entry-list" aria-busy={loading}>
+          {loading && apontamentos.length === 0 && <div className="ah-empty">Carregando apontamentos…</div>}
+          {!loading && groupedEntries.length === 0 && <div className="ah-empty"><b>Nenhum apontamento no período.</b><span>Ajuste os filtros ou registre um novo lançamento acima.</span></div>}
+          {groupedEntries.map(([groupDate, rows]) => {
+            const groupTotal = rows.reduce((sum, row) => sum + Number(row.horas || 0), 0);
+            return (
+              <div className="ah-day-group" key={groupDate}>
+                <div className="ah-day-header"><strong>{dateLongFormatter.format(localDate(groupDate))}</strong><span>{formatHours(groupTotal)} h · {rows.length} lançamento{rows.length === 1 ? "" : "s"}</span></div>
+                {rows.map((row) => {
+                  const podeEditar = canWrite && podeEditarApontamento(row, papelEmpresa, meuColaboradorId);
+                  const podeExcluir = canWrite && podeExcluirApontamento(row, meuColaboradorId);
+                  return <article id={`apontamento-${row.id}`} className={`ah-entry ${newIds.has(row.id) ? "is-new" : ""}`} key={row.id}>
+                    <div className="ah-entry-person"><b>{row.colaborador_nome}</b><small>{row.criado_por_nome ? `Lançado por ${row.criado_por_nome}` : "Autor não identificado"}{row.gerado_por_hh ? " · Origem HH" : ""}</small></div>
+                    <div className="ah-entry-hours"><b>{formatHours(row.horas)} h</b><small>{formatHoursClock(row.horas)}</small></div>
+                    <div className="ah-entry-type"><span className={(row.tipo_codigo || "NORMAL") === "NORMAL" ? "is-normal" : "is-extra"}>{row.tipo_codigo || "NORMAL"}</span><small>×{Number(row.fator_aplicado || 1).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</small></div>
+                    <div className="ah-entry-work"><b>OS {row.numero_os || row.os_id} · {row.cliente_nome || "Cliente não informado"}</b><small>{row.descricao || row.descricao_servico || "Sem descrição"}</small></div>
+                    <div className="ah-entry-status"><span>{row.status_aprovacao === "aprovado" ? "Aprovado" : row.status_aprovacao === "rejeitado" ? "Devolvido" : "Pendente"}</span></div>
+                    {canWrite && (row.gerado_por_hh || podeEditar || podeExcluir) && <div className="ah-row-actions">{row.gerado_por_hh ? <Link href={`/os/${row.os_id}`}>Abrir OS</Link> : <>{podeEditar && <button type="button" onClick={() => openEdit(row)}>Editar</button>}{podeExcluir && <button type="button" onClick={() => setDeleteTarget(row)}>Excluir</button>}</>}</div>}
+                  </article>
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {editing && (
+        <div className="ah-dialog-backdrop" role="presentation">
+          <div className="ah-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+            <div className="ah-dialog-head"><div><span>EDITAR LANÇAMENTO</span><h2 id="edit-title">{editing.colaborador_nome} · OS {editing.numero_os || editing.os_id}</h2></div><button type="button" onClick={() => setEditing(null)} aria-label="Fechar">×</button></div>
+            <div className="ah-dialog-body">
+              <div className="ah-form-grid">
+                <div className="ah-field"><label>Data</label><DateInputBR value={editDate} onChange={setEditDate} ariaLabel="Data do apontamento em edição" /></div>
+                <div className="ah-field"><label htmlFor="edit-hours">Horas</label><input id="edit-hours" value={editHours} onChange={(event) => setEditHours(event.target.value)} /></div>
+                <div className="ah-field"><label htmlFor="edit-type">Tipo</label><select id="edit-type" value={editType} onChange={(event) => setEditType(event.target.value)}>{tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao}</option>)}</select></div>
+              </div>
+              <div className="ah-field"><label htmlFor="edit-description">Descrição</label><input id="edit-description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></div>
+              {(editing.entrada_1 || editing.saida_1 || editing.entrada_2 || editing.saida_2) && <div className="ah-message is-info">Este registro possui horários de entrada e saída históricos. Esta edição altera o total, a data, o tipo e a descrição; os horários originais são preservados.</div>}
+            </div>
+            <div className="ah-dialog-actions"><button type="button" className="ah-button" onClick={() => setEditing(null)}>Cancelar</button><button type="button" className="ah-button ah-button-primary" disabled={saving} onClick={() => void saveEdit()}>{saving ? "Salvando…" : "Salvar alterações"}</button></div>
           </div>
         </div>
       )}
 
-      {showOsModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl">
-            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <div className="text-lg font-semibold">Buscar OS</div>
-                <div className="text-sm text-zinc-400">Digite numero da OS ou cliente para buscar.</div>
-              </div>
-              <button
-                onClick={() => setShowOsModal(false)}
-                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-              >
-                Fechar
-              </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-3">
-              <div className="space-y-1">
-                <div className="text-xs text-zinc-400">Buscar</div>
-                <input
-                  value={osSearch}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setOsSearch(value);
-                    if (osSearchDebounceRef.current) clearTimeout(osSearchDebounceRef.current);
-                    osSearchDebounceRef.current = setTimeout(() => {
-                      buscarOs(value);
-                    }, 300);
-                  }}
-                  placeholder="Ex: 43 ou nome do cliente"
-                  className="w-full px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100"
-                />
-              </div>
-
-              {osSearchLoading && <div className="text-sm text-zinc-400">Buscando...</div>}
-              {osSearchError && <div className="text-sm text-red-400">{osSearchError}</div>}
-
-              <div className="border border-zinc-800 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-zinc-900/70">
-                    <tr className="text-zinc-200">
-                      <th className="px-3 py-2 text-left">OS</th>
-                      <th className="px-3 py-2 text-left">Cliente</th>
-                      <th className="px-3 py-2 text-left">Descricao</th>
-                      <th className="px-3 py-2 text-center">Acao</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800">
-                    {osSearchResults.map((o) => (
-                      <tr key={o.id} className="hover:bg-zinc-900/40">
-                        <td className="px-3 py-2">{o.numero_os}</td>
-                        <td className="px-3 py-2">{o.cliente_nome || "-"}</td>
-                        <td className="px-3 py-2">{o.descricao_servico || "-"}</td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            onClick={() => {
-                              const numero = o.numero_os ?? String(o.id);
-                              setOsNumero(numero);
-                              setShowOsModal(false);
-                              if (o.numero_os) {
-                                fetchOsDescricao(o.numero_os);
-                              } else {
-                                fetchOsById(o.id);
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                          >
-                            Selecionar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!osSearchLoading && osSearchResults.length === 0 && osSearch.trim() !== "" && (
-                      <tr>
-                        <td colSpan={4} className="px-3 py-4 text-zinc-400">
-                          Nenhuma OS encontrada.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+      {deleteTarget && (
+        <div className="ah-dialog-backdrop" role="presentation">
+          <div className="ah-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+            <div className="ah-dialog-head"><div><span>CONFIRMAR EXCLUSÃO</span><h2 id="delete-title">Excluir este apontamento?</h2></div><button type="button" onClick={() => setDeleteTarget(null)} aria-label="Fechar">×</button></div>
+            <div className="ah-dialog-body"><p>Será excluído o lançamento de <b>{formatHours(deleteTarget.horas)} h</b> de <b>{deleteTarget.colaborador_nome}</b>, na OS <b>{deleteTarget.numero_os || deleteTarget.os_id}</b>, em <b>{dateBR(deleteTarget.data)}</b>.</p><small>A exclusão registra usuário, data e conteúdo anterior na auditoria.</small></div>
+            <div className="ah-dialog-actions"><button type="button" className="ah-button" onClick={() => setDeleteTarget(null)}>Cancelar</button><button type="button" className="ah-button ah-button-primary" disabled={saving} onClick={() => void deleteEntry()}>{saving ? "Excluindo…" : "Confirmar exclusão"}</button></div>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

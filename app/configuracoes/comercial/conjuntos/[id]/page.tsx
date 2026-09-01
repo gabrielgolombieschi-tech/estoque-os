@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/refs */
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -134,17 +135,6 @@ function formatNumberBR(value?: number | string | null): string {
   return parsed.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
 }
 
-function getSuggestedConjuntoItemUnitPrice(params: {
-  custoUltimaCompra?: number | string | null;
-  precoUnitario?: number | string | null;
-  margemLucroPadraoPercent?: number | string | null;
-}): number | null {
-  const custo = toFiniteNumber(params.custoUltimaCompra);
-  const preco = toFiniteNumber(params.precoUnitario);
-  if ((custo ?? 0) <= 0 && (preco ?? 0) <= 0) return null;
-  return getSuggestedOrcamentoUnitPrice(params);
-}
-
 function up(v: string): string {
   return String(v ?? "").toUpperCase();
 }
@@ -188,7 +178,6 @@ export default function ConjuntoEditPage() {
 
   const [conjunto, setConjunto] = useState<ConjuntoRow | null>(null);
   const [categoriaOptions, setCategoriaOptions] = useState<string[]>([]);
-  const [cfgMargemLucroPadraoPercent, setCfgMargemLucroPadraoPercent] = useState<number>(0);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [itens, setItens] = useState<ItemFormRow[]>([]);
   const removedItemIdsRef = useRef<Set<string>>(new Set());
@@ -241,19 +230,16 @@ export default function ConjuntoEditPage() {
     }
 
     let categorias = ["PAINEIS AUTOPORTANTE", "PAINEIS DE COMANDO"];
-    let margemLucroPadraoPercent = 0;
     try {
       let cfg = await getConfig(supabase, { tenantId, empresaId });
       if (!cfg) {
         cfg = await ensureConfig(supabase, { tenantId, empresaId });
       }
       categorias = getConjuntoCategorias(cfg);
-      margemLucroPadraoPercent = toFiniteNumber(cfg?.margem_lucro_padrao_percent) ?? 0;
     } catch {
       // Se a configuracao falhar, usa o fallback padrao para nao bloquear a tela.
     }
     setCategoriaOptions(categorias);
-    setCfgMargemLucroPadraoPercent(margemLucroPadraoPercent);
 
     if (isNew) {
       setLoading(true);
@@ -318,7 +304,7 @@ export default function ConjuntoEditPage() {
         });
       }
 
-      const loadedItems = its.map((r) => {
+      const loadedItems = await Promise.all(its.map(async (r) => {
         const itemIdNum = Number(r.item_id);
         const item = itemMap.get(itemIdNum);
         const itemCodigo = String(item?.codigo_interno ?? "").trim();
@@ -332,14 +318,12 @@ export default function ConjuntoEditPage() {
           item_codigo: itemCodigo,
           item_nome: itemNome,
           item_label: itemLabel,
-          item_preco_unitario: getSuggestedConjuntoItemUnitPrice({
-            custoUltimaCompra: item?.custo_ultima_compra,
-            precoUnitario: item?.preco_unitario,
-            margemLucroPadraoPercent: margemLucroPadraoPercent,
-          }),
+          item_preco_unitario: item?.id
+            ? await getSuggestedOrcamentoUnitPrice(supabase, { tenantId, empresaId, itemId: Number(item.id) })
+            : null,
           quantidade: r.quantidade === null || r.quantidade === undefined ? "" : String(r.quantidade),
         } satisfies ItemFormRow;
-      });
+      }));
 
       setItens(loadedItems);
       setInlineMode("add");
@@ -364,6 +348,7 @@ export default function ConjuntoEditPage() {
   }, [empresaId, idParam, isNew, supabase, te.loading, tenantId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -463,18 +448,13 @@ export default function ConjuntoEditPage() {
       }
 
       setLookupRows(
-        baseRows.map((row) => ({
+        await Promise.all(baseRows.map(async (row) => ({
           ...row,
           fornecedor: row.fornecedores?.nome ?? null,
           ultima_entrada: ultimaMap.get(row.id) ?? null,
           estoque_atual: stockMap.has(row.id) ? stockMap.get(row.id)! : null,
-          preco_sugerido:
-            getSuggestedConjuntoItemUnitPrice({
-              custoUltimaCompra: row.custo_ultima_compra,
-              precoUnitario: row.preco_unitario,
-              margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
-            }) ?? 0,
-        }))
+          preco_sugerido: await getSuggestedOrcamentoUnitPrice(supabase, { tenantId, empresaId, itemId: row.id }),
+        })))
       );
     } catch (e: unknown) {
       setLookupRows([]);
@@ -595,16 +575,14 @@ export default function ConjuntoEditPage() {
     [itens]
   );
 
-  const applyPickedItem = useCallback((localKey: string, it: ItemSuggest) => {
+  const applyPickedItem = useCallback(async (localKey: string, it: ItemSuggest) => {
     const id = Number(it.id);
     const codigo = String(it.codigo_interno ?? "").trim();
     const nome = String(it.nome ?? "").trim();
     const label = [codigo, nome].filter(Boolean).join(" â€” ") || String(id);
-    const precoUnitario = getSuggestedConjuntoItemUnitPrice({
-      custoUltimaCompra: it.custo_ultima_compra,
-      precoUnitario: it.preco_unitario,
-      margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
-    });
+    const precoUnitario = !supabase || !tenantId || !empresaId
+      ? null
+      : await getSuggestedOrcamentoUnitPrice(supabase, { tenantId, empresaId, itemId: id });
     setItens((p) =>
       p.map((r) =>
         r.localKey === localKey
@@ -619,18 +597,16 @@ export default function ConjuntoEditPage() {
     setLookupTargetKey(null);
     setLookupErr(null);
     setLookupRows([]);
-  }, [cfgMargemLucroPadraoPercent]);
+  }, [empresaId, supabase, tenantId]);
 
-  const pickSuggestion = useCallback((localKey: string, it: ItemSuggest) => {
+  const pickSuggestion = useCallback(async (localKey: string, it: ItemSuggest) => {
     const id = Number(it.id);
     const codigo = String(it.codigo_interno ?? "").trim();
     const nome = String(it.nome ?? "").trim();
     const label = [codigo, nome].filter(Boolean).join(" — ") || String(id);
-    const precoUnitario = getSuggestedConjuntoItemUnitPrice({
-      custoUltimaCompra: it.custo_ultima_compra,
-      precoUnitario: it.preco_unitario,
-      margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
-    });
+    const precoUnitario = !supabase || !tenantId || !empresaId
+      ? null
+      : await getSuggestedOrcamentoUnitPrice(supabase, { tenantId, empresaId, itemId: id });
     setItens((p) =>
       p.map((r) =>
         r.localKey === localKey
@@ -641,7 +617,7 @@ export default function ConjuntoEditPage() {
     setSuggestKey(null);
     setSuggestTerm("");
     setSuggestRows([]);
-  }, [cfgMargemLucroPadraoPercent]);
+  }, [empresaId, supabase, tenantId]);
 
   async function handleItemTokenEnter(localKey: string, rawValue: string) {
     const raw = String(rawValue ?? "").trim();
@@ -653,7 +629,7 @@ export default function ConjuntoEditPage() {
     try {
       const item = await resolveItemByCodigoOrId(raw);
       if (item?.id) {
-        applyPickedItem(localKey, {
+        await applyPickedItem(localKey, {
           id: item.id,
           codigo_interno: item.codigo_interno ?? null,
           nome: item.nome ?? null,
@@ -669,7 +645,7 @@ export default function ConjuntoEditPage() {
     openLookupModal(localKey, raw);
   }
 
-  const applyInlinePickedItem = useCallback((it: ItemSuggest) => {
+  const applyInlinePickedItem = useCallback(async (it: ItemSuggest) => {
     const id = Number(it.id);
     const codigo = String(it.codigo_interno ?? "").trim();
     const nome = String(it.nome ?? "").trim();
@@ -679,27 +655,23 @@ export default function ConjuntoEditPage() {
     setInlineItemCodigo(codigo);
     setInlineItemNome(nome);
     setInlineItemLabel(label);
-    setInlineItemPrecoUnitario(
-      getSuggestedConjuntoItemUnitPrice({
-        custoUltimaCompra: it.custo_ultima_compra,
-        precoUnitario: it.preco_unitario,
-        margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
-      })
-    );
+    setInlineItemPrecoUnitario(!supabase || !tenantId || !empresaId
+      ? null
+      : await getSuggestedOrcamentoUnitPrice(supabase, { tenantId, empresaId, itemId: id }));
     setInlineErr(null);
     window.requestAnimationFrame(() => {
       inlineQuantidadeInputRef.current?.focus();
       inlineQuantidadeInputRef.current?.select();
     });
-  }, [cfgMargemLucroPadraoPercent]);
+  }, [empresaId, supabase, tenantId]);
 
   const applyLookupSelection = useCallback(
-    (it: ItemSuggest) => {
+    async (it: ItemSuggest) => {
       if (!lookupTargetKey) return;
       if (lookupTargetKey === INLINE_LOOKUP_KEY) {
-        applyInlinePickedItem(it);
+        await applyInlinePickedItem(it);
       } else {
-        applyPickedItem(lookupTargetKey, it);
+        await applyPickedItem(lookupTargetKey, it);
       }
       setShowLookup(false);
       setLookupTargetKey(null);
@@ -801,7 +773,7 @@ export default function ConjuntoEditPage() {
     try {
       const item = await resolveItemByCodigoOrId(raw);
       if (item?.id) {
-        applyInlinePickedItem({
+        await applyInlinePickedItem({
           id: item.id,
           codigo_interno: item.codigo_interno ?? null,
           nome: item.nome ?? null,
@@ -963,7 +935,7 @@ export default function ConjuntoEditPage() {
         setBusy(false);
       }
     },
-    [conjunto?.id, empresaId, form, isNew, itens, load, router, supabase, tenantId]
+    [conjunto, empresaId, form, isNew, itens, load, router, supabase, tenantId]
   );
 
   if (!ready && permissionsLoading) {

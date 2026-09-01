@@ -51,6 +51,7 @@ type ItemLookupBaseRow = {
   fornecedor: string | null;
   ultima_entrada: string | null;
   estoque_atual: number | null;
+  preco_sugerido: number | null;
 };
 
 type EstoqueRow = { item_id: number; quantidade_atual: number | null };
@@ -425,7 +426,6 @@ export default function OrcamentoPage() {
 
   const [cfgDescontoMax, setCfgDescontoMax] = useState<number>(0);
   const [cfgCondPadraoId, setCfgCondPadraoId] = useState<string | null>(null);
-  const [cfgMargemLucroPadraoPercent, setCfgMargemLucroPadraoPercent] = useState<number>(0);
   const [condicoes, setCondicoes] = useState<Array<{ id: string; nome: string | null; acrescimo_percent: number | string | null }>>([]);
   const [vendedores, setVendedores] = useState<UsuarioLookupRow[]>([]);
 
@@ -508,6 +508,10 @@ export default function OrcamentoPage() {
   const statusLabel = getOrcamentoStatusLabel(statusRaw);
   const statusFollowup = String(orc?.observacoes ?? "").trim();
   const readOnly = isOrcamentoReadOnly(statusRaw);
+  const suggestedTipoDocumento = useMemo<"OS" | "OV">(
+    () => (itens.some((item) => String(item.item_tipo ?? "").toUpperCase() === "SERVICO") ? "OS" : "OV"),
+    [itens]
+  );
 
   const inlineAcrescimoCondPagPercent = useMemo(() => {
     const id = form?.condicao_pagamento_id ?? null;
@@ -529,30 +533,28 @@ export default function OrcamentoPage() {
       ]);
       setCfgDescontoMax(n(cfg.desconto_max_percent));
       setCfgCondPadraoId(cfg.condicao_pagamento_padrao_id ?? null);
-      setCfgMargemLucroPadraoPercent(n(cfg.margem_lucro_padrao_percent));
       setCondicoes(cps.map((c) => ({ id: c.id, nome: c.nome ?? null, acrescimo_percent: c.acrescimo_percent ?? 0 })));
       setVendedores(vends);
     } catch {
       setCfgDescontoMax(0);
       setCfgCondPadraoId(null);
-      setCfgMargemLucroPadraoPercent(0);
       setCondicoes([]);
       setVendedores([]);
     }
   }, [empresaId, supabase, te.loading, te.refreshing, tenantId]);
 
   const defaultValorUnitarioFromItem = useCallback(
-    (item: ItemByIdRow | null): string => {
-      if (!item?.id) return "0";
-      const computed = getSuggestedOrcamentoUnitPrice({
-        custoUltimaCompra: item.custo_ultima_compra,
-        precoUnitario: item.preco_unitario,
-        margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
+    async (item: ItemByIdRow | null): Promise<string> => {
+      if (!item?.id || !supabase || !tenantId || !empresaId) return "0";
+      const computed = await getSuggestedOrcamentoUnitPrice(supabase, {
+        tenantId,
+        empresaId,
+        itemId: item.id,
       });
       if (!Number.isFinite(computed) || computed < 0) return "0";
       return computed.toFixed(2);
     },
-    [cfgMargemLucroPadraoPercent]
+    [empresaId, supabase, tenantId]
   );
 
   // Para itens vendidos por peso (KG, ex.: chapas), a quantidade nao e "1
@@ -960,7 +962,7 @@ export default function OrcamentoPage() {
           const isGenerico = String(item.codigo_interno ?? "").trim().toUpperCase() === "9999";
           setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
         }
-        if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+        if (!inlineEditingItemId) setInlineValorUnitario(await defaultValorUnitarioFromItem(item));
         if (!inlineEditingItemId) setInlineQuantidade(defaultQuantidadeFromItem(item));
       } catch {
         if (reqId !== inlineItemReqRef.current) return;
@@ -1138,11 +1140,7 @@ export default function OrcamentoPage() {
           nome: r.nome,
           fornecedor: r.fornecedor,
           ultima_entrada: r.ultima_entrada,
-          preco_unitario: getSuggestedOrcamentoUnitPrice({
-            custoUltimaCompra: r.custo_ultima_compra,
-            precoUnitario: r.preco_unitario,
-            margemLucroPadraoPercent: cfgMargemLucroPadraoPercent,
-          }),
+          preco_unitario: Number(r.preco_sugerido ?? 0),
           estoque_atual: r.estoque_atual === null ? null : Number(r.estoque_atual),
         }))
       );
@@ -1397,7 +1395,7 @@ export default function OrcamentoPage() {
         setInlineItem(item);
         setInlineErr(null);
         setInlineDescricaoLivre(textoLivre);
-        if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+        if (!inlineEditingItemId) setInlineValorUnitario(await defaultValorUnitarioFromItem(item));
         if (!inlineEditingItemId) setInlineQuantidade(defaultQuantidadeFromItem(item));
         window.requestAnimationFrame(() => {
           inlineQuantidadeInputRef.current?.focus();
@@ -1428,7 +1426,7 @@ export default function OrcamentoPage() {
         const isGenerico = String(item.codigo_interno ?? "").trim().toUpperCase() === "9999";
         setInlineDescricaoLivre(isGenerico ? "" : String(item.descricao ?? item.nome ?? ""));
       }
-      if (!inlineEditingItemId) setInlineValorUnitario(defaultValorUnitarioFromItem(item));
+      if (!inlineEditingItemId) setInlineValorUnitario(await defaultValorUnitarioFromItem(item));
       if (!inlineEditingItemId) setInlineQuantidade(defaultQuantidadeFromItem(item));
       window.requestAnimationFrame(() => {
         inlineQuantidadeInputRef.current?.focus();
@@ -1730,10 +1728,11 @@ export default function OrcamentoPage() {
           abrirOs: payload.abrirOs,
           importarItensOs: payload.importarItensOs,
           responsavelAprovacaoId: payload.responsavelAprovacaoId,
+          tipoDocumento: payload.tipoDocumento,
         });
         setStatusDialog({ open: false });
         if (payload.abrirOs && result.osId) {
-          router.push(`/os/${result.osId}`);
+          router.push(payload.tipoDocumento === "OV" ? `/comercial/vendas/${result.osId}` : `/os/${result.osId}`);
           return;
         }
         setOk(`Status atualizado para ${getOrcamentoStatusLabel(payload.status)}.`);
@@ -3477,6 +3476,7 @@ export default function OrcamentoPage() {
           initialValorFechado={orc?.valor_fechado}
           valorOrcado={orc?.total_liquido}
           canOpenOs={canOpenOs}
+          suggestedTipoDocumento={suggestedTipoDocumento}
           tenantId={tenantId}
           empresaId={empresaId}
           onCancel={closeStatusDialog}

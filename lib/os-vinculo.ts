@@ -4,6 +4,8 @@ import { applyTenantEmpresa } from "@/lib/db/scopes";
 export type OsLookupRow = {
   id: number;
   numero_os: string | null;
+  codigo: string | null;
+  tipo_documento: "OS" | "OV" | null;
   cliente_nome: string | null;
   descricao_servico: string | null;
   status: string | null;
@@ -12,6 +14,8 @@ export type OsLookupRow = {
 export type OsSelection = {
   id: number;
   numeroOs: string;
+  codigo: string;
+  tipoDocumento: "OS" | "OV";
   clienteNome: string;
   descricao: string;
   status: string | null;
@@ -26,9 +30,13 @@ type ScopedParams = {
 const OS_SEARCH_FETCH_LIMIT = 300;
 
 export function normalizeOsSelection(row: OsLookupRow): OsSelection {
+  const tipoDocumento = row.tipo_documento === "OV" ? "OV" : "OS";
+  const numeroOs = String(row.numero_os ?? row.id);
   return {
     id: Number(row.id),
-    numeroOs: String(row.numero_os ?? row.id),
+    numeroOs,
+    codigo: String(row.codigo ?? "").trim() || `${tipoDocumento} ${numeroOs}`,
+    tipoDocumento,
     clienteNome: String(row.cliente_nome ?? "").trim(),
     descricao: String(row.descricao_servico ?? "").trim(),
     status: row.status ? String(row.status) : null,
@@ -48,7 +56,7 @@ function normalizeSearchText(raw: string): string {
 
 function buildSearchableOsText(selection: OsSelection): string {
   return normalizeSearchText(
-    [selection.id, selection.numeroOs, selection.clienteNome, selection.descricao, selection.status]
+    [selection.id, selection.numeroOs, selection.codigo, selection.tipoDocumento, selection.clienteNome, selection.descricao, selection.status]
       .filter(Boolean)
       .join(" ")
   );
@@ -65,7 +73,7 @@ export async function fetchOsSelectionById({
   const { data, error } = await applyTenantEmpresa(
     supabase
       .from("ordens_servico")
-      .select("id,numero_os,cliente_nome,descricao_servico,status")
+      .select("id,numero_os,codigo,tipo_documento,cliente_nome,descricao_servico,status")
       .eq("id", Number(osId))
       .maybeSingle(),
     tenantId,
@@ -88,8 +96,8 @@ export async function fetchOsSelectionByExactInput({
   const byNumero = await applyTenantEmpresa(
     supabase
       .from("ordens_servico")
-      .select("id,numero_os,cliente_nome,descricao_servico,status")
-      .eq("numero_os", normalized)
+      .select("id,numero_os,codigo,tipo_documento,cliente_nome,descricao_servico,status")
+      .or(`numero_os.eq.${normalized},codigo.eq.${normalized}`)
       .neq("status", "cancelada")
       .maybeSingle(),
     tenantId,
@@ -126,7 +134,7 @@ export async function searchOsSelections({
   const { data, error } = await applyTenantEmpresa(
     supabase
       .from("ordens_servico")
-      .select("id,numero_os,cliente_nome,descricao_servico,status")
+      .select("id,numero_os,codigo,tipo_documento,cliente_nome,descricao_servico,status")
       .in("status", ["aberta", "em_andamento"])
       .order("id", { ascending: false })
       .limit(fetchLimit),

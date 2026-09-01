@@ -31,7 +31,7 @@ export default function OsVinculoField({
   value,
   onChange,
   disabled = false,
-  label = "OS vinculada",
+  label = "OS/OV vinculada",
   helperText,
 }: {
   tenantId: string;
@@ -43,7 +43,7 @@ export default function OsVinculoField({
   helperText?: string;
 }) {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const [inputValue, setInputValue] = useState<string>(value?.numeroOs ?? "");
+  const [inputValue, setInputValue] = useState<string>(value?.codigo ?? "");
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lookupOpen, setLookupOpen] = useState(false);
@@ -53,8 +53,8 @@ export default function OsVinculoField({
   const [lookupRows, setLookupRows] = useState<OsSelection[]>([]);
 
   useEffect(() => {
-    setInputValue(value?.numeroOs ?? "");
-  }, [value?.id, value?.numeroOs]);
+    setInputValue(value?.codigo ?? "");
+  }, [value?.codigo, value?.id]);
 
   useEffect(() => {
     if (!lookupOpen) return;
@@ -110,12 +110,12 @@ export default function OsVinculoField({
       });
 
       if (!resolved) {
-        setError(`OS nao encontrada: ${raw}`);
+        setError(`OS/OV não encontrada: ${raw}`);
         return;
       }
 
       onChange(resolved);
-      setInputValue(resolved.numeroOs);
+      setInputValue(resolved.codigo);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao validar OS.");
     } finally {
@@ -152,7 +152,7 @@ export default function OsVinculoField({
               const nextValue = event.target.value;
               setInputValue(nextValue);
               setError(null);
-              if (value && nextValue.trim() !== value.numeroOs) onChange(null);
+              if (value && nextValue.trim() !== value.codigo) onChange(null);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -160,7 +160,7 @@ export default function OsVinculoField({
                 void resolveTypedValue();
               }
             }}
-            placeholder="Digite o numero da OS ou ID interno"
+            placeholder="Digite o código da OS/OV ou ID interno"
             disabled={disabled || resolving}
             className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-700 disabled:opacity-60"
           />
@@ -177,7 +177,7 @@ export default function OsVinculoField({
             onClick={() => {
               if (disabled) return;
               setLookupOpen(true);
-              setLookupTerm(value?.numeroOs ?? inputValue.trim());
+              setLookupTerm(value?.codigo ?? inputValue.trim());
               setLookupError(null);
             }}
             disabled={disabled}
@@ -192,7 +192,7 @@ export default function OsVinculoField({
         {value ? (
           <div className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-sm font-medium text-zinc-100">OS {value.numeroOs}</div>
+              <div className={`text-sm font-medium ${value.tipoDocumento === "OV" ? "text-violet-300" : "text-zinc-100"}`}>{value.codigo}</div>
               <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${statusBadgeClass(value.status)}`}>
                 {statusLabel(value.status)}
               </span>
@@ -202,7 +202,7 @@ export default function OsVinculoField({
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-zinc-800 px-3 py-2 text-sm text-zinc-500">
-            Nenhuma OS vinculada.
+            Nenhuma OS/OV vinculada.
           </div>
         )}
 
@@ -220,9 +220,9 @@ export default function OsVinculoField({
             <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl">
               <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
                 <div>
-                  <div className="text-lg font-semibold text-zinc-100">Pesquisar OS</div>
+                  <div className="text-lg font-semibold text-zinc-100">Pesquisar OS/OV</div>
                   <div className="text-sm text-zinc-400">
-                    Busque por numero, cliente ou descricao. Sem filtro, mostra as OS abertas e em andamento.
+                    Busque por código, número, cliente ou descrição. Sem filtro, mostra os documentos em andamento.
                   </div>
                 </div>
                 <button
@@ -250,7 +250,7 @@ export default function OsVinculoField({
                   <table className="w-full text-sm">
                     <thead className="bg-zinc-900/70 text-zinc-200">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">OS</th>
+                        <th className="px-3 py-2 text-left font-medium">Documento</th>
                         <th className="px-3 py-2 text-left font-medium">Cliente</th>
                         <th className="px-3 py-2 text-left font-medium">Descricao</th>
                         <th className="px-3 py-2 text-left font-medium">Status</th>
@@ -260,7 +260,7 @@ export default function OsVinculoField({
                     <tbody className="divide-y divide-zinc-800">
                       {lookupRows.map((row) => (
                         <tr key={row.id} className="hover:bg-zinc-900/40">
-                          <td className="px-3 py-2 text-zinc-100">{row.numeroOs}</td>
+                          <td className={`px-3 py-2 ${row.tipoDocumento === "OV" ? "text-violet-300" : "text-zinc-100"}`}>{row.codigo}</td>
                           <td className="px-3 py-2 text-zinc-200">{row.clienteNome || "-"}</td>
                           <td className="px-3 py-2 text-zinc-400">{row.descricao || "-"}</td>
                           <td className="px-3 py-2">
@@ -273,7 +273,7 @@ export default function OsVinculoField({
                               type="button"
                               onClick={() => {
                                 onChange(row);
-                                setInputValue(row.numeroOs);
+                                setInputValue(row.codigo);
                                 setError(null);
                                 setLookupOpen(false);
                               }}
@@ -288,7 +288,7 @@ export default function OsVinculoField({
                       {!lookupLoading && !lookupError && lookupRows.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="px-3 py-4 text-zinc-400">
-                            {lookupTerm.trim() ? "Nenhuma OS encontrada." : "Nenhuma OS aberta encontrada."}
+                            {lookupTerm.trim() ? "Nenhuma OS/OV encontrada." : "Nenhum documento em andamento encontrado."}
                           </td>
                         </tr>
                       ) : null}

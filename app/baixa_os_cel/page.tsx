@@ -278,6 +278,7 @@ export default function BaixaOsCelPage() {
     const { data, error: queryError } = await supabase
       .from("ordens_servico")
       .select("id,descricao_servico,status,cliente_nome,cliente_id")
+      .eq("tipo_documento", "OS")
       .eq("numero_os", normalized)
       .maybeSingle();
 
@@ -345,6 +346,7 @@ export default function BaixaOsCelPage() {
     let query = supabase
       .from("ordens_servico")
       .select("id,numero_os,cliente_nome,descricao_servico,status")
+      .eq("tipo_documento", "OS")
       .order("id", { ascending: false })
       .limit(50)
       .eq("status", "em_andamento");

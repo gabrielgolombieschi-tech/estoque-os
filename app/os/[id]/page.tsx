@@ -15,8 +15,10 @@ import { calcHhPedidoTotal, getHorasTrabalhadasEfetivas, getValorTotalEfetivo } 
 import ResponsavelAprovacaoSelect from "@/components/os/ResponsavelAprovacaoSelect";
 import { createOrcamento } from "@/lib/comercial/orcamentos.service";
 import { ensureConfig } from "@/src/services/configOrcamento";
+import { getOsStatusLabel, isOsStatusLocked, normalizeOsStatusFluxo } from "@/lib/os/statusFluxo";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
+type ClienteUnidade = { id: number; cliente_id: number; nome: string; codigo: string | null };
 
 type OsClienteRow = {
   cliente_id: number | null;
@@ -28,7 +30,12 @@ type OS = {
   numero_os: string;
   cliente_nome: string;
   cliente_id?: number | null;
+  unidade_id?: number | null;
   status: "aberta" | "em_andamento" | "concluida" | "cancelada";
+  status_fluxo?: string | null;
+  faturado_em?: string | null;
+  faturada_presumida_legado?: boolean | null;
+  garantia_motivo?: string | null;
   descricao_servico: string | null;
   valor_total: number;
   data_abertura: string;
@@ -152,7 +159,10 @@ type LookupSearchTerm = {
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   em_andamento: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  concluida: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  concluida: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  faturada: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  em_andamento_garantia: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  concluida_garantia: "bg-violet-500/15 text-violet-300 border-violet-500/30",
   cancelada: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
@@ -342,6 +352,9 @@ export default function OsDetailPage() {
   const readOnly = !canWriteOs;
   const hideCustos = detailAccess.hideCustos;
   const hideTotais = detailAccess.hideTotais;
+  const papelNormalizado = String(empresaPapel ?? "").trim().toUpperCase();
+  const canConcluirFluxo = ["ADMIN", "DIRETOR", "COORDENACAO"].includes(papelNormalizado);
+  const canFaturarFluxo = papelNormalizado === "FINANCEIRO";
 
   const [os, setOs] = useState<OS | null>(null);
   const [rows, setRows] = useState<OsItemRow[]>([]);
@@ -359,6 +372,7 @@ export default function OsDetailPage() {
   const [printingItens, setPrintingItens] = useState(false);
   const [printingOs, setPrintingOs] = useState(false);
   const [isConcluding, setIsConcluding] = useState(false);
+  const [isFaturando, setIsFaturando] = useState(false);
   const [showGestaoModal, setShowGestaoModal] = useState(false);
   const [temGestao, setTemGestao] = useState(false);
   const [gestaoItems, setGestaoItems] = useState<GestaoItem[]>([]);
@@ -369,12 +383,14 @@ export default function OsDetailPage() {
   const [hhTotal, setHhTotal] = useState<number>(0);
   const [hhPedido, setHhPedido] = useState<number>(0);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteUnidades, setClienteUnidades] = useState<ClienteUnidade[]>([]);
   const [clienteHabilitaHH, setClienteHabilitaHH] = useState(false);
 
   const [showEdit, setShowEdit] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editErr, setEditErr] = useState<string | null>(null);
   const [clienteId, setClienteId] = useState<number | null>(null);
+  const [unidadeId, setUnidadeId] = useState<number | null>(null);
   const [clienteNomeLivre, setClienteNomeLivre] = useState("");
   const [descricao, setDescricao] = useState("");
   const [pedidoCompra, setPedidoCompra] = useState("");
@@ -383,6 +399,26 @@ export default function OsDetailPage() {
   const [responsavelAprovacaoId, setResponsavelAprovacaoId] = useState<string | null>(null);
   const [orcadoInput, setOrcadoInput] = useState("");
   const [usaRelatorioHH, setUsaRelatorioHH] = useState(false);
+
+  useEffect(() => {
+    if (!clienteId || !effectiveTenantId || !effectiveEmpresaId) {
+      return;
+    }
+    let active = true;
+    void (async () => {
+      const { data, error } = await applyTenantEmpresa(
+        supabase.from("cliente_unidades").select("id,cliente_id,nome,codigo").eq("cliente_id", clienteId).eq("ativo", true).order("nome"),
+        effectiveTenantId,
+        effectiveEmpresaId
+      );
+      if (!active) return;
+      if (error) { setClienteUnidades([]); setUnidadeId(null); return; }
+      const next = (data ?? []) as ClienteUnidade[];
+      setClienteUnidades(next);
+      setUnidadeId((current) => current && next.some((row) => row.id === current) ? current : null);
+    })();
+    return () => { active = false; };
+  }, [clienteId, effectiveEmpresaId, effectiveTenantId, supabase]);
 
   // Gerar/atualizar orcamento a partir de OS Fiado
   const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
@@ -449,7 +485,8 @@ export default function OsDetailPage() {
     []
   );
 
-  const locked = readOnly || os?.status === "concluida" || os?.status === "cancelada";
+  const statusExibicao = normalizeOsStatusFluxo(os?.status_fluxo, os?.status);
+  const locked = readOnly || isOsStatusLocked(statusExibicao);
   const formatMoney = (v: number) =>
     Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -1432,14 +1469,22 @@ export default function OsDetailPage() {
     const { data: responsavelData } = await applyTenantEmpresa(
       supabase
         .from("ordens_servico")
-        .select("responsavel_aprovacao_id")
+        .select("responsavel_aprovacao_id,status_fluxo,faturado_em,faturada_presumida_legado,garantia_motivo,unidade_id")
         .eq("id", osRow.id)
         .maybeSingle(),
       effectiveTenantId,
       effectiveEmpresaId
     );
     const responsavelAprovacaoId = String(responsavelData?.responsavel_aprovacao_id ?? "").trim() || null;
-    setOs({ ...osRow, responsavel_aprovacao_id: responsavelAprovacaoId });
+    setOs({
+      ...osRow,
+      responsavel_aprovacao_id: responsavelAprovacaoId,
+      status_fluxo: responsavelData?.status_fluxo ?? null,
+      faturado_em: responsavelData?.faturado_em ?? null,
+      faturada_presumida_legado: responsavelData?.faturada_presumida_legado ?? false,
+      garantia_motivo: responsavelData?.garantia_motivo ?? null,
+      unidade_id: responsavelData?.unidade_id ?? null,
+    });
     setTemGestao(Boolean(osRow.tem_gestao));
 
     setClienteHabilitaHH(Boolean(payload.cliente_habilita_hh));
@@ -1485,6 +1530,7 @@ export default function OsDetailPage() {
     if (!os) return;
     setShowEdit(true);
     setClienteId(os.cliente_id ?? null);
+    setUnidadeId(os.unidade_id ?? null);
     setClienteNomeLivre(os.cliente_nome ?? "");
     setDescricao((os.descricao_servico ?? "").toLocaleUpperCase("pt-BR"));
     setPedidoCompra(os.pedido_compra ?? "");
@@ -1527,6 +1573,7 @@ export default function OsDetailPage() {
     const { error } = await applyTenant(
       supabase.from("ordens_servico").update({
         cliente_id: clienteId,
+        unidade_id: unidadeId,
         cliente_nome: clienteNomeFinal,
         descricao_servico: descricao.trim() ? descricao.trim().toLocaleUpperCase("pt-BR") : null,
         pedido_compra: pedidoCompra.trim() || null,
@@ -1680,10 +1727,14 @@ export default function OsDetailPage() {
     };
     if (newStatus === "concluida") patch.data_conclusao = new Date().toISOString();
 
-    const { error } = await supabase
-      .from("ordens_servico")
-      .update(patch)
-      .eq("id", os.id);
+    const { error } = await applyTenantEmpresa(
+      supabase
+        .from("ordens_servico")
+        .update(patch)
+        .eq("id", os.id),
+      effectiveTenantId,
+      effectiveEmpresaId
+    );
 
     setBusy(false);
     if (error) return setErr(error.message);
@@ -1693,7 +1744,12 @@ export default function OsDetailPage() {
 
   async function concluirOs() {
     if (!os) return;
-    const ok = confirm("Concluir OS? Isso marcará projetos e execução como 100%.");
+    const emGarantia = statusExibicao === "em_andamento_garantia";
+    const ok = confirm(
+      emGarantia
+        ? "Concluir a garantia desta OS?"
+        : "Concluir OS? Ela ficará aguardando faturamento e projetos e execução serão marcados como 100%."
+    );
     if (!ok) return;
 
     setIsConcluding(true);
@@ -1710,7 +1766,28 @@ export default function OsDetailPage() {
       return;
     }
 
-    setOkMsg("OS concluída");
+    setOkMsg(emGarantia ? "Garantia concluída." : "OS concluída e aguardando faturamento.");
+    await load();
+  }
+
+  async function faturarOs() {
+    if (!os) return;
+    const ok = confirm("Faturar esta OS? É necessário haver NF-e ou NFS-e emitida e vinculada.");
+    if (!ok) return;
+
+    setIsFaturando(true);
+    setErr(null);
+    setOkMsg(null);
+
+    const { error } = await supabase.rpc("os_faturar", { p_os_id: Number(os.id) });
+
+    setIsFaturando(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+
+    setOkMsg("OS faturada.");
     await load();
   }
 
@@ -2210,14 +2287,14 @@ export default function OsDetailPage() {
                 : "Carregando..."}
             </h1>
 
-            {os?.status && (
+            {os && (
               <span
                 className={[
                   "inline-flex items-center px-2 py-1 rounded-md border text-xs",
-                  statusBadge[os.status] ?? "bg-zinc-500/10 text-zinc-300 border-zinc-500/30",
+                  statusBadge[statusExibicao ?? ""] ?? "bg-zinc-500/10 text-zinc-300 border-zinc-500/30",
                 ].join(" ")}
               >
-                {os.status}
+                {getOsStatusLabel(statusExibicao)}
               </span>
             )}
           </div>
@@ -2287,29 +2364,49 @@ export default function OsDetailPage() {
             Projetos
           </button>
 
-          <button
-            onClick={concluirOs}
-            disabled={busy || locked || isConcluding}
-            className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
-          >
-            {isConcluding ? "Concluindo..." : "Concluir"}
-          </button>
+          {(statusExibicao === "em_andamento" || statusExibicao === "em_andamento_garantia") && canConcluirFluxo && (
+            <button
+              onClick={concluirOs}
+              disabled={busy || isConcluding}
+              className="px-3 py-2 rounded-md bg-sky-300 text-sky-950 hover:bg-sky-200 font-medium"
+            >
+              {isConcluding
+                ? "Concluindo..."
+                : statusExibicao === "em_andamento_garantia"
+                  ? "Concluir garantia"
+                  : "Concluir OS"}
+            </button>
+          )}
 
-          <button
-            onClick={() => setStatus("em_andamento")}
-            disabled={busy || readOnly || isConcluding}
-            className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-          >
-            Em andamento
-          </button>
+          {statusExibicao === "concluida" && canConcluirFluxo && (
+            <button
+              onClick={() => setStatus("em_andamento")}
+              disabled={busy || isConcluding}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+            >
+              Reabrir para correção
+            </button>
+          )}
 
-          <button
-            onClick={() => setStatus("cancelada")}
-            disabled={busy || locked || isConcluding}
-            className="px-3 py-2 rounded-md bg-red-300 text-red-950 hover:bg-red-200 font-medium"
-          >
-            Cancelar
-          </button>
+          {statusExibicao === "concluida" && canFaturarFluxo && (
+            <button
+              onClick={faturarOs}
+              disabled={busy || isFaturando}
+              className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+            >
+              {isFaturando ? "Faturando..." : "Faturar OS"}
+            </button>
+          )}
+
+          {!locked && (
+            <button
+              onClick={() => setStatus("cancelada")}
+              disabled={busy || isConcluding}
+              className="px-3 py-2 rounded-md bg-red-300 text-red-950 hover:bg-red-200 font-medium"
+            >
+              Cancelar
+            </button>
+          )}
 
           {isFiado && canWriteOs && (
             <button
@@ -2325,7 +2422,7 @@ export default function OsDetailPage() {
 
       {locked && (
         <div className="border border-zinc-800 rounded-xl p-3 bg-zinc-950 text-sm text-zinc-300">
-          Esta OS está <b>{os?.status}</b>. Edição bloqueada.
+          Esta OS está <b>{getOsStatusLabel(statusExibicao)}</b>. Edição bloqueada.
         </div>
       )}
 
@@ -2597,6 +2694,7 @@ export default function OsDetailPage() {
                   onChange={(e) => {
                     const nextId = e.target.value ? Number(e.target.value) : null;
                     setClienteId(nextId);
+                    setUnidadeId(null);
 
                     let nextHabilita = false;
                     if (nextId) {
@@ -2616,6 +2714,20 @@ export default function OsDetailPage() {
                       {c.nome}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-zinc-400">Unidade / fábrica</div>
+                <select
+                  className="w-full px-3 py-2"
+                  value={unidadeId ?? ""}
+                  onChange={(e) => setUnidadeId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={!clienteId || clienteUnidades.length === 0}
+                  aria-label="Unidade ou fábrica do cliente"
+                >
+                  <option value="">Sem unidade</option>
+                  {clienteUnidades.map((unidade) => <option key={unidade.id} value={unidade.id}>{unidade.nome}{unidade.codigo ? ` (${unidade.codigo})` : ""}</option>)}
                 </select>
               </div>
 
@@ -3185,6 +3297,7 @@ export default function OsDetailPage() {
                     onChange={(e) => {
                       const nextId = e.target.value ? Number(e.target.value) : null;
                       setClienteId(nextId);
+                      setUnidadeId(null);
 
                       let nextHabilita = false;
                       if (nextId) {
@@ -3202,6 +3315,20 @@ export default function OsDetailPage() {
                         {c.nome}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs text-zinc-400">Unidade / fábrica</div>
+                  <select
+                    aria-label="Unidade ou fábrica do cliente"
+                    className="w-full px-3 py-2"
+                    value={unidadeId ?? ""}
+                    onChange={(e) => setUnidadeId(e.target.value ? Number(e.target.value) : null)}
+                    disabled={!clienteId || clienteUnidades.length === 0}
+                  >
+                    <option value="">Sem unidade</option>
+                    {clienteUnidades.map((unidade) => <option key={unidade.id} value={unidade.id}>{unidade.nome}{unidade.codigo ? ` (${unidade.codigo})` : ""}</option>)}
                   </select>
                 </div>
 

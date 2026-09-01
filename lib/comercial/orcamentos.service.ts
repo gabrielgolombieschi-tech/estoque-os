@@ -593,6 +593,7 @@ export async function atualizarStatusOrcamento(
     abrirOs?: boolean;
     importarItensOs?: boolean;
     responsavelAprovacaoId?: string | null;
+    tipoDocumento?: "OS" | "OV" | null;
   }
 ): Promise<{
   osId: number | null;
@@ -610,6 +611,7 @@ export async function atualizarStatusOrcamento(
     p_abrir_os: params.abrirOs ?? false,
     p_importar_itens_os: params.importarItensOs ?? false,
     p_responsavel_aprovacao_id: params.responsavelAprovacaoId ?? null,
+    p_tipo_documento: params.tipoDocumento ?? null,
   });
 
   if (error) throw error;

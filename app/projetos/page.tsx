@@ -128,7 +128,10 @@ export default function ProjetosPage() {
         for (let start = 0; start < osIds.length; start += 200) {
           const chunk = osIds.slice(start, start + 200);
           const { data: chunkData, error: osErr } = await applyTenantEmpresa(
-            supabase.from("ordens_servico").select("id,numero_os,cliente_nome,descricao_servico,status,data_conclusao"),
+            supabase
+              .from("ordens_servico")
+              .select("id,numero_os,cliente_nome,descricao_servico,status,data_conclusao")
+              .eq("tipo_documento", "OS"),
             effectiveTenantId,
             empresaId ?? ""
           ).in("id", chunk);

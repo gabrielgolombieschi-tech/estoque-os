@@ -1,4 +1,5 @@
 import { isOrcamentoEditableStatus } from "@/lib/comercial/status";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type SupabaseErrorLike = { code?: string; message?: string } | null | undefined;
 
@@ -21,17 +22,18 @@ export function n(value: unknown): number {
   return 0;
 }
 
-export function getSuggestedOrcamentoUnitPrice(params: {
-  custoUltimaCompra?: number | string | null;
-  precoUnitario?: number | string | null;
-  margemLucroPadraoPercent?: number | string | null;
-}): number {
-  const margem = Math.max(0, n(params.margemLucroPadraoPercent));
-  const custo = n(params.custoUltimaCompra);
-  const preco = n(params.precoUnitario);
-  const base = Number.isFinite(custo) && custo > 0 ? custo : preco;
-  if (!Number.isFinite(base) || base <= 0) return 0;
-  return Number((base * (1 + margem / 100)).toFixed(2));
+export async function getSuggestedOrcamentoUnitPrice(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; itemId: number }
+): Promise<number> {
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_preco_sugerido_item_por_id", {
+    p_tenant_id: params.tenantId,
+    p_empresa_id: params.empresaId,
+    p_item_id: params.itemId,
+  });
+  if (error) throw error;
+  const value = n(data);
+  return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 export function upperTrim(v: string): string {

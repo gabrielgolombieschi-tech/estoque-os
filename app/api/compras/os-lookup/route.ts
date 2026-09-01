@@ -22,6 +22,8 @@ type OsLookupRow = {
   id: number;
   numero_os: string | number | null;
   os_num: number | null;
+  tipo_documento: "OS" | "OV";
+  codigo: string | null;
   cliente_nome: string | null;
   descricao_servico: string | null;
   status: string | null;
@@ -49,13 +51,13 @@ function mergeRows(groups: OsLookupRow[][]): OsLookupRow[] {
 
 async function searchTextColumn(
   db: DbClient,
-  column: "numero_os" | "cliente_nome" | "descricao_servico",
+  column: "numero_os" | "codigo" | "cliente_nome" | "descricao_servico",
   ctx: { tenantId: string; empresaId: string },
   term: string
 ) {
   const { data, error } = await db
     .from("ordens_servico")
-    .select("id,numero_os,os_num,cliente_nome,descricao_servico,status")
+    .select("id,numero_os,os_num,tipo_documento,codigo,cliente_nome,descricao_servico,status")
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
     .ilike(column, `%${term}%`)
@@ -69,7 +71,7 @@ async function searchTextColumn(
 async function searchNumberColumn(db: DbClient, column: "id" | "os_num", ctx: { tenantId: string; empresaId: string }, value: number) {
   const { data, error } = await db
     .from("ordens_servico")
-    .select("id,numero_os,os_num,cliente_nome,descricao_servico,status")
+    .select("id,numero_os,os_num,tipo_documento,codigo,cliente_nome,descricao_servico,status")
     .eq("tenant_id", ctx.tenantId)
     .eq("empresa_id", ctx.empresaId)
     .eq(column, value)
@@ -113,7 +115,7 @@ export async function GET(req: NextRequest) {
     if (!term) {
       const { data, error } = await db
         .from("ordens_servico")
-        .select("id,numero_os,os_num,cliente_nome,descricao_servico,status")
+        .select("id,numero_os,os_num,tipo_documento,codigo,cliente_nome,descricao_servico,status")
         .eq("tenant_id", ctx.tenantId)
         .eq("empresa_id", ctx.empresaId)
         .order("id", { ascending: false })
@@ -126,6 +128,7 @@ export async function GET(req: NextRequest) {
     const numericTerm = /^\d+$/.test(term) ? Number(term) : null;
     const groups = await Promise.all([
       searchTextColumn(db, "numero_os", ctx, term),
+      searchTextColumn(db, "codigo", ctx, term),
       searchTextColumn(db, "cliente_nome", ctx, term),
       searchTextColumn(db, "descricao_servico", ctx, term),
       numericTerm && Number.isFinite(numericTerm) ? searchNumberColumn(db, "id", ctx, numericTerm) : Promise.resolve([]),

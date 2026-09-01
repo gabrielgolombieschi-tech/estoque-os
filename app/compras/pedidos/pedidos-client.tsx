@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -36,13 +38,17 @@ function formatFornecedorDocumento(value: string | null | undefined): string {
 type PendDet = {
   pendencia_id: string;
   item_id?: number | null;
+  fornecedor_id?: number | null;
   fornecedor_nome: string;
   item_nome: string;
   unidade: string;
   quantidade: number;
   origem_tipo: string;
+  origem_os_id?: number | null;
   numero_os?: string | null;
   os_num?: number | null;
+  tipo_documento?: "OS" | "OV" | null;
+  codigo?: string | null;
   status: string;
 };
 
@@ -68,6 +74,14 @@ type AgrRow = {
   estoque_pendencia_id: string | null;
   estoque_meta_atual: "MIN" | "IDEAL" | "MAX" | null;
   qtd_estoque_pendencia: number;
+  os_breakdown?: Array<{
+    pendencia_id?: string;
+    documento_id?: number | null;
+    os_id?: number | null;
+    tipo_documento?: "OS" | "OV" | null;
+    codigo?: string | null;
+    quantidade?: number | null;
+  }> | null;
 };
 
 type Pedido = {
@@ -150,6 +164,8 @@ type OsLookupRow = {
   id: number;
   numero_os: string | number | null;
   os_num: number | null;
+  tipo_documento: "OS" | "OV" | null;
+  codigo: string | null;
   cliente_nome: string | null;
   descricao_servico: string | null;
   status: string | null;
@@ -281,6 +297,12 @@ function getOsLookupNumero(row: OsLookupRow) {
   return String(row.id);
 }
 
+function getOsLookupLabel(row: OsLookupRow) {
+  const codigo = String(row.codigo ?? "").trim();
+  if (codigo) return codigo;
+  return `${row.tipo_documento === "OV" ? "OV" : "OS"} ${getOsLookupNumero(row)}`;
+}
+
 function normalizeFilterText(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -327,7 +349,7 @@ function sortLookupRows(rows: LookupItemRow[], key: LookupSortKey, dir: LookupSo
 
 function extractOsNumeroFromItem(it: Pick<PedidoItem, "origem_resumo" | "origem_os_id">): string {
   const resumo = String(it.origem_resumo ?? "").trim();
-  const m = /^OS\s+(.+)$/i.exec(resumo);
+  const m = /^(?:OS|OV)\s+(.+)$/i.exec(resumo);
   if (m?.[1]) return String(m[1]).trim();
   const osId = Number(it.origem_os_id ?? 0);
   return Number.isFinite(osId) && osId > 0 ? String(osId) : "";
@@ -368,11 +390,25 @@ type ComprasPedidosClientProps = {
 
 export default function ComprasPedidosClient({ readOnly = false }: ComprasPedidosClientProps) {
   const te = useTenantEmpresa();
+  const searchParams = useSearchParams();
   const tenantId = te.tenantId ?? "";
   const empresaId = te.empresaId ?? te.empresas[0]?.id ?? "";
+  const documentoIdParam = Number(searchParams.get("documentoId") ?? 0);
+  const documentoIdFiltro = Number.isInteger(documentoIdParam) && documentoIdParam > 0 ? documentoIdParam : null;
+  const origemParam = String(searchParams.get("origem") ?? "").toUpperCase();
+  const origemInicial = (["OS", "OV", "ESTOQUE", "OUTROS"].includes(origemParam) ? origemParam : "") as
+    | ""
+    | "OS"
+    | "OV"
+    | "ESTOQUE"
+    | "OUTROS";
+  const tabParam = String(searchParams.get("tab") ?? "").toLowerCase();
+  const pedidoIdParam = String(searchParams.get("pedidoId") ?? "").trim();
 
-  const [tab, setTab] = useState<"comprar" | "pedidos" | "avulso">(readOnly ? "pedidos" : "comprar");
-  const [modo, setModo] = useState<"DETALHADO" | "AGRUPADO">("AGRUPADO");
+  const [tab, setTab] = useState<"comprar" | "pedidos" | "avulso">(
+    readOnly || tabParam === "pedidos" || pedidoIdParam ? "pedidos" : "comprar"
+  );
+  const [modo, setModo] = useState<"DETALHADO" | "AGRUPADO">(documentoIdFiltro || origemInicial ? "DETALHADO" : "AGRUPADO");
   const [fornecedores, setFornecedores] = useState<FornPend[]>([]);
   const [fornecedorId, setFornecedorId] = useState<number | null>(null);
   const [avulsoFornecedores, setAvulsoFornecedores] = useState<FornecedorBase[]>([]);
@@ -382,6 +418,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [avulsoOsReferencia, setAvulsoOsReferencia] = useState("");
   const [avulsoObservacoes, setAvulsoObservacoes] = useState("");
   const [detRows, setDetRows] = useState<PendDet[]>([]);
+  const [origemFiltro, setOrigemFiltro] = useState<"" | "OS" | "OV" | "ESTOQUE" | "OUTROS">(origemInicial);
   const [detQtdDraftById, setDetQtdDraftById] = useState<Record<string, string>>({});
   const [detQtdConfirmById, setDetQtdConfirmById] = useState<Record<string, number>>({});
   const [detVlrDraftById, setDetVlrDraftById] = useState<Record<string, string>>({});
@@ -394,7 +431,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [statusFiltro, setStatusFiltro] = useState("ANDAMENTO");
   const [fornecedorFiltro, setFornecedorFiltro] = useState("");
-  const [manualPedidoId, setManualPedidoId] = useState<string>("");
+  const [manualPedidoId, setManualPedidoId] = useState<string>(pedidoIdParam);
   const [manualCodigo, setManualCodigo] = useState("");
   const [manualNome, setManualNome] = useState("");
   const [manualUnidade, setManualUnidade] = useState("UN");
@@ -480,6 +517,17 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
     return r.pendencia_ids.filter((x): x is string => typeof x === "string" && x.length > 0);
   }, []);
 
+  const detRowsFiltradas = useMemo(() => {
+    return detRows.filter((row) => {
+      if (documentoIdFiltro && Number(row.origem_os_id ?? 0) !== documentoIdFiltro) return false;
+      if (!origemFiltro) return true;
+      if (origemFiltro === "OS" || origemFiltro === "OV") {
+        return row.origem_tipo === "OS" && (row.tipo_documento ?? "OS") === origemFiltro;
+      }
+      return row.origem_tipo === origemFiltro;
+    });
+  }, [detRows, documentoIdFiltro, origemFiltro]);
+
   const loadUltimosValoresDetalhado = useCallback(
     async (rows: PendDet[]) => {
       const aplicarZerados = () => {
@@ -537,11 +585,12 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
   const loadFornecedores = useCallback(async () => {
     if (readOnly) return;
     if (!tenantId || !empresaId || !effectiveCanRead) return;
-    const json = await authedFetch(`/api/compras/fornecedores-pendentes?${ctxQuery}`);
+    const documentoQ = documentoIdFiltro ? `&documentoId=${encodeURIComponent(documentoIdFiltro)}` : "";
+    const json = await authedFetch(`/api/compras/fornecedores-pendentes?${ctxQuery}${documentoQ}`);
     const rows = (json.data as FornPend[]) ?? [];
     setFornecedores(rows);
     if (rows.length && fornecedorId == null) setFornecedorId(rows[0].fornecedor_id);
-  }, [ctxQuery, effectiveCanRead, empresaId, fornecedorId, readOnly, tenantId]);
+  }, [ctxQuery, documentoIdFiltro, effectiveCanRead, empresaId, fornecedorId, readOnly, tenantId]);
 
   const loadFornecedoresAvulso = useCallback(async () => {
     if (readOnly) return;
@@ -1731,6 +1780,23 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
             <div className="flex items-center gap-2">
               <button className={modo === "AGRUPADO" ? "px-2 py-1 rounded bg-zinc-100 text-zinc-900" : "px-2 py-1 rounded border border-zinc-800"} onClick={() => { setModo("AGRUPADO"); setSelPendencias([]); }}>AGRUPADO</button>
               <button className={modo === "DETALHADO" ? "px-2 py-1 rounded bg-zinc-100 text-zinc-900" : "px-2 py-1 rounded border border-zinc-800"} onClick={() => { setModo("DETALHADO"); setSelPendencias([]); }}>DETALHADO</button>
+              {modo === "DETALHADO" ? (
+                <select
+                  value={origemFiltro}
+                  onChange={(e) => {
+                    setOrigemFiltro(e.target.value as typeof origemFiltro);
+                    setSelPendencias([]);
+                  }}
+                  className="px-2 py-1 rounded border border-zinc-800 bg-zinc-950 text-sm"
+                  aria-label="Filtrar origem"
+                >
+                  <option value="">Todas as origens</option>
+                  <option value="OS">OS</option>
+                  <option value="OV">OV</option>
+                  <option value="ESTOQUE">Estoque</option>
+                  <option value="OUTROS">Outros</option>
+                </select>
+              ) : null}
               <button className="px-3 py-1 rounded border border-zinc-800" onClick={() => void executarVarredura()} disabled={busy || !canWrite}>
                 Varrer OS + Estoque MAX
               </button>
@@ -1776,7 +1842,26 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                               }}
                             />
                           </td>
-                          <td className="py-2">{String(r.item_nome ?? "-")}</td>
+                          <td className="py-2">
+                            <div>{String(r.item_nome ?? "-")}</div>
+                            {Array.isArray(r.os_breakdown) && r.os_breakdown.length > 0 ? (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {r.os_breakdown.map((origem, origemIndex) => (
+                                  <Link
+                                    key={`${origem.pendencia_id ?? origem.documento_id ?? origemIndex}`}
+                                    href={origem.tipo_documento === "OV" ? `/comercial/vendas/${origem.documento_id ?? origem.os_id}` : `/os/${origem.documento_id ?? origem.os_id}`}
+                                    className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
+                                      origem.tipo_documento === "OV"
+                                        ? "border-violet-800 bg-violet-950/40 text-violet-300"
+                                        : "border-zinc-700 text-zinc-400"
+                                    }`}
+                                  >
+                                    {origem.codigo ?? `${origem.tipo_documento ?? "OS"} ${origem.documento_id ?? origem.os_id ?? ""}`}
+                                  </Link>
+                                ))}
+                              </div>
+                            ) : null}
+                          </td>
                           <td>{String(r.unidade ?? "-")}</td>
                           <td className="text-right">{parseNum(r.qtd_os_total).toFixed(3)}</td>
                           <td className="text-right">{parseNum(r.qtd_em_compra_aberto).toFixed(3)}</td>
@@ -1821,7 +1906,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                         <th>Qtd</th>
                         <th>Valor uni</th>
                         <th className="text-right pr-4 min-w-[110px]">Total</th>
-                        <th className="text-center px-4 min-w-[110px]">OS</th>
+                        <th className="text-center px-4 min-w-[150px]">Documento</th>
                         <th className="text-center pl-4 min-w-[130px]">Acoes</th>
                       </tr>
                     </thead>
@@ -1892,7 +1977,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                           </td>
                         </tr>
                       )}
-                      {detRows.map((r) => {
+                      {detRowsFiltradas.map((r) => {
                         const checked = selPendencias.includes(r.pendencia_id);
                         const qtdEfetiva = Number.isFinite(detQtdConfirmById[r.pendencia_id])
                           ? detQtdConfirmById[r.pendencia_id]
@@ -1911,7 +1996,13 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                                 }
                               />
                             </td>
-                            <td>{r.origem_tipo}</td>
+                            <td>
+                              {r.origem_tipo === "OS" ? (
+                                <Link href={r.tipo_documento === "OV" ? `/comercial/vendas/${r.origem_os_id}` : `/os/${r.origem_os_id}`} className={`rounded-full border px-1.5 py-0.5 text-xs ${r.tipo_documento === "OV" ? "border-violet-800 bg-violet-950/40 text-violet-300" : "border-zinc-700 text-zinc-300"}`}>
+                                  {r.tipo_documento ?? "OS"}
+                                </Link>
+                              ) : r.origem_tipo}
+                            </td>
                             <td>{r.item_nome}</td>
                             <td>
                             <input
@@ -1970,7 +2061,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                             />
                           </td>
                           <td className="text-right pr-4">{(qtdEfetiva * vlrEfetivo).toFixed(2)}</td>
-                          <td className="text-center px-4">{r.numero_os ?? r.os_num ?? "-"}</td>
+                          <td className="text-center px-4">{r.origem_os_id ? <Link href={r.tipo_documento === "OV" ? `/comercial/vendas/${r.origem_os_id}` : `/os/${r.origem_os_id}`} className="text-sky-300 hover:underline">{r.codigo ?? (r.numero_os ? `OS ${r.numero_os}` : r.os_num ? `OS ${r.os_num}` : "-")}</Link> : "-"}</td>
                           <td className="text-zinc-500 text-center pl-4">-</td>
                         </tr>
                       );
@@ -2559,8 +2650,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                         <div className="w-full max-w-5xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <div className="text-lg font-semibold">Localizar OS</div>
-                              <div className="text-sm text-zinc-400">Busque por numero, cliente ou descricao da OS.</div>
+                              <div className="text-lg font-semibold">Localizar documento</div>
+                              <div className="text-sm text-zinc-400">Busque por código, número, cliente ou descrição da OS/OV.</div>
                             </div>
                             <button
                               onClick={() => {
@@ -2586,8 +2677,8 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                                   void buscarOsLookup(e.currentTarget.value);
                                 }}
                                 autoFocus
-                                aria-label="Buscar OS"
-                                title="Buscar por numero, cliente ou descricao da OS"
+                                aria-label="Buscar OS ou OV"
+                                title="Buscar por código, número, cliente ou descrição"
                               />
                             </div>
                             <button
@@ -2615,7 +2706,7 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                             <table className="w-full text-sm min-w-[900px]">
                               <thead className="bg-zinc-900/70 sticky top-0 z-10">
                                 <tr className="text-left text-zinc-200">
-                                  <th className="px-4 py-3">OS</th>
+                                  <th className="px-4 py-3">Documento</th>
                                   <th className="px-4 py-3">Cliente</th>
                                   <th className="px-4 py-3">Descricao</th>
                                   <th className="px-4 py-3">Status</th>
@@ -2625,13 +2716,14 @@ export default function ComprasPedidosClient({ readOnly = false }: ComprasPedido
                               <tbody className="divide-y divide-zinc-800">
                                 {osLookupRows.map((row) => {
                                   const numero = getOsLookupNumero(row);
+                                  const label = getOsLookupLabel(row);
                                   return (
                                     <tr
                                       key={row.id}
                                       className="hover:bg-zinc-900/40 cursor-pointer"
                                       onClick={() => selecionarOsLookup(row)}
                                     >
-                                      <td className="px-4 py-3 tabular-nums font-medium">{numero}</td>
+                                      <td className="px-4 py-3 font-medium"><span className={row.tipo_documento === "OV" ? "text-violet-300" : "text-zinc-100"}>{label}</span><div className="text-xs font-normal text-zinc-500">Técnico: {numero}</div></td>
                                       <td className="px-4 py-3">{row.cliente_nome ?? "-"}</td>
                                       <td className="px-4 py-3 text-zinc-300">{row.descricao_servico ?? "-"}</td>
                                       <td className="px-4 py-3 text-zinc-300">{statusLabel(String(row.status ?? ""))}</td>
