@@ -96,6 +96,26 @@ if (tem("descartar")) {
   await pagina.waitForTimeout(4000);
   await escolherPerfil();
 }
+// Producao: emite a NFS-e real da solicitacao ja homologada (perfil liberado).
+if (tem("producao")) {
+  const botao = pagina.getByRole("button", { name: /^Emitir NFS-e real/ });
+  await botao.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+  if ((await botao.count()) === 0) { console.log("[producao] botao ausente:", (await avisos()).filter((t) => /Produção|Producao|pronta|perfil/i.test(t)).slice(0, 4)); await foto("producao-indisponivel"); await navegador.close(); process.exit(5); }
+  await botao.click();
+  await pagina.waitForTimeout(12000);
+  console.log("[producao] avisos:", (await avisos()).filter((t) => /Focus|DPS|erro|PRODU|real/i.test(t)).slice(0, 5));
+  let resultado = null;
+  for (let i = 0; i < 24; i += 1) {
+    const trecho = await status();
+    if (/AUTORIZADA · NFS-e REAL/.test(trecho) || /REJEITADA|ERRO/.test(trecho)) { resultado = trecho; break; }
+    await pagina.waitForTimeout(5000);
+    await pagina.reload({ waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(4000);
+  }
+  await foto("producao-final");
+  console.log("[producao]", resultado ?? `sem estado final em ~3 min: ${await status()}`);
+  await navegador.close(); process.exit(0);
+}
 // Segunda nota parcial na mesma OS: abre composicao nova ignorando a autorizada.
 if (tem("nova")) {
   const botao = pagina.getByRole("button", { name: /^Nova NFS-e parcial/ });
@@ -125,6 +145,7 @@ const jaConferida = (await pagina.getByRole("button", { name: /Reconferir|Tentar
 const soEmitir = tem("so-emitir") || (jaConferida && (await pagina.getByRole("button", { name: /Tentar emitir novamente/ }).count()) > 0);
 if (!jaConferida && !soEmitir) {
   if (arg("valor")) await pagina.getByLabel("Valor (R$)").first().fill(arg("valor"));
+  if (arg("descricao")) await pagina.getByLabel("Descrição do serviço").first().fill(arg("descricao"));
   if (arg("add-os")) {
     const sel = pagina.locator("select").filter({ hasText: "Adicionar OS do mesmo tomador" }).first();
     const opcoes = await sel.locator("option").evaluateAll((els) => els.map((e) => ({ value: e.value, label: e.textContent ?? "" })));
@@ -141,7 +162,7 @@ for (const [nome, rotulo] of [["iss", /ISS retido pelo tomador/], ["pcc", /PIS\/
   if (arg(nome)) { const s = pagina.getByLabel(rotulo); if (await s.isEnabled()) await s.selectOption(arg(nome)); }
 }
 if (arg("justificativa")) { const j = pagina.getByLabel(/Justificativa da retenção/); if ((await j.count()) > 0) await j.fill(arg("justificativa")); }
-if (arg("pedido")) await pagina.getByLabel(/Pedido de compra do tomador/).fill(arg("pedido"));
+if (arg("pedido") !== null) await pagina.getByLabel(/Pedido de compra do tomador/).fill(arg("pedido"));
 if (arg("item")) await pagina.getByLabel("Item do pedido").fill(arg("item"));
 if (arg("forma")) await pagina.getByLabel("Forma de pagamento").selectOption(arg("forma"));
 if (arg("indicador")) await pagina.getByLabel("À vista ou a prazo").selectOption(arg("indicador"));

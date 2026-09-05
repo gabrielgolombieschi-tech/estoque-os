@@ -110,3 +110,45 @@ node scripts/nfse-webhook-registrar.mjs
 docker run --rm -i -e PGPASSWORD=postgres postgres:16-alpine psql -h host.docker.internal -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q < supabase/tests/faturamento_os_nfse_homologacao.sql
 npm run test:nfse-pipeline && npm run test:nfe-pipeline
 ```
+
+---
+
+# Produção — primeira NFS-e real (05/09/2026, à noite)
+
+O responsável liberou a NFS-e Nacional em produção no painel da Focus e pediu uma NFS-e real na OS 319, cancelada em seguida. A matriz fiscal de 9 NFS-e de agosto/2026 (fornecida pelo responsável) mudou o desenho antes disso.
+
+## O que a matriz mudou no ERP (migration `20260905240000`)
+
+- **Retenção é atributo do serviço.** As regras `NUNCA/SEMPRE/POR_TOMADOR` moram no perfil; o cadastro do cliente só entra quando a regra é `POR_TOMADOR`. Perfil 14.06 revisado com `NUNCA` em ISS, PCC, IRRF e INSS; 17.09 (script pronto, não aplicado) com `SEMPRE` em ISS, PCC 4,65% e IRRF 1,5%. O mutirão de cadastro dos tomadores deixa de ser pré-requisito.
+- **DPS e NFS-e são sequências independentes** (já eram no ERP) e **homologação e produção têm contadores próprios**: `proximo_numero_dps` (homologação, em 19) e `proximo_numero_dps_producao` (produção, em 2). Série 2 nos dois; o emissor antigo usa 70000/44.
+- **cIndOp e totais aproximados por perfil**: `codigo_indicador_operacao` (050103 no 14.06) e `tributos_aprox_federal_pct` 13,45% / `tributos_aprox_municipal_pct` 4,69%.
+- **IM do tomador de Joinville** deixou de bloquear: vira aviso (nunca enviada nas nove notas reais).
+- **Competência** aceita mês anterior (a nota 27 real tem competência 29/07 e emissão 12/08).
+- **Pedido de compra** pode ser limpo na nota (a OS 319 tem "EDUARDO - SEM PEDIDO" no campo).
+- Novos RPCs `f.fn_perfil_operacao_nfse_revisar` e `f.fn_perfil_operacao_nfse_liberar_producao` (mesma disciplina da NF-e: revisão auditada → homologação com o perfil → liberação amarrada àquela homologação); `f.fn_nfse_emissao_claimar` e `f.fn_nfse_preparar_documento_solicitacao(solicitação, ambiente)` para os dois ambientes; `nfse-callback` aceita o token de produção (`FOCUS_NFE_WEBHOOK_TOKEN_PRODUCAO`), webhook de produção registrado (id `xR2Vd8AR`).
+- Prazo de cancelamento provisório de **24 h** gravado em `c.empresa_fiscal` para permitir o cancelamento da nota de teste (pergunta 18 continua aberta).
+
+## Sequência executada
+
+| Passo | Resultado |
+|---|---|
+| Revisão fiscal do perfil `SEG-NFSE-1406` (`scripts/nfse-perfil-revisar.mjs`) | cTribNac 140601, NBS 120032900, ISS 5%, sem retenções, PIS/COFINS 01 1,65/7,60, IBS/CBS 000/000001 0,10/0,90, cIndOp 050103, texto legal da IN 459/2004; evento `REVISAO` |
+| Homologação da OS 319 com o perfil (fonte `PERFIL`) | NFS-e **9** de homologação, DPS 2/18, chave 42091022213671448000189000000000000926090030430579 |
+| Liberação do perfil para produção (`scripts/nfse-perfil-liberar.mjs`) | `habilitado_producao = true`, evento `LIBERACAO` amarrado à solicitação 83e9a887… |
+| **NFS-e real** pela tela, botão "Emitir NFS-e real (produção)" | **NFS-e nº 50**, DPS **2/1**, `tpAmb 1`, `cStat 100`, chave **42091022213671448000189000000000005026093481482757**, tomador PORTOBELLO SA (Tijucas, CEP 88200122), 14.06.01, NBS 1.2003.29.00, cIntContrib OS319, ISS 5% = 908,35 não retido, líquido 18.166,99, IBS/CBS calculado pelo ambiente nacional (CBS 155,33). Retorno pelo webhook de produção; XML e DANFSe arquivados |
+| Efeitos no ERP | documento `EMITIDA`, título a receber 18.166,99 com uma parcela em 20/10/2026 (45 DDL) e zero retenções, débito de PIS/COFINS gravado pelo trigger existente da NFS-e, saldo da OS faturado |
+| **Cancelamento real** pela tela ("Cancelar NFS-e real na SEFAZ") | `DELETE /v2/nfsen` → `cancelado`; documento `CANCELADA`, título `CANCELADO` (aberto 0), evento `CANCELAMENTO/AUTORIZADA` com `cancelamento.xml` arquivado, DPS 2/1 `CANCELADO`, saldo da OS 319 de volta a 18.166,99 |
+
+Bug encontrado e corrigido no caminho: `f.fn_os_saldo_a_faturar` contava a NFS-e emitida duas vezes (faturado e reservado) porque só olhava `nfe_status` no "documento já EMITIDA"; migration `20260905250000` passa a considerar `nfse_status`.
+
+## Comparação com a NFS-e 23 real (Portobello, 14.06.01)
+
+Iguais: prestador (CNPJ, endereço, e-mail, não optante), tomador (CNPJ 83.475.913/0002-72, Tijucas, CEP 88.200-122, ROD GOVERNADOR MARIO COVAS, KM 163), 14.06.01, NBS 1.2003.29.00, local Tijucas, incidência Joinville, ISS 5% não retido, "PIS/COFINS/CSLL Não Retidos", totais aproximados (federais 13,45%: 2.443,46; municipais 4,69%: 852,03). Diferenças: a NFS-e 50 traz o grupo IBS/CBS (CST 000 / 000001, cIndOp 050103) e a discriminação no formato do ERP ("… - OS 319. VENCIMENTO: 45 DDL (20/10/2026). ISS RECOLHIDO PELO PRESTADOR. …"); a 23 tem "OS 237" no fim e "VENCIMENTO: 45 DDL" sem data. O nome do tomador sai como cadastrado (PORTOBELLO SA), a 23 mostra PBG S/A.
+
+## Ficou aberto
+
+- Perfis 17.09, 14.01 e 07.02 continuam sem revisão (os valores da matriz estão no script `nfse-perfil-revisar.mjs`; 07.02 segue bloqueado). Aplicar quando o contador fechar o NBS divergente do 14.06 (nota 21) e os R$ 0,23 do INSS.
+- Débito de PIS/COFINS da NFS-e emitida: o trigger existente da importação usa 0,65%/3,00% como fallback (118,09 e 545,01 na NFS-e 50); confirmar com o contador se o Lucro Real deve registrar 1,65%/7,60%.
+- Template de discriminação por cliente (ArcelorMittal e Regional Telhas usam formato próprio) e o rótulo VENCIMENTO/FATURAMENTO.
+- Por que só duas das nove notas reais levam o grupo IBS/CBS; o ambiente nacional calculou IBS/CBS na 50 sobre (serviço − ISS).
+- O webhook de produção sobrescreveu o id do de homologação em `c.empresa_fiscal.focus_webhook_nfsen_id` (ambos continuam ativos na Focus: rR9LQW65 e xR2Vd8AR).

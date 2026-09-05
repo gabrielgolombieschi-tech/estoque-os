@@ -41,9 +41,9 @@ Deno.serve(async (request) => {
     const admin = adminClient();
 
     if (acao === "REGISTRAR_WEBHOOK") {
-      // Ambiente HOMOLOGACAO: o hook e registrado na conta de homologacao da Focus.
-      const ambiente: FocusAmbiente = "HOMOLOGACAO";
-      if (!focusConfigurado(ambiente)) throw new Error("Credencial de homologacao da Focus ausente.");
+      // O hook e registrado na conta da Focus do ambiente pedido, com o token daquele ambiente na URL.
+      const ambiente: FocusAmbiente = body.ambiente === "PRODUCAO" ? "PRODUCAO" : "HOMOLOGACAO";
+      if (!focusConfigurado(ambiente)) throw new Error(`Credencial de ${ambiente.toLowerCase()} da Focus ausente.`);
       const { data: scope, error: scopeError } = await user.schema("f").rpc("fn_operacao_assert_acesso");
       if (scopeError) throw scopeError;
       const escopo = objeto(Array.isArray(scope) ? scope[0] : scope);
@@ -52,8 +52,8 @@ Deno.serve(async (request) => {
       // Schema c nao e exposto pela API; public.empresas espelha id/cnpj.
       const { data: empresa, error: empresaError } = await admin.from("empresas").select("id,cnpj").eq("id", empresaId).maybeSingle();
       if (empresaError || !empresa) throw new Error(`Empresa nao encontrada (${empresaError?.message ?? empresaId}).`);
-      const token = Deno.env.get("FOCUS_NFE_WEBHOOK_TOKEN");
-      if (!token) throw new Error("FOCUS_NFE_WEBHOOK_TOKEN ausente; o callback exige token.");
+      const token = Deno.env.get(ambiente === "PRODUCAO" ? "FOCUS_NFE_WEBHOOK_TOKEN_PRODUCAO" : "FOCUS_NFE_WEBHOOK_TOKEN");
+      if (!token) throw new Error(`Token do webhook de ${ambiente.toLowerCase()} ausente; o callback exige token.`);
       const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/nfse-callback?token=${encodeURIComponent(token)}`;
       const { response, body: hookBody } = await chamarFocus("/v2/hooks", {
         method: "POST",
@@ -64,7 +64,7 @@ Deno.serve(async (request) => {
       const hookId = texto(hook, "id");
       const { error: registrarError } = await admin.schema("f").rpc("fn_nfse_registrar_webhook", { p_empresa_id: empresaId, p_hook_id: hookId });
       if (registrarError) throw registrarError;
-      return json({ ok: true, hook_id: hookId, event: "nfsen", url_sem_token: url.split("?")[0] });
+      return json({ ok: true, hook_id: hookId, event: "nfsen", ambiente, url_sem_token: url.split("?")[0] });
     }
 
     const documentoId = String(body.documento_fiscal_id ?? "").trim();
@@ -76,7 +76,8 @@ Deno.serve(async (request) => {
     if (String(emissao.modelo) !== "NFSE") throw new Error("Este documento nao e uma NFS-e.");
     const ambiente = String(emissao.ambiente) as FocusAmbiente;
     if (!["HOMOLOGACAO", "PRODUCAO"].includes(ambiente)) throw new Error("Ambiente fiscal invalido.");
-    if (ambiente === "PRODUCAO") throw new Error("Ciclo de vida da NFS-e em producao ainda nao esta liberado.");
+    // PRODUCAO: cancelamento passa por f.fn_nfse_cancelamento_claim, que exige o prazo
+    // configurado em c.empresa_fiscal e cancela documento e titulo na finalizacao.
     if (!focusConfigurado(ambiente)) throw new Error(`Ciclo de vida em ${ambiente} desativado ou sem credencial propria.`);
     const referencia = String(emissao.referencia_externa ?? "").trim();
     if (!referencia) throw new Error("Emissao sem referencia externa da Focus.");

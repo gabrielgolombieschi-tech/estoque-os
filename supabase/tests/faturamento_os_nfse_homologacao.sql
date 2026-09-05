@@ -212,12 +212,10 @@ update ctx set sol_f = f.fn_solicitacao_faturamento_criar_os_servico('15400000-0
 do $bloqueios$
 declare v_r jsonb;
 begin
+  -- Tomador de Joinville sem IM: aviso com rota (as NFS-e reais nunca enviam a IM do tomador; matriz de 05/09/2026).
   v_r := f.fn_os_nfse_conferir_homologacao((select sol_d from ctx), '{"pagamento_forma":"15","pagamento_indicador":1}'::jsonb);
-  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'inscricao_municipal' and p->>'rota' = '/clientes/cadastro-fiscal?cliente_id=915402') then
-    raise exception 'Tomador de Joinville sem IM nao bloqueou com campo/rota: %', v_r;
-  end if;
-  if exists (select 1 from f.documento_fiscal_emissao where solicitacao_id = (select sol_d from ctx)) then
-    raise exception 'Bloqueio D chegou a criar emissao.';
+  if not (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'avisos') p where p->>'campo' = 'inscricao_municipal' and p->>'rota' = '/clientes/cadastro-fiscal?cliente_id=915402') then
+    raise exception 'Tomador de Joinville sem IM deveria passar com aviso e rota: %', v_r;
   end if;
   v_r := f.fn_os_nfse_conferir_homologacao((select sol_e from ctx), '{"pagamento_forma":"15","pagamento_indicador":1}'::jsonb);
   if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'iss_retido') then

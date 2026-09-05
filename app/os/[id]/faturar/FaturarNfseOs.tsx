@@ -221,7 +221,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       retencao_justificativa: justificativa.trim() || null,
       pagamento_forma: pagamentoForma, pagamento_indicador: Number(pagamentoIndicador), pagamento_descricao: pagamentoDescricao || null,
       pagamento_parcelas: pagamentoIndicador === "1" ? parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias.trim()), valor: p.valor.trim() ? paraNumero(p.valor) : null })) : null,
-      pedido_cliente: pedidoCliente.trim() || null, pedido_item: pedidoItem.trim() || null, observacao: observacao.trim() || null,
+      // pedido_cliente vazio e enviado como "" de proposito: limpa o pedido (nao herda o texto da OS).
+      pedido_cliente: pedidoCliente.trim(), pedido_item: pedidoItem.trim() || null, observacao: observacao.trim() || null,
     };
   }
 
@@ -285,10 +286,22 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
   }
 
+  async function emitirProducao() {
+    if (!solicitacao || !emissao) return;
+    if (!window.confirm(`EMITIR NFS-e REAL (produção) para a OS ${os?.numero_os ?? os?.id}?\n\nBruto ${R$(num(previa?.valor_bruto))} · líquido ${R$(num(previa?.valor_liquido))}. Gera documento fiscal válido e título a receber.`)) return;
+    setOcupado(true); setErro(null); setAviso(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("nfse-emitir", { body: { solicitacao_id: solicitacao.id, ambiente: "PRODUCAO" } });
+      if (error) throw error;
+      if (data?.erro) throw new Error(data.codigo ? `${data.codigo} · ${data.erro}` : String(data.erro));
+      setAviso(`DPS ${data?.dps_serie ?? "?"}/${data?.dps_numero ?? "?"} enviada à Focus em PRODUÇÃO. O retorno chega automaticamente.`);
+    } catch (cause) { setErro(await erroFunction(cause)); } finally { await carregar(); await onAtualizar(); setOcupado(false); }
+  }
+
   async function cancelar() {
     if (!emissao) return;
     if (justificativaCancel.trim().length < 15) { setErro("Justificativa do cancelamento: 15 a 255 caracteres."); return; }
-    if (!window.confirm("Cancelar a NFS-e no ambiente nacional de homologação? O saldo da OS volta.")) return;
+    if (!window.confirm(emissao.ambiente === "PRODUCAO" ? "CANCELAR A NFS-e REAL no ambiente nacional? O documento e o título a receber são cancelados e o saldo da OS volta." : "Cancelar a NFS-e no ambiente nacional de homologação? O saldo da OS volta.")) return;
     setOcupado(true); setErro(null);
     try {
       const { data, error } = await supabase.functions.invoke("nfse-ciclo", { body: { acao: "CANCELAR", documento_fiscal_id: emissao.documento_fiscal_id, justificativa: justificativaCancel.trim() } });
@@ -320,7 +333,17 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const conferida = Boolean(previa) && Boolean(solicitacao);
   const margem = custoReal !== null ? (conferida ? num(previa?.valor_bruto) : totalLinhas) - custoReal : null;
   const bloqueioLocal = !perfil ? "Escolha o perfil de serviço." : perfilBloqueado ? `Perfil ${perfil.item_servico} bloqueado: ${perfil.justificativa_faixa ?? "aguarda o contador."}` : !fixture ? `Sem fixture provisória para o item ${perfil.item_servico}.` : null;
-  const podeCancelar = autorizada && emissao?.ambiente === "HOMOLOGACAO";
+  const producao = emissao?.ambiente === "PRODUCAO";
+  const podeCancelar = autorizada && (!producao || prazoCancelamento !== null);
+  const [producaoPronta, setProducaoPronta] = useState<{ pronta: boolean; motivo?: string } | null>(null);
+  useEffect(() => {
+    if (!solicitacao || !autorizada || producao) { setProducaoPronta(null); return; }
+    let ativo = true;
+    void supabase.schema("f").rpc("fn_nfse_producao_pronta", { p_solicitacao_id: solicitacao.id }).then(({ data }) => {
+      if (ativo) setProducaoPronta((data as { pronta: boolean; motivo?: string } | null) ?? null);
+    });
+    return () => { ativo = false; };
+  }, [autorizada, producao, solicitacao, supabase, versao]);
 
   return (
     <>
@@ -423,12 +446,12 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         <div className="flex flex-wrap items-center gap-2">
           {editavel ? <button type="button" className={botao} disabled={ocupado || Boolean(motivoBloqueioOs) || Boolean(bloqueioLocal)} onClick={() => void conferir()}>{solicitacao ? "Reconferir" : "Salvar rascunho e conferir"}</button> : null}
           {solicitacao && conferida && editavel ? <button type="button" className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={ocupado || bloqueios.length > 0 || Boolean(motivoBloqueioOs) || Boolean(bloqueioLocal)} onClick={() => void emitir()}>{emissao ? "Tentar emitir novamente (nova DPS)" : "Emitir NFS-e em homologação"}</button> : null}
-          {solicitacao && (editavel || autorizada) ? <button type="button" className={botao} disabled={ocupado} onClick={() => void descartar()}>{autorizada ? "Abandonar homologação e liberar saldo" : "Descartar rascunho"}</button> : null}
+          {solicitacao && (editavel || (autorizada && !producao)) ? <button type="button" className={botao} disabled={ocupado} onClick={() => void descartar()}>{autorizada ? "Abandonar homologação e liberar saldo" : "Descartar rascunho"}</button> : null}
         </div>
         {bloqueioLocal ? <div className="text-xs text-amber-300">{bloqueioLocal}</div> : null}
         {emissao ? (
           <div className="rounded-md border border-zinc-800 p-3 text-sm">
-            <div>Status: <strong>{emProcessamento ? "Em processamento" : autorizada ? "Autorizada em homologação" : emissao.status}</strong> · DPS {emissao.dps_serie}/{emissao.dps_numero}{emissao.mensagem ? <span className="text-zinc-400"> · {emissao.codigo_status ? `${emissao.codigo_status} · ` : ""}{emissao.mensagem}</span> : null}</div>
+            <div>Status: <strong>{emProcessamento ? "Em processamento" : autorizada ? (producao ? "AUTORIZADA · NFS-e REAL" : "Autorizada em homologação") : emissao.status}</strong> · {producao ? "PRODUÇÃO" : "homologação"} · DPS {emissao.dps_serie}/{emissao.dps_numero}{emissao.mensagem ? <span className="text-zinc-400"> · {emissao.codigo_status ? `${emissao.codigo_status} · ` : ""}{emissao.mensagem}</span> : null}</div>
             {emProcessamento ? <div className="text-xs text-zinc-400">Saldo reservado. A tela atualiza sozinha quando o ambiente nacional responder.</div> : null}
             {["REJEITADA", "ERRO"].includes(emissao.status) ? <div className="text-xs text-amber-300">DPS {emissao.dps_serie}/{emissao.dps_numero} queimada; o saldo já voltou. &ldquo;Tentar emitir novamente&rdquo; leva um número novo de DPS.</div> : null}
             {autorizada ? (
@@ -439,16 +462,18 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <button type="button" className={botao} disabled={!emissao.xml_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "XML")}>XML</button>
                   <Link className={botao} href={`/faturamento/nfe/${emissao.documento_fiscal_id}`}>Detalhe</Link>
                   <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
-                  {saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
+                  {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
+                  {!producao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NFS-e real (produção)</button> : null}
                 </div>
+                {!producao && producaoPronta && !producaoPronta.pronta ? <div className="text-xs text-zinc-500">Produção: {producaoPronta.motivo}</div> : null}
                 {podeCancelar ? (
                   <div className="flex flex-wrap items-end gap-2">
                     <label className={`${label} flex-1`}>Justificativa do cancelamento (15 a 255)<input className={field} value={justificativaCancel} onChange={(e) => setJustificativaCancel(e.target.value)} maxLength={255} /></label>
-                    <button type="button" className={botao} disabled={ocupado} onClick={() => void cancelar()}>Cancelar NFS-e (homologação)</button>
+                    <button type="button" className={botao} disabled={ocupado} onClick={() => void cancelar()}>{producao ? "Cancelar NFS-e real na SEFAZ" : "Cancelar NFS-e (homologação)"}</button>
                     {prazoCancelamento === null ? <span className="w-full text-xs text-amber-300">Prazo de cancelamento não confirmado pelo contador: em produção este botão fica oculto e só a substituição aparece.</span> : <span className="w-full text-xs text-zinc-500">Prazo: {prazoCancelamento} h após a autorização.</span>}
                   </div>
                 ) : null}
-                <div className="text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber líquido com as retenções por tributo.</div>
+                {producao ? <div className="text-xs text-emerald-300">NFS-e real: documento EMITIDA, título a receber líquido com as retenções por tributo e saldo da OS faturado.</div> : <div className="text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber líquido com as retenções por tributo.</div>}
               </div>
             ) : null}
           </div>

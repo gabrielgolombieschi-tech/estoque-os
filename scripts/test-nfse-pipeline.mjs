@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { montarPayloadNfse, tipoRetencaoPisCofins, valorLiquidoNfse } from "../supabase/functions/_shared/nfse-payload.ts";
+import { montarPayloadNfse, tipoRetencaoPisCofins, validarPayloadNfseProducaoContraHomologacao, valorLiquidoNfse } from "../supabase/functions/_shared/nfse-payload.ts";
 import { chaveNfseDe, normalizarFocusNfse } from "../supabase/functions/_shared/nfse-retorno.ts";
 
 // Cenarios locais do pipeline de NFS-e Nacional (sem chamar a Focus).
@@ -176,6 +176,22 @@ cenario("bloqueios locais nomeiam campo e cadastro", () => {
   assert.throws(() => montarPayloadNfse(contexto({ servico: { descricao_servico: "x".repeat(1001) } }), agora), /1000 caracteres/);
   assert.throws(() => montarPayloadNfse(contexto({ emitente: { codigo_opcao_simples_nacional: null } }), agora), /codigo_opcao_simples_nacional/);
   assert.throws(() => montarPayloadNfse({ ...contexto(), solicitacao: { ...contexto().solicitacao, operacao_snapshot: { servico: null } } }, agora), /snapshot de servico/);
+});
+
+cenario("perfil revisado: cIndOp e totais aproximados vem do snapshot", () => {
+  const p = montarPayloadNfse(contexto({ servico: { codigo_indicador_operacao: "040101", tributos_aprox_federal_pct: 13.45, tributos_aprox_municipal_pct: 4.69 } }), agora);
+  assert.equal(p.codigo_indicador_operacao, "040101");
+  assert.equal(p.valor_total_tributos_federais, 134.5);
+  assert.equal(p.valor_total_tributos_municipais, 46.9);
+});
+
+cenario("producao so sai igual a homologacao (menos data, DPS, nome do tomador e informacoes)", () => {
+  const hom = montarPayloadNfse(contexto(), agora);
+  const prod = montarPayloadNfse(contexto({ emissao: { ambiente: "PRODUCAO", dps_numero: 1 } }), new Date("2026-09-06T12:00:00Z"));
+  validarPayloadNfseProducaoContraHomologacao(hom, prod);
+  const divergente = montarPayloadNfse(contexto({ emissao: { ambiente: "PRODUCAO", dps_numero: 1 }, servico: { valor_bruto: 999 } }), agora);
+  assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, divergente), /diverge da homologacao autorizada no campo valor_servico/);
+  assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, hom), /tomador real nao foi informado/);
 });
 
 cenario("normalizacao do retorno: processando, autorizado (chave da url), erro, cancelado, webhook duplicado", () => {

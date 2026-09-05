@@ -176,9 +176,15 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     // indTotTrib, que o ambiente nacional recusa para nao optante (E0713,
     // 05/09/2026). Aproximacao: federais = PIS+COFINS proprios, municipais = ISS.
     // As NFS-e reais usam IBPT (ex.: 13,45% federal); ver pergunta ao contador.
-    valor_total_tributos_federais: round(valorServico * ((num(servico.aliquota_pis) ?? 0) + (num(servico.aliquota_cofins) ?? 0)) / 100),
+    // Com perfil revisado, os percentuais vem da tabela do perfil (13,45% federal
+    // e 4,69/3,64/2,11% municipal nas NFS-e reais); sem perfil, a aproximacao.
+    valor_total_tributos_federais: num(servico.tributos_aprox_federal_pct) !== null
+      ? round(valorServico * (num(servico.tributos_aprox_federal_pct) as number) / 100)
+      : round(valorServico * ((num(servico.aliquota_pis) ?? 0) + (num(servico.aliquota_cofins) ?? 0)) / 100),
     valor_total_tributos_estaduais: 0,
-    valor_total_tributos_municipais: round(num(servico.valor_iss) ?? 0),
+    valor_total_tributos_municipais: num(servico.tributos_aprox_municipal_pct) !== null
+      ? round(valorServico * (num(servico.tributos_aprox_municipal_pct) as number) / 100)
+      : round(num(servico.valor_iss) ?? 0),
     ibs_cbs_situacao_tributaria: cstIbsCbs,
     ibs_cbs_classificacao_tributaria: cclassTrib,
     // cIndOp e obrigatorio quando o grupo IBS/CBS vai (rejeicao real do ambiente
@@ -230,6 +236,30 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     payload.motivo_substituicao = requiredText(emissao.substituicao_motivo ?? substituicao?.motivo, "motivo_substituicao", "substituicao");
   }
   return payload;
+}
+
+/**
+ * Producao so sai igual a homologacao autorizada. Diferencas aceitas: data de
+ * emissao, numero da DPS, nome do tomador (homologacao usa o texto da SEFAZ)
+ * e informacoes complementares (que carregam o aviso de homologacao).
+ */
+export function validarPayloadNfseProducaoContraHomologacao(payloadHomologacao: unknown, payloadProducao: unknown) {
+  const limpar = (value: unknown, label: string) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`Emissao em producao bloqueada: ${label} nao e um objeto JSON.`);
+    const copia = { ...(value as JsonObject) };
+    delete copia.data_emissao; delete copia.numero_dps; delete copia.razao_social_tomador; delete copia.informacoes_complementares;
+    return JSON.stringify(Object.fromEntries(Object.entries(copia).sort(([a], [b]) => a.localeCompare(b))));
+  };
+  const hom = limpar(payloadHomologacao, "payload de homologacao");
+  const prod = limpar(payloadProducao, "payload de producao");
+  if (hom !== prod) {
+    const a = JSON.parse(hom) as JsonObject; const b = JSON.parse(prod) as JsonObject;
+    const campo = [...new Set([...Object.keys(a), ...Object.keys(b)])].find((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k])) ?? "?";
+    throw new Error(`Emissao em producao bloqueada: o payload diverge da homologacao autorizada no campo ${campo}.`);
+  }
+  if (String((payloadProducao as JsonObject).razao_social_tomador ?? "") === NOME_TOMADOR_HOMOLOGACAO_NFSE) {
+    throw new Error("Emissao em producao bloqueada: o tomador real nao foi informado.");
+  }
 }
 
 export function valorLiquidoNfse(servico: JsonObject) {

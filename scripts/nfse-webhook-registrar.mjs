@@ -25,7 +25,8 @@ if (!url || !anon) { console.error("NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes."
 const supabase = createClient(url, anon, { auth: { persistSession: false } });
 const { error: loginError } = await supabase.auth.signInWithPassword({ email: process.env.E2E_EMAIL ?? "", password: process.env.E2E_PASSWORD ?? "" });
 if (loginError) { console.error("login:", loginError.message); process.exit(1); }
-const { data, error } = await supabase.functions.invoke("nfse-ciclo", { body: { acao: "REGISTRAR_WEBHOOK" } });
+const ambiente = process.argv[2] === "PRODUCAO" ? "PRODUCAO" : "HOMOLOGACAO";
+const { data, error } = await supabase.functions.invoke("nfse-ciclo", { body: { acao: "REGISTRAR_WEBHOOK", ambiente } });
 if (error) {
   let detalhe = error.message;
   try { detalhe = JSON.stringify(await error.context.json()); } catch { /* sem corpo */ }
