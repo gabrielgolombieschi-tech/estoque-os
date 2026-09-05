@@ -48,8 +48,16 @@ async function avisos() {
 
 await irParaOv();
 
+// Rascunho aprovado mas nunca transmitido (ex.: emissao recusada pela Edge):
+// retoma a conferencia em vez de criar outro rascunho.
+await abaFaturamento();
+const retomar = pagina.getByRole("button", { name: /^(Continuar conferência|Tentar emitir novamente)$/ });
+await retomar.first().waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+const temRascunhoPendente = (await retomar.count()) > 0;
+if (temRascunhoPendente) console.log("[0] retomando conferência do rascunho existente");
+
 // 0. liberar saldo se a homologacao anterior ainda o reserva
-if (!(await faturarHabilitado())) {
+if (!temRascunhoPendente && !(await faturarHabilitado())) {
   console.log("[0] sem saldo: abandonando homologacao anterior para liberar");
   await abaFaturamento();
   const abandonar = pagina.getByRole("button", { name: "Abandonar homologação e liberar saldo" });
@@ -65,13 +73,15 @@ if (!(await faturarHabilitado())) {
 }
 
 // 1. rascunho
-console.log("[1] Faturar -> salvar rascunho");
-await pagina.getByRole("button", { name: "Faturar", exact: true }).first().click();
-await pagina.locator('[role="dialog"]').waitFor({ state: "visible", timeout: 20_000 });
-const salvar = pagina.getByRole("button", { name: "Salvar rascunho da NF-e" });
-if (!(await salvar.isEnabled())) await falhar('"Salvar rascunho da NF-e" desabilitado');
-await salvar.click();
-await pagina.waitForTimeout(6000);
+if (!temRascunhoPendente) {
+  console.log("[1] Faturar -> salvar rascunho");
+  await pagina.getByRole("button", { name: "Faturar", exact: true }).first().click();
+  await pagina.locator('[role="dialog"]').waitFor({ state: "visible", timeout: 20_000 });
+  const salvar = pagina.getByRole("button", { name: "Salvar rascunho da NF-e" });
+  if (!(await salvar.isEnabled())) await falhar('"Salvar rascunho da NF-e" desabilitado');
+  await salvar.click();
+  await pagina.waitForTimeout(6000);
+}
 
 // 2. conferencia
 console.log("[2] Conferir e emitir em homologação");
