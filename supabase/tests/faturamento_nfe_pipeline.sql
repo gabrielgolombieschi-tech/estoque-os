@@ -91,8 +91,8 @@ begin
 end;
 $acl_pipeline$;
 
-insert into c.empresa_fiscal (empresa_id, inscricao_estadual, crt, certificado_validade_em)
-values ('20000000-0000-4000-8000-000000000001', '123456789', 3, current_date + 365);
+insert into c.empresa_fiscal (empresa_id, inscricao_estadual, crt, certificado_validade_em, serie_nfe)
+values ('20000000-0000-4000-8000-000000000001', '123456789', 3, current_date + 365, 2);
 
 insert into c.empresa_endereco (
   empresa_id, tipo, cep, logradouro, numero, bairro, cidade, uf, codigo_municipio_ibge

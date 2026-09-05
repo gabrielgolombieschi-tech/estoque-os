@@ -8,7 +8,7 @@ Levantamento realizado em 02/09/2026. As decisões A/B/C foram confirmadas pelo 
 - **B — confirmado:** criar o documento com `chave_acesso='PENDENTE:' || referencia_externa` e trocar atomicamente pela chave de 44 dígitos quando a autorização chegar.
 - **C — confirmado:** normalizar número e série para `integer` na borda da Focus; guardar inteiros em `documento_fiscal_emissao` e fazer a única conversão para `text` dentro da função SQL que atualiza `documento_fiscal`.
 - O XML autorizado também deve ser persistido em `f.documento_fiscal_xml` antes da troca da chave provisória.
-- O endpoint será exclusivo de homologação, não enviará série/número e montará o payload somente a partir do snapshot da solicitação, sem fallback em perfil ou cadastro.
+- O endpoint será exclusivo de homologação, não enviará série/número e montará o payload somente a partir do snapshot da solicitação, sem fallback em perfil ou cadastro. (Revisto em 05/09/2026: a série passou a ser enviada, lida do snapshot do emitente, porque a série 2 é a da SEGAU no ERP e a série 1 fica com o emissor antigo. O número continua com a Focus.)
 - A implementação aplica A, B e C integralmente. A migration `20260902120000` foi aplicada em produção em 02/09/2026, após backup físico concluído e dry-run; `migration repair` não foi executado.
 
 ## A · Isolamento financeiro da homologação

@@ -553,6 +553,11 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
 
   return {
     natureza_operacao: natureza.descricao,
+    // Serie decidida em 05/09/2026: a SEGAU emite pelo ERP na serie 2 em
+    // producao; a serie 1 fica com o emissor antigo ate o fim das implantacoes.
+    // Sem enviar a serie, a Focus numeraria na serie dela e poderia colidir
+    // com o outro sistema. O numero continua sob controle da Focus.
+    serie: requiredNumber(emitente.serie_nfe, "série da NF-e do emitente"),
     data_emissao: dataHora,
     data_entrada_saida: dataHora,
     tipo_documento: 1,

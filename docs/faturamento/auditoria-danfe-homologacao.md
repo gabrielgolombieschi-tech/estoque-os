@@ -162,11 +162,17 @@ reais, exceto pela origem, que em todas as notas reais desse NCM é **0**.
 | Sistema em homologação | série **2**, números 1 a 9 |
 | `c.empresa_fiscal.serie_nfe` | **2** — gravado e nunca lido por ninguém |
 
-O payload **não** envia `serie` nem `numero`: quem numera é o contador da Focus.
-Em produção, se a conta não estiver configurada com série 1 e próximo número
-3802, as notas sairão fora da sequência fiscal da empresa, e o sistema não tem
-visibilidade nem controle disso. O `serie_nfe` do cadastro está com o valor da
-homologação e não influencia nada.
+Até 04/09 o payload **não** enviava `serie` nem `numero`: quem numerava era o
+contador da Focus, e o `serie_nfe` do cadastro não influenciava nada.
+
+**Decisão de 05/09/2026:** o ERP emite na **série 2** também em produção. A
+série 1 permanece com o emissor antigo, que fica como backup até o fim das
+implantações de NF; depois disso, se não houver problema fiscal, tudo segue na
+série 2. Para isso o payload passou a enviar `serie` lido do snapshot do
+emitente (`c.empresa_fiscal.serie_nfe`, migration `20260905110000`); a
+ausência vira pendência de cadastro. O `numero` continua sob controle da Focus,
+que numera por série; a série 2 de produção começa em 1, sem colidir com a
+sequência 1..3801 da série 1.
 
 ## Defeito 4 — homologação contava como faturamento (corrigido)
 

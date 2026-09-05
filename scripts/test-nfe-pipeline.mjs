@@ -22,6 +22,7 @@ function solicitacao(overrides = {}) {
       razao_social: "ELETRICA SEGAU LTDA",
       nome_fantasia: "ELETRICA SEGAU",
       inscricao_estadual: "123456789",
+      serie_nfe: 2,
       crt: 3,
       logradouro: "RUA TESTE",
       numero: "1",
@@ -115,7 +116,7 @@ assert.equal(payload.items[0].cfop, "5102");
 assert.equal(payload.items[0].icms_origem, 0);
 assert.equal(payload.items[0].icms_situacao_tributaria, "00");
 assert.equal(payload.valor_total, 200);
-assert.equal("serie" in payload, false);
+assert.equal(payload.serie, 2);
 assert.equal("numero" in payload, false);
 assert.equal(payload.nome_destinatario, "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL");
 assert.equal(payload.natureza_operacao, "VENDA MERCADORIA ADQ. REC. DE TERCEIROS");

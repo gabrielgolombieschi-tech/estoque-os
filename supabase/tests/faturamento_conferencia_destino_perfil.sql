@@ -18,8 +18,8 @@ values (
   '13671448000189', 'SEG TESTE LTDA', 'SEG TESTE', 'SC', 'JOINVILLE'
 ) on conflict (id) do nothing;
 
-insert into c.empresa_fiscal (empresa_id, inscricao_estadual, crt, certificado_validade_em)
-values ('16000000-0000-4000-8000-000000000002', '257686835', 3, current_date + 365);
+insert into c.empresa_fiscal (empresa_id, inscricao_estadual, crt, certificado_validade_em, serie_nfe)
+values ('16000000-0000-4000-8000-000000000002', '257686835', 3, current_date + 365, 2);
 
 insert into c.empresa_endereco (
   empresa_id, tipo, cep, logradouro, numero, bairro, cidade, uf, codigo_municipio_ibge
