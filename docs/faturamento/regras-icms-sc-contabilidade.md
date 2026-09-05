@@ -193,3 +193,65 @@ consumidor final; e as bonificações em mercadorias.
 | ISS | 15 | antecipa |
 | PIS, COFINS, IPI | 25 | antecipa |
 | CSLL, IRPJ | 31 | antecipa |
+
+## Créditos na entrada — página final do documento (transcrita em 05/09/2026)
+
+Esta página trata do **crédito**, ou seja, das compras da Segau. Não muda nada
+na NF-e de saída, mas define o que o cadastro de itens e a importação de XML
+precisam guardar: a **finalidade de cada aquisição**.
+
+### Do crédito de ICMS
+
+RICMS/SC, art. 29: para a compensação do art. 28, é assegurado ao sujeito
+passivo o direito de creditar-se do imposto anteriormente cobrado em operações
+de que tenha resultado a entrada de mercadoria, real ou simbólica, no
+estabelecimento.
+
+- Tomar o crédito conforme destacado na nota fiscal de entrada, dos materiais
+  adquiridos para **comercialização ou industrialização**. O critério é a
+  **essencialidade para o resultado final do produto**. As despesas com frete
+  nessas aquisições também dão crédito.
+- **Sempre informar ao fornecedor a finalidade da compra**: uso e consumo,
+  revenda ou industrialização.
+- Aquisições de empresas industriais de SC optantes pelo Simples Nacional dão
+  crédito de **7%**.
+- Compras de empresas comerciais optantes pelo Simples Nacional dão crédito do
+  valor informado nas informações complementares, conforme a alíquota da empresa.
+- Energia elétrica: enviar a fatura da empresa para a contabilidade tomar o crédito.
+
+### Do crédito de PIS/COFINS
+
+Lei 10.833/2004, art. 3º: do valor apurado na forma do art. 2º a pessoa
+jurídica poderá descontar créditos calculados em relação a:
+
+- I — bens adquiridos para revenda;
+- II — bens e serviços utilizados como insumo na prestação de serviços e na
+  produção ou fabricação de bens ou produtos destinados à venda;
+- III — energia elétrica e térmica, inclusive sob a forma de vapor, consumidas
+  nos estabelecimentos da pessoa jurídica;
+- IV — aluguéis de prédios, máquinas e equipamentos, pagos a pessoa jurídica,
+  utilizados nas atividades da empresa;
+- IX — armazenagem de mercadoria e frete na operação de venda, nos casos dos
+  incisos I e II, quando o ônus for suportado pelo vendedor.
+
+### Do crédito de IPI
+
+RIPI, art. 226 (Lei 4.502/1964, art. 25): os estabelecimentos industriais e os
+que lhes são equiparados poderão creditar-se:
+
+- I — do imposto relativo a matéria-prima, produto intermediário e material de
+  embalagem, adquiridos para emprego na industrialização de produtos tributados,
+  incluindo-se, entre as matérias-primas e os produtos intermediários, aqueles
+  que, embora não se integrando ao novo produto, forem consumidos no processo de
+  industrialização.
+
+### Obrigação mensal
+
+Enviar à contabilidade, **no primeiro dia útil do mês**, planilha em Excel das
+notas de entrada informando a **finalidade de cada aquisição**.
+
+Consequência para o ERP: a finalidade (uso e consumo, revenda, industrialização)
+precisa existir por item de entrada, e o relatório mensal de entradas deve
+exportá-la. Esse dado já existe parcialmente em `os_itens.finalidade` e nos
+parâmetros de importação de XML; a lacuna de finalidade nula nas entradas
+históricas está medida em `faturamento-os-vs-ov.md`.
