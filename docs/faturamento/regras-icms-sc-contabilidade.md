@@ -255,3 +255,61 @@ precisa existir por item de entrada, e o relatório mensal de entradas deve
 exportá-la. Esse dado já existe parcialmente em `os_itens.finalidade` e nos
 parâmetros de importação de XML; a lacuna de finalidade nula nas entradas
 históricas está medida em `faturamento-os-vs-ov.md`.
+
+## Complementos do documento (resumo das nove páginas, 05/09/2026)
+
+### Serviços — o que cada CNAE cobre
+
+O CNAE 4321-5/00 (instalação e manutenção elétrica) abrange instalação,
+alteração, manutenção e reparo de sistemas de eletricidade de qualquer tensão,
+cabos telefônicos e de comunicação, redes de informática e TV a cabo inclusive
+fibra óptica, antenas, para-raios, iluminação, alarme de incêndio e roubo,
+controle eletrônico e **automação predial**, e instalação de equipamentos
+elétricos para aquecimento. É o CNAE das NFS-e das OS; não entra na NF-e de
+revenda.
+
+### Industrialização — NCMs citados
+
+`8537.10.20` e `9403.20.00`, com PIS 1,65%, COFINS 7,60%, IRPJ 1,20%, CSLL
+1,08%, IPI pela TIPI e ICMS SC 17% ou 12% pela mesma regra de destinação.
+
+### Revenda — os dois grupos de NCM
+
+| Grupo | NCMs | ICMS interno |
+|---|---|---|
+| Com redução de base (Anexo 2, art. 7º, VII), carga efetiva 12%, só interno | 8536.49.00 · 8536.50.90 · 8544.49.00 | CST 20 com `pRedBC` 29,412% e cBenef SC820006, ou CST 00 a 12% com a observação obrigatória |
+| Sem redução, regra geral | 8536.20.00 · 8537.10.20 | 12% contribuinte que revende/industrializa; 17% uso e consumo, ativo ou não contribuinte |
+
+A lista de elegíveis é **fechada nesses três NCMs**. Não se estende por
+analogia ("também é automação"); a COPAT já respondeu isso duas vezes. Se a
+Segau passar a revender outro NCM da Seção XIX do Anexo 1, a pergunta vai ao
+contador antes de qualquer parametrização.
+
+### Base de cálculo do IPI (RIPI, art. 190)
+
+Preço do produto **mais frete e demais despesas acessórias**. Descontos não
+podem ser deduzidos, nem os incondicionais. Hoje a Segau revende com IPI não
+tributado (CST 53), então a regra só passa a valer em industrialização própria.
+
+### Sped e estoque de abertura
+
+- Bloco K mensal e Bloco H de inventário.
+- Levantamento do estoque de abertura no Lucro Real para crédito: 12% de ICMS
+  sobre o estoque com direito e crédito de PIS/COFINS em 12 parcelas mensais.
+
+### Observação sobre IRPJ e CSLL
+
+O título fala em Lucro Real, mas os percentuais de IRPJ e CSLL da tabela
+(4,80%/2,88% em serviço, 1,20%/1,08% em mercadoria) são os de **presunção**
+(32% e 8%/12% sobre a receita). São alíquotas de estimativa mensal, não do
+lucro apurado. **Pergunta ao contador:** a empresa é Lucro Real anual por
+estimativa? A resposta muda como o ERP projeta a carga tributária, mas não
+altera a NF-e.
+
+### Pedidos operacionais do contador — situação no ERP
+
+| Pedido | Situação em 05/09/2026 |
+|---|---|
+| Informar ao fornecedor a finalidade da compra | O pedido de compra tem finalidade por linha; falta imprimir/enviar ao fornecedor de forma padronizada. |
+| Enviar a fatura de energia elétrica | Fora do ERP. |
+| Planilha mensal das notas de entrada com a finalidade de cada aquisição | Relatório de entradas existe; a finalidade por item de entrada está nula em boa parte do histórico (ver `faturamento-os-vs-ov.md`). Backlog: exportação mensal com finalidade obrigatória. |
