@@ -398,6 +398,60 @@ function normalizeUnidadeMedida(value: string | null | undefined): string {
     .slice(0, 10);
 }
 
+type ItemConversaoEstoque = {
+  id: number;
+  unidade_medida: string | null;
+  unidade_compra: string | null;
+  fator_conversao_estoque: number | null;
+};
+
+class ErroConversaoUnidadeEstoque extends Error {}
+
+function fatorParaUnidadeEstoque(itemId: number, cadastro: ItemConversaoEstoque | undefined, unidadeOrigem: string): number {
+  const unidadeEstoque = normalizeUnidadeMedida(cadastro?.unidade_medida);
+  const unidadeCompra = normalizeUnidadeMedida(cadastro?.unidade_compra);
+  if (!unidadeCompra) return 1;
+  if (!unidadeOrigem) {
+    throw new ErroConversaoUnidadeEstoque(`Item ${itemId}: a NF não informou a unidade de origem necessária para converter o estoque.`);
+  }
+  if (unidadeOrigem === unidadeEstoque) return 1;
+  if (unidadeOrigem !== unidadeCompra) {
+    throw new ErroConversaoUnidadeEstoque(
+      `Item ${itemId}: unidade da NF (${unidadeOrigem}) difere da unidade de compra (${unidadeCompra}) e da unidade de estoque (${unidadeEstoque || "não informada"}).`
+    );
+  }
+  const fator = toNum(cadastro?.fator_conversao_estoque ?? 1);
+  if (fator <= 0) throw new ErroConversaoUnidadeEstoque(`Item ${itemId}: multiplicador de estoque inválido no cadastro.`);
+  return fator;
+}
+
+async function validarConversoesImportacao(opts: {
+  tenantId: string;
+  empresaId: string;
+  itensJson: unknown;
+}): Promise<void> {
+  const rows = Array.isArray(opts.itensJson)
+    ? opts.itensJson.filter((row) => row && typeof row === "object").map((row) => row as Record<string, unknown>)
+    : [];
+  const itemIds = Array.from(new Set(rows.map((row) => readImportItemId(row)).filter((id) => id > 0)));
+  if (!itemIds.length) return;
+  const admin = supabaseAdmin();
+  const { data, error } = await admin
+    .from("itens")
+    .select("id,unidade_medida,unidade_compra,fator_conversao_estoque")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .in("id", itemIds);
+  if (error) throw new Error(error.message);
+  const porId = new Map(((data ?? []) as ItemConversaoEstoque[]).map((item) => [Number(item.id), item] as const));
+  for (const row of rows) {
+    const itemId = readImportItemId(row);
+    if (itemId <= 0) continue;
+    const unidadeOrigem = normalizeUnidadeMedida(readPayloadText(row, "unidade", "uCom"));
+    fatorParaUnidadeEstoque(itemId, porId.get(itemId), unidadeOrigem);
+  }
+}
+
 function moneyDiff(a: number, b: number): number {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return Number.MAX_SAFE_INTEGER;
   return Math.abs(a - b);
@@ -2003,11 +2057,11 @@ async function syncCadastroFinalidadeFromNfEntrada(opts: {
   if (upsertErr) throw new Error(upsertErr.message);
 }
 
-// A unidade de compra que vem na XML (uCom) e a fonte de verdade mais recente
-// pra unidade do item: cadastro nunca e corrigido automaticamente em nenhum
-// outro fluxo (nem manual, nem no agente de cadastro), entao cadastros feitos
-// antes desse item ter historico de compra ficam desatualizados pra sempre se
-// ninguem sincronizar aqui. Best-effort: nunca deve derrubar a importacao da NF.
+// A unidade do XML representa a compra, enquanto unidade_medida representa o
+// saldo canonico. Nao sobrescrevemos mais uma unidade de estoque existente com
+// uCom (um rolo de cabo, por exemplo, precisa continuar estocado em metros).
+// Mantemos apenas o preenchimento legado quando o cadastro realmente nao possui
+// unidade. Best-effort: nunca deve derrubar a importacao da NF.
 async function syncItemUnidadeMedidaFromNfEntrada(opts: {
   tenantId: string;
   empresaId: string;
@@ -2045,18 +2099,19 @@ async function syncItemUnidadeMedidaFromNfEntrada(opts: {
     const itemIds = Array.from(unidadeDesejadaPorItemId.keys());
     const { data: itensCadastro, error: itensCadastroErr } = await admin
       .from("itens")
-      .select("id,unidade_medida")
+      .select("id,unidade_medida,unidade_compra")
       .eq("tenant_id", opts.tenantId)
       .eq("empresa_id", opts.empresaId)
       .in("id", itemIds)
-      .returns<Array<{ id: number; unidade_medida: string | null }>>();
+      .returns<Array<{ id: number; unidade_medida: string | null; unidade_compra: string | null }>>();
     if (itensCadastroErr || !Array.isArray(itensCadastro)) return;
 
     for (const item of itensCadastro) {
       const desejada = unidadeDesejadaPorItemId.get(item.id);
       if (!desejada) continue;
       const atual = normalizeUnidadeMedida(item.unidade_medida);
-      if (atual === desejada) continue;
+      const unidadeCompra = normalizeUnidadeMedida(item.unidade_compra);
+      if (atual || unidadeCompra) continue;
       try {
         await admin
           .from("itens")
@@ -2166,9 +2221,13 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
   empresaId: string;
   nfEntradaId: number;
   realizadoPor: string | null;
+  itensJson: unknown;
 }) {
   const admin = supabaseAdmin();
   const { tenantId, empresaId, nfEntradaId, realizadoPor } = opts;
+  const payloadRows = Array.isArray(opts.itensJson)
+    ? opts.itensJson.map((row) => (row && typeof row === "object" ? (row as Record<string, unknown>) : null))
+    : [];
 
   const { data: nfRow } = await admin
     .from("nf_entrada")
@@ -2185,21 +2244,44 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
 
   const { data: itensNf, error: itensErr } = await admin
     .from("nf_entrada_itens")
-    .select("item_id,qtd,v_unit,v_prod,v_icms,v_ipi,v_pis,v_cofins")
+    .select("id,item_id,qtd,v_unit,v_prod,v_icms,v_ipi,v_pis,v_cofins")
     .eq("tenant_id", tenantId)
     .eq("empresa_id", empresaId)
     .eq("nf_entrada_id", nfEntradaId)
+    .order("id", { ascending: true })
     .returns<NfEntradaItemRow[]>();
 
   if (itensErr) throw new Error(itensErr.message);
 
   const itens = Array.isArray(itensNf) ? itensNf : [];
+  const itemIdsConfigurados = Array.from(
+    new Set(itens.map((row) => Number(row.item_id ?? 0)).filter((id) => Number.isFinite(id) && id > 0))
+  );
+  const { data: itensCadastro, error: itensCadastroErr } = itemIdsConfigurados.length
+    ? await admin
+        .from("itens")
+        .select("id,unidade_medida,unidade_compra,fator_conversao_estoque")
+        .eq("tenant_id", tenantId)
+        .eq("empresa_id", empresaId)
+        .in("id", itemIdsConfigurados)
+    : { data: [], error: null };
+  if (itensCadastroErr) throw new Error(itensCadastroErr.message);
+  const conversaoPorItem = new Map(
+    ((itensCadastro ?? []) as ItemConversaoEstoque[]).map((item) => [Number(item.id), item] as const)
+  );
   const agregados = new Map<number, NfEntradaItemRow>();
 
-  for (const row of itens) {
+  for (const [idx, row] of itens.entries()) {
     const itemId = Number(row.item_id ?? 0);
-    const qtd = toNum(row.qtd);
-    if (!Number.isFinite(itemId) || itemId <= 0 || qtd <= 0) continue;
+    const qtdOrigem = toNum(row.qtd);
+    if (!Number.isFinite(itemId) || itemId <= 0 || qtdOrigem <= 0) continue;
+
+    const cadastro = conversaoPorItem.get(itemId);
+    const unidadeOrigem = normalizeUnidadeMedida(readPayloadText(payloadRows[idx], "unidade", "uCom"));
+    const fatorAplicado = fatorParaUnidadeEstoque(itemId, cadastro, unidadeOrigem);
+
+    const qtd = round6(qtdOrigem * fatorAplicado);
+    const valorProduto = toNum(row.v_prod) > 0 ? toNum(row.v_prod) : qtdOrigem * toNum(row.v_unit);
 
     const prev = agregados.get(itemId);
     if (!prev) {
@@ -2207,6 +2289,7 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
         ...row,
         item_id: itemId,
         qtd,
+        v_prod: valorProduto,
       });
       continue;
     }
@@ -2214,6 +2297,7 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
     agregados.set(itemId, {
       ...prev,
       qtd: toNum(prev.qtd) + qtd,
+      v_prod: toNum(prev.v_prod) + valorProduto,
       v_icms: toNum(prev.v_icms) + toNum(row.v_icms),
       v_ipi: toNum(prev.v_ipi) + toNum(row.v_ipi),
       v_pis: toNum(prev.v_pis) + toNum(row.v_pis),
@@ -2370,6 +2454,31 @@ async function syncMovimentacoesFromNfEntradaFallback(opts: {
   }
 
   return { inserted: inserts.length };
+}
+
+async function nfEntradaTemConversaoConfigurada(opts: { tenantId: string; empresaId: string; nfEntradaId: number }): Promise<boolean> {
+  const admin = supabaseAdmin();
+  const { data: nfItens, error: nfItensErr } = await admin
+    .from("nf_entrada_itens")
+    .select("item_id")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .eq("nf_entrada_id", opts.nfEntradaId)
+    .not("item_id", "is", null)
+    .returns<Array<{ item_id: number | null }>>();
+  if (nfItensErr) return true;
+  const itemIds = Array.from(new Set((nfItens ?? []).map((row) => Number(row.item_id ?? 0)).filter((id) => id > 0)));
+  if (!itemIds.length) return false;
+  const { data: itens, error: itensErr } = await admin
+    .from("itens")
+    .select("id")
+    .eq("tenant_id", opts.tenantId)
+    .eq("empresa_id", opts.empresaId)
+    .not("unidade_compra", "is", null)
+    .in("id", itemIds)
+    .limit(1);
+  if (itensErr) return true;
+  return Array.isArray(itens) && itens.length > 0;
 }
 
 async function syncDocumentoFiscalImpostosFromNfEntradaFallback(opts: {
@@ -2636,29 +2745,53 @@ async function buildDirectOsVinculosFromNfEntrada(opts: {
   empresaId: string;
   nfEntradaId: number;
   osId: number;
+  itensJson: unknown;
 }): Promise<Array<{ os_id: number; item_id: number; quantidade: number; valor_unitario: number }>> {
   const admin = supabaseAdmin();
   if (!Number.isFinite(opts.osId) || opts.osId <= 0) return [];
+  const payloadRows = Array.isArray(opts.itensJson)
+    ? opts.itensJson.map((row) => (row && typeof row === "object" ? (row as Record<string, unknown>) : null))
+    : [];
 
   const { data: nfItens, error: nfItensErr } = await admin
     .from("nf_entrada_itens")
-    .select("item_id,qtd,v_unit")
+    .select("id,item_id,qtd,v_unit,v_prod")
     .eq("tenant_id", opts.tenantId)
     .eq("empresa_id", opts.empresaId)
     .eq("nf_entrada_id", opts.nfEntradaId)
-    .returns<Array<{ item_id: number | null; qtd: number | null; v_unit: number | null }>>();
+    .order("id", { ascending: true })
+    .returns<Array<{ id: number; item_id: number | null; qtd: number | null; v_unit: number | null; v_prod: number | null }>>();
   if (nfItensErr) return [];
 
-  const agregados = new Map<number, { quantidade: number; valor_unitario: number }>();
-  for (const row of Array.isArray(nfItens) ? nfItens : []) {
+  const rowsNf = Array.isArray(nfItens) ? nfItens : [];
+  const itemIds = Array.from(new Set(rowsNf.map((row) => Number(row.item_id ?? 0)).filter((id) => id > 0)));
+  const { data: itensCadastro, error: itensCadastroErr } = itemIds.length
+    ? await admin
+        .from("itens")
+        .select("id,unidade_medida,unidade_compra,fator_conversao_estoque")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .in("id", itemIds)
+    : { data: [], error: null };
+  if (itensCadastroErr) throw new Error(itensCadastroErr.message);
+  const conversaoPorItem = new Map(
+    ((itensCadastro ?? []) as ItemConversaoEstoque[]).map((item) => [Number(item.id), item] as const)
+  );
+
+  const agregados = new Map<number, { quantidade: number; valor_total: number }>();
+  for (const [idx, row] of rowsNf.entries()) {
     const itemId = Number(row.item_id ?? 0);
-    const qtd = Math.max(0, toNum(row.qtd));
+    const qtdOrigem = Math.max(0, toNum(row.qtd));
     const vUnit = Math.max(0, toNum(row.v_unit));
-    if (!Number.isFinite(itemId) || itemId <= 0 || qtd <= 0) continue;
-    const prev = agregados.get(itemId);
+    if (!Number.isFinite(itemId) || itemId <= 0 || qtdOrigem <= 0) continue;
+    const unidadeOrigem = normalizeUnidadeMedida(readPayloadText(payloadRows[idx], "unidade", "uCom"));
+    const fator = fatorParaUnidadeEstoque(itemId, conversaoPorItem.get(itemId), unidadeOrigem);
+    const qtdEstoque = round6(qtdOrigem * fator);
+    const valorTotal = toNum(row.v_prod) > 0 ? toNum(row.v_prod) : qtdOrigem * vUnit;
+    const prev = agregados.get(itemId) ?? { quantidade: 0, valor_total: 0 };
     agregados.set(itemId, {
-      quantidade: (prev?.quantidade ?? 0) + qtd,
-      valor_unitario: vUnit > 0 ? vUnit : prev?.valor_unitario ?? 0,
+      quantidade: prev.quantidade + qtdEstoque,
+      valor_total: prev.valor_total + valorTotal,
     });
   }
   if (agregados.size === 0) return [];
@@ -2669,7 +2802,7 @@ async function buildDirectOsVinculosFromNfEntrada(opts: {
       os_id: opts.osId,
       item_id: itemId,
       quantidade: agg.quantidade,
-      valor_unitario: agg.valor_unitario,
+      valor_unitario: agg.quantidade > 0 ? agg.valor_total / agg.quantidade : 0,
     });
   }
   return vinculos;
@@ -2680,8 +2813,12 @@ async function reconcileDirectOsXmlImportRows(opts: {
   empresaId: string;
   nfEntradaId: number;
   osId: number;
+  itensJson: unknown;
 }) {
   const admin = supabaseAdmin();
+  const payloadRows = Array.isArray(opts.itensJson)
+    ? opts.itensJson.map((row) => (row && typeof row === "object" ? (row as Record<string, unknown>) : null))
+    : [];
   const { data: nfRow, error: nfErr } = await admin
     .from("nf_entrada")
     .select("id,chave")
@@ -2714,20 +2851,39 @@ async function reconcileDirectOsXmlImportRows(opts: {
     .eq("tenant_id", opts.tenantId)
     .eq("empresa_id", opts.empresaId)
     .eq("nf_entrada_id", opts.nfEntradaId)
+    .order("id", { ascending: true })
     .returns<Array<{ id: number; item_id: number | null; qtd: number | null; v_unit: number | null; v_prod: number | null }>>();
   if (nfItensErr) throw new Error(nfItensErr.message);
 
+  const rowsNf = Array.isArray(nfItens) ? nfItens : [];
+  const itemIds = Array.from(new Set(rowsNf.map((row) => Number(row.item_id ?? 0)).filter((id) => id > 0)));
+  const { data: itensCadastro, error: itensCadastroErr } = itemIds.length
+    ? await admin
+        .from("itens")
+        .select("id,unidade_medida,unidade_compra,fator_conversao_estoque")
+        .eq("tenant_id", opts.tenantId)
+        .eq("empresa_id", opts.empresaId)
+        .in("id", itemIds)
+    : { data: [], error: null };
+  if (itensCadastroErr) throw new Error(itensCadastroErr.message);
+  const conversaoPorItem = new Map(
+    ((itensCadastro ?? []) as ItemConversaoEstoque[]).map((item) => [Number(item.id), item] as const)
+  );
+
   const grouped = new Map<number, { quantidade: number; valor_unitario: number; valor_total: number; legacyObs: Set<string> }>();
-  for (const row of Array.isArray(nfItens) ? nfItens : []) {
+  for (const [idx, row] of rowsNf.entries()) {
     const itemId = Number(row.item_id ?? 0);
-    const qtd = Math.max(0, toNum(row.qtd));
-    if (!Number.isFinite(itemId) || itemId <= 0 || qtd <= 0) continue;
+    const qtdOrigem = Math.max(0, toNum(row.qtd));
+    if (!Number.isFinite(itemId) || itemId <= 0 || qtdOrigem <= 0) continue;
+    const unidadeOrigem = normalizeUnidadeMedida(readPayloadText(payloadRows[idx], "unidade", "uCom"));
+    const fator = fatorParaUnidadeEstoque(itemId, conversaoPorItem.get(itemId), unidadeOrigem);
+    const qtd = round6(qtdOrigem * fator);
 
     const current = grouped.get(itemId) ?? { quantidade: 0, valor_unitario: 0, valor_total: 0, legacyObs: new Set<string>() };
     const vUnit = toNum(row.v_unit);
     current.quantidade += qtd;
-    current.valor_unitario = vUnit > 0 ? vUnit : current.valor_unitario;
-    current.valor_total += toNum(row.v_prod) > 0 ? toNum(row.v_prod) : qtd * vUnit;
+    current.valor_total += toNum(row.v_prod) > 0 ? toNum(row.v_prod) : qtdOrigem * vUnit;
+    current.valor_unitario = current.quantidade > 0 ? current.valor_total / current.quantidade : 0;
     const nfChave = String(nfRow.chave ?? "").trim();
     const nfItemId = Number(row.id ?? 0);
     if (nfChave && nfItemId > 0) current.legacyObs.add(`IMPORT XML NF ${nfChave} NF_ITEM ${nfItemId}`);
@@ -3454,6 +3610,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    try {
+      await validarConversoesImportacao({ tenantId, empresaId, itensJson: itensJsonToImport });
+    } catch (conversionErr) {
+      const detalhe = conversionErr instanceof Error ? conversionErr.message : "configuração inválida";
+      return jerr(422, `Importação bloqueada para evitar saldo em unidade incorreta. ${detalhe}`);
+    }
+
     // Call import RPC using the user's auth context
     const { data: importData, error: importErr } = await supabase.rpc("import_nf_entrada", {
       p_empresa_id: empresaId,
@@ -3658,9 +3821,19 @@ export async function POST(req: NextRequest) {
         empresaId,
         nfEntradaId,
         realizadoPor: backfillActor,
+        itensJson: itensJsonToImport,
       });
     } catch (fallbackErr: unknown) {
+      if (fallbackErr instanceof ErroConversaoUnidadeEstoque) {
+        return jerr(422, `NF importada, mas a movimentação foi bloqueada para evitar saldo incorreto. ${fallbackErr.message}`);
+      }
       fallbackBackfillError = fallbackErr instanceof Error ? fallbackErr.message : "erro desconhecido";
+      if (await nfEntradaTemConversaoConfigurada({ tenantId, empresaId, nfEntradaId })) {
+        return jerr(
+          422,
+          `NF importada, mas a movimentação com conversão de unidade não foi gravada para evitar saldo incorreto. nf_entrada_id=${nfEntradaId}. Detalhe: ${fallbackBackfillError}`
+        );
+      }
       console.warn("[XML_IMPORT][MOV_BACKFILL] falha no fallback primario; tentando RPC com contexto do usuario", {
         tenantId,
         empresaId,
@@ -3767,6 +3940,7 @@ export async function POST(req: NextRequest) {
           empresaId,
           nfEntradaId,
           osId: Number(osId),
+          itensJson: itensJsonToImport,
         });
         if (osVinculosDireto.length === 0) {
           return jerr(
@@ -3787,6 +3961,7 @@ export async function POST(req: NextRequest) {
           empresaId,
           nfEntradaId,
           osId: Number(osId),
+          itensJson: itensJsonToImport,
         });
       } catch (osDirectSyncErr) {
         const detalhe = osDirectSyncErr instanceof Error ? osDirectSyncErr.message : "erro desconhecido";

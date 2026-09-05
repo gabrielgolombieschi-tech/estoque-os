@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { normalizarNomeCadastro } from "@/lib/itens/normalizacaoNome";
+import { pendenciasDescricaoTecnica, REGRAS_SENSORES_SEGURANCA } from "@/lib/itens/qualidadeDescricao";
 
 export type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
 export type Confianca = "alta" | "media" | "baixa";
@@ -140,6 +142,8 @@ type SugestaoModelo = {
   fabricante_sugerido: string | null;
   modelo_referencia: string | null;
   unidade_medida: string | null;
+  unidade_compra: string | null;
+  fator_conversao_estoque: number | null;
   finalidade_sugerida: ItemFinalidade | null;
   grupo_id: number | null;
   novo_grupo: NovoGrupo | null;
@@ -779,6 +783,8 @@ export function schemaRespostaAgente() {
       "fabricante_sugerido",
       "modelo_referencia",
       "unidade_medida",
+      "unidade_compra",
+      "fator_conversao_estoque",
       "finalidade_sugerida",
       "grupo_id",
       "novo_grupo",
@@ -792,6 +798,8 @@ export function schemaRespostaAgente() {
       fabricante_sugerido: { type: ["string", "null"] },
       modelo_referencia: { type: ["string", "null"] },
       unidade_medida: { type: ["string", "null"] },
+      unidade_compra: { type: ["string", "null"] },
+      fator_conversao_estoque: { type: ["number", "null"] },
       finalidade_sugerida: { type: ["string", "null"], enum: [...FINALIDADES, null] },
       grupo_id: { type: ["integer", "null"] },
       novo_grupo: schemaNovoGrupo(),
@@ -833,13 +841,18 @@ export function schemaRespostaAgente() {
 
 export function promptSistemaAgenteCadastro(): string {
   return [
+    REGRAS_SENSORES_SEGURANCA,
     "Você é o Agente de Cadastro Assistido do ERP. Gere uma proposta para revisão humana; você nunca grava dados no banco.",
     "A pessoa informa fornecedor, código e quantidade de referência para cotação. Quantidade não é estoque e não gera movimentação.",
     "Use a pesquisa web obrigatória para investigar primeiro o código exato e a marca/fabricante verificáveis. Se não houver referência exata, pesquise um item tecnicamente similar e declare tipo_correspondencia=similar. Se a pesquisa for insuficiente, use nao_encontrado e não invente preço, especificação ou fonte.",
-    "A descrição padronizada precisa identificar tecnicamente o material e não deve repetir fabricante, marca, código ou modelo. Uma família técnica pode aparecer apenas quando for indispensável à compatibilidade e estiver confirmada pela fonte. Não copie automaticamente a descrição encontrada.",
-    "Nunca invente especificações. Registre toda lacuna em dados_pendentes e reduza a confiança. Mantenha número e unidade juntos: 24VCC, 400A, 500VCA e 6kA.",
+    "A descrição padronizada precisa identificar tecnicamente o material e não deve repetir fabricante, marca nem o código de origem. Quando o código de origem for exclusivamente numérico, inclua a família e a referência alfanumérica oficial do fabricante confirmadas pela fonte; não repita o número. Nos demais casos, uma família técnica só aparece quando indispensável à compatibilidade. Não copie automaticamente a descrição encontrada.",
+    "Nunca inclua no nome dados transacionais como número de pedido de compra, NF-e, OS, data da compra ou observação comercial. Esses dados permanecem nos documentos e relacionamentos próprios do ERP.",
+    "Nunca invente especificações. Registre toda lacuna em dados_pendentes e reduza a confiança. Número, faixa ou razão e sua unidade devem ficar sempre juntos, sem espaço: 115A, 110-127VCA/CC, 50/60Hz, 24VCC, 6kA e 17,5mm. Para switches, a quantidade de portas é obrigatória; sem confirmação, registre a pendência e não finalize com descrição genérica.",
+    "Para cabos elétricos, de controle, sinal ou sensor/atuador, a descrição só está tecnicamente completa quando a fonte confirmar e ela informar: família ou tipo, formação e seção nominal, classe de tensão, material da isolação dos condutores, material da capa externa e presença ou ausência de blindagem. Preserve a notação técnica G ou x e interprete-a corretamente: G indica condutor de proteção verde/amarelo e x indica ausência desse condutor. Não confunda isolação com capa; por exemplo, isolação PVC e capa PUR são atributos diferentes. Se qualquer dado obrigatório não for confirmado, registre-o em dados_pendentes e reduza a confiança.",
+    "Para cabos sem terminação, declare UNIPOLAR para uma via ou MULTIPOLAR para duas ou mais vias quando a formação estiver confirmada. Cabo PP é uma família construtiva e não significa isolação de polipropileno; na construção convencional confirmada, descreva ISOLAÇÃO PVC e CAPA PVC. Cabos montados, cordões, chicotes ou cabos com conector, plugue, terminal ou adaptador nas pontas são outra classe de produto e não devem ser tratados como cabo nu deste padrão.",
+    "Para cabos sem terminação, unidade_medida é sempre M, pois o saldo do ERP é controlado em metros. Se a fonte confirmar venda em KM, RL, BOB ou outra unidade comercial, informe unidade_compra e fator_conversao_estoque, onde 1 unidade de compra vezes o fator resulta em metros. Exemplo: 1RL de 100m usa unidade_compra=RL e fator=100. Nunca presuma o comprimento de rolo ou bobina: se não estiver confirmado, retorne fator null e registre a pendência.",
     "Escolha grupo_id somente da lista de grupos ativos enviada. Não trate como equivalentes produtos de funções distintas. Sem grupo adequado, proponha um novo grupo simples e reutilizável; ele será criado somente após aprovação humana.",
-    "O ERP tem campos próprios para fornecedor, código e fabricante. fabricante_sugerido e modelo_referencia servem à revisão e não devem ser repetidos na descrição.",
+    "O ERP tem campos próprios para fornecedor, código e fabricante. fabricante_sugerido não deve ser repetido na descrição. modelo_referencia só entra na descrição na exceção aprovada para código de origem exclusivamente numérico ou quando for indispensável à compatibilidade.",
     "Pesquise preço de uma página concreta. Retorne o preço original exatamente na moeda vista, uma única URL da fonte e não faça conversão. O servidor calcula qualquer regra de importação. Não sugira NCM, IPI ou demais tributos pela internet.",
     "Se o preco estiver em moeda estrangeira, pesquise tambem uma fonte concreta de cambio. Informe taxa_cambio_brl como BRL por uma unidade da moeda de origem, fonte_cambio_url e data_cambio no formato YYYY-MM-DD. Preencha esses tres campos somente quando a fonte da taxa estiver entre os resultados da pesquisa; caso contrario, use null. Nao calcule o valor final em BRL: o servidor aplica a conversao e, quando a fonte for eBay, o fator de importacao.",
     "Retorne exclusivamente o JSON estruturado solicitado.",
@@ -878,7 +891,9 @@ export function sanitizarSugestaoModelo(input: {
   const dadosPendentes = Array.isArray(raw?.dados_pendentes)
     ? raw.dados_pendentes.map((value) => texto(value, 180)).filter((value): value is string => Boolean(value)).slice(0, 20)
     : [];
-  const descricao = texto(raw?.descricao_padronizada, 255) ?? "";
+  const descricao = normalizarNomeCadastro(texto(raw?.descricao_padronizada, 255) ?? "");
+  const pendenciasTecnicas = pendenciasDescricaoTecnica({ descricao, codigo: input.codigo, modeloReferencia: texto(raw?.modelo_referencia, 150), grupoCodigo: grupo?.codigo });
+  dadosPendentes.push(...pendenciasTecnicas);
   const codigoAlfanumerico = input.codigo.replace(/[^A-Z0-9]/g, "");
   if (codigoAlfanumerico.length >= 5 && descricao.toUpperCase().replace(/[^A-Z0-9]/g, "").includes(codigoAlfanumerico)) {
     dadosPendentes.push("A descrição sugerida ainda contém o código do produto; remova-o antes de confirmar o cadastro.");
@@ -888,12 +903,14 @@ export function sanitizarSugestaoModelo(input: {
     fabricante_sugerido: texto(raw?.fabricante_sugerido, 150),
     modelo_referencia: texto(raw?.modelo_referencia, 150),
     unidade_medida: texto(raw?.unidade_medida, 10),
+    unidade_compra: texto(raw?.unidade_compra, 10),
+    fator_conversao_estoque: numero(raw?.fator_conversao_estoque, 0.000001, 999999999),
     finalidade_sugerida: finalidade(raw?.finalidade_sugerida),
     grupo_id: grupo?.id ?? null,
     novo_grupo: novoGrupo,
     justificativa: texto(raw?.justificativa, 600) ?? "Revise a classificação e as fontes antes de confirmar.",
     dados_pendentes: dadosPendentes,
-    confianca,
+    confianca: pendenciasTecnicas.length ? "baixa" : confianca,
     pesquisa_preco: {
       tipo_correspondencia:
         pesquisa?.tipo_correspondencia === "exato" || pesquisa?.tipo_correspondencia === "similar"
@@ -1028,7 +1045,7 @@ export function uuidOuNulo(value: unknown): string | null {
 
 export function normalizarNome(value: unknown): string | null {
   const candidate = texto(value, 255);
-  return candidate ? candidate.toUpperCase() : null;
+  return candidate ? normalizarNomeCadastro(candidate.toUpperCase()) : null;
 }
 
 export function usuarioIdentificador(user: { id?: string | null; email?: string | null }): string {

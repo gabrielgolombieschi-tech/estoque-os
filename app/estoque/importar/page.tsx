@@ -6,6 +6,7 @@ import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
+import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { useImportMotivos, type MotivoCompra } from "./ImportMotivosProvider";
@@ -1804,7 +1805,7 @@ export default function ImportarXmlPage() {
     }
 
     const nomeFinal = normalizacao?.descricao_padronizada?.trim() || it.overrideNome?.trim() || it.nome || `Item ${it.codigo}`;
-    const nomeUpper = String(nomeFinal).trim().toUpperCase();
+    const nomeUpper = normalizarUnidadesNoNome(String(nomeFinal).trim().toUpperCase());
     const dataCompra = dataEmissao || new Date().toISOString();
     const margem = 52;
 
@@ -2255,7 +2256,9 @@ export default function ImportarXmlPage() {
   async function salvarCorrecaoDescricao() {
     if (!descricaoCorrecaoDraft || !tenantId || !empresaId || descricaoCorrecaoBusy) return;
 
-    const descricaoFinal = descricaoCorrecaoDraft.descricaoFinal.trim().replace(/\s+/g, " ");
+    const descricaoFinal = normalizarUnidadesNoNome(
+      descricaoCorrecaoDraft.descricaoFinal.trim().replace(/\s+/g, " ")
+    );
     if (!descricaoFinal) {
       setDescricaoCorrecaoMessage({
         codigo: descricaoCorrecaoDraft.codigo,

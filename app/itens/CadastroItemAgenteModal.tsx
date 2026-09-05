@@ -84,6 +84,8 @@ export type CadastroItemAgenteSugestao = {
   fabricante: string | null;
   modelo_referencia: string | null;
   unidade_medida: string;
+  unidade_compra: string | null;
+  fator_conversao_estoque: number | null;
   finalidade: string | null;
   motivo_compra_id: string | null;
   grupo_id: number | null;
@@ -283,6 +285,8 @@ function decodeSugestao(value: unknown): CadastroItemAgenteSugestao | null {
     fabricante: text(value.fabricante),
     modelo_referencia: text(value.modelo_referencia),
     unidade_medida: text(value.unidade_medida, "UN") ?? "UN",
+    unidade_compra: text(value.unidade_compra),
+    fator_conversao_estoque: numberOrNull(value.fator_conversao_estoque),
     finalidade: text(value.finalidade),
     motivo_compra_id: text(value.motivo_compra_id),
     grupo_id: integerOrNull(value.grupo_id),
@@ -622,6 +626,10 @@ export default function CadastroItemAgenteModal({
       setErro("Informe um preço unitário válido maior que zero antes de confirmar.");
       return;
     }
+    if (sugestao.unidade_compra && (!sugestao.fator_conversao_estoque || sugestao.fator_conversao_estoque <= 0)) {
+      setErro("Informe um multiplicador maior que zero para converter a unidade de compra em unidade de estoque.");
+      return;
+    }
 
     const sugestaoConfirmada: CadastroItemAgenteSugestao = {
       ...sugestao,
@@ -629,6 +637,8 @@ export default function CadastroItemAgenteModal({
       descricao_padronizada: sugestao.descricao_padronizada.trim(),
       fabricante: sugestao.fabricante?.trim() || null,
       unidade_medida: sugestao.unidade_medida.trim() || "UN",
+      unidade_compra: sugestao.unidade_compra?.trim() || null,
+      fator_conversao_estoque: sugestao.unidade_compra ? sugestao.fator_conversao_estoque : 1,
       finalidade: "materia_prima",
       novo_grupo: aceitarNovoGrupo ? sugestao.novo_grupo : null,
     };
@@ -859,13 +869,38 @@ export default function CadastroItemAgenteModal({
                   />
                 </label>
                 <label>
-                  <span className={FIELD_LABEL_CLASS}>Unidade</span>
+                  <span className={FIELD_LABEL_CLASS}>Unidade de estoque</span>
                   <input
                     className={INPUT_CLASS}
                     value={sugestao.unidade_medida}
                     onChange={(event) => atualizarSugestao((current) => ({ ...current, unidade_medida: upcase(event.target.value) }))}
                     placeholder="UN"
                   />
+                  <span className="mt-1 block text-[11px] text-zinc-500">Para cabos sem terminação, use M.</span>
+                </label>
+                <label>
+                  <span className={FIELD_LABEL_CLASS}>Unidade de compra/origem</span>
+                  <input
+                    className={INPUT_CLASS}
+                    value={sugestao.unidade_compra ?? ""}
+                    onChange={(event) => atualizarSugestao((current) => ({ ...current, unidade_compra: upcase(event.target.value) || null }))}
+                    placeholder="RL, BOB, KM..."
+                  />
+                </label>
+                <label>
+                  <span className={FIELD_LABEL_CLASS}>Multiplicador para estoque</span>
+                  <input
+                    className={INPUT_CLASS}
+                    value={sugestao.fator_conversao_estoque ?? ""}
+                    onChange={(event) => atualizarSugestao((current) => ({ ...current, fator_conversao_estoque: numberOrNull(event.target.value) }))}
+                    inputMode="decimal"
+                    placeholder="Ex.: 100"
+                  />
+                  <span className="mt-1 block text-[11px] text-zinc-500">
+                    {sugestao.unidade_compra
+                      ? `1 ${sugestao.unidade_compra} = ${sugestao.fator_conversao_estoque ?? "?"} ${sugestao.unidade_medida || "UN"}`
+                      : "Não presuma o comprimento de rolos ou bobinas."}
+                  </span>
                 </label>
                 {sugestao.modelo_referencia && (
                   <div className="md:col-span-2 rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-xs text-zinc-300">
@@ -891,7 +926,9 @@ export default function CadastroItemAgenteModal({
                   <input className={`${INPUT_CLASS} cursor-default text-zinc-300`} value="Matéria-prima" readOnly />
                 </label>
                 <label>
-                  <span className={FIELD_LABEL_CLASS}>Preço unitário (R$) *</span>
+                  <span className={FIELD_LABEL_CLASS}>
+                    Preço por {sugestao.unidade_compra || sugestao.unidade_medida || "unidade"} (R$) *
+                  </span>
                   <input
                     className={INPUT_CLASS}
                     value={precoInput}

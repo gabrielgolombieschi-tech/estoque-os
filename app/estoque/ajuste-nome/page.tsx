@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
+import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
 
 type ItemNomeRow = {
   id: number;
@@ -336,7 +337,7 @@ export default function AjusteNomePage() {
         return false;
       }
 
-      const nextName = String(nextNameRaw ?? "").trim();
+      const nextName = normalizarUnidadesNoNome(String(nextNameRaw ?? "").trim());
       const currentName = String(currentNameRaw ?? "").trim();
       if (!nextName) {
         setErr("Informe o novo nome do item.");

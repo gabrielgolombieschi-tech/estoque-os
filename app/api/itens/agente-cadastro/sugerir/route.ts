@@ -643,6 +643,8 @@ export async function POST(req: NextRequest) {
         fabricante: proposta.fabricante_sugerido,
         modelo_referencia: proposta.modelo_referencia,
         unidade_medida: proposta.unidade_medida ?? "UN",
+        unidade_compra: proposta.unidade_compra,
+        fator_conversao_estoque: proposta.fator_conversao_estoque,
         finalidade: finalidade(finalidadeFinal) ?? "materia_prima",
         motivo_compra_id: motivoCompraId,
         ...grupoParaResposta(proposta.grupo_id, gruposPorId),

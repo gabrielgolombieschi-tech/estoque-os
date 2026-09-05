@@ -1,0 +1,299 @@
+{
+  "data": "2026-09-05",
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "fornecedor_id": 14,
+  "escopo": "Primeiro lote SICK: 21 cadastros genéricos. Não representa revisão técnica completa dos 79 registros.",
+  "preservar": [
+    "codigo_interno",
+    "descricao",
+    "fornecedor_id",
+    "fabricante",
+    "ativo",
+    "unidade_medida",
+    "unidade_compra",
+    "fator_conversao_estoque",
+    "estoque",
+    "precos",
+    "dados_fiscais"
+  ],
+  "pendentes_codigo": [
+    {
+      "id": 3293,
+      "codigo": "2066614-COPIA"
+    },
+    {
+      "id": 3294,
+      "codigo": "2066614-COPIA-COPIA"
+    }
+  ],
+  "itens": [
+    {
+      "id": 3610,
+      "codigo": "6044035",
+      "nome_anterior": "SENSOR INDUSTRIAL FOTOELÉTRICO THROUGH-BEAM",
+      "grupo_id_anterior": 103,
+      "grupo_codigo": "SENSORES_FOTOELETRICOS",
+      "nome": "SENSOR FOTOELÉTRICO BARREIRA V180 VSE180-2P32437 M18 ALCANCE 0-20M PNP COMUTAÇÃO NO ESCURO 10-30VCC M12 3 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/7/47/047/dataSheet_VSE180-2P32437_6044035_en.pdf"
+      ],
+      "pendencias": [
+        "Confirmar composição comercial emissor/receptor. A tabela indica 3 pinos; o desenho genérico mostra 4 posições."
+      ]
+    },
+    {
+      "id": 3611,
+      "codigo": "6044031",
+      "nome_anterior": "SENSOR FOTOELÉTRICO RETROREFLEXIVO",
+      "grupo_id_anterior": 103,
+      "grupo_codigo": "SENSORES_FOTOELETRICOS",
+      "nome": "SENSOR FOTOELÉTRICO RETRORREFLEXIVO V180 VL180-2P32436 M18 ALCANCE 0,05-6M MEDIDO COM PL80A PNP COMUTAÇÃO NO ESCURO 10-30VCC M12 3 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/6/46/046/dataSheet_VL180-2P32436_6044031_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3660,
+      "codigo": "1113245",
+      "nome_anterior": "CORTINA DE LUZ DE SEGURANÇA TRANSMISSORA",
+      "grupo_id_anterior": 123,
+      "grupo_codigo": "CORTINAS_LUZ_SEGURANCA",
+      "nome": "CORTINA DE LUZ DE SEGURANÇA TRANSMISSORA C4-RD C4C-SC12030A10000 ALTURA 1200MM RESOLUÇÃO 30MM ALCANCE 4,5M TIPO 4 24VCC M12 5 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/9/19/019/dataSheet_C4C-SC12030A10000_1113245_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3661,
+      "codigo": "1113222",
+      "nome_anterior": "CORTINA DE LUZ DE SEGURANÇA RECEPTORA",
+      "grupo_id_anterior": 123,
+      "grupo_codigo": "CORTINAS_LUZ_SEGURANCA",
+      "nome": "CORTINA DE LUZ DE SEGURANÇA RECEPTORA C4-RD C4C-EC12030A10000 ALTURA 1200MM RESOLUÇÃO 30MM ALCANCE 4,5M TIPO 4 2OSSD 24VCC M12 5 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/1/51/051/dataSheet_C4C-EC12030A10000_1113222_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3666,
+      "codigo": "6080601",
+      "nome_anterior": "CONTROLADOR DE SEGURANÇA",
+      "grupo_id_anterior": 125,
+      "grupo_codigo": "CONTROLADORES_SEGURANCA",
+      "nome": "CONTROLADOR PARA RADAR DE SEGURANÇA SAFERS3 SRA3-AAC100ZPUI PROFINET/PROFISAFE 24VCC",
+      "fontes": [
+        "https://www.sick.com/media/pdf/1/81/981/dataSheet_SRA3-AAC100ZPUI_6080601_es.pdf",
+        "https://www.sick.com/media/edb_certs/E341275_01.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3667,
+      "codigo": "6082806",
+      "nome_anterior": "SENSOR INDUSTRIAL 9M",
+      "grupo_id_anterior": 102,
+      "grupo_codigo": "SEGURANCA_MAQUINAS",
+      "nome": "SENSOR RADAR DE SEGURANÇA SAFERS3 SRA3-AAR190BKZI ALCANCE 0,2-9M 4 CAMPOS SIMULTÂNEOS IP67",
+      "fontes": [
+        "https://www.sick.com/media/pdf/5/55/155/dataSheet_SRA3-AAR190BKZI_6082806_de.pdf"
+      ],
+      "pendencias": [
+        "Mantido no grupo funcional Segurança de máquinas; subgrupo específico de radar depende de aprovação. Requer controlador safeRS3; não é sensor autônomo."
+      ]
+    },
+    {
+      "id": 3668,
+      "codigo": "2115285",
+      "nome_anterior": "CABO PARA SENSORES E ATUADORES PUR 2 0,25/0,34",
+      "grupo_id_anterior": 106,
+      "grupo_codigo": "CABOS_REDE_INDUSTRIAL",
+      "nome": "CABO DE REDE CANOPEN/DEVICENET YG2A15-150C1BN2A15 15M 2X0,34MM²+2X0,25MM²+1X0,34MM² CAPA PUR BLINDADO ATÉ 60VCA/CC M12 FÊMEA 5 PINOS ANGULAR A / M12 MACHO 5 PINOS ANGULAR A",
+      "fontes": [
+        "https://www.sick.com/media/pdf/4/14/614/dataSheet_YG2A15-150C1BN2A15_2115285_en.pdf"
+      ],
+      "pendencias": [
+        "Material da isolação dos condutores ainda não confirmado. Não converter este conjunto montado para estoque em metros."
+      ]
+    },
+    {
+      "id": 3669,
+      "codigo": "5311136",
+      "nome_anterior": "ACESSÓRIO PARA SENSOR INDUSTRIAL",
+      "grupo_id_anterior": 108,
+      "grupo_codigo": "ACESSORIOS_CHAVES_SEGURANCA",
+      "nome": "KIT DE CORDA DE TRAÇÃO IE110-P05 5M PARA CHAVE DE SEGURANÇA I110-RP",
+      "fontes": [
+        "https://www.sick.com/media/pdf/1/51/351/dataSheet_iE110-P05_5311136_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3670,
+      "codigo": "1112263",
+      "nome_anterior": "SWITCH DE REDE INDUSTRIAL",
+      "grupo_id_anterior": 92,
+      "grupo_codigo": "CHAVES_SEGURANCA",
+      "nome": "CHAVE DE SEGURANÇA RFID STR1-SACM0PR5 COM ATUADOR CODIFICAÇÃO UNIVERSAL SAO 10MM 2OSSD 24VCC CABO PUR 0,2M M12 5 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/1/71/871/dataSheet_STR1-SACM0PR5_1112263_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3671,
+      "codigo": "6053542",
+      "nome_anterior": "SENSOR ULTRASSÔNICO",
+      "grupo_id_anterior": 110,
+      "grupo_codigo": "SENSORES_ULTRASSONICOS",
+      "nome": "SENSOR ULTRASSÔNICO UM12-1172211 M12 FAIXA DE TRABALHO 20-150MM PNP 10-30VCC M12 4 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/0/70/370/dataSheet_UM12-1172211_6053542_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3739,
+      "codigo": "6021917",
+      "nome_anterior": "CHAVE DE SEGURANÇA",
+      "grupo_id_anterior": 27,
+      "grupo_codigo": "DISPOSITIVOS_HABILITACAO",
+      "nome": "DISPOSITIVO DE HABILITAÇÃO DE SEGURANÇA E100-A2A22C05A 2NF+2NA CABO ESPIRAL PUR 5M PONTA LIVRE",
+      "fontes": [
+        "https://www.sick.com/media/pdf/1/91/591/dataSheet_E100-A2A22C05A_6021917_pt.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3740,
+      "codigo": "1211505",
+      "nome_anterior": "CORTINA DE LUZ DE SEGURANÇA EMISSORA",
+      "grupo_id_anterior": 123,
+      "grupo_codigo": "CORTINAS_LUZ_SEGURANCA",
+      "nome": "CORTINA DE LUZ DE SEGURANÇA TRANSMISSORA DETEC4 CORE C4C-SA15030A10000 ALTURA 1500MM RESOLUÇÃO 30MM ALCANCE 15M TIPO 4",
+      "fontes": [
+        "https://www.sick.com/media/pdf/8/18/218/dataSheet_C4C-PA15030A10000_p308218_nl.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3741,
+      "codigo": "2095618",
+      "nome_anterior": "CABO PARA SENSOR E ATUADOR 5M",
+      "grupo_id_anterior": 106,
+      "grupo_codigo": "CABOS_PARA_SENSORES",
+      "nome": "CABO PARA SENSOR/ATUADOR YF2A15-050UB5XLEAX 5M 5X0,34MM² CAPA PUR SEM BLINDAGEM 125VCA/CC M12 FÊMEA 5 PINOS RETO A / PONTA LIVRE",
+      "fontes": [
+        "https://www.sick.com/media/pdf/3/63/263/dataSheet_YF2A15-050UB5XLEAX_2095618_nl.pdf"
+      ],
+      "pendencias": [
+        "Material da isolação dos condutores ainda não confirmado. 125VCA/CC é a tensão do conjunto, não confundir com 300VCA do cabo."
+      ]
+    },
+    {
+      "id": 3742,
+      "codigo": "1211506",
+      "nome_anterior": "CORTINA DE LUZ DE SEGURANÇA RECEPTORA",
+      "grupo_id_anterior": 123,
+      "grupo_codigo": "CORTINAS_LUZ_SEGURANCA",
+      "nome": "CORTINA DE LUZ DE SEGURANÇA RECEPTORA DETEC4 CORE C4C-EA15030A10000 ALTURA 1500MM RESOLUÇÃO 30MM ALCANCE 15M TIPO 4",
+      "fontes": [
+        "https://www.sick.com/media/pdf/8/18/218/dataSheet_C4C-PA15030A10000_p308218_nl.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3743,
+      "codigo": "2096235",
+      "nome_anterior": "CABO PARA SENSORES E ATUADORES PVC 4X0,34MM²",
+      "grupo_id_anterior": 106,
+      "grupo_codigo": "CABOS_PARA_SENSORES",
+      "nome": "CABO PARA SENSOR/ATUADOR YF2A14-050VB3XLEAX 5M 4X0,34MM² CAPA PVC SEM BLINDAGEM 250VCA/CC M12 FÊMEA 4 PINOS RETO A / PONTA LIVRE",
+      "fontes": [
+        "https://www.sick.com/media/pdf/8/58/258/dataSheet_YF2A14-050VB3XLEAX_2096235_en.pdf"
+      ],
+      "pendencias": [
+        "Material da isolação dos condutores ainda não confirmado. 250VCA/CC é a tensão do conjunto, não confundir com 300VCA do cabo."
+      ]
+    },
+    {
+      "id": 3744,
+      "codigo": "2123627",
+      "nome_anterior": "RESISTOR DE TERMINAÇÃO",
+      "grupo_id_anterior": 166,
+      "grupo_codigo": "RESISTOR_TERMINACAO",
+      "nome": "RESISTOR DE TERMINAÇÃO CANOPEN/DEVICENET YM2W15-000000XXXXX M12 MACHO 5 PINOS RETO CODIFICAÇÃO A IP67",
+      "fontes": [
+        "https://www.sick.com/media/pdf/2/12/512/dataSheet_YM2W15-000000XXXXX_2123627_nl.pdf"
+      ],
+      "pendencias": [
+        "Resistência em ohms não confirmada; não presumir 120Ω pelo protocolo."
+      ]
+    },
+    {
+      "id": 3745,
+      "codigo": "6009719",
+      "nome_anterior": "CONECTOR INDUSTRIAL FEMEA PG7 M12 5P",
+      "grupo_id_anterior": 120,
+      "grupo_codigo": "CONECTORES_PARA_SENSORES",
+      "nome": "CONECTOR PARA SENSOR DOS-1205-G M12 FÊMEA 5 PINOS RETO CODIFICAÇÃO A BORNES A PARAFUSO 125V 4A IP67",
+      "fontes": [
+        "https://www.sick.com/media/pdf/1/31/631/dataSheet_DOS-1205-G_6009719_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3746,
+      "codigo": "6070805",
+      "nome_anterior": "TRAVAS DE SEGURANÇA",
+      "grupo_id_anterior": 27,
+      "grupo_codigo": "CHAVES_SEGURANCA",
+      "nome": "CHAVE DE SEGURANÇA RFID TR4 DIRECT TR4-SDM01CB COM ATUADOR CODIFICAÇÃO UNIVERSAL SAO 15MM 2OSSD 24VCC CABO PVC 0,2M M12 8 PINOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/8/08/508/dataSheet_TR4-SDM01CB_6070805_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3747,
+      "codigo": "2046579",
+      "nome_anterior": "CONECTOR INDUSTRIAL",
+      "grupo_id_anterior": 119,
+      "grupo_codigo": "ACESSORIOS_ENCODERS",
+      "nome": "CABO ADAPTADOR DE PROGRAMAÇÃO PARA ENCODER DSL-2D08-G0M5AC3 0,5M BLINDADO M12 FÊMEA 8 PINOS / D-SUB MACHO 9 PINOS PARA PGT-10-PRO/PGT-08-S",
+      "fontes": [
+        "https://www.sick.com/media/pdf/2/82/482/dataSheet_DSL-2D08-G0M5AC3_2046579_en.pdf"
+      ],
+      "pendencias": [
+        "Material da capa, isolação e tensão nominal do conjunto não confirmados."
+      ]
+    },
+    {
+      "id": 3748,
+      "codigo": "5312983",
+      "nome_anterior": "ACESSÓRIO PARA SENSOR",
+      "grupo_id_anterior": 108,
+      "grupo_codigo": "ACESSORIOS_ENCODERS",
+      "nome": "ACOPLAMENTO DE FOLE PARA ENCODER KUP-1010-B EIXOS 10MM/10MM COMPRIMENTO 29MM FOLE INOX CUBOS ALUMÍNIO FIXAÇÃO POR ABRAÇADEIRA",
+      "fontes": [
+        "https://www.sick.com/media/pdf/6/46/346/dataSheet_KUP-1010-B_5312983_en.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3749,
+      "codigo": "5312982",
+      "nome_anterior": "ACESSÓRIO PARA ENCODER",
+      "grupo_id_anterior": 115,
+      "grupo_codigo": "ACESSORIOS_ENCODERS",
+      "nome": "ACOPLAMENTO DE FOLE PARA ENCODER KUP-0610-B EIXOS 6MM/10MM COMPRIMENTO 29MM FOLE INOX CUBOS ALUMÍNIO FIXAÇÃO POR PARAFUSOS",
+      "fontes": [
+        "https://www.sick.com/media/pdf/5/45/345/dataSheet_KUP-0610-B_5312982_en.pdf"
+      ],
+      "pendencias": []
+    }
+  ]
+}

@@ -22,17 +22,43 @@ Família: **painéis elétricos e componentes**, começando por acessórios de d
 | Grupo controlado | `itens.grupo_id` | Classificar pelo cadastro de grupos de itens. |
 | Texto complementar | `itens.descricao` | Usar apenas para informação técnica adicional confirmada. |
 
-O cadastro atual ainda não possui campo próprio de modelo. Não será criado nem presumido nesta etapa. Série/modelo só pode permanecer no nome quando for uma compatibilidade técnica indispensável para distinguir o item e houver aprovação humana registrada.
+O cadastro atual ainda não possui campo próprio de modelo. Não será criado nem presumido nesta etapa. Série/modelo pode permanecer no nome quando for uma compatibilidade técnica indispensável e houver aprovação humana registrada. Também deve permanecer a família e a referência alfanumérica oficial quando o código de origem for exclusivamente numérico, pois ela é necessária para identificar o produto sem repetir o número de origem.
 
 ## Princípios gerais
 
 1. Interpretar o material; não copiar automaticamente palavras, abreviações ou a ordem da nota fiscal.
-2. Não repetir fabricante, marca, código interno, código do fornecedor ou código de barras no nome.
+2. Não repetir fabricante, marca, código interno, código do fornecedor ou código de barras no nome. Exceção: quando o código de origem for exclusivamente numérico, incluir a família e a referência alfanumérica oficial do fabricante, sem repetir o número de origem.
 3. Não inventar especificações, aplicação, material, grau de proteção, medidas ou compatibilidades.
 4. Usar o mesmo nome técnico para o mesmo tipo de material, preservando somente os atributos que realmente o diferenciam.
 5. Não unir itens tecnicamente diferentes apenas por terem dimensão, acabamento ou aplicação semelhantes.
 6. Manter o valor numérico junto à unidade, sem espaço: `100A`, `500VCA`, `24VCC`, `400mm` e `6kA`.
 7. Não há padrão global de ordem de dimensões aprovado no ERP. Enquanto não houver aprovação, dimensões devem ser mantidas como pendência e não inferidas.
+8. Não incluir no nome número de pedido de compra, NF-e, OS, data da compra ou observação comercial. Esses dados pertencem aos documentos transacionais do ERP.
+
+### Regra aprovada: unidades compactas
+
+- O padrão sem espaço vale para valor simples, faixa e razão numérica: `115A`, `110-127VCA/CC` e `50/60Hz`.
+- A regra se aplica a todas as famílias e a todas as unidades técnicas confirmadas, incluindo corrente, tensão, frequência, potência, dimensão, massa, tempo e pressão.
+- A sugestão do agente e a confirmação do cadastro passam pela mesma normalização determinística no servidor.
+
+### Regra aprovada: dados transacionais fora do nome
+
+- Remover do cadastro reutilizável sufixos como `- Pedido 2025/114583` e `- PEDIDO 2026/81006 -`.
+- Manter o número do pedido, a NF-e, a OS, a data e as observações comerciais nos documentos e relacionamentos próprios.
+- Preservar sem alteração a descrição original da NF-e como evidência fiscal e de rastreabilidade.
+- A remoção determinística limita-se a sufixos de pedido com formato reconhecido, para não apagar termos técnicos legítimos.
+
+### Regra aprovada: cabos elétricos, de controle e sinal
+
+- Esta regra cobre somente cabos fornecidos sem conector, plugue, terminal, chicote ou adaptador nas pontas. Cabos montados e cordões com terminação são outra classe de produto e não entram neste lote.
+- Distinguir `UNIPOLAR` (uma via) de `MULTIPOLAR` (duas ou mais vias) quando a formação estiver confirmada. Cabos de potência ficam em `CABOS ELÉTRICOS`; cabos de controle e sinal ficam em `CABOS PARA SINAL E COMANDO`.
+- A descrição deve informar, quando confirmados documentalmente: família ou tipo, formação e seção nominal, classe de tensão, material da isolação dos condutores, material da capa externa e presença ou ausência de blindagem.
+- Isolação e capa são atributos diferentes e não podem ser resumidos como um único “material do cabo”. Exemplos: `ISOLAÇÃO PVC CAPA PUR` e `ISOLAÇÃO HEPR CAPA PVC`.
+- Em `CABO PP`, PP identifica a família construtiva e não significa isolação de polipropileno. Na construção convencional confirmada, registrar `ISOLAÇÃO PVC CAPA PVC`.
+- Preservar a notação técnica `G` ou `x`: `G` indica condutor de proteção verde/amarelo; `x` indica ausência desse condutor.
+- Se faltar qualquer atributo obrigatório, o agente deve registrá-lo em `dados_pendentes`, reduzir a confiança e não inventar o valor.
+- Exemplo aprovado: `CABO DE CONTROLE FLEXÍVEL PUR-JZ 12G0,5MM² 300/500V ISOLAÇÃO PVC CAPA PUR SEM BLINDAGEM`.
+- Outros exemplos aprovados: `CABO ELÉTRICO FLEXÍVEL UNIPOLAR FLEXSIL 1X2,5MM² 450/750V ISOLAÇÃO PVC SEM CAPA SEM BLINDAGEM VERDE/AMARELO` e `CABO ELÉTRICO FLEXÍVEL MULTIPOLAR PP 4X2,5MM² 300/500V ISOLAÇÃO PVC CAPA PVC SEM BLINDAGEM PRETO`.
 
 ## Termos que exigem análise
 
@@ -73,7 +99,7 @@ O arquivo `catalogo-paineis-eletricos.yaml` é a fonte estruturada de verdade pa
 
 - Hierarquia: `MANOBRA_E_PARTIDA_MOTORES` > `CONTATORES`, `CONTATORES_AUXILIARES` e `ACESSORIOS_PARA_CONTATORES`.
 - Nome de contator: `CONTATOR {polos} {categoria_utilizacao} {corrente_nominal} {contatos_auxiliares} {tensao_comando} {frequencia} {tipo_conexao}`.
-- Registrar somente atributos confirmados. Exemplo: `CONTATOR AC-3 25 A 1NA+1NF 220 V 50/60 Hz CONEXÃO POR PARAFUSO`.
+- Registrar somente atributos confirmados. Exemplo: `CONTATOR AC-3 25A 1NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO`.
 - Usar `CONTATOR AUXILIAR` para itens de comando e nomes específicos para acessórios, como tampa, bloco de terminais e supressor de surto.
 - Blocos auxiliares frontais para contatores ficam em `ACESSÓRIOS PARA CONTATORES` e usam o formato `BLOCO DE CONTATO AUXILIAR FRONTAL {contatos} {tensão} {tipo_conexão} PARA CONTATOR`.
 - Em qualquer família, manter valor e unidade juntos: `25A`, `220V`, `50/60Hz` e `6kA`.
@@ -83,7 +109,7 @@ O arquivo `catalogo-paineis-eletricos.yaml` é a fonte estruturada de verdade pa
 - Hierarquia: `PROTECAO_E_SECCIONAMENTO` > `DISJUNTORES_MOTOR` e `ACESSORIOS_DISJUNTORES_MOTOR`.
 - Conexões entre disjuntor-motor e contator ficam em `MANOBRA_E_PARTIDA_MOTORES` > `CONEXOES_PARTIDA_MOTORES`.
 - Nome: `DISJUNTOR MOTOR {faixa_ajuste_corrente}` ou `DISJUNTOR MOTOR {corrente_nominal}`.
-- Exemplo: `DISJUNTOR MOTOR 4,5-6,3 A`.
+- Exemplo: `DISJUNTOR MOTOR 4,5-6,3A`.
 - A corrente ou faixa só pode ser usada quando aparecer claramente como especificação do item. Números da série, do modelo ou do código nunca são tratados como corrente.
 
 ## Regra aprovada: disjuntores caixa moldada
@@ -120,7 +146,7 @@ O arquivo `catalogo-paineis-eletricos.yaml` é a fonte estruturada de verdade pa
 
 - Hierarquia: `MANOBRA_E_PARTIDA_MOTORES` > `RELES_SOBRECARGA` e `ACESSORIOS_RELES_SOBRECARGA`.
 - Nome: `RELÉ DE SOBRECARGA {faixa_ajuste_corrente} {tamanho_construtivo}`.
-- Exemplo: `RELÉ DE SOBRECARGA 9-12,5 A TAMANHO S0`.
+- Exemplo: `RELÉ DE SOBRECARGA 9-12,5A TAMANHO S0`.
 - Suporte, base e outros complementos não são relés: devem ser classificados como acessórios e indicar o equipamento atendido.
 
 ## Regra aprovada: tipo de conexão
@@ -174,7 +200,7 @@ O arquivo `catalogo-paineis-eletricos.yaml` é a fonte estruturada de verdade pa
 
 - Em servomotores e cabos, informar a família do servomotor e do drive apenas quando ela for indispensável e confirmada para a compatibilidade. Cabos de sinal e cabos de potência devem permanecer separados.
 - Itens de segurança modular devem indicar a função exata: unidade central, relé ou partida direta de segurança. A família técnica, como `3RK3 Basic`, pode permanecer quando identifica compatibilidade do sistema.
-- Switches Ethernet industriais devem indicar se são gerenciáveis, a camada, e a quantidade, meio e conector das portas quando confirmados. Não usar apenas `switch Ethernet industrial`.
+- Switches Ethernet industriais devem indicar obrigatoriamente a quantidade de portas. Quando confirmados, indicar também gerenciamento, camada, meio, conector e velocidade por tipo de porta. Sem quantidade confirmada, registrar a pendência e não finalizar como `switch Ethernet industrial` genérico.
 - Módulos de comunicação de PLC devem declarar a família do PLC, o protocolo e o papel de rede — por exemplo, mestre PROFIBUS DP — quando confirmados.
 - Módulos de pesagem precisam declarar a família de PLC ou a possibilidade de operação autônoma, canal, E/S e interfaces confirmados. Exemplo aprovado: `MÓDULO DE PESAGEM SIWAREX WP231 PARA PLC S7-1200 OU OPERAÇÃO AUTÔNOMA, 1 CANAL, 4DI/4DO, 1AO, RS485 E ETHERNET`.
 - Transformadores de corrente ficam em `MEDIÇÃO E INSTRUMENTAÇÃO` e devem declarar relação, carga e classe de precisão confirmadas, como `TRANSFORMADOR DE CORRENTE 50/5A 1,2VA CLASSE 1`.
@@ -208,12 +234,29 @@ O agente consulta o catálogo estruturado, os grupos disponíveis e itens intern
 
 O lote foi classificado por função técnica, mesmo quando o fornecedor é a única informação de origem preenchida no cadastro. Fornecedor e fabricante continuam em seus campos; não entram no nome padronizado.
 
+Para a linha Phoenix Contact, cujo código de origem é exclusivamente numérico, a família e a referência alfanumérica oficial permanecem no nome. Exemplos: `PT 2,5`, `TRIO-PS-2G/1AC/24DC/10`, `FL SWITCH 1005N` e `SAC-4P-5,0-PVC/M12FR`. O número de origem, como `3209510` ou `1085039`, continua somente em `itens.codigo_interno`.
+
 - Componentes de montagem ficam em `Montagem de painéis`: canaletas, trilhos DIN, prensa-cabos, identificação e ferramentas.
 - Bornes, pentes, tampas, blocos de distribuição, conectores multipolares e tomadas DIN ficam em `Conexões elétricas`. Um pente de borne não deve ser confundido com um pente de relé de interface.
 - Cabos e conectores M8/M12 ficam em `Sensores industriais` quando atendem sensores ou atuadores; cabos e conectores Ethernet/PROFINET ficam em `Comunicação industrial`.
 - Sensores são separados por princípio: indutivo, fotoelétrico, garfo, nível, ultrassônico, fluxo, temperatura e pressão. Declarar alcance, saída, dimensão, pinos, cabo e material somente quando confirmados.
-- Cortinas de luz, controladores, chaves, atuadores e dispositivos de habilitação pertencem a `Segurança de máquinas`. A família técnica pode aparecer na descrição apenas se determina compatibilidade, como `Flexi Compact`, `TR110` e `DFS60`.
+- Cortinas de luz, controladores, chaves, atuadores e dispositivos de habilitação pertencem a `Segurança de máquinas`. A família técnica aparece quando determina compatibilidade ou na regra de código de origem numérico (D-028), acompanhada da referência alfanumérica confirmada.
 - Os itens SICK com códigos internos `2066614-COPIA` e `2066614-COPIA-COPIA` receberam nome e grupo técnicos, mas seus códigos não foram alterados porque divergem do item identificado na própria descrição.
 - O item WAGO `60510362` foi mantido como `BORNE DE PASSAGEM SEM PARAFUSO`, sem supor bitola, quantidade de condutores ou tensão.
 
 Exemplos registrados no catálogo: `CONTROLADOR DE SEGURANÇA FLEXI COMPACT 20DI 4DO`, `CORTINA DE LUZ DE SEGURANÇA RECEPTORA 750MM RESOLUÇÃO 30MM ALCANCE 30M` e `SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL COM NAT 8 PORTAS RJ45 10/100MBPS`.
+
+## D-033 — Revisão técnica SICK e prevenção de descrições genéricas
+
+A revisão de 05/09/2026 inventariou 79 cadastros SICK (72 ativos). O primeiro lote corrige os 21 mais genéricos, sem declarar os demais tecnicamente completos. O manifesto `revisao-sick-2026-09-05.json` registra os nomes anteriores, propostas, grupos, fontes oficiais e lacunas. O script `scripts/revisar-sick.mjs` é somente leitura por padrão; `--apply` grava exclusivamente nome/grupo com backup e proteção contra mudanças concorrentes, e `--verify` confere o resultado.
+
+- Código exclusivamente numérico exige família/referência alfanumérica oficial na descrição, sem repetir o número nem a marca.
+- Sensores fotoelétricos: princípio, faixa de trabalho, saída, alimentação e conexão. Confirmar se uma barreira é emissor, receptor ou conjunto. Não trocar alcance de trabalho pelo máximo limite.
+- Cortinas: transmissor/receptor, altura protegida, resolução, alcance e tipo. As C4-RD deste lote têm alcance de 4,5m; não herdar os 15m de outra variante deTec4 Core.
+- Segurança: `safety switch` não significa switch Ethernet. STR1/TR4 RFID são chaves sem contato, não travas mecânicas. Distinguir OSSD de contatos mecânicos e distância assegurada Sao de alcance genérico. Separar sensor radar e controlador/protocolo.
+- Cabos montados: função, comprimento, cada terminação, seções, isolação, capa, blindagem e tensão do conjunto devem ser confirmados. O cabo isolado pode suportar tensão superior à dos conectores. A regra de estoque obrigatório em metros dos cabos sem terminação não se aplica automaticamente.
+- Acessórios: corda de tração pertence à chave de segurança; acoplamento e cabo de programação pertencem a encoders. Informar os dois diâmetros do acoplamento. Não presumir resistência de terminador a partir do protocolo.
+
+As regras estão no catálogo e em um módulo compartilhado pelos dois agentes (novo cadastro e importação de NF-e). A checagem de completude acrescenta pendências e reduz a confiança para baixa; ela não certifica a veracidade dos dados nem substitui conferência da ficha exata. A confirmação humana existente permanece.
+
+Pendências preservadas: códigos divergentes `2066614-COPIA` e `2066614-COPIA-COPIA`; materiais ainda não confirmados em alguns cabos montados; resistência do terminador; composição comercial da barreira VSE180. O radar fica em `Segurança de máquinas`, sem criar subgrupo sem aprovação. Nenhuma alteração de unidade, multiplicador, saldo, preço, código ou dados fiscais faz parte deste lote.

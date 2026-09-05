@@ -378,6 +378,11 @@ export async function POST(req: NextRequest) {
     // A pessoa usuária pode ajustar o preço sugerido pela pesquisa ou informar um
     // preço que já conhece; o servidor apenas exige um valor positivo e plausível.
     const precoConfirmado = numero(body.preco_unitario_confirmado ?? body.preco_unitario, 0.01, 999999999);
+    const unidadeEstoque = normalizarUnidade(sugestao?.unidade_medida);
+    const unidadeCompraRaw = texto(sugestao?.unidade_compra, 10);
+    const unidadeCompra = unidadeCompraRaw ? normalizarUnidade(unidadeCompraRaw) : null;
+    const fatorConversaoInformado = numero(sugestao?.fator_conversao_estoque, 0.000001, 999999999);
+    const fatorConversaoEstoque = unidadeCompra ? fatorConversaoInformado : 1;
     // Peso de referência (kg) de uma unidade cadastrada; só faz sentido para itens em KG.
     const pesoReferenciaKg = numero(body.peso_referencia_kg, 0.001, 999999);
     if (!fornecedorId) return jsonError(400, "Selecione um fornecedor cadastrado.");
@@ -385,6 +390,16 @@ export async function POST(req: NextRequest) {
     if (quantidade === null) return jsonError(400, "Informe uma quantidade válida (0 ou mais).");
     if (!sugestao) return jsonError(400, "A proposta do agente é obrigatória para confirmar o cadastro.");
     if (precoConfirmado === null) return jsonError(422, "Informe um preço unitário válido maior que zero antes de confirmar.");
+    if (unidadeCompra && fatorConversaoEstoque === null) {
+      return jsonError(422, "Informe um multiplicador maior que zero para converter a unidade de compra em unidade de estoque.");
+    }
+    if (unidadeCompra === unidadeEstoque) {
+      return jsonError(422, "A unidade de compra deve ficar em branco quando for igual à unidade de estoque.");
+    }
+
+    const fatorAplicado = fatorConversaoEstoque ?? 1;
+    const quantidadeEstoque = quantidade * fatorAplicado;
+    const custoUnitarioEstoque = precoConfirmado / fatorAplicado;
 
     // A quantidade informada agora também define o estoque inicial do item; sem
     // permissão de estoque, a pessoa só pode cadastrar com quantidade zero.
@@ -495,7 +510,9 @@ export async function POST(req: NextRequest) {
         nome,
         descricao: null,
         tipo: "produto",
-        unidade_medida: normalizarUnidade(sugestao.unidade_medida),
+        unidade_medida: unidadeEstoque,
+        unidade_compra: unidadeCompra,
+        fator_conversao_estoque: fatorAplicado,
         peso_liquido: pesoReferenciaKg,
         controla_estoque: true,
         estoque_minimo: 0,
@@ -503,9 +520,9 @@ export async function POST(req: NextRequest) {
         estoque_ideal: 0,
         // O preço gravado no cadastro é o valor revisado e confirmado pela
         // pessoa usuária, não necessariamente o preço bruto da pesquisa.
-        custo_ultima_compra: precoConfirmado,
-        custo_medio: precoConfirmado,
-        preco_unitario: precoConfirmado,
+        custo_ultima_compra: custoUnitarioEstoque,
+        custo_medio: custoUnitarioEstoque,
+        preco_unitario: custoUnitarioEstoque,
         data_atualizacao_preco: agora,
         margem_lucro_percentual: margem,
         fornecedor_id: fornecedorId,
@@ -580,8 +597,8 @@ export async function POST(req: NextRequest) {
         tenantId: ctx.tenantId,
         empresaId: ctx.empresaId,
         itemId,
-        quantidade,
-        precoConfirmado,
+        quantidade: quantidadeEstoque,
+        precoConfirmado: custoUnitarioEstoque,
         usuario,
       });
       if (movimentacaoId) {
@@ -598,7 +615,7 @@ export async function POST(req: NextRequest) {
 
     const mensagemEstoque =
       quantidade > 0
-        ? estoqueAviso ?? `Estoque inicial de ${quantidade} ${normalizarUnidade(sugestao.unidade_medida)} lançado ao confirmar.`
+        ? estoqueAviso ?? `Estoque inicial de ${quantidadeEstoque} ${unidadeEstoque} lançado ao confirmar.`
         : "Nenhuma quantidade foi informada; o item foi cadastrado sem estoque inicial.";
 
     return NextResponse.json(

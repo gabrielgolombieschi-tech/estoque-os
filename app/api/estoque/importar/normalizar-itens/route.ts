@@ -3,6 +3,8 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSupabase, jsonError, resolveTenantEmpresa } from "@/app/api/compras/_lib";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { normalizarNomeCadastro } from "@/lib/itens/normalizacaoNome";
+import { pendenciasDescricaoTecnica, REGRAS_SENSORES_SEGURANCA } from "@/lib/itens/qualidadeDescricao";
 import {
   aplicarCorrecoesExatas,
   erroTabelaCorrecaoAusente,
@@ -248,12 +250,17 @@ export async function POST(req: NextRequest) {
 
     const catalogo = await catalogoNormalizacao();
     const system = [
+      REGRAS_SENSORES_SEGURANCA,
       "Você é o Agente de Normalização de Cadastro de Produtos do ERP.",
       "Sua função é sugerir cadastro de itens vindos de NF-e. Você nunca cadastra no banco e nunca decide sozinho: a pessoa usuária confirma a sugestão antes da gravação.",
       "Interprete o material tecnicamente; não copie automaticamente a descrição da nota.",
       "Não invente especificações. Quando faltar informação, registre em dados_pendentes e reduza a confiança.",
-      "Nunca inclua fabricante, marca, código do produto ou modelo na descrição padronizada. Exceção: uma família técnica pode aparecer somente quando for indispensável para compatibilidade e estiver explícita na NF.",
-      "Mantenha número e unidade juntos, como 24VCC, 400A, 500VCA e 6kA.",
+      "Nunca inclua fabricante, marca nem o código de origem na descrição padronizada. Quando o código de origem for exclusivamente numérico, inclua a família e a referência alfanumérica oficial confirmadas pela NF ou por fonte do fabricante, sem repetir o número de origem. Nos demais casos, uma família técnica só aparece quando indispensável para compatibilidade.",
+      "Nunca inclua na descrição padronizada número de pedido de compra, NF-e, OS, data da compra ou observação comercial. Esses dados são transacionais e permanecem nos documentos próprios do ERP.",
+      "Número, faixa ou razão e sua unidade devem ficar sempre juntos, sem espaço: 115A, 110-127VCA/CC, 50/60Hz, 24VCC, 6kA e 17,5mm. Para switches, a quantidade de portas é obrigatória; sem confirmação, registre a pendência e não finalize com descrição genérica.",
+      "Para cabos elétricos, de controle, sinal ou sensor/atuador, a descrição só está tecnicamente completa quando a NF ou uma fonte do fabricante confirmar e ela informar: família ou tipo, formação e seção nominal, classe de tensão, material da isolação dos condutores, material da capa externa e presença ou ausência de blindagem. Preserve a notação técnica G ou x e interprete-a corretamente: G indica condutor de proteção verde/amarelo e x indica ausência desse condutor. Não confunda isolação com capa; por exemplo, isolação PVC e capa PUR são atributos diferentes. Se qualquer dado obrigatório não for confirmado, registre-o em dados_pendentes e reduza a confiança.",
+      "Para cabos sem terminação, declare UNIPOLAR para uma via ou MULTIPOLAR para duas ou mais vias quando a formação estiver confirmada. Cabo PP é uma família construtiva e não significa isolação de polipropileno; na construção convencional confirmada, descreva ISOLAÇÃO PVC e CAPA PVC. Cabos montados, cordões, chicotes ou cabos com conector, plugue, terminal ou adaptador nas pontas são outra classe de produto e não devem ser tratados como cabo nu deste padrão.",
+      "Cabos sem terminação são controlados no estoque sempre em metros. A unidade comercial da NF, como KM, RL ou BOB, não muda a unidade canônica M; a conversão precisa usar o multiplicador confirmado no cadastro e o comprimento de rolo ou bobina nunca pode ser presumido.",
       "Escolha grupo_id exclusivamente dentre os grupos recebidos quando existir grupo funcional adequado. Não use um grupo apenas parecido: cabo de rede não é conector, módulo SFP não é switch e conector não é cabo.",
       "Quando não houver grupo funcional adequado, use grupo_id nulo e preencha novo_grupo com um grupo simples, reutilizável e tecnicamente claro. O codigo do novo grupo deve ter apenas A-Z, 0-9 e _. grupo_pai_id deve ser um id de grupo existente, preferencialmente o grupo raiz funcional. Não proponha grupo novo se um grupo existente já servir.",
       "O novo grupo é somente uma sugestão e será criado apenas após confirmação humana. Nunca altere código ou fabricante do item.",
@@ -318,8 +325,12 @@ export async function POST(req: NextRequest) {
         const itemOrigem = porCodigo.get(codigo);
         if (!itemOrigem) return null;
         const descricaoCorrigida = correcoesExatas.get(normalizarDescricaoAprendizado(itemOrigem.descricao_nf));
+        const descricaoPadronizada = normalizarNomeCadastro(
+          descricaoCorrigida ?? texto(sugestao?.descricao_padronizada, 300) ?? ""
+        );
         const grupoId = sugestao?.grupo_id == null ? null : Number(sugestao.grupo_id);
         const grupo = grupoId && Number.isFinite(grupoId) ? porId.get(grupoId) : null;
+        const pendenciasTecnicas = pendenciasDescricaoTecnica({ descricao: descricaoPadronizada, codigo, grupoCodigo: grupo?.codigo, origem: itemOrigem.descricao_nf });
         const novoGrupoRaw = record(sugestao?.novo_grupo);
         const novoGrupoPaiId = novoGrupoRaw?.grupo_pai_id == null ? null : Number(novoGrupoRaw.grupo_pai_id);
         const novoGrupoPai = novoGrupoPaiId && Number.isFinite(novoGrupoPaiId) ? porId.get(novoGrupoPaiId) : null;
@@ -336,16 +347,16 @@ export async function POST(req: NextRequest) {
             : null;
         return {
           codigo,
-          descricao_padronizada: descricaoCorrigida ?? texto(sugestao?.descricao_padronizada, 300) ?? "",
+          descricao_padronizada: descricaoPadronizada,
           grupo_id: grupo ? grupo.id : null,
           novo_grupo: novoGrupo,
           justificativa: descricaoCorrigida
             ? "Descrição reaplicada de uma correção humana aprovada para esta empresa."
             : texto(sugestao?.justificativa, 500) ?? "Revisar sugestão antes de cadastrar.",
-          dados_pendentes: Array.isArray(sugestao?.dados_pendentes)
+          dados_pendentes: [...pendenciasTecnicas, ...(Array.isArray(sugestao?.dados_pendentes)
             ? sugestao.dados_pendentes.map((value) => texto(value, 160)).filter((value): value is string => Boolean(value))
-            : [],
-          confianca: sugestao?.confianca === "alta" || sugestao?.confianca === "media" ? sugestao.confianca : "baixa",
+            : [])],
+          confianca: pendenciasTecnicas.length ? "baixa" : sugestao?.confianca === "alta" || sugestao?.confianca === "media" ? sugestao.confianca : "baixa",
         };
       })
       .filter((sugestao): sugestao is SugestaoModelo => Boolean(sugestao));
@@ -356,7 +367,7 @@ export async function POST(req: NextRequest) {
       const descricaoCorrigida = correcoesExatas.get(normalizarDescricaoAprendizado(item.descricao_nf));
       sugestoes.push({
         codigo: item.codigo,
-        descricao_padronizada: descricaoCorrigida ?? "",
+        descricao_padronizada: normalizarNomeCadastro(descricaoCorrigida ?? ""),
         grupo_id: null,
         novo_grupo: null,
         justificativa: descricaoCorrigida

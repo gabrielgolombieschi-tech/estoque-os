@@ -156,26 +156,34 @@ function normalizarWago(item) {
 
 function normalizarPhoenix(item) {
   const raw = upper(item.nome);
+  const codigo = upper(item.codigo_interno);
   const secaoCodigo = raw.match(/(?:PTTB|PTIO|PTPOWER|PT|UK)\s*([0-9]+(?:,[0-9]+)?)/)?.[1];
   const secao = section(raw) ?? (secaoCodigo ? `${secaoCodigo}MM²` : null);
   if (/^MÓDULO DE REDUNDÂNCIA/.test(raw)) return proposal("MODULOS_REDUNDANCIA", raw);
   if (/^TRILHO DIN/.test(raw)) return proposal("TRILHOS_DIN", raw);
-  if (/^SWITCH (?:DE REDE|ETHERNET) INDUSTRIAL/.test(raw)) return proposal("SWITCHES_REDE_INDUSTRIAL", raw);
+  if (/^SWITCH (?:DE REDE|ETHERNET) INDUSTRIAL/.test(raw)) {
+    if (!/\b\d+ PORTAS?\b/.test(raw)) {
+      return proposal("SWITCHES_REDE_INDUSTRIAL", raw, "Quantidade de portas obrigatória e ainda não confirmada.");
+    }
+    return proposal("SWITCHES_REDE_INDUSTRIAL", raw);
+  }
   if (/^PENTE DE LIGAÇÃO.*REL[ÉE] DE INTERFACE/.test(raw)) return proposal("ACESSORIOS_RELES_INTERFACE", raw);
   if (/^PENTE DE LIGAÇÃO PARA BORNES/.test(raw)) return proposal("CONEXOES_PENTES_PARA_BORNES", raw);
   if (/^TAMPA FINAL PARA BORNE/.test(raw)) return proposal("CONEXOES_TAMPAS_FINAIS_PARA_BORNES", raw);
   if (/^(SUPORTE|ADAPTADOR) PARA BLOCO DE DISTRIBUIÇÃO/.test(raw)) return proposal("ACESSORIOS_BLOCOS_DISTRIBUICAO", raw);
   if (/^PRENSA-CABO/.test(raw)) return proposal("PRENSA_CABOS", raw);
   if (/^BLOCO DE DISTRIBUIÇÃO/.test(raw)) return proposal("BLOCOS_DISTRIBUICAO", raw);
+  if (/^CANALETA PARA PAINEL/.test(raw)) return proposal("CANALETAS_PARA_PAINEIS", raw);
   if (/^FONTE DE ALIMENTAÇÃO/.test(raw)) return proposal("FONTES_ALIMENTACAO", raw);
   if (/^(BATERIA PARA UPS CC|UPS CC)/.test(raw)) return proposal("UPS_CC", raw);
   if (/^REL[ÉE] DE INTERFACE/.test(raw)) return proposal("RELES_INTERFACE", raw);
   if (/^(SOQUETE|BASE) .*REL[ÉE]|^BASE PARA REL[ÉE]/.test(raw)) return proposal("ACESSORIOS_RELES_INTERFACE", raw);
   if (/^CONECTOR DE FIBRA ÓPTICA/.test(raw)) return proposal("CONECTORES_REDE_INDUSTRIAL", raw);
   if (/^CONECTOR RJ45 PARA REDE INDUSTRIAL/.test(raw)) return proposal("CONECTORES_REDE_INDUSTRIAL", raw);
-  if (/^BASE PARA CONECTOR INDUSTRIAL MULTIPOLAR|^CONECTOR INDUSTRIAL MULTIPOLAR/.test(raw)) return proposal("CONECTORES_INDUSTRIAIS_MULTIPOLARES", raw);
+  if (/^(?:BASE|CARCAÇA|INSERTO DE CONTATO) PARA CONECTOR INDUSTRIAL MULTIPOLAR|^CONECTOR INDUSTRIAL MULTIPOLAR/.test(raw)) return proposal("CONECTORES_INDUSTRIAIS_MULTIPOLARES", raw);
   if (/^CONECTOR M(?:8|12)\b/.test(raw)) return proposal("CONECTORES_PARA_SENSORES", raw);
   if (/^CABO COM CONECTOR/.test(raw)) return proposal("CABOS_PARA_SENSORES", raw);
+  if (/^CABO PARA SENSOR\/ATUADOR/.test(raw)) return proposal("CABOS_PARA_SENSORES", raw);
   if (/^CABO DE REDE INDUSTRIAL/.test(raw)) return proposal("CABOS_REDE_INDUSTRIAL", raw);
   if (/^BORNE DE PROTEÇÃO/.test(raw)) return proposal("CONEXOES_BORNES_PROTECAO", raw);
   if (/^BORNE DE PASSAGEM/.test(raw)) return proposal("CONEXOES_BORNES_PASSAGEM", raw);
@@ -188,8 +196,10 @@ function normalizarPhoenix(item) {
     return proposal("MODULOS_REDUNDANCIA", joinName("MÓDULO DE REDUNDÂNCIA", tensao));
   }
   if (/PERFIL DE A[CÇ]O.*NS\s*35/.test(raw)) return proposal("TRILHOS_DIN", "TRILHO DIN 35X7,5MM PERFURADO 2m");
-  if (/^SWITCH INDUSTRIAL ETHERNET.*FL NAT 2008/.test(raw)) return proposal("SWITCHES_REDE_INDUSTRIAL", "SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL COM NAT 8 PORTAS RJ45 10/100MBPS");
-  if (/^SWITCH INDUSTRIAL/.test(raw)) return proposal("SWITCHES_REDE_INDUSTRIAL", "SWITCH DE REDE INDUSTRIAL NÃO GERENCIÁVEL");
+  if (codigo === "1085039") return proposal("SWITCHES_REDE_INDUSTRIAL", "SWITCH ETHERNET INDUSTRIAL NÃO GERENCIÁVEL FL SWITCH 1005N 5 PORTAS RJ45 10/100MBPS");
+  if (codigo === "1085256") return proposal("SWITCHES_REDE_INDUSTRIAL", "SWITCH ETHERNET INDUSTRIAL NÃO GERENCIÁVEL FL SWITCH 1008N 8 PORTAS RJ45 10/100MBPS");
+  if (codigo === "2702881" || /^SWITCH INDUSTRIAL ETHERNET.*FL NAT 2008/.test(raw)) return proposal("SWITCHES_REDE_INDUSTRIAL", "SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL COM NAT FL NAT 2008 8 PORTAS RJ45 10/100MBPS");
+  if (/^SWITCH INDUSTRIAL/.test(raw)) return proposal("SWITCHES_REDE_INDUSTRIAL", raw, "Quantidade de portas e referência alfanumérica oficial obrigatórias e ainda não confirmadas.");
   if (/^PENTE DE CONEX.*REL[ÉE]/.test(raw)) return proposal("ACESSORIOS_RELES_INTERFACE", "PENTE DE LIGAÇÃO PARA RELÉ DE INTERFACE");
   if (/^JUMPER|^PENTE DE CONEX/.test(raw)) {
     const polos = raw.match(/FBSR?\s*(\d+)-/)?.[1];
@@ -293,6 +303,10 @@ const SICK_POR_CODIGO = new Map([
 function normalizarSick(item) {
   const raw = upper(item.nome);
   const codigo = upper(item.codigo_interno);
+  // A revisão técnica mais recente prevalece sobre o mapa genérico legado.
+  const revisao = require("../docs/padroes-cadastro/revisao-sick-2026-09-05.json").itens
+    .find((linha) => linha.codigo === codigo);
+  if (revisao) return proposal(revisao.grupo_codigo, revisao.nome, revisao.pendencias.join(" ") || undefined);
   if (codigo === "2066614-COPIA") {
     return proposal("ACESSORIOS_ENCODERS", raw, "Código do cadastro diverge da identificação técnica originalmente contida na descrição.");
   }

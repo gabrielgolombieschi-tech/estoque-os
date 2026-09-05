@@ -1,4 +1,4 @@
-versao_padrao: "1.16.0"
+versao_padrao: "1.21.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -15,12 +15,46 @@ campos_erp:
   descricao_complementar: itens.descricao
   modelo:
     campo_proprio_existente: false
-    regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável e houver aprovação humana."
+    regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
   codigo_produto:
     normalizacao: "Gravar e comparar em maiúsculas, sem espaços nem hífens; preservar outros caracteres técnicos confirmados, como '/'."
     consulta: "Aceitar o código digitado com separadores visuais, normalizá-lo antes de pesquisar, verificar duplicidade e gravar somente a forma normalizada."
+  referencia_fabricante_para_codigo_numerico:
+    regra: "Quando o código de origem for exclusivamente numérico, incluir no nome padronizado a família e a referência alfanumérica oficial do fabricante, confirmadas por fonte do fabricante ou descrição fiscal do próprio fornecedor."
+    seguranca: "Não deduzir família ou referência pelo número. Sem confirmação documental, registrar a lacuna em dados_pendentes e não finalizar com nome genérico que torne itens diferentes indistinguíveis."
+  switches_rede_industrial:
+    regra: "Informar obrigatoriamente a quantidade de portas. Quando confirmado, separar quantidade, meio, conector e velocidade por tipo de porta."
+    seguranca: "Sem quantidade de portas confirmada, registrar dados_pendentes e não finalizar a sugestão como switch genérico."
+  sensores_seguranca_e_acessorios:
+    decisao: D-033
+    identificacao: "Pesquisar o código e a variante exatos. Para códigos numéricos, preservar família/referência alfanumérica confirmada no nome. Não completar especificações com um modelo similar."
+    fotoeletricos: "Exigir princípio (barreira, retrorreflexivo, difuso/supressão de fundo), faixa de trabalho, saída, alimentação e conexão. Distinguir emissor, receptor e conjunto quando confirmado. Não confundir alcance de trabalho com máximo limite."
+    indutivos_ultrassonicos: "Exigir distância/faixa de trabalho, saída, alimentação, conexão e dimensões confirmadas. UM12-1172211 trabalha entre 20-150mm; 250mm é limite, não faixa de trabalho."
+    cortinas: "Exigir família/referência, transmissor ou receptor, altura protegida, resolução, alcance e tipo de segurança. C4-RD C4C-SC/EC12030A10000 tem altura 1200mm, resolução 30mm e alcance 4,5m; não copiar os 15m de deTec4 Core."
+    radar: "Distinguir sensor radar de segurança de controlador: alcance pertence ao sensor; protocolo e capacidade pertencem ao controlador. Informar compatibilidade e alimentação quando confirmadas."
+    chaves_rfid: "Safety switch é chave de segurança, não switch de rede. STR1 e TR4 sem contato não são travas mecânicas. Exigir codificação, distância assegurada Sao, saídas OSSD, alimentação, conexão e presença de atuador confirmadas."
+    cabos_montados: "Exigir função, referência, comprimento, ambas as terminações (sexo, pinos, orientação, codificação) ou ponta livre, formação/seções, material da isolação, capa, blindagem e tensão nominal do conjunto. Não usar a tensão do cabo isolado como tensão do conjunto. Não converter estes conjuntos obrigatoriamente para metros."
+    acessorios: "Kit de corda de tração pertence à chave de segurança; cabo de programação e acoplamento pertencem a encoders. Acoplamentos exigem diâmetros de ambos os eixos, construção/material e comprimento confirmados. Terminadores exigem protocolo e conector; resistência em ohms só com confirmação, nunca presumir 120ohms."
+    validacao: "Lacunas técnicas geram dados_pendentes e confiança baixa; validação textual não comprova especificações. Código copiado ou divergente exige revisão humana."
+    evidencia_lote: "docs/padroes-cadastro/revisao-sick-2026-09-05.json"
+  cabos_eletricos_controle_sinal:
+    atributos_obrigatorios: [familia_ou_tipo, formacao, secao_nominal, classe_tensao, material_isolacao_condutores, material_capa_externa, blindagem]
+    regra: "Não confundir isolação dos condutores com capa externa. Informar separadamente materiais como PVC, HEPR e PUR e declarar se o cabo é blindado ou sem blindagem."
+    notacao_condutores: "Preservar G ou x quando confirmados: G indica condutor de proteção verde/amarelo; x indica ausência desse condutor."
+    escopo_sem_terminacao: "Cabos unipolares, multipolares de potência, controle ou sinal fornecidos sem conector, plugue, terminal, chicote ou adaptador nas pontas. Classificar cabos de potência em Cabos elétricos e cabos de controle/sinal em Cabos para sinal e comando."
+    exclusoes: [cabos_montados, cordoes_com_plugue, chicotes, cabos_com_conector, cabos_com_terminal, adaptadores]
+    polaridade: "Declarar UNIPOLAR para uma única via e MULTIPOLAR para duas ou mais vias quando a formação estiver confirmada."
+    cabo_pp: "PP identifica a família construtiva do cabo multipolar flexível; não significa isolação de polipropileno. Quando confirmada a construção convencional, declarar separadamente ISOLAÇÃO PVC e CAPA PVC."
+    unidade_estoque: "Para cabos sem terminação, usar sempre M como unidade canônica de saldo."
+    conversao_compra: "Manter unidade de compra/origem separada e registrar fator positivo: 1 unidade de compra x fator = quantidade em M. Converter também o custo unitário para metro."
+    seguranca_conversao: "Nunca presumir o comprimento de RL ou BOB. Sem fonte ou confirmação humana, registrar a pendência e não configurar a conversão."
+    seguranca: "Sem confirmação documental de qualquer atributo obrigatório, registrar a lacuna em dados_pendentes e reduzir a confiança; não inventar a partir de uma descrição genérica."
+  dados_transacionais_no_nome:
+    regra: "Nunca incluir em itens.nome número de pedido de compra, NF-e, OS, data da compra ou observação comercial. Essas informações pertencem aos documentos e relacionamentos transacionais do ERP."
+    exemplos_remover: ["- Pedido 2025/114583", "- PEDIDO 2026/81006 -"]
+    seguranca: "Remover deterministicamente apenas sufixos de pedido com formato confirmado; preservar a descrição fiscal original na NF-e como evidência."
   finalidade_padrao: materia_prima
   pesquisa_preco:
     prioridade: ["Mercado Livre", "eBay", "lojas técnicas"]
@@ -581,7 +615,8 @@ regras_nome_por_tipo:
 
 regras_formatacao:
   caixa: "MAIÚSCULAS"
-  unidades: "Número + unidade, sem espaço; exemplos: 100A, 500VCA, 24VCC, 6kA e 17,5mm."
+  unidades: "Número, faixa ou razão + unidade, sempre sem espaço; exemplos: 115A, 110-127VCA/CC, 50/60Hz, 24VCC, 6kA e 17,5mm."
+  normalizacao_servidor: "Aplicar a forma compacta tanto na sugestão do agente quanto na confirmação do cadastro, sem depender apenas da redação retornada pelo modelo."
   separador_faixa: " / "
   nao_repetir_no_nome:
     - fabricante
@@ -589,7 +624,7 @@ regras_formatacao:
     - codigo_interno
     - codigo_fornecedor
     - codigo_barras
-  excecao_serie_modelo: "Permitida somente como compatibilidade técnica indispensável, com aprovação humana registrada."
+  excecao_serie_modelo: "Permitida como compatibilidade técnica indispensável, com aprovação humana registrada, e para família/referência alfanumérica oficial quando o código de origem for exclusivamente numérico. O número de origem continua apenas no campo próprio."
 
 integracao_importacao_nf:
   agente: "Agente de Normalização de Cadastro"
@@ -661,7 +696,7 @@ exemplos_aprovados:
       codigo_origem: "3VA91570PK15"
       nome_anterior: "ACION ROT EMERG LAT 3VA160 3VA9157-0PK15"
     interpretacao_tecnica: "Acessório de acionamento rotativo lateral para disjuntor caixa moldada, com função de emergência."
-    nome_padronizado: "ACIONAMENTO ROTATIVO LATERAL PARA DISJUNTORES CAIXA MOLDADA 3VA1 (100 A / 160 A)"
+    nome_padronizado: "ACIONAMENTO ROTATIVO LATERAL PARA DISJUNTORES CAIXA MOLDADA 3VA1 (100A / 160A)"
     grupo:
       caminho:
         - "Disjuntores caixa moldada"
@@ -671,8 +706,8 @@ exemplos_aprovados:
       equipamento_compativel: "Disjuntor caixa moldada"
       serie_compativel: "3VA1"
       faixa_nominal_compativel:
-        - "100 A"
-        - "160 A"
+        - "100A"
+        - "160A"
     justificativa: "A compatibilidade distingue o acessório e foi aprovada como exceção à regra de não repetir série/modelo."
   - id_decisao: D-002
     status: aprovado
@@ -706,7 +741,7 @@ exemplos_aprovados:
         subtipo: BLOCO_DISTRIBUICAO
       - codigo_origem: "5ST37400MB"
         nome_anterior: "BARRAMENTO 63A 3P 1014MM 5ST3740-0MB"
-        nome_padronizado: "BARRAMENTO PARA DISPOSITIVOS MODULARES 3P 63A 1014 mm"
+        nome_padronizado: "BARRAMENTO PARA DISPOSITIVOS MODULARES 3P 63A 1014mm"
         subtipo: BARRAMENTO_DISPOSITIVOS_MODULARES
       - codigo_origem: "5ST37684"
         nome_anterior: "BORNE TERM 80A/690VCA CONEX. LAT. ESQ."
@@ -723,10 +758,10 @@ exemplos_aprovados:
     exemplos:
       - codigo_origem: "3SU10022BF600AA0"
         nome_anterior: "FRONTAL COMUT PLAS RET 2POS 22MM BR"
-        nome_padronizado: "CHAVE SELETORA 2 POSIÇÕES RETENTIVA 22 mm PLÁSTICA BRANCA"
+        nome_padronizado: "CHAVE SELETORA 2 POSIÇÕES RETENTIVA 22mm PLÁSTICA BRANCA"
       - codigo_origem: "3SU10022BM600AA0"
         nome_anterior: "FRONTAL COMUT PLAS MOM 3POS 22MM BR"
-        nome_padronizado: "CHAVE SELETORA 3 POSIÇÕES MOMENTÂNEA 22 mm PLÁSTICA BRANCA"
+        nome_padronizado: "CHAVE SELETORA 3 POSIÇÕES MOMENTÂNEA 22mm PLÁSTICA BRANCA"
       - codigo_origem: "3SU11002BF601MA0"
         nome_anterior: "COMUT PLA 2POS RET PARA 1NA+1NF BR"
         nome_padronizado: "CHAVE SELETORA 2 POSIÇÕES RETENTIVA PLÁSTICA BRANCA 1NA+1NF"
@@ -744,13 +779,13 @@ exemplos_aprovados:
     exemplos:
       - codigo_origem: "3SU10500AB300AA0"
         nome_anterior: "FRONT BOTAO 22MM MET MOM AM"
-        nome_padronizado: "BOTÃO PULSADOR MOMENTÂNEO 22 mm METÁLICO AMARELO"
+        nome_padronizado: "BOTÃO PULSADOR MOMENTÂNEO 22mm METÁLICO AMARELO"
       - codigo_origem: "3SU11020AB501BA0"
         nome_anterior: "BOTAO PLA ILU 24V MOM PARA 1NA AZ"
         nome_padronizado: "BOTÃO PULSADOR ILUMINADO MOMENTÂNEO 24V PLÁSTICO AZUL 1NA"
       - codigo_origem: "3SU10001HB200AA0"
         nome_anterior: "FRONTAL BOTAO EMER 40MM PLAS ROT DES"
-        nome_padronizado: "BOTÃO DE EMERGÊNCIA 40 mm PLÁSTICO GIRATÓRIO COM DESTRAVAMENTO"
+        nome_padronizado: "BOTÃO DE EMERGÊNCIA 40mm PLÁSTICO GIRATÓRIO COM DESTRAVAMENTO"
     regra_incerteza: "Botões iluminados pertencem ao grupo funcional do botão; iluminação é atributo no nome. Não classificar blocos de contato, blocos LED, sinaleiros, caixas ou acessórios como botões."
   - id_decisao: D-008
     status: aprovado
@@ -789,15 +824,15 @@ exemplos_aprovados:
     regra: "Aplicar os mesmos grupos e formatos por função técnica, sem repetir fabricante, fornecedor, marca, série ou código no nome."
     exemplos:
       - codigo_origem: "XB5AW36B5"
-        nome_padronizado: "BOTÃO PULSADOR ILUMINADO MOMENTÂNEO 22 mm PLÁSTICO AZUL 24VCA/CC 1NA+1NF"
+        nome_padronizado: "BOTÃO PULSADOR ILUMINADO MOMENTÂNEO 22mm PLÁSTICO AZUL 24VCA/CC 1NA+1NF"
       - codigo_origem: "10046540"
-        nome_padronizado: "SINALEIRO MONOBLOCO 22 mm PLÁSTICO VERMELHO 24VCC"
+        nome_padronizado: "SINALEIRO MONOBLOCO 22mm PLÁSTICO VERMELHO 24VCC"
       - codigo_origem: "ZBE101"
         nome_padronizado: "BLOCO DE CONTATO 1NA"
       - codigo_origem: "XVGB3"
-        nome_padronizado: "COLUNA SINALIZADORA PRE-MONTADA 60 mm LED VERMELHO / VERDE / AMARELO 24VCA/CC COM TUBO E SUPORTE EM L"
+        nome_padronizado: "COLUNA SINALIZADORA PRE-MONTADA 60mm LED VERMELHO / VERDE / AMARELO 24VCA/CC COM TUBO E SUPORTE EM L"
       - codigo_origem: "15985138"
-        nome_padronizado: "SINALEIRO 22 mm BRANCO 200-230VCA"
+        nome_padronizado: "SINALEIRO 22mm BRANCO 200-230VCA"
     regra_incerteza: "Manter pendente todo item cujo tipo ou atributos técnicos não possam ser confirmados pelo cadastro ou catálogo oficial."
   - id_decisao: D-010
     status: aprovado
@@ -809,7 +844,7 @@ exemplos_aprovados:
     regra: "Coluna sinalizadora pré-montada é um conjunto de sinalização e deve ficar em grupo próprio; não classificá-la como sinaleiro unitário."
     exemplos:
       - codigo_origem: "XVGB3"
-        nome_padronizado: "COLUNA SINALIZADORA PRE-MONTADA 60 mm LED VERMELHO / VERDE / AMARELO 24VCA/CC COM TUBO E SUPORTE EM L"
+        nome_padronizado: "COLUNA SINALIZADORA PRE-MONTADA 60mm LED VERMELHO / VERDE / AMARELO 24VCA/CC COM TUBO E SUPORTE EM L"
   - id_decisao: D-011
     status: aprovado
     tipo_tecnico: CONTATOR
@@ -829,11 +864,11 @@ exemplos_aprovados:
     regra: "Usar CONTATOR, seguido de atributos técnicos confirmados. Contatores auxiliares e acessórios ficam em grupos próprios. Não repetir modelo, série, marca ou fornecedor no nome."
     exemplos:
       - codigo_origem: "3RT20261AN20"
-        nome_padronizado: "CONTATOR AC-3 25 A 1NA+1NF 220 V 50/60 Hz CONEXÃO POR PARAFUSO"
+        nome_padronizado: "CONTATOR AC-3 25A 1NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO"
       - codigo_origem: "3RT10541AF36"
-        nome_padronizado: "CONTATOR 3P AC-3 115 A 2NA+2NF 110-127 VCA/CC 50/60 Hz CONEXÃO POR PARAFUSO"
+        nome_padronizado: "CONTATOR 3P AC-3 115A 2NA+2NF 110-127VCA/CC 50/60Hz CONEXÃO POR PARAFUSO"
       - codigo_origem: "3RH21221AF00"
-        nome_padronizado: "CONTATOR AUXILIAR 2NA+2NF 110 V 50/60 Hz CONEXÃO POR PARAFUSO"
+        nome_padronizado: "CONTATOR AUXILIAR 2NA+2NF 110V 50/60Hz CONEXÃO POR PARAFUSO"
     regra_incerteza: "Quando corrente, polos ou demais especificações não estiverem confirmados, não inferi-los a partir do modelo; manter somente os atributos comprovados."
   - id_decisao: D-012
     status: aprovado
@@ -845,9 +880,9 @@ exemplos_aprovados:
     regra: "Usar DISJUNTOR MOTOR seguido da faixa de ajuste ou corrente nominal confirmada. Acessórios e conexões para partida ficam em grupos próprios."
     exemplos:
       - codigo_origem: "3RV20111GA10"
-        nome_padronizado: "DISJUNTOR MOTOR 4,5-6,3 A"
+        nome_padronizado: "DISJUNTOR MOTOR 4,5-6,3A"
       - codigo_origem: "3RV23314WC10"
-        nome_padronizado: "DISJUNTOR MOTOR 52 A"
+        nome_padronizado: "DISJUNTOR MOTOR 52A"
     regra_incerteza: "Extrair corrente somente quando aparecer como atributo no fim da descrição; não interpretar números da série/modelo como valor elétrico."
   - id_decisao: D-013
     status: aprovado
@@ -859,7 +894,7 @@ exemplos_aprovados:
     regra: "Usar RELÉ DE SOBRECARGA seguido da faixa de ajuste confirmada e do tamanho construtivo quando informado. Suportes e outros complementos ficam em Acessórios para relés de sobrecarga."
     exemplos:
       - codigo_origem: "3RU21261KB0"
-        nome_padronizado: "RELÉ DE SOBRECARGA 9-12,5 A TAMANHO S0"
+        nome_padronizado: "RELÉ DE SOBRECARGA 9-12,5A TAMANHO S0"
       - codigo_origem: "3RU29263AA01"
         nome_padronizado: "SUPORTE INDIVIDUAL PARA RELÉ DE SOBRECARGA TAMANHO S0"
   - id_decisao: D-014
@@ -893,9 +928,9 @@ exemplos_aprovados:
     regra_acessorios: "Acessórios devem ser diferenciados pela sua função e por atributos técnicos confirmados, como comprimento, corrente, tensão e número de polos. Não repetir marca, série, modelo ou código na descrição."
     exemplos:
       - codigo_origem: "BBS45-3"
-        nome_padronizado: "BARRAMENTO DE DISTRIBUIÇÃO ISOLADO 130 mm 690 V 50/60 Hz PARA DISJUNTOR MOTOR"
+        nome_padronizado: "BARRAMENTO DE DISTRIBUIÇÃO ISOLADO 130mm 690V 50/60Hz PARA DISJUNTOR MOTOR"
       - codigo_origem: "FTBBS"
-        nome_padronizado: "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO PARA DISJUNTOR MOTOR 63 A 690 V 50/60 Hz"
+        nome_padronizado: "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO PARA DISJUNTOR MOTOR 63A 690V 50/60Hz"
   - id_decisao: D-016
     status: aprovado
     tipo_tecnico: DISJUNTOR_CAIXA_MOLDADA
@@ -945,9 +980,9 @@ exemplos_aprovados:
     regra_marcas: "Aplicar o padrão independentemente de fabricante ou fornecedor; não repetir marca, modelo ou código na descrição."
     exemplos:
       - codigo_origem: "3SE63150BB01"
-        nome_padronizado: "CHAVE DE SEGURANÇA RFID SEM CONTATO 25 mm x 106 mm CONECTOR M12 8P"
+        nome_padronizado: "CHAVE DE SEGURANÇA RFID SEM CONTATO 25mm x 106mm CONECTOR M12 8P"
       - codigo_origem: "3SE63100BC01"
-        nome_padronizado: "ATUADOR PADRÃO PARA CHAVE DE SEGURANÇA RFID 91 mm x 25 mm"
+        nome_padronizado: "ATUADOR PADRÃO PARA CHAVE DE SEGURANÇA RFID 91mm x 25mm"
       - codigo_origem: "VFT8"
         nome_padronizado: "PARAFUSO TENSIONADOR PARA KIT DE CORDA DE CHAVE DE SEGURANÇA"
   - id_decisao: D-018
@@ -973,13 +1008,13 @@ exemplos_aprovados:
     regra_marcas: "Aplicar a classificação funcional a qualquer marca ou fornecedor; não repetir marca, série, modelo ou código na descrição."
     exemplos:
       - codigo_origem: "3SK11211CB41"
-        nome_padronizado: "RELÉ DE SEGURANÇA TEMPORIZADO 2NA IMEDIATOS + 2NA RETARDADOS 24 VCC 0,05-3 s CONEXÃO POR PARAFUSO"
+        nome_padronizado: "RELÉ DE SEGURANÇA TEMPORIZADO 2NA IMEDIATOS + 2NA RETARDADOS 24VCC 0,05-3s CONEXÃO POR PARAFUSO"
       - codigo_origem: "3SK1220-2AB40"
-        nome_padronizado: "MÓDULO DE EXPANSÃO DE ENTRADAS PARA RELÉ DE SEGURANÇA 2 CANAIS OU 2 x 1 CANAL 24 VCC CONEXÃO POR MOLA"
+        nome_padronizado: "MÓDULO DE EXPANSÃO DE ENTRADAS PARA RELÉ DE SEGURANÇA 2 CANAIS OU 2 x 1 CANAL 24VCC CONEXÃO POR MOLA"
       - codigo_origem: "15560296"
         nome_padronizado: "MÓDULO DE SEGURANÇA PARA INVERSOR DE FREQUÊNCIA"
       - codigo_origem: "3RK32211AA10"
-        nome_padronizado: "MÓDULO DE EXPANSÃO DE SEGURANÇA 2/4 DI DE SEGURANÇA 1/2 SAÍDAS A RELÉ DE SEGURANÇA 24 VCC 1 A"
+        nome_padronizado: "MÓDULO DE EXPANSÃO DE SEGURANÇA 2/4DI DE SEGURANÇA 1/2 SAÍDAS A RELÉ DE SEGURANÇA 24VCC 1A"
   - id_decisao: D-019
     status: aprovado
     tipo_tecnico: BLOCO_CONTATO_AUXILIAR_FRONTAL
@@ -999,7 +1034,7 @@ exemplos_aprovados:
       - codigo_origem: "3RH2911-2FA40"
         nome_padronizado: "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR MOLA PARA CONTATOR"
       - codigo_origem: "12499350"
-        nome_padronizado: "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF 660/690 V CONEXÃO POR PARAFUSO PARA CONTATOR"
+        nome_padronizado: "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF 660/690V CONEXÃO POR PARAFUSO PARA CONTATOR"
   - id_decisao: D-020
     status: aprovado
     tipo_tecnico: RELE_INTERFACE
@@ -1021,7 +1056,7 @@ exemplos_aprovados:
     regra_incerteza: "Quando o cadastro não confirmar atributos técnicos, usar somente RELÉ DE INTERFACE e manter código, fabricante e fornecedor em seus campos próprios."
     exemplos:
       - codigo_origem: "3RQ3052-1SM30"
-        nome_padronizado: "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24 VCC SAÍDA 30 VCC 2 A CONEXÃO POR PARAFUSO"
+        nome_padronizado: "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24VCC SAÍDA 30VCC 2A CONEXÃO POR PARAFUSO"
       - codigo_origem: "3RQ3901-0D"
         nome_padronizado: "PENTE DE CONEXÃO 16 POLOS PARA RELÉS DE INTERFACE"
       - codigo_origem: "G2RV1SG"
@@ -1029,9 +1064,9 @@ exemplos_aprovados:
       - codigo_origem: "LZS:PT5A5L24"
         nome_padronizado: "RELÉ DE INTERFACE ENCAIXÁVEL"
       - codigo_origem: "2900369"
-        nome_padronizado: "RELÉ DE INTERFACE DE ESTADO SÓLIDO 1NA ENTRADA 24 VCC SAÍDA 24-253 VCA 0,75 A"
+        nome_padronizado: "RELÉ DE INTERFACE DE ESTADO SÓLIDO 1NA ENTRADA 24VCC SAÍDA 24-253VCA 0,75A"
       - codigo_origem: "857724"
-        nome_padronizado: "RELÉ DE INTERFACE DE ESTADO SÓLIDO 24 VCC SAÍDA 0-24 VCC 3 A 6 mm"
+        nome_padronizado: "RELÉ DE INTERFACE DE ESTADO SÓLIDO 24VCC SAÍDA 0-24VCC 3A 6mm"
   - id_decisao: D-021
     status: aprovado
     familias:
@@ -1368,3 +1403,33 @@ historico_decisoes:
     status: aplicado
     origem: "Autorização humana para normalização completa dos fornecedores WAGO, Phoenix Contact e SICK"
     decisao: "Criar 33 grupos funcionais e normalizar 216 cadastros efetivamente divergentes, entre 241 registros revisados. Preservar código, fornecedor, fabricante, preço e status. Os dois códigos SICK divergentes permanecem pendentes de correção específica."
+  - id: D-027
+    data: "2026-09-04"
+    status: aplicado
+    origem: "Definição humana para descrições com unidades técnicas"
+    decisao: "Aplicar em todas as famílias número, faixa ou razão junto à unidade, sem espaço, como 115A, 110-127VCA/CC e 50/60Hz. Normalizar sugestões e confirmações no servidor e corrigir 357 cadastros existentes equivalentes no tenant e empresa autorizados."
+  - id: D-028
+    data: "2026-09-04"
+    status: aplicado
+    origem: "Definição humana para itens com código de origem exclusivamente numérico e revisão da linha Phoenix Contact"
+    decisao: "Incluir no nome a família e a referência alfanumérica oficial quando o código de origem for exclusivamente numérico. Exigir quantidade de portas em switches e detalhar meio, conector e velocidade quando confirmados. Corrigir os 135 itens Phoenix Contact revisados, eliminando nomes repetidos; classificar nove cabos SAC em Cabos para sensores e atuadores, o PT 2,5 YE em Bornes de passagem e dois componentes HC em Conectores industriais multipolares."
+  - id: D-029
+    data: "2026-09-04"
+    status: aplicado
+    origem: "Definição humana e revisão dos itens do fornecedor A T I Brasil Artigos Técnicos Industriais Ltda"
+    decisao: "Excluir do nome reutilizável números de pedido de compra e outros dados transacionais, mantendo-os somente nos documentos próprios do ERP e preservando a descrição fiscal original. Normalizar os 19 itens ATI revisados, expandir abreviações técnicas e classificar correntes e emendas nos grupos funcionais existentes, sem forçar os demais materiais em grupos apenas semelhantes."
+  - id: D-030
+    data: "2026-09-04"
+    status: aplicado
+    origem: "Definição humana e revisão dos cabos HELUKABEL PUR-JZ da NF de entrada 2268"
+    decisao: "Para cabos elétricos, de controle, sinal ou sensor/atuador, exigir família ou tipo, formação e seção nominal, classe de tensão, materiais da isolação e da capa externa e presença ou ausência de blindagem. Preservar G ou x e seu significado técnico. Normalizar os cinco cabos PUR-JZ como 300/500V, isolação PVC, capa PUR e sem blindagem, reunindo-os no grupo Cabos para sinal e comando."
+  - id: D-031
+    data: "2026-09-04"
+    status: aplicado
+    origem: "Definição humana para revisão integral dos cabos sem terminação"
+    decisao: "Restringir esta normalização a cabos unipolares e multipolares fornecidos sem conectores, plugues, terminais, chicotes ou adaptadores nas pontas. Revisar 143 cadastros: manter 119 tecnicamente completos no padrão, aplicar 114 correções de nome ou grupo e conservar 24 como pendência por falta de material, tensão, blindagem ou formação confiável. Cabos PP convencionais devem declarar isolação PVC e capa PVC; PP é a família construtiva, não o material polipropileno."
+  - id: D-032
+    data: "2026-09-04"
+    status: aplicado
+    origem: "Definição humana para unidade e conversão de cabos"
+    decisao: "Controlar cabos sem terminação sempre em metros. Manter separadas a unidade canônica de estoque (M) e a unidade comercial de compra/origem (como KM, RL ou BOB). Registrar um multiplicador positivo em que 1 unidade de compra vezes o fator resulta em metros, convertendo também o custo unitário para metro antes da movimentação. Nunca presumir o comprimento de rolos ou bobinas; sem confirmação, manter a conversão pendente."

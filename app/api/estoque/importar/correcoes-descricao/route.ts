@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSupabase, jsonError, resolveTenantEmpresa } from "@/app/api/compras/_lib";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { normalizarNomeCadastro } from "@/lib/itens/normalizacaoNome";
 import { erroTabelaCorrecaoAusente, normalizarDescricaoAprendizado } from "@/lib/nfe/descricaoCorrecaoIa";
 
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const descricaoOrigem = texto(body.descricao_origem, 500);
     const descricaoSugerida = texto(body.descricao_sugerida, 300);
-    const descricaoCorrigida = texto(body.descricao_corrigida, 300);
+    const descricaoCorrigida = normalizarNomeCadastro(texto(body.descricao_corrigida, 300));
     const codigoItem = texto(body.codigo_item, 120);
     const descricaoOrigemNormalizada = normalizarDescricaoAprendizado(descricaoOrigem);
 

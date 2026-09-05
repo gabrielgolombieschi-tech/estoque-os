@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "../../lib/supabase/client";
 import { parseDecimalBR } from "../../lib/decimal";
@@ -8,6 +9,7 @@ import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { requireAny } from "@/lib/auth/capabilities";
+import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
 import CadastroItemAgenteModal from "./CadastroItemAgenteModal";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
@@ -31,6 +33,8 @@ type Item = {
   motivo_compra_id: string | null;
 
   unidade_medida: string | null;
+  unidade_compra: string | null;
+  fator_conversao_estoque: number | null;
   peso_liquido: number | null;
   controla_estoque: boolean | null;
   estoque_minimo: number | null;
@@ -79,6 +83,8 @@ type ItemForm = {
   motivo_compra_id: string; // f.motivo_compra ("" = null)
 
   unidade_medida: string;
+  unidade_compra: string;
+  fator_conversao_estoque: string;
   /** Peso de referência (kg) de uma unidade cadastrada; usado só quando unidade_medida = KG. */
   peso_liquido: string;
   controla_estoque: boolean;
@@ -99,7 +105,13 @@ type ItemForm = {
 type FiscalItem = {
   item_id: number;
   ncm: string | null;
+  cest: string | null;
+  origem: number | null;
+  unidade_tributavel: string | null;
   cst_icms: string | null;
+  cst_ipi: string | null;
+  ipi_codigo_enquadramento_legal: string | null;
+  numero_fci: string | null;
   cst_pis: string | null;
   cst_cofins: string | null;
   aliq_icms: number | null;
@@ -132,6 +144,8 @@ type ItemPayload = {
   finalidade: string | null;
   motivo_compra_id: string | null;
   unidade_medida: string;
+  unidade_compra: string | null;
+  fator_conversao_estoque: number;
   peso_liquido: number | null;
   controla_estoque: boolean;
   estoque_minimo: number;
@@ -151,7 +165,13 @@ type FiscalPayload = {
   empresa_id: string;
   item_id: number;
   ncm: string | null;
+  cest: string | null;
+  origem: number | null;
+  unidade_tributavel: string | null;
   cst_icms: string | null;
+  cst_ipi: string | null;
+  ipi_codigo_enquadramento_legal: string | null;
+  numero_fci: string | null;
   cst_pis: string | null;
   cst_cofins: string | null;
   aliq_icms: number | null;
@@ -169,7 +189,13 @@ type DbError = { message?: string; code?: string } | null;
 
 type FiscalForm = {
   ncm: string;
+  cest: string;
+  origem: string;
+  unidade_tributavel: string;
   cst_icms: string;
+  cst_ipi: string;
+  ipi_codigo_enquadramento_legal: string;
+  numero_fci: string;
   cst_pis: string;
   cst_cofins: string;
   aliq_icms: number | null;
@@ -181,6 +207,18 @@ type FiscalForm = {
   credita_pis: boolean;
   credita_cofins: boolean;
 };
+
+const ORIGENS_MERCADORIA = [
+  { value: "0", label: "0 - Nacional" },
+  { value: "1", label: "1 - Estrangeira, importação direta" },
+  { value: "2", label: "2 - Estrangeira, adquirida no mercado interno" },
+  { value: "3", label: "3 - Nacional, conteúdo de importação superior a 40% e até 70%" },
+  { value: "4", label: "4 - Nacional, conforme processos produtivos básicos" },
+  { value: "5", label: "5 - Nacional, conteúdo de importação até 40%" },
+  { value: "6", label: "6 - Estrangeira, importação direta, sem similar nacional" },
+  { value: "7", label: "7 - Estrangeira, mercado interno, sem similar nacional" },
+  { value: "8", label: "8 - Nacional, conteúdo de importação superior a 70%" },
+] as const;
 
 function money(n: number | null | undefined) {
   const v = Number(n ?? 0);
@@ -213,6 +251,8 @@ function emptyForm(): ItemForm {
     motivo_compra_id: "",
 
     unidade_medida: "UN",
+    unidade_compra: "",
+    fator_conversao_estoque: "1",
     peso_liquido: "",
     controla_estoque: true,
     estoque_minimo: 0,
@@ -229,7 +269,13 @@ function emptyForm(): ItemForm {
 function emptyFiscalForm(): FiscalForm {
   return {
     ncm: "",
+    cest: "",
+    origem: "",
+    unidade_tributavel: "",
     cst_icms: "",
+    cst_ipi: "",
+    ipi_codigo_enquadramento_legal: "",
+    numero_fci: "",
     cst_pis: "",
     cst_cofins: "",
     aliq_icms: null,
@@ -257,6 +303,8 @@ function buildFormFromItem(r: Item): ItemForm {
     finalidade: r.finalidade ? String(r.finalidade) : "",
     motivo_compra_id: r.motivo_compra_id ? String(r.motivo_compra_id) : "",
     unidade_medida: upper(r.unidade_medida || "UN"),
+    unidade_compra: upper(r.unidade_compra),
+    fator_conversao_estoque: String(r.fator_conversao_estoque ?? 1),
     peso_liquido: r.peso_liquido != null ? String(r.peso_liquido) : "",
     controla_estoque: !!r.controla_estoque,
     estoque_minimo: Number(r.estoque_minimo ?? 0),
@@ -274,7 +322,13 @@ function buildFiscalFormFromItem(r: Item): FiscalForm {
   const fiscal = r.fiscal_itens;
   return {
     ncm: fiscal?.ncm ?? "",
+    cest: fiscal?.cest ?? "",
+    origem: fiscal?.origem == null ? "" : String(fiscal.origem),
+    unidade_tributavel: fiscal?.unidade_tributavel ?? "",
     cst_icms: fiscal?.cst_icms ?? "",
+    cst_ipi: fiscal?.cst_ipi ?? "",
+    ipi_codigo_enquadramento_legal: fiscal?.ipi_codigo_enquadramento_legal ?? "",
+    numero_fci: fiscal?.numero_fci ?? "",
     cst_pis: fiscal?.cst_pis ?? "",
     cst_cofins: fiscal?.cst_cofins ?? "",
     aliq_icms: fiscal?.aliq_icms ?? null,
@@ -292,7 +346,13 @@ function normalizeFiscalForm(value: FiscalForm) {
   const numOrNull = (input: number | null | undefined) => (Number.isFinite(input as number) ? Number(input) : null);
   return {
     ncm: value.ncm.trim(),
+    cest: value.cest.trim(),
+    origem: value.origem,
+    unidade_tributavel: upper(value.unidade_tributavel).trim(),
     cst_icms: value.cst_icms.trim(),
+    cst_ipi: value.cst_ipi.trim(),
+    ipi_codigo_enquadramento_legal: value.ipi_codigo_enquadramento_legal.trim(),
+    numero_fci: value.numero_fci.trim(),
     cst_pis: value.cst_pis.trim(),
     cst_cofins: value.cst_cofins.trim(),
     aliq_icms: numOrNull(value.aliq_icms),
@@ -315,6 +375,9 @@ type ItensClientProps = {
   title?: string;
   description?: string;
   tableTitle?: string;
+  initialItemId?: string;
+  initialOpenFiscal?: boolean;
+  returnHref?: string;
 };
 
 export default function ItensClient({
@@ -322,6 +385,9 @@ export default function ItensClient({
   title = "Itens",
   description = "Cadastro de produtos, servicos e despesas.",
   tableTitle = "Itens",
+  initialItemId = "",
+  initialOpenFiscal = false,
+  returnHref,
 }: ItensClientProps = {}) {
   const lockedFinalidade: "" | ItemFinalidade = fixedFinalidade ?? "";
   const isFinalidadeLocked = Boolean(lockedFinalidade);
@@ -365,6 +431,7 @@ export default function ItensClient({
 
   const [rows, setRows] = useState<Item[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [fornecedoresMateriaPrima, setFornecedoresMateriaPrima] = useState<Fornecedor[]>([]);
   const [fornecedoresLoading, setFornecedoresLoading] = useState(false);
   const [fornecedoresError, setFornecedoresError] = useState<string | null>(null);
   const [motivos, setMotivos] = useState<Array<{ id: string; codigo: string; nome: string }>>([]);
@@ -381,7 +448,7 @@ export default function ItensClient({
   const [listLoading, setListLoading] = useState(false);
   const filtrosFormRef = useRef<HTMLFormElement | null>(null);
 
-  const [draftFilterId, setDraftFilterId] = useState("");
+  const [draftFilterId, setDraftFilterId] = useState(initialItemId);
   const [draftFilterCodigo, setDraftFilterCodigo] = useState("");
   const [draftFilterProduto, setDraftFilterProduto] = useState("");
   const [draftFilterFornecedor, setDraftFilterFornecedor] = useState("");
@@ -389,7 +456,7 @@ export default function ItensClient({
   const [draftFilterFinalidade, setDraftFilterFinalidade] = useState<"" | ItemFinalidade>(lockedFinalidade);
   const [draftFilterAtivo, setDraftFilterAtivo] = useState<"todos" | "ativos">("todos");
 
-  const [filterId, setFilterId] = useState("");
+  const [filterId, setFilterId] = useState(initialItemId);
   const [filterCodigo, setFilterCodigo] = useState("");
   const [filterProduto, setFilterProduto] = useState("");
   const [filterFornecedor, setFilterFornecedor] = useState("");
@@ -408,6 +475,7 @@ export default function ItensClient({
   const [initialFiscalSnapshot, setInitialFiscalSnapshot] = useState(() => serializeFiscalForm(emptyFiscalForm()));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingAudit, setEditingAudit] = useState<ItemAudit | null>(null);
+  const initialAutoOpenDone = useRef(false);
 
   useEffect(() => {
     if (!isFinalidadeLocked) return;
@@ -449,15 +517,24 @@ export default function ItensClient({
     setFornecedoresLoading(true);
     setFornecedoresError(null);
     try {
-      const { data, error } = await supabase.rpc("list_fornecedores_cadastro_itens", {
-        p_tenant_id: tenantId,
-        p_empresa_id: empresaId,
-      });
-      if (error) throw error;
-      setFornecedores((data ?? []) as unknown as Fornecedor[]);
+      const [todosResult, materiaPrimaResult] = await Promise.all([
+        supabase.rpc("list_fornecedores_cadastro_itens", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+        }),
+        supabase.rpc("list_fornecedores_materia_prima", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+        }),
+      ]);
+      if (todosResult.error) throw todosResult.error;
+      if (materiaPrimaResult.error) throw materiaPrimaResult.error;
+      setFornecedores((todosResult.data ?? []) as unknown as Fornecedor[]);
+      setFornecedoresMateriaPrima((materiaPrimaResult.data ?? []) as unknown as Fornecedor[]);
     } catch (error: unknown) {
       console.error("fornecedores", error);
       setFornecedores([]);
+      setFornecedoresMateriaPrima([]);
       setFornecedoresError("Não foi possível carregar os fornecedores. Feche e abra esta janela novamente.");
     } finally {
       setFornecedoresLoading(false);
@@ -568,7 +645,7 @@ export default function ItensClient({
           supabase
             .from("fiscal_itens")
             .select(
-              "item_id,ncm,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins"
+              "item_id,ncm,cest,origem,unidade_tributavel,cst_icms,cst_ipi,ipi_codigo_enquadramento_legal,numero_fci,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins"
             ),
           tenantId,
           empresaId
@@ -755,6 +832,28 @@ export default function ItensClient({
     openEditorForItem(r, r.id);
   }
 
+  useEffect(() => {
+    if (!initialOpenFiscal || initialAutoOpenDone.current || !canEdit) return;
+    const initialId = Number.parseInt(initialItemId, 10);
+    if (!Number.isFinite(initialId)) return;
+    const row = rows.find((item) => item.id === initialId);
+    if (!row) return;
+
+    initialAutoOpenDone.current = true;
+    setOk(null);
+    setErr(null);
+    setEditingId(row.id);
+    setEditingAudit(row.auditoria ?? null);
+    setShowForm(true);
+    const nextForm = buildFormFromItem(row);
+    if (lockedFinalidade) nextForm.finalidade = lockedFinalidade;
+    setForm(nextForm);
+    const nextFiscalForm = buildFiscalFormFromItem(row);
+    setFiscalForm(nextFiscalForm);
+    setInitialFiscalSnapshot(serializeFiscalForm(nextFiscalForm));
+    setActiveTab("fiscal");
+  }, [canEdit, initialItemId, initialOpenFiscal, lockedFinalidade, rows]);
+
   function closeForm() {
     setShowForm(false);
     setEditingId(null);
@@ -778,7 +877,15 @@ export default function ItensClient({
       empresa_id: empresaId,
       item_id: itemId,
       ncm: fiscalForm.ncm.trim() || null,
+      cest: fiscalForm.cest.trim() || null,
+      origem: fiscalForm.origem === "" ? null : Number(fiscalForm.origem),
+      unidade_tributavel: upper(fiscalForm.unidade_tributavel).trim() || null,
       cst_icms: fiscalForm.cst_icms.trim() || null,
+      cst_ipi: fiscalForm.cst_ipi.trim() || null,
+      // cEnq pertence ao grupo IPI da operacao, nunca ao cadastro do produto.
+      // Salvar o item tambem limpa eventual valor legado sem substitui-lo por default.
+      ipi_codigo_enquadramento_legal: null,
+      numero_fci: fiscalForm.numero_fci.trim() || null,
       cst_pis: fiscalForm.cst_pis.trim() || null,
       cst_cofins: fiscalForm.cst_cofins.trim() || null,
       aliq_icms: numOrNull(fiscalForm.aliq_icms),
@@ -851,7 +958,7 @@ export default function ItensClient({
         empresa_id: empresaId,
         codigo_interno: copiedCodigoInterno,
         codigo_barras: null,
-        nome: upper(r.nome).trim(),
+        nome: normalizarUnidadesNoNome(upper(r.nome).trim()),
         descricao: upper(r.descricao).trim() || null,
         tipo: r.tipo,
         categoria: upper(r.categoria).trim() || null,
@@ -860,6 +967,8 @@ export default function ItensClient({
         finalidade: copiedFinalidade,
         motivo_compra_id: supportsMotivoCompra ? r.motivo_compra_id ?? null : null,
         unidade_medida: upper(r.unidade_medida || "UN").trim(),
+        unidade_compra: upper(r.unidade_compra).trim() || null,
+        fator_conversao_estoque: Number(r.fator_conversao_estoque ?? 1),
         peso_liquido: r.peso_liquido ?? null,
         controla_estoque: controlaEstoque,
         estoque_minimo: controlaEstoque ? Number(r.estoque_minimo ?? 0) : 0,
@@ -893,7 +1002,14 @@ export default function ItensClient({
           empresa_id: empresaId,
           item_id: newItemId,
           ncm: r.fiscal_itens.ncm ?? null,
+          cest: r.fiscal_itens.cest ?? null,
+          origem: r.fiscal_itens.origem ?? null,
+          unidade_tributavel: r.fiscal_itens.unidade_tributavel ?? null,
           cst_icms: r.fiscal_itens.cst_icms ?? null,
+          cst_ipi: r.fiscal_itens.cst_ipi ?? null,
+          // cEnq nao acompanha a copia do produto; sera resolvido pelo perfil da operacao.
+          ipi_codigo_enquadramento_legal: null,
+          numero_fci: r.fiscal_itens.numero_fci ?? null,
           cst_pis: r.fiscal_itens.cst_pis ?? null,
           cst_cofins: r.fiscal_itens.cst_cofins ?? null,
           aliq_icms: r.fiscal_itens.aliq_icms ?? null,
@@ -972,6 +1088,15 @@ export default function ItensClient({
     const isProduto = form.tipo === "produto";
     const controlaEstoque = isProduto ? form.controla_estoque : false;
     const finalidadeParaSalvar = lockedFinalidade || form.finalidade.trim();
+    const unidadeEstoque = upper(form.unidade_medida || "UN").trim();
+    const unidadeCompra = upper(form.unidade_compra).trim() || null;
+    const fatorConversaoEstoque = parseDecimalBR(form.fator_conversao_estoque);
+    if (!Number.isFinite(fatorConversaoEstoque) || fatorConversaoEstoque <= 0) {
+      return setErr("O multiplicador para estoque deve ser maior que zero.");
+    }
+    if (unidadeCompra === unidadeEstoque) {
+      return setErr("A unidade de compra deve ficar em branco quando for igual à unidade de estoque.");
+    }
 
     setBusy(true);
 
@@ -981,7 +1106,7 @@ export default function ItensClient({
     const payload: ItemPayload = {
       codigo_interno: upper(form.codigo_interno).trim(),
       codigo_barras: upper(form.codigo_barras).trim() || null,
-      nome: upper(form.nome).trim(),
+      nome: normalizarUnidadesNoNome(upper(form.nome).trim()),
       descricao: upper(form.descricao).trim() || null,
       tipo: form.tipo,
       categoria: upper(form.categoria).trim() || null,
@@ -991,7 +1116,9 @@ export default function ItensClient({
       finalidade: finalidadeParaSalvar || null,
       motivo_compra_id: supportsMotivoCompra ? form.motivo_compra_id.trim() || null : null,
 
-      unidade_medida: upper(form.unidade_medida || "UN").trim(),
+      unidade_medida: unidadeEstoque,
+      unidade_compra: unidadeCompra,
+      fator_conversao_estoque: unidadeCompra ? fatorConversaoEstoque : 1,
       peso_liquido: form.peso_liquido.trim() ? parseDecimalBR(form.peso_liquido) : null,
       controla_estoque: controlaEstoque,
       estoque_minimo: controlaEstoque ? Number(form.estoque_minimo ?? 0) : 0,
@@ -1153,6 +1280,14 @@ export default function ItensClient({
         </div>
 
         <div className="flex items-center gap-2">
+          {returnHref ? (
+            <Link
+              href={returnHref}
+              className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+            >
+              Voltar à venda
+            </Link>
+          ) : null}
           {canUseItemActions && (
             <button
               onClick={startNew}
@@ -1259,7 +1394,7 @@ export default function ItensClient({
               placeholder='Ex: "siemens"'
             />
             <datalist id="fornecedor-options">
-              {fornecedores.map((f) => (
+              {fornecedoresMateriaPrima.map((f) => (
                 <option key={f.id} value={String(f.nome ?? "").trim()} />
               ))}
             </datalist>
@@ -1755,8 +1890,37 @@ export default function ItensClient({
                     )}
 
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Unidade</div>
+                      <div className="text-xs text-zinc-400">Unidade de estoque</div>
                       <input className="w-full px-3 py-2" value={form.unidade_medida} onChange={(e) => setForm((s) => ({ ...s, unidade_medida: upper(e.target.value) }))} placeholder="UN, KG, LT..." />
+                      <div className="text-[11px] text-zinc-500">Para cabos sem terminação, use M. O saldo sempre será controlado nesta unidade.</div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Unidade de compra/origem</div>
+                      <input
+                        aria-label="Unidade de compra/origem"
+                        className="w-full px-3 py-2"
+                        value={form.unidade_compra}
+                        onChange={(e) => setForm((s) => ({ ...s, unidade_compra: upper(e.target.value) }))}
+                        placeholder="RL, BOB, KM..."
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Multiplicador para estoque</div>
+                      <input
+                        aria-label="Multiplicador para estoque"
+                        className="w-full px-3 py-2"
+                        inputMode="decimal"
+                        value={form.fator_conversao_estoque}
+                        onChange={(e) => setForm((s) => ({ ...s, fator_conversao_estoque: e.target.value }))}
+                        placeholder="Ex.: 100"
+                      />
+                      <div className="text-[11px] text-zinc-500">
+                        {form.unidade_compra.trim()
+                          ? `1 ${upper(form.unidade_compra).trim()} = ${form.fator_conversao_estoque || "?"} ${upper(form.unidade_medida || "UN").trim()}`
+                          : "Preencha somente quando a unidade comprada for diferente da unidade de estoque."}
+                      </div>
                     </div>
 
                     {form.unidade_medida.trim().toUpperCase() === "KG" && (
@@ -1868,7 +2032,7 @@ export default function ItensClient({
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Custo ultima compra</div>
+                      <div className="text-xs text-zinc-400">Custo última compra por {upper(form.unidade_medida || "UN")}</div>
                       <input
                         aria-label="Custo última compra"
                         type="number"
@@ -1878,7 +2042,7 @@ export default function ItensClient({
                       />
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Custo medio</div>
+                      <div className="text-xs text-zinc-400">Custo médio por {upper(form.unidade_medida || "UN")}</div>
                       <input
                         aria-label="Custo médio"
                         type="number"
@@ -1888,7 +2052,7 @@ export default function ItensClient({
                       />
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs text-zinc-400">Preço unitário</div>
+                      <div className="text-xs text-zinc-400">Preço por {upper(form.unidade_medida || "UN")}</div>
                       <input
                         aria-label="Preço unitário"
                         type="number"
@@ -1919,8 +2083,55 @@ export default function ItensClient({
                       <input className="w-full px-3 py-2" value={fiscalForm.ncm} onChange={(e) => setFiscalForm((s) => ({ ...s, ncm: e.target.value }))} placeholder="Ex: 12345678" />
                     </div>
                     <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">CEST</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.cest} onChange={(e) => setFiscalForm((s) => ({ ...s, cest: e.target.value }))} placeholder="7 dígitos, quando aplicável" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Origem da mercadoria</div>
+                      <select
+                        aria-label="Origem da mercadoria"
+                        className="w-full px-3 py-2"
+                        value={fiscalForm.origem}
+                        onChange={(e) => setFiscalForm((s) => ({ ...s, origem: e.target.value }))}
+                      >
+                        <option value="">Selecione...</option>
+                        {ORIGENS_MERCADORIA.map((origem) => (
+                          <option key={origem.value} value={origem.value}>
+                            {origem.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Unidade tributável</div>
+                      <input
+                        aria-label="Unidade tributável"
+                        className="w-full px-3 py-2"
+                        value={fiscalForm.unidade_tributavel}
+                        onChange={(e) => setFiscalForm((s) => ({ ...s, unidade_tributavel: upper(e.target.value) }))}
+                        placeholder={upper(form.unidade_medida || "UN")}
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <div className="text-xs text-zinc-400">CST ICMS</div>
                       <input className="w-full px-3 py-2" value={fiscalForm.cst_icms} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_icms: e.target.value }))} placeholder="00, 20, 40..." />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">CST IPI do produto</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.cst_ipi} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_ipi: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="Ex: 53" />
+                    </div>
+                    <div className="rounded border border-sky-900/70 bg-sky-950/20 px-3 py-2 text-xs text-sky-200">
+                      cEnq não pertence ao produto. Ele é definido no grupo IPI do perfil da operação fiscal.
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-zinc-400">Número da FCI</div>
+                      <input className="w-full px-3 py-2" value={fiscalForm.numero_fci} onChange={(e) => setFiscalForm((s) => ({ ...s, numero_fci: e.target.value.trim() }))} placeholder="Quando aplicável" />
                     </div>
                   </div>
 
