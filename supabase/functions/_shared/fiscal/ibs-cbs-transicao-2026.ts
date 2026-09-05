@@ -37,6 +37,28 @@ export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
       pIBSMun: 0,
       pCBS: 0.9,
     } satisfies RegraIbsCbsTransicao2026),
+    // Venda de producao propria (OS): mesma regra legal de 2026 da venda
+    // tributada integralmente (ADCT art. 125). Usada em HOMOLOGACAO pela fixture
+    // provisoria; producao continua bloqueada ate o perfil 5101/6101 ser
+    // liberado pelo contador (perguntas 4, 2 e 8).
+    VENDA_INDUSTRIALIZACAO_INTERNA: Object.freeze({
+      naturezaOperacao: "VENDA_INDUSTRIALIZACAO_INTERNA",
+      cfops: Object.freeze(["5101"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
+    VENDA_INDUSTRIALIZACAO_INTERESTADUAL: Object.freeze({
+      naturezaOperacao: "VENDA_INDUSTRIALIZACAO_INTERESTADUAL",
+      cfops: Object.freeze(["6101"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
   }),
 });
 

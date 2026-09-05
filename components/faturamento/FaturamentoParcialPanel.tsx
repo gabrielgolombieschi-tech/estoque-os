@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { formatMoneyBR } from "@/lib/decimal";
@@ -370,6 +371,19 @@ function FaturamentoOvPanel({
   );
 }
 
+type NotaOs = {
+  documento_fiscal_id: string;
+  solicitacao_status: string | null;
+  ambiente: string;
+  emissao_status: string;
+  nfe_status: string | null;
+  serie: string | null;
+  numero: string | null;
+  valor_total: number | string | null;
+  danfe_path: string | null;
+  referencia_externa: string;
+};
+
 type SaldoOs = {
   valor_pedido: number | string;
   valor_faturado: number | string;
@@ -444,6 +458,7 @@ function FaturamentoOsPanel({
     [codigo, descricaoSugestao]
   );
   const [saldo, setSaldo] = useState<SaldoOs | null>(null);
+  const [notas, setNotas] = useState<NotaOs[]>([]);
   const [linhas, setLinhas] = useState<LinhaOs[]>(() => [novaLinhaOs(1, sugestao)]);
   const [proximaChave, setProximaChave] = useState(2);
   const [loading, setLoading] = useState(true);
@@ -466,6 +481,13 @@ function FaturamentoOsPanel({
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) throw new Error("Não foi possível calcular o saldo desta OS.");
       setSaldo(row as SaldoOs);
+      // Notas da OS (emitidas pelo ERP ou importadas), abaixo dos quatro numeros.
+      const { data: notasData } = await supabase.schema("f").rpc("fn_os_notas", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_os_id: osId,
+      });
+      setNotas((notasData as NotaOs[] | null) ?? []);
     } catch (cause) {
       setSaldo(null);
       setError(mensagemErro(cause));
@@ -621,6 +643,25 @@ function FaturamentoOsPanel({
           <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Já faturado</div><div className="mt-1 text-lg font-semibold tabular-nums">R$ {formatMoneyBR(numero(saldo.valor_faturado))}</div></div>
           <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Reservado em aberto</div><div className="mt-1 text-lg font-semibold tabular-nums">R$ {formatMoneyBR(numero(saldo.valor_reservado))}</div></div>
           <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Saldo</div><div className="mt-1 text-lg font-semibold tabular-nums">{temTeto ? `R$ ${formatMoneyBR(numero(saldo.saldo))}` : "Sem teto"}</div></div>
+        </div>
+      ) : null}
+
+      {!loading && notas.length > 0 ? (
+        <div className="rounded-lg border border-zinc-800">
+          <div className="border-b border-zinc-800 px-3 py-2 text-xs uppercase text-zinc-500">Notas desta OS</div>
+          <table className="w-full text-sm">
+            <tbody>
+              {notas.map((nota) => (
+                <tr key={nota.documento_fiscal_id} className="border-b border-zinc-900 last:border-0">
+                  <td className="px-3 py-2">{nota.serie && nota.numero ? `NF-e ${nota.serie}/${nota.numero}` : nota.referencia_externa}</td>
+                  <td className="px-3 py-2 text-zinc-400">{nota.ambiente}</td>
+                  <td className="px-3 py-2">{nota.emissao_status}{nota.nfe_status === "EMITIDA" ? " · emitida" : nota.nfe_status === "CANCELADA" ? " · cancelada" : nota.ambiente === "HOMOLOGACAO" && nota.solicitacao_status === "CANCELADA" ? " · homologação abandonada" : ""}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">R$ {formatMoneyBR(numero(nota.valor_total))}</td>
+                  <td className="px-3 py-2 text-right"><Link className="text-sky-300 underline" href={`/faturamento/nfe/${nota.documento_fiscal_id}`}>{nota.danfe_path ? "DANFE e detalhe" : "detalhe"}</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : null}
 

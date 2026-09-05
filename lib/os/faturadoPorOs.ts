@@ -34,6 +34,12 @@ export function shouldIncludeFaturamentoDocumento(row: DocumentoFaturadoRow): bo
  * Soma o valor faturado (documento_fiscal SAIDA emitido) por OS.
  * Sem `osIds`, pagina o tenant/empresa inteiro. Com `osIds`, escopa a busca a esse conjunto
  * (mais barato quando o chamador ja sabe quais OS quer, ex.: uma listagem paginada).
+ *
+ * Regra alinhada com `f.fn_os_saldo_a_faturar` (migration 20260905170000): conta apenas
+ * documento EMITIDA (producao) ou importado sem status NF-e. Documento que so passou pela
+ * homologacao fica RASCUNHO e nao entra aqui nem no saldo. A reserva por solicitacao aberta
+ * e a decisao "OS Faturada" (documento emitido E saldo zero) ficam em
+ * `f.fn_os_saldo_a_faturar` / `f.fn_os_pronta_para_faturada`, nao neste helper.
  */
 export async function fetchFaturadoByOs(params: {
   supabase: SupabaseClient;

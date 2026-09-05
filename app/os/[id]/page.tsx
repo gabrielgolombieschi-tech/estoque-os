@@ -356,6 +356,9 @@ export default function OsDetailPage() {
   const papelNormalizado = String(empresaPapel ?? "").trim().toUpperCase();
   const canConcluirFluxo = ["ADMIN", "DIRETOR", "COORDENACAO"].includes(papelNormalizado);
   const canFaturarFluxo = papelNormalizado === "FINANCEIRO";
+  // Botao Faturar (NF-e pela OS): FATURAMENTO, FINANCEIRO, ADMIN e DIRETOR.
+  const canEmitirNfeOs = ["FATURAMENTO", "FINANCEIRO", "ADMIN", "DIRETOR"].includes(papelNormalizado);
+  const [saldoNfeOs, setSaldoNfeOs] = useState<number | null>(null);
 
   const [os, setOs] = useState<OS | null>(null);
   const [rows, setRows] = useState<OsItemRow[]>([]);
@@ -487,6 +490,36 @@ export default function OsDetailPage() {
   );
 
   const statusExibicao = normalizeOsStatusFluxo(os?.status_fluxo, os?.status);
+
+  // Saldo a faturar da OS para o botao Faturar (mesma funcao unica da tela).
+  useEffect(() => {
+    if (!os?.id || !canEmitirNfeOs || !supabase) return;
+    let ativo = true;
+    void supabase.schema("f").rpc("fn_os_saldo_a_faturar", {
+      p_tenant_id: effectiveTenantId,
+      p_empresa_id: effectiveEmpresaId,
+      p_os_id: os.id,
+    }).then(({ data }) => {
+      if (!ativo) return;
+      const row = (Array.isArray(data) ? data[0] : data) as { saldo?: number | string; valor_reservado?: number | string } | null;
+      // Saldo zerado por rascunho em aberto (reservado > 0) nao bloqueia: a tela
+      // de faturar retoma esse rascunho.
+      setSaldoNfeOs(row ? (Number(row.valor_reservado ?? 0) > 0 ? 1 : Number(row.saldo ?? 0)) : null);
+    });
+    return () => { ativo = false; };
+  }, [canEmitirNfeOs, effectiveEmpresaId, effectiveTenantId, os?.id, supabase]);
+  const osInternaSegau = /el[eé]trica\s+segau/i.test(String(os?.cliente_nome ?? ""));
+  const motivoFaturarNfe = !os
+    ? null
+    : statusExibicao === "cancelada"
+      ? "OS cancelada"
+      : osInternaSegau
+        ? "OS interna (cliente Elétrica Segau)"
+        : statusExibicao === "faturada"
+          ? "OS já faturada"
+          : saldoNfeOs !== null && saldoNfeOs <= 0.005
+            ? "saldo a faturar zerado"
+            : null;
   const locked = readOnly || isOsStatusLocked(statusExibicao);
   const formatMoney = (v: number) =>
     Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -2397,6 +2430,27 @@ export default function OsDetailPage() {
             >
               {isFaturando ? "Atualizando..." : "Marcar OS faturada"}
             </button>
+          )}
+
+          {/* Faturar: NF-e de industrializacao pela OS (homologacao). Desabilitado com o motivo escrito. */}
+          {canEmitirNfeOs && (
+            motivoFaturarNfe ? (
+              <button
+                type="button"
+                disabled
+                title={motivoFaturarNfe}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 opacity-50 cursor-not-allowed"
+              >
+                Faturar · {motivoFaturarNfe}
+              </button>
+            ) : (
+              <Link
+                href={`/os/${os?.id ?? osId}/faturar`}
+                className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
+              >
+                Faturar
+              </Link>
+            )
           )}
 
           {!locked && (

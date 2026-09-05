@@ -56,7 +56,8 @@ await pagina.waitForTimeout(3000);
 await foto("detalhe");
 console.log("antes:", await avisos());
 
-const botao = pagina.getByRole("button", { name: "Cancelar NF-e real na SEFAZ" });
+// Serve tambem para homologacao (rotulo diferente, mesma acao CANCELAR).
+const botao = pagina.getByRole("button", { name: /^Cancelar (NF-e real|homologação) na SEFAZ$/ });
 await botao.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
 if ((await botao.count()) === 0) {
   console.log("Botao de cancelamento real nao disponivel. Botoes:", (await pagina.locator("button:visible").allTextContents()).filter((t) => /cancel|estorno/i.test(t)));

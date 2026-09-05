@@ -153,6 +153,32 @@ assert.throws(
   /natureza da operacao DEVOLUCAO_VENDA sem cClassTrib mapeado/,
 );
 
+// NF-e de industrializacao a partir da OS (05/09/2026): natOp literal da
+// fixture, CFOP 5101/6101 e a mesma regra IBS/CBS de 2026. Os campos fiscais
+// da linha chegam preenchidos pela conferencia da OS (fixture + cadastro).
+const industrializacao = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      natureza_operacao: "VENDA_INDUSTRIALIZACAO_INTERNA",
+      destinacao_mercadoria: "USO_CONSUMO",
+      consumidor_final: 1,
+    },
+  }),
+  itens: [linha({ cfop: "5101", ncm: "73269090", aliquota_icms: 17, cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+}));
+assert.equal(industrializacao.natureza_operacao, "VENDA INDUSTRIALIZACAO DENTRO ESTADO");
+assert.equal(industrializacao.items[0].cfop, "5101");
+assert.equal(industrializacao.items[0].icms_aliquota, 17);
+assert.equal(industrializacao.items[0].ipi_situacao_tributaria, "50");
+assert.equal(industrializacao.items[0].ipi_valor, 19.5);
+assert.equal(industrializacao.items[0].ibs_cbs_classificacao_tributaria, "000001");
+assert.equal(industrializacao.valor_total, 219.5);
+assert.equal(
+  resolverIbsCbsTransicao2026("VENDA_INDUSTRIALIZACAO_INTERESTADUAL", new Date("2026-09-05T12:00:00-03:00")).cfops[0],
+  "6101",
+);
+
 const ipiDaFixture5102 = montarPayloadNfe(contexto({
   itens: [linha({ cst_ipi: null, ipi_codigo_enquadramento_legal: null })],
 }));
