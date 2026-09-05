@@ -374,6 +374,7 @@ function FaturamentoOvPanel({
 type NotaOs = {
   documento_fiscal_id: string;
   solicitacao_status: string | null;
+  modelo: string;
   ambiente: string;
   emissao_status: string;
   nfe_status: string | null;
@@ -653,11 +654,11 @@ function FaturamentoOsPanel({
             <tbody>
               {notas.map((nota) => (
                 <tr key={nota.documento_fiscal_id} className="border-b border-zinc-900 last:border-0">
-                  <td className="px-3 py-2">{nota.serie && nota.numero ? `NF-e ${nota.serie}/${nota.numero}` : nota.referencia_externa}</td>
+                  <td className="px-3 py-2">{nota.serie && nota.numero ? `${nota.modelo === "NFSE" ? "NFS-e" : "NF-e"} ${nota.serie}/${nota.numero}` : nota.referencia_externa}</td>
                   <td className="px-3 py-2 text-zinc-400">{nota.ambiente}</td>
                   <td className="px-3 py-2">{nota.emissao_status}{nota.nfe_status === "EMITIDA" ? " · emitida" : nota.nfe_status === "CANCELADA" ? " · cancelada" : nota.ambiente === "HOMOLOGACAO" && nota.solicitacao_status === "CANCELADA" ? " · homologação abandonada" : ""}</td>
                   <td className="px-3 py-2 text-right tabular-nums">R$ {formatMoneyBR(numero(nota.valor_total))}</td>
-                  <td className="px-3 py-2 text-right"><Link className="text-sky-300 underline" href={`/faturamento/nfe/${nota.documento_fiscal_id}`}>{nota.danfe_path ? "DANFE e detalhe" : "detalhe"}</Link></td>
+                  <td className="px-3 py-2 text-right"><Link className="text-sky-300 underline" href={`/faturamento/nfe/${nota.documento_fiscal_id}`}>{nota.danfe_path ? (nota.modelo === "NFSE" ? "DANFSe e detalhe" : "DANFE e detalhe") : "detalhe"}</Link></td>
                 </tr>
               ))}
             </tbody>

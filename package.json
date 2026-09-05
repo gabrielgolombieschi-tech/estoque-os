@@ -16,6 +16,7 @@
     "test:normalizacao-unidades": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-normalizacao-unidades-itens.mjs",
     "test:cliente-fiscal": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-cliente-fiscal.mjs",
     "test:nfe-pipeline": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-nfe-pipeline.mjs",
+    "test:nfse-pipeline": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-nfse-pipeline.mjs",
     "cadastro:normalizar-unidades": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/normalizar-unidades-itens.mjs",
     "cadastro:sem-contador": "node scripts/cadastro-sem-contador.mjs",
     "faturamento:extrair-perfis-xml": "node scripts/extrair-perfis-operacao-xml.mjs",

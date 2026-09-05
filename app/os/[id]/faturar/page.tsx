@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { formatMoneyBR } from "@/lib/decimal";
+import FaturarNfseOs, { type PerfilServico } from "./FaturarNfseOs";
 
 const R$ = (value: number) => `R$ ${formatMoneyBR(value)}`;
 
@@ -40,8 +41,8 @@ type Saldo = { valor_pedido: number | string; valor_faturado: number | string; v
 type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null };
 type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; descricao: string; quantidade: string; valor_unitario: string };
 type Parcela = { dias: string; valor: string };
-type Perfil = { id: string; codigo: string; nome: string; cfop_interno: string | null; cfop_externo: string | null; faixa_automacao: string; habilitado_producao: boolean; vigencia_inicio: string | null; vigencia_fim: string | null; justificativa_faixa: string | null; natureza_operacao: string };
-type Nota = { documento_fiscal_id: string; solicitacao_id: string; solicitacao_status: string | null; ambiente: string; emissao_status: string; nfe_status: string | null; serie: string | null; numero: string | null; chave_acesso: string | null; valor_total: number | string | null; autorizado_em: string | null; danfe_path: string | null; xml_path: string | null; referencia_externa: string; created_at: string };
+type Perfil = { id: string; codigo: string; nome: string; modelo: string; item_servico: string | null; cfop_interno: string | null; cfop_externo: string | null; faixa_automacao: string; habilitado_producao: boolean; vigencia_inicio: string | null; vigencia_fim: string | null; justificativa_faixa: string | null; natureza_operacao: string };
+type Nota = { documento_fiscal_id: string; solicitacao_id: string; solicitacao_status: string | null; modelo: string; ambiente: string; emissao_status: string; nfe_status: string | null; serie: string | null; numero: string | null; chave_acesso: string | null; valor_total: number | string | null; autorizado_em: string | null; danfe_path: string | null; xml_path: string | null; referencia_externa: string; created_at: string };
 type Solicitacao = {
   id: string; status: string; natureza_operacao: string; observacao: string | null; created_at: string;
   destinacao_mercadoria: string | null; presenca_comprador: number | null; modalidade_frete: number | null;
@@ -148,17 +149,28 @@ export default function FaturarOsPage() {
 
   const [criandoProduto, setCriandoProduto] = useState<number | null>(null);
   const [novoProduto, setNovoProduto] = useState({ nome: "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "", cenq: "" });
+  // Modelo da nota: NF-e (industrializacao) ou NFS-e (servico, perfil escolhido no cabecalho).
+  const [operacaoSel, setOperacaoSel] = useState("NFE");
+  const [versao, setVersao] = useState(0);
+  const [temRascunhoNfse, setTemRascunhoNfse] = useState(false);
+  const [empresaIbge, setEmpresaIbge] = useState<string | null>(null);
+  const modelo = operacaoSel.startsWith("NFSE:") ? "NFSE" : "NFE";
+  const perfisServico = useMemo<PerfilServico[]>(() => perfis.filter((p) => p.modelo === "NFSE").map((p) => ({ id: p.id, codigo: p.codigo, nome: p.nome, item_servico: p.item_servico, faixa_automacao: p.faixa_automacao, habilitado_producao: p.habilitado_producao, justificativa_faixa: p.justificativa_faixa, vigencia_inicio: p.vigencia_inicio, vigencia_fim: p.vigencia_fim })), [perfis]);
+  const perfilServico = useMemo(() => perfisServico.find((p) => `NFSE:${p.id}` === operacaoSel) ?? null, [operacaoSel, perfisServico]);
+  // Props do componente de NFS-e memoizadas: referencia nova a cada render dispararia o carregamento em loop.
+  const osNfse = useMemo(() => os ? { id: os.id, numero_os: os.numero_os, cliente_id: os.cliente_id, descricao_servico: os.descricao_servico, status_fluxo: os.status_fluxo, pedido_compra: os.pedido_compra } : null, [os]);
+  const clienteNfse = useMemo(() => cliente ? { id: cliente.id, uf: cliente.uf, codigo_ibge_municipio: cliente.codigo_ibge_municipio } : null, [cliente]);
 
   const totalLinhas = useMemo(() => linhas.reduce((acc, l) => acc + (paraNumero(l.quantidade) ?? 0) * (paraNumero(l.valor_unitario) ?? 0), 0), [linhas]);
   const saldoDisponivel = num(saldo?.saldo);
   const ambito = cliente?.uf && cliente.uf.toUpperCase() === "SC" ? "INTERNA" : "INTERESTADUAL";
   const cfop = ambito === "INTERNA" ? "5101" : "6101";
-  const perfisVigentes = perfis.filter((p) => p.faixa_automacao !== "BLOQUEADO" && (!p.vigencia_fim || p.vigencia_fim >= new Date().toISOString().slice(0, 10)) && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101"));
-  const perfisBloqueados = perfis.filter((p) => (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101") && !perfisVigentes.includes(p));
+  const perfisVigentes = perfis.filter((p) => p.modelo !== "NFSE" && p.faixa_automacao !== "BLOQUEADO" && (!p.vigencia_fim || p.vigencia_fim >= new Date().toISOString().slice(0, 10)) && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101"));
+  const perfisBloqueados = perfis.filter((p) => p.modelo !== "NFSE" && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101") && !perfisVigentes.includes(p));
   const osInterna = useMemo(() => /segau/i.test(cliente?.razao_social ?? cliente?.nome ?? "") && /el[eé]trica/i.test(cliente?.razao_social ?? cliente?.nome ?? ""), [cliente]);
   const osCancelada = String(os?.status_fluxo ?? os?.status ?? "").toLowerCase() === "cancelada";
   const osFaturada = String(os?.status_fluxo ?? "").toLowerCase() === "faturada";
-  const motivoBloqueioOs = !podeFaturar ? "Seu papel não fatura OS." : osCancelada ? "OS cancelada." : osInterna ? "OS interna (cliente Elétrica Segau) não emite NF-e por este fluxo." : osFaturada ? "OS já faturada." : saldo && saldoDisponivel <= 0 && !solicitacao ? "Saldo a faturar zerado." : null;
+  const motivoBloqueioOs = !podeFaturar ? "Seu papel não fatura OS." : osCancelada ? "OS cancelada." : osInterna ? "OS interna (cliente Elétrica Segau) não emite NF-e por este fluxo." : osFaturada ? "OS já faturada." : saldo && saldoDisponivel <= 0 && !solicitacao && !temRascunhoNfse ? "Saldo a faturar zerado." : null;
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId || !Number.isInteger(osId) || osId <= 0) return;
@@ -190,15 +202,32 @@ export default function FaturarOsPage() {
       setSaldo(saldoRow);
       const { data: notasData } = await supabase.schema("f").rpc("fn_os_notas", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osId });
       setNotas((notasData as Nota[] | null) ?? []);
-      const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao").or("cfop_interno.eq.5101,cfop_externo.eq.6101").order("codigo");
+      const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,modelo,item_servico,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao").or("cfop_interno.eq.5101,cfop_externo.eq.6101,modelo.eq.NFSE").order("codigo");
       setPerfis((perfisData as Perfil[] | null) ?? []);
+      const { data: ctxEmpresa } = await supabase.schema("f").rpc("fn_nfse_contexto_empresa", { p_empresa_id: empresaId });
+      setEmpresaIbge((ctxEmpresa as { codigo_municipio_ibge?: string | null } | null)?.codigo_municipio_ibge ?? null);
       const { data: fixtureData } = await supabase.schema("f").from("tributacao_provisoria_homologacao").select("cfop,pendencia_contador,fonte").in("cfop", ["5101", "6101"]);
       const fx = (fixtureData as Array<{ cfop: string; pendencia_contador: string | null; fonte: string | null }> | null)?.[0];
       setFixturePendencia(fx?.pendencia_contador ?? null);
 
       // Rascunho ativo desta OS (nao cancelado), com a emissao mais recente.
-      const { data: itensSol } = await supabase.schema("f").from("solicitacao_item").select("solicitacao_id").eq("origem_tipo", "OS").eq("origem_id", String(osId));
-      const ids = Array.from(new Set(((itensSol as Array<{ solicitacao_id: string }> | null) ?? []).map((r) => r.solicitacao_id)));
+      const { data: itensSol } = await supabase.schema("f").from("solicitacao_item").select("solicitacao_id,modelo,perfil_operacao_id").eq("origem_tipo", "OS").eq("origem_id", String(osId));
+      const itensRows = (itensSol as Array<{ solicitacao_id: string; modelo: string | null; perfil_operacao_id: string | null }> | null) ?? [];
+      const ids = Array.from(new Set(itensRows.filter((r) => (r.modelo ?? "NFE") !== "NFSE").map((r) => r.solicitacao_id)));
+      // Rascunho de NFS-e em andamento: a tela abre no modelo de servico com o perfil dele.
+      const idsNfse = Array.from(new Set(itensRows.filter((r) => r.modelo === "NFSE").map((r) => r.solicitacao_id)));
+      setTemRascunhoNfse(false);
+      if (idsNfse.length > 0) {
+        const { data: solsNfse } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,created_at").in("id", idsNfse).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(5);
+        const candNfse = (solsNfse as Array<{ id: string; status: string; perfil_operacao_id: string | null }> | null) ?? [];
+        if (candNfse.length > 0) {
+          const { data: emsNfse } = await supabase.schema("f").from("documento_fiscal_emissao").select("solicitacao_id,status").in("solicitacao_id", candNfse.map((c) => c.id));
+          const emNfse = (emsNfse as Array<{ solicitacao_id: string; status: string }> | null) ?? [];
+          const rascunhoNfse = candNfse.find((c) => { const e = emNfse.find((x) => x.solicitacao_id === c.id); return !e || !["CANCELADA"].includes(e.status); });
+          if (rascunhoNfse?.perfil_operacao_id) setOperacaoSel((atual) => atual === "NFE" ? `NFSE:${rascunhoNfse.perfil_operacao_id}` : atual);
+          setTemRascunhoNfse(Boolean(rascunhoNfse));
+        }
+      }
       // Retoma so o rascunho que ainda nao chegou a AUTORIZADA: nota autorizada
       // (parcial) fica na lista de notas e a tela abre uma nova composicao.
       let ativa: Solicitacao | null = null;
@@ -247,6 +276,7 @@ export default function FaturarOsPage() {
       setErro(textoErro(cause));
     } finally {
       setCarregando(false);
+      setVersao((v) => v + 1);
     }
   }, [empresaId, osId, supabase, tenantId]);
 
@@ -376,17 +406,20 @@ export default function FaturarOsPage() {
     if (!motivo) return;
     setOcupado(true); setErro(null);
     try {
-      const { error } = await supabase.schema("f").rpc("fn_solicitacao_nfe_abandonar_homologacao", { p_solicitacao_id: nota.solicitacao_id, p_motivo: motivo });
+      const { error } = await supabase.schema("f").rpc(nota.modelo === "NFSE" ? "fn_nfse_abandonar_homologacao" : "fn_solicitacao_nfe_abandonar_homologacao", { p_solicitacao_id: nota.solicitacao_id, p_motivo: motivo });
       if (error) throw error;
-      setAviso(`Homologação ${nota.serie}/${nota.numero} abandonada; saldo devolvido à OS.`);
+      setAviso(`Homologação ${nota.modelo === "NFSE" ? "NFS-e" : "NF-e"} ${nota.serie}/${nota.numero} abandonada; saldo devolvido à OS.`);
       await carregar();
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
   }
 
-  async function abrirArquivo(nota: Nota, arquivo: "XML" | "DANFE") {
-    const { data, error } = await supabase.functions.invoke("nfe-ciclo", { body: { acao: "ARQUIVO", arquivo, documento_fiscal_id: nota.documento_fiscal_id } });
+  async function abrirArquivoDoc(documentoFiscalId: string, arquivo: "XML" | "DANFE") {
+    const { data, error } = await supabase.functions.invoke("nfe-ciclo", { body: { acao: "ARQUIVO", arquivo, documento_fiscal_id: documentoFiscalId } });
     if (error || data?.error) { setErro(data?.error ?? (await erroFunction(error))); return; }
     if (data?.url) window.location.assign(String(data.url));
+  }
+  async function abrirArquivo(nota: Nota, arquivo: "XML" | "DANFE") {
+    await abrirArquivoDoc(nota.documento_fiscal_id, arquivo);
   }
 
   async function marcarFaturada() {
@@ -422,7 +455,7 @@ export default function FaturarOsPage() {
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 text-zinc-100">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs uppercase text-zinc-500">Faturar OS · NF-e de industrialização · HOMOLOGAÇÃO</div>
+          <div className="text-xs uppercase text-zinc-500">Faturar OS · {modelo === "NFSE" ? "NFS-e Padrão Nacional" : "NF-e de industrialização"} · HOMOLOGAÇÃO</div>
           <h1 className="text-xl font-semibold">OS {os?.numero_os ?? osId} · {os?.cliente_nome ?? ""}</h1>
           <p className="text-sm text-zinc-400">{os?.descricao_servico}</p>
         </div>
@@ -439,8 +472,32 @@ export default function FaturarOsPage() {
         <div><div className="text-xs uppercase text-zinc-500">Destinatário</div><div className="text-sm">{cliente?.razao_social ?? cliente?.nome ?? "—"}</div><div className="text-xs text-zinc-400">CNPJ {cliente?.documento ?? "—"} · IE {cliente?.inscricao_estadual ?? "—"} · indIEDest {cliente?.indicador_ie ?? <span className="text-amber-300">vazio</span>}</div><div className="text-xs text-zinc-400">{cliente?.cidade ?? "—"}/{cliente?.uf ?? "—"} · IBGE {cliente?.codigo_ibge_municipio ?? "—"}</div>{cliente && !cliente.indicador_ie ? <Link className="text-xs text-sky-300 underline" href={`/clientes/cadastro-fiscal?cliente_id=${cliente.id}`}>Confirmar indicador de IE no cadastro fiscal</Link> : null}</div>
         <div><label className={label}>Pedido de compra do cliente (grava na OS)</label><input className={field} value={pedidoCliente} onChange={(e) => setPedidoCliente(e.target.value)} placeholder="OC do cliente" disabled={Boolean(solicitacao)} />{!pedidoCliente.trim() ? <div className="mt-1 text-xs text-amber-300">Sem OC informada. Não bloqueia; a Venda a Crédito cuida da exposição.</div> : null}</div>
         <div><div className="text-xs uppercase text-zinc-500">Saldo a faturar</div><div className="text-lg font-semibold">{R$(saldoDisponivel)}</div><div className="text-xs text-zinc-400">Orçado/HH {R$(num(saldo?.valor_pedido))} · faturado {R$(num(saldo?.valor_faturado))} · reservado {R$(num(saldo?.valor_reservado))}</div></div>
-        <div><div className="text-xs uppercase text-zinc-500">Operação</div><div className="text-sm">{ambito === "INTERNA" ? "Dentro de SC" : `Fora de SC (${cliente?.uf ?? "?"})`} · CFOP {cfop}</div><div className="text-xs text-zinc-400">Custo real {custoReal ? R$(custoReal.total) : "—"}</div></div>
+        <div>
+          <label className={label}>Operação (perfil da nota)
+            <select className={field} value={operacaoSel} disabled={Boolean(solicitacao)} onChange={(e) => setOperacaoSel(e.target.value)}>
+              <optgroup label="NF-e · produto fabricado (industrialização)">
+                <option value="NFE">{ambito === "INTERNA" ? "Dentro de SC" : `Fora de SC (${cliente?.uf ?? "?"})`} · CFOP {cfop} · {perfisVigentes[0]?.codigo ?? "fixture de homologação"}</option>
+              </optgroup>
+              <optgroup label="NFS-e · serviço (Padrão Nacional)">
+                {perfisServico.map((p) => <option key={p.id} value={`NFSE:${p.id}`} disabled={p.faixa_automacao === "BLOQUEADO"}>{p.item_servico} · {p.nome}{p.faixa_automacao === "BLOQUEADO" ? " · bloqueado" : ""}</option>)}
+              </optgroup>
+            </select>
+          </label>
+          <div className="text-xs text-zinc-400">Custo real {custoReal ? R$(custoReal.total) : "—"}</div>
+        </div>
       </section>
+
+      {modelo === "NFSE" ? (
+        <FaturarNfseOs
+          tenantId={tenantId} empresaId={empresaId} osId={osId}
+          os={osNfse}
+          cliente={clienteNfse}
+          saldo={saldoDisponivel} empresaIbge={empresaIbge}
+          perfil={perfilServico} perfis={perfisServico}
+          custoReal={custoReal?.total ?? null} motivoBloqueioOs={motivoBloqueioOs} versao={versao}
+          onAtualizar={carregar} abrirArquivo={abrirArquivoDoc}
+        />
+      ) : (<>
 
       {/* 2 · Linhas */}
       <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
@@ -558,13 +615,14 @@ export default function FaturarOsPage() {
           </div>
         ) : null}
       </section>
+      </>)}
 
       {/* Notas da OS */}
       <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <h2 className="font-semibold">Notas desta OS</h2>
         {notas.length === 0 ? <div className="text-sm text-zinc-500">Nenhuma nota emitida ou vinculada.</div> : (
-          <table className="w-full text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="text-left">Nota</th><th className="text-left">Ambiente</th><th className="text-left">Status</th><th className="text-right">Valor</th><th className="text-left">Arquivos</th></tr></thead>
-            <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td>{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td>{n.ambiente}</td><td>{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : ""}</td><td className="text-right">{R$(num(n.valor_total))}</td><td className="space-x-2">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>DANFE</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/nfe/${n.documento_fiscal_id}`}>detalhe</Link>{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
+          <table className="w-full text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="text-left">Nota</th><th className="text-left">Modelo</th><th className="text-left">Ambiente</th><th className="text-left">Status</th><th className="text-right">Valor</th><th className="text-left">Arquivos</th></tr></thead>
+            <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td>{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td>{n.modelo === "NFSE" ? "NFS-e" : "NF-e"}</td><td>{n.ambiente}</td><td>{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : n.nfe_status === "SUBSTITUIDA" ? " · substituída" : ""}</td><td className="text-right">{R$(num(n.valor_total))}</td><td className="space-x-2">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>{n.modelo === "NFSE" ? "DANFSe" : "DANFE"}</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/nfe/${n.documento_fiscal_id}`}>detalhe</Link>{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
         )}
       </section>
     </div>

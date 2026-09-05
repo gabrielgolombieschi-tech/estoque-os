@@ -1,6 +1,7 @@
 import { aplicarRetorno } from "../_shared/nfe-retorno.ts";
 import { chamarFocus, focusConfigurado, normalizarFocus, type FocusAmbiente } from "../_shared/focus-nfe.ts";
 import { adminClient, json, mensagemErro, responderOptions } from "../_shared/nfe-http.ts";
+import { aplicarRetornoNfse, normalizarFocusNfse } from "../_shared/nfse-retorno.ts";
 
 type Pendente = { documento_fiscal_id: string; referencia_externa: string; ambiente: FocusAmbiente };
 
@@ -93,7 +94,46 @@ Deno.serve(async (request) => {
       }
     }
 
-    return json({ consultadas: pendentes.length, resultados });
+    // NFS-e Nacional (05/09/2026): lista propria, GET /v2/nfsen/<ref>, retorno proprio.
+    // O bloco da NF-e acima nao muda.
+    const nfseResultados: Array<Record<string, unknown>> = [];
+    if (Deno.env.get("FOCUS_NFSE_NACIONAL_ENABLED") === "true") {
+      const { data: nfsePendentes, error: nfseError } = await supabase.schema("f").rpc("fn_nfse_emissoes_pendentes_reconciliacao", { p_limite: 50 });
+      if (nfseError) throw new Error(`Nao foi possivel listar NFS-e pendentes: ${nfseError.message}`);
+      for (const pendente of (nfsePendentes ?? []) as Pendente[]) {
+        try {
+          const { data: emissao, error: emissaoError } = await supabase.schema("f")
+            .from("documento_fiscal_emissao")
+            .select("referencia_externa,ambiente,tenant_id,empresa_id,status,modelo")
+            .eq("documento_fiscal_id", pendente.documento_fiscal_id)
+            .single();
+          if (emissaoError) throw emissaoError;
+          const ambiente = emissao.ambiente as FocusAmbiente;
+          if (emissao.modelo !== "NFSE" || !focusConfigurado(ambiente)) throw new Error("Reconciliacao de NFS-e recusada: modelo ou ambiente sem credencial.");
+          const chamada = await chamarFocus(`/v2/nfsen/${encodeURIComponent(pendente.referencia_externa)}`, {}, ambiente);
+          if (!chamada.response.ok) {
+            if (chamada.response.status === 404) {
+              await supabase.schema("f").rpc("fn_nfse_aplicar_retorno", {
+                p_referencia_externa: pendente.referencia_externa,
+                p_resposta: normalizarFocusNfse(chamada.body).bruto,
+                p_status: "ERRO",
+                p_codigo_status: 404,
+                p_mensagem: "A Focus nao encontrou a referencia da NFS-e apos 10 minutos; revisao manual necessaria.",
+                p_origem_retorno: "RECONCILIACAO",
+              });
+            }
+            nfseResultados.push({ referencia: pendente.referencia_externa, ambiente, status: "ERRO", http: chamada.response.status });
+            continue;
+          }
+          const aplicado = await aplicarRetornoNfse(supabase, chamada.body, emissao as Pendente & { tenant_id: string; empresa_id: string }, "RECONCILIACAO");
+          nfseResultados.push({ referencia: pendente.referencia_externa, ambiente, status: aplicado.retorno.status });
+        } catch (cause) {
+          nfseResultados.push({ referencia: pendente.referencia_externa, ambiente: pendente.ambiente, status: "ERRO", mensagem: mensagemErro(cause) });
+        }
+      }
+    }
+
+    return json({ consultadas: pendentes.length, resultados, nfse: nfseResultados });
   } catch (cause) {
     return json({ erro: mensagemErro(cause) }, 500);
   }

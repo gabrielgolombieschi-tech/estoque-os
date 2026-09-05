@@ -36,7 +36,17 @@ type ClienteForm = {
   cidade: string;
   uf: string;
   codigo_ibge_municipio: string;
+  // NFS-e (tomador): decisoes humanas, nunca deduzidas. "" = nao decidido.
+  inscricao_municipal: string;
+  email_nfse: string;
+  iss_retido: "" | "sim" | "nao";
+  retem_pcc: "" | "sim" | "nao";
+  retem_irrf: "" | "sim" | "nao";
+  retem_inss: "" | "sim" | "nao";
 };
+type ClienteNfseRow = { inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null };
+function triTexto(value: boolean | null | undefined): "" | "sim" | "nao" { return value === true ? "sim" : value === false ? "nao" : ""; }
+function triValor(value: "" | "sim" | "nao"): boolean | null { return value === "sim" ? true : value === "nao" ? false : null; }
 
 type Municipio = { codigo_ibge: string; nome: string; uf: string };
 type FiltroStatus = "pendentes" | "todos" | "prontos";
@@ -58,6 +68,12 @@ const CLIENTE_FIELDS = [
   "uf",
   "codigo_ibge_municipio",
   "ativo",
+  "inscricao_municipal",
+  "email_nfse",
+  "iss_retido",
+  "retem_pcc",
+  "retem_irrf",
+  "retem_inss",
 ].join(",");
 
 function texto(value: unknown): string {
@@ -82,6 +98,12 @@ function formFromRow(row: ClienteRow): ClienteForm {
     cidade: texto(row.cidade),
     uf: texto(row.uf),
     codigo_ibge_municipio: texto(row.codigo_ibge_municipio),
+    inscricao_municipal: texto((row as ClienteNfseRow).inscricao_municipal),
+    email_nfse: texto((row as ClienteNfseRow).email_nfse),
+    iss_retido: triTexto((row as ClienteNfseRow).iss_retido),
+    retem_pcc: triTexto((row as ClienteNfseRow).retem_pcc),
+    retem_irrf: triTexto((row as ClienteNfseRow).retem_irrf),
+    retem_inss: triTexto((row as ClienteNfseRow).retem_inss),
   };
 }
 
@@ -292,6 +314,12 @@ export default function CadastroFiscalCliente() {
       cidade: form.cidade.trim().toUpperCase(),
       uf: form.uf.trim().toUpperCase(),
       codigo_ibge_municipio: somenteDigitos(form.codigo_ibge_municipio),
+      inscricao_municipal: somenteDigitos(form.inscricao_municipal) || null,
+      email_nfse: form.email_nfse.trim().toLowerCase() || null,
+      iss_retido: triValor(form.iss_retido),
+      retem_pcc: triValor(form.retem_pcc),
+      retem_irrf: triValor(form.retem_irrf),
+      retem_inss: triValor(form.retem_inss),
       atualizado_em: new Date().toISOString(),
     };
 
@@ -532,6 +560,29 @@ export default function CadastroFiscalCliente() {
                       </div>
                     </div>
                   )}
+                </section>
+
+                <section className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+                  <div className="text-sm font-semibold text-zinc-100">NFS-e · tomador de serviço</div>
+                  <p className="mt-1 text-xs text-zinc-400">Decisões do responsável, nunca deduzidas pelo sistema. Vazio = não decidido: a NFS-e de um perfil &ldquo;por tomador&rdquo; fica bloqueada até aqui ser preenchido (ou até a decisão com justificativa na própria nota).</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <label className="space-y-1">
+                      <span className="text-xs text-zinc-300">Inscrição municipal {somenteDigitos(form.codigo_ibge_municipio) === "4209102" ? "* (Joinville)" : "(se houver)"}</span>
+                      <input className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={form.inscricao_municipal} onChange={(event) => update("inscricao_municipal", somenteDigitos(event.target.value).slice(0, 15))} />
+                    </label>
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-zinc-300">E-mail para envio da NFS-e</span>
+                      <input className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={form.email_nfse} onChange={(event) => update("email_nfse", event.target.value)} placeholder="fiscal@tomador.com.br" />
+                    </label>
+                    {([["iss_retido", "ISS retido pelo tomador"], ["retem_pcc", "Retém PIS/COFINS/CSLL (4,65%)"], ["retem_irrf", "Retém IRRF (1,5%)"], ["retem_inss", "Retém INSS (11%)"]] as Array<["iss_retido" | "retem_pcc" | "retem_irrf" | "retem_inss", string]>).map(([campo, titulo]) => (
+                      <label key={campo} className="space-y-1">
+                        <span className="text-xs text-zinc-300">{titulo}</span>
+                        <select className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={form[campo]} onChange={(event) => update(campo, event.target.value as "" | "sim" | "nao")}>
+                          <option value="">Não decidido</option><option value="sim">Sim, retém</option><option value="nao">Não retém</option>
+                        </select>
+                      </label>
+                    ))}
+                  </div>
                 </section>
 
                 {formPendencias.length > 0 && (
