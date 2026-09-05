@@ -110,7 +110,6 @@ export default function ClientesPage() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativo]);
@@ -209,6 +208,9 @@ export default function ClientesPage() {
           <p className="text-sm text-zinc-400 mt-1">Cadastro e gerenciamento de clientes.</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/clientes/cadastro-fiscal" className="px-3 py-2 rounded-md border border-sky-500/40 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20">
+            Cadastro fiscal NF-e
+          </Link>
           <Link href="/clientes/unidades" className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800">
             Unidades
           </Link>

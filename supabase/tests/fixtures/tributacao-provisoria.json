@@ -1,0 +1,49 @@
+{
+  "_aviso": "PROVISORIO: somente homologacao. Valores inferidos das NF-e de agosto/2026; substituir por f.perfil_operacao depois da confirmacao do contador.",
+  "naturezas_operacao": {
+    "VENDA_MERCADORIA_TERCEIROS": "VENDA MERCADORIA ADQ. REC. DE TERCEIROS",
+    "VENDA_INDUSTRIALIZACAO_INTERNA": "VENDA INDUSTRIALIZACAO DENTRO ESTADO",
+    "VENDA_INDUSTRIALIZACAO_INTERESTADUAL": "VENDA INDUSTRIALIZACAO FORA DO ESTADO",
+    "DEVOLUCAO_COMPRA_INDUSTRIALIZACAO": "DEVOLUCAO DE COMPRA PARA INDUSTRIAL.",
+    "REMESSA_INDUSTRIALIZACAO_ENCOMENDA": "REMESSA PARA INDUSTRIALIZACAO POR ENCOME",
+    "RETORNO_INDUSTRIALIZACAO": "RETORNO DE MERCAD. UTILIZADA NA INDUST.",
+    "OUTRAS_SAIDAS_INTERESTADUAL": "OUTRAS SAIDAS FORA DO ESTADO",
+    "REMESSA_CONTA_ORDEM_TERCEIRO": "REMESSA MERCA POR CONTA E ORDEM TERCEIRO",
+    "ESTORNO_NFE_FORA_PRAZO": "999 - ESTORNO DE NF-E NAO CANCELADA NO PRAZO LEGAL"
+  },
+  "beneficio_reducao_sc": {
+    "naturezas": ["VENDA_MERCADORIA_TERCEIROS"],
+    "aliquota_interna_referencia": 17,
+    "texto_informacoes_complementares": "Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS-SC/01 - Anexo 2, art. 7º, VII"
+  },
+  "ipi_por_cfop": {
+    "5102": {
+      "cst": "53",
+      "c_enq": "999",
+      "provisorio": true,
+      "pendencia_contador": "Pergunta 4: confirmar CST IPI 53 e cEnq 999 para revenda CFOP 5102 antes de liberar o perfil fiscal."
+    }
+  },
+  "padrao": {
+    "cfop_interno": "5102",
+    "cfop_externo": "6102",
+    "icms_situacao_tributaria": "00",
+    "icms_aliquota_interna": 17,
+    "icms_aliquota_externa": 12,
+    "ipi_situacao_tributaria": "53",
+    "pis_situacao_tributaria": "01",
+    "pis_aliquota": 1.65,
+    "cofins_situacao_tributaria": "01",
+    "cofins_aliquota": 7.6
+  },
+  "ipi": {
+    "ipi_situacao_tributaria": "50",
+    "ipi_aliquota": 5
+  },
+  "base_reduzida": {
+    "icms_situacao_tributaria": "20",
+    "icms_reducao_base_calculo": 41.1765,
+    "icms_aliquota_interna": 17,
+    "icms_aliquota_externa": 12
+  }
+}

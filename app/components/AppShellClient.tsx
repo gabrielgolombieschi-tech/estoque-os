@@ -56,6 +56,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/financeiro/relatorios/inconsistencias" ||
     pathname?.startsWith("/financeiro/contas_pagar_receber/");
   const isOsDetailPage = /^\/os\/\d+\/?$/.test(pathname ?? "");
+  const isWideContentPage = isOsDetailPage || pathname === "/comercial/vendas";
 
   const { isAdmin: isAdminTenant, loading: adminLoading } = useIsAdminTenant();
   const lastKnownCapsRef = useRef<Capabilities | null>(null);
@@ -714,7 +715,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                           Orçamentos
                         </Link>
                         <Link href="/comercial/vendas" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
-                          Vendas
+                          OV
                         </Link>
 
                         <div className="border-t border-zinc-800 my-2" />
@@ -966,7 +967,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
             ? "w-full px-6 py-6"
             : isFullWidth
               ? "w-full px-4 md:px-6 py-6"
-              : isOsDetailPage
+              : isWideContentPage
                 ? "mx-auto max-w-[86.4rem] px-4 py-6"
                 : "mx-auto max-w-6xl px-4 py-6"
         }

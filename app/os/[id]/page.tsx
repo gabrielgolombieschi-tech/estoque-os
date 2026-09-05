@@ -16,6 +16,7 @@ import ResponsavelAprovacaoSelect from "@/components/os/ResponsavelAprovacaoSele
 import { createOrcamento } from "@/lib/comercial/orcamentos.service";
 import { ensureConfig } from "@/src/services/configOrcamento";
 import { getOsStatusLabel, isOsStatusLocked, normalizeOsStatusFluxo } from "@/lib/os/statusFluxo";
+import FaturamentoParcialPanel from "@/components/faturamento/FaturamentoParcialPanel";
 
 type Cliente = { id: number; nome: string; ativo: boolean; habilita_hh?: boolean | null };
 type ClienteUnidade = { id: number; cliente_id: number; nome: string; codigo: string | null };
@@ -1772,7 +1773,7 @@ export default function OsDetailPage() {
 
   async function faturarOs() {
     if (!os) return;
-    const ok = confirm("Faturar esta OS? É necessário haver NF-e ou NFS-e emitida e vinculada.");
+    const ok = confirm("Marcar esta OS como faturada? É necessário haver NF-e ou NFS-e emitida e vinculada.");
     if (!ok) return;
 
     setIsFaturando(true);
@@ -2394,7 +2395,7 @@ export default function OsDetailPage() {
               disabled={busy || isFaturando}
               className="px-3 py-2 rounded-md bg-emerald-300 text-emerald-950 hover:bg-emerald-200 font-medium"
             >
-              {isFaturando ? "Faturando..." : "Faturar OS"}
+              {isFaturando ? "Atualizando..." : "Marcar OS faturada"}
             </button>
           )}
 
@@ -2425,6 +2426,18 @@ export default function OsDetailPage() {
           Esta OS está <b>{getOsStatusLabel(statusExibicao)}</b>. Edição bloqueada.
         </div>
       )}
+
+      {os ? (
+        <FaturamentoParcialPanel
+          tenantId={effectiveTenantId}
+          empresaId={effectiveEmpresaId}
+          osId={os.id}
+          codigo={os.numero_os || String(os.id)}
+          tipo="OS"
+          descricaoSugestao={os.descricao_servico || `Faturamento da OS ${os.numero_os || os.id}`}
+          podeCompor={canFaturarFluxo && statusExibicao !== "cancelada"}
+        />
+      ) : null}
 
       {!hideCustos && (
         <MaoObraCard

@@ -511,6 +511,15 @@ export default function NfeList() {
         .eq("operacao", "SAIDA")
         .eq("natureza", "PRODUTO")
         .or("modelo.is.null,modelo.neq.NFSE")
+        // Esta tela e o livro de notas de saida: so entra documento fiscal que
+        // existe de fato. As emissoes de homologacao ficam de proposito em
+        // RASCUNHO (f.fn_nfe_aplicar_retorno) e nao sao nota nenhuma; produzir
+        // em producao e que grava EMITIDA (f.fn_nfe_aplicar_retorno_producao).
+        // CANCELADA continua aparecendo quando a nota chegou a ter numero: aí
+        // foi cancelamento autorizado na SEFAZ, e o documento existiu. Rascunho
+        // descartado tambem vira CANCELADA, mas sem numero — e sai daqui.
+        .in("nfe_status", ["EMITIDA", "CANCELADA"])
+        .not("numero", "is", null)
         .is("deleted_at", null),
       tenantId,
       empresaId

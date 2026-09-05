@@ -89,6 +89,7 @@ type ClienteGroup = {
   clienteNome: string;
   rows: OS[];
   totalPedido: number;
+  totalConsumido: number;
   totalFaturado: number;
   semOc: number;
   responsaveis: string[];
@@ -247,6 +248,7 @@ export default function OsListPage() {
   const canView = canReadOs || osAccess.canView;
   const readOnly = !canWriteOs;
   const hideValorPedido = osAccess.hideValorPedido;
+  const showPurchaseOrderInfo = !hideValorPedido;
   const debugEnabled = process.env.NODE_ENV !== "production";
   const clientesReqIdRef = useRef(0);
   const osReqIdRef = useRef(0);
@@ -998,7 +1000,7 @@ export default function OsListPage() {
   function getFilteredRows() {
     const normalizedQuery = normalizeSearchTerm(busca);
     return rows.filter((row) => {
-      if (semOcFiltro && row.pedido_compra?.trim()) return false;
+      if (showPurchaseOrderInfo && semOcFiltro && row.pedido_compra?.trim()) return false;
       if (responsavelFiltro && responsavelDaOs(row) !== responsavelFiltro) return false;
       if (!normalizedQuery) return true;
 
@@ -1025,6 +1027,7 @@ export default function OsListPage() {
       clienteNome: hasClienteId ? row.cliente_nome?.trim() || "Cliente sem nome" : "Sem cliente identificado",
       rows: [],
       totalPedido: 0,
+      totalConsumido: 0,
       totalFaturado: 0,
       semOc: 0,
       responsaveis: [],
@@ -1034,6 +1037,7 @@ export default function OsListPage() {
     const responsavel = responsavelDaOs(row);
     current.rows.push(row);
     current.totalPedido += pedidoDaOs(row);
+    current.totalConsumido += custoPorOs[row.id] ?? 0;
     current.totalFaturado += faturadoPorOs[row.id] ?? 0;
     current.semOc += row.pedido_compra?.trim() ? 0 : 1;
     current.maisRecente = Math.max(current.maisRecente, new Date(row.data_abertura).getTime() || row.id);
@@ -1046,7 +1050,9 @@ export default function OsListPage() {
     if (b.clienteId == null) return -1;
     if (ordem === "nome") return a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
     if (ordem === "recente") return b.maisRecente - a.maisRecente;
-    return b.totalPedido - a.totalPedido || a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
+    const valorA = hideValorPedido ? a.totalConsumido : a.totalPedido;
+    const valorB = hideValorPedido ? b.totalConsumido : b.totalPedido;
+    return valorB - valorA || a.clienteNome.localeCompare(b.clienteNome, "pt-BR");
   });
 
   const totalPedidoFiltrado = filteredRows.reduce((sum, row) => sum + pedidoDaOs(row), 0);
@@ -1058,11 +1064,14 @@ export default function OsListPage() {
   const osSemNota = filteredRows.filter((row) => (faturadoPorOs[row.id] ?? 0) <= 0).length;
   const osSemOc = filteredRows.filter((row) => !row.pedido_compra?.trim());
   const totalSemOc = osSemOc.reduce((sum, row) => sum + pedidoDaOs(row), 0);
+  const percentualFaturadoFiltrado = totalPedidoFiltrado > 0
+    ? Math.max(0, Math.min(100, (filteredRows.reduce((sum, row) => sum + (faturadoPorOs[row.id] ?? 0), 0) / totalPedidoFiltrado) * 100))
+    : 0;
   const filtroAtivo = Boolean(
     busca.trim() ||
       clienteFiltro.trim() ||
       responsavelFiltro ||
-      semOcFiltro ||
+      (showPurchaseOrderInfo && semOcFiltro) ||
       idadeFiltro ||
       tipoFiltro !== "todos_sem_hh" ||
       status !== "em_andamento"
@@ -1104,25 +1113,31 @@ export default function OsListPage() {
   }
 
   function exportarCsv() {
-    const header = ["OS", "Pedido", "Descrição", "Cliente", "Unidade", "Status", "Responsável", "Abertura", "Custo"];
-    if (!hideValorPedido) header.push("Valor pedido", "Faturado");
+    const header = ["OS"];
+    if (showPurchaseOrderInfo) header.push("Pedido");
+    header.push("Descrição", "Cliente", "Unidade", "Status", "Responsável", "Abertura", "Consumido");
+    if (!hideValorPedido) header.push("Valor pedido");
+    header.push("Faturado (%)");
 
     const body = filteredRows.map((row) => {
       const statusExibicao = normalizeOsStatusFluxo(row.status_fluxo, row.status);
-      const values: unknown[] = [
-        row.numero_os,
-        row.pedido_compra?.trim() ?? "",
+      const values: unknown[] = [row.numero_os];
+      if (showPurchaseOrderInfo) values.push(row.pedido_compra?.trim() ?? "");
+      values.push(
         row.descricao_servico ?? "",
         row.cliente_nome,
         unidadeDaOs(row),
         getOsStatusLabel(statusExibicao),
         responsavelDaOs(row),
         row.data_abertura?.slice(0, 10) ?? "",
-        formatMoney(custoPorOs[row.id] ?? 0),
-      ];
-      if (!hideValorPedido) {
-        values.push(formatMoney(pedidoDaOs(row)), formatMoney(faturadoPorOs[row.id] ?? 0));
-      }
+        formatMoney(custoPorOs[row.id] ?? 0)
+      );
+      const pedido = pedidoDaOs(row);
+      const percentualFaturado = pedido > 0
+        ? Math.max(0, Math.min(100, ((faturadoPorOs[row.id] ?? 0) / pedido) * 100))
+        : 0;
+      if (!hideValorPedido) values.push(formatMoney(pedido));
+      values.push(Math.round(percentualFaturado));
       return values.map(csvCell).join(";");
     });
 
@@ -1323,41 +1338,51 @@ export default function OsListPage() {
         </article>
 
         <article className="carteira-surface min-h-[96px] rounded-xl border px-4 py-3.5">
-          <div className="carteira-muted font-mono text-[9px] font-bold uppercase tracking-[0.11em]">Valor em aberto</div>
+          <div className="carteira-muted font-mono text-[9px] font-bold uppercase tracking-[0.11em]">
+            {hideValorPedido ? "Consumido" : "Valor em aberto"}
+          </div>
           <div className="carteira-text mt-3 font-mono text-[20px] font-bold leading-none tabular-nums">
-            {hideValorPedido ? "—" : `R$ ${formatMoney(totalPedidoFiltrado)}`}
+            R$ {formatMoney(hideValorPedido ? totalCustoFiltrado : totalPedidoFiltrado)}
           </div>
           <div className="carteira-muted mt-2 text-[10px]">
-            {hideValorPedido ? "Valores restritos para este perfil" : `custo lançado R$ ${formatMoney(totalCustoFiltrado)}`}
+            {hideValorPedido
+              ? "Material, mão de obra, despesas e impostos"
+              : `consumido R$ ${formatMoney(totalCustoFiltrado)}`}
           </div>
         </article>
 
         <article className="carteira-surface min-h-[96px] rounded-xl border px-4 py-3.5">
-          <div className="carteira-muted font-mono text-[9px] font-bold uppercase tracking-[0.11em]">A faturar</div>
+          <div className="carteira-muted font-mono text-[9px] font-bold uppercase tracking-[0.11em]">
+            {hideValorPedido ? "Faturado" : "A faturar"}
+          </div>
           <div className="carteira-text mt-3 font-mono text-[20px] font-bold leading-none tabular-nums">
-            {hideValorPedido ? "—" : `R$ ${formatMoney(totalAFaturar)}`}
+            {hideValorPedido ? `${Math.round(percentualFaturadoFiltrado)}%` : `R$ ${formatMoney(totalAFaturar)}`}
           </div>
           <div className="carteira-muted mt-2 text-[10px]">
-            {osSemNota} {osSemNota === 1 ? "OS sem nota" : "OS sem nota"}
+            {hideValorPedido
+              ? "Percentual sobre o valor das OS"
+              : `${osSemNota} ${osSemNota === 1 ? "OS sem nota" : "OS sem nota"}`}
           </div>
         </article>
 
-        <button
-          type="button"
-          onClick={() => router.push("/financeiro/venda-a-credito?status=ABERTO&sem_oc=1")}
-          className="min-h-[96px] rounded-xl border border-[var(--carteira-amber)] bg-[var(--carteira-amber-soft)] px-4 py-3.5 text-left transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--carteira-amber)]"
-          title="Abrir estas OS na Venda a Crédito"
-        >
-          <div className="font-mono text-[9px] font-bold uppercase tracking-[0.11em] text-[var(--carteira-amber)]">
-            Sem pedido de compra
-          </div>
-          <div className="mt-3 font-mono text-[20px] font-bold leading-none tabular-nums text-[var(--carteira-amber)]">
-            {hideValorPedido ? "—" : `R$ ${formatMoney(totalSemOc)}`}
-          </div>
-          <div className="mt-2 text-[10px] text-[var(--carteira-amber)]">
-            {osSemOc.length} {osSemOc.length === 1 ? "OS" : "OS"} · abrir na Venda a Crédito ›
-          </div>
-        </button>
+        {showPurchaseOrderInfo ? (
+          <button
+            type="button"
+            onClick={() => router.push("/financeiro/venda-a-credito?status=ABERTO&sem_oc=1")}
+            className="min-h-[96px] rounded-xl border border-[var(--carteira-amber)] bg-[var(--carteira-amber-soft)] px-4 py-3.5 text-left transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--carteira-amber)]"
+            title="Abrir estas OS na Venda a Crédito"
+          >
+            <div className="font-mono text-[9px] font-bold uppercase tracking-[0.11em] text-[var(--carteira-amber)]">
+              Sem pedido de compra
+            </div>
+            <div className="mt-3 font-mono text-[20px] font-bold leading-none tabular-nums text-[var(--carteira-amber)]">
+              R$ {formatMoney(totalSemOc)}
+            </div>
+            <div className="mt-2 text-[10px] text-[var(--carteira-amber)]">
+              {osSemOc.length} {osSemOc.length === 1 ? "OS" : "OS"} · abrir na Venda a Crédito ›
+            </div>
+          </button>
+        ) : null}
       </section>
 
       <div className="carteira-surface rounded-xl border p-2.5">
@@ -1462,22 +1487,24 @@ export default function OsListPage() {
             <option value="mais_de_1_ano">Mais de 1 ano</option>
           </select>
 
-          <button
-            type="button"
-            onClick={() => {
-              const nextSemOc = !semOcFiltro;
-              setSemOcFiltro(nextSemOc);
-              updateUrlParams({ sem_oc: nextSemOc ? "1" : null });
-            }}
-            aria-pressed={semOcFiltro}
-            className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-              semOcFiltro
-                ? "border-[var(--carteira-amber)] bg-[var(--carteira-amber-soft)] text-[var(--carteira-amber)]"
-                : "border-[var(--carteira-border-2)] bg-[var(--carteira-surface)] text-[var(--carteira-muted)] hover:text-[var(--carteira-text)]"
-            }`}
-          >
-            Sem OC
-          </button>
+          {showPurchaseOrderInfo ? (
+            <button
+              type="button"
+              onClick={() => {
+                const nextSemOc = !semOcFiltro;
+                setSemOcFiltro(nextSemOc);
+                updateUrlParams({ sem_oc: nextSemOc ? "1" : null });
+              }}
+              aria-pressed={semOcFiltro}
+              className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                semOcFiltro
+                  ? "border-[var(--carteira-amber)] bg-[var(--carteira-amber-soft)] text-[var(--carteira-amber)]"
+                  : "border-[var(--carteira-border-2)] bg-[var(--carteira-surface)] text-[var(--carteira-muted)] hover:text-[var(--carteira-text)]"
+              }`}
+            >
+              Sem OC
+            </button>
+          ) : null}
         </div>
 
         <div className="mt-2 flex min-h-5 flex-wrap items-center justify-between gap-2 border-t border-[var(--carteira-border)] px-1 pt-2 text-[10px]">
@@ -1510,7 +1537,7 @@ export default function OsListPage() {
                 className="carteira-control rounded-lg px-2.5 py-1.5 text-[11px]"
                 aria-label="Ordenar clientes"
               >
-                <option value="valor">Maior valor em aberto</option>
+                <option value="valor">{hideValorPedido ? "Maior consumo" : "Maior valor em aberto"}</option>
                 <option value="recente">OS mais recente</option>
                 <option value="nome">Nome A–Z</option>
               </select>
@@ -1559,7 +1586,7 @@ export default function OsListPage() {
                       <span className="carteira-text max-w-full text-[13.5px] font-[650] leading-5 tracking-[0.01em]">
                         <HighlightText text={grupo.clienteNome} query={busca} />
                       </span>
-                      {grupo.semOc > 0 ? (
+                      {showPurchaseOrderInfo && grupo.semOc > 0 ? (
                         <span className="rounded border border-[var(--carteira-amber)] bg-[var(--carteira-amber-soft)] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--carteira-amber)]">
                           {grupo.semOc} sem OC
                         </span>
@@ -1572,14 +1599,13 @@ export default function OsListPage() {
                   </span>
                   <span className="min-w-[170px] text-right">
                     <span className="carteira-text block font-mono text-[15px] font-bold tabular-nums">
-                      {hideValorPedido ? "—" : `R$ ${formatMoney(grupo.totalPedido)}`}
+                      R$ {formatMoney(hideValorPedido ? grupo.totalConsumido : grupo.totalPedido)}
                     </span>
-                    <span className={`mt-0.5 block text-[10.5px] ${grupo.totalFaturado > 0 ? "carteira-green" : "carteira-faint"}`}>
-                      {hideValorPedido
-                        ? "valores restritos"
-                        : grupo.totalFaturado > 0
-                          ? `R$ ${formatMoney(grupo.totalFaturado)} faturado · ${Math.round(percentualFaturado)}%`
-                          : "nada faturado"}
+                    <span className="carteira-muted mt-0.5 block text-[10.5px]">
+                      {hideValorPedido ? "Consumido" : `Consumido R$ ${formatMoney(grupo.totalConsumido)}`}
+                      <span className={grupo.totalFaturado > 0 ? "carteira-green" : "carteira-faint"}>
+                        {` · Faturado ${Math.round(percentualFaturado)}%`}
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -1590,6 +1616,11 @@ export default function OsListPage() {
                       {grupo.rows.map((row) => {
                         const statusExibicao = normalizeOsStatusFluxo(row.status_fluxo, row.status);
                         const responsavel = responsavelDaOs(row);
+                        const pedido = pedidoDaOs(row);
+                        const faturado = faturadoPorOs[row.id] ?? 0;
+                        const percentualFaturadoOs = pedido > 0
+                          ? Math.max(0, Math.min(100, (faturado / pedido) * 100))
+                          : 0;
                         return (
                           <button
                             key={row.id}
@@ -1611,17 +1642,24 @@ export default function OsListPage() {
                             </span>
                             <span className="carteira-muted min-w-0 truncate text-[11px]">
                               {responsavel}
-                              {row.pedido_compra?.trim() ? (
-                                <> · OC <HighlightText text={row.pedido_compra} query={busca} /></>
-                              ) : (
-                                <span className="text-[var(--carteira-amber)]"> · sem OC</span>
-                              )}
+                              {showPurchaseOrderInfo ? (
+                                row.pedido_compra?.trim() ? (
+                                  <> · OC <HighlightText text={row.pedido_compra} query={busca} /></>
+                                ) : (
+                                  <span className="text-[var(--carteira-amber)]"> · sem OC</span>
+                                )
+                              ) : null}
                             </span>
-                            {!hideValorPedido ? (
-                              <span className="carteira-text text-right font-mono text-[12.5px] font-semibold tabular-nums">
-                                R$ {formatMoney(pedidoDaOs(row))}
+                            <span className="text-right">
+                              <span className="carteira-text block font-mono text-[12.5px] font-semibold tabular-nums">
+                                R$ {formatMoney(hideValorPedido ? (custoPorOs[row.id] ?? 0) : pedidoDaOs(row))}
                               </span>
-                            ) : <span />}
+                              <span className="carteira-muted mt-0.5 block text-[9.5px]">
+                                {hideValorPedido
+                                  ? `consumido · Faturado ${Math.round(percentualFaturadoOs)}%`
+                                  : `consumido R$ ${formatMoney(custoPorOs[row.id] ?? 0)} · Faturado ${Math.round(percentualFaturadoOs)}%`}
+                              </span>
+                            </span>
                           </button>
                         );
                       })}
@@ -1646,12 +1684,12 @@ export default function OsListPage() {
         <table className="w-full min-w-[920px] table-fixed text-sm">
           <thead>
             <tr className="carteira-table-head">
-              <th className="w-[118px] px-4 py-3 text-left">OS / Pedido</th>
+              <th className="w-[118px] px-4 py-3 text-left">{showPurchaseOrderInfo ? "OS / Pedido" : "OS"}</th>
               <th className="px-4 py-3 text-left">Descrição / Cliente</th>
               <th className="w-[190px] px-4 py-3 text-left">Situação</th>
-              <th className="w-[130px] px-4 py-3 text-right">Custo</th>
+              <th className="w-[130px] px-4 py-3 text-right">Consumido</th>
               {!hideValorPedido && <th className="w-[145px] px-4 py-3 text-right">Valor pedido</th>}
-              {!hideValorPedido && <th className="w-[145px] px-4 py-3 text-right">Faturado</th>}
+              <th className="w-[145px] px-4 py-3 text-right">Faturado</th>
             </tr>
           </thead>
 
@@ -1679,18 +1717,20 @@ export default function OsListPage() {
               >
                 <td className="px-4 py-3 align-middle">
                   <div className="carteira-text font-mono text-[14px] font-semibold tabular-nums">{r.numero_os}</div>
-                  {r.pedido_compra?.trim() ? (
-                    <div className="carteira-muted mt-1 font-mono text-[10px] tabular-nums" title={`Pedido ${r.pedido_compra}`}>
-                      OC {r.pedido_compra}
-                    </div>
-                  ) : (
-                    <div
-                      className="mt-1 inline-flex rounded border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em]"
-                      style={{ color: "var(--carteira-amber)", borderColor: "var(--carteira-amber)", background: "var(--carteira-amber-soft)" }}
-                    >
-                      sem OC
-                    </div>
-                  )}
+                  {showPurchaseOrderInfo ? (
+                    r.pedido_compra?.trim() ? (
+                      <div className="carteira-muted mt-1 font-mono text-[10px] tabular-nums" title={`Pedido ${r.pedido_compra}`}>
+                        OC {r.pedido_compra}
+                      </div>
+                    ) : (
+                      <div
+                        className="mt-1 inline-flex rounded border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em]"
+                        style={{ color: "var(--carteira-amber)", borderColor: "var(--carteira-amber)", background: "var(--carteira-amber-soft)" }}
+                      >
+                        sem OC
+                      </div>
+                    )
+                  ) : null}
                 </td>
 
                 <td className="min-w-0 px-4 py-3 align-middle">
@@ -1723,24 +1763,24 @@ export default function OsListPage() {
                     R$ {formatMoney(pedido)}
                   </td>
                 )}
-                {!hideValorPedido && (
-                  <td className="px-4 py-3 text-right align-middle">
-                    <div className="carteira-text font-mono text-[13px] font-semibold tabular-nums">R$ {formatMoney(faturado)}</div>
-                    <div
-                      className="mt-2 ml-auto h-[3px] w-full overflow-hidden rounded-full bg-[var(--carteira-border)]"
-                      title={`${Math.round(progressoFaturado)}% faturado`}
-                    >
-                      <div className="h-full rounded-full bg-[var(--carteira-green)]" style={{ width: `${progressoFaturado}%` }} />
-                    </div>
-                  </td>
-                )}
+                <td className="px-4 py-3 text-right align-middle">
+                  <div className={`font-mono text-[13px] font-semibold tabular-nums ${faturado > 0 ? "carteira-green" : "carteira-faint"}`}>
+                    {Math.round(progressoFaturado)}%
+                  </div>
+                  <div
+                    className="mt-2 ml-auto h-[3px] w-full overflow-hidden rounded-full bg-[var(--carteira-border)]"
+                    title={`${Math.round(progressoFaturado)}% faturado`}
+                  >
+                    <div className="h-full rounded-full bg-[var(--carteira-green)]" style={{ width: `${progressoFaturado}%` }} />
+                  </div>
+                </td>
               </tr>
               );
             })}
 
             {loading && (
               <tr>
-                <td colSpan={hideValorPedido ? 4 : 6} className="carteira-muted px-4 py-6">
+                <td colSpan={hideValorPedido ? 5 : 6} className="carteira-muted px-4 py-6">
                   Carregando...
                 </td>
               </tr>
@@ -1748,7 +1788,7 @@ export default function OsListPage() {
 
             {!loading && filteredRows.length === 0 && (
               <tr>
-                <td colSpan={hideValorPedido ? 4 : 6} className="carteira-muted px-4 py-6">
+                <td colSpan={hideValorPedido ? 5 : 6} className="carteira-muted px-4 py-6">
                   Nenhuma OS encontrada.
                 </td>
               </tr>

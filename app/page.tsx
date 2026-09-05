@@ -82,6 +82,12 @@ type HomeData = {
   };
   faturamento?: { os_concluidas_sem_nf: number; valor_concluido_sem_nf: number };
   admin?: { clientes_incompletos: number };
+  certificado_fiscal?: {
+    empresa_id: string;
+    serie_nfe: number | null;
+    certificado_validade_em: string | null;
+    dias_para_vencer: number | null;
+  } | null;
 };
 
 type CommandResult = { tipo: string; titulo: string; subtitulo: string; href: string };
@@ -168,6 +174,23 @@ function buildAlerts(data: HomeData): HomeAlert[] {
   const alerts: HomeAlert[] = [];
   const add = (condition: boolean, alert: HomeAlert) => { if (condition) alerts.push(alert); };
 
+  const diasCertificado = data.certificado_fiscal?.dias_para_vencer;
+  if (typeof diasCertificado === "number" && diasCertificado <= 30) {
+    const vencido = diasCertificado < 0;
+    add(true, {
+      id: "certificado-nfe",
+      severity: vencido || diasCertificado <= 7 ? "critical" : "warning",
+      title: vencido ? "Certificado A1 vencido" : "Certificado A1 perto do vencimento",
+      reason: vencido
+        ? "A emissão de NF-e desta empresa está bloqueada até a renovação do certificado."
+        : "Renove o certificado antes do vencimento para não interromper o faturamento.",
+      value: vencido ? `vencido há ${Math.abs(diasCertificado)} dia(s)` : `${diasCertificado} dia(s)`,
+      area: "Faturamento",
+      action: "Configurar",
+      href: "/admin/empresas",
+    });
+  }
+
   add(n(data.financeiro?.contas_sem_conferencia) > 0, { id: "saldo", severity: "critical", title: "Saldos bancários sem conferência", reason: "Há contas sem posição recente; os demais indicadores financeiros podem ficar distorcidos.", value: `${n(data.financeiro?.contas_sem_conferencia)} conta(s)`, area: "Financeiro", action: "Conferir", href: "/financeiro/cadastros/contas-bancarias" });
   add(n(data.financeiro?.receber_vencido_quantidade) > 0, { id: "receber", severity: "critical", title: "Contas a receber vencidas", reason: "Títulos em aberto já passaram do vencimento e precisam de ação de cobrança.", value: currency.format(n(data.financeiro?.receber_vencido_valor)), area: "Financeiro", action: "Abrir títulos", href: "/financeiro/contas_pagar_receber" });
   add(n(data.faturamento?.os_concluidas_sem_nf) > 0, { id: "faturar", severity: "warning", title: "OS concluídas sem nota fiscal", reason: "Serviços concluídos ainda não entraram no faturamento.", value: `${n(data.faturamento?.os_concluidas_sem_nf)} OS`, area: "Faturamento", action: "Faturar", href: "/financeiro/venda-a-credito" });
@@ -180,7 +203,14 @@ function buildAlerts(data: HomeData): HomeAlert[] {
   add(n(data.admin?.clientes_incompletos) > 0, { id: "clientes", severity: "info", title: "Cadastros de clientes incompletos", reason: "Documento ou dados básicos faltantes podem impedir faturamento e cobrança.", value: `${n(data.admin?.clientes_incompletos)} cliente(s)`, area: "Cadastros", action: "Corrigir", href: "/clientes/documentos-pendentes" });
 
   const rank: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
-  return alerts.sort((a, b) => rank[a.severity] - rank[b.severity]).slice(0, 5);
+  const ordenados = alerts.sort((a, b) => rank[a.severity] - rank[b.severity]);
+  const principais = ordenados.slice(0, 5);
+  const certificado = ordenados.find((alert) => alert.id === "certificado-nfe");
+  if (certificado && !principais.some((alert) => alert.id === certificado.id)) {
+    principais[principais.length - 1] = certificado;
+    principais.sort((a, b) => rank[a.severity] - rank[b.severity]);
+  }
+  return principais;
 }
 
 function BarRow({ label, value, max, formatted, tone }: { label: string; value: number; max: number; formatted: string; tone?: "green" | "amber" | "red" }) {
@@ -228,10 +258,15 @@ export default function HomePage() {
     if (background) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
-      const { data: payload, error: rpcError } = await getSupabaseBrowser().rpc("home_sala_controle");
+      const supabase = getSupabaseBrowser();
+      const [{ data: payload, error: rpcError }, { data: certificado, error: certificadoError }] = await Promise.all([
+        supabase.rpc("home_sala_controle"),
+        supabase.rpc("empresa_certificado_alerta"),
+      ]);
       if (rpcError) throw rpcError;
+      if (certificadoError) throw certificadoError;
       if (requestId !== requestIdRef.current) return;
-      setData(payload as HomeData);
+      setData({ ...(payload as HomeData), certificado_fiscal: certificado as HomeData["certificado_fiscal"] });
     } catch (cause) {
       if (requestId !== requestIdRef.current) return;
       setError(cause instanceof Error ? cause.message : String((cause as { message?: unknown })?.message ?? cause));

@@ -334,7 +334,7 @@ export default function VendasClient() {
 
       <section className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
         <div className="overflow-x-auto">
-          <table className="min-w-[1100px] w-full text-sm">
+          <table className="min-w-[1000px] w-full text-sm">
             <thead className="bg-zinc-900/70 text-left text-xs uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="whitespace-nowrap px-3 py-3">Venda</th>

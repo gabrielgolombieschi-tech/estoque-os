@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { formatMoneyBR } from "@/lib/decimal";
+import FaturamentoParcialPanel from "@/components/faturamento/FaturamentoParcialPanel";
+import OvNfeDraftsPanel from "@/components/faturamento/OvNfeDraftsPanel";
 
 type Tab = "itens" | "compras" | "faturamento" | "historico";
 
@@ -43,6 +45,25 @@ type ItemMeta = {
   tipo: string | null;
   preco_unitario: number | string | null;
 };
+
+type ItemLookupRow = {
+  id: number;
+  codigo_interno: string;
+  nome: string;
+  fabricante: string | null;
+  tipo: string;
+  finalidade: string | null;
+  preco_unitario: number | string | null;
+  aliquota_ipi: number | string | null;
+  controla_estoque: boolean | null;
+  fornecedor: string | null;
+  ultima_entrada: string | null;
+  estoque_atual: number | string | null;
+};
+
+type ItemLookupSortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
+type SortDirection = "asc" | "desc";
+type LookupSearchTerm = { raw: string; normalized: string };
 
 type VendaItem = {
   id: number;
@@ -99,6 +120,22 @@ type Documento = {
   os_id_import: number | null;
 };
 
+type EmissaoNfe = {
+  documento_fiscal_id: string;
+  referencia_externa: string;
+  ambiente: "HOMOLOGACAO" | "PRODUCAO";
+  status: "RASCUNHO" | "ENVIANDO" | "PROCESSANDO" | "AUTORIZADA" | "REJEITADA" | "CANCELADA" | "ERRO";
+  chave_acesso: string | null;
+  protocolo: string | null;
+  numero: number | null;
+  serie: number | null;
+  codigo_status: number | null;
+  mensagem: string | null;
+  xml_path: string | null;
+  danfe_path: string | null;
+  updated_at: string;
+};
+
 type Evento = {
   id: string;
   evento: string;
@@ -148,6 +185,35 @@ function errorMessage(cause: unknown) {
   return "Não foi possível concluir a operação.";
 }
 
+const ITEM_LOOKUP_FETCH_LIMIT = 150;
+const ITEM_LOOKUP_RESULT_LIMIT = 50;
+
+function normalizeLookupText(value: string | null | undefined) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function parseLookupTerms(value: string | null | undefined): LookupSearchTerm[] {
+  return String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((raw) => ({ raw, normalized: normalizeLookupText(raw) }));
+}
+
+function pickLookupSeedTerm(terms: LookupSearchTerm[]) {
+  return [...terms].sort((a, b) => b.normalized.length - a.normalized.length)[0]?.raw ?? "";
+}
+
+function matchesLookupTerms(values: Array<string | null | undefined>, terms: LookupSearchTerm[]) {
+  if (terms.length === 0) return true;
+  const haystack = values.map((value) => normalizeLookupText(value)).join(" ");
+  return terms.every((term) => haystack.includes(term.normalized));
+}
+
 export default function VendaDetalheClient() {
   const params = useParams<{ id: string }>();
   const vendaId = Number(params.id);
@@ -156,6 +222,7 @@ export default function VendaDetalheClient() {
   const { loading: permissionsLoading, ready, capabilities } = usePermissions();
   const canView = hasAny(capabilities, ["financeiro.read", "financeiro.write", "os.read", "os.write"]);
   const canWrite = hasAny(capabilities, ["financeiro.write", "os.write"]);
+  const canFaturar = hasAny(capabilities, ["financeiro.write"]);
   const supabase = useMemo(() => supabaseBrowser(), []);
   const tenantId = te.tenantId;
   const empresaId = te.empresaId;
@@ -168,6 +235,7 @@ export default function VendaDetalheClient() {
   const [pedidoItens, setPedidoItens] = useState<PedidoItem[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [emissoesNfe, setEmissoesNfe] = useState<EmissaoNfe[]>([]);
   const [documentosDisponiveis, setDocumentosDisponiveis] = useState<Documento[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [saldo, setSaldo] = useState<Saldo | null>(null);
@@ -176,13 +244,52 @@ export default function VendaDetalheClient() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [novoItemId, setNovoItemId] = useState("");
+  const [novoItemBusca, setNovoItemBusca] = useState("");
+  const [novoItemSelecionado, setNovoItemSelecionado] = useState<ItemLookupRow | null>(null);
+  const [buscandoItem, setBuscandoItem] = useState(false);
+  const [showItemLookup, setShowItemLookup] = useState(false);
+  const [lookupNome, setLookupNome] = useState("");
+  const [lookupFornecedor, setLookupFornecedor] = useState("");
+  const [lookupRows, setLookupRows] = useState<ItemLookupRow[]>([]);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupSortKey, setLookupSortKey] = useState<ItemLookupSortKey>("id");
+  const [lookupSortDirection, setLookupSortDirection] = useState<SortDirection>("asc");
   const [novaQuantidade, setNovaQuantidade] = useState("1");
   const [novoValor, setNovoValor] = useState("0");
   const [baixarEstoque, setBaixarEstoque] = useState(true);
   const [documentoSelecionado, setDocumentoSelecionado] = useState("");
+  const [nfeDraftRefresh, setNfeDraftRefresh] = useState(0);
+  const novaQuantidadeRef = useRef<HTMLInputElement | null>(null);
 
   const itemById = useMemo(() => new Map(catalogo.map((item) => [item.id, item])), [catalogo]);
   const pedidoById = useMemo(() => new Map(pedidos.map((pedido) => [pedido.id, pedido])), [pedidos]);
+  const sortedLookupRows = useMemo(() => {
+    const direction = lookupSortDirection === "asc" ? 1 : -1;
+    const value = (item: ItemLookupRow): string | number | null => {
+      switch (lookupSortKey) {
+        case "id": return item.id;
+        case "codigo": return item.codigo_interno?.toLocaleLowerCase("pt-BR") ?? "";
+        case "descricao": return item.nome?.toLocaleLowerCase("pt-BR") ?? "";
+        case "fornecedor": return item.fornecedor?.toLocaleLowerCase("pt-BR") ?? "";
+        case "ultima": return item.ultima_entrada ? new Date(item.ultima_entrada).getTime() : null;
+        case "preco": return item.preco_unitario === null ? null : n(item.preco_unitario);
+        case "estoque": return item.estoque_atual === null ? null : n(item.estoque_atual);
+      }
+    };
+    return [...lookupRows].sort((a, b) => {
+      const aValue = value(a);
+      const bValue = value(b);
+      const aEmpty = aValue === null || aValue === "";
+      const bEmpty = bValue === null || bValue === "";
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return 1;
+      if (bEmpty) return -1;
+      if (aValue! < bValue!) return -1 * direction;
+      if (aValue! > bValue!) return direction;
+      return 0;
+    });
+  }, [lookupRows, lookupSortDirection, lookupSortKey]);
   const status = String(venda?.status_fluxo ?? venda?.status ?? "em_andamento");
 
   const reload = useCallback(async () => {
@@ -206,7 +313,7 @@ export default function VendaDetalheClient() {
       if (!vendaData) throw new Error("Venda não encontrada ou já convertida em OS.");
       setVenda(vendaData);
 
-      const [itensResult, catalogoResult, comprasResult, documentosResult, eventosResult, saldoResult] =
+      const [itensResult, comprasResult, documentosResult, eventosResult, saldoResult] =
         await Promise.all([
           supabase
             .from("os_itens")
@@ -215,14 +322,6 @@ export default function VendaDetalheClient() {
             .eq("empresa_id", empresaId)
             .eq("os_id", vendaId)
             .order("id", { ascending: false }),
-          supabase
-            .from("itens")
-            .select("id,codigo_interno,nome,descricao,unidade_medida,tipo,preco_unitario")
-            .eq("tenant_id", tenantId)
-            .eq("empresa_id", empresaId)
-            .eq("ativo", true)
-            .order("nome")
-            .limit(1000),
           supabase.schema("m").rpc("venda_compras_resumo", { p_venda_id: vendaId }),
           supabase
             .schema("f")
@@ -249,15 +348,39 @@ export default function VendaDetalheClient() {
         ]);
 
       if (itensResult.error) throw itensResult.error;
-      setItens((itensResult.data ?? []) as VendaItem[]);
-      setCatalogo(catalogoResult.error ? [] : ((catalogoResult.data ?? []) as ItemMeta[]));
+      const itensCarregados = (itensResult.data ?? []) as VendaItem[];
+      setItens(itensCarregados);
+      const itemIds = [...new Set(itensCarregados.map((item) => item.item_id))];
+      if (itemIds.length > 0) {
+        const { data: catalogoData, error: catalogoError } = await supabase
+          .from("itens")
+          .select("id,codigo_interno,nome,descricao,unidade_medida,tipo,preco_unitario")
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
+          .in("id", itemIds);
+        setCatalogo(catalogoError ? [] : ((catalogoData ?? []) as ItemMeta[]));
+      } else {
+        setCatalogo([]);
+      }
       if (comprasResult.error) throw comprasResult.error;
       const compras = (comprasResult.data ?? {}) as ComprasResumo;
       setPendencias(Array.isArray(compras.pendencias) ? compras.pendencias : []);
       const loadedPedidoItens = Array.isArray(compras.pedido_itens) ? compras.pedido_itens : [];
       setPedidoItens(loadedPedidoItens);
       setPedidos(Array.isArray(compras.pedidos) ? compras.pedidos : []);
-      setDocumentos(documentosResult.error ? [] : ((documentosResult.data ?? []) as Documento[]));
+      const documentosCarregados = documentosResult.error ? [] : ((documentosResult.data ?? []) as Documento[]);
+      setDocumentos(documentosCarregados);
+      if (documentosCarregados.length > 0) {
+        const { data: emissoesData, error: emissoesError } = await supabase
+          .schema("f")
+          .from("documento_fiscal_emissao")
+          .select("documento_fiscal_id,referencia_externa,ambiente,status,chave_acesso,protocolo,numero,serie,codigo_status,mensagem,xml_path,danfe_path,updated_at")
+          .in("documento_fiscal_id", documentosCarregados.map((documento) => documento.id))
+          .order("updated_at", { ascending: false });
+        setEmissoesNfe(emissoesError ? [] : ((emissoesData ?? []) as EmissaoNfe[]));
+      } else {
+        setEmissoesNfe([]);
+      }
       setEventos(eventosResult.error ? [] : ((eventosResult.data ?? []) as Evento[]));
       const saldoRow = (Array.isArray(saldoResult.data) ? saldoResult.data[0] : saldoResult.data) as Saldo | null;
       setSaldo(saldoResult.error ? null : saldoRow);
@@ -286,9 +409,21 @@ export default function VendaDetalheClient() {
 
   useEffect(() => {
     // A consulta remota é o sistema externo sincronizado por este efeito.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    const channel = supabase
+      .channel(`nfe-emissao-ov-${vendaId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "f", table: "documento_fiscal_emissao", filter: `empresa_id=eq.${empresaId}` },
+        () => void reload()
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [empresaId, reload, supabase, vendaId]);
 
   const run = useCallback(
     async (action: () => Promise<void>, success: string) => {
@@ -309,6 +444,116 @@ export default function VendaDetalheClient() {
     [busy, reload]
   );
 
+  const selecionarNovoItem = useCallback((item: ItemLookupRow) => {
+    setNovoItemSelecionado(item);
+    setNovoItemId(String(item.id));
+    setNovoItemBusca(`${item.codigo_interno} - ${item.nome}`);
+    setNovoValor(String(n(item.preco_unitario)));
+    setShowItemLookup(false);
+    setTimeout(() => {
+      novaQuantidadeRef.current?.focus();
+      novaQuantidadeRef.current?.select();
+    }, 0);
+  }, []);
+
+  const buscarItensNoLocalizador = useCallback(async (nextNome?: string, nextFornecedor?: string) => {
+    if (!tenantId || !empresaId) return;
+
+    setLookupError(null);
+    setLookupBusy(true);
+    const nome = (nextNome ?? lookupNome).trim();
+    const fornecedor = (nextFornecedor ?? lookupFornecedor).trim();
+    const nomeTerms = parseLookupTerms(nome);
+    const fornecedorTerms = parseLookupTerms(fornecedor);
+
+    const { data, error: searchError } = await supabase.rpc("search_os_itens", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_term: pickLookupSeedTerm(nomeTerms) || null,
+      p_fornecedor: pickLookupSeedTerm(fornecedorTerms) || null,
+      p_despesa_only: false,
+      p_limit: ITEM_LOOKUP_FETCH_LIMIT,
+    });
+
+    if (searchError) {
+      setLookupError(searchError.message);
+      setLookupRows([]);
+      setLookupBusy(false);
+      return;
+    }
+
+    const rows = ((data ?? []) as ItemLookupRow[])
+      .filter((item) => matchesLookupTerms([item.nome, item.codigo_interno, item.fabricante], nomeTerms))
+      .filter((item) => matchesLookupTerms([item.fornecedor], fornecedorTerms))
+      .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
+      .slice(0, ITEM_LOOKUP_RESULT_LIMIT);
+    setLookupRows(rows);
+    setLookupBusy(false);
+  }, [empresaId, lookupFornecedor, lookupNome, supabase, tenantId]);
+
+  const abrirLocalizadorItem = useCallback((initialName = "") => {
+    const name = initialName.trim();
+    setShowItemLookup(true);
+    setLookupError(null);
+    setLookupRows([]);
+    setLookupNome(name);
+    setLookupFornecedor("");
+    void buscarItensNoLocalizador(name, "");
+  }, [buscarItensNoLocalizador]);
+
+  const buscarItemDireto = useCallback(async () => {
+    if (!tenantId || !empresaId || buscandoItem) return;
+    const term = novoItemBusca.trim();
+    if (!term) {
+      abrirLocalizadorItem();
+      return;
+    }
+
+    if (novoItemSelecionado && novoItemId && term === `${novoItemSelecionado.codigo_interno} - ${novoItemSelecionado.nome}`) {
+      novaQuantidadeRef.current?.focus();
+      novaQuantidadeRef.current?.select();
+      return;
+    }
+
+    setBuscandoItem(true);
+    setError(null);
+    const { data, error: searchError } = await supabase.rpc("search_os_itens", {
+      p_tenant_id: tenantId,
+      p_empresa_id: empresaId,
+      p_term: term,
+      p_fornecedor: null,
+      p_despesa_only: false,
+      p_limit: 50,
+    });
+    setBuscandoItem(false);
+
+    if (searchError) {
+      setError(searchError.message);
+      return;
+    }
+
+    const rows = (data ?? []) as ItemLookupRow[];
+    const normalizedTerm = normalizeLookupText(term);
+    const exact = rows.find((item) =>
+      String(item.id) === term || normalizeLookupText(item.codigo_interno) === normalizedTerm
+    );
+    if (exact || (/^\d+$/.test(term) && rows.length === 1)) {
+      selecionarNovoItem(exact ?? rows[0]);
+      return;
+    }
+
+    abrirLocalizadorItem(term);
+  }, [abrirLocalizadorItem, buscandoItem, empresaId, novoItemBusca, novoItemId, novoItemSelecionado, selecionarNovoItem, supabase, tenantId]);
+
+  const ordenarLocalizador = useCallback((key: ItemLookupSortKey) => {
+    if (lookupSortKey === key) {
+      setLookupSortDirection((current) => current === "asc" ? "desc" : "asc");
+    } else {
+      setLookupSortKey(key);
+      setLookupSortDirection("asc");
+    }
+  }, [lookupSortKey]);
+
   const adicionarItem = useCallback(async () => {
     const itemId = Number(novoItemId);
     const quantidade = Number(novaQuantidade.replace(",", "."));
@@ -318,7 +563,7 @@ export default function VendaDetalheClient() {
       return;
     }
     await run(async () => {
-      const { error: rpcError } = await supabase.rpc("add_os_item_baixa_imediata", {
+      const { error: rpcError } = await supabase.rpc("add_ov_item_baixa_imediata", {
         p_os_id: vendaId,
         p_item_id: itemId,
         p_quantidade: quantidade,
@@ -332,6 +577,8 @@ export default function VendaDetalheClient() {
       });
       if (rpcError) throw rpcError;
       setNovoItemId("");
+      setNovoItemBusca("");
+      setNovoItemSelecionado(null);
       setNovaQuantidade("1");
       setNovoValor("0");
     }, "Item adicionado à venda.");
@@ -372,24 +619,28 @@ export default function VendaDetalheClient() {
 
   const gerarPendencia = useCallback(
     async (item: VendaItem) => {
-      const suggested = Math.max(0, n(item.quantidade) - n(item.quantidade_baixada));
-      const raw = window.prompt("Quantidade a comprar", String(suggested || item.quantidade));
-      if (raw === null) return;
-      const quantidade = Number(raw.replace(",", "."));
-      if (!Number.isFinite(quantidade) || quantidade <= 0) {
-        setError("Informe uma quantidade de compra válida.");
+      const quantidadeNecessaria = Math.max(0, n(item.quantidade) - n(item.quantidade_baixada));
+      if (quantidadeNecessaria <= 0) {
+        setError("Este item já foi atendido pelo estoque.");
+        return;
+      }
+      const jaSolicitado = pendencias.some(
+        (pendencia) => pendencia.item_id === item.item_id && ["PENDENTE", "EM_PEDIDO"].includes(String(pendencia.status).toUpperCase())
+      );
+      if (jaSolicitado) {
+        setError("A compra necessária para este item já foi solicitada pela OV.");
         return;
       }
       await run(async () => {
         const { error: rpcError } = await supabase.schema("m").rpc("venda_sincronizar_compras", {
           p_venda_id: vendaId,
           p_item_id: item.item_id,
-          p_quantidade: quantidade,
+          p_quantidade: quantidadeNecessaria,
         });
         if (rpcError) throw rpcError;
-      }, "Pendência enviada para Compras.");
+      }, `Compra de ${quantidadeNecessaria.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} solicitada para a OV.`);
     },
-    [run, supabase, vendaId]
+    [pendencias, run, supabase, vendaId]
   );
 
   const sincronizarCompras = useCallback(async () => {
@@ -514,21 +765,149 @@ export default function VendaDetalheClient() {
           <div><div className="text-xs text-zinc-500">Faturamento</div>{venda.faturado_em ? dateBR(venda.faturado_em) : "Pendente"}</div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Link href="/comercial/vendas" className="rounded-md border border-zinc-800 px-3 py-2 text-sm hover:bg-zinc-900">Voltar</Link>
-          <button type="button" onClick={() => void reload()} disabled={busy} className="rounded-md border border-zinc-800 px-3 py-2 text-sm hover:bg-zinc-900 disabled:opacity-50">Atualizar</button>
-          {canWrite && status !== "cancelada" ? <button type="button" onClick={() => void registrarOc()} disabled={busy} className="rounded-md border border-sky-800 px-3 py-2 text-sm text-sky-300 hover:bg-sky-950/40 disabled:opacity-50">{venda.pedido_compra ? "Editar OC" : "Registrar OC"}</button> : null}
-          {canWrite && status === "em_andamento" ? <button type="button" onClick={() => void sincronizarCompras()} disabled={busy || itens.length === 0} className="rounded-md border border-violet-800 px-3 py-2 text-sm text-violet-300 hover:bg-violet-950/40 disabled:opacity-50">Enviar para Compras</button> : null}
-          {canWrite && status === "em_andamento" ? <Link href={`/estoque/importar?documento=${vendaId}&numero=${encodeURIComponent(venda.numero_os)}`} className="rounded-md border border-zinc-800 px-3 py-2 text-sm hover:bg-zinc-900">Importar NF/XML</Link> : null}
-          {canWrite && status === "em_andamento" ? <button type="button" onClick={() => void concluir()} disabled={busy} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50">Concluir</button> : null}
-          {canWrite && status === "concluida" ? <button type="button" onClick={() => void faturar()} disabled={busy} className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">Marcar faturada</button> : null}
-          {canWrite && status === "em_andamento" ? <button type="button" onClick={() => void converter()} disabled={busy} className="rounded-md border border-amber-800 px-3 py-2 text-sm text-amber-300 hover:bg-amber-950/40 disabled:opacity-50">Converter em OS</button> : null}
-          {canWrite && !["faturada", "cancelada"].includes(status) ? <button type="button" onClick={() => void cancelar()} disabled={busy} className="rounded-md border border-red-900 px-3 py-2 text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-50">Cancelar venda</button> : null}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/comercial/vendas" className="rounded-md border border-zinc-800 px-3 py-2 text-sm hover:bg-zinc-900">Voltar</Link>
+
+            {canWrite && status !== "cancelada" && !venda.pedido_compra ? (
+              <button type="button" onClick={() => void registrarOc()} disabled={busy} className="rounded-md border border-sky-800 px-3 py-2 text-sm text-sky-300 hover:bg-sky-950/40 disabled:opacity-50">
+                Registrar OC
+              </button>
+            ) : null}
+          </div>
+
+          <details className="group relative">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-zinc-800 px-3 py-2 text-sm hover:bg-zinc-900 [&::-webkit-details-marker]:hidden">
+              Ações <span className="text-[10px] transition group-open:rotate-180">▼</span>
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 min-w-56 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 py-1 shadow-xl shadow-black/30">
+              <button
+                type="button"
+                onClick={(event) => {
+                  void reload();
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+                disabled={busy}
+                className="block w-full px-3.5 py-2.5 text-left text-sm hover:bg-zinc-900 disabled:opacity-50"
+              >
+                Atualizar
+              </button>
+
+              {canWrite && status !== "cancelada" && venda.pedido_compra ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    void registrarOc();
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  disabled={busy}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm text-sky-300 hover:bg-sky-950/40 disabled:opacity-50"
+                >
+                  Editar OC
+                </button>
+              ) : null}
+
+              {canWrite && status === "em_andamento" ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    void sincronizarCompras();
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  disabled={busy || itens.length === 0}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm text-violet-300 hover:bg-violet-950/40 disabled:opacity-50"
+                >
+                  Enviar para Compras
+                </button>
+              ) : null}
+
+              {canWrite && status === "em_andamento" ? (
+                <Link
+                  href={`/estoque/importar?documento=${vendaId}&numero=${encodeURIComponent(venda.numero_os)}`}
+                  onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm hover:bg-zinc-900"
+                >
+                  Importar NF/XML
+                </Link>
+              ) : null}
+
+              {canWrite && status === "em_andamento" ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    void concluir();
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  disabled={busy}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm text-emerald-300 hover:bg-emerald-950/40 disabled:opacity-50"
+                >
+                  Concluir
+                </button>
+              ) : null}
+
+              {canWrite && status === "concluida" ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    void faturar();
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  disabled={busy}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm text-sky-300 hover:bg-sky-950/40 disabled:opacity-50"
+                >
+                  Marcar faturada
+                </button>
+              ) : null}
+
+              {canWrite && status === "em_andamento" ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    void converter();
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  disabled={busy}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm text-amber-300 hover:bg-amber-950/40 disabled:opacity-50"
+                >
+                  Converter em OS
+                </button>
+              ) : null}
+
+              {canWrite && !["faturada", "cancelada"].includes(status) ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    void cancelar();
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}
+                  disabled={busy}
+                  className="block w-full border-t border-zinc-800 px-3.5 py-2.5 text-left text-sm text-red-300 hover:bg-red-950/40 disabled:opacity-50"
+                >
+                  Cancelar venda
+                </button>
+              ) : null}
+            </div>
+          </details>
         </div>
       </header>
 
       {error ? <div className="rounded-lg border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
       {ok ? <div className="rounded-lg border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-300">{ok}</div> : null}
+
+      <FaturamentoParcialPanel
+        tenantId={tenantId!}
+        empresaId={empresaId!}
+        osId={vendaId}
+          codigo={venda.codigo}
+          tipo="OV"
+          valorVenda={venda.orcado || venda.valor_total}
+          podeCompor={canFaturar && status !== "cancelada"}
+        onSolicitacaoCriada={() => {
+          setNfeDraftRefresh((current) => current + 1);
+          setTab("faturamento");
+          void reload();
+        }}
+      />
 
       <nav className="flex gap-1 overflow-x-auto border-b border-zinc-800">
         {([
@@ -544,20 +923,231 @@ export default function VendaDetalheClient() {
       {tab === "itens" ? (
         <section className="space-y-4">
           {canWrite && status === "em_andamento" ? (
-            <div className="grid gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-4 md:grid-cols-[minmax(240px,1fr)_120px_140px_auto_auto] md:items-end">
-              <label className="text-xs text-zinc-500">Item<select value={novoItemId} onChange={(event) => { const value = event.target.value; setNovoItemId(value); const meta = itemById.get(Number(value)); if (meta) setNovoValor(String(n(meta.preco_unitario))); }} className="mt-1 block w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200"><option value="">Selecione...</option>{catalogo.map((item) => <option key={item.id} value={item.id}>{item.codigo_interno ? `${item.codigo_interno} · ` : ""}{item.nome ?? item.descricao ?? `Item ${item.id}`}</option>)}</select></label>
-              <label className="text-xs text-zinc-500">Quantidade<input value={novaQuantidade} onChange={(event) => setNovaQuantidade(event.target.value)} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200" /></label>
-              <label className="text-xs text-zinc-500">Custo unitário<input value={novoValor} onChange={(event) => setNovoValor(event.target.value)} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200" /></label>
+            <div className="grid gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-4 md:grid-cols-[minmax(300px,3fr)_120px_140px_140px_auto_auto] md:items-end">
+              <label className="text-xs text-zinc-500">
+                Buscar item
+                <div className="mt-1 flex gap-2">
+                  <input
+                    value={novoItemBusca}
+                    onChange={(event) => {
+                      setNovoItemBusca(event.target.value);
+                      setNovoItemId("");
+                      setNovoItemSelecionado(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void buscarItemDireto();
+                      }
+                    }}
+                    placeholder="ID ou código do item. Enter abre a localização se não souber."
+                    className="min-w-0 flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200"
+                    aria-label="Buscar item por ID ou código"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void buscarItemDireto()}
+                    disabled={buscandoItem}
+                    className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                  >
+                    {buscandoItem ? "..." : "Buscar"}
+                  </button>
+                </div>
+              </label>
+              <label className="text-xs text-zinc-500">
+                Quantidade
+                <input
+                  ref={novaQuantidadeRef}
+                  value={novaQuantidade}
+                  onChange={(event) => setNovaQuantidade(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void adicionarItem();
+                    }
+                  }}
+                  inputMode="decimal"
+                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200"
+                />
+              </label>
+              <label className="text-xs text-zinc-500">
+                Custo unitário
+                <input value={novoValor} onChange={(event) => setNovoValor(event.target.value)} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200" />
+              </label>
+              <div className="text-xs text-zinc-500">
+                Estoque
+                <div className="mt-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 tabular-nums">
+                  {novoItemSelecionado?.estoque_atual === null || novoItemSelecionado?.estoque_atual === undefined
+                    ? "-"
+                    : n(novoItemSelecionado.estoque_atual).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}
+                </div>
+              </div>
               <label className="flex items-center gap-2 pb-2 text-sm text-zinc-300"><input type="checkbox" checked={baixarEstoque} onChange={(event) => setBaixarEstoque(event.target.checked)} />Baixar estoque</label>
-              <button type="button" onClick={() => void adicionarItem()} disabled={busy} className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 disabled:opacity-50">Adicionar</button>
+              <button type="button" onClick={() => void adicionarItem()} disabled={busy || !novoItemId} className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 disabled:opacity-50">Adicionar</button>
+            </div>
+          ) : null}
+
+          {showItemLookup ? (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
+              <div className="flex min-h-full w-full items-start justify-center md:items-center">
+                <div role="dialog" aria-modal="true" aria-labelledby="item-lookup-title" className="flex h-[90dvh] max-h-[90dvh] min-h-0 w-full max-w-5xl flex-col gap-4 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 id="item-lookup-title" className="text-lg font-semibold">Localizar item</h2>
+                      <div className="text-sm text-zinc-400">Filtre por nome, código ou fabricante para localizar o ID.</div>
+                    </div>
+                    <button type="button" onClick={() => setShowItemLookup(false)} className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 hover:bg-zinc-800">Fechar</button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className="space-y-1 text-xs text-zinc-400">
+                      <span>Nome ou código</span>
+                      <input
+                        autoFocus
+                        value={lookupNome}
+                        onChange={(event) => setLookupNome(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void buscarItensNoLocalizador(event.currentTarget.value, lookupFornecedor);
+                          }
+                        }}
+                        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200"
+                        aria-label="Buscar item por nome ou código"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-zinc-400">
+                      <span>Fornecedor</span>
+                      <input
+                        value={lookupFornecedor}
+                        onChange={(event) => setLookupFornecedor(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void buscarItensNoLocalizador(lookupNome, event.currentTarget.value);
+                          }
+                        }}
+                        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200"
+                        aria-label="Buscar item por fornecedor"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => void buscarItensNoLocalizador()} disabled={lookupBusy} className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50">
+                      {lookupBusy ? "Buscando..." : "Buscar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLookupNome("");
+                        setLookupFornecedor("");
+                        setLookupRows([]);
+                        setLookupError(null);
+                        void buscarItensNoLocalizador("", "");
+                      }}
+                      className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+
+                  {lookupError ? <div className="text-sm text-red-400">{lookupError}</div> : null}
+
+                  <div className="min-h-0 flex-1 overflow-auto overscroll-contain rounded-xl border border-zinc-800 bg-zinc-950">
+                    <table className="w-full min-w-[980px] text-sm">
+                      <thead className="sticky top-0 z-10 bg-zinc-900/95">
+                        <tr className="text-left text-zinc-200">
+                          {([
+                            ["id", "ID"],
+                            ["codigo", "Código"],
+                            ["descricao", "Descrição"],
+                            ["fornecedor", "Fornecedor"],
+                            ["ultima", "Última entrada"],
+                            ["preco", "Preço"],
+                            ["estoque", "Saldo"],
+                          ] as Array<[ItemLookupSortKey, string]>).map(([key, label]) => (
+                            <th key={key} className={`cursor-pointer px-4 py-3 ${key === "preco" || key === "estoque" ? "text-right" : ""}`} onClick={() => ordenarLocalizador(key)}>
+                              {label} {lookupSortKey === key ? (lookupSortDirection === "asc" ? "▲" : "▼") : null}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {sortedLookupRows.map((item) => (
+                          <tr key={item.id} className="cursor-pointer hover:bg-zinc-900/60" onClick={() => selecionarNovoItem(item)}>
+                            <td className="px-4 py-3 tabular-nums">{item.id}</td>
+                            <td className="px-4 py-3">{item.codigo_interno}</td>
+                            <td className="px-4 py-3">{item.nome}</td>
+                            <td className="px-4 py-3 text-zinc-300">{item.fornecedor || "—"}</td>
+                            <td className="px-4 py-3 text-zinc-300">{item.ultima_entrada ? dateBR(item.ultima_entrada) : "—"}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(item.preco_unitario))}</td>
+                            <td className="px-4 py-3 text-right tabular-nums">{item.estoque_atual === null ? "—" : n(item.estoque_atual).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</td>
+                          </tr>
+                        ))}
+                        {lookupRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
+                              {lookupBusy ? "Buscando itens..." : "Nenhum resultado. Ajuste os filtros e busque novamente."}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : null}
 
           <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950">
-            <table className="min-w-[900px] w-full text-sm"><thead className="bg-zinc-900/70 text-left text-xs uppercase text-zinc-500"><tr><th className="px-3 py-3">Item</th><th className="px-3 py-3 text-right">Quantidade</th><th className="px-3 py-3 text-right">Baixada</th><th className="px-3 py-3 text-right">Custo unitário</th><th className="px-3 py-3 text-right">Total</th><th className="px-3 py-3">Ações</th></tr></thead><tbody className="divide-y divide-zinc-900">
-              {itens.length === 0 ? <tr><td colSpan={6} className="px-3 py-10 text-center text-zinc-500">Nenhum item lançado.</td></tr> : null}
-              {itens.map((item) => { const meta = itemById.get(item.item_id); const restante = Math.max(0, n(item.quantidade) - n(item.quantidade_baixada)); return <tr key={item.id}><td className="px-3 py-3"><div className="font-medium">{meta?.nome ?? meta?.descricao ?? `Item ${item.item_id}`}</div><div className="text-xs text-zinc-500">{meta?.codigo_interno || "Sem código"} · {meta?.unidade_medida || "UN"}</div></td><td className="px-3 py-3 text-right tabular-nums">{n(item.quantidade).toLocaleString("pt-BR")}</td><td className="px-3 py-3 text-right tabular-nums">{n(item.quantidade_baixada).toLocaleString("pt-BR")}{restante > 0 ? <div className="text-xs text-amber-400">Falta {restante.toLocaleString("pt-BR")}</div> : <div className="text-xs text-emerald-400">Completa</div>}</td><td className="px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(item.valor_unitario))}</td><td className="px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(item.valor_total))}</td><td className="px-3 py-3"><div className="flex flex-wrap gap-1">{canWrite && status === "em_andamento" && restante > 0 ? <button type="button" onClick={() => void baixarItem(item)} disabled={busy} className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-900">Baixar restante</button> : null}{canWrite ? <button type="button" onClick={() => void gerarPendencia(item)} disabled={busy} className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-900">Gerar compra</button> : null}{canWrite && status === "em_andamento" ? <button type="button" onClick={() => void removerItem(item)} disabled={busy} className="rounded border border-red-900 px-2 py-1 text-xs text-red-300 hover:bg-red-950/40">Remover</button> : null}</div></td></tr>; })}
-            </tbody></table>
+            <table className="min-w-[980px] w-full text-sm">
+              <thead className="bg-zinc-900/70 text-left text-xs uppercase text-zinc-500">
+                <tr>
+                  <th className="px-3 py-3">ID</th>
+                  <th className="px-3 py-3">Item</th>
+                  <th className="px-3 py-3 text-right">Quantidade</th>
+                  <th className="px-3 py-3 text-right">Baixada</th>
+                  <th className="px-3 py-3 text-right">Custo unitário</th>
+                  <th className="px-3 py-3 text-right">Total</th>
+                  <th className="px-3 py-3">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-900">
+                {itens.length === 0 ? <tr><td colSpan={7} className="px-3 py-10 text-center text-zinc-500">Nenhum item lançado.</td></tr> : null}
+                {itens.map((item) => {
+                  const meta = itemById.get(item.item_id);
+                  const restante = Math.max(0, n(item.quantidade) - n(item.quantidade_baixada));
+                  const compraAtiva = pendencias.find(
+                    (pendencia) => pendencia.item_id === item.item_id && ["PENDENTE", "EM_PEDIDO"].includes(String(pendencia.status).toUpperCase())
+                  );
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-3 py-3 tabular-nums">{item.item_id}</td>
+                      <td className="px-3 py-3">
+                        <div className="font-medium">[{meta?.codigo_interno || item.item_id}] {meta?.nome ?? meta?.descricao ?? `Item ${item.item_id}`}</div>
+                        <div className="text-xs text-zinc-500">{meta?.tipo || "produto"}</div>
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums">{n(item.quantidade).toLocaleString("pt-BR")}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {n(item.quantidade_baixada).toLocaleString("pt-BR")}
+                        {restante > 0 ? <div className="text-xs text-amber-400">Falta {restante.toLocaleString("pt-BR")}</div> : <div className="text-xs text-emerald-400">Completa</div>}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(item.valor_unitario))}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(item.valor_total))}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {canWrite && status === "em_andamento" && restante > 0 ? <button type="button" onClick={() => void baixarItem(item)} disabled={busy} className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-900">Baixar restante</button> : null}
+                          {canWrite && status === "em_andamento" && restante > 0 && !compraAtiva ? <button type="button" onClick={() => void gerarPendencia(item)} disabled={busy} className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-900">Gerar compra</button> : null}
+                          {restante > 0 && compraAtiva ? <span className="rounded border border-violet-900 bg-violet-950/30 px-2 py-1 text-xs text-violet-300">Compra {n(compraAtiva.quantidade).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} · {compraAtiva.status}</span> : null}
+                          {canWrite && status === "em_andamento" ? <button type="button" onClick={() => void removerItem(item)} disabled={busy} className="rounded border border-red-900 px-2 py-1 text-xs text-red-300 hover:bg-red-950/40">Remover</button> : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
       ) : null}
@@ -578,6 +1168,45 @@ export default function VendaDetalheClient() {
       {tab === "faturamento" ? (
         <section className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">{[["Valor do pedido", saldo?.valor_pedido], ["Valor faturado", saldo?.valor_faturado], ["Saldo a faturar", saldo?.saldo]].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div className="text-xs uppercase text-zinc-500">{label}</div><div className="mt-2 text-xl font-semibold tabular-nums">R$ {formatMoneyBR(n(value))}</div></div>)}</div>
+          <OvNfeDraftsPanel
+            tenantId={tenantId!}
+            empresaId={empresaId!}
+            ovId={vendaId}
+            clienteNome={venda.cliente_nome}
+            podeEmitir={canFaturar && status !== "cancelada"}
+            refreshKey={nfeDraftRefresh}
+            onChanged={() => void reload()}
+          />
+          {canWrite ? (
+            <div className="rounded-xl border border-sky-900 bg-sky-950/20 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium text-sky-200">NF-e pela Focus · homologação</div>
+                  <div className="mt-1 text-xs text-zinc-400">Sem valor fiscal. A tela não espera a SEFAZ; o retorno chega automaticamente.</div>
+                </div>
+                <Link href="/faturamento/nfe" className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500">
+                  Abrir solicitações de NF-e
+                </Link>
+              </div>
+              {emissoesNfe.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  {emissoesNfe.map((emissao) => (
+                    <div key={emissao.documento_fiscal_id} className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-xs text-zinc-400">{emissao.referencia_externa}</span>
+                        <span className={emissao.status === "AUTORIZADA" ? "text-emerald-300" : emissao.status === "PROCESSANDO" || emissao.status === "ENVIANDO" ? "text-amber-300" : emissao.status === "REJEITADA" || emissao.status === "ERRO" ? "text-red-300" : "text-zinc-300"}>
+                          {emissao.status === "PROCESSANDO" || emissao.status === "ENVIANDO" ? "Em processamento" : emissao.status}
+                        </span>
+                      </div>
+                      {emissao.numero ? <div className="mt-1 text-zinc-300">NF-e {emissao.serie ? `${emissao.serie}/` : ""}{emissao.numero}{emissao.protocolo ? ` · protocolo ${emissao.protocolo}` : ""}</div> : null}
+                      {emissao.chave_acesso ? <div className="mt-1 break-all font-mono text-xs text-zinc-500">Chave {emissao.chave_acesso}</div> : null}
+                      {emissao.mensagem ? <div className="mt-1 text-xs text-zinc-400">{emissao.codigo_status ? `${emissao.codigo_status} · ` : ""}{emissao.mensagem}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {canWrite ? <div className="flex flex-wrap items-end gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-4"><label className="min-w-[280px] flex-1 text-xs text-zinc-500">Nota fiscal de saída disponível<select value={documentoSelecionado} onChange={(event) => setDocumentoSelecionado(event.target.value)} className="mt-1 block w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200"><option value="">Selecione...</option>{documentosDisponiveis.map((doc) => <option key={doc.id} value={doc.id}>{doc.modelo || "NF"} {doc.numero || "sem número"} · {dateBR(doc.emissao_date)} · R$ {formatMoneyBR(n(doc.valor_total))}</option>)}</select></label><button type="button" onClick={() => void vincularDocumento()} disabled={busy || !documentoSelecionado} className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 disabled:opacity-50">Vincular NF</button><Link href="/faturamento/nfe" className="rounded-md border border-zinc-800 px-3 py-2 text-sm hover:bg-zinc-900">Abrir faturamento</Link></div> : null}
           <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950"><table className="min-w-[700px] w-full text-sm"><thead className="bg-zinc-900/70 text-left text-xs uppercase text-zinc-500"><tr><th className="px-3 py-3">Documento</th><th className="px-3 py-3">Emissão</th><th className="px-3 py-3">Status</th><th className="px-3 py-3 text-right">Valor</th></tr></thead><tbody className="divide-y divide-zinc-900">{documentos.length === 0 ? <tr><td colSpan={4} className="px-3 py-10 text-center text-zinc-500">Nenhuma nota fiscal vinculada.</td></tr> : documentos.map((doc) => <tr key={doc.id}><td className="px-3 py-3">{doc.modelo || "NF"} {doc.serie ? `${doc.serie}/` : ""}{doc.numero || "—"}</td><td className="px-3 py-3">{dateBR(doc.emissao_date)}</td><td className="px-3 py-3">{doc.nfse_status || doc.nfe_status || "EMITIDA"}</td><td className="px-3 py-3 text-right tabular-nums">R$ {formatMoneyBR(n(doc.valor_total))}</td></tr>)}</tbody></table></div>
         </section>

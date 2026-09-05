@@ -10,6 +10,7 @@ import { formatMoneyBR } from "@/lib/decimal";
 import type { CapabilityKey } from "@/lib/auth/capabilities";
 import OsVinculoField from "@/app/faturamento/components/OsVinculoField";
 import { fetchOsSelectionById, type OsSelection } from "@/lib/os-vinculo";
+import NfeLifecyclePanel from "./NfeLifecyclePanel";
 import {
   imprimirRelatorioDestinos,
   type RelatorioDestinoImportacao,
@@ -18,6 +19,7 @@ import {
 
 type DocumentoFiscalRow = {
   id: string;
+  origem: string;
   operacao: string;
   natureza: string;
   modelo: string | null;
@@ -464,7 +466,7 @@ export default function NfeDetail({
             .schema("f")
             .from("documento_fiscal")
             .select(
-              "id,operacao,natureza,modelo,serie,numero,chave_acesso,emissao_date,valor_total,fornecedor_id,cliente_id,os_id_import,created_at,source_nf_entrada_id"
+              "id,origem,operacao,natureza,modelo,serie,numero,chave_acesso,emissao_date,valor_total,fornecedor_id,cliente_id,os_id_import,created_at,source_nf_entrada_id"
             )
             .eq("id", id)
             .is("deleted_at", null),
@@ -684,7 +686,7 @@ export default function NfeDetail({
   const canDeleteDoc =
     access === "financeiro" &&
     doc?.natureza === "PRODUTO" &&
-    (doc?.operacao === "SAIDA" || isEntradaProduto);
+    ((doc?.operacao === "SAIDA" && doc?.origem !== "EMITIDO") || isEntradaProduto);
 
   const saveOsLink = async () => {
     if (!ready || !doc?.id || !canEditOsLink) return;
@@ -824,6 +826,7 @@ export default function NfeDetail({
 
       {doc ? (
         <div className="mt-6 grid gap-4">
+          {access === "financeiro" && doc.origem === "EMITIDO" ? <NfeLifecyclePanel documentoId={doc.id} /> : null}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950">
             <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
               <div className="text-sm font-medium text-zinc-100">Cabeçalho</div>

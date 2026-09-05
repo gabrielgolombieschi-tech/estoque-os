@@ -56,6 +56,16 @@ out/
 # misc
 *.log
 
+# testes de browser (Playwright): sessão salva, screenshots e relatórios
+/tests/e2e/.auth/
+/tests/e2e/.saida/
+/tests/e2e/.relatorio/
+/tests-dev-server.log
+
 # backups locais do Supabase (não versionar nem enviar ao deploy)
 /backup_schema.sql
 /backup_dados.sql
+/backups/
+
+# Chrome de teste (perfil dedicado, nao versionar)
+/.chrome-e2e/

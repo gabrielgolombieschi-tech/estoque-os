@@ -60,6 +60,9 @@ const res = spawnSync(
     extract("PGDATABASE"),
     "-X",
     "-q",
+    // --raw: saida sem alinhamento nem cabecalho, para copiar definicoes de
+    // funcao sem os marcadores de continuacao do psql.
+    ...(process.argv.includes("--raw") ? ["-t", "-A"] : []),
     "-c",
     sql,
   ],

@@ -154,12 +154,12 @@ begin
 end;
 $$;
 
-COMMIT;
+-- As funções auxiliares acima também pertencem à transação de teste e serão
+-- desfeitas no ROLLBACK final.
 
 -- ------------------------------------------------------------
 -- 1) TESTE (tudo será ROLLBACK ao final)
 -- ------------------------------------------------------------
-BEGIN;
 
 DO $$ BEGIN
   RAISE NOTICE 'Running xml_import_nf_entrada_xml_integridade.sql (FIXED find + xml)';
@@ -246,6 +246,18 @@ BEGIN
   INSERT INTO public.tenant_memberships (id, tenant_id, user_id, status)
   VALUES (v_membership, v_tenant, v_user, 'active')
   ON CONFLICT DO NOTHING;
+
+  -- A projecao de a.usuario_tenant pode ter criado a membership antes deste
+  -- fixture. Use sempre o id canonico existente para nao referenciar o UUID
+  -- provisoriamente gerado acima.
+  SELECT tm.id INTO v_membership
+  FROM public.tenant_memberships tm
+  WHERE tm.tenant_id = v_tenant
+    AND tm.user_id = v_user;
+
+  IF v_membership IS NULL THEN
+    RAISE EXCEPTION 'TEST SETUP FAILED: tenant_membership nao foi criada';
+  END IF;
 
   INSERT INTO public.roles (id, tenant_id, name)
   VALUES (v_role, v_tenant, 'ROLE_XML_IMPORT_TEST_' || left(replace(v_role::text,'-',''), 6))
@@ -381,65 +393,65 @@ BEGIN
   END;
 
   ---------------------------------------------------------------------------
-  -- 3) Sem XML mas com itens completos -> deve criar pendência XML_FALTANDO
+  -- 3) Sem XML, mesmo com itens completos, deve rejeitar atomicamente.
   ---------------------------------------------------------------------------
-  SELECT nf_entrada_id INTO v_nf_id
-  FROM public.import_nf_entrada(
-    v_empresa,
-    'revenda'::public.item_finalidade,
-    v_fornecedor_id,
-    jsonb_build_array(
+  BEGIN
+    PERFORM 1
+    FROM public.import_nf_entrada(
+      v_empresa,
+      'revenda'::public.item_finalidade,
+      v_fornecedor_id,
+      jsonb_build_array(
+        jsonb_build_object(
+          'item_id', v_item_id,
+          'codigo', 'IT-TEST',
+          'nome', 'ITEM TESTE',
+          'quantidade', 1,
+          'valorUnit', 10,
+          'total', 10
+        )
+      ),
       jsonb_build_object(
-        'item_id', v_item_id,
-        'codigo', 'IT-TEST',
-        'nome', 'ITEM TESTE',
-        'quantidade', 1,
-        'valorUnit', 10,
-        'total', 10
-      )
-    ),
-    jsonb_build_object(
-      'chave', '35333333333333333333333333333333333333333333',
-      'emitente_nome', 'EMITENTE',
-      'emitente_cnpj', '11111111000111',
-      'numero', '3',
-      'serie', '1',
-      'data_emissao', now()::text,
-      'valor_total', 10,
-      'valor_produtos', 10,
-      'valor_frete', 0,
-      'valor_seguro', 0,
-      'valor_desconto', 0,
-      'valor_outros', 0
-    ),
-    v_tenant,
-    null,
-    false,
-    null,
-    null,
-    false,
-    v_motivo,
-    v_usuario_id
-  );
+        'chave', '35333333333333333333333333333333333333333333',
+        'emitente_nome', 'EMITENTE',
+        'emitente_cnpj', '11111111000111',
+        'numero', '3',
+        'serie', '1',
+        'data_emissao', now()::text,
+        'valor_total', 10,
+        'valor_produtos', 10,
+        'valor_frete', 0,
+        'valor_seguro', 0,
+        'valor_desconto', 0,
+        'valor_outros', 0
+      ),
+      v_tenant,
+      null,
+      false,
+      null,
+      null,
+      false,
+      v_motivo,
+      v_usuario_id
+    );
+    RAISE EXCEPTION 'TEST FAILED: entrada sem XML foi aceita';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'TEST FAILED: entrada sem XML foi aceita' THEN
+      RAISE;
+    END IF;
+    IF position('sem xml_raw' in SQLERRM) = 0 THEN
+      RAISE;
+    END IF;
+  END;
 
-  SELECT id INTO v_df_id
-  FROM f.documento_fiscal
-  WHERE tenant_id = v_tenant AND source_nf_entrada_id = v_nf_id
-  ORDER BY created_at DESC
-  LIMIT 1;
-
-  IF v_df_id IS NULL THEN
-    RAISE EXCEPTION 'TEST FAILED: documento_fiscal not created (no-xml case)';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM f.documento_fiscal_pendencia
+  IF EXISTS (
+    SELECT 1
+    FROM public.nf_entrada
     WHERE tenant_id = v_tenant
-      AND documento_fiscal_id = v_df_id
-      AND tipo = 'XML_FALTANDO'
-      AND resolved_at IS NULL
+      AND empresa_id = v_empresa
+      AND chave = '35333333333333333333333333333333333333333333'
   ) THEN
-    RAISE EXCEPTION 'TEST FAILED: documento_fiscal_pendencia XML_FALTANDO not created';
+    RAISE EXCEPTION 'TEST FAILED: rejeição sem XML deixou nf_entrada parcial';
   END IF;
 
 END $$;

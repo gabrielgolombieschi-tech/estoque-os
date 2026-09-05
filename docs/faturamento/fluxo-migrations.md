@@ -58,6 +58,7 @@ O último comando deve responder `Remote database is up to date.`
 6. `db diff --linked` serve para investigar deriva de schema, não para substituir a prévia do push.
 7. Toda query, FK ou backfill deve respeitar `tenant_id` e `empresa_id`.
 8. Mudança em tabela operacional deve considerar lock, backup e janela proporcional ao risco.
+9. Toda migration que cria tabela deve conceder no mesmo arquivo os `grant` necessários aos papéis da API. O projeto não depende de `alter default privileges`; o smoke deve testar como `authenticated`, enxergando a empresa atual e ocultando outra empresa do mesmo tenant.
 
 ## Estado confirmado após o alinhamento
 

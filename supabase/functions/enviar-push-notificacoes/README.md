@@ -9,6 +9,12 @@ npx supabase functions deploy enviar-push-notificacoes --no-verify-jwt
 npx supabase secrets set PUSH_DISPATCH_TOKEN=<gere-um-segredo-longo>
 ```
 
-Configure o agendador da plataforma para chamar `POST /functions/v1/enviar-push-notificacoes` a cada minuto com o header `Authorization: Bearer <PUSH_DISPATCH_TOKEN>`. O segredo nao deve ficar no app, em migrations, nem no repositório.
+O agendamento (a cada minuto) é instalado pela migration `20260903140000_agendar_envio_push_notificacoes.sql` via `pg_cron` + `pg_net`. O job só dispara depois que os segredos entram no Vault:
+
+```sql
+select public.fn_push_configurar_agendador('https://<ref>.supabase.co', '<mesmo-PUSH_DISPATCH_TOKEN>');
+```
+
+O valor passado aqui (Vault, usado pelo cron) tem que ser idêntico ao `PUSH_DISPATCH_TOKEN` do `secrets set` (runtime da Function). O segredo não deve ficar no app, em migrations, nem no repositório.
 
 O processamento e idempotente por entrega: uma chamada concorrente reserva linhas com `SKIP LOCKED`; tokens retornados pelo Expo como `DeviceNotRegistered` sao desativados automaticamente.

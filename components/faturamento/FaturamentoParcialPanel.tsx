@@ -1,0 +1,679 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/client";
+import { formatMoneyBR } from "@/lib/decimal";
+
+type SaldoItem = {
+  os_item_id: number;
+  item_id: number;
+  descricao: string;
+  quantidade_total: number | string;
+  quantidade_faturada: number | string;
+  saldo: number | string;
+  unidade: string | null;
+};
+
+type OrigemItem = {
+  id: number;
+  finalidade: string | null;
+  quantidade: number | string;
+  valor_unitario: number | string;
+  desconto_valor: number | string | null;
+};
+
+type Linha = SaldoItem & {
+  finalidade: string | null;
+  custoUnitario: number;
+  descontoTotal: number;
+};
+
+type Props = {
+  tenantId: string;
+  empresaId: string;
+  osId: number;
+  codigo: string;
+  tipo: "OS" | "OV";
+  valorVenda?: number | string | null;
+  descricaoSugestao?: string | null;
+  podeCompor: boolean;
+  onSolicitacaoCriada?: (solicitacaoId: string) => void;
+};
+
+const EPSILON = 0.0000001;
+
+function numero(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function quantidadeBR(value: number) {
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+}
+
+function parseQuantidade(value: string) {
+  const normalized = value.trim().replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function valorVendaInput(value: number) {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
+function precosRateados(linhas: Linha[], valorVenda: number) {
+  const elegiveis = linhas.filter(
+    (linha) => linha.finalidade === "venda" && numero(linha.quantidade_total) > EPSILON
+  );
+  if (elegiveis.length === 0) return {} as Record<number, string>;
+
+  const basesCusto = elegiveis.map((linha) => Math.max(
+    numero(linha.quantidade_total) * linha.custoUnitario - linha.descontoTotal,
+    0
+  ));
+  const totalCusto = basesCusto.reduce((total, valor) => total + valor, 0);
+  const pesos = totalCusto > EPSILON
+    ? basesCusto
+    : elegiveis.map((linha) => numero(linha.quantidade_total));
+  const totalPeso = pesos.reduce((total, valor) => total + valor, 0);
+  const totalCentavos = Math.round(Math.max(valorVenda, 0) * 100);
+  const brutos = pesos.map((peso) => totalPeso > EPSILON ? totalCentavos * peso / totalPeso : 0);
+  const centavos = brutos.map(Math.floor);
+  let restantes = totalCentavos - centavos.reduce((total, valor) => total + valor, 0);
+  const ordemRestos = brutos
+    .map((valor, indice) => ({ indice, resto: valor - Math.floor(valor) }))
+    .sort((a, b) => b.resto - a.resto || a.indice - b.indice);
+  for (let indice = 0; indice < ordemRestos.length && restantes > 0; indice += 1, restantes -= 1) {
+    centavos[ordemRestos[indice].indice] += 1;
+  }
+
+  return Object.fromEntries(elegiveis.map((linha, indice) => [
+    linha.os_item_id,
+    valorVendaInput((centavos[indice] / 100) / numero(linha.quantidade_total)),
+  ]));
+}
+
+function mensagemErro(cause: unknown) {
+  if (cause && typeof cause === "object" && "message" in cause) {
+    return String((cause as { message: unknown }).message);
+  }
+  return "Não foi possível preparar o faturamento.";
+}
+
+function FaturamentoOvPanel({
+  tenantId,
+  empresaId,
+  osId,
+  codigo,
+  tipo,
+  valorVenda,
+  podeCompor,
+  onSolicitacaoCriada,
+}: Props) {
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [quantidades, setQuantidades] = useState<Record<number, string>>({});
+  const [precosUnitarios, setPrecosUnitarios] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    if (!tenantId || !empresaId || !Number.isInteger(osId) || osId <= 0) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [saldoResult, origemResult] = await Promise.all([
+        supabase.schema("f").rpc("fn_os_itens_saldo_a_faturar", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_os_id: osId,
+        }),
+        supabase
+          .from("os_itens")
+          .select("id,finalidade,quantidade,valor_unitario,desconto_valor")
+          .eq("tenant_id", tenantId)
+          .eq("empresa_id", empresaId)
+          .eq("os_id", osId),
+      ]);
+      if (saldoResult.error) throw saldoResult.error;
+      if (origemResult.error) throw origemResult.error;
+
+      const origemPorId = new Map(
+        ((origemResult.data ?? []) as OrigemItem[]).map((item) => [item.id, item])
+      );
+      const next = ((saldoResult.data ?? []) as SaldoItem[]).map((item) => {
+        const origem = origemPorId.get(item.os_item_id);
+        return {
+          ...item,
+          finalidade: origem?.finalidade ?? null,
+          custoUnitario: numero(origem?.valor_unitario),
+          descontoTotal: numero(origem?.desconto_valor),
+        };
+      });
+      setLinhas(next);
+      setPrecosUnitarios(precosRateados(next, numero(valorVenda)));
+      setQuantidades(
+        Object.fromEntries(
+          next
+            .filter((item) => item.finalidade === "venda" && numero(item.saldo) > EPSILON)
+            .map((item) => [item.os_item_id, quantidadeBR(numero(item.saldo))])
+        )
+      );
+    } catch (cause) {
+      setError(mensagemErro(cause));
+      setLinhas([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [empresaId, osId, supabase, tenantId, valorVenda]);
+
+  useEffect(() => {
+    // A RPC remota é a fonte do saldo e sincroniza o estado local do painel.
+    void carregar();
+  }, [carregar]);
+
+  const venda = useMemo(() => linhas.filter((item) => item.finalidade === "venda"), [linhas]);
+  const legado = useMemo(() => linhas.filter((item) => item.finalidade == null), [linhas]);
+  const pendentes = useMemo(() => venda.filter((item) => numero(item.saldo) > EPSILON), [venda]);
+
+  const itensSelecionados = useMemo(
+    () =>
+      pendentes
+        .map((item) => ({
+          item,
+          quantidade: parseQuantidade(quantidades[item.os_item_id] ?? ""),
+          valorUnitario: parseQuantidade(precosUnitarios[item.os_item_id] ?? ""),
+        }))
+        .filter(({ quantidade }) => Number.isFinite(quantidade) && quantidade > EPSILON),
+    [pendentes, precosUnitarios, quantidades]
+  );
+
+  const totalSolicitacao = useMemo(
+    () =>
+      itensSelecionados.reduce((total, { quantidade, valorUnitario }) => {
+        return total + (Number.isFinite(valorUnitario) ? quantidade * valorUnitario : 0);
+      }, 0),
+    [itensSelecionados]
+  );
+  const diferencaOv = totalSolicitacao - numero(valorVenda);
+
+  async function confirmar() {
+    setError(null);
+    setOk(null);
+    if (itensSelecionados.length === 0) {
+      setError("Informe ao menos uma quantidade maior que zero.");
+      return;
+    }
+    const invalida = itensSelecionados.find(
+      ({ item, quantidade }) => quantidade > numero(item.saldo) + EPSILON
+    );
+    if (invalida) {
+      setError(
+        `A linha ${invalida.item.os_item_id} aceita no máximo ${quantidadeBR(numero(invalida.item.saldo))} ${invalida.item.unidade ?? ""}.`
+      );
+      return;
+    }
+    const precoInvalido = itensSelecionados.find(
+      ({ valorUnitario }) => !Number.isFinite(valorUnitario) || valorUnitario < 0
+    );
+    if (precoInvalido) {
+      setError(`Informe um preço unitário de venda válido para a linha ${precoInvalido.item.os_item_id}.`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const itens = itensSelecionados.map(({ item, quantidade, valorUnitario }) => ({
+        os_item_id: item.os_item_id,
+        quantidade,
+        valor_unitario: valorUnitario,
+      }));
+      const { data, error: rpcError } = await supabase
+        .schema("f")
+        .rpc("fn_solicitacao_faturamento_criar_parcial", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_os_id: osId,
+          p_itens_quantidades: itens,
+          p_os_item_ids: itens.map((item) => item.os_item_id),
+          p_natureza_operacao: "VENDA_MERCADORIA_TERCEIROS",
+        });
+      if (rpcError) throw rpcError;
+      const solicitacaoId = String(data ?? "");
+      setOk(`Solicitação ${solicitacaoId.slice(0, 8)} criada em rascunho. Nenhuma nota foi emitida.`);
+      setOpen(false);
+      await carregar();
+      onSolicitacaoCriada?.(solicitacaoId);
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-zinc-100">Progresso do faturamento por item</h2>
+          <p className="mt-1 text-sm text-zinc-400">
+            {tipo} {codigo}: rascunhos já reservam quantidade; somente uma solicitação cancelada devolve o saldo.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void carregar()}
+            disabled={loading || saving}
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 disabled:opacity-50"
+          >
+            Atualizar saldo
+          </button>
+          {podeCompor ? (
+            <button
+              type="button"
+              onClick={() => { setError(null); setOk(null); setOpen(true); }}
+              disabled={loading || saving || pendentes.length === 0}
+              className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+            >
+              Faturar
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {error && !open ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
+      {ok ? <div className="rounded-md border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-300">{ok}</div> : null}
+
+      {loading ? (
+        <div className="py-5 text-sm text-zinc-500">Calculando quantidades...</div>
+      ) : venda.length === 0 ? (
+        <div className="py-5 text-sm text-zinc-500">Nenhuma linha classificada como venda.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="text-left text-xs uppercase text-zinc-500">
+              <tr className="border-b border-zinc-800">
+                <th className="px-2 py-2">Item</th>
+                <th className="px-2 py-2 text-right">Total</th>
+                <th className="px-2 py-2 text-right">Reservado/faturado</th>
+                <th className="px-2 py-2 text-right">Saldo</th>
+                <th className="px-2 py-2">Situação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {venda.map((item) => {
+                const semSaldo = numero(item.saldo) <= EPSILON;
+                return (
+                  <tr key={item.os_item_id} className="border-b border-zinc-900">
+                    <td className="px-2 py-3"><span className="text-zinc-500">#{item.os_item_id}</span> · {item.descricao}</td>
+                    <td className="px-2 py-3 text-right tabular-nums">{quantidadeBR(numero(item.quantidade_total))} {item.unidade}</td>
+                    <td className="px-2 py-3 text-right tabular-nums">{quantidadeBR(numero(item.quantidade_faturada))} {item.unidade}</td>
+                    <td className="px-2 py-3 text-right font-medium tabular-nums">{quantidadeBR(numero(item.saldo))} {item.unidade}</td>
+                    <td className={`px-2 py-3 ${semSaldo ? "text-emerald-300" : "text-amber-300"}`}>{semSaldo ? "Faturado" : "Pendente"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {legado.length > 0 ? (
+        <div className="rounded-lg border border-amber-900/70 bg-amber-950/20 p-3">
+          <div className="text-sm font-medium text-amber-300">{legado.length} linha(s) sem finalidade</div>
+          <p className="mt-1 text-xs text-amber-200/80">Classifique como venda ou componente antes de incluir no faturamento.</p>
+          <div className="mt-2 space-y-1 text-sm text-zinc-300">
+            {legado.map((item) => <div key={item.os_item_id}>#{item.os_item_id} · {item.descricao} · {quantidadeBR(numero(item.quantidade_total))} {item.unidade}</div>)}
+          </div>
+        </div>
+      ) : null}
+
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div role="dialog" aria-modal="true" aria-label={`Faturar ${tipo} ${codigo}`} className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl">
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-zinc-800 bg-zinc-950 p-4">
+              <div><h2 className="text-lg font-semibold">Faturar {tipo} {codigo}</h2><p className="text-sm text-zinc-400">Defina quanto entra nesta solicitação. A nota não será emitida agora.</p></div>
+              <button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900">Fechar</button>
+            </div>
+            <div className="space-y-3 p-4">
+              {error ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
+              {pendentes.map((item) => (
+                <div key={item.os_item_id} className="grid gap-3 rounded-lg border border-zinc-800 p-3 md:grid-cols-[minmax(240px,1fr)_100px_160px_160px] md:items-end">
+                  <div><div className="font-medium">{item.descricao}</div><div className="mt-1 text-xs text-zinc-500">Linha #{item.os_item_id} · total {quantidadeBR(numero(item.quantidade_total))} · já reservado {quantidadeBR(numero(item.quantidade_faturada))}</div></div>
+                  <div className="text-sm"><div className="text-xs text-zinc-500">Saldo</div><div className="mt-2 tabular-nums">{quantidadeBR(numero(item.saldo))} {item.unidade}</div></div>
+                  <label className="text-xs text-zinc-500">Preço unitário de venda<input aria-label={`Preço unitário de venda — ${item.descricao}`} value={precosUnitarios[item.os_item_id] ?? ""} onChange={(event) => { setError(null); setPrecosUnitarios((current) => ({ ...current, [item.os_item_id]: event.target.value })); }} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
+                  <label className="text-xs text-zinc-500">Quantidade a faturar<input aria-label={`Quantidade a faturar — ${item.descricao}`} value={quantidades[item.os_item_id] ?? ""} onChange={(event) => { setError(null); setQuantidades((current) => ({ ...current, [item.os_item_id]: event.target.value })); }} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
+                </div>
+              ))}
+              <p className="text-xs text-zinc-500">Os preços sugeridos rateiam o valor total da OV proporcionalmente ao custo das linhas. O custo nunca é enviado para a NF-e.</p>
+            </div>
+            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950 p-4">
+              <div className="space-y-1">
+                <div className="text-xs uppercase text-zinc-500">Total da solicitação</div>
+                <div className="text-xl font-semibold tabular-nums">R$ {formatMoneyBR(totalSolicitacao)}</div>
+                <div className="text-xs text-zinc-400">Valor da OV: R$ {formatMoneyBR(numero(valorVenda))}</div>
+                {Math.abs(diferencaOv) > 0.009 ? <div className="text-xs text-amber-300">Diferença: {diferencaOv > 0 ? "+" : "-"} R$ {formatMoneyBR(Math.abs(diferencaOv))}. Confira; isso não impede salvar o rascunho.</div> : <div className="text-xs text-emerald-300">A soma das linhas fecha com o valor da OV.</div>}
+              </div>
+              <div className="flex gap-2"><button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900">Cancelar</button><button type="button" onClick={() => void confirmar()} disabled={saving || itensSelecionados.length === 0} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">{saving ? "Salvando..." : "Salvar rascunho da NF-e"}</button></div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+type SaldoOs = {
+  valor_pedido: number | string;
+  valor_faturado: number | string;
+  valor_reservado: number | string;
+  saldo: number | string;
+  usa_relatorio_hh: boolean;
+};
+
+type ProdutoBusca = {
+  id: number;
+  codigo: string | null;
+  nome: string;
+  unidade: string | null;
+  valor_unitario: number | string;
+};
+
+type LinhaOs = {
+  chave: number;
+  descricao: string;
+  quantidade: string;
+  unidade: string;
+  valorUnitario: string;
+  itemId: number | null;
+  produto: string | null;
+  busca: string;
+  buscando: boolean;
+  resultados: ProdutoBusca[];
+};
+
+function parseNumeroBR(value: string) {
+  const trimmed = value.trim();
+  const normalized = trimmed.includes(",")
+    ? trimmed.replace(/\./g, "").replace(",", ".")
+    : trimmed;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function valorInput(value: unknown) {
+  return numero(value).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function novaLinhaOs(chave: number, descricao = ""): LinhaOs {
+  return {
+    chave,
+    descricao,
+    quantidade: "1",
+    unidade: "UN",
+    valorUnitario: "0,00",
+    itemId: null,
+    produto: null,
+    busca: "",
+    buscando: false,
+    resultados: [],
+  };
+}
+
+function FaturamentoOsPanel({
+  tenantId,
+  empresaId,
+  osId,
+  codigo,
+  descricaoSugestao,
+  podeCompor,
+}: Props) {
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const sugestao = useMemo(
+    () => descricaoSugestao?.trim() || `Faturamento da OS ${codigo}`,
+    [codigo, descricaoSugestao]
+  );
+  const [saldo, setSaldo] = useState<SaldoOs | null>(null);
+  const [linhas, setLinhas] = useState<LinhaOs[]>(() => [novaLinhaOs(1, sugestao)]);
+  const [proximaChave, setProximaChave] = useState(2);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    if (!tenantId || !empresaId || !Number.isInteger(osId) || osId <= 0) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: rpcError } = await supabase.schema("f").rpc("fn_os_saldo_a_faturar", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_os_id: osId,
+      });
+      if (rpcError) throw rpcError;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) throw new Error("Não foi possível calcular o saldo desta OS.");
+      setSaldo(row as SaldoOs);
+    } catch (cause) {
+      setSaldo(null);
+      setError(mensagemErro(cause));
+    } finally {
+      setLoading(false);
+    }
+  }, [empresaId, osId, supabase, tenantId]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    setLinhas([novaLinhaOs(1, sugestao)]);
+    setProximaChave(2);
+  }, [osId, sugestao]);
+
+  const totalSolicitacao = useMemo(
+    () => linhas.reduce((total, linha) => {
+      const quantidade = parseNumeroBR(linha.quantidade);
+      const valor = parseNumeroBR(linha.valorUnitario);
+      return total + (Number.isFinite(quantidade) && Number.isFinite(valor) ? quantidade * valor : 0);
+    }, 0),
+    [linhas]
+  );
+
+  const valorPedido = numero(saldo?.valor_pedido);
+  const temTeto = valorPedido > EPSILON;
+  const ultrapassaSaldo = temTeto && totalSolicitacao > numero(saldo?.saldo) + 0.009;
+
+  function atualizarLinha(chave: number, patch: Partial<LinhaOs>) {
+    setError(null);
+    setLinhas((current) => current.map((linha) => linha.chave === chave ? { ...linha, ...patch } : linha));
+  }
+
+  function adicionarLinha() {
+    setLinhas((current) => [...current, novaLinhaOs(proximaChave)]);
+    setProximaChave((current) => current + 1);
+  }
+
+  function removerLinha(chave: number) {
+    setLinhas((current) => current.length === 1
+      ? [novaLinhaOs(current[0].chave, sugestao)]
+      : current.filter((linha) => linha.chave !== chave));
+  }
+
+  async function buscarProduto(chave: number) {
+    const linha = linhas.find((item) => item.chave === chave);
+    const termo = linha?.busca.trim() ?? "";
+    if (termo.length < 2) {
+      setError("Digite ao menos 2 caracteres para buscar um produto.");
+      return;
+    }
+    atualizarLinha(chave, { buscando: true, resultados: [] });
+    try {
+      const { data, error: rpcError } = await supabase.schema("f").rpc("fn_faturamento_buscar_itens", {
+        p_tenant_id: tenantId,
+        p_empresa_id: empresaId,
+        p_termo: termo,
+        p_limite: 20,
+      });
+      if (rpcError) throw rpcError;
+      atualizarLinha(chave, { buscando: false, resultados: (data ?? []) as ProdutoBusca[] });
+    } catch (cause) {
+      atualizarLinha(chave, { buscando: false });
+      setError(mensagemErro(cause));
+    }
+  }
+
+  function selecionarProduto(chave: number, produto: ProdutoBusca) {
+    atualizarLinha(chave, {
+      itemId: produto.id,
+      produto: `${produto.codigo || produto.id} · ${produto.nome}`,
+      descricao: produto.nome,
+      unidade: produto.unidade || "UN",
+      valorUnitario: valorInput(produto.valor_unitario),
+      busca: "",
+      resultados: [],
+    });
+  }
+
+  async function confirmar() {
+    setError(null);
+    setOk(null);
+    const payload = linhas.map((linha) => ({
+      descricao: linha.descricao.trim(),
+      quantidade: parseNumeroBR(linha.quantidade),
+      unidade: linha.unidade.trim().toUpperCase(),
+      valor_unitario: parseNumeroBR(linha.valorUnitario),
+      item_id: linha.itemId,
+    }));
+    const invalida = payload.findIndex((linha) =>
+      !linha.descricao
+      || !Number.isFinite(linha.quantidade)
+      || linha.quantidade <= 0
+      || !linha.unidade
+      || !Number.isFinite(linha.valor_unitario)
+      || linha.valor_unitario < 0
+    );
+    if (invalida >= 0) {
+      setError(`Revise descrição, quantidade, unidade e valor da linha ${invalida + 1}.`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data, error: rpcError } = await supabase
+        .schema("f")
+        .rpc("fn_solicitacao_faturamento_criar_os_livre", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_os_id: osId,
+          p_linhas: payload,
+          p_natureza_operacao: "FATURAMENTO_OS",
+        });
+      if (rpcError) throw rpcError;
+      const solicitacaoId = String(data ?? "");
+      setOk(`Solicitação ${solicitacaoId.slice(0, 8)} criada em rascunho. Nenhuma nota foi emitida.`);
+      setOpen(false);
+      setLinhas([novaLinhaOs(1, sugestao)]);
+      setProximaChave(2);
+      await carregar();
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-zinc-100">Faturamento da OS por valor</h2>
+          <p className="mt-1 text-sm text-zinc-400">
+            OS {codigo}: componha as linhas que devem aparecer na nota. Os materiais consumidos na OS não são copiados.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => void carregar()} disabled={loading || saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 disabled:opacity-50">Atualizar saldo</button>
+          {podeCompor ? (
+            <button type="button" onClick={() => { setError(null); setOk(null); setOpen(true); }} disabled={loading || saving} className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">Faturar</button>
+          ) : null}
+        </div>
+      </div>
+
+      {error && !open ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
+      {ok ? <div className="rounded-md border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-300">{ok}</div> : null}
+
+      {loading ? <div className="py-4 text-sm text-zinc-500">Calculando valores...</div> : saldo ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Orçado / HH</div><div className="mt-1 text-lg font-semibold tabular-nums">{temTeto ? `R$ ${formatMoneyBR(valorPedido)}` : "Sem teto cadastrado"}</div></div>
+          <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Já faturado</div><div className="mt-1 text-lg font-semibold tabular-nums">R$ {formatMoneyBR(numero(saldo.valor_faturado))}</div></div>
+          <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Reservado em aberto</div><div className="mt-1 text-lg font-semibold tabular-nums">R$ {formatMoneyBR(numero(saldo.valor_reservado))}</div></div>
+          <div className="rounded-lg border border-zinc-800 p-3"><div className="text-xs uppercase text-zinc-500">Saldo</div><div className="mt-1 text-lg font-semibold tabular-nums">{temTeto ? `R$ ${formatMoneyBR(numero(saldo.saldo))}` : "Sem teto"}</div></div>
+        </div>
+      ) : null}
+
+      {!loading && !temTeto ? (
+        <div className="rounded-md border border-amber-900/70 bg-amber-950/20 p-3 text-sm text-amber-200">
+          Esta OS não tem orçamento/HH com valor. O sistema permite compor o faturamento, mas não consegue avisar sobre excesso.
+        </div>
+      ) : null}
+
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div role="dialog" aria-modal="true" aria-label={`Faturar OS ${codigo}`} className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-800 bg-zinc-950 p-4">
+              <div><h2 className="text-lg font-semibold">Compor faturamento da OS {codigo}</h2><p className="text-sm text-zinc-400">As descrições são livres e editáveis. A confirmação cria somente um rascunho.</p></div>
+              <button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900">Fechar</button>
+            </div>
+            <div className="space-y-4 p-4">
+              {error ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
+              {linhas.map((linha, index) => (
+                <div key={linha.chave} className="space-y-3 rounded-lg border border-zinc-800 p-3">
+                  <div className="flex items-center justify-between gap-3"><div className="font-medium text-zinc-200">Linha {index + 1}</div><button type="button" onClick={() => removerLinha(linha.chave)} disabled={saving} className="text-xs text-red-300 hover:text-red-200">Remover</button></div>
+                  <div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input value={linha.busca} onChange={(event) => atualizarLinha(linha.chave, { busca: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void buscarProduto(linha.chave); } }} placeholder="Buscar produto do cadastro (opcional)" className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm" />
+                      <button type="button" onClick={() => void buscarProduto(linha.chave)} disabled={linha.buscando || saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900 disabled:opacity-50">{linha.buscando ? "Buscando..." : "Buscar produto"}</button>
+                    </div>
+                    {linha.produto ? <div className="mt-2 flex items-center justify-between rounded-md bg-zinc-900 px-3 py-2 text-xs text-zinc-300"><span>Vinculado: {linha.produto}</span><button type="button" onClick={() => atualizarLinha(linha.chave, { itemId: null, produto: null })} className="text-zinc-400 hover:text-zinc-200">Desvincular</button></div> : null}
+                    {linha.resultados.length > 0 ? <div className="mt-2 max-h-44 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900">{linha.resultados.map((produto) => <button key={produto.id} type="button" onClick={() => selecionarProduto(linha.chave, produto)} className="block w-full border-b border-zinc-800 px-3 py-2 text-left text-sm last:border-0 hover:bg-zinc-800"><span className="text-zinc-400">{produto.codigo || produto.id}</span> · {produto.nome}</button>)}</div> : null}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_120px_110px_150px]">
+                    <label className="text-xs text-zinc-500">Descrição na nota<input value={linha.descricao} onChange={(event) => atualizarLinha(linha.chave, { descricao: event.target.value })} className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" /></label>
+                    <label className="text-xs text-zinc-500">Quantidade<input value={linha.quantidade} onChange={(event) => atualizarLinha(linha.chave, { quantidade: event.target.value })} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
+                    <label className="text-xs text-zinc-500">Unidade<input value={linha.unidade} onChange={(event) => atualizarLinha(linha.chave, { unidade: event.target.value })} className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm uppercase text-zinc-100" /></label>
+                    <label className="text-xs text-zinc-500">Valor unitário<input value={linha.valorUnitario} onChange={(event) => atualizarLinha(linha.chave, { valorUnitario: event.target.value })} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={adicionarLinha} disabled={saving} className="rounded-md border border-dashed border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">+ Adicionar linha</button>
+              {ultrapassaSaldo ? <div className="rounded-md border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">A composição ultrapassa o saldo da OS em R$ {formatMoneyBR(totalSolicitacao - numero(saldo?.saldo))}. É permitido continuar; confira aditivo ou medição a maior.</div> : null}
+            </div>
+            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950 p-4">
+              <div><div className="text-xs uppercase text-zinc-500">Total da solicitação</div><div className="text-xl font-semibold tabular-nums">R$ {formatMoneyBR(totalSolicitacao)}</div></div>
+              <div className="flex gap-2"><button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900">Cancelar</button><button type="button" onClick={() => void confirmar()} disabled={saving} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">{saving ? "Salvando..." : "Criar solicitação"}</button></div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export default function FaturamentoParcialPanel(props: Props) {
+  return props.tipo === "OS"
+    ? <FaturamentoOsPanel {...props} />
+    : <FaturamentoOvPanel {...props} />;
+}

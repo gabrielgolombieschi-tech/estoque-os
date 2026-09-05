@@ -84,8 +84,12 @@ export function setStoredEmpresaId(id: string): void {
   window.localStorage.setItem("current_empresa_id", id);
 }
 
-export async function getAllowedEmpresas(supabase: SupabaseClient, tenantId: string): Promise<EmpresaOption[]> {
-  const authUserId = await resolveAuthUserId(supabase);
+export async function getAllowedEmpresas(
+  supabase: SupabaseClient,
+  tenantId: string,
+  authUserIdInformado?: string | null,
+): Promise<EmpresaOption[]> {
+  const authUserId = authUserIdInformado ?? (await resolveAuthUserId(supabase));
   if (!authUserId) throw new Error("Usuario nao autenticado.");
 
   const usuarioId = await resolveUsuarioId(supabase, authUserId);
