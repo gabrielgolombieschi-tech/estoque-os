@@ -42,7 +42,7 @@ for (let i = 0; i < total; i += 1) {
   if (!m) continue;
   if (numeros.length > 0 && !numeros.includes(m[2])) continue;
   for (const tipo of ["DANFE", "XML"]) {
-    const botao = linha.getByRole("button", { name: tipo, exact: true });
+    const botao = linha.getByRole("button", { name: tipo === "DANFE" ? /^(DANFE|DANFSe)$/ : /^XML$/ });
     if ((await botao.count()) === 0) continue;
     const [navegacao] = await Promise.all([
       pagina.waitForEvent("framenavigated", { timeout: 20000 }).catch(() => null),

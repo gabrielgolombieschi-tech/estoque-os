@@ -54,6 +54,13 @@ function snapshot(value: unknown, label: string): JsonObject {
 
 export const NOME_TOMADOR_HOMOLOGACAO_NFSE = "NFS-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
+export const CINDOP_PROVISORIO_HOMOLOGACAO: Record<string, string> = { "07.02": "040101", "14.01": "050103" };
+export function codigoIndicadorOperacao(servico: Record<string, unknown>) {
+  const explicito = text(servico.codigo_indicador_operacao);
+  if (explicito && /^[0-9]{6}$/.test(explicito)) return explicito;
+  return CINDOP_PROVISORIO_HOMOLOGACAO[String(servico.item_servico ?? "")] ?? "050103";
+}
+
 // tpRetPisCofins: 0 nada retido; 3 PIS/COFINS/CSLL retidos.
 export function tipoRetencaoPisCofins(retemPcc: boolean) {
   return retemPcc ? 3 : 0;
@@ -96,7 +103,7 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
   if (descricao.length > 1000) throw new Error("NFS-e incompleta: descricao_servico acima de 1000 caracteres.");
   const valorServico = round(requiredNumber(servico.valor_bruto, "valor_servico", "linhas"));
   if (valorServico <= 0) throw new Error("NFS-e incompleta: valor_servico deve ser maior que zero.");
-  const aliquotaIss = requiredNumber(servico.aliquota_iss, "percentual_aliquota_relativa_municipio", "fixture");
+  requiredNumber(servico.aliquota_iss, "aliquota_iss", "fixture");
   const issRetido = servico.iss_retido === true;
   const retemPcc = servico.retem_pcc === true;
   const retemIrrf = servico.retem_irrf === true;
@@ -109,7 +116,8 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
   const competencia = requiredText(servico.data_competencia, "data_competencia", "conferencia").slice(0, 10);
 
   const osNumeros = Array.isArray(servico.os_numeros) ? servico.os_numeros.map((n) => String(n)) : [];
-  const codigoInterno = `OS ${osNumeros.join("/")}`.slice(0, 20);
+  // cIntContrib: padrao [a-zA-Z0-9]{1,20} (rejeicao real do ambiente nacional em 05/09/2026 com "OS 327").
+  const codigoInterno = `OS${osNumeros.map((n) => n.replace(/[^a-zA-Z0-9]/g, "")).join("OS")}`.slice(0, 20) || "OS";
   const pedido = (operacao.pedido && typeof operacao.pedido === "object") ? operacao.pedido as JsonObject : {};
   const pedidoCompra = text(pedido.pedido_cliente);
   const pedidoItem = text(pedido.pedido_item);
@@ -133,13 +141,10 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     consumidor_final: num(operacao.consumidor_final) === 1 ? 1 : 0,
     indicador_destinatario: 0,
 
+    // Prestador = emitente da DPS: o ambiente nacional recusa nome (E0121) e
+    // ignora endereco; as NFS-e reais levam so CNPJ, fone, email e regTrib.
+    // A razao social continua exigida no cadastro (snapshot) para o DANFSe.
     cnpj_prestador: cnpjPrestador,
-    razao_social_prestador: requiredText(emitente.razao_social, "razao_social_prestador", "empresa"),
-    codigo_municipio_prestador: Number(municipioEmissora),
-    cep_prestador: digits(emitente.cep),
-    logradouro_prestador: requiredText(emitente.logradouro, "logradouro_prestador", "endereco fiscal da empresa"),
-    numero_prestador: requiredText(emitente.numero, "numero_prestador", "endereco fiscal da empresa"),
-    bairro_prestador: requiredText(emitente.bairro, "bairro_prestador", "endereco fiscal da empresa"),
     codigo_opcao_simples_nacional: requiredNumber(emitente.codigo_opcao_simples_nacional, "codigo_opcao_simples_nacional", "c.empresa_fiscal"),
     regime_especial_tributacao: requiredNumber(emitente.regime_especial_tributacao, "regime_especial_tributacao", "c.empresa_fiscal"),
 
@@ -157,7 +162,9 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     codigo_interno_contribuinte: codigoInterno,
     valor_servico: valorServico,
     tributacao_iss: num(servico.tributacao_iss) ?? 1,
-    percentual_aliquota_relativa_municipio: aliquotaIss,
+    // Aliquota de ISS NAO vai: o ambiente nacional a parametriza para municipio
+    // ativo e recusa quando informada por nao optante do Simples (E0617,
+    // 05/09/2026). A aliquota da fixture serve so a previa/retencao local.
     tipo_retencao_iss: issRetido ? 2 : 1,
 
     situacao_tributaria_pis_cofins: text(servico.cst_pis_cofins) ?? "01",
@@ -165,14 +172,28 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     aliquota_cofins: num(servico.aliquota_cofins) ?? 0,
     tipo_retencao_pis_cofins: tipoRetencaoPisCofins(retemPcc),
 
+    // Total aproximado de tributos (Lei 12.741): sem ele a Focus manda
+    // indTotTrib, que o ambiente nacional recusa para nao optante (E0713,
+    // 05/09/2026). Aproximacao: federais = PIS+COFINS proprios, municipais = ISS.
+    // As NFS-e reais usam IBPT (ex.: 13,45% federal); ver pergunta ao contador.
+    valor_total_tributos_federais: round(valorServico * ((num(servico.aliquota_pis) ?? 0) + (num(servico.aliquota_cofins) ?? 0)) / 100),
+    valor_total_tributos_estaduais: 0,
+    valor_total_tributos_municipais: round(num(servico.valor_iss) ?? 0),
     ibs_cbs_situacao_tributaria: cstIbsCbs,
     ibs_cbs_classificacao_tributaria: cclassTrib,
+    // cIndOp e obrigatorio quando o grupo IBS/CBS vai (rejeicao real do ambiente
+    // nacional em 05/09/2026: "indDest not expected, expected cIndOp"). Valor
+    // provisorio de homologacao lido das NFS-e reais de agosto/2026: 040101 na
+    // 07.02 (NFS-e 37) e 050103 na 14.01 (NFS-e 32); os demais itens usam o da
+    // 14.01 ate o contador confirmar a tabela "codigo indicador de operacao".
+    codigo_indicador_operacao: codigoIndicadorOperacao(servico),
   };
 
-  const complementoPrestador = text(emitente.complemento);
-  if (complementoPrestador) payload.complemento_prestador = complementoPrestador;
-  const imPrestador = text(emitente.inscricao_municipal);
-  if (imPrestador) payload.inscricao_municipal_prestador = imPrestador;
+  requiredText(emitente.razao_social, "razao_social_prestador", "empresa");
+  // IM do prestador NAO vai: o ambiente nacional rejeita (E0120, 05/09/2026)
+  // porque Joinville nao registra informacoes complementares no CNC; as NFS-e
+  // reais de agosto/2026 tambem saem sem IM no prestador. O valor continua no
+  // cadastro (c.empresa_fiscal) para o dia em que o CNC exigir.
   const telefonePrestador = digits(emitente.telefone);
   if (telefonePrestador.length >= 6) payload.telefone_prestador = telefonePrestador;
   const emailPrestador = text(emitente.email);

@@ -80,7 +80,10 @@ cenario("payload 14.06 sem retencao: campos obrigatorios e nomes da Focus", () =
   assert.equal(p.emitente_dps, 1);
   assert.equal(p.codigo_municipio_emissora, 4209102);
   assert.equal(p.cnpj_prestador, "13671448000189");
-  assert.equal(p.inscricao_municipal_prestador, "152836");
+  assert.equal(p.inscricao_municipal_prestador, undefined, "IM do prestador nao vai (E0120)");
+  assert.equal(p.razao_social_prestador, undefined, "nome do prestador nao vai (E0121)");
+  assert.equal(p.logradouro_prestador, undefined);
+  assert.equal(p.telefone_prestador, "4734735171");
   assert.equal(p.codigo_opcao_simples_nacional, 1);
   assert.equal(p.regime_especial_tributacao, 0);
   assert.equal(p.cnpj_tomador, "83475913000272");
@@ -90,18 +93,21 @@ cenario("payload 14.06 sem retencao: campos obrigatorios e nomes da Focus", () =
   assert.equal(p.codigo_municipio_prestacao, "4218004");
   assert.equal(p.codigo_tributacao_nacional_iss, "140601");
   assert.equal(p.codigo_nbs, "120032900");
-  assert.equal(p.codigo_interno_contribuinte, "OS 328");
+  assert.equal(p.codigo_interno_contribuinte, "OS328", "cIntContrib so alfanumerico");
+  assert.equal(p.codigo_indicador_operacao, "050103");
   assert.equal(p.pedido_compra, "4518");
   assert.equal(p.itens_pedido_compra, undefined);
   assert.equal(p.valor_servico, 1000);
   assert.equal(p.tributacao_iss, 1);
-  assert.equal(p.percentual_aliquota_relativa_municipio, 5);
+  assert.equal(p.percentual_aliquota_relativa_municipio, undefined, "aliquota parametrizada pelo municipio (E0617)");
   assert.equal(p.tipo_retencao_iss, 1);
   assert.equal(p.situacao_tributaria_pis_cofins, "01");
   assert.equal(p.tipo_retencao_pis_cofins, 0);
   assert.equal(p.valor_csll, undefined);
   assert.equal(p.valor_irrf, undefined);
   assert.equal(p.valor_cp, undefined);
+  assert.equal(p.valor_total_tributos_federais, 92.5);
+  assert.equal(p.valor_total_tributos_municipais, 50);
   assert.equal(p.finalidade_emissao, 0);
   assert.equal(p.consumidor_final, 0);
   assert.equal(p.indicador_destinatario, 0);
@@ -156,7 +162,8 @@ cenario("producao usa a razao social real do tomador", () => {
 
 cenario("duas OS: codigo_interno_contribuinte lista as duas", () => {
   const p = montarPayloadNfse(contexto({ servico: { os_numeros: ["328", "287"] } }), agora);
-  assert.equal(p.codigo_interno_contribuinte, "OS 328/287");
+  assert.equal(p.codigo_interno_contribuinte, "OS328OS287");
+  assert.equal(montarPayloadNfse(contexto({ servico: { item_servico: "07.02" } }), agora).codigo_indicador_operacao, "040101");
 });
 
 cenario("bloqueios locais nomeiam campo e cadastro", () => {

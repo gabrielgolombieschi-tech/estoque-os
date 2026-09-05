@@ -119,6 +119,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [ocupado, setOcupado] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [justificativaCancel, setJustificativaCancel] = useState("");
+  // "Nova NFS-e parcial": ignora a nota autorizada mais recente e abre uma composicao nova.
+  const [novaNota, setNovaNota] = useState(false);
 
   const fixture = useMemo(() => fixtures.find((f) => f.item_servico === perfil?.item_servico) ?? null, [fixtures, perfil]);
   const perfilBloqueado = perfil?.faixa_automacao === "BLOQUEADO";
@@ -153,7 +155,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             const em = emissoes.find((e) => e.solicitacao_id === c.id) ?? null;
             if (!em || !["AUTORIZADA", "CANCELADA"].includes(em.status)) { ativa = c; emissaoAtiva = em; break; }
           }
-          if (!ativa) {
+          if (!ativa && !novaNota) {
             // Ultima autorizada em homologacao (para cancelar/substituir a partir daqui).
             const aut = cands.find((c) => emissoes.some((e) => e.solicitacao_id === c.id && e.status === "AUTORIZADA"));
             if (aut) { ativa = aut; emissaoAtiva = emissoes.find((e) => e.solicitacao_id === aut.id) ?? null; }
@@ -175,7 +177,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setPedidoItem(ativa.pedido_item ?? "");
         if (ativa.observacao && !/^NFS-e de servico da OS|^Substituicao da NFS-e/i.test(ativa.observacao)) setObservacao(ativa.observacao);
         const serv = ativa.operacao_snapshot?.servico as Previa | undefined;
-        setPrevia(serv && serv.valor_bruto != null ? serv : null);
+        // As parcelas ficam no bloco pagamento do snapshot; a previa recarregada precisa delas.
+        const parcelasSnapshot = Array.isArray(ativa.pagamento_parcelas) ? ativa.pagamento_parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias ?? 0), valor: p.valor == null ? null : num(p.valor) })) : null;
+        setPrevia(serv && serv.valor_bruto != null ? { ...serv, parcelas: serv.parcelas ?? parcelasSnapshot } : null);
         const { data: its } = await supabase.schema("f").from("solicitacao_item").select("origem_id,descricao_servico,valor_servico,ordem").eq("solicitacao_id", ativa.id).order("ordem");
         const rows = (its as Array<{ origem_id: string; descricao_servico: string | null; valor_servico: number | string | null; ordem: number }> | null) ?? [];
         setLinhas(rows.map((r, i) => ({ chave: i + 1, os_id: Number(r.origem_id), os_numero: r.origem_id === String(osId) ? (os.numero_os ?? String(os.id)) : r.origem_id, descricao: r.descricao_servico ?? "", valor: decimal(num(r.valor_servico).toFixed(2)), saldo: 0 })));
@@ -198,7 +202,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setCandidatas(saldos.filter((c) => c.saldo > 0));
       }
     } catch (cause) { setErro(textoErro(cause)); } finally { setCarregando(false); }
-  }, [empresaId, os, osId, saldo, supabase, tenantId]);
+  }, [empresaId, novaNota, os, osId, saldo, supabase, tenantId]);
 
   useEffect(() => { void carregar(); }, [carregar, versao]);
   useEffect(() => { if (!solicitacao && !municipio && municipioPadrao) setMunicipio(municipioPadrao); }, [municipioPadrao, municipio, solicitacao]);
@@ -268,11 +272,13 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   async function descartar() {
     if (!solicitacao) return;
     const autorizada = emissao?.status === "AUTORIZADA";
+    // Rascunho que ja foi tentado (REJEITADA/ERRO) tem material congelado: sai pelo abandono auditado, nao pelo descarte simples.
+    const tentada = Boolean(emissao && ["REJEITADA", "ERRO", "AUTORIZADA"].includes(emissao.status));
     const motivo = window.prompt(autorizada ? "Motivo do abandono da homologação (15 a 255). A NFS-e de teste continua no ambiente nacional de homologação; só o saldo volta." : "Motivo do descarte do rascunho (15 a 255):", autorizada ? "Homologacao concluida; saldo devolvido a OS" : "Rascunho refeito pela tela de faturar a OS");
     if (!motivo) return;
     setOcupado(true); setErro(null);
     try {
-      const { error } = await supabase.schema("f").rpc(autorizada ? "fn_nfse_abandonar_homologacao" : "fn_solicitacao_nfe_cancelar_rascunho", { p_solicitacao_id: solicitacao.id, p_motivo: motivo });
+      const { error } = await supabase.schema("f").rpc(tentada ? "fn_nfse_abandonar_homologacao" : "fn_solicitacao_nfe_cancelar_rascunho", { p_solicitacao_id: solicitacao.id, p_motivo: motivo });
       if (error) throw error;
       setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]);
       await carregar(); await onAtualizar();
@@ -433,6 +439,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <button type="button" className={botao} disabled={!emissao.xml_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "XML")}>XML</button>
                   <Link className={botao} href={`/faturamento/nfe/${emissao.documento_fiscal_id}`}>Detalhe</Link>
                   <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
+                  {saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
                 </div>
                 {podeCancelar ? (
                   <div className="flex flex-wrap items-end gap-2">

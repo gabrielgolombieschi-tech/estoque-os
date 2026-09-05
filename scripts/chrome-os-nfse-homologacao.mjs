@@ -45,7 +45,8 @@ pagina.on("dialog", async (d) => {
     const msg = d.message();
     if (/Código de justificativa/i.test(msg)) return d.accept("99");
     if (/Motivo da substituição/i.test(msg)) return d.accept(arg("substituir") ?? "Substituicao no cenario de homologacao 13");
-    return d.accept();
+    // accept() sem texto devolve string vazia no prompt; o motivo precisa de 15+ caracteres.
+    return d.accept("Rascunho refeito no cenario de homologacao da NFS-e");
   }
   await d.accept();
 });
@@ -61,23 +62,46 @@ await pagina.getByText("Notas desta OS").waitFor({ state: "visible", timeout: 30
 await pagina.waitForTimeout(4000);
 
 // Perfil de servico no cabecalho (se ainda nao houver rascunho).
-const seletor = pagina.getByLabel(/Operação \(perfil da nota\)/);
-if (perfilItem && (await seletor.isEnabled())) {
-  const opcoes = await seletor.locator("option").evaluateAll((els) => els.map((e) => ({ value: e.value, label: e.textContent ?? "", disabled: e.disabled })));
-  const alvo = opcoes.find((o) => o.label.trim().startsWith(`${perfilItem} `));
-  if (!alvo) { console.log("perfil nao encontrado:", perfilItem, opcoes.map((o) => o.label)); await navegador.close(); process.exit(2); }
-  if (alvo.disabled) { console.log(`perfil ${perfilItem} bloqueado: ${alvo.label}`); await foto("perfil-bloqueado"); await navegador.close(); process.exit(0); }
-  await seletor.selectOption(alvo.value);
-  await pagina.waitForTimeout(3000);
+async function escolherPerfil() {
+  const seletor = pagina.getByLabel(/Operação \(perfil da nota\)/);
+  if (perfilItem && (await seletor.isEnabled())) {
+    let opcoes = [];
+    for (let i = 0; i < 20; i += 1) {
+      opcoes = await seletor.locator("option").evaluateAll((els) => els.map((e) => ({ value: e.value, label: e.textContent ?? "", disabled: e.disabled })));
+      if (opcoes.some((o) => o.label.trim().startsWith(`${perfilItem} `))) break;
+      await pagina.waitForTimeout(1500);
+    }
+    const alvo = opcoes.find((o) => o.label.trim().startsWith(`${perfilItem} `));
+    if (!alvo) { console.log("perfil nao encontrado:", perfilItem, opcoes.map((o) => o.label)); await navegador.close(); process.exit(2); }
+    if (alvo.disabled) { console.log(`perfil ${perfilItem} bloqueado: ${alvo.label}`); await foto("perfil-bloqueado"); await navegador.close(); process.exit(0); }
+    if ((await seletor.inputValue()) !== alvo.value) { await seletor.selectOption(alvo.value); await pagina.waitForTimeout(3000); }
+  }
+  await pagina.getByText("Linhas da NFS-e").waitFor({ state: "visible", timeout: 30000 });
+  await pagina.getByText("Carregando dados da NFS-e").waitFor({ state: "hidden", timeout: 60000 }).catch(() => {});
+  await pagina.waitForTimeout(1500);
 }
-await pagina.getByText("Linhas da NFS-e").waitFor({ state: "visible", timeout: 30000 });
-await pagina.getByText("Carregando dados da NFS-e").waitFor({ state: "hidden", timeout: 60000 }).catch(() => {});
-await pagina.waitForTimeout(1500);
+await escolherPerfil();
 await foto("inicio");
 const cab = (await pagina.locator("body").innerText()).replace(/\s+/g, " ");
 const posSaldo = cab.toUpperCase().indexOf("SALDO A FATURAR");
 console.log("[1]", posSaldo >= 0 ? cab.slice(posSaldo, posSaldo + 150) : "(saldo nao encontrado)");
 
+// Descarte do rascunho atual (rejeitado ou nao) para recomecar com cadastro atualizado.
+if (tem("descartar")) {
+  const botao = pagina.getByRole("button", { name: /Descartar rascunho|Abandonar homologação/ });
+  if ((await botao.count()) === 0) { console.log("[descartar] nada para descartar"); }
+  else { await botao.click(); await pagina.waitForTimeout(6000); console.log("[descartar]", (await avisos()).filter((t) => /abandon|descart|erro|saldo/i.test(t)).slice(0, 3)); }
+  await pagina.reload({ waitUntil: "domcontentloaded" });
+  await pagina.getByText("Notas desta OS").waitFor({ state: "visible", timeout: 30000 });
+  await pagina.waitForTimeout(4000);
+  await escolherPerfil();
+}
+// Segunda nota parcial na mesma OS: abre composicao nova ignorando a autorizada.
+if (tem("nova")) {
+  const botao = pagina.getByRole("button", { name: /^Nova NFS-e parcial/ });
+  if ((await botao.count()) === 0) { console.log("[nova] botao ausente (sem nota autorizada ou saldo zero)"); }
+  else { await botao.click(); await pagina.waitForTimeout(6000); console.log("[nova] composicao nova aberta"); }
+}
 // Cancelamento / substituicao de uma nota ja autorizada nesta OS.
 if (tem("cancelar")) {
   await pagina.getByLabel(/Justificativa do cancelamento/).fill(arg("cancelar"));
@@ -97,7 +121,9 @@ if (tem("substituir")) {
 
 const jaConferida = (await pagina.getByRole("button", { name: /Reconferir|Tentar emitir novamente|Emitir NFS-e em homologação/ }).count()) > 0
   && (await pagina.getByRole("button", { name: "Salvar rascunho e conferir" }).count()) === 0;
-if (!jaConferida) {
+// Rascunho ja tentado (REJEITADA/ERRO): o material fiscal esta congelado; so o retry com DPS nova.
+const soEmitir = tem("so-emitir") || (jaConferida && (await pagina.getByRole("button", { name: /Tentar emitir novamente/ }).count()) > 0);
+if (!jaConferida && !soEmitir) {
   if (arg("valor")) await pagina.getByLabel("Valor (R$)").first().fill(arg("valor"));
   if (arg("add-os")) {
     const sel = pagina.locator("select").filter({ hasText: "Adicionar OS do mesmo tomador" }).first();
@@ -107,6 +133,8 @@ if (!jaConferida) {
     else { await sel.selectOption(alvo.value); await pagina.waitForTimeout(500); if (arg("valor2")) await pagina.getByLabel("Valor (R$)").nth(1).fill(arg("valor2")); }
   }
 }
+if (soEmitir) console.log("[2] rascunho congelado; pulando a conferencia");
+if (!soEmitir) {
 if (arg("municipio")) await pagina.getByLabel(/Município de prestação/).fill(arg("municipio"));
 if (arg("competencia")) await pagina.getByLabel("Competência").fill(arg("competencia"));
 for (const [nome, rotulo] of [["iss", /ISS retido pelo tomador/], ["pcc", /PIS\/COFINS\/CSLL retidos/], ["irrf", /IRRF retido/], ["inss", /INSS retido/]]) {
@@ -138,6 +166,7 @@ const pb = previa.indexOf("Bruto ");
 if (pb >= 0) console.log("   previa:", previa.slice(pb, pb + 260));
 const disc = pagina.getByLabel(/Discriminação/);
 if ((await disc.count()) > 0) console.log("   discriminacao:", (await disc.inputValue()).slice(0, 400));
+}
 
 if (tem("so-conferir")) { console.log("--so-conferir: parando antes de emitir"); await navegador.close(); process.exit(0); }
 
