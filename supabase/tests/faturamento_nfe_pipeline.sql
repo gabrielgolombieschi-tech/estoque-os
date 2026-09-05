@@ -2006,6 +2006,106 @@ begin
 end;
 $$;
 
+-- Cancelamento real dentro das 24h (05/09/2026): claim duravel, finalizacao
+-- com a resposta da Focus e efeitos financeiros. O documento continua
+-- existindo (numero e chave), o titulo AR e cancelado e o saldo da OV volta.
+do $cancelamento_producao$
+declare
+  v_documento_id uuid := (select documento_fiscal_id from nfe_producao);
+  v_claim jsonb;
+  v_claim_id uuid;
+  v_fim jsonb;
+  v_doc f.documento_fiscal%rowtype;
+  v_emissao f.documento_fiscal_emissao%rowtype;
+  v_titulo f.titulo%rowtype;
+  v_saldo numeric;
+  v_movimentos integer;
+begin
+  -- Claim direto pela RPC de homologacao nao serve para PRODUCAO.
+  begin
+    perform f.fn_nfe_cancelamento_homologacao_claim(v_documento_id, 'Cancelamento pela RPC errada de ambiente');
+    raise exception 'Claim de homologacao aceitou emissao de producao.';
+  exception when sqlstate 'P0002' then null;
+  end;
+
+  v_claim := f.fn_nfe_cancelamento_producao_claim(v_documento_id, 'Cancelamento real controlado no teste do pipeline');
+  if coalesce((v_claim->>'deve_cancelar')::boolean, false) is not true then
+    raise exception 'Claim de producao nao autorizou o DELETE: %', v_claim;
+  end if;
+  v_claim_id := (v_claim->>'evento_claim_id')::uuid;
+
+  -- Enquanto o claim esta ENVIANDO, um segundo claim aguarda em vez de duplicar.
+  v_claim := f.fn_nfe_cancelamento_producao_claim(v_documento_id, 'Cancelamento real controlado no teste do pipeline');
+  if coalesce((v_claim->>'aguardar')::boolean, false) is not true then
+    raise exception 'Segundo claim de producao nao aguardou o primeiro: %', v_claim;
+  end if;
+
+  v_fim := f.fn_nfe_cancelamento_producao_finalizar(
+    v_documento_id, v_claim_id, 'AUTORIZADA', 'Cancelamento real controlado no teste do pipeline',
+    '135000000000001', '{"status":"cancelado","status_sefaz":"135","numero_protocolo":"135000000000001"}'::jsonb
+  );
+  if coalesce((v_fim->>'ok')::boolean, false) is not true or (v_fim->>'titulos_cancelados')::integer <> 1 then
+    raise exception 'Finalizacao de producao nao cancelou como esperado: %', v_fim;
+  end if;
+
+  select * into v_doc from f.documento_fiscal where id = v_documento_id;
+  select * into v_emissao from f.documento_fiscal_emissao where documento_fiscal_id = v_documento_id and ambiente = 'PRODUCAO';
+  select * into v_titulo from f.titulo
+  where documento_fiscal_id = v_documento_id and tipo = 'AR' and deleted_at is null;
+  if v_emissao.status <> 'CANCELADA' or v_emissao.protocolo <> '223456789012345' then
+    raise exception 'Emissao de producao nao ficou CANCELADA preservando o protocolo de autorizacao: %/%', v_emissao.status, v_emissao.protocolo;
+  end if;
+  if v_doc.nfe_status <> 'CANCELADA' or v_doc.numero is null or v_doc.chave_acesso <> repeat('2', 44) then
+    raise exception 'Documento cancelado perdeu numero/chave ou nao mudou de status: %', row_to_json(v_doc);
+  end if;
+  if (select status from f.solicitacao_faturamento where id = v_emissao.solicitacao_id) <> 'CANCELADA' then
+    raise exception 'Solicitacao nao foi cancelada junto com a NF-e real.';
+  end if;
+  if v_titulo.status <> 'CANCELADO' or v_titulo.valor_aberto <> 0 then
+    raise exception 'Titulo AR nao foi cancelado: % / %', v_titulo.status, v_titulo.valor_aberto;
+  end if;
+  if exists (
+    select 1 from f.titulo_parcela tp
+    where tp.titulo_id = v_titulo.id and tp.deleted_at is null and tp.valor_aberto <> 0
+  ) then
+    raise exception 'Parcela do titulo cancelado manteve valor em aberto.';
+  end if;
+  if not exists (
+    select 1 from f.documento_fiscal_evento ev
+    where ev.documento_fiscal_id = v_documento_id and ev.tipo = 'CANCELAMENTO'
+      and ev.status = 'AUTORIZADA' and ev.protocolo = '135000000000001'
+      and ev.resposta->>'claim_evento_id' = v_claim_id::text
+  ) then
+    raise exception 'Evento de cancelamento autorizado nao registrou protocolo/claim.';
+  end if;
+  select s.saldo into v_saldo
+  from f.fn_os_itens_saldo_a_faturar(v_doc.tenant_id, v_doc.empresa_id, 910001) s
+  where s.os_item_id = 910001;
+  if coalesce(v_saldo, 0) <= 0 then
+    raise exception 'Cancelamento real nao devolveu o saldo da OV: %.', v_saldo;
+  end if;
+  select count(*) into v_movimentos from public.movimentacoes
+  where tenant_id = v_doc.tenant_id and empresa_id = v_doc.empresa_id and origem_os_id = 910001;
+  if v_movimentos <> 0 then
+    raise exception 'Cancelamento real mexeu no estoque: %.', v_movimentos;
+  end if;
+
+  -- Resposta tardia do mesmo claim e idempotente; de outro claim e rejeitada.
+  v_fim := f.fn_nfe_cancelamento_producao_finalizar(
+    v_documento_id, v_claim_id, 'AUTORIZADA', 'Cancelamento real controlado no teste do pipeline',
+    '135000000000001', '{"status":"cancelado"}'::jsonb
+  );
+  if coalesce((v_fim->>'idempotente')::boolean, false) is not true then
+    raise exception 'Finalizacao repetida nao foi idempotente: %', v_fim;
+  end if;
+  begin
+    perform f.fn_nfe_cancelamento_producao_claim(v_documento_id, 'Cancelamento real controlado no teste do pipeline');
+    raise exception 'Nota ja cancelada aceitou novo claim.';
+  exception when sqlstate '55000' then null;
+  end;
+end;
+$cancelamento_producao$;
+
 -- Mesmo depois da autorizacao, XML e impostos sao evidencias imutaveis para
 -- o cliente. UPDATE/DELETE precisam passar pelo backend fiscal controlado.
 select set_config('request.jwt.claim.role', 'authenticated', true);

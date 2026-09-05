@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 
 type Evento = { id: string; tipo: string; status: string; justificativa: string | null; protocolo: string | null; destinatarios: string[] | null; sequencia: number | null; resposta?: Record<string, unknown> | null; created_at: string };
 type Contexto = {
+  documento: { serie: string | null; numero: string | null } | null;
   emissao: { status: string; ambiente: string; xml_path: string | null; danfe_path: string | null; autorizado_em: string | null };
   cliente: { nome: string; email: string | null; email_financeiro: string | null } | null;
   empresa_fiscal: { email_fisco: string | null; certificado_validade_em: string | null; dias_certificado: number | null } | null;
@@ -149,12 +150,13 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
     }
   }
 
-  async function cancelarHomologacao() {
-    if (!ctx || ctx.emissao.ambiente !== "HOMOLOGACAO") return;
+  async function cancelarNaSefaz() {
+    if (!ctx || !["HOMOLOGACAO", "PRODUCAO"].includes(ctx.emissao.ambiente)) return;
     const motivo = justificativa.trim();
-    if (!window.confirm(
-      `Cancelar esta NF-e de HOMOLOGAÇÃO na SEFAZ?\n\nJustificativa: ${motivo}\n\nA solicitação será cancelada e o saldo voltará a ficar disponível.`,
-    )) return;
+    const mensagem = ctx.emissao.ambiente === "PRODUCAO"
+      ? `CANCELAR NF-e REAL na SEFAZ?\n\nNF-e ${ctx.documento?.serie ?? ""}/${ctx.documento?.numero ?? ""} · ${ctx.cliente?.nome ?? ""}\nJustificativa: ${motivo}\n\nEfeitos: a nota fica cancelada na SEFAZ (número preservado), o título a receber é cancelado e o saldo da OV volta a ficar disponível. Esta ação não pode ser desfeita.`
+      : `Cancelar esta NF-e de HOMOLOGAÇÃO na SEFAZ?\n\nJustificativa: ${motivo}\n\nA solicitação será cancelada e o saldo voltará a ficar disponível.`;
+    if (!window.confirm(mensagem)) return;
     await invoke({ acao: "CANCELAR", justificativa: motivo });
   }
 
@@ -252,9 +254,9 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
       <div className="space-y-3 rounded border border-zinc-800 p-3">
         <h3 className="text-sm font-medium">Cancelar ou estornar</h3>
-        {homologacao && podeCancelar ? <><div className="text-sm text-amber-200">Tempo restante: <strong className="font-mono">{countdown(remaining)}</strong></div><textarea className={`${input} min-h-20 w-full`} value={justificativa} onChange={(e)=>setJustificativa(e.target.value)} placeholder="Justificativa (15 a 255 caracteres)" maxLength={255}/><button className={button} disabled={busy || justificativa.trim().length < 15 || justificativa.trim().length > 255} onClick={()=>void cancelarHomologacao()}>Cancelar homologação na SEFAZ</button></> : null}
+        {podeCancelar ? <>{producao ? <div className="rounded border border-rose-800/70 bg-rose-950/20 p-3 text-xs text-rose-100"><strong>NF-e real.</strong> Cancelar na SEFAZ cancela também o título a receber e devolve o saldo da OV. Só é possível dentro de 24 horas da autorização e enquanto não houver recebimento.</div> : null}<div className="text-sm text-amber-200">Tempo restante: <strong className="font-mono">{countdown(remaining)}</strong></div><textarea className={`${input} min-h-20 w-full`} value={justificativa} onChange={(e)=>setJustificativa(e.target.value)} placeholder="Justificativa (15 a 255 caracteres)" maxLength={255}/><button className={button} disabled={busy || justificativa.trim().length < 15 || justificativa.trim().length > 255} onClick={()=>void cancelarNaSefaz()}>{producao ? "Cancelar NF-e real na SEFAZ" : "Cancelar homologação na SEFAZ"}</button></> : null}
         {homologacao && !podeCancelar && autorizada && ctx.cancelamento.deve_estornar ? <><p className="text-sm text-rose-200">A janela de 24 horas terminou. O fluxo normal exige NF-e de estorno.</p><p className="text-xs text-zinc-400">CFOP proposto a partir da original: {ctx.cfops_estorno_propostos.join(", ") || "exige conferência manual"}.</p>{cancelamentoForaPrazoTestado ? <p className="text-xs text-emerald-300">Cenário de cancelamento fora do prazo já executado e registrado no histórico.</p> : <button className={button} disabled={busy} onClick={()=>void testarCancelamentoForaPrazo()}>Testar rejeição fora do prazo (homologação)</button>}<Link className={button} href={`/faturamento/operacoes?aba=ESTORNO&documento=${documentoId}`}>Criar NF-e de estorno</Link></> : null}
-        {producao && autorizada ? <div className="rounded border border-amber-800/70 bg-amber-950/20 p-3 text-sm text-amber-100"><strong>NF-e real: cancelamento protegido.</strong><p className="mt-1 text-xs text-amber-100/80">Esta tela não cancela uma autorização de produção nem altera o título a receber. Revise XML e DANFE antes do envio; se houver erro, interrompa a entrega e siga o procedimento fiscal de cancelamento/estorno.</p></div> : null}
+        {producao && autorizada && !podeCancelar ? <><p className="text-sm text-rose-200">A janela de 24 horas terminou. O fluxo normal exige NF-e de estorno.</p><p className="text-xs text-zinc-400">CFOP proposto a partir da original: {ctx.cfops_estorno_propostos.join(", ") || "exige conferência manual"}.</p><Link className={button} href={`/faturamento/operacoes?aba=ESTORNO&documento=${documentoId}`}>Criar NF-e de estorno</Link></> : null}
         {ctx.emissao.status === "CANCELADA" ? <p className="text-sm text-emerald-300">NF-e cancelada; o protocolo está preservado no histórico abaixo.</p> : null}
       </div>
 

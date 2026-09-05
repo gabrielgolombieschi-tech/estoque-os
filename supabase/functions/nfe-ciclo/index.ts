@@ -163,9 +163,17 @@ Deno.serve(async (request) => {
       } else if (cancelamento.pode_cancelar !== true && !cancelamentoEmAndamento) {
         throw new Error("A janela de cancelamento terminou. Use a NF-e de estorno.");
       }
+      // PRODUCAO tem claim/finalizacao proprios: alem do estado da emissao,
+      // cancelam o documento, a solicitacao e os titulos a receber.
+      const rpcClaim = ambiente === "PRODUCAO"
+        ? "fn_nfe_cancelamento_producao_claim"
+        : "fn_nfe_cancelamento_homologacao_claim";
+      const rpcFinalizar = ambiente === "PRODUCAO"
+        ? "fn_nfe_cancelamento_producao_finalizar"
+        : "fn_nfe_cancelamento_homologacao_finalizar";
       const reservar = async (claimReconciliado: string | null) => {
         const { data, error } = await admin.schema("f").rpc(
-          "fn_nfe_cancelamento_homologacao_claim",
+          rpcClaim,
           {
             p_documento_fiscal_id: documentoId,
             p_justificativa: justificativa,
@@ -184,7 +192,7 @@ Deno.serve(async (request) => {
         // (conferido na NF-e 2/12: 342260000903334).
         const protocolo = texto(resposta, "protocolo", "protocolo_cancelamento", "numero_protocolo");
         const { error } = await admin.schema("f").rpc(
-          "fn_nfe_cancelamento_homologacao_finalizar",
+          rpcFinalizar,
           {
             p_documento_fiscal_id: documentoId,
             p_evento_claim_id: eventoClaimId,

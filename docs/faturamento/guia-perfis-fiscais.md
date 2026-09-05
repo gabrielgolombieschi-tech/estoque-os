@@ -120,6 +120,12 @@ Resultado: a etiqueta vira **Liberado** e "Última decisão de produção" regis
 - O botão de produção só aparece quando, além do perfil liberado, existem token de produção da Focus, certificado válido e a chave de produção ligada.
 - Qualquer nova revisão do perfil desliga a produção de novo. Ciclo recomeça no passo 2.
 
+## Se a nota real saiu errada
+
+Dentro de **24 horas** da autorização, abra a nota em Faturamento → NF-e → detalhe e use **"Cancelar NF-e real na SEFAZ"** com justificativa de 15 a 255 caracteres. O sistema confirma os efeitos antes de enviar: a nota fica cancelada na SEFAZ (número preservado), o título a receber é cancelado e o saldo da OV volta. Não é possível cancelar se o título já tiver recebimento; estorne o recebimento antes.
+
+Depois das 24 horas o cancelamento não existe mais: o caminho é a NF-e de estorno, oferecida na mesma tela.
+
 ## Quando pedir um perfil novo
 
 Situações em que a nota vai travar por falta de perfil:

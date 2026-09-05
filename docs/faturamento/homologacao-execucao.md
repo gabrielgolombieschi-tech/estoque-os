@@ -216,4 +216,15 @@ Chaves: `4226091367144800018955002000000002...` até `...0000000131184824570`; a
 - Efeitos: documento `EMITIDA`, XML de 8.182 bytes em `f.documento_fiscal_xml`, 5 grupos de imposto, 1 item, **um** título AR de R$ 4.563,40 (origem FATURAMENTO) e nenhum AP. XML e DANFE no bucket privado `nfe-documentos`.
 - O ciclo homologação → produção usou a mesma solicitação (`b040844f`); o payload de produção diferiu do homologado somente no nome do destinatário, como o portão exige.
 
+### Cancelamento da NF-e real 2/1 — 05/09/2026, 12:08
+
+O responsável pediu o cancelamento pela tela para validar o fluxo em produção, que até então era bloqueado em três camadas. Implementado na migration `20260905120000_nfe_cancelamento_producao.sql` e na Edge `nfe-ciclo`:
+
+- `fn_nfe_cancelamento_producao_claim` e `fn_nfe_cancelamento_producao_finalizar` espelham o claim durável da homologação e aplicam os efeitos reais: emissão `CANCELADA` (protocolo de autorização preservado), documento `CANCELADA` com número e chave preservados, solicitação `CANCELADA` (devolve o saldo), título AR `CANCELADO` com parcelas zeradas. Guardas: janela de 24 horas e título sem recebimento, ambos verificados antes da chamada à Focus.
+- `fn_nfe_ciclo_contexto` passou a calcular `pode_cancelar` também para produção; a guarda da Edge libera `CANCELAR` em produção e mantém bloqueados o teste de prazo, a CC-e e a inutilização.
+- Tela: botão "Cancelar NF-e real na SEFAZ" com confirmação que descreve os efeitos; fora da janela, encaminha para o estorno.
+- Execução (`scripts/chrome-nfe-cancelar-producao.mjs`): SEFAZ autorizou o cancelamento, `cStat 135`, protocolo do evento 242260419506526. Conferido no banco: emissão, documento e solicitação canceladas; AR de R$ 4.563,40 cancelado com R$ 0,00 em aberto; saldo da OV 344 de volta a R$ 4.563,40 e botão Faturar habilitado; nenhum movimento de estoque.
+- Teste SQL do pipeline ganhou o cenário completo (claim, segundo claim aguardando, finalização, idempotência, saldo devolvido, nota cancelada recusando novo claim). Sete testes de faturamento verdes.
+- Pendências desse fluxo: o XML do evento de cancelamento fica na Focus (`caminho_xml_cancelamento`) e ainda não é arquivado no bucket; o selo "Contas a Receber gerado" no detalhe da nota não distingue título cancelado.
+
 - Pendências que continuam abertas nesta data: envio do XML/DANFE ao cliente (ação humana pela tela ou por e-mail); cadastro opcional do webhook de produção no painel da Focus; evidência para os perfis de 17%; pergunta ao contador sobre Lucro Real anual por estimativa (IRPJ/CSLL de presunção no documento); antiga pendência de decisão do contador sobre manutenção 12% × 17%; promoção do `cEnq` da fixture para o perfil; numeração de produção na conta Focus; credenciais reais de produção.

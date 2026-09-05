@@ -479,12 +479,15 @@ assert.throws(
   /difere da emissao esperada/,
 );
 
-for (const acao of ["CANCELAR", "TESTAR_CANCELAMENTO_FORA_PRAZO", "CARTA_CORRECAO", "INUTILIZAR"]) {
+for (const acao of ["TESTAR_CANCELAMENTO_FORA_PRAZO", "CARTA_CORRECAO", "INUTILIZAR"]) {
   assert.throws(
     () => validarAcaoCicloPorAmbiente(acao, "PRODUCAO"),
     /PRODUCAO esta bloqueado antes da chamada ao provedor/,
   );
 }
+// Cancelamento real dentro das 24h (05/09/2026): a guarda deixa passar; quem
+// limita prazo, recebimento e claim e o banco (fn_nfe_cancelamento_producao_*).
+assert.doesNotThrow(() => validarAcaoCicloPorAmbiente("CANCELAR", "PRODUCAO"));
 assert.doesNotThrow(() => validarAcaoCicloPorAmbiente("INUTILIZAR", "HOMOLOGACAO"));
 assert.doesNotThrow(() => validarAcaoCicloPorAmbiente("TESTAR_CANCELAMENTO_FORA_PRAZO", "HOMOLOGACAO"));
 assert.throws(
