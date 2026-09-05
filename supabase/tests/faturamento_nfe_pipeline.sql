@@ -310,13 +310,13 @@ insert into f.solicitacao_faturamento (
   id, tenant_id, empresa_id, cliente_id, status, natureza_operacao,
   finalidade_emissao, consumidor_final, presenca_comprador, modalidade_frete,
   valor_frete, valor_seguro, valor_outras_despesas, destino_uf_confirmada,
-  destino_confirmado_em
+  destino_confirmado_em, destinacao_mercadoria, pagamento_forma, pagamento_indicador
 ) values (
   '30000000-0000-4000-8000-000000000001',
   '10000000-0000-4000-8000-000000000001',
   '20000000-0000-4000-8000-000000000001',
   910001, 'RASCUNHO', 'VENDA_MERCADORIA_TERCEIROS',
-  1, 0, 9, 9, 0, 0, 0, 'SC', now()
+  1, 0, 9, 9, 0, 0, 0, 'SC', now(), 'REVENDA', '15', 1
 );
 
 insert into f.solicitacao_item (
@@ -983,10 +983,12 @@ begin
       where tenant_id = '10000000-0000-4000-8000-000000000001'
         and empresa_id = '20000000-0000-4000-8000-000000000001'
         and documento_fiscal_id = v_documento_id) <> 'CANCELADA'
+     -- Homologacao cancelada na SEFAZ nao vira documento CANCELADA: continua
+     -- RASCUNHO para nunca entrar no livro de saidas nem no analitico.
      or (select nfe_status from f.documento_fiscal
          where tenant_id = '10000000-0000-4000-8000-000000000001'
            and empresa_id = '20000000-0000-4000-8000-000000000001'
-           and id = v_documento_id) <> 'CANCELADA' then
+           and id = v_documento_id) <> 'RASCUNHO' then
     raise exception 'Callback tardio reabriu emissao ou documento cancelado.';
   end if;
   if (select chave_acesso from f.documento_fiscal_emissao
@@ -1042,13 +1044,15 @@ select set_config(
 insert into f.solicitacao_faturamento (
   id, tenant_id, empresa_id, cliente_id, status, natureza_operacao,
   finalidade_emissao, consumidor_final, presenca_comprador, modalidade_frete,
-  valor_frete, valor_seguro, valor_outras_despesas
+  valor_frete, valor_seguro, valor_outras_despesas,
+  destinacao_mercadoria, pagamento_forma, pagamento_indicador
 ) values (
   '30000000-0000-4000-8000-000000000003',
   '10000000-0000-4000-8000-000000000001',
   '20000000-0000-4000-8000-000000000001',
   910001, 'RASCUNHO', 'VENDA_MERCADORIA_TERCEIROS',
-  1, 0, 9, 9, 0, 0, 0
+  1, 0, 9, 9, 0, 0, 0,
+  'REVENDA', '15', 1
 );
 insert into f.solicitacao_item (
   id, solicitacao_id, tenant_id, empresa_id, origem_tipo, origem_id, origem_item_id,
@@ -1141,13 +1145,15 @@ $$;
 insert into f.solicitacao_faturamento (
   id, tenant_id, empresa_id, cliente_id, status, natureza_operacao,
   finalidade_emissao, consumidor_final, presenca_comprador, modalidade_frete,
-  valor_frete, valor_seguro, valor_outras_despesas
+  valor_frete, valor_seguro, valor_outras_despesas,
+  destinacao_mercadoria, pagamento_forma, pagamento_indicador
 ) values (
   '30000000-0000-4000-8000-000000000004',
   '10000000-0000-4000-8000-000000000001',
   '20000000-0000-4000-8000-000000000001',
   910001, 'RASCUNHO', 'VENDA_MERCADORIA_TERCEIROS',
-  1, 0, 9, 9, 0, 0, 0
+  1, 0, 9, 9, 0, 0, 0,
+  'REVENDA', '15', 1
 );
 insert into f.documento_fiscal (
   id, tenant_id, empresa_id, chave_acesso, operacao, natureza, modelo,
@@ -1218,13 +1224,15 @@ insert into f.perfil_operacao_evidencia (
 insert into f.solicitacao_faturamento (
   id, tenant_id, empresa_id, cliente_id, status, natureza_operacao,
   finalidade_emissao, consumidor_final, presenca_comprador, modalidade_frete,
-  valor_frete, valor_seguro, valor_outras_despesas
+  valor_frete, valor_seguro, valor_outras_despesas,
+  destinacao_mercadoria, pagamento_forma, pagamento_indicador
 ) values (
   '30000000-0000-4000-8000-000000000002',
   '10000000-0000-4000-8000-000000000001',
   '20000000-0000-4000-8000-000000000001',
   910001, 'RASCUNHO', 'VENDA_MERCADORIA_TERCEIROS',
-  1, 0, 9, 9, 0, 0, 0
+  1, 0, 9, 9, 0, 0, 0,
+  'REVENDA', '15', 1
 );
 
 -- O cenario de producao abaixo exercita IPI tributado no perfil de operacao.
@@ -1279,7 +1287,7 @@ insert into f.solicitacao_item (
 
 select f.fn_solicitacao_nfe_salvar_conferencia_2026(
   '30000000-0000-4000-8000-000000000002',
-  '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0}'::jsonb,
+  '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0,"destinacao_mercadoria":"REVENDA","pagamento_forma":"15","pagamento_indicador":1}'::jsonb,
   '[{"id":"40000000-0000-4000-8000-000000000002","perfil_operacao_id":"50000000-0000-4000-8000-000000000001","cfop":"5102","cst_icms":"00","cst_ipi":"50","ipi_codigo_enquadramento_legal":"999","cst_pis":"01","cst_cofins":"01","cbenef":null,"reducao_base_icms_percentual":0,"icms_modalidade_base_calculo":"3","aliquota_icms":17,"aliquota_ipi":5,"aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","ibs_cbs_json":{"ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9},"numero_fci":null}]'::jsonb
 );
 

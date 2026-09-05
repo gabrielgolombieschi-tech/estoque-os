@@ -180,7 +180,9 @@ Deno.serve(async (request) => {
         status: "AUTORIZADA" | "REJEITADA",
         resposta: Record<string, unknown>,
       ) => {
-        const protocolo = texto(resposta, "protocolo", "protocolo_cancelamento");
+        // O DELETE autorizado devolve o protocolo do evento em numero_protocolo
+        // (conferido na NF-e 2/12: 342260000903334).
+        const protocolo = texto(resposta, "protocolo", "protocolo_cancelamento", "numero_protocolo");
         const { error } = await admin.schema("f").rpc(
           "fn_nfe_cancelamento_homologacao_finalizar",
           {
@@ -257,11 +259,18 @@ Deno.serve(async (request) => {
         method: "DELETE", body: JSON.stringify({ justificativa }),
       }, ambiente);
       let focus = objeto(focusBody);
-      let status: "AUTORIZADA" | "REJEITADA" = response.ok ? "AUTORIZADA" : "REJEITADA";
+      // O HTTP nao decide: na NF-e 2/1 a Focus devolveu 2xx com
+      // status "erro_cancelamento" (cStat 501, prazo excedido) e a nota foi
+      // gravada como cancelada. So o corpo "cancelado" autoriza.
+      const statusCorpo = (texto(focus, "status") ?? "").toLowerCase();
+      let status: "AUTORIZADA" | "REJEITADA" = response.ok && statusCorpo === "cancelado"
+        ? "AUTORIZADA"
+        : "REJEITADA";
 
-      // Uma resposta 4xx pode significar "ja cancelada" se outro DELETE foi
-      // aceito. Confirma por GET antes de gravar rejeicao e manter HOM ativa.
-      if (!response.ok) {
+      // Uma resposta 4xx (ou 2xx sem "cancelado") pode significar "ja
+      // cancelada" se outro DELETE foi aceito. Confirma por GET antes de
+      // gravar rejeicao e manter HOM ativa.
+      if (status !== "AUTORIZADA") {
         const consulta = await chamarFocus(
           `/v2/nfe/${encodeURIComponent(referencia)}?completa=1`,
           {},

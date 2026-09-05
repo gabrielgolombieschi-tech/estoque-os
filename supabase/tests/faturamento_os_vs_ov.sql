@@ -400,7 +400,7 @@ begin
 
   perform f.fn_solicitacao_nfe_salvar_conferencia(
     v_ov_solicitacao,
-    '{"destino_uf_confirmada":"SC","finalidade_emissao":"1","consumidor_final":"0","presenca_comprador":"9","modalidade_frete":"9","valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0}'::jsonb,
+    '{"destino_uf_confirmada":"SC","finalidade_emissao":"1","consumidor_final":"0","presenca_comprador":"9","modalidade_frete":"9","valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0,"destinacao_mercadoria":"REVENDA","pagamento_forma":"15","pagamento_indicador":1}'::jsonb,
     jsonb_build_array(jsonb_build_object(
       'id', v_ov_solicitacao_item,
       'perfil_operacao_id', '15200000-0000-4000-8000-000000000301',

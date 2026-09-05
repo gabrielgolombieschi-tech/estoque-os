@@ -114,9 +114,13 @@ export function normalizarFocus(payload: unknown): FocusNormalizado {
   const mensagem = textoRecursivo(objetos, "mensagem_sefaz", "mensagem", "xmotivo", "xMotivo", "motivo", "erro");
 
   let status: FocusStatus;
+  // "erro_cancelamento" (DELETE rejeitado pela SEFAZ) contem "cancel": a
+  // rejeicao precisa ser testada antes, senao o cancelamento negado da NF-e
+  // 2/1 (cStat 501, prazo excedido) virava CANCELADA. So "cancelado" cancela.
   if (statusBruto.includes("process") || statusBruto.includes("fila") || statusBruto.includes("pend")) status = "PROCESSANDO";
+  else if (statusBruto.includes("erro") || statusBruto.includes("rejeit")) status = "REJEITADA";
   else if (statusBruto.includes("cancel")) status = "CANCELADA";
-  else if (statusBruto.includes("erro") || statusBruto.includes("rejeit") || (codigo !== null && codigo >= 200)) status = "REJEITADA";
+  else if (codigo !== null && codigo >= 200) status = "REJEITADA";
   else if (statusBruto.includes("autoriz")) status = "AUTORIZADA";
   else if (chave && protocolo) status = "AUTORIZADA";
   else status = "PROCESSANDO";

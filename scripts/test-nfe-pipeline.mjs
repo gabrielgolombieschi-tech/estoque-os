@@ -457,6 +457,21 @@ const autorizadoA = normalizarFocus({ status: "autorizado", ref: "NFEH-1", chave
 const autorizadoB = normalizarFocus({ status: "autorizado", ref: "NFEH-1", chave_nfe: "1".repeat(44), protocolo: "123" });
 assert.deepEqual(autorizadoA, autorizadoB);
 assert.equal(normalizarFocus({ status: "processando_autorizacao", ref: "NFEH-2" }).status, "PROCESSANDO");
+// Respostas reais do DELETE /v2/nfe em homologacao (05/09/2026): a rejeicao da
+// 2/1 contem "cancel" no status e nao pode virar CANCELADA.
+assert.equal(normalizarFocus({
+  status: "erro_cancelamento",
+  status_sefaz: "501",
+  mensagem_sefaz: "Rejeicao: Prazo de Cancelamento Superior ao Previsto na Legislacao",
+}).status, "REJEITADA");
+const canceladaReal = normalizarFocus({
+  status: "cancelado",
+  status_sefaz: "135",
+  mensagem_sefaz: "Evento registrado e vinculado a NF-e",
+  numero_protocolo: "342260000903334",
+});
+assert.equal(canceladaReal.status, "CANCELADA");
+assert.equal(canceladaReal.protocolo, "342260000903334");
 assert.equal(validarReferenciaFocusEsperada("NFEH-X", "NFEH-X"), "NFEH-X");
 assert.throws(
   () => validarReferenciaFocusEsperada("NFEH-Y", "NFEH-X"),

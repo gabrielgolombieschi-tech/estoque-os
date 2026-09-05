@@ -124,6 +124,14 @@ insert into f.solicitacao_item (
   ('16300000-0000-4000-8000-000000000012', '16200000-0000-4000-8000-000000000012', '16000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000002', 'OV', '12', 916001, 'ORIG-0', 'ITEM ORIGEM ZERO', 1, 'UN', 100, 0, 1),
   ('16300000-0000-4000-8000-000000000013', '16200000-0000-4000-8000-000000000012', '16000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000002', 'OV', '12', 916003, 'ORIG-2', 'ITEM ORIGEM DOIS', 1, 'UN', 100, 0, 2);
 
+-- Desde 20260904170000 o resolver exige a destinacao da mercadoria antes de
+-- procurar perfil; sem ela os cenarios 1 a 7 recebiam um bloqueio e as
+-- asserções comparavam NULL (passavam em vazio).
+update f.solicitacao_faturamento
+set destinacao_mercadoria = 'REVENDA'
+where tenant_id = '16000000-0000-4000-8000-000000000001'
+  and empresa_id = '16000000-0000-4000-8000-000000000002';
+
 do $test$
 declare
   r jsonb;
@@ -154,7 +162,7 @@ begin
   r := f.fn_solicitacao_nfe_resolver_perfis('16200000-0000-4000-8000-000000000007', 'SP'); if (r->'itens'->0->>'aliquota_referencia_busca')::numeric <> 4 or r->'itens'->0->>'perfil_codigo' <> 'SEG-SP-6102-O6-4' then raise exception 'Cenario 7 falhou: %', r; end if;
 
   -- 8: interestadual nao contribuinte bloqueia e nomeia DIFAL.
-  r := f.fn_solicitacao_nfe_resolver_perfis('16200000-0000-4000-8000-000000000008', 'SP');
+  r := f.fn_solicitacao_nfe_resolver_perfis('16200000-0000-4000-8000-000000000008', 'SP', 'USO_CONSUMO');
   if coalesce((r->>'ok')::boolean, true) or position('DIFAL' in coalesce(r->>'bloqueio','')) = 0 then raise exception 'Cenario 8 falhou: %', r; end if;
 
   -- 9: UF divergente bloqueia e oferece a tela do cliente; nao altera cadastro.
@@ -181,7 +189,7 @@ begin
   begin
     perform f.fn_solicitacao_nfe_salvar_conferencia(
       '16200000-0000-4000-8000-000000000001',
-      '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0}',
+      '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0,"destinacao_mercadoria":"REVENDA","pagamento_forma":"15","pagamento_indicador":1}',
       '[{"id":"16300000-0000-4000-8000-000000000001","perfil_operacao_id":"16100000-0000-4000-8000-000000000001","cfop":"5102","cst_icms":"00","cst_ipi":"53","ipi_codigo_enquadramento_legal":"999","cst_pis":"01","cst_cofins":"01","reducao_base_icms_percentual":0,"icms_modalidade_base_calculo":"3","aliquota_icms":13,"aliquota_ipi":null,"aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","cclass_trib_versao":"TESTE","ibs_cbs_json":{"ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9},"numero_fci":null}]'
     );
     raise exception 'Cenario 13 aceitou ICMS adulterado.';
@@ -195,7 +203,7 @@ begin
   begin
     perform f.fn_solicitacao_nfe_salvar_conferencia(
       '16200000-0000-4000-8000-000000000001',
-      '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0}',
+      '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0,"destinacao_mercadoria":"REVENDA","pagamento_forma":"15","pagamento_indicador":1}',
       '[{"id":"16300000-0000-4000-8000-000000000001","perfil_operacao_id":"16100000-0000-4000-8000-000000000001","cfop":"5102","cst_icms":"00","cst_ipi":"53","ipi_codigo_enquadramento_legal":"999","cst_pis":"01","cst_cofins":"01","reducao_base_icms_percentual":0,"icms_modalidade_base_calculo":"3","aliquota_icms":12,"aliquota_ipi":null,"aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"","cclass_trib":"","cclass_trib_versao":"","ibs_cbs_json":{},"numero_fci":null}]'
     );
     raise exception 'Cenario 14 aceitou IBS/CBS vazio.';
@@ -206,7 +214,7 @@ begin
   begin
     perform f.fn_solicitacao_nfe_salvar_conferencia(
       '16200000-0000-4000-8000-000000000011',
-      '{"destino_uf_confirmada":"BA","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0}',
+      '{"destino_uf_confirmada":"BA","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0,"destinacao_mercadoria":"REVENDA","pagamento_forma":"15","pagamento_indicador":1}',
       '[{"id":"16300000-0000-4000-8000-000000000011","perfil_operacao_id":null,"cfop":"6102","cst_icms":"00","cst_ipi":"53","ipi_codigo_enquadramento_legal":"999","cst_pis":"01","cst_cofins":"01","reducao_base_icms_percentual":0,"icms_modalidade_base_calculo":"3","aliquota_icms":7,"aliquota_ipi":null,"aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","cclass_trib_versao":"TESTE","ibs_cbs_json":{"ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9},"numero_fci":null}]'
     );
     raise exception 'Cenario 15 aceitou item sem perfil resolvido.';
@@ -218,7 +226,7 @@ $test$;
 -- Um salvamento valido prova o carimbo de destino/perfil e que zero explicito e preservado.
 select f.fn_solicitacao_nfe_salvar_conferencia(
   '16200000-0000-4000-8000-000000000001',
-  '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0}'::jsonb,
+  '{"destino_uf_confirmada":"SC","finalidade_emissao":1,"consumidor_final":0,"presenca_comprador":9,"modalidade_frete":9,"valor_frete":0,"valor_seguro":0,"valor_outras_despesas":0,"destinacao_mercadoria":"REVENDA","pagamento_forma":"15","pagamento_indicador":1}'::jsonb,
   '[{"id":"16300000-0000-4000-8000-000000000001","perfil_operacao_id":"16100000-0000-4000-8000-000000000001","cfop":"5102","cst_icms":"00","cst_ipi":"53","ipi_codigo_enquadramento_legal":"999","cst_pis":"01","cst_cofins":"01","reducao_base_icms_percentual":0,"icms_modalidade_base_calculo":"3","aliquota_icms":12,"aliquota_ipi":null,"aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","cclass_trib_versao":"TESTE","ibs_cbs_json":{"ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9},"numero_fci":null}]'::jsonb
 );
 
