@@ -22,6 +22,7 @@ type Solicitacao = {
   pagamento_forma: string | null;
   pagamento_indicador: number | null;
   pagamento_descricao: string | null;
+  pagamento_parcelas: Array<{ numero?: string | null; dias: number | string; valor: number | string | null }> | null;
   transportador_dados: {
     nome?: string | null;
     documento?: string | null;
@@ -200,6 +201,10 @@ type Props = {
   onChanged?: () => void;
 };
 
+// Parcela confirmada na conferencia: dias apos a emissao + valor (vazio na
+// parcela unica = total da nota). Vira duplicata na NF-e e parcela do AR.
+type ParcelaForm = { dias: string; valor: string };
+
 type OperacaoForm = {
   destino_uf_confirmada: string;
   finalidade_emissao: string;
@@ -213,6 +218,7 @@ type OperacaoForm = {
   pagamento_forma: string;
   pagamento_indicador: string;
   pagamento_descricao: string;
+  pagamento_parcelas: ParcelaForm[];
   transportador_nome: string;
   transportador_documento: string;
   transportador_ie: string;
@@ -300,6 +306,26 @@ function totalNotaNfe(
 function decimal(value: unknown) {
   if (value === null || value === undefined || String(value).trim() === "") return "";
   return String(value).replace(".", ",");
+}
+
+const PARCELA_PADRAO: ParcelaForm = { dias: "15", valor: "" };
+
+function parcelasParaForm(parcelas: Solicitacao["pagamento_parcelas"] | undefined): ParcelaForm[] {
+  if (!Array.isArray(parcelas) || parcelas.length === 0) return [{ ...PARCELA_PADRAO }];
+  return parcelas.map((parcela) => ({
+    dias: String(parcela.dias ?? ""),
+    valor: decimal(parcela.valor),
+  }));
+}
+
+function pendenciasParcelas(parcelas: ParcelaForm[]) {
+  if (parcelas.length === 0) return "ao menos uma parcela";
+  for (const [indice, parcela] of parcelas.entries()) {
+    const dias = Number(parcela.dias.trim());
+    if (!parcela.dias.trim() || !Number.isInteger(dias) || dias < 0) return `dias da parcela ${indice + 1}`;
+    if (parcelas.length > 1 && (paraNumero(parcela.valor) ?? 0) <= 0) return `valor da parcela ${indice + 1}`;
+  }
+  return null;
 }
 
 function paraNumero(value: string) {
@@ -402,6 +428,7 @@ const CAMPOS_LEMBRADOS = [
   "pagamento_forma",
   "pagamento_indicador",
   "pagamento_descricao",
+  "pagamento_parcelas",
   "modalidade_frete",
   "valor_frete",
   "valor_seguro",
@@ -444,6 +471,7 @@ function memoriaDeSolicitacao(origem: Solicitacao): MemoriaOperacao | null {
       pagamento_forma: origem.pagamento_forma ?? "",
       pagamento_indicador: origem.pagamento_indicador?.toString() ?? "",
       pagamento_descricao: origem.pagamento_descricao ?? "",
+      pagamento_parcelas: parcelasParaForm(origem.pagamento_parcelas),
       modalidade_frete: origem.modalidade_frete.toString(),
       valor_frete: decimal(origem.valor_frete),
       valor_seguro: decimal(origem.valor_seguro),
@@ -481,6 +509,7 @@ function formOperacao(draft: Draft, memoria?: MemoriaOperacao | null): OperacaoF
     pagamento_forma: draft.pagamento_forma ?? "",
     pagamento_indicador: draft.pagamento_indicador?.toString() ?? "",
     pagamento_descricao: draft.pagamento_descricao ?? "",
+    pagamento_parcelas: parcelasParaForm(draft.pagamento_parcelas),
     modalidade_frete: draft.modalidade_frete?.toString() ?? "",
     valor_frete: decimal(draft.valor_frete),
     valor_seguro: decimal(draft.valor_seguro),
@@ -501,6 +530,15 @@ function formOperacao(draft: Draft, memoria?: MemoriaOperacao | null): OperacaoF
 
   if (!memoria || !aceitaMemoria(draft)) return base;
   for (const campo of CAMPOS_LEMBRADOS) {
+    if (campo === "pagamento_parcelas") {
+      // A memoria de parcelas so vale quando o rascunho ainda esta no padrao.
+      const atual = base.pagamento_parcelas;
+      const lembrado = memoria.campos.pagamento_parcelas;
+      if (lembrado && atual.length === 1 && atual[0].dias === PARCELA_PADRAO.dias && atual[0].valor === "") {
+        base.pagamento_parcelas = lembrado.map((parcela) => ({ ...parcela }));
+      }
+      continue;
+    }
     if (base[campo] === "") base[campo] = memoria.campos[campo] ?? "";
   }
   return base;
@@ -623,6 +661,10 @@ function camposObrigatoriosPendentes(operacao: OperacaoForm, itens: ItemForm[]) 
   if (operacao.pagamento_forma === "99") {
     camposOperacao.push(["pagamento_descricao", "descrição da forma de pagamento"]);
   }
+  if (operacao.pagamento_indicador === "1") {
+    const pendenciaParcela = pendenciasParcelas(operacao.pagamento_parcelas);
+    if (pendenciaParcela) pendentes.push(pendenciaParcela);
+  }
   if (operacao.modalidade_frete !== "9") {
     // Espécie, marca e numeração NAO entram: o grupo vol e opcional no layout da
     // NF-e, e as notas de producao da propria SEGAU saem sem eles — conferido na
@@ -637,7 +679,8 @@ function camposObrigatoriosPendentes(operacao: OperacaoForm, itens: ItemForm[]) 
     );
   }
   for (const [campo, rotulo] of camposOperacao) {
-    if (!operacao[campo].trim()) pendentes.push(rotulo);
+    const valor = operacao[campo];
+    if (typeof valor !== "string" || !valor.trim()) pendentes.push(rotulo);
   }
 
   itens.forEach((item, index) => {
@@ -739,7 +782,7 @@ export default function OvNfeDraftsPanel({
       const memoriaResult = await supabase
         .schema("f")
         .from("solicitacao_faturamento")
-        .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
+        .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
         .in("id", ids)
@@ -757,7 +800,7 @@ export default function OvNfeDraftsPanel({
         supabase
           .schema("f")
           .from("solicitacao_faturamento")
-          .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
+          .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
           .in("id", ids)
@@ -996,6 +1039,13 @@ export default function OvNfeDraftsPanel({
         const operacaoPayload = {
           ...operacao,
           destinacao_mercadoria: operacao.destinacao_mercadoria_confirmada,
+          pagamento_parcelas: operacao.pagamento_indicador === "1"
+            ? operacao.pagamento_parcelas.map((parcela, indice) => ({
+                numero: String(indice + 1).padStart(3, "0"),
+                dias: Number(parcela.dias.trim()),
+                valor: parcela.valor.trim() ? paraNumero(parcela.valor) : null,
+              }))
+            : null,
           modalidade_frete: operacao.modalidade_frete === "9" ? "9" : operacao.modalidade_frete,
           valor_frete: paraNumero(operacao.valor_frete),
           valor_seguro: paraNumero(operacao.valor_seguro),
@@ -1552,6 +1602,25 @@ export default function OvNfeDraftsPanel({
                                 <label className={label}>Descrição (obrigatória no 99)<input aria-label="Descrição da forma de pagamento" className={field} value={operacao.pagamento_descricao} onChange={(event) => setOperacao({ ...operacao, pagamento_descricao: event.target.value })} maxLength={60} placeholder="Ex.: compensação de crédito" /></label>
                               ) : null}
                             </div>
+                            {operacao.pagamento_indicador === "1" ? (
+                              <div className="mt-3 space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/30 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <h4 className="text-sm font-medium text-zinc-200">Parcelas (duplicatas da NF-e)</h4>
+                                    <p className="text-xs text-zinc-500">Dias contados da data de emissão. Na parcela única, deixe o valor vazio para usar o total da nota. As mesmas parcelas geram o contas a receber.</p>
+                                  </div>
+                                  <button type="button" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-900" onClick={() => setOperacao({ ...operacao, pagamento_parcelas: [...operacao.pagamento_parcelas, { dias: "", valor: "" }] })}>Adicionar parcela</button>
+                                </div>
+                                {operacao.pagamento_parcelas.map((parcela, indice) => (
+                                  <div key={indice} className="grid gap-2 md:grid-cols-[auto_1fr_1fr_auto] md:items-end">
+                                    <div className="text-xs text-zinc-500 md:pb-2">{String(indice + 1).padStart(3, "0")}</div>
+                                    <label className={label}>Dias após a emissão<input aria-label={`Dias da parcela ${indice + 1}`} className={field} inputMode="numeric" value={parcela.dias} onChange={(event) => setOperacao({ ...operacao, pagamento_parcelas: operacao.pagamento_parcelas.map((p, i) => i === indice ? { ...p, dias: event.target.value } : p) })} placeholder="15" /></label>
+                                    <label className={label}>Valor (R$)<input aria-label={`Valor da parcela ${indice + 1}`} className={field} inputMode="decimal" value={parcela.valor} onChange={(event) => setOperacao({ ...operacao, pagamento_parcelas: operacao.pagamento_parcelas.map((p, i) => i === indice ? { ...p, valor: event.target.value } : p) })} placeholder={operacao.pagamento_parcelas.length === 1 ? "vazio = total da nota" : "obrigatório"} /></label>
+                                    <button type="button" disabled={operacao.pagamento_parcelas.length === 1} className="rounded-md border border-zinc-700 px-3 py-2 text-xs hover:bg-zinc-900 disabled:opacity-40" onClick={() => setOperacao({ ...operacao, pagamento_parcelas: operacao.pagamento_parcelas.filter((_, i) => i !== indice) })}>Remover</button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                           </section>
 
                           <section className="space-y-4 rounded-lg border border-zinc-800 p-4">

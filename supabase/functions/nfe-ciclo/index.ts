@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { chamarFocus, focusConfigurado, normalizarFocus, type FocusAmbiente } from "../_shared/focus-nfe.ts";
+import { baixarArquivoFocus, chamarFocus, focusConfigurado, normalizarFocus, type FocusAmbiente } from "../_shared/focus-nfe.ts";
 import { validarAcaoCicloPorAmbiente } from "../_shared/nfe-ciclo-guard.ts";
 import { adminClient, corsHeaders, json, mensagemErro, responderOptions, userClient } from "../_shared/nfe-http.ts";
 
@@ -303,6 +303,27 @@ Deno.serve(async (request) => {
             aguardar: true,
             resposta: consultaNormalizada.bruto,
           }, 202);
+        }
+      }
+
+      // O XML do evento de cancelamento e prova fiscal: arquiva no bucket
+      // privado junto da nota. Falha aqui nao desfaz o cancelamento na SEFAZ;
+      // fica registrada na resposta para reconciliacao manual.
+      if (status === "AUTORIZADA") {
+        const caminhoXmlCancelamento = texto(focus, "caminho_xml_cancelamento");
+        if (caminhoXmlCancelamento) {
+          try {
+            const arquivo = await baixarArquivoFocus(caminhoXmlCancelamento, ambiente);
+            const bytes = new Uint8Array(await arquivo.arrayBuffer());
+            const pathCancelamento = `${emissao.tenant_id}/${emissao.empresa_id}/${referencia}/cancelamento.xml`;
+            const { error: uploadError } = await admin.storage
+              .from("nfe-documentos")
+              .upload(pathCancelamento, bytes, { contentType: "application/xml", upsert: true });
+            if (uploadError) throw uploadError;
+            focus = { ...focus, xml_cancelamento_path: pathCancelamento };
+          } catch (erroArquivo) {
+            focus = { ...focus, xml_cancelamento_erro: mensagemErro(erroArquivo) };
+          }
         }
       }
 

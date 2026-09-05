@@ -93,6 +93,15 @@ function normalizarPayloadFiscal(value: unknown, ambiente: "HOMOLOGACAO" | "PROD
   // inclusive itens, impostos, totais e enderecos, permanece congelado.
   delete payload.data_emissao;
   delete payload.data_entrada_saida;
+  // As datas das duplicatas derivam da data de emissao (+ dias confirmados);
+  // numero e valor continuam congelados.
+  if (Array.isArray(payload.duplicatas)) {
+    payload.duplicatas = payload.duplicatas.map((d) => {
+      const dup = { ...jsonObject(d, "duplicata") };
+      delete dup.data_vencimento;
+      return dup;
+    });
+  }
   payload.nome_destinatario = "<NOME_DESTINATARIO_POR_AMBIENTE>";
   delete payload.ambiente;
   delete payload.ambiente_emissao;
@@ -167,6 +176,22 @@ function documentoDestinatario(destinatario: Record<string, unknown>) {
 
 function impostoTributado(cst: string, tributados: string[]) {
   return tributados.includes(cst);
+}
+
+// Data civil de America/Sao_Paulo somada de N dias (vencimento de duplicata).
+export function dataVencimentoSaoPaulo(data: Date, dias: number) {
+  if (!(data instanceof Date) || !Number.isFinite(data.getTime())) {
+    throw new Error("Data de emissão inválida.");
+  }
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(data);
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) => Number(partes.find((p) => p.type === tipo)?.value ?? "0");
+  const base = new Date(Date.UTC(valor("year"), valor("month") - 1, valor("day") + dias));
+  return base.toISOString().slice(0, 10);
 }
 
 export function dataHoraNfeSaoPaulo(data: Date) {
@@ -461,7 +486,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // A observacao da solicitacao ficava so no banco e nunca chegava ao infCpl
   // (auditoria da NF-e 2/8). Vai por ultimo, com espacos normalizados, e o
   // conjunto respeita o limite de 5.000 caracteres do campo.
-  const observacaoSolicitacao = text(solicitacao.observacao)?.replace(/\s+/g, " ") ?? null;
+  // O texto automatico da composicao ("Composicao parcial da OV ...") e
+  // controle interno e saiu na NF-e 2/1; so observacao escrita por pessoa
+  // vai para o cliente.
+  const observacaoBruta = text(solicitacao.observacao)?.replace(/\s+/g, " ") ?? null;
+  const observacaoSolicitacao = observacaoBruta && !/^Composi[cç][aã]o parcial da (OV|OS)\b/i.test(observacaoBruta)
+    ? observacaoBruta
+    : null;
   const informacoesComplementares = [
     ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc()] : []),
     textoDestinacao(destinacao, aliquotaUnica, interestadual),
@@ -502,6 +533,53 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const descricaoPagamento = text(pagamento?.descricao)?.slice(0, 60);
   if (formaPagamento === "99" && !descricaoPagamento) {
     throw new Error("Solicitação incompleta: descreva a forma de pagamento quando escolher 99 (outros).");
+  }
+
+  // Grupo cobr (fatura + duplicatas) para venda a prazo. As parcelas vem do
+  // snapshot como "dias apos a emissao"; a data absoluta nasce aqui, na
+  // emissao, e o AR usa a mesma regra. Sem parcelas, a NF-e a prazo saia sem
+  // duplicatas (NF-e 2/1), diferente do emissor antigo.
+  let cobranca: Record<string, unknown> | null = null;
+  if (indicadorPagamento === 1) {
+    const parcelasBrutas = Array.isArray(pagamento?.parcelas) ? pagamento.parcelas as unknown[] : [];
+    if (parcelasBrutas.length === 0) {
+      throw new Error("Solicitação incompleta: venda a prazo exige ao menos uma parcela confirmada na conferência.");
+    }
+    if (parcelasBrutas.length > 24) {
+      throw new Error("Solicitação incompleta: no máximo 24 duplicatas por NF-e.");
+    }
+    const duplicatas = parcelasBrutas.map((bruta, indice) => {
+      const parcela = objetoOpcional(bruta, `parcela ${indice + 1}`) ?? {};
+      const dias = requiredNumber(parcela.dias, `parcela ${indice + 1}, dias após a emissão`);
+      if (!Number.isInteger(dias) || dias < 0 || dias > 3650) {
+        throw new Error(`Solicitação incompleta: parcela ${indice + 1} com dias após a emissão inválidos.`);
+      }
+      const valorInformado = num(parcela.valor);
+      const valor = valorInformado === null
+        ? (parcelasBrutas.length === 1 ? valorTotal : null)
+        : round(valorInformado);
+      if (valor === null || valor <= 0) {
+        throw new Error(`Solicitação incompleta: parcela ${indice + 1} sem valor.`);
+      }
+      return {
+        numero: String(indice + 1).padStart(3, "0"),
+        data_vencimento: dataVencimentoSaoPaulo(agora, dias),
+        valor,
+      };
+    });
+    const somaParcelas = round(duplicatas.reduce((acc, d) => acc + d.valor, 0));
+    if (Math.abs(somaParcelas - valorTotal) > 0.009) {
+      throw new Error(
+        `Solicitação incompleta: as parcelas somam R$ ${somaParcelas.toFixed(2)} e a nota vale R$ ${valorTotal.toFixed(2)}.`,
+      );
+    }
+    cobranca = {
+      numero_fatura: (text(pagamento?.fatura_numero) ?? String(emissao.referencia_externa ?? "").replace(/^NFE[HP]-/, "")).slice(0, 60),
+      valor_original_fatura: valorTotal,
+      valor_desconto_fatura: 0,
+      valor_liquido_fatura: valorTotal,
+      duplicatas,
+    };
   }
 
   const transportador = objetoOpcional(operacao.transportador, "transportador");
@@ -614,6 +692,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       indicador_pagamento: indicadorPagamento,
       ...(descricaoPagamento ? { descricao_pagamento: descricaoPagamento } : {}),
     }],
+    ...(cobranca ?? {}),
     modalidade_frete: modalidadeFrete,
     ...(nomeTransportador ? {
       nome_transportador: nomeTransportador.slice(0, 60),

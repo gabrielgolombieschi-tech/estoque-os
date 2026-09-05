@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   dataHoraNfeSaoPaulo,
+  dataVencimentoSaoPaulo,
   montarPayloadNfe,
   validarPayloadProducaoContraHomologacao,
 } from "../supabase/functions/_shared/nfe-payload.ts";
@@ -57,7 +58,13 @@ function solicitacao(overrides = {}) {
       valor_outras_despesas: 0,
       transportador: null,
       destinacao_mercadoria: "REVENDA",
-      pagamento: { forma: "15", indicador: 1, descricao: null },
+      pagamento: {
+        forma: "15",
+        indicador: 1,
+        descricao: null,
+        parcelas: [{ numero: "001", dias: 15, valor: null }],
+        fatura_numero: "OV-SEG-00004-026",
+      },
     },
     ...overrides,
   };
@@ -286,6 +293,65 @@ assert.deepEqual(comPagamento.formas_pagamento, [{
   indicador_pagamento: 1,
 }]);
 
+// Grupo cobr: fatura + duplicatas a partir das parcelas do snapshot, com a
+// data calculada na emissao (America/Sao_Paulo). Parcela unica sem valor usa o
+// total; varias parcelas precisam fechar com o total.
+const comDuplicatas = montarPayloadNfe(contexto(), new Date("2026-09-05T14:45:32.000Z"));
+assert.equal(comDuplicatas.numero_fatura, "OV-SEG-00004-026");
+assert.equal(comDuplicatas.valor_original_fatura, 200);
+assert.equal(comDuplicatas.valor_liquido_fatura, 200);
+assert.deepEqual(comDuplicatas.duplicatas, [{ numero: "001", data_vencimento: "2026-09-20", valor: 200 }]);
+assert.equal(dataVencimentoSaoPaulo(new Date("2026-09-05T02:30:00.000Z"), 0), "2026-09-04");
+const duasParcelas = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      pagamento: { forma: "15", indicador: 1, parcelas: [{ dias: 30, valor: 120 }, { dias: 60, valor: 80 }] },
+    },
+  }),
+}), new Date("2026-09-05T14:45:32.000Z"));
+assert.deepEqual(duasParcelas.duplicatas.map((d) => [d.numero, d.data_vencimento, d.valor]), [
+  ["001", "2026-10-05", 120],
+  ["002", "2026-11-04", 80],
+]);
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    solicitacao: solicitacao({
+      operacao_snapshot: {
+        ...solicitacao().operacao_snapshot,
+        pagamento: { forma: "15", indicador: 1, parcelas: [{ dias: 30, valor: 120 }, { dias: 60, valor: 70 }] },
+      },
+    }),
+  })),
+  /parcelas somam R\$ 190\.00 e a nota vale R\$ 200\.00/,
+);
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    solicitacao: solicitacao({
+      operacao_snapshot: { ...solicitacao().operacao_snapshot, pagamento: { forma: "15", indicador: 1 } },
+    }),
+  })),
+  /venda a prazo exige ao menos uma parcela/,
+);
+const aVista = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: { ...solicitacao().operacao_snapshot, pagamento: { forma: "01", indicador: 0 } },
+  }),
+}));
+assert.equal("duplicatas" in aVista, false);
+// A comparacao HOM x PROD ignora as datas das duplicatas (dependem do dia da emissao).
+const homDup = JSON.parse(JSON.stringify(montarPayloadNfe(contexto(), new Date("2026-09-04T12:00:00.000Z"))));
+const prodDup = JSON.parse(JSON.stringify(montarPayloadNfe(contexto({
+  emissao: { ambiente: "PRODUCAO", referencia_externa: "NFEP-TESTE", tenant_id: "t", empresa_id: "e" },
+}), new Date("2026-09-05T12:00:00.000Z"))));
+assert.notEqual(homDup.duplicatas[0].data_vencimento, prodDup.duplicatas[0].data_vencimento);
+assert.doesNotThrow(() => validarPayloadProducaoContraHomologacao(homDup, prodDup));
+// A observacao automatica da composicao nao vai para o cliente.
+const observacaoAutomatica = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({ observacao: "Composicao parcial da OV OV-SEG-00004-026." }),
+}));
+assert.doesNotMatch(observacaoAutomatica.informacoes_adicionais_contribuinte, /Composicao parcial/);
+
 function comOperacao(pagamento) {
   const base = solicitacao();
   return contexto({
@@ -329,9 +395,9 @@ assert.match(comReferencia.informacoes_adicionais_contribuinte, new RegExp(`Chav
 // A observacao da solicitacao vai para o infCpl, por ultimo e com espacos
 // normalizados; vazia nao gera separador sobrando.
 const comObservacao = montarPayloadNfe(contexto({
-  solicitacao: solicitacao({ observacao: "  Composição parcial\n  da OV 344  " }),
+  solicitacao: solicitacao({ observacao: "  Entrega combinada\n  com o comprador  " }),
 }));
-assert.match(comObservacao.informacoes_adicionais_contribuinte, / \| Composição parcial da OV 344$/);
+assert.match(comObservacao.informacoes_adicionais_contribuinte, / \| Entrega combinada com o comprador$/);
 const semObservacao = montarPayloadNfe(contexto({ solicitacao: solicitacao({ observacao: "   " }) }));
 assert.doesNotMatch(semObservacao.informacoes_adicionais_contribuinte, /\|\s*$/);
 

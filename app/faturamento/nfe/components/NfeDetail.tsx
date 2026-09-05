@@ -679,6 +679,12 @@ export default function NfeDetail({
   }, [parcelas]);
 
   const hasAR = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AR"), [titulos]);
+  // NF-e cancelada dentro das 24h deixa o AR como CANCELADO; o selo verde
+  // "gerado" escondia isso (visto na NF-e 2/1 em 05/09/2026).
+  const arCancelado = useMemo(() => {
+    const ar = titulos.filter((t) => String(t.tipo || "").toUpperCase() === "AR");
+    return ar.length > 0 && ar.every((t) => String(t.status || "").toUpperCase() === "CANCELADO");
+  }, [titulos]);
   const hasAP = useMemo(() => titulos.some((t) => String(t.tipo || "").toUpperCase() === "AP"), [titulos]);
   const canEditOsLink = doc?.operacao === "SAIDA" && doc?.natureza === "PRODUTO";
   const isEntradaProduto =
@@ -780,9 +786,15 @@ export default function NfeDetail({
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
             <span>Detalhe (somente leitura)</span>
             {hasAR ? (
-              <span className="inline-flex items-center rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-xs text-emerald-200">
-                Contas a Receber gerado
-              </span>
+              arCancelado ? (
+                <span className="inline-flex items-center rounded-full border border-amber-900/60 bg-amber-950/20 px-2 py-0.5 text-xs text-amber-200">
+                  Contas a Receber cancelado
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-emerald-900/60 bg-emerald-950/20 px-2 py-0.5 text-xs text-emerald-200">
+                  Contas a Receber gerado
+                </span>
+              )
             ) : null}
             {hasAP ? (
               <span className="inline-flex items-center rounded-full border border-amber-900/60 bg-amber-950/20 px-2 py-0.5 text-xs text-amber-200">
