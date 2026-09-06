@@ -447,7 +447,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         {perfil?.permite_deducao_material ? (
           <label className={label}>Material fornecido e incorporado à obra (R$), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)
             <input className={field} inputMode="decimal" value={materialDeducao} disabled={!editavel} onChange={(e) => setMaterialDeducao(e.target.value)} placeholder="0,00" />
-            <span className="text-xs text-zinc-500">Só com contrato que preveja o fornecimento. O material precisa sair do estoque conforme orientação do contador (remessa). IRRF e CRF, quando houver, seguem sobre o valor integral.</span>
+            <span className="text-xs text-zinc-500">Só material que está dentro do valor desta NFS-e e saiu do estoque por NF-e de simples remessa para obra (CFOP 5.949/6.949, sem ICMS/IPI). Material vendido por NF-e de venda não entra aqui. O contrato precisa prever o fornecimento. IRRF e CRF, quando houver, seguem sobre o valor integral.</span>
           </label>
         ) : null}
         {perfil?.excecao_conserto_isolado || perfil?.item_servico === "14.01" ? (

@@ -37,11 +37,42 @@ Campos travados confirmados (ISS no 14.01 e 14.06; INSS no 14.06) com a resposta
 | Notas de agosto do 14.01 sem CRF | Pode auditar: tomador fora do Simples, nota acima de R$ 215,05 e não conserto isolado = saiu errada; avisar o contador para somar os 4,65% no DARF. | Auditoria feita pelo XML das notas: [auditoria-crf-1401-agosto-2026.xlsx](auditoria-crf-1401-agosto-2026.xlsx). Duas notas 14.01 em agosto, ambas sem CRF: **31** (Portobello, R$ 11.879,00 → CRF R$ 552,37) e **32** (WEG Tintas, R$ 3.500,00 → CRF R$ 162,75). Total R$ 715,12 se nenhuma for conserto isolado. A nota 24 (Portobello, R$ 6.500,00) foi codificada 14.06, mas descreve manutenção. |
 | Frase do 14.01 com CRF | Confirmada. Texto exato: "SERVIÇO SUJEITO À RETENÇÃO DE CRF À ALÍQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) CONFORME IN RFB N° 2.141/2023. TRIBUTOS INCIDENTES SOBRE O PREÇO CONFORME LEI 12.741/2012." | Gravada no perfil 14.01 e na fixture. |
 
+## Terceira rodada (06/09/2026, noite) — migration `20260906150000_nfse_iss_sfs_2pct.sql`
+
+| Pendência | Resposta do contador | O que o ERP faz agora |
+| --- | --- | --- |
+| Alíquota do 07.02 em São Francisco do Sul | **2%** (LC municipal, piso para 07.02; a NFS-e 1646 estava certa, a 37 saiu com 3% por erro). | Tabela corrigida para 2%. O perfil 07.02 saiu de BLOQUEADO para REVISAO: pode homologar; produção só depois da liberação. Obra em município sem alíquota cadastrada passa a bloquear a conferência, em vez de usar a do perfil. |
+| cBenef do Convênio 52/91 (8460.90.90) | Código da Tabela 5.2 da SEF/SC, vinculado ao Anexo 2, art. 9º do RICMS/SC; o contador extrai o código exato. | Nada parametrizado. Pedido pronto: "Preciso do código cBenef atualizado da Tabela 5.2 referente à redução de base de máquinas industriais do Anexo 2, Art. 9º". Observação: o contador citou o prefixo SC03, mas o cBenef que já usamos para automação (SC820006, do documento dele) começa com SC82. Conferir o prefixo junto com o código. |
+| Saída do material da obra | NF-e de produto, CFOP 5.949 (simples remessa para obra), sem ICMS e IPI; serve de prova do material deduzido do ISS e do INSS. | Regras abaixo. O fluxo de remessa 5.949/6.949 existe em `/faturamento/operacoes`, só em homologação: produção é backlog. |
+| PIS/COFINS das notas antigas | A nota não muda; o ajuste é na escrituração (EFD-Contribuições), lançando 1,65% e 7,60% em vez do 0,65/3,00 escrito na nota. | O ERP não reescreveu o histórico. Impacto medido abaixo para decidir se a apuração interna do ERP acompanha. |
+| Notas 31 e 32 sem CRF | Se foram conserto isolado, formalizar no ERP e na OS física como escudo jurídico. | Nota 31 = OS 291; nota 32 = OS 248. As duas estão sem a marca de conserto isolado. Script `scripts/os-marcar-conserto-isolado.mjs <os_id> "<justificativa>"` grava a marca e a observação. |
+
+### Material da obra: remessa, venda ou dedução
+
+| Situação | Documento | Tributação | Entra na dedução da NFS-e? |
+| --- | --- | --- | --- |
+| Insumo que a Segau leva para executar a obra e que fica incorporado (cabos, eletrodutos, calhas, disjuntores) | NF-e de simples remessa para obra, CFOP 5.949 (SC) ou 6.949 (outra UF) | Sem ICMS e IPI; o material está no valor da NFS-e | **Sim**: o valor entra em "material fornecido e incorporado à obra" e a remessa é a prova |
+| Painel, máquina ou sistema vendido ao cliente, com faturamento parcial e saldo após o start-up | NF-e de venda (industrialização 5.101/6.101 ou revenda 5.102), pela OS ou OV | ICMS e IPI normais; o valor não está na NFS-e | **Não**: já foi tributado na venda; a NFS-e cobre só o serviço |
+| Painel enviado por remessa e faturado depois | Remessa 5.949/6.949 na ida; NF-e de venda no faturamento | Remessa sem imposto; venda com ICMS/IPI | **Não** |
+| Periféricos e material de instalação de um sistema vendido | Depende: se estão na venda, NF-e de venda; se são insumo do serviço, remessa | Conforme a linha acima | Só a parte que estiver dentro do valor da NFS-e |
+
+Regra prática: **o que está no preço da NFS-e pode ser deduzido e vai por remessa; o que está no preço da NF-e de venda não entra na NFS-e**. O texto de ajuda do campo na tela diz isso.
+
+### PIS/COFINS das NFS-e importadas (janeiro a agosto/2026), apuração interna do ERP
+
+| | Hoje (0,65% / 3,00%) | Lucro Real (1,65% / 7,60%) | Diferença |
+| --- | ---: | ---: | ---: |
+| PIS | 23.344,19 | 59.258,15 | +35.913,96 |
+| COFINS | 107.742,14 | 272.946,62 | +165.204,48 |
+| **Total** | **131.086,33** | **332.204,77** | **+201.118,44** |
+
+165 notas importadas, base de R$ 3,59 milhões. O contador diz que a correção é na escrituração; a pergunta que fica é se a apuração do ERP (tela de impostos e projeções) deve mostrar o mesmo número da contabilidade. É uma reescrita de oito meses de apuração: só com decisão explícita.
+
 ## O que ficou pendente
 
-1. **Alíquota do 07.02 em São Francisco do Sul**: 2% (NFS-e 1646) ou 3% (NFS-e 37). Auditar na prefeitura antes de desbloquear o perfil.
-2. **cBenef do Convênio 52/91** para o NCM 8460.90.90: o contador não informou o código. Sem ele a nota não sai.
-3. **Saída do material do estoque no 07.02**: o contador ainda orienta se vai por NF-e de simples remessa. Até lá, a dedução fica só na NFS-e.
-4. **PIS/COFINS das NFS-e importadas do emissor antigo** (janeiro a agosto/2026): a apuração delas ficou com 0,65/3,00. Se a empresa é Lucro Real não cumulativo, o histórico está subestimado. Decisão do contador antes de refazer.
-5. **Notas 31 e 32 de agosto**: marcar se foram conserto isolado; as que não forem, o contador soma R$ 552,37 e R$ 162,75 no DARF.
-6. **Arredondamento** (R$ 0,23 na nota 37): o ERP arredonda meio-para-cima nas retenções; a diferença é entre sistemas, sem passivo. Conciliar no contas a receber quando acontecer.
+1. **cBenef do Convênio 52/91** para o NCM 8460.90.90: pedir ao contador o código da Tabela 5.2 (Anexo 2, art. 9º) e conferir o prefixo.
+2. **Homologar e liberar os perfis**: nenhum perfil de serviço está em produção. Ordem sugerida: 14.06 (Portobello, OS 319), 14.01, 17.09, 07.02 (com dedução de material).
+3. **Remessa para obra em produção**: o fluxo 5.949/6.949 de `/faturamento/operacoes` só roda em homologação.
+4. **Apuração interna do ERP para as NFS-e importadas**: decidir se acompanha a escrituração (+R$ 201 mil).
+5. **Notas 31 e 32**: marcar conserto isolado nas OS 291 e 248 se for o caso; senão, o contador soma R$ 552,37 e R$ 162,75 no DARF.
+6. **Arredondamento** (R$ 0,23 na nota 37): diferença entre sistemas, sem passivo.

@@ -71,13 +71,14 @@ const valores = {
     codigo_indicador_operacao: "050103", tributos_aprox_municipal_pct: 3.64,
     texto_complementar: LAUDOS, texto_sem_retencao: SEM_RETENCAO,
   },
-  // 07.02 (07.02.01): obra eletrica/civil; ISS no municipio da obra, retido pelo tomador (3% SFS: auditar 2% x 3%);
-  // INSS 11% (art. 111 da IN 2.110/2022; material discriminado abate a base); sem IRRF/CRF; NBS 1.0102.41.00;
-  // cIndOp 020201 (bem imovel). O perfil continua BLOQUEADO ate a auditoria da aliquota e a homologacao.
+  // 07.02 (07.02.01): obra eletrica/civil; ISS no municipio da obra, retido pelo tomador (SFS 2%, LC municipal;
+  // a aliquota por municipio vem de f.nfse_aliquota_iss e obra em municipio sem linha bloqueia); INSS 11%
+  // (art. 111 da IN 2.110/2022; material discriminado abate a base); sem IRRF/CRF; NBS 1.0102.41.00;
+  // cIndOp 020201 (bem imovel). Sai de BLOQUEADO em 06/09/2026 (terceira rodada do contador).
   "SEG-NFSE-0702": {
     ...comum,
     codigo_tributacao_nacional: "070201", codigo_nbs: "101024100", descricao_servico_padrao: "EXECUCAO DE INSTALACAO ELETRICA EM OBRA",
-    local_prestacao_regra: "CLIENTE", incidencia_iss_regra: "LOCAL_PRESTACAO", aliquota_iss: 3.0,
+    local_prestacao_regra: "CLIENTE", incidencia_iss_regra: "LOCAL_PRESTACAO", aliquota_iss: 2.0,
     iss_retido_regra: "SEMPRE", retencao_pcc_regra: "NUNCA", retencao_irrf_regra: "NUNCA", retencao_inss_regra: "SEMPRE", aliquota_inss: 11,
     permite_deducao_material: true,
     codigo_indicador_operacao: "020201", tributos_aprox_municipal_pct: 2.11,

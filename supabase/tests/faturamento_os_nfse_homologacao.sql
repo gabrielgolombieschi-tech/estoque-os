@@ -78,7 +78,8 @@ values ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-0000000
        ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', date '2026-08-01', 13.45, 0, 4.69, 'teste');
 insert into f.nfse_aliquota_iss (tenant_id, empresa_id, item_servico, municipio_ibge, aliquota, fonte)
 values ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', '4209102', 5, 'teste'),
-       ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', '4218004', 2, 'teste: se a incidencia fosse no local, Tijucas cobraria 2%');
+       ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', '4218004', 2, 'teste: se a incidencia fosse no local, Tijucas cobraria 2%'),
+       ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '07.02', '4218004', 3, 'teste: obra em Tijucas a 3%');
 
 insert into public.ordens_servico (id, numero_os, cliente_nome, cliente_id, status, os_num, tenant_id, empresa_id, status_fluxo, tipo_documento, codigo, numero_doc, descricao_servico, orcado, pedido_compra)
 values
@@ -458,6 +459,11 @@ begin
     'Perfil 07.02 de teste conforme respostas do contador de 06/09/2026');
   v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
     '15400000-0000-4000-8000-000000000106', jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'AMPLIACAO DA REDE ELETRICA DO GALPAO 2', 'valor_servico', 3500)));
+  -- Obra em municipio sem aliquota cadastrada (Joinville nao esta na tabela do teste) bloqueia: nada de chute.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"municipio_prestacao_ibge":"4209102"}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'aliquota_iss' and p->>'mensagem' like '%4209102%') then
+    raise exception 'Obra em municipio sem aliquota cadastrada nao bloqueou: %', v_r;
+  end if;
   -- Material maior que o servico bloqueia.
   v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":3500}'::jsonb);
   if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'valor_deducao_material') then
