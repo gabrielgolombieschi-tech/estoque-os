@@ -356,8 +356,9 @@ export default function OsDetailPage() {
   const papelNormalizado = String(empresaPapel ?? "").trim().toUpperCase();
   const canConcluirFluxo = ["ADMIN", "DIRETOR", "COORDENACAO"].includes(papelNormalizado);
   const canFaturarFluxo = papelNormalizado === "FINANCEIRO";
-  // Botao Faturar (NF-e pela OS): FATURAMENTO, FINANCEIRO, ADMIN e DIRETOR.
-  const canEmitirNfeOs = ["FATURAMENTO", "FINANCEIRO", "ADMIN", "DIRETOR"].includes(papelNormalizado);
+  // Emitir nota pela OS e ver o quadro de faturamento por valor: decisao de 06/09/2026,
+  // restrita a quem fatura — ADMIN, FINANCEIRO e FATURAMENTO na empresa. DIRETOR nao entra.
+  const canEmitirNfeOs = ["FATURAMENTO", "FINANCEIRO", "ADMIN"].includes(papelNormalizado);
   const [saldoNfeOs, setSaldoNfeOs] = useState<number | null>(null);
 
   const [os, setOs] = useState<OS | null>(null);
@@ -2481,7 +2482,7 @@ export default function OsDetailPage() {
         </div>
       )}
 
-      {os ? (
+      {os && canEmitirNfeOs ? (
         <FaturamentoParcialPanel
           tenantId={effectiveTenantId}
           empresaId={effectiveEmpresaId}

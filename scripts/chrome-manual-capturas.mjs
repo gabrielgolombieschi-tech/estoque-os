@@ -18,7 +18,10 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const saida = path.join(raiz, "tests", "e2e", ".saida", "manual");
 fs.mkdirSync(saida, { recursive: true });
 const pedidos = process.argv.slice(2).map((p) => {
-  const [nome, resto] = p.split("=", 2);
+  // split("=", 2) descartaria o resto da URL depois do segundo "=" (query string).
+  const corte = p.indexOf("=");
+  const nome = p.slice(0, corte);
+  const resto = p.slice(corte + 1);
   const [rota, ...extras] = resto.split("|");
   const clicar = extras.find((e) => e.startsWith("clicar="))?.slice(7) ?? null;
   const buscar = extras.find((e) => e.startsWith("buscar="))?.slice(7) ?? null;

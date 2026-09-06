@@ -17,6 +17,9 @@ export const CAPABILITY_KEYS = [
   "faturamento.read",
   "faturamento.write",
   "faturamento.nfe.import_xml",
+  // Emitir nota (NF-e da OV, NF-e da OS e NFS-e) e liberar perfil fiscal para producao.
+  // Decisao de 06/09/2026: ADMIN, FINANCEIRO e FATURAMENTO na empresa.
+  "faturamento.emitir",
   "financeiro.read",
   "financeiro.write",
   "financeiro.delete",

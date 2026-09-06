@@ -68,6 +68,14 @@ Regra prática: **o que está no preço da NFS-e pode ser deduzido e vai por rem
 
 165 notas importadas, base de R$ 3,59 milhões. O contador diz que a correção é na escrituração; a pergunta que fica é se a apuração do ERP (tela de impostos e projeções) deve mostrar o mesmo número da contabilidade. É uma reescrita de oito meses de apuração: só com decisão explícita.
 
+## Quem emite nota e quem libera perfil (06/09/2026)
+
+Decisão do Gabriel: emitir nota e liberar perfil fiscal ficam com **ADMIN, FINANCEIRO e FATURAMENTO** na empresa. Hoje: Gabriel e Larissa (ADMIN), Deyvison (FINANCEIRO) e Vanessa (FATURAMENTO). Vale para o botão **Faturar** da OS, o quadro **Faturamento da OS por valor** e o menu **Comercial → OV**. DIRETOR (Diogo e Marcelo) não entra na lista.
+
+A tela `/faturamento/perfis` passou a listar também os perfis de serviço (NFS-e), com resumo somente leitura dos campos fiscais e o mesmo bloco de liberação para produção. A **revisão** do perfil de serviço continua por script (`scripts/nfse-perfil-revisar.mjs`), de propósito: os valores ficam ao lado da justificativa do contador e versionados, como os campos de NF-e que vêm de migration.
+
+Ressalva: papel de tenant OWNER, ADMIN ou DIRETOR mantém carta branca no portão antigo do banco. A restrição acima é de tela.
+
 ## O que ficou pendente
 
 1. **cBenef do Convênio 52/91** para o NCM 8460.90.90: pedir ao contador o código da Tabela 5.2 (Anexo 2, art. 9º) e conferir o prefixo.

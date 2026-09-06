@@ -10,7 +10,7 @@ type PerfilFiscal = {
   id: string;
   codigo: string;
   nome: string;
-  modelo: "NFE";
+  modelo: "NFE" | "NFSE";
   natureza_operacao: string;
   natureza_texto: string;
   crt: string | null;
@@ -51,6 +51,31 @@ type PerfilFiscal = {
   revisao_fiscal_justificativa: string | null;
   producao_decidida_em: string | null;
   producao_decidida_por: string | null;
+  // Perfil de servico (NFS-e). A revisao destes campos continua por script
+  // (scripts/nfse-perfil-revisar.mjs), com a justificativa do contador versionada;
+  // aqui eles aparecem somente para leitura, antes da liberacao para producao.
+  item_servico?: string | null;
+  codigo_tributacao_nacional?: string | null;
+  codigo_nbs?: string | null;
+  descricao_servico_padrao?: string | null;
+  local_prestacao_regra?: string | null;
+  incidencia_iss_regra?: string | null;
+  aliquota_iss?: number | string | null;
+  iss_retido_regra?: string | null;
+  retencao_pcc_regra?: string | null;
+  aliquota_pcc?: number | string | null;
+  retencao_irrf_regra?: string | null;
+  aliquota_irrf?: number | string | null;
+  retencao_inss_regra?: string | null;
+  aliquota_inss?: number | string | null;
+  permite_deducao_material?: boolean | null;
+  excecao_conserto_isolado?: boolean | null;
+  codigo_indicador_operacao?: string | null;
+  tributos_aprox_federal_pct?: number | string | null;
+  tributos_aprox_municipal_pct?: number | string | null;
+  campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
+  texto_complementar?: string | null;
+  texto_sem_retencao?: string | null;
 };
 
 type ListaPerfis = {
@@ -215,6 +240,19 @@ function productionBlockers(perfil: PerfilFiscal) {
   const blockers: string[] = [];
   if (!perfil.vigente) blockers.push("O perfil esta fora da vigencia.");
   if (perfil.faixa_automacao === "BLOQUEADO") blockers.push("A faixa de automacao esta bloqueada.");
+  // Perfil de servico: os campos fiscais sao os do ISS e das retencoes, e a evidencia
+  // e a propria NFS-e de homologacao. Os campos travados (CONFERIR_08_09) barram a producao.
+  if (perfil.modelo === "NFSE") {
+    if (!perfil.revisao_fiscal_em) blockers.push("O perfil de servico ainda nao foi revisado.");
+    if (!perfil.codigo_tributacao_nacional) blockers.push("O codigo de tributacao nacional do servico nao esta confirmado.");
+    if (perfil.aliquota_iss === null || perfil.aliquota_iss === undefined) blockers.push("A aliquota de ISS nao esta confirmada.");
+    if (!perfil.iss_retido_regra) blockers.push("A regra de retencao do ISS nao esta confirmada.");
+    if (!perfil.codigo_indicador_operacao) blockers.push("O cIndOp nao esta confirmado (obrigatorio no grupo IBS/CBS).");
+    if (perfil.campos_conferir?.length) {
+      blockers.push(`Campos travados aguardando confirmacao: ${perfil.campos_conferir.map((c) => c.campo).join(", ")}.`);
+    }
+    return blockers;
+  }
   if (!perfil.evidencia_id) blockers.push("Nao ha evidencia fiscal vinculada.");
   if (!perfil.ambito_destino || !perfil.ufs_destino?.length) {
     blockers.push("Ambito e UFs de destino ainda nao foram confirmados.");
@@ -414,20 +452,23 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
     () => homologacoes.find((homologacao) => homologacao.solicitacao_id === release.solicitacaoId) ?? null,
     [homologacoes, release.solicitacaoId]
   );
+  const ehServico = selected?.modelo === "NFSE";
   const releaseIssues = useMemo(() => {
     if (!selected) return ["Selecione um perfil."];
     const next = [...blockers];
-    if (formFiscalAlterado) next.push("Salve ou descarte as alteracoes fiscais do formulario antes de liberar producao.");
+    // Perfil de servico nao tem formulario de revisao nesta tela: nada a salvar antes de liberar.
+    if (formFiscalAlterado && selected.modelo !== "NFSE") next.push("Salve ou descarte as alteracoes fiscais do formulario antes de liberar producao.");
     if (!selected.revisao_fiscal_em) next.push("Salve a revisao do perfil antes da homologacao.");
     if (!UUID.test(release.solicitacaoId)) next.push("Informe o UUID da solicitacao homologada.");
+    const documento = selected.modelo === "NFSE" ? "NFS-e" : "NF-e";
     if (UUID.test(release.solicitacaoId) && !selectedHomologacao) {
-      next.push("A solicitacao ainda nao possui NF-e AUTORIZADA em homologacao para este perfil.");
+      next.push(`A solicitacao ainda nao possui ${documento} AUTORIZADA em homologacao para este perfil.`);
     }
     if (selectedHomologacao && !selectedHomologacao.apos_ultima_revisao) {
-      next.push("A NF-e de homologacao e anterior a ultima revisao; emita uma nova homologacao.");
+      next.push(`A ${documento} de homologacao e anterior a ultima revisao; emita uma nova homologacao.`);
     }
     if (selectedHomologacao?.cancelamento_em_andamento) {
-      next.push("A NF-e de homologacao possui cancelamento em andamento.");
+      next.push(`A ${documento} de homologacao possui cancelamento em andamento.`);
     }
     const length = release.justificativa.trim().length;
     if (length < 15 || length > 1000) next.push("A justificativa da liberacao deve ter entre 15 e 1000 caracteres.");
@@ -510,12 +551,15 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
     setBusy(true);
     setNotice(null);
     try {
-      const { data, error } = await supabase.schema("f").rpc("fn_perfil_operacao_nfe_liberar_producao", {
-        p_perfil_id: selected.id,
-        p_solicitacao_id: release.solicitacaoId,
-        p_justificativa: release.justificativa.trim(),
-        p_confirmacao: release.confirmou,
-      });
+      const { data, error } = await supabase.schema("f").rpc(
+        selected.modelo === "NFSE" ? "fn_perfil_operacao_nfse_liberar_producao" : "fn_perfil_operacao_nfe_liberar_producao",
+        {
+          p_perfil_id: selected.id,
+          p_solicitacao_id: release.solicitacaoId,
+          p_justificativa: release.justificativa.trim(),
+          p_confirmacao: release.confirmou,
+        },
+      );
       if (error) throw error;
       const response = data && typeof data === "object" ? (data as { mensagem?: unknown }) : null;
       setRelease((current) => ({ ...current, justificativa: "", confirmou: false }));
@@ -550,7 +594,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs text-zinc-500">Faturamento › Perfis fiscais</div>
-          <h1 className="mt-1 text-2xl font-semibold">Revisao controlada de perfis NF-e</h1>
+          <h1 className="mt-1 text-2xl font-semibold">Perfis fiscais: revisao da NF-e e liberacao para producao</h1>
           <p className="mt-1 text-sm text-zinc-400">
             {empresaNome} · somente perfis do tenant e da empresa ativos.
           </p>
@@ -617,6 +661,9 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                   <div className="break-all text-xs font-semibold text-zinc-200">{perfil.codigo}</div>
                   <div className="mt-1 line-clamp-2 text-xs text-zinc-500">{perfil.nome}</div>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] uppercase tracking-wide">
+                    <span className={`rounded-full border px-2 py-0.5 ${perfil.modelo === "NFSE" ? "border-violet-700 text-violet-300" : "border-sky-800 text-sky-300"}`}>
+                      {perfil.modelo === "NFSE" ? `NFS-e ${perfil.item_servico ?? ""}`.trim() : "NF-e"}
+                    </span>
                     <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-zinc-400">
                       {perfil.faixa_automacao}
                     </span>
@@ -641,7 +688,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
         <section className="min-w-0 space-y-5">
           {!selected || !form ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-8 text-center text-sm text-zinc-500">
-              Selecione um perfil NF-e da empresa ativa.
+              Selecione um perfil fiscal (NF-e ou NFS-e) da empresa ativa.
             </div>
           ) : (
             <>
@@ -658,6 +705,47 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                   </div>
                 </div>
 
+                {ehServico ? (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Fact label="Servico">
+                      Subitem {display(selected.item_servico)} · cTribNac {display(selected.codigo_tributacao_nacional)}
+                    </Fact>
+                    <Fact label="NBS">{display(selected.codigo_nbs)}</Fact>
+                    <Fact label="ISS">
+                      {display(selected.aliquota_iss)}% · incide{" "}
+                      {selected.incidencia_iss_regra === "LOCAL_PRESTACAO" ? "no municipio da prestacao" : "na sede"}
+                    </Fact>
+                    <Fact label="Local da prestacao">
+                      {selected.local_prestacao_regra === "SEDE" ? "Sede da empresa" : "Municipio do tomador"}
+                    </Fact>
+                    <Fact label="ISS retido">{display(selected.iss_retido_regra)}</Fact>
+                    <Fact label="CRF (PIS/COFINS/CSLL)">
+                      {display(selected.retencao_pcc_regra)} · {display(selected.aliquota_pcc)}%
+                      {selected.excecao_conserto_isolado ? " · excecao de conserto isolado" : ""}
+                    </Fact>
+                    <Fact label="IRRF / INSS">
+                      {display(selected.retencao_irrf_regra)} {display(selected.aliquota_irrf)}% ·{" "}
+                      {display(selected.retencao_inss_regra)} {display(selected.aliquota_inss)}%
+                    </Fact>
+                    <Fact label="cIndOp / IBS/CBS">
+                      {display(selected.codigo_indicador_operacao)} · CST {display(selected.cst_ibs_cbs)} /{" "}
+                      {display(selected.cclass_trib)}
+                    </Fact>
+                    <Fact label="Tributos aproximados">
+                      Federal {display(selected.tributos_aprox_federal_pct)}% · municipal{" "}
+                      {display(selected.tributos_aprox_municipal_pct)}%
+                    </Fact>
+                    <Fact label="Deducao de material">
+                      {selected.permite_deducao_material ? "Permitida (obra)" : "Nao permitida"}
+                    </Fact>
+                    <Fact label="Campos travados">
+                      {selected.campos_conferir?.length
+                        ? selected.campos_conferir.map((c) => c.campo).join(", ")
+                        : "Nenhum"}
+                    </Fact>
+                    <Fact label="Faixa">{selected.faixa_automacao}</Fact>
+                  </div>
+                ) : (
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <Fact label="Destino">
                     {display(selected.ambito_destino)} · {selected.ufs_destino?.join(", ") || "UF nao informada"}
@@ -686,8 +774,34 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                     {selected.evidencia_id ? "Vinculada" : "Nao vinculada"} · faixa {selected.faixa_automacao}
                   </Fact>
                 </div>
+                )}
+                {ehServico && (selected.texto_complementar || selected.texto_sem_retencao) ? (
+                  <div className="mt-4 space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-xs text-zinc-400">
+                    {selected.texto_complementar ? <div><span className="text-zinc-500">Frase com retencao: </span>{selected.texto_complementar}</div> : null}
+                    {selected.texto_sem_retencao ? <div><span className="text-zinc-500">Frase sem retencao: </span>{selected.texto_sem_retencao}</div> : null}
+                  </div>
+                ) : null}
               </section>
 
+              {ehServico ? (
+                <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-5">
+                  <h2 className="font-semibold">Revisao fiscal do perfil de servico</h2>
+                  <p className="mt-1 max-w-3xl text-sm text-zinc-400">
+                    Os campos acima nao sao editados aqui. Eles vem de{" "}
+                    <code className="text-zinc-300">scripts/nfse-perfil-revisar.mjs</code>, onde cada valor fica ao lado da
+                    justificativa do contador e passa por revisao antes de ser aplicado — a mesma disciplina dos campos de
+                    NF-e, que vem de migration. Esta tela cuida da liberacao para producao, que se repete a cada nota.
+                  </p>
+                  {selected.revisao_fiscal_justificativa ? (
+                    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+                      <div className="text-zinc-500">Ultima revisao ({formatDateTime(selected.revisao_fiscal_em)}):</div>
+                      <div className="mt-1">{selected.revisao_fiscal_justificativa}</div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-sm text-amber-300">Perfil ainda sem revisao fiscal.</div>
+                  )}
+                </section>
+              ) : (
               <section className="rounded-xl border border-sky-900/70 bg-sky-950/10 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -826,6 +940,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                   </button>
                 </div>
               </section>
+              )}
 
               <section
                 className={`rounded-xl border p-5 ${
@@ -839,7 +954,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                     <h2 className="font-semibold">Liberacao separada para producao</h2>
                     <p className="mt-1 max-w-3xl text-sm text-zinc-400">
                       A RPC confere tenant, empresa, perfil e os seis campos no item da solicitacao, snapshot fiscal e
-                      payload da NF-e AUTORIZADA em homologacao. Esta etapa nao emite a nota de producao.
+                      payload da nota AUTORIZADA em homologacao. Esta etapa nao emite a nota de producao.
                     </p>
                   </div>
                   <span
@@ -868,7 +983,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                   <div>
                     <div className="flex items-center justify-between gap-3">
                       <label className="text-sm text-zinc-300" htmlFor="solicitacao-homologada">
-                        Solicitacao da NF-e homologada
+                        Solicitacao da {ehServico ? "NFS-e" : "NF-e"} homologada
                       </label>
                       <button
                         type="button"
@@ -947,7 +1062,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                     onChange={(event) => setRelease({ ...release, confirmou: event.target.checked })}
                   />
                   <span className="text-sm text-amber-100">
-                    Confirmo a equivalencia com esta NF-e AUTORIZADA em homologacao e quero vincular a liberacao somente
+                    Confirmo a equivalencia com esta nota AUTORIZADA em homologacao e quero vincular a liberacao somente
                     a esta solicitacao e documento.
                   </span>
                 </label>

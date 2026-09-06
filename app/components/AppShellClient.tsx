@@ -270,6 +270,10 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canSeeAjusteEstoqueMenu = can("estoque.read") || can("estoque.write") || canSeeEstoqueMenuByEmpresaPapel;
   const canSeeAjusteNomeMenu = Boolean(empresaPapel && ["ADMIN", "DIRETOR", "FINANCEIRO", "COORDENACAO", "FATURAMENTO"].includes(empresaPapel));
   const canSeeImobilizadoMenu = can("imobilizado.read") === true;
+  // Emitir nota (NF-e da OV, NF-e da OS e NFS-e) e a OV que a origina: decisao de 06/09/2026,
+  // restrita a quem fatura — ADMIN, FINANCEIRO e FATURAMENTO na empresa.
+  const canEmitirNota = can("faturamento.emitir") === true
+    || Boolean(empresaPapel && ["ADMIN", "FINANCEIRO", "FATURAMENTO"].includes(empresaPapel));
 
   useEffect(() => {
     if (!isDev) return;
@@ -714,9 +718,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         <Link href="/comercial/orcamentos" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
                           Orçamentos
                         </Link>
-                        <Link href="/comercial/vendas" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
-                          OV
-                        </Link>
+                        {canEmitirNota ? (
+                          <Link href="/comercial/vendas" className="block px-3 py-2 hover:bg-zinc-900 text-sm">
+                            OV
+                          </Link>
+                        ) : null}
 
                         <div className="border-t border-zinc-800 my-2" />
                         <div className="px-3 py-2 text-xs font-semibold text-zinc-400">Configurações</div>
