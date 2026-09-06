@@ -1,0 +1,261 @@
+papel|representante|grupo|item|resultado|detalhe
+ADMIN|Gabriel G. Mendes|Aba OS|Abrir a lista de OS|SIM|76 registros
+ADMIN|Gabriel G. Mendes|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+ADMIN|Gabriel G. Mendes|Aba OS|Ver valores da OS (orçado, faturado, gasto)|SIM|
+ADMIN|Gabriel G. Mendes|Aba OS|Ver apontamentos de horas da OS|SIM|568 registros
+ADMIN|Gabriel G. Mendes|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+ADMIN|Gabriel G. Mendes|Aba Estoque|Consultar o estoque|SIM|5 registros
+ADMIN|Gabriel G. Mendes|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+ADMIN|Gabriel G. Mendes|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+ADMIN|Gabriel G. Mendes|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+ADMIN|Gabriel G. Mendes|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+ADMIN|Gabriel G. Mendes|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+ADMIN|Gabriel G. Mendes|Aba Perfil|Ver minhas horas do mês e do ano|SIM|0 registros
+ADMIN|Gabriel G. Mendes|Aba Perfil|Ver o resumo do mês|SIM|1 registros
+ADMIN|Gabriel G. Mendes|Aba Perfil|Ver notificações|SIM|5 registros
+ADMIN|Gabriel G. Mendes|Cadastros|Ver a lista de colaboradores|SIM|33 registros
+ADMIN|Gabriel G. Mendes|Cadastros|Ver clientes de HH|SIM|2 registros
+ADMIN|Gabriel G. Mendes|Cadastros|Ver os tipos de hora|SIM|6 registros
+ADMIN|Gabriel G. Mendes|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+ADMIN|Gabriel G. Mendes|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+ADMIN|Gabriel G. Mendes|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+ADMIN|Gabriel G. Mendes|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+ADMIN|Gabriel G. Mendes|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+ADMIN|Gabriel G. Mendes|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+ADMIN|Gabriel G. Mendes|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+ADMIN|Gabriel G. Mendes|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+ADMIN|Gabriel G. Mendes|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+ALMOXARIFADO|reserva|Aba OS|Abrir a lista de OS|SIM|76 registros
+ALMOXARIFADO|reserva|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+ALMOXARIFADO|reserva|Aba OS|Ver valores da OS (orçado, faturado, gasto)|NÃO|a função respondeu não
+ALMOXARIFADO|reserva|Aba OS|Ver apontamentos de horas da OS|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+ALMOXARIFADO|reserva|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+ALMOXARIFADO|reserva|Aba Estoque|Consultar o estoque|SIM|5 registros
+ALMOXARIFADO|reserva|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+ALMOXARIFADO|reserva|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+ALMOXARIFADO|reserva|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+ALMOXARIFADO|reserva|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+ALMOXARIFADO|reserva|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+ALMOXARIFADO|reserva|Aba Perfil|Ver minhas horas do mês e do ano|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+ALMOXARIFADO|reserva|Aba Perfil|Ver o resumo do mês|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+ALMOXARIFADO|reserva|Aba Perfil|Ver notificações|SIM|0 registros
+ALMOXARIFADO|reserva|Cadastros|Ver a lista de colaboradores|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+ALMOXARIFADO|reserva|Cadastros|Ver clientes de HH|SIM|2 registros
+ALMOXARIFADO|reserva|Cadastros|Ver os tipos de hora|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+ALMOXARIFADO|reserva|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+ALMOXARIFADO|reserva|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+ALMOXARIFADO|reserva|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+ALMOXARIFADO|reserva|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+ALMOXARIFADO|reserva|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+ALMOXARIFADO|reserva|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+ALMOXARIFADO|reserva|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+ALMOXARIFADO|reserva|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+ALMOXARIFADO|reserva|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+APONTADOR|Analice|Aba OS|Abrir a lista de OS|SIM|76 registros
+APONTADOR|Analice|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+APONTADOR|Analice|Aba OS|Ver valores da OS (orçado, faturado, gasto)|NÃO|a função respondeu não
+APONTADOR|Analice|Aba OS|Ver apontamentos de horas da OS|SIM|18 registros
+APONTADOR|Analice|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+APONTADOR|Analice|Aba Estoque|Consultar o estoque|SIM|5 registros
+APONTADOR|Analice|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+APONTADOR|Analice|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+APONTADOR|Analice|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+APONTADOR|Analice|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+APONTADOR|Analice|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+APONTADOR|Analice|Aba Perfil|Ver minhas horas do mês e do ano|SIM|2 registros
+APONTADOR|Analice|Aba Perfil|Ver o resumo do mês|SIM|1 registros
+APONTADOR|Analice|Aba Perfil|Ver notificações|SIM|0 registros
+APONTADOR|Analice|Cadastros|Ver a lista de colaboradores|SIM|1 registros
+APONTADOR|Analice|Cadastros|Ver clientes de HH|SIM|2 registros
+APONTADOR|Analice|Cadastros|Ver os tipos de hora|SIM|6 registros
+APONTADOR|Analice|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+APONTADOR|Analice|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+APONTADOR|Analice|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+APONTADOR|Analice|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+APONTADOR|Analice|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+APONTADOR|Analice|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+APONTADOR|Analice|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+APONTADOR|Analice|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+APONTADOR|Analice|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+APONTAMENTO_RH|Ellen|Aba OS|Abrir a lista de OS|FALTA VÍNCULO|Seu usuário de apontamento não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+APONTAMENTO_RH|Ellen|Aba OS|Ver valores da OS (orçado, faturado, gasto)|NÃO|a função respondeu não
+APONTAMENTO_RH|Ellen|Aba OS|Ver apontamentos de horas da OS|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Aba OS|Ver materiais lançados na OS|FALTA VÍNCULO|Seu usuário de apontamento não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Aba Estoque|Consultar o estoque|SIM|5 registros
+APONTAMENTO_RH|Ellen|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+APONTAMENTO_RH|Ellen|Aba Histórico|Ver o próprio histórico de lançamentos|FALTA VÍNCULO|Seu usuario nao esta vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+APONTAMENTO_RH|Ellen|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+APONTAMENTO_RH|Ellen|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+APONTAMENTO_RH|Ellen|Aba Perfil|Ver minhas horas do mês e do ano|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Aba Perfil|Ver o resumo do mês|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Aba Perfil|Ver notificações|SIM|0 registros
+APONTAMENTO_RH|Ellen|Cadastros|Ver a lista de colaboradores|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Cadastros|Ver clientes de HH|SIM|2 registros
+APONTAMENTO_RH|Ellen|Cadastros|Ver os tipos de hora|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+APONTAMENTO_RH|Ellen|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+APONTAMENTO_RH|Ellen|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+APONTAMENTO_RH|Ellen|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+APONTAMENTO_RH|Ellen|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+APONTAMENTO_RH|Ellen|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+APONTAMENTO_RH|Ellen|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+APONTAMENTO_RH|Ellen|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+APONTAMENTO_RH|Ellen|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+APONTAMENTO_RH|Ellen|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+COMPRAS|Rubens|Aba OS|Abrir a lista de OS|SIM|76 registros
+COMPRAS|Rubens|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+COMPRAS|Rubens|Aba OS|Ver valores da OS (orçado, faturado, gasto)|NÃO|a função respondeu não
+COMPRAS|Rubens|Aba OS|Ver apontamentos de horas da OS|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+COMPRAS|Rubens|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+COMPRAS|Rubens|Aba Estoque|Consultar o estoque|SIM|5 registros
+COMPRAS|Rubens|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+COMPRAS|Rubens|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+COMPRAS|Rubens|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+COMPRAS|Rubens|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+COMPRAS|Rubens|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+COMPRAS|Rubens|Aba Perfil|Ver minhas horas do mês e do ano|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+COMPRAS|Rubens|Aba Perfil|Ver o resumo do mês|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+COMPRAS|Rubens|Aba Perfil|Ver notificações|SIM|0 registros
+COMPRAS|Rubens|Cadastros|Ver a lista de colaboradores|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+COMPRAS|Rubens|Cadastros|Ver clientes de HH|SIM|2 registros
+COMPRAS|Rubens|Cadastros|Ver os tipos de hora|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+COMPRAS|Rubens|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+COMPRAS|Rubens|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+COMPRAS|Rubens|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+COMPRAS|Rubens|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+COMPRAS|Rubens|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+COMPRAS|Rubens|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+COMPRAS|Rubens|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+COMPRAS|Rubens|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+COMPRAS|Rubens|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+COORDENACAO|Clarice|Aba OS|Abrir a lista de OS|SIM|76 registros
+COORDENACAO|Clarice|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+COORDENACAO|Clarice|Aba OS|Ver valores da OS (orçado, faturado, gasto)|NÃO|a função respondeu não
+COORDENACAO|Clarice|Aba OS|Ver apontamentos de horas da OS|SIM|568 registros
+COORDENACAO|Clarice|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+COORDENACAO|Clarice|Aba Estoque|Consultar o estoque|SIM|5 registros
+COORDENACAO|Clarice|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+COORDENACAO|Clarice|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+COORDENACAO|Clarice|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+COORDENACAO|Clarice|Aba Aprovações|Abrir a aba de aprovações|SIM|1 registros
+COORDENACAO|Clarice|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+COORDENACAO|Clarice|Aba Perfil|Ver minhas horas do mês e do ano|SIM|6 registros
+COORDENACAO|Clarice|Aba Perfil|Ver o resumo do mês|SIM|1 registros
+COORDENACAO|Clarice|Aba Perfil|Ver notificações|SIM|3 registros
+COORDENACAO|Clarice|Cadastros|Ver a lista de colaboradores|SIM|33 registros
+COORDENACAO|Clarice|Cadastros|Ver clientes de HH|SIM|2 registros
+COORDENACAO|Clarice|Cadastros|Ver os tipos de hora|SIM|6 registros
+COORDENACAO|Clarice|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+COORDENACAO|Clarice|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+COORDENACAO|Clarice|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+COORDENACAO|Clarice|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+COORDENACAO|Clarice|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+COORDENACAO|Clarice|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+COORDENACAO|Clarice|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+COORDENACAO|Clarice|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+COORDENACAO|Clarice|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+DIRETOR|Diogo|Aba OS|Abrir a lista de OS|SIM|76 registros
+DIRETOR|Diogo|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+DIRETOR|Diogo|Aba OS|Ver valores da OS (orçado, faturado, gasto)|SIM|
+DIRETOR|Diogo|Aba OS|Ver apontamentos de horas da OS|SIM|568 registros
+DIRETOR|Diogo|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+DIRETOR|Diogo|Aba Estoque|Consultar o estoque|SIM|5 registros
+DIRETOR|Diogo|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+DIRETOR|Diogo|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+DIRETOR|Diogo|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+DIRETOR|Diogo|Aba Aprovações|Abrir a aba de aprovações|SIM|1 registros
+DIRETOR|Diogo|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+DIRETOR|Diogo|Aba Perfil|Ver minhas horas do mês e do ano|SIM|5 registros
+DIRETOR|Diogo|Aba Perfil|Ver o resumo do mês|SIM|1 registros
+DIRETOR|Diogo|Aba Perfil|Ver notificações|SIM|5 registros
+DIRETOR|Diogo|Cadastros|Ver a lista de colaboradores|SIM|33 registros
+DIRETOR|Diogo|Cadastros|Ver clientes de HH|SIM|2 registros
+DIRETOR|Diogo|Cadastros|Ver os tipos de hora|SIM|6 registros
+DIRETOR|Diogo|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+DIRETOR|Diogo|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+DIRETOR|Diogo|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+DIRETOR|Diogo|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+DIRETOR|Diogo|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+DIRETOR|Diogo|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+DIRETOR|Diogo|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+DIRETOR|Diogo|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+DIRETOR|Diogo|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+FATURAMENTO|Vanessa|Aba OS|Abrir a lista de OS|SIM|76 registros
+FATURAMENTO|Vanessa|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+FATURAMENTO|Vanessa|Aba OS|Ver valores da OS (orçado, faturado, gasto)|SIM|
+FATURAMENTO|Vanessa|Aba OS|Ver apontamentos de horas da OS|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FATURAMENTO|Vanessa|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+FATURAMENTO|Vanessa|Aba Estoque|Consultar o estoque|SIM|5 registros
+FATURAMENTO|Vanessa|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+FATURAMENTO|Vanessa|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+FATURAMENTO|Vanessa|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+FATURAMENTO|Vanessa|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+FATURAMENTO|Vanessa|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+FATURAMENTO|Vanessa|Aba Perfil|Ver minhas horas do mês e do ano|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FATURAMENTO|Vanessa|Aba Perfil|Ver o resumo do mês|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FATURAMENTO|Vanessa|Aba Perfil|Ver notificações|SIM|0 registros
+FATURAMENTO|Vanessa|Cadastros|Ver a lista de colaboradores|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FATURAMENTO|Vanessa|Cadastros|Ver clientes de HH|SIM|2 registros
+FATURAMENTO|Vanessa|Cadastros|Ver os tipos de hora|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FATURAMENTO|Vanessa|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+FATURAMENTO|Vanessa|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+FATURAMENTO|Vanessa|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+FATURAMENTO|Vanessa|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+FATURAMENTO|Vanessa|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+FATURAMENTO|Vanessa|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+FATURAMENTO|Vanessa|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+FATURAMENTO|Vanessa|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+FATURAMENTO|Vanessa|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+FINANCEIRO|Deyvison|Aba OS|Abrir a lista de OS|SIM|76 registros
+FINANCEIRO|Deyvison|Aba OS|Ver OS agrupadas por cliente|SIM|46 registros
+FINANCEIRO|Deyvison|Aba OS|Ver valores da OS (orçado, faturado, gasto)|SIM|
+FINANCEIRO|Deyvison|Aba OS|Ver apontamentos de horas da OS|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FINANCEIRO|Deyvison|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+FINANCEIRO|Deyvison|Aba Estoque|Consultar o estoque|SIM|5 registros
+FINANCEIRO|Deyvison|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+FINANCEIRO|Deyvison|Aba Histórico|Ver o próprio histórico de lançamentos|SIM|5 registros
+FINANCEIRO|Deyvison|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+FINANCEIRO|Deyvison|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+FINANCEIRO|Deyvison|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+FINANCEIRO|Deyvison|Aba Perfil|Ver minhas horas do mês e do ano|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FINANCEIRO|Deyvison|Aba Perfil|Ver o resumo do mês|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FINANCEIRO|Deyvison|Aba Perfil|Ver notificações|SIM|1 registros
+FINANCEIRO|Deyvison|Cadastros|Ver a lista de colaboradores|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FINANCEIRO|Deyvison|Cadastros|Ver clientes de HH|SIM|2 registros
+FINANCEIRO|Deyvison|Cadastros|Ver os tipos de hora|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+FINANCEIRO|Deyvison|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+FINANCEIRO|Deyvison|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+FINANCEIRO|Deyvison|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+FINANCEIRO|Deyvison|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+FINANCEIRO|Deyvison|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+FINANCEIRO|Deyvison|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+FINANCEIRO|Deyvison|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+FINANCEIRO|Deyvison|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+FINANCEIRO|Deyvison|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO
+PAINEL_TV|Contato|Aba OS|Abrir a lista de OS|SIM|76 registros
+PAINEL_TV|Contato|Aba OS|Ver OS agrupadas por cliente|NÃO|Sem permissao para consultar ordens de servico no app.
+PAINEL_TV|Contato|Aba OS|Ver valores da OS (orçado, faturado, gasto)|NÃO|a função respondeu não
+PAINEL_TV|Contato|Aba OS|Ver apontamentos de horas da OS|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+PAINEL_TV|Contato|Aba OS|Ver materiais lançados na OS|SIM|0 registros
+PAINEL_TV|Contato|Aba Estoque|Consultar o estoque|NÃO|Sem permissao para consultar o estoque no app.
+PAINEL_TV|Contato|Aba Estoque|Ver preço e custo do item|REGRA|TELA: escondido para TECNICO, APONTAMENTO_RH e APONTADOR
+PAINEL_TV|Contato|Aba Histórico|Ver o próprio histórico de lançamentos|NÃO|Sem permissao para consultar o historico do app.
+PAINEL_TV|Contato|Aba Histórico|Ver o histórico de toda a equipe|REGRA|RPC: TECNICO, APONTAMENTO_RH e APONTADOR veem só os próprios lançamentos
+PAINEL_TV|Contato|Aba Aprovações|Abrir a aba de aprovações|SIM|0 registros
+PAINEL_TV|Contato|Aba Aprovações|Aprovar horas da equipe|REGRA|TELA: aba escondida para TECNICO, APONTAMENTO_RH e APONTADOR
+PAINEL_TV|Contato|Aba Perfil|Ver minhas horas do mês e do ano|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+PAINEL_TV|Contato|Aba Perfil|Ver o resumo do mês|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+PAINEL_TV|Contato|Aba Perfil|Ver notificações|SIM|0 registros
+PAINEL_TV|Contato|Cadastros|Ver a lista de colaboradores|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+PAINEL_TV|Contato|Cadastros|Ver clientes de HH|SIM|2 registros
+PAINEL_TV|Contato|Cadastros|Ver os tipos de hora|FALTA VÍNCULO|Seu usuário não está vinculado a um colaborador ativo nesta empresa.
+PAINEL_TV|Contato|Lançar|Lançar horas na OS|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+PAINEL_TV|Contato|Lançar|Lançar horas para outra pessoa|REGRA|RPC: APONTAMENTO_RH e APONTADOR lançam só para si
+PAINEL_TV|Contato|Lançar|Lançar HH (entrada e saída)|REGRA|RPC: ADMIN, DIRETOR, COORDENACAO, TECNICO, APONTAMENTO_RH e APONTADOR
+PAINEL_TV|Contato|Lançar|Lançar material na OS|REGRA|RPC: qualquer papel com acesso à OS; a OS precisa estar em andamento
+PAINEL_TV|Contato|Lançar|Corrigir ou remover material|REGRA|RPC: só quem lançou, e só o que foi lançado pelo app
+PAINEL_TV|Contato|Lançar|Criar OS de HH pelo app|REGRA|RPC: bloqueado para APONTAMENTO_RH e APONTADOR
+PAINEL_TV|Contato|Editar|Editar apontamento antes da aprovação|REGRA|TELA: só o próprio colaborador
+PAINEL_TV|Contato|Editar|Editar apontamento depois de aprovado|REGRA|TELA: ADMIN, DIRETOR e COORDENACAO
+PAINEL_TV|Contato|Editar|Cancelar ou restaurar apontamento|REGRA|RPC: ADMIN, DIRETOR e COORDENACAO

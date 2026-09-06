@@ -1,0 +1,21 @@
+Analice|analice@segau.com.br|APONTADOR|vinculado
+Clarice|clarice@segau.com.br|COORDENACAO|vinculado
+Cleiton|cleiton@segau.com.br|COORDENACAO|vinculado
+Contato|contato@segau.com.br|PAINEL_TV|sem
+Deyvison|deyvison@segau.com.br|FINANCEIRO|sem
+Diogo|diogo@segau.com.br|DIRETOR|vinculado
+Douglas|douglas@segau.com.br|COORDENACAO|vinculado
+Ellen|estoque@segau.com.br|APONTAMENTO_RH|sem
+Everton|everton@segau.com.br|COORDENACAO|vinculado
+Gabriel G. Mendes|gabriel@segau.com.br|ADMIN|vinculado
+gabriel teste|gabrielgolombieschi@gmail.com|ADMIN|vinculado
+Larissa|larissa@segau.com.br|ADMIN|sem
+Lucas|lucas@segau.com.br|COORDENACAO|vinculado
+Marcelo|marcelo@segau.com.br|DIRETOR|vinculado
+Mateus|mateus@segau.com.br|COORDENACAO|vinculado
+Paulo Andre|p.asouza_93@icloud.com|APONTADOR|vinculado
+reserva|logistica@segau.com.br|ALMOXARIFADO|sem
+Rubens|compras@segau.com.br|COMPRAS|sem
+Samuel Dutra|samuelsenzala1103@gmail.com|APONTADOR|vinculado
+Vagner|vagner@segau.com.br|COORDENACAO|vinculado
+Vanessa|vanessa@segau.com.br|FATURAMENTO|sem
