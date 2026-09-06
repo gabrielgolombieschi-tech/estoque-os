@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Módulo Fiscal — estado em 06/09/2026</title>
+<style>
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: #111; margin: 0; font-size: 10.5px; }
+  .slide { page-break-after: always; min-height: 185mm; position: relative; }
+  .slide:last-child { page-break-after: auto; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  h2 { font-size: 16px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 2px solid #0f4c81; }
+  .sub { color: #555; font-size: 10px; margin-bottom: 8px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+  th, td { border: 1px solid #bbb; padding: 3px 5px; vertical-align: top; text-align: left; }
+  th { background: #0f4c81; color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #f4f7fb; }
+  td.k { font-weight: 600; background: #e9eef5 !important; width: 21%; }
+  .ok { background: #d8f2dc; color: #14532d; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+  .falta { background: #fde2e2; color: #7f1d1d; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+  .hom { background: #fff1c2; color: #7c4a03; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+  .bloq { background: #e5e7eb; color: #374151; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+  .na { color: #888; }
+  .cover { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; height: 185mm; }
+  .cover h1 { font-size: 34px; color: #0f4c81; }
+  .cover .big { font-size: 16px; margin-top: 14px; }
+  .cover table { width: 60%; margin-top: 18px; font-size: 12px; }
+  .legend span { margin-right: 10px; }
+  .foot { position: absolute; bottom: 0; right: 0; font-size: 9px; color: #777; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .small { font-size: 9.5px; }
+</style>
+</head>
+<body>
+
+<!-- 1. Capa -->
+<section class="slide cover">
+  <h1>Módulo Fiscal — como estamos</h1>
+  <div class="big">Elétrica Segau · 06/09/2026 · Focus NFe · Supabase</div>
+  <table>
+    <tr><th>Fluxo</th><th>Documento</th><th>Origem</th><th>Produção hoje</th></tr>
+    <tr><td>NF-e · Revenda</td><td>NF-e mod. 55, CFOP 5102</td><td>Ordem de Venda (OV)</td><td><span class="ok">LIBERADA</span> 12% SC (2 perfis)</td></tr>
+    <tr><td>NF-e · Industrialização</td><td>NF-e mod. 55, CFOP 5101/6101</td><td>Ordem de Serviço (OS)</td><td><span class="hom">SÓ HOMOLOGAÇÃO</span></td></tr>
+    <tr><td>NFS-e · Serviço</td><td>NFS-e Padrão Nacional (DPS)</td><td>Ordem de Serviço (OS)</td><td><span class="hom">FECHADA</span> até liberar perfil</td></tr>
+  </table>
+  <div class="legend" style="margin-top:16px">
+    <span class="ok">OK</span> funciona em produção &nbsp;
+    <span class="hom">HOM</span> funciona só em homologação &nbsp;
+    <span class="falta">FALTA</span> não existe &nbsp;
+    <span class="bloq">BLOQ</span> existe, bloqueado de propósito
+  </div>
+</section>
+
+<!-- 2. Funcionamento -->
+<section class="slide">
+  <h2>1 · Funcionamento</h2>
+  <table>
+    <tr><th style="width:21%">Função</th><th>NF-e · Revenda (OV)</th><th>NF-e · Industrialização (OS)</th><th>NFS-e · Serviço (OS)</th></tr>
+    <tr><td class="k">Tela</td><td>OV → Conferir e emitir</td><td>OS → Faturar (NF-e)</td><td>OS → Faturar (perfil de serviço)</td></tr>
+    <tr><td class="k">Conferência com bloqueios nomeados</td><td><span class="ok">OK</span> destino SC/outra UF + perfil por linha</td><td><span class="ok">OK</span> linhas por valor, destinação, produto fabricado</td><td><span class="ok">OK</span> município, competência, retenções, saldo por OS</td></tr>
+    <tr><td class="k">Emissão em homologação</td><td><span class="ok">OK</span></td><td><span class="ok">OK</span> notas parciais, IPI, 6101 PR</td><td><span class="ok">OK</span> 9 notas (1–9)</td></tr>
+    <tr><td class="k">Emissão em produção</td><td><span class="ok">OK</span> NF-e real na OV 344 (cancelada depois)</td><td><span class="hom">HOM</span> produção fechada (perfil 5101/6101 não liberado)</td><td><span class="ok">OK</span> NFS-e 50 (cancelada depois) · hoje fechada: perfil 14.06 re-revisado</td></tr>
+    <tr><td class="k">Cancelamento em produção</td><td><span class="ok">OK</span> até 24 h, com efeitos financeiros</td><td class="na">— (sem produção)</td><td><span class="ok">OK</span> prazo 24 h (provisório)</td></tr>
+    <tr><td class="k">Fora do prazo</td><td><span class="hom">HOM</span> estorno (finalidade 3) em /faturamento/operacoes</td><td><span class="hom">HOM</span> mesmo caminho</td><td><span class="hom">HOM</span> substituição (código 99) testada; produção usa o mesmo caminho</td></tr>
+    <tr><td class="k">Carta de correção</td><td><span class="bloq">BLOQ</span> pronta; produção barrada antes da Focus</td><td><span class="bloq">BLOQ</span></td><td class="na">não existe na NFS-e (substituição)</td></tr>
+    <tr><td class="k">Inutilização de numeração</td><td><span class="bloq">BLOQ</span> painel de lacunas OK; produção barrada</td><td><span class="bloq">BLOQ</span></td><td class="na">não se aplica</td></tr>
+    <tr><td class="k">E-mail pela Focus</td><td><span class="ok">OK</span> financeiro@segau.com.br (só produção)</td><td class="na">—</td><td><span class="hom">HOM</span> ação pronta, não testada em produção</td></tr>
+    <tr><td class="k">XML / DANFE / DANFSe</td><td><span class="ok">OK</span> bucket privado, URL de 60 s</td><td><span class="ok">OK</span></td><td><span class="ok">OK</span></td></tr>
+    <tr><td class="k">Webhook + reconciliação</td><td><span class="ok">OK</span> HOM e PROD</td><td><span class="ok">OK</span></td><td><span class="ok">OK</span> HOM rR9LQW65 · PROD xR2Vd8AR</td></tr>
+    <tr><td class="k">Título a receber</td><td><span class="ok">OK</span> parcelas da nota</td><td><span class="ok">OK</span> provado em teste</td><td><span class="ok">OK</span> líquido + retenções (f.titulo_retencao)</td></tr>
+    <tr><td class="k">Faturamento parcial</td><td><span class="ok">OK</span> por item</td><td><span class="ok">OK</span> por valor, várias notas na OS</td><td><span class="ok">OK</span> por valor; várias OS do mesmo tomador numa nota</td></tr>
+    <tr><td class="k">Perfil fiscal (revisão → homologação → liberação)</td><td><span class="ok">OK</span> 12% liberado · 17% revisado, não liberado</td><td><span class="falta">FALTA</span> só fixture; perfil 5101/6101 sem revisão</td><td><span class="ok">OK</span> 14.06/14.01/17.09 revisados; 07.02 e 17.06 bloqueados</td></tr>
+    <tr><td class="k">Expedição / volumes (modFrete ≠ 9)</td><td><span class="falta">FALTA</span> backlog</td><td><span class="falta">FALTA</span></td><td class="na">—</td></tr>
+    <tr><td class="k">DANFE próprio</td><td><span class="falta">FALTA</span> marco 01/10/2026</td><td><span class="falta">FALTA</span></td><td class="na">—</td></tr>
+    <tr><td class="k">Outras operações (devolução, venda à ordem, remessa/retorno)</td><td colspan="2"><span class="hom">HOM</span> /faturamento/operacoes; CFOP sempre confirmado por pessoa</td><td class="na">—</td></tr>
+    <tr><td class="k">Comum</td><td colspan="3">Certificado válido até 01/09/2027 (alerta 30 dias) · painel mensal de exceções · série 2 · CRT 3 Lucro Real · produção Focus habilitada; trava = perfil liberado</td></tr>
+  </table>
+  <div class="foot">Módulo Fiscal · 06/09/2026 · 2/6</div>
+</section>
+
+<!-- 3. Fiscal NF-e revenda -->
+<section class="slide">
+  <h2>2 · Fiscal — NF-e Revenda (OV, CFOP 5102)</h2>
+  <div class="grid2">
+    <div>
+      <table>
+        <tr><th colspan="3">ICMS interno (SC) por destinação</th></tr>
+        <tr><th>Destinação declarada na OC</th><th>Alíquota</th><th>Perfil</th></tr>
+        <tr><td>Revenda</td><td>12%</td><td><span class="ok">LIBERADO</span> O0 e O2</td></tr>
+        <tr><td>Insumo</td><td>12%</td><td><span class="ok">LIBERADO</span></td></tr>
+        <tr><td>Manutenção</td><td>12%</td><td><span class="ok">LIBERADO</span> (Portobello, Lei 17.878/2019)</td></tr>
+        <tr><td>Consignado</td><td>12%</td><td><span class="ok">LIBERADO</span></td></tr>
+        <tr><td>Uso e consumo</td><td>17% · indFinal 1</td><td><span class="hom">REVISADO</span> não liberado</td></tr>
+        <tr><td>Ativo imobilizado</td><td>17% · indFinal 1</td><td><span class="hom">REVISADO</span> não liberado</td></tr>
+        <tr><td>Não contribuinte</td><td>17%</td><td><span class="falta">SEM PERFIL</span></td></tr>
+      </table>
+      <table>
+        <tr><th colspan="3">ICMS interestadual (CFOP 6102)</th></tr>
+        <tr><th>Destino</th><th>Alíquota</th><th>Perfil</th></tr>
+        <tr><td>MG, PR, RS, RJ, SP · origem nacional</td><td>12%</td><td><span class="falta">SEM PERFIL</span></td></tr>
+        <tr><td>Demais UFs · origem nacional</td><td>7%</td><td><span class="falta">SEM PERFIL</span></td></tr>
+        <tr><td>Origem 1, 2 ou 6 (importado)</td><td>4%</td><td><span class="falta">SEM PERFIL</span></td></tr>
+        <tr><td>Não contribuinte (DIFAL)</td><td>—</td><td><span class="bloq">BLOQUEADO</span></td></tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th style="width:34%">Campo</th><th>Definido</th></tr>
+        <tr><td class="k">Natureza</td><td>VENDA MERCADORIA ADQ. REC. DE TERCEIROS</td></tr>
+        <tr><td class="k">CST ICMS · modalidade</td><td>00 · base 3 (valor da operação)</td></tr>
+        <tr><td class="k">Origem</td><td>0 nacional e 2 estrangeira (perfis próprios) · 1 e 6 sem perfil</td></tr>
+        <tr><td class="k">Redução de base</td><td>Nenhuma nos perfis · NCM 8536.49.00, 8536.50.90, 8544.49.00 a 12% exigem cBenef SC820006 no item</td></tr>
+        <tr><td class="k">IPI</td><td>CST 53 · cEnq 999 (fixture) · fora da base do ICMS</td></tr>
+        <tr><td class="k">PIS / COFINS</td><td>CST 01 · 1,65% / 7,60%</td></tr>
+        <tr><td class="k">IBS / CBS (2026)</td><td>CST 000 · cClassTrib 000001 · IBS UF 0,10% · IBS mun 0% · CBS 0,90%</td></tr>
+        <tr><td class="k">Finalidade · presença</td><td>1 normal · presença confirmada por nota</td></tr>
+        <tr><td class="k">Frete / seguro / despesas</td><td>Confirmados por nota (zero explícito) · modFrete 9</td></tr>
+        <tr><td class="k">Dados do produto (fiscal_itens)</td><td>Origem, NCM, CEST, unidade tributável, CST IPI, cEnq, alíquota IPI, FCI</td></tr>
+        <tr><td class="k">Pagamento</td><td>Forma + parcelas → título a receber</td></tr>
+        <tr><td class="k">Série · numeração</td><td>Série 2 · sequência própria (emissor antigo série 1)</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot">Módulo Fiscal · 06/09/2026 · 3/6</div>
+</section>
+
+<!-- 4. Fiscal NF-e industrialização -->
+<section class="slide">
+  <h2>3 · Fiscal — NF-e Industrialização (OS, CFOP 5101 / 6101) · <span class="hom">fixture de homologação, produção fechada</span></h2>
+  <div class="grid2">
+    <div>
+      <table>
+        <tr><th colspan="2">ICMS interno (5101)</th></tr>
+        <tr><td>Contribuinte que revende / industrializa / manutenção</td><td>12%</td></tr>
+        <tr><td>Uso e consumo · ativo imobilizado (indFinal 1)</td><td>17%</td></tr>
+        <tr><td>CST · base</td><td>00 · cheia, sem redução, sem cBenef</td></tr>
+        <tr><td>IPI na base do ICMS</td><td>Sim quando consumidor final (NF-e 3766) · não na revenda/industrialização</td></tr>
+      </table>
+      <table>
+        <tr><th colspan="2">ICMS interestadual (6101)</th></tr>
+        <tr><td>MG, PR, RS, RJ, SP</td><td>12% (nota 2/19 PR, indFinal 1)</td></tr>
+        <tr><td>Demais UFs</td><td>7%</td></tr>
+        <tr><td>Importado (origem 1, 2, 6)</td><td>4%</td></tr>
+        <tr><td>DIFAL consumidor final contribuinte</td><td><span class="falta">INDEFINIDO</span> pergunta ao contador</td></tr>
+      </table>
+    </div>
+    <div>
+      <table>
+        <tr><th style="width:34%">Campo</th><th>Definido</th></tr>
+        <tr><td class="k">Natureza</td><td>VENDA INDUSTRIALIZACAO DENTRO ESTADO / FORA DO ESTADO</td></tr>
+        <tr><td class="k">Origem</td><td>0 (produto fabricado) · componente importado: pergunta ao contador</td></tr>
+        <tr><td class="k">IPI</td><td>Atributo do NCM no cadastro do item · CST 50 com alíquota (ex. 9,75% no 8537.10.19 / 8537.20.90) ou CST 53 · cEnq 999 · nenhuma alíquota fixada no ERP</td></tr>
+        <tr><td class="k">Base do IPI</td><td>Produto (+ frete e despesas quando houver)</td></tr>
+        <tr><td class="k">PIS / COFINS</td><td>CST 01 · 1,65% / 7,60%</td></tr>
+        <tr><td class="k">IBS / CBS (2026)</td><td>CST 000 · cClassTrib 000001 · 0,10% / 0% / 0,90%</td></tr>
+        <tr><td class="k">NCMs observados</td><td>8537.10.19 · 8537.20.90 · 8538.90.90 · 7326.90.90 (peça) · 8460.90.90 fica em 17% (não entra a 12%)</td></tr>
+        <tr><td class="k">Produto fabricado</td><td>Criado na hora (itens.fabricado, origem_os_id) · uma linha por nota parcial</td></tr>
+        <tr><td class="k">Para abrir produção</td><td>Revisar perfil 5101/6101 → homologar a mesma OS → liberar (auditado)</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot">Módulo Fiscal · 06/09/2026 · 4/6</div>
+</section>
+
+<!-- 5. Fiscal NFS-e -->
+<section class="slide">
+  <h2>4 · Fiscal — NFS-e Padrão Nacional (OS) · por serviço</h2>
+  <table class="small">
+    <tr><th>Serviço</th><th>cTribNac</th><th>NBS</th><th>ISS · incidência</th><th>ISS retido</th><th>IRRF</th><th>CRF (PIS/COFINS/CSLL)</th><th>INSS</th><th>cIndOp</th><th>vTotTrib fed / mun</th><th>Frase na nota</th><th>Estado</th></tr>
+    <tr><td><b>14.06</b> Instalação e montagem</td><td>140601</td><td>1.2003.29.00</td><td>5% · sede (Joinville)</td><td>Não <span class="bloq">travado</span></td><td>Não</td><td>Não</td><td>Não <span class="bloq">travado</span></td><td>050103</td><td>13,45% / 4,69%</td><td>IN SRF 459/2004</td><td><span class="hom">REVISADO</span> produção bloqueada até confirmar</td></tr>
+    <tr><td><b>14.01</b> Manutenção / conserto</td><td>140101</td><td>1.2001.50.00</td><td>5% · sede</td><td>Não <span class="bloq">travado</span></td><td>Não</td><td>4,65% padrão · exceção: conserto isolado (OS) · tomador do Simples</td><td>Não</td><td>050103</td><td>13,45% / 4,69%</td><td>IN SRF 459/2004</td><td><span class="hom">REVISADO</span> produção bloqueada até confirmar</td></tr>
+    <tr><td><b>17.09</b> Laudos, perícias</td><td>170901</td><td>1.1404.49.00</td><td>5% · sede</td><td>Sim (tomador)</td><td>1,5%</td><td>4,65%</td><td>Não</td><td>050103</td><td>13,45% / 3,64%</td><td>Laudos · LEI 12.741/2012</td><td><span class="hom">REVISADO</span> falta homologar e liberar</td></tr>
+    <tr><td><b>07.02</b> Obra</td><td>070201</td><td>1.0106.90.00</td><td>3% · município da obra (SFS) · 5% se Joinville</td><td>Sim (tomador)</td><td>Não</td><td>Não</td><td>11%</td><td>040101</td><td>13,45% / 2,11%</td><td>—</td><td><span class="bloq">BLOQUEADO</span> aguarda contador</td></tr>
+    <tr><td><b>17.06</b> Propaganda</td><td colspan="10" class="na">fora do catálogo (nota 39 usou por erro; laudos são 17.09)</td><td><span class="bloq">BLOQUEADO</span></td></tr>
+  </table>
+  <div class="grid2">
+    <table>
+      <tr><th style="width:38%">Regra comum</th><th>Definido</th></tr>
+      <tr><td class="k">Base das retenções</td><td>Valor integral do serviço · dispensa quando retido ≤ R$ 10,00</td></tr>
+      <tr><td class="k">PIS / COFINS próprios</td><td>CST 01 · 0,65% / 3,00% (pergunta 6: 1,65/7,60 no Lucro Real?)</td></tr>
+      <tr><td class="k">IBS / CBS (2026)</td><td>CST 000 · cClassTrib 000001 · IBS UF 0,10% · mun 0% · CBS 0,90% · base = serviço − ISS · meio-par (notas 32 e 37 batem no centavo)</td></tr>
+      <tr><td class="k">cIndOp</td><td>Do perfil, sem default · obrigatório desde 01/10/2026</td></tr>
+      <tr><td class="k">Tomador optante do Simples</td><td>CRF não se aplica (cadastro do cliente)</td></tr>
+      <tr><td class="k">Competência</td><td>Mês corrente ou anterior · futuro recusado</td></tr>
+    </table>
+    <table>
+      <tr><th style="width:38%">Prestador / documento</th><th>Definido</th></tr>
+      <tr><td class="k">Prestador</td><td>CNPJ, fone, e-mail · não optante (código 1) · regime especial 0 · IM não enviada</td></tr>
+      <tr><td class="k">Tomador</td><td>CNPJ/CPF, endereço, CEP, IBGE · IM nunca enviada · e-mail NFS-e</td></tr>
+      <tr><td class="k">DPS</td><td>Série 2 · contadores: homologação 19 · produção 2 · independente do nº da NFS-e</td></tr>
+      <tr><td class="k">Discriminação</td><td>Template por tomador: RESULTADO. PEDIDO DE COMPRA. VENCIMENTO n DDL. OS. "frase legal" · "MÃO DE OBRA" recusado</td></tr>
+      <tr><td class="k">Cancelamento · substituição</td><td>24 h (provisório) · substituição código 99 com motivo</td></tr>
+      <tr><td class="k">Município de prestação</td><td>Sede (17.09) ou cliente (14.xx, 07.02) · editável</td></tr>
+    </table>
+  </div>
+  <div class="foot">Módulo Fiscal · 06/09/2026 · 5/6</div>
+</section>
+
+<!-- 6. O que falta -->
+<section class="slide">
+  <h2>5 · O que falta e de quem depende</h2>
+  <table>
+    <tr><th style="width:26%">Item</th><th>Fluxo</th><th>Depende de</th><th>Estado</th></tr>
+    <tr><td>Confirmar campos travados (ISS retido 14.01/14.06, INSS 14.06)</td><td>NFS-e</td><td>Contador (perguntas 1 e 2)</td><td><span class="bloq">BLOQ</span> produção fechada</td></tr>
+    <tr><td>Liberar 14.06 / 14.01 / 17.09 para produção</td><td>NFS-e</td><td>Homologar cada perfil de novo + liberação auditada</td><td><span class="hom">HOM</span></td></tr>
+    <tr><td>Desbloquear 07.02 (obra)</td><td>NFS-e</td><td>Contador (pergunta 5)</td><td><span class="bloq">BLOQ</span></td></tr>
+    <tr><td>Perfil 5101/6101 (revisão → homologação → liberação)</td><td>NF-e industrialização</td><td>Contador (IPI/cEnq, 12×17, origem, DIFAL) + Gabriel</td><td><span class="falta">FALTA</span></td></tr>
+    <tr><td>Liberar 17% (uso e consumo / ativo)</td><td>NF-e revenda</td><td>Homologar com o perfil + liberar</td><td><span class="hom">HOM</span></td></tr>
+    <tr><td>Perfis interestaduais (6102: 12% / 7% / 4%) e DIFAL</td><td>NF-e revenda</td><td>Contador + revisão da matriz CSV63 (36 bloqueados, 27 em revisão)</td><td><span class="falta">FALTA</span></td></tr>
+    <tr><td>Carta de correção e inutilização em produção</td><td>NF-e</td><td>Decisão de abrir a trava (código pronto)</td><td><span class="bloq">BLOQ</span></td></tr>
+    <tr><td>Estorno, devolução de compra, venda à ordem, remessa/retorno em produção</td><td>NF-e</td><td>Contador (CFOPs, textos, prazos de remessa)</td><td><span class="hom">HOM</span></td></tr>
+    <tr><td>PIS/COFINS da NFS-e (0,65/3,00 × 1,65/7,60)</td><td>NFS-e</td><td>Contador (pergunta 6)</td><td><span class="bloq">ABERTO</span></td></tr>
+    <tr><td>Templates de discriminação ArcelorMittal e Regional Telhas</td><td>NFS-e</td><td>Texto dos clientes → cadastro do cliente</td><td><span class="falta">FALTA</span></td></tr>
+    <tr><td>E-mail da NFS-e em produção</td><td>NFS-e</td><td>Testar na próxima nota real</td><td><span class="hom">HOM</span></td></tr>
+    <tr><td>Expedição, volumes e transportadora (modFrete ≠ 9)</td><td>NF-e</td><td>Backlog</td><td><span class="falta">FALTA</span></td></tr>
+    <tr><td>DANFE próprio (IBS/CBS, 9 dígitos, volumes)</td><td>NF-e</td><td>Marco 01/10/2026</td><td><span class="falta">FALTA</span></td></tr>
+    <tr><td>Planilha mensal de entradas com finalidade por item</td><td>Contabilidade</td><td>Backlog (finalidade nula no histórico)</td><td><span class="falta">FALTA</span></td></tr>
+  </table>
+  <div class="foot">Módulo Fiscal · 06/09/2026 · 6/6</div>
+</section>
+
+</body>
+</html>
