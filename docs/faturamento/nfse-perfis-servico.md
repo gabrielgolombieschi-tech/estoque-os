@@ -42,9 +42,9 @@ Os quatro perfis (14.06, 14.01, 17.09, 07.02) têm valores gravados por revisão
 - Conferência real da OS 319 (Portobello) pelo navegador com o 14.06 revisado, sem emitir: fonte PERFIL, ISS 5% incidindo em 4209102 com prestação em 4218004, líquido 18.166,99, discriminação `MANUTENCAO DO PAINEL DE DISTRIBUICAO. PEDIDO DE COMPRA: 4500123. VENCIMENTO: 45 DDL. OS 319. "NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004"`, aviso dos campos travados. Rascunho descartado depois (`scripts/nfse-rascunho-descartar.mjs`), saldo devolvido. Um rascunho criado por engano na OS 320 (Cremer, id 319) foi descartado do mesmo modo; a conferência dele recusou "MAO DE OBRA DE PROGRAMAÇÃO" como esperado.
 - Testes: 10 suítes SQL de faturamento OK; 77 cenários NF-e e 13 NFS-e OK; `tsc` e `eslint` limpos. Edge Functions publicadas: nfse-emitir, nfe-emitir, nfe-emitir-producao.
 
-## Conflito com o enunciado
+## Conflito com o enunciado (decidido em 06/09/2026)
 
-A tarefa diz "FOCUS_NFE_PRODUCAO_ENABLED permanece false" e "HOMOLOGACAO continua o único liberado". Em 05/09 a produção foi habilitada pelo Gabriel (NF-e e NFS-e reais emitidas e canceladas). O secret **não foi alterado**: continua `true`. A trava efetiva de produção hoje é o perfil (nenhum perfil de serviço está liberado; 14.06 perdeu a liberação ao ser revisado e ainda tem campos travados). Se a intenção é voltar o secret a `false`, é uma decisão a confirmar.
+A tarefa dizia "FOCUS_NFE_PRODUCAO_ENABLED permanece false" e "HOMOLOGACAO continua o único liberado". Em 05/09 a produção foi habilitada pelo Gabriel (NF-e e NFS-e reais emitidas e canceladas) e em 06/09 ele confirmou: **o secret fica `true`**. A trava efetiva de produção é o perfil: nenhum perfil de serviço está liberado (14.06 perdeu a liberação ao ser revisado e ainda tem campos travados), e a emissão em produção continua exigindo homologação AUTORIZADA da mesma solicitação + liberação auditada + `fn_nfse_producao_pronta`.
 
 ## Para 08/09 (confirmação dos campos travados)
 
