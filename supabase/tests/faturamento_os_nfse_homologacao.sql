@@ -45,35 +45,45 @@ values ('15400000-0000-4000-8000-000000000001', '3.01', 'RECEITA DE SERVICOS', '
 -- Tomadores: 915400 Joinville com IM e retencoes decididas; 915401 Tijucas sem
 -- retencao; 915402 Joinville sem IM; 915403 Joinville com iss_retido indefinido.
 insert into public.clientes (id, tenant_id, empresa_id, nome, documento, razao_social, inscricao_estadual, inscricao_municipal,
-  cep, logradouro, numero_endereco, bairro, cidade, uf, pais, indicador_ie, codigo_ibge_municipio, iss_retido, retem_pcc, retem_irrf, retem_inss, email_nfse)
+  cep, logradouro, numero_endereco, bairro, cidade, uf, pais, indicador_ie, codigo_ibge_municipio, iss_retido, retem_pcc, retem_irrf, retem_inss, email_nfse, optante_simples)
 values
   (915400, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR JOINVILLE', '84689090000240', 'TOMADOR JOINVILLE S/A', '222222222', '998877',
-   '89239270', 'RUA DONA FRANCISCA', '11700', 'PIRABEIRABA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', true, true, true, false, 'fiscal@tomador.test'),
+   '89239270', 'RUA DONA FRANCISCA', '11700', 'PIRABEIRABA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', true, true, true, false, 'fiscal@tomador.test', false),
   (915401, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR TIJUCAS', '83475913000272', 'TOMADOR TIJUCAS SA', '333333333', null,
-   '88200000', 'BR 101', 'S/N', 'CENTRO', 'TIJUCAS', 'SC', 'BRASIL', '1', '4218004', false, false, false, false, null),
+   '88200000', 'BR 101', 'S/N', 'CENTRO', 'TIJUCAS', 'SC', 'BRASIL', '1', '4218004', false, false, false, false, null, false),
   (915402, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR SEM IM', '03818222000104', 'TOMADOR SEM IM LTDA', '444444444', null,
-   '89237780', 'RUA DOS PORTUGUESES', '2240', 'VILA NOVA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', false, false, false, false, null),
+   '89237780', 'RUA DOS PORTUGUESES', '2240', 'VILA NOVA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', false, false, false, false, null, true),
   (915403, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR INDEFINIDO', '78872397000107', 'TOMADOR INDEFINIDO SA', '555555555', '112233',
-   '89219600', 'RUA DONA FRANCISCA', '7650', 'ZONA INDUSTRIAL NORTE', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', null, false, false, false, null);
+   '89219600', 'RUA DONA FRANCISCA', '7650', 'ZONA INDUSTRIAL NORTE', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', null, false, false, false, null, null);
 
 -- Perfis de servico sem valor + fixture provisoria (a migration so semeia empresas ja existentes).
 insert into f.perfil_operacao (id, tenant_id, empresa_id, codigo, nome, modelo, natureza_operacao, natureza_texto, crt, item_servico, faixa_automacao, justificativa_faixa, habilitado_producao, vigencia_inicio)
 values
   ('15400000-0000-4000-8000-000000000101', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1406', 'Servico 14.06', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '14.06', 'REVISAO', null, false, current_date),
   ('15400000-0000-4000-8000-000000000102', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1709', 'Servico 17.09', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '17.09', 'REVISAO', null, false, current_date),
-  ('15400000-0000-4000-8000-000000000103', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-0702', 'Servico 07.02', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '07.02', 'BLOQUEADO', 'Obra: aguarda o contador.', false, current_date);
+  ('15400000-0000-4000-8000-000000000103', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-0702', 'Servico 07.02', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '07.02', 'BLOQUEADO', 'Obra: aguarda o contador.', false, current_date),
+  ('15400000-0000-4000-8000-000000000104', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1401', 'Servico 14.01', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '14.01', 'REVISAO', null, false, current_date),
+  ('15400000-0000-4000-8000-000000000105', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1706', 'Servico 17.06', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '17.06', 'REVISAO', null, false, current_date);
 insert into f.tributacao_provisoria_nfse_homologacao (tenant_id, empresa_id, item_servico, codigo_tributacao_nacional, codigo_nbs, descricao_servico_padrao, local_prestacao_regra,
   aliquota_iss, iss_retido_regra, aliquota_pis, aliquota_cofins, retencao_pcc_regra, aliquota_pcc, retencao_irrf_regra, aliquota_irrf, retencao_inss_regra, aliquota_inss,
-  texto_sem_retencao, pendencia_contador, fonte)
+  texto_sem_retencao, texto_com_retencao, pendencia_contador, fonte)
 values
-  ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.06', '140601', '120032900', 'SERVICOS DE INSTALACAO E MONTAGEM', 'CLIENTE', 5, 'POR_TOMADOR', 1.65, 7.6, 'POR_TOMADOR', 4.65, 'POR_TOMADOR', 1.5, 'POR_TOMADOR', 11, 'NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004', 'teste', 'teste'),
-  ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '17.09', '170901', '114044900', 'LAUDO TECNICO', 'SEDE', 5, 'POR_TOMADOR', 1.65, 7.6, 'POR_TOMADOR', 4.65, 'POR_TOMADOR', 1.5, 'NUNCA', 11, 'NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004', 'teste', 'teste');
+  ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.06', '140601', '120032900', 'SERVICOS DE INSTALACAO E MONTAGEM', 'CLIENTE', 5, 'POR_TOMADOR', 1.65, 7.6, 'POR_TOMADOR', 4.65, 'POR_TOMADOR', 1.5, 'POR_TOMADOR', 11, 'NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004', null, 'teste', 'teste'),
+  ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '17.09', '170901', '114044900', 'LAUDO TECNICO', 'SEDE', 5, 'POR_TOMADOR', 1.65, 7.6, 'POR_TOMADOR', 4.65, 'POR_TOMADOR', 1.5, 'NUNCA', 11, 'NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004',
+   'PARA OS SERVICOS DE LAUDOS E PERICIAS, DEVERA SER RETIDO IRRF A ALIQUOTA DE 1,5% E CRF A ALIQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1%). TRIBUTOS INCIDENTES SOBRE O PRECO LEI 12.741/2012', 'teste', 'teste');
+insert into f.nfse_tributos_aproximados (tenant_id, empresa_id, item_servico, vigencia_inicio, federal_pct, estadual_pct, municipal_pct, fonte)
+values ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '17.09', date '2026-08-01', 13.45, 0, 3.64, 'teste'),
+       ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', date '2026-08-01', 13.45, 0, 4.69, 'teste');
+insert into f.nfse_aliquota_iss (tenant_id, empresa_id, item_servico, municipio_ibge, aliquota, fonte)
+values ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', '4209102', 5, 'teste'),
+       ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', '4218004', 2, 'teste: se a incidencia fosse no local, Tijucas cobraria 2%');
 
 insert into public.ordens_servico (id, numero_os, cliente_nome, cliente_id, status, os_num, tenant_id, empresa_id, status_fluxo, tipo_documento, codigo, numero_doc, descricao_servico, orcado, pedido_compra)
 values
   (915400, 'OS-NFSE-1', 'TOMADOR JOINVILLE', 915400, 'concluida', 915400, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'concluida', 'OS', 'OS-NFSE-001', 1, 'LAUDO NR-12 ANALISE DE RISCO', 10000, '136785'),
   (915401, 'OS-NFSE-2', 'TOMADOR JOINVILLE', 915400, 'concluida', 915401, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'concluida', 'OS', 'OS-NFSE-002', 2, 'LAUDO COMPLEMENTAR', 2000, null),
-  (915402, 'OS-NFSE-3', 'TOMADOR TIJUCAS', 915401, 'em_andamento', 915402, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'em_andamento', 'OS', 'OS-NFSE-003', 3, 'SERVICOS MAO DE OBRA ELETRICISTA', 3000, '1306628'),
+  (915402, 'OS-NFSE-3', 'TOMADOR TIJUCAS', 915401, 'em_andamento', 915402, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'em_andamento', 'OS', 'OS-NFSE-003', 3, 'INSTALACAO ELETRICA DA LINHA 3', 3000, '1306628'),
+  (915406, 'OS-NFSE-6', 'TOMADOR TIJUCAS', 915401, 'concluida', 915406, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'concluida', 'OS', 'OS-NFSE-006', 7, 'MANUTENCAO DO PAINEL', 3500, '1306700'),
   (915403, 'OS-NFSE-4', 'TOMADOR SEM IM', 915402, 'concluida', 915403, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'concluida', 'OS', 'OS-NFSE-004', 4, 'ASSESSORIA', 1000, null),
   (915404, 'OS-NFSE-5', 'TOMADOR INDEFINIDO', 915403, 'concluida', 915404, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'concluida', 'OS', 'OS-NFSE-005', 5, 'LAUDO', 1000, null),
   (915405, 'OS-OUTRA', 'OUTRA', null, 'concluida', 915405, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000003', 'concluida', 'OS', 'OS-OUTRA-001', 6, 'OS DA OUTRA', 500, null);
@@ -134,8 +144,16 @@ begin
      or (v_serv->>'valor_pcc')::numeric <> 279 or (v_serv->>'valor_liquido')::numeric <> 5331 or jsonb_array_length(v_serv->'retencoes') <> 5 then
     raise exception 'Valores A errados: %', v_serv;
   end if;
-  if v_serv->>'descricao_servico' not like 'LAUDO NR-12 ANALISE DE RISCO - OS OS-NFSE-1. PEDIDO DE COMPRA: 136785. VENCIMENTO: 21 DDL (%). ISS RETIDO PELO TOMADOR. RETENCOES FEDERAIS: IRRF 1,50%; PIS/COFINS/CSLL 4,65% (PIS 0,65%; COFINS 3,00%; CSLL 1,00%). Conforme proposta 77' then
+  if v_serv->>'descricao_servico' <> 'LAUDO NR-12 ANALISE DE RISCO. PEDIDO DE COMPRA: 136785. VENCIMENTO: 21 DDL. OS OS-NFSE-1. "PARA OS SERVICOS DE LAUDOS E PERICIAS, DEVERA SER RETIDO IRRF A ALIQUOTA DE 1,5% E CRF A ALIQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1%). TRIBUTOS INCIDENTES SOBRE O PRECO LEI 12.741/2012" Conforme proposta 77.' then
     raise exception 'Discriminacao A fora do padrao: %', v_serv->>'descricao_servico';
+  end if;
+  -- vTotTrib vem da tabela por subitem (17.09: 13,45% federal, 3,64% municipal), nao do calculo.
+  if (v_serv->>'tributos_aprox_federal_pct')::numeric <> 13.45 or (v_serv->>'tributos_aprox_municipal_pct')::numeric <> 3.64 or (v_serv->>'tributos_aprox_estadual_pct')::numeric <> 0 then
+    raise exception 'vTotTrib A nao veio da tabela: %', v_serv;
+  end if;
+  -- IBS/CBS: base = servico - ISS (6000 - 300 = 5700); IBS UF 0,10% = 5,70; CBS 0,90% = 51,30.
+  if (v_serv->'ibs_cbs'->>'base')::numeric <> 5700 or (v_serv->'ibs_cbs'->>'ibs_uf')::numeric <> 5.70 or (v_serv->'ibs_cbs'->>'cbs')::numeric <> 51.30 then
+    raise exception 'IBS/CBS A errado: %', v_serv->'ibs_cbs';
   end if;
   if v_sf.emitente_snapshot->>'inscricao_municipal' <> '152836' or (v_sf.emitente_snapshot->>'codigo_opcao_simples_nacional')::int <> 1
      or v_sf.destinatario_snapshot->>'inscricao_municipal' <> '998877' or v_sf.destinatario_snapshot->>'email' <> 'fiscal@tomador.test' then
@@ -148,7 +166,7 @@ $conferir_a$;
 
 -- B: 14.06 na planta do cliente (Tijucas), sem retencao, a vista.
 update ctx set sol_b = f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
-  '15400000-0000-4000-8000-000000000101', jsonb_build_array(jsonb_build_object('os_id', 915402, 'descricao_servico', 'SERVICOS MAO DE OBRA ELETRICISTA', 'valor_servico', 3000)));
+  '15400000-0000-4000-8000-000000000101', jsonb_build_array(jsonb_build_object('os_id', 915402, 'descricao_servico', 'INSTALACAO ELETRICA DA LINHA 3', 'valor_servico', 3000)));
 do $conferir_b$
 declare v_r jsonb; v_sf f.solicitacao_faturamento%rowtype; v_serv jsonb;
 begin
@@ -159,8 +177,13 @@ begin
   if v_sf.municipio_prestacao_ibge <> '4218004' or v_sf.iss_retido is not false or (v_serv->>'valor_liquido')::numeric <> 3000 or jsonb_array_length(v_serv->'retencoes') <> 0 then
     raise exception 'Conferencia B errada: %', row_to_json(v_sf);
   end if;
-  if v_serv->>'descricao_servico' <> 'SERVICOS MAO DE OBRA ELETRICISTA - OS OS-NFSE-3. PEDIDO DE COMPRA: 1306628. PAGAMENTO A VISTA. ISS RECOLHIDO PELO PRESTADOR. NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004.' then
+  -- A vista: o segmento VENCIMENTO some; a frase legal fecha o texto.
+  if v_serv->>'descricao_servico' <> 'INSTALACAO ELETRICA DA LINHA 3. PEDIDO DE COMPRA: 1306628. OS OS-NFSE-3. "NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004"' then
     raise exception 'Discriminacao B fora do padrao: %', v_serv->>'descricao_servico';
+  end if;
+  -- 14.06: ISS incide na sede do prestador mesmo com prestacao em Tijucas (LC 116 art. 3 caput).
+  if v_serv->>'municipio_incidencia_iss' <> '4209102' or (v_serv->>'aliquota_iss')::numeric <> 5 then
+    raise exception 'Incidencia do ISS no 14.06 errada: %', v_serv;
   end if;
   if not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'email_nfse')
      or not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'status_fluxo') then
@@ -189,7 +212,7 @@ begin
   if (v_serv->>'valor_bruto')::numeric <> 2500 or (v_serv->>'valor_liquido')::numeric <> 2221.25 or jsonb_array_length(v_serv->'os_numeros') <> 2 then
     raise exception 'Valores C errados: %', v_serv;
   end if;
-  if v_serv->>'descricao_servico' not like 'LAUDO ADICIONAL - OS OS-NFSE-1. LAUDO COMPLEMENTAR - OS OS-NFSE-2. PEDIDO DE COMPRA: 136785. VENCIMENTOS: 14/28 DDL (%' then
+  if v_serv->>'descricao_servico' not like 'LAUDO ADICIONAL; LAUDO COMPLEMENTAR. PEDIDO DE COMPRA: 136785. VENCIMENTO: 14/28 DDL. OS OS-NFSE-1/OS-NFSE-2. "PARA OS SERVICOS DE LAUDOS%' then
     raise exception 'Discriminacao C fora do padrao: %', v_serv->>'descricao_servico';
   end if;
   select * into v_s1 from f.fn_os_saldo_a_faturar('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 915400);
@@ -242,6 +265,158 @@ begin
   perform f.fn_solicitacao_nfe_cancelar_rascunho((select sol_f from ctx), 'Rascunho F descartado no teste');
 end;
 $bloqueios$;
+
+-- Regras dos perfis de servico (06/09/2026): "MAO DE OBRA" proibido; dispensa <= R$ 10; competencia
+-- do mes anterior; IBS/CBS no centavo (nota 32: 3.500 -> 3.325; 3,32; 29,92); 14.01 com CRF por padrao,
+-- excecao de conserto isolado e tomador do Simples; campos travados barram a producao; NBS x subitem; 17.06.
+do $regras_perfil$
+declare v_sol uuid; v_sol2 uuid; v_r jsonb; v_sf f.solicitacao_faturamento%rowtype; v_serv jsonb; v_msg text;
+begin
+  -- "MAO DE OBRA" (com e sem til/hifen) na descricao bloqueia antes da Focus.
+  v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000102', jsonb_build_array(jsonb_build_object('os_id', 915403, 'descricao_servico', 'SERVICOS DE MAO DE OBRA ELETRICISTA', 'valor_servico', 100)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'descricao_servico' and p->>'mensagem' like '%MAO DE OBRA%') then
+    raise exception 'MAO DE OBRA na descricao nao bloqueou: %', v_r;
+  end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol, 'Rascunho MAO DE OBRA descartado no teste');
+  v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000102', jsonb_build_array(jsonb_build_object('os_id', 915403, 'descricao_servico', 'Mão-de-obra de manutencao', 'valor_servico', 100)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1}'::jsonb);
+  if (v_r->>'ok')::boolean then raise exception 'Mao-de-obra com til e hifen passou: %', v_r; end if;
+  -- ... e tambem quando entra pela observacao ou pelo template do tomador.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"observacao":"inclui mao de obra"}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'observacao') then
+    raise exception 'MAO DE OBRA na observacao nao bloqueou: %', v_r;
+  end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol, 'Rascunho descartado no teste');
+  if f.fn_nfse_texto_proibido('Fornecimento de MAO DE OBRA') is null or f.fn_nfse_texto_proibido('Mão de Obra') is null or f.fn_nfse_texto_proibido('mao-de-obra') is null
+     or f.fn_nfse_texto_proibido('MANUTENCAO DE PAINEL') is not null then
+    raise exception 'fn_nfse_texto_proibido errada.';
+  end if;
+
+  -- Dispensa de retencao <= R$ 10,00: 17.09 de R$ 500 -> IRRF 7,50 dispensado; CRF 23,25 e ISS 25,00 ficam.
+  -- Competencia do mes anterior e aceita; no futuro nao.
+  v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000102', jsonb_build_array(jsonb_build_object('os_id', 915400, 'descricao_servico', 'LAUDO SIMPLES', 'valor_servico', 500)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', (current_date + 1)::text));
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'data_competencia') then
+    raise exception 'Competencia futura nao bloqueou: %', v_r;
+  end if;
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', (date_trunc('month', current_date) - interval '1 month')::date::text));
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Dispensa/competencia devolveu pendencias: %', v_r; end if;
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol;
+  v_serv := v_sf.operacao_snapshot->'servico';
+  if v_sf.data_competencia <> (date_trunc('month', current_date) - interval '1 month')::date then raise exception 'Competencia do mes anterior nao gravada: %', v_sf.data_competencia; end if;
+  if v_sf.retem_irrf is not false or (v_serv->>'valor_irrf')::numeric <> 0 or v_sf.retem_pcc is not true or (v_serv->>'valor_pcc')::numeric <> 23.25
+     or (v_serv->>'valor_iss')::numeric <> 25 or (v_serv->>'valor_liquido')::numeric <> 451.75
+     or not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'retem_irrf' and a->>'mensagem' like '%10,00%') then
+    raise exception 'Dispensa <= R$ 10 errada: % / %', v_serv, v_r->'avisos';
+  end if;
+  if (select iss_retido from public.clientes where id = 915400) is not true or (select retem_irrf from public.clientes where id = 915400) is not true then
+    raise exception 'Dispensa alterou o cadastro do tomador.';
+  end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol, 'Rascunho dispensa descartado no teste');
+
+  -- IBS/CBS no centavo (nota 32 real): 3.500 - ISS 175 = 3.325; IBS UF 3,32; CBS 29,92; total 33,24 (meio-par).
+  v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000101', jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'MANUTENCAO DO PAINEL', 'valor_servico', 3500)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}]}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia IBS/CBS devolveu pendencias: %', v_r; end if;
+  v_serv := v_r->'previa'->'ibs_cbs';
+  if (v_serv->>'base')::numeric <> 3325 or (v_serv->>'ibs_uf')::numeric <> 3.32 or (v_serv->>'ibs_mun')::numeric <> 0 or (v_serv->>'cbs')::numeric <> 29.92 or (v_serv->>'total')::numeric <> 33.24 then
+    raise exception 'IBS/CBS da nota 32 nao reproduzido: %', v_serv;
+  end if;
+  -- Nota 37 real (07.02, 42.298,75; ISS 3% = 1.268,96): base 41.029,79; IBS 41,03; CBS 369,27.
+  if f.fn_round_half_even(41029.79 * 0.10 / 100) <> 41.03 or f.fn_round_half_even(41029.79 * 0.90 / 100) <> 369.27 or f.fn_round_half_even(42298.75 * 3 / 100, 2) <> 1268.96 then
+    raise exception 'Arredondamento da nota 37 errado: % / %', f.fn_round_half_even(41029.79 * 0.10 / 100), f.fn_round_half_even(41029.79 * 0.90 / 100);
+  end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol, 'Rascunho IBS/CBS descartado no teste');
+
+  -- NBS x subitem e 17.06 na revisao do perfil.
+  begin
+    perform f.fn_perfil_operacao_nfse_revisar('15400000-0000-4000-8000-000000000101',
+      '{"codigo_tributacao_nacional":"140601","codigo_nbs":"101026900","local_prestacao_regra":"CLIENTE","tributacao_iss":1,"aliquota_iss":5,"iss_retido_regra":"NUNCA","retencao_pcc_regra":"NUNCA","retencao_irrf_regra":"NUNCA","retencao_inss_regra":"NUNCA","cst_pis":"01","cst_cofins":"01","cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9,"codigo_indicador_operacao":"050103"}'::jsonb,
+      'NBS de outro capitulo deve ser recusado');
+    raise exception 'NBS 1.0102.69.00 aceito no 14.06.';
+  exception when sqlstate '22023' then
+    if sqlerrm not like '%NBS%' then raise exception 'Erro inesperado: %', sqlerrm; end if;
+  end;
+  if f.fn_nfse_nbs_compativel('14.06', '120032900') is not true or f.fn_nfse_nbs_compativel('14.06', '101026900') is not false
+     or f.fn_nfse_nbs_compativel('17.09', '114044900') is not true or f.fn_nfse_nbs_compativel('07.02', '101069000') is not true or f.fn_nfse_nbs_compativel('07.02', '120015000') is not false then
+    raise exception 'fn_nfse_nbs_compativel errada.';
+  end if;
+  begin
+    perform f.fn_perfil_operacao_nfse_revisar('15400000-0000-4000-8000-000000000105',
+      '{"codigo_tributacao_nacional":"170601","local_prestacao_regra":"SEDE","tributacao_iss":1,"aliquota_iss":5,"iss_retido_regra":"NUNCA","retencao_pcc_regra":"NUNCA","retencao_irrf_regra":"NUNCA","retencao_inss_regra":"NUNCA","cst_pis":"01","cst_cofins":"01","cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9}'::jsonb,
+      'Tentativa de revisar o 17.06 deve falhar');
+    raise exception 'Perfil 17.06 foi revisado.';
+  exception when sqlstate '22023' then
+    if sqlerrm not like '%17.06%' then raise exception 'Erro inesperado: %', sqlerrm; end if;
+  end;
+
+  -- 14.01 revisado: CRF SEMPRE (4,65%), excecao de conserto isolado, ISS travado (CONFERIR_08_09), incidencia no prestador.
+  v_r := f.fn_perfil_operacao_nfse_revisar('15400000-0000-4000-8000-000000000104',
+    '{"codigo_tributacao_nacional":"140101","codigo_nbs":"120015000","descricao_servico_padrao":"MANUTENCAO CORRETIVA","local_prestacao_regra":"CLIENTE","incidencia_iss_regra":"PRESTADOR","tributacao_iss":1,"aliquota_iss":5,"iss_retido_regra":"NUNCA","retencao_pcc_regra":"SEMPRE","aliquota_pcc":4.65,"retencao_irrf_regra":"NUNCA","retencao_inss_regra":"NUNCA","excecao_conserto_isolado":true,"texto_complementar":"NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004","cst_pis":"01","cst_cofins":"01","aliquota_pis":0.65,"aliquota_cofins":3,"cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9,"codigo_indicador_operacao":"050103","campos_conferir":[{"campo":"iss_retido_regra","motivo":"CONFERIR_08_09: nenhuma nota real de 14.01 com ISS retido","prazo":"2026-09-08"}]}'::jsonb,
+    'Perfil 14.01 conforme estudo das notas 31-32 de agosto/2026');
+  if jsonb_array_length(v_r->'campos_conferir') <> 1 then raise exception 'campos_conferir nao gravado: %', v_r; end if;
+  -- OS de Tijucas: CRF entra por padrao (regra SEMPRE, cadastro do tomador diz que nao retem); ISS incide em Joinville (5%), nao em Tijucas (2%).
+  v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000104', jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'MANUTENCAO DO PAINEL', 'valor_servico', 3500)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}]}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia 14.01 devolveu pendencias: %', v_r; end if;
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol;
+  v_serv := v_sf.operacao_snapshot->'servico';
+  if v_sf.retem_pcc is not true or (v_serv->>'valor_pcc')::numeric <> 162.75
+     or (v_serv->>'aliquota_iss')::numeric <> 5 or v_serv->>'municipio_incidencia_iss' <> '4209102' or v_sf.municipio_prestacao_ibge <> '4218004'
+     or (v_serv->>'tributos_aprox_municipal_pct')::numeric <> 4.69 or (v_serv->>'valor_liquido')::numeric <> 3337.25
+     or (select tributacao_fonte from f.solicitacao_item where solicitacao_id = v_sol) <> 'PERFIL' then
+    raise exception 'CRF padrao do 14.01 errada: % / %', row_to_json(v_sf), v_serv;
+  end if;
+  if not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'campos_conferir') then raise exception 'Aviso de campos travados ausente: %', v_r->'avisos'; end if;
+  -- Conserto isolado marcado na OS: CRF cai e a observacao registra a base legal.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"conserto_isolado":true}'::jsonb);
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol;
+  if v_sf.retem_pcc is not false or (v_sf.operacao_snapshot->'servico'->>'valor_pcc')::numeric <> 0 or (select conserto_isolado from public.ordens_servico where id = 915406) is not true
+     or v_sf.operacao_snapshot->'servico'->>'descricao_servico' not like '%CARATER ISOLADO (IN SRF 459/2004%' then
+    raise exception 'Excecao de conserto isolado nao aplicada: %', row_to_json(v_sf);
+  end if;
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"conserto_isolado":false}'::jsonb);
+  if (select retem_pcc from f.solicitacao_faturamento where id = v_sol) is not true then raise exception 'Desmarcar conserto isolado nao devolveu a CRF.'; end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol, 'Rascunho 14.01 descartado no teste');
+  -- Tomador optante do Simples: CRF nao se aplica, com aviso.
+  v_sol2 := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000104', jsonb_build_array(jsonb_build_object('os_id', 915403, 'descricao_servico', 'MANUTENCAO CORRETIVA DO CLP', 'valor_servico', 300)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol2, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}]}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia Simples devolveu pendencias: %', v_r; end if;
+  if (select retem_pcc from f.solicitacao_faturamento where id = v_sol2) is not false
+     or not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'retem_pcc' and a->>'mensagem' like '%Simples%') then
+    raise exception 'CRF cobrada de tomador do Simples: %', v_r;
+  end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol2, 'Rascunho Simples descartado no teste');
+  -- Campo travado barra a liberacao e o portao de producao; a confirmacao destrava com auditoria.
+  begin
+    perform f.fn_perfil_operacao_nfse_liberar_producao('15400000-0000-4000-8000-000000000104', v_sol, 'Tentativa de liberar com campo travado', true);
+    raise exception 'Perfil com campo travado foi liberado.';
+  exception when sqlstate '55000' then
+    if sqlerrm not like '%travados%' then raise exception 'Erro inesperado: %', sqlerrm; end if;
+  end;
+  v_r := f.fn_perfil_operacao_nfse_confirmar_campo('15400000-0000-4000-8000-000000000104', 'iss_retido_regra', 'Conferido em 08/09 com as notas reais: ISS nunca retido no 14.01');
+  if v_r->'campos_conferir' is distinct from 'null'::jsonb and v_r->'campos_conferir' is not null then raise exception 'Confirmacao nao limpou campos_conferir: %', v_r; end if;
+  begin
+    perform f.fn_perfil_operacao_nfse_liberar_producao('15400000-0000-4000-8000-000000000104', v_sol, 'Liberacao apos confirmacao (falha por outro motivo)', true);
+    raise exception 'Perfil liberado sem NFS-e de homologacao.';
+  exception when sqlstate '55000' then
+    raise exception 'Campo confirmado ainda bloqueia: %', sqlerrm;
+  when others then
+    get stacked diagnostics v_msg = message_text;
+    if v_msg like '%travados%' then raise exception 'Campo confirmado ainda bloqueia: %', v_msg; end if;
+  end;
+  if (select count(*) from f.perfil_operacao_revisao_evento where perfil_operacao_id = '15400000-0000-4000-8000-000000000104' and justificativa like 'CONFIRMACAO DO CAMPO iss_retido_regra%') <> 1 then
+    raise exception 'Confirmacao do campo sem evento de auditoria.';
+  end if;
+end;
+$regras_perfil$;
 
 -- Preparo: documento RASCUNHO + emissao + DPS numerada, idempotente; producao fechada.
 do $preparar$
@@ -337,6 +512,10 @@ begin
   select * into v_doc from f.documento_fiscal where id = (select doc_a from ctx);
   if v_e.status <> 'AUTORIZADA' or v_e.chave_nfse <> repeat('1', 50) or v_e.nfse_numero <> '101' or v_e.codigo_verificacao <> 'ABC123' or v_e.numero <> 101 then
     raise exception 'Emissao autorizada errada: %', row_to_json(v_e);
+  end if;
+  -- DPS e NFS-e sao numeracoes independentes: a nota 101 nao arrasta a DPS 4 (nas reais, DPS 44 x NFS-e 40).
+  if v_e.dps_numero <> 4 or v_e.dps_serie <> 2 or v_e.nfse_numero::int = v_e.dps_numero then
+    raise exception 'Numero da DPS foi contaminado pelo numero da NFS-e: %', row_to_json(v_e);
   end if;
   if v_doc.nfse_status <> 'RASCUNHO' or v_doc.chave_acesso <> repeat('1', 50) or v_doc.numero <> '101' then
     raise exception 'Homologacao alterou o documento: %', row_to_json(v_doc);

@@ -365,9 +365,14 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     if (reducao < 0 || reducao > 100) {
       throw new Error(`Solicitação incompleta: item ${codigo}, redução da base de ICMS inválida.`);
     }
-    const baseIcms = round(base * (1 - reducao / 100));
-    const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
     const ipiValor = aliquotaIpi === null ? 0 : round(base * aliquotaIpi / 100);
+    // Consumidor final (indFinal = 1, uso/consumo ou ativo): o IPI integra a base
+    // do ICMS (LC 87/96 art. 13 §2 a contrario; RICMS/SC art. 22 §1). NF-e 3766
+    // real: 69.232,80 + IPI 6.750,20 = base 75.983,00 x 17% = 12.917,11. Para
+    // revenda/industrializacao (indFinal = 0) o IPI fica fora da base.
+    const ipiNaBaseIcms = num(operacao.consumidor_final) === 1 ? ipiValor : 0;
+    const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
+    const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
     const pisValor = aliquotaPis === null ? null : round(base * aliquotaPis / 100);
     const cofinsValor = aliquotaCofins === null ? null : round(base * aliquotaCofins / 100);
     const aliquotaIbsUf = regraIbsCbs.pIBSUF;

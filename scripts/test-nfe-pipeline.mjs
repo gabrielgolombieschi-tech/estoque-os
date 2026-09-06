@@ -179,6 +179,27 @@ assert.equal(
   "6101",
 );
 
+// NF-e 3766 real (industrializacao, consumidor final): o IPI integra a base do
+// ICMS. 69.232,80 + IPI 9,75% (6.750,20) = base 75.983,00 x 17% = 12.917,11.
+// Na revenda (indFinal = 0) o IPI fica fora da base.
+const nota3766 = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: { ...solicitacao().operacao_snapshot, natureza_operacao: "VENDA_INDUSTRIALIZACAO_INTERNA", destinacao_mercadoria: "USO_CONSUMO", consumidor_final: 1 },
+  }),
+  itens: [linha({ cfop: "5101", ncm: "85372090", quantidade: 1, valor_unitario: 69232.8, aliquota_icms: 17, cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+}));
+assert.equal(nota3766.items[0].ipi_valor, 6750.2);
+assert.equal(nota3766.items[0].icms_base_calculo, 75983);
+assert.equal(nota3766.items[0].icms_valor, 12917.11);
+assert.equal(nota3766.items[0].ipi_base_calculo, 69232.8);
+assert.equal(nota3766.valor_total, 75983);
+const revendaComIpi = montarPayloadNfe(contexto({
+  itens: [linha({ quantidade: 1, valor_unitario: 1000, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+}));
+assert.equal(revendaComIpi.items[0].ipi_valor, 97.5);
+assert.equal(revendaComIpi.items[0].icms_base_calculo, 1000, "revenda: IPI fora da base do ICMS");
+assert.equal(revendaComIpi.items[0].icms_valor, 120);
+
 const ipiDaFixture5102 = montarPayloadNfe(contexto({
   itens: [linha({ cst_ipi: null, ipi_codigo_enquadramento_legal: null })],
 }));

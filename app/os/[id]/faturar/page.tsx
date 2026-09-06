@@ -41,7 +41,12 @@ type Saldo = { valor_pedido: number | string; valor_faturado: number | string; v
 type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null };
 type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; descricao: string; quantidade: string; valor_unitario: string };
 type Parcela = { dias: string; valor: string };
-type Perfil = { id: string; codigo: string; nome: string; modelo: string; item_servico: string | null; cfop_interno: string | null; cfop_externo: string | null; faixa_automacao: string; habilitado_producao: boolean; vigencia_inicio: string | null; vigencia_fim: string | null; justificativa_faixa: string | null; natureza_operacao: string };
+type Perfil = {
+  id: string; codigo: string; nome: string; modelo: string; item_servico: string | null; cfop_interno: string | null; cfop_externo: string | null; faixa_automacao: string; habilitado_producao: boolean; vigencia_inicio: string | null; vigencia_fim: string | null; justificativa_faixa: string | null; natureza_operacao: string;
+  revisao_fiscal_em: string | null; codigo_tributacao_nacional: string | null; codigo_nbs: string | null; aliquota_iss: number | string | null; local_prestacao_regra: string | null; incidencia_iss_regra: string | null;
+  iss_retido_regra: string | null; retencao_pcc_regra: string | null; retencao_irrf_regra: string | null; retencao_inss_regra: string | null;
+  codigo_indicador_operacao: string | null; excecao_conserto_isolado: boolean | null; campos_conferir: Array<{ campo: string; motivo: string; prazo?: string }> | null;
+};
 type Nota = { documento_fiscal_id: string; solicitacao_id: string; solicitacao_status: string | null; modelo: string; ambiente: string; emissao_status: string; nfe_status: string | null; serie: string | null; numero: string | null; chave_acesso: string | null; valor_total: number | string | null; autorizado_em: string | null; danfe_path: string | null; xml_path: string | null; referencia_externa: string; created_at: string };
 type Solicitacao = {
   id: string; status: string; natureza_operacao: string; observacao: string | null; created_at: string;
@@ -155,7 +160,12 @@ export default function FaturarOsPage() {
   const [temRascunhoNfse, setTemRascunhoNfse] = useState(false);
   const [empresaIbge, setEmpresaIbge] = useState<string | null>(null);
   const modelo = operacaoSel.startsWith("NFSE:") ? "NFSE" : "NFE";
-  const perfisServico = useMemo<PerfilServico[]>(() => perfis.filter((p) => p.modelo === "NFSE").map((p) => ({ id: p.id, codigo: p.codigo, nome: p.nome, item_servico: p.item_servico, faixa_automacao: p.faixa_automacao, habilitado_producao: p.habilitado_producao, justificativa_faixa: p.justificativa_faixa, vigencia_inicio: p.vigencia_inicio, vigencia_fim: p.vigencia_fim })), [perfis]);
+  const perfisServico = useMemo<PerfilServico[]>(() => perfis.filter((p) => p.modelo === "NFSE").map((p) => ({
+    id: p.id, codigo: p.codigo, nome: p.nome, item_servico: p.item_servico, faixa_automacao: p.faixa_automacao, habilitado_producao: p.habilitado_producao, justificativa_faixa: p.justificativa_faixa, vigencia_inicio: p.vigencia_inicio, vigencia_fim: p.vigencia_fim,
+    revisao_fiscal_em: p.revisao_fiscal_em, codigo_tributacao_nacional: p.codigo_tributacao_nacional, codigo_nbs: p.codigo_nbs, aliquota_iss: p.aliquota_iss, local_prestacao_regra: p.local_prestacao_regra, incidencia_iss_regra: p.incidencia_iss_regra,
+    iss_retido_regra: p.iss_retido_regra, retencao_pcc_regra: p.retencao_pcc_regra, retencao_irrf_regra: p.retencao_irrf_regra, retencao_inss_regra: p.retencao_inss_regra,
+    codigo_indicador_operacao: p.codigo_indicador_operacao, excecao_conserto_isolado: p.excecao_conserto_isolado, campos_conferir: p.campos_conferir,
+  })), [perfis]);
   const perfilServico = useMemo(() => perfisServico.find((p) => `NFSE:${p.id}` === operacaoSel) ?? null, [operacaoSel, perfisServico]);
   // Props do componente de NFS-e memoizadas: referencia nova a cada render dispararia o carregamento em loop.
   const osNfse = useMemo(() => os ? { id: os.id, numero_os: os.numero_os, cliente_id: os.cliente_id, descricao_servico: os.descricao_servico, status_fluxo: os.status_fluxo, pedido_compra: os.pedido_compra } : null, [os]);
@@ -202,7 +212,7 @@ export default function FaturarOsPage() {
       setSaldo(saldoRow);
       const { data: notasData } = await supabase.schema("f").rpc("fn_os_notas", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osId });
       setNotas((notasData as Nota[] | null) ?? []);
-      const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,modelo,item_servico,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao").or("cfop_interno.eq.5101,cfop_externo.eq.6101,modelo.eq.NFSE").order("codigo");
+      const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,modelo,item_servico,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao,revisao_fiscal_em,codigo_tributacao_nacional,codigo_nbs,aliquota_iss,local_prestacao_regra,incidencia_iss_regra,iss_retido_regra,retencao_pcc_regra,retencao_irrf_regra,retencao_inss_regra,codigo_indicador_operacao,excecao_conserto_isolado,campos_conferir").or("cfop_interno.eq.5101,cfop_externo.eq.6101,modelo.eq.NFSE").order("codigo");
       setPerfis((perfisData as Perfil[] | null) ?? []);
       const { data: ctxEmpresa } = await supabase.schema("f").rpc("fn_nfse_contexto_empresa", { p_empresa_id: empresaId });
       setEmpresaIbge((ctxEmpresa as { codigo_municipio_ibge?: string | null } | null)?.codigo_municipio_ibge ?? null);

@@ -23,7 +23,13 @@ const FORMAS_PAGAMENTO: Array<[string, string]> = [
   ["15", "15 · Boleto bancário"], ["17", "17 · PIX"], ["18", "18 · Transferência bancária"], ["01", "01 · Dinheiro"], ["03", "03 · Cartão de crédito"], ["99", "99 · Outros"],
 ];
 
-export type PerfilServico = { id: string; codigo: string; nome: string; item_servico: string | null; faixa_automacao: string; habilitado_producao: boolean; justificativa_faixa: string | null; vigencia_inicio: string | null; vigencia_fim: string | null };
+export type PerfilServico = {
+  id: string; codigo: string; nome: string; item_servico: string | null; faixa_automacao: string; habilitado_producao: boolean; justificativa_faixa: string | null; vigencia_inicio: string | null; vigencia_fim: string | null;
+  // Revisao fiscal (06/09/2026): quando revisao_fiscal_em existe, as regras vem do perfil e nao da fixture.
+  revisao_fiscal_em?: string | null; codigo_tributacao_nacional?: string | null; codigo_nbs?: string | null; aliquota_iss?: number | string | null; local_prestacao_regra?: string | null; incidencia_iss_regra?: string | null;
+  iss_retido_regra?: string | null; retencao_pcc_regra?: string | null; retencao_irrf_regra?: string | null; retencao_inss_regra?: string | null;
+  codigo_indicador_operacao?: string | null; excecao_conserto_isolado?: boolean | null; campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
+};
 type Fixture = { item_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; descricao_servico_padrao: string; local_prestacao_regra: string; aliquota_iss: number | string | null; iss_retido_regra: string; retencao_pcc_regra: string; retencao_irrf_regra: string; retencao_inss_regra: string; aliquota_pcc: number | string | null; aliquota_irrf: number | string | null; aliquota_inss: number | string | null; pendencia_contador: string | null; fonte: string | null };
 type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; email_nfse: string | null; inscricao_municipal: string | null; codigo_ibge_municipio: string | null };
 type OsLinha = { chave: number; os_id: number; os_numero: string; descricao: string; valor: string; saldo: number };
@@ -32,11 +38,17 @@ type Parcela = { dias: string; valor: string };
 type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; operacao_snapshot: { servico?: Record<string, unknown> } | null; substitui_documento_fiscal_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_nfse: string | null; nfse_numero: string | null; codigo_verificacao: string | null; dps_serie: number | null; dps_numero: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null; valor_liquido: number | string | null; autorizado_em: string | null };
 type Pendencia = { entidade?: string; campo?: string; mensagem?: string; rota?: string };
-type Previa = { valor_bruto: number; aliquota_iss: number; valor_iss: number; iss_retido: boolean; valor_irrf: number; valor_pcc: number; valor_inss: number; valor_liquido: number; parcelas: Array<{ numero: string; dias: number; valor: number | null }> | null; descricao_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; municipio_prestacao_ibge: string; data_competencia: string };
+type Previa = {
+  valor_bruto: number; aliquota_iss: number; valor_iss: number; iss_retido: boolean; valor_irrf: number; valor_pcc: number; valor_inss: number; valor_liquido: number; parcelas: Array<{ numero: string; dias: number; valor: number | null }> | null; descricao_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; municipio_prestacao_ibge: string; data_competencia: string;
+  municipio_incidencia_iss?: string | null; tributacao_fonte?: string | null; item_servico?: string | null;
+  ibs_cbs?: { base: number; ibs_uf: number; ibs_mun: number; cbs: number; total: number } | null;
+  tributos_aprox?: { federal_pct: number | null; municipal_pct: number | null; federal: number; municipal: number } | null;
+  campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
+};
 
 export type FaturarNfseOsProps = {
   tenantId: string | null; empresaId: string | null; osId: number;
-  os: { id: number; numero_os: string | null; cliente_id: number | null; descricao_servico: string | null; status_fluxo: string | null; pedido_compra?: string | null } | null;
+  os: { id: number; numero_os: string | null; cliente_id: number | null; descricao_servico: string | null; status_fluxo: string | null; pedido_compra?: string | null; conserto_isolado?: boolean | null } | null;
   cliente: { id: number; uf: string | null; codigo_ibge_municipio: string | null } | null;
   saldo: number; empresaIbge: string | null;
   perfil: PerfilServico | null; perfis: PerfilServico[];
@@ -101,6 +113,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [pcc, setPcc] = useState("");
   const [irrf, setIrrf] = useState("");
   const [inss, setInss] = useState("");
+  // Conserto isolado (IN SRF 459/2004 art. 1 §2 II): marcado na OS, dispensa a CRF nos perfis com excecao (14.01).
+  const [consertoIsolado, setConsertoIsolado] = useState<boolean>(props.os?.conserto_isolado === true);
   const [justificativa, setJustificativa] = useState("");
   const [pagamentoForma, setPagamentoForma] = useState("15");
   const [pagamentoIndicador, setPagamentoIndicador] = useState("1");
@@ -124,8 +138,18 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
 
   const fixture = useMemo(() => fixtures.find((f) => f.item_servico === perfil?.item_servico) ?? null, [fixtures, perfil]);
   const perfilBloqueado = perfil?.faixa_automacao === "BLOQUEADO";
+  const perfilRevisado = Boolean(perfil?.revisao_fiscal_em && perfil?.codigo_tributacao_nacional);
+  // Regras de retencao: do perfil revisado; senao, da fixture provisoria de homologacao.
+  const regras = useMemo(() => ({
+    iss: (perfilRevisado ? perfil?.iss_retido_regra : fixture?.iss_retido_regra) ?? "POR_TOMADOR",
+    pcc: (perfilRevisado ? perfil?.retencao_pcc_regra : fixture?.retencao_pcc_regra) ?? "POR_TOMADOR",
+    irrf: (perfilRevisado ? perfil?.retencao_irrf_regra : fixture?.retencao_irrf_regra) ?? "POR_TOMADOR",
+    inss: (perfilRevisado ? perfil?.retencao_inss_regra : fixture?.retencao_inss_regra) ?? "POR_TOMADOR",
+    local: (perfilRevisado ? perfil?.local_prestacao_regra : fixture?.local_prestacao_regra) ?? null,
+  }), [fixture, perfil, perfilRevisado]);
+  const camposConferir = perfil?.campos_conferir ?? [];
   const totalLinhas = useMemo(() => linhas.reduce((s, l) => s + (paraNumero(l.valor) ?? 0), 0), [linhas]);
-  const municipioPadrao = fixture ? (fixture.local_prestacao_regra === "SEDE" ? props.empresaIbge ?? "" : cliente?.codigo_ibge_municipio ?? "") : "";
+  const municipioPadrao = regras.local ? (regras.local === "SEDE" ? props.empresaIbge ?? "" : cliente?.codigo_ibge_municipio ?? "") : "";
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId || !os) return;
@@ -218,6 +242,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       municipio_prestacao_ibge: municipio.trim() || null,
       data_competencia: competencia || null,
       iss_retido: deTri(issRetido), retem_pcc: deTri(pcc), retem_irrf: deTri(irrf), retem_inss: deTri(inss),
+      conserto_isolado: consertoIsolado,
       retencao_justificativa: justificativa.trim() || null,
       pagamento_forma: pagamentoForma, pagamento_indicador: Number(pagamentoIndicador), pagamento_descricao: pagamentoDescricao || null,
       pagamento_parcelas: pagamentoIndicador === "1" ? parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias.trim()), valor: p.valor.trim() ? paraNumero(p.valor) : null })) : null,
@@ -251,7 +276,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setAviso("Conferência salva com bloqueios. Corrija onde indicado e confira de novo.");
       } else {
         setPrevia(res.previa ?? null);
-        setAviso("Conferência salva: valores da fixture provisória de homologação e do cadastro do tomador. Revise a prévia e emita.");
+        setAviso(res.previa?.tributacao_fonte === "PERFIL"
+          ? "Conferência salva: valores do perfil de serviço revisado e do cadastro do tomador. Revise a prévia e emita."
+          : "Conferência salva: valores da fixture provisória de homologação e do cadastro do tomador. Revise a prévia e emita.");
       }
       await carregar();
       await onAtualizar();
@@ -381,25 +408,35 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         <h2 className="font-semibold">Operação de serviço</h2>
         {perfil ? (
           <div className={`rounded-md border p-2 text-sm ${perfilBloqueado ? "border-red-900/60 bg-red-950/20 text-red-100" : "border-amber-900/60 bg-amber-950/20 text-amber-100"}`}>
-            <div><strong>{perfil.codigo} · {perfil.nome}</strong> · {perfil.habilitado_producao ? "produção" : "somente homologação (perfil sem valor fiscal)"}</div>
-            {perfilBloqueado ? <div className="text-xs">BLOQUEADO: {perfil.justificativa_faixa}</div> : fixture ? <div className="text-xs">Fixture provisória: cTribNac {fixture.codigo_tributacao_nacional}{fixture.codigo_nbs ? ` · NBS ${fixture.codigo_nbs}` : ""} · ISS {decimal(fixture.aliquota_iss) || "?"}% · local {fixture.local_prestacao_regra === "SEDE" ? "sede" : "cliente"} · fonte: {fixture.fonte}</div> : <div className="text-xs">Sem fixture provisória para {perfil.item_servico}.</div>}
-            {fixture?.pendencia_contador ? <div className="text-xs">Falta do contador: {fixture.pendencia_contador}</div> : null}
+            <div><strong>{perfil.codigo} · {perfil.nome}</strong> · {perfil.habilitado_producao ? "produção" : perfilRevisado ? "revisado; produção após homologação e liberação" : "somente homologação (perfil sem valor fiscal)"}</div>
+            {perfilBloqueado ? <div className="text-xs">BLOQUEADO: {perfil.justificativa_faixa}</div>
+              : perfilRevisado ? <div className="text-xs">Perfil revisado: cTribNac {perfil.codigo_tributacao_nacional}{perfil.codigo_nbs ? ` · NBS ${perfil.codigo_nbs}` : ""} · ISS {decimal(perfil.aliquota_iss) || "?"}% ({perfil.incidencia_iss_regra === "LOCAL_PRESTACAO" ? "incide no município da prestação" : "incide na sede"}) · local {regras.local === "SEDE" ? "sede" : "cliente"} · cIndOp {perfil.codigo_indicador_operacao ?? <span className="text-red-300">vazio (obrigatório desde 01/10/2026)</span>}</div>
+              : fixture ? <div className="text-xs">Fixture provisória: cTribNac {fixture.codigo_tributacao_nacional}{fixture.codigo_nbs ? ` · NBS ${fixture.codigo_nbs}` : ""} · ISS {decimal(fixture.aliquota_iss) || "?"}% · local {fixture.local_prestacao_regra === "SEDE" ? "sede" : "cliente"} · fonte: {fixture.fonte}</div>
+              : <div className="text-xs">Sem fixture provisória para {perfil.item_servico}.</div>}
+            {!perfilRevisado && fixture?.pendencia_contador ? <div className="text-xs">Falta do contador: {fixture.pendencia_contador}</div> : null}
+            {camposConferir.length > 0 ? <div className="mt-1 text-xs">Campos travados (produção bloqueada até a confirmação; homologação segue): {camposConferir.map((c) => `${c.campo} — ${c.motivo}${c.prazo ? ` (até ${c.prazo})` : ""}`).join("; ")}</div> : null}
           </div>
         ) : <div className="text-sm text-amber-300">Escolha o perfil de serviço no cabeçalho.</div>}
         <div className="grid gap-3 md:grid-cols-3">
-          <label className={label}>Município de prestação (IBGE, 7 dígitos)<input className={field} value={municipio} disabled={!editavel} onChange={(e) => setMunicipio(e.target.value.replace(/\D/g, "").slice(0, 7))} placeholder={municipioPadrao || "regra do perfil"} /><span className="text-xs text-zinc-500">{fixture?.local_prestacao_regra === "SEDE" ? "Regra do perfil: sede da empresa" : "Regra do perfil: município do tomador"}. Editável.</span></label>
+          <label className={label}>Município de prestação (IBGE, 7 dígitos)<input className={field} value={municipio} disabled={!editavel} onChange={(e) => setMunicipio(e.target.value.replace(/\D/g, "").slice(0, 7))} placeholder={municipioPadrao || "regra do perfil"} /><span className="text-xs text-zinc-500">{regras.local === "SEDE" ? "Regra do perfil: sede da empresa" : "Regra do perfil: município do tomador"}. Editável.</span></label>
           <label className={label}>Competência<input type="date" className={field} value={competencia} disabled={!editavel} onChange={(e) => setCompetencia(e.target.value)} /></label>
           <div className={label}>Tomador<div className="py-2 text-sm text-zinc-100">IM {clienteNfse?.inscricao_municipal ?? <span className="text-amber-300">vazia</span>} · e-mail NFS-e {clienteNfse?.email_nfse ?? <span className="text-amber-300">vazio</span>}</div>{cliente ? <Link className="text-xs text-sky-300 underline" href={`/clientes/cadastro-fiscal?cliente_id=${cliente.id}`}>Cadastro fiscal do cliente</Link> : null}</div>
         </div>
         <div className="grid gap-3 md:grid-cols-4">
-          {([["ISS retido pelo tomador", issRetido, setIssRetido, fixture?.iss_retido_regra ?? "POR_TOMADOR", clienteNfse?.iss_retido ?? null],
-             ["PIS/COFINS/CSLL retidos (4,65%)", pcc, setPcc, fixture?.retencao_pcc_regra ?? "POR_TOMADOR", clienteNfse?.retem_pcc ?? null],
-             ["IRRF retido (1,5%)", irrf, setIrrf, fixture?.retencao_irrf_regra ?? "POR_TOMADOR", clienteNfse?.retem_irrf ?? null],
-             ["INSS retido (11%)", inss, setInss, fixture?.retencao_inss_regra ?? "POR_TOMADOR", clienteNfse?.retem_inss ?? null]] as Array<[string, string, (v: string) => void, string, boolean | null]>).map(([titulo, valor, setter, regra, valorCliente]) => (
+          {([["ISS retido pelo tomador", issRetido, setIssRetido, regras.iss, clienteNfse?.iss_retido ?? null],
+             ["PIS/COFINS/CSLL retidos (4,65%)", pcc, setPcc, regras.pcc, clienteNfse?.retem_pcc ?? null],
+             ["IRRF retido (1,5%)", irrf, setIrrf, regras.irrf, clienteNfse?.retem_irrf ?? null],
+             ["INSS retido (11%)", inss, setInss, regras.inss, clienteNfse?.retem_inss ?? null]] as Array<[string, string, (v: string) => void, string, boolean | null]>).map(([titulo, valor, setter, regra, valorCliente]) => (
             <label key={titulo} className={label}>{titulo}<select className={field} value={valor} disabled={!editavel || regra !== "POR_TOMADOR"} onChange={(e) => setter(e.target.value)}>
               <option value="">{regraTexto(regra, valorCliente)}</option><option value="sim">Sim, retém (nesta nota)</option><option value="nao">Não retém (nesta nota)</option></select></label>
           ))}
         </div>
+        {perfil?.excecao_conserto_isolado || perfil?.item_servico === "14.01" ? (
+          <label className="flex items-start gap-2 text-sm text-zinc-200">
+            <input type="checkbox" className="mt-1" checked={consertoIsolado} disabled={!editavel} onChange={(e) => setConsertoIsolado(e.target.checked)} />
+            <span>Conserto isolado (IN SRF 459/2004, art. 1º, §2º, II): manutenção em caráter isolado, mero conserto de bem defeituoso. Marca a OS e dispensa a CRF de 4,65% nesta nota. <span className="text-xs text-zinc-400">Sem a marca, a CRF do 14.01 entra por padrão.</span></span>
+          </label>
+        ) : null}
         {(deTri(issRetido) !== null && deTri(issRetido) !== (clienteNfse?.iss_retido ?? null)) || (deTri(pcc) !== null && deTri(pcc) !== (clienteNfse?.retem_pcc ?? null)) || (deTri(irrf) !== null && deTri(irrf) !== (clienteNfse?.retem_irrf ?? null)) || (deTri(inss) !== null && deTri(inss) !== (clienteNfse?.retem_inss ?? null)) ? (
           <label className={label}>Justificativa da retenção diferente do cadastro (obrigatória, vai para a observação da nota)<input className={field} value={justificativa} disabled={!editavel} onChange={(e) => setJustificativa(e.target.value)} maxLength={255} /></label>
         ) : null}
@@ -438,9 +475,13 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
               <div>Líquido a receber <strong>{R$(num(previa.valor_liquido))}</strong></div>
             </div>
             {previa.parcelas && previa.parcelas.length > 0 ? <div className="text-xs text-zinc-400">Parcelas do líquido: {previa.parcelas.map((p) => `${p.numero} · ${p.dias} dias · ${p.valor != null ? R$(num(p.valor)) : R$(num(previa.valor_liquido))}`).join(" | ")}</div> : <div className="text-xs text-zinc-400">Pagamento à vista.</div>}
-            <div className="text-xs text-zinc-400">cTribNac {previa.codigo_tributacao_nacional}{previa.codigo_nbs ? ` · NBS ${previa.codigo_nbs}` : ""} · prestação em {previa.municipio_prestacao_ibge} · competência {previa.data_competencia}</div>
+            <div className="text-xs text-zinc-400">cTribNac {previa.codigo_tributacao_nacional}{previa.codigo_nbs ? ` · NBS ${previa.codigo_nbs}` : ""} · prestação em {previa.municipio_prestacao_ibge}{previa.municipio_incidencia_iss ? ` · ISS incide em ${previa.municipio_incidencia_iss}` : ""} · competência {previa.data_competencia}</div>
+            {previa.ibs_cbs ? <div className="text-xs text-zinc-400">IBS/CBS (base = serviço − ISS {R$(num(previa.ibs_cbs.base))}): IBS UF {R$(num(previa.ibs_cbs.ibs_uf))} · IBS mun {R$(num(previa.ibs_cbs.ibs_mun))} · CBS {R$(num(previa.ibs_cbs.cbs))} · total {R$(num(previa.ibs_cbs.total))} (informativo em 2026; calculado pelo ambiente nacional)</div> : null}
+            {previa.tributos_aprox ? <div className="text-xs text-zinc-400">Tributos aproximados (Lei 12.741, tabela por subitem): federal {decimal(previa.tributos_aprox.federal_pct) || "?"}% {R$(num(previa.tributos_aprox.federal))} · municipal {decimal(previa.tributos_aprox.municipal_pct) || "?"}% {R$(num(previa.tributos_aprox.municipal))}</div> : null}
             <label className={label}>Discriminação (montada pelo ERP; não editável)<textarea className={`${field} min-h-24`} readOnly value={previa.descricao_servico} /></label>
-            <div className="text-xs text-amber-300">Valores da fixture provisória de homologação. Nenhum perfil de serviço recebeu valor fiscal.</div>
+            {previa.tributacao_fonte === "PERFIL"
+              ? <div className="text-xs text-emerald-300">Valores do perfil de serviço revisado{previa.campos_conferir && previa.campos_conferir.length > 0 ? ` · campos travados: ${previa.campos_conferir.map((c) => c.campo).join(", ")} (produção bloqueada até a confirmação)` : ""}.</div>
+              : <div className="text-xs text-amber-300">Valores da fixture provisória de homologação; este perfil ainda não foi revisado.</div>}
           </div>
         ) : <div className="text-sm text-zinc-400">Salve a conferência para ver bruto, retenções, líquido e a discriminação.</div>}
         <div className="flex flex-wrap items-center gap-2">

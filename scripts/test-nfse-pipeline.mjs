@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { montarPayloadNfse, tipoRetencaoPisCofins, validarPayloadNfseProducaoContraHomologacao, valorLiquidoNfse } from "../supabase/functions/_shared/nfse-payload.ts";
+import { arredondarMeioPar, calcularIbsCbsNfse, montarPayloadNfse, tipoRetencaoPisCofins, validarPayloadNfseProducaoContraHomologacao, valorLiquidoNfse } from "../supabase/functions/_shared/nfse-payload.ts";
 import { chaveNfseDe, normalizarFocusNfse } from "../supabase/functions/_shared/nfse-retorno.ts";
 
 // Cenarios locais do pipeline de NFS-e Nacional (sem chamar a Focus).
@@ -183,6 +183,25 @@ cenario("perfil revisado: cIndOp e totais aproximados vem do snapshot", () => {
   assert.equal(p.codigo_indicador_operacao, "040101");
   assert.equal(p.valor_total_tributos_federais, 134.5);
   assert.equal(p.valor_total_tributos_municipais, 46.9);
+});
+
+cenario("IBS/CBS no centavo: notas 32 e 37 reais (base = servico - ISS, meio-par)", () => {
+  assert.deepEqual(calcularIbsCbsNfse({ valorServico: 3500, valorIss: 175, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), { base: 3325, ibsUf: 3.32, ibsMun: 0, cbs: 29.92, total: 33.24 });
+  assert.deepEqual(calcularIbsCbsNfse({ valorServico: 42298.75, valorIss: 1268.96, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), { base: 41029.79, ibsUf: 41.03, ibsMun: 0, cbs: 369.27, total: 410.3 });
+  assert.equal(arredondarMeioPar(3.325), 3.32);
+  assert.equal(arredondarMeioPar(3.335), 3.34);
+  assert.equal(arredondarMeioPar(41.02979), 41.03);
+  // Fixture da NF-e (nfe-payload) usa a mesma CBS de 0,90% e IBS UF 0,10% de 2026.
+  assert.equal(calcularIbsCbsNfse({ valorServico: 1000, valorIss: 50, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }).cbs, 8.55);
+});
+
+cenario("cIndOp: perfil revisado sem cIndOp nao emite; fixture usa o provisorio so ate 30/09/2026; estaduais da tabela", () => {
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: null } }), agora), /codigo_indicador_operacao \(perfil de servico sem cIndOp/);
+  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: "050103" } }), agora).codigo_indicador_operacao, "050103");
+  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", item_servico: "07.02" } }), agora).codigo_indicador_operacao, "040101");
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO" } }), new Date("2026-10-01T12:00:00-03:00")), /obrigatorio desde 2026-10-01/);
+  const p = montarPayloadNfse(contexto({ servico: { tributos_aprox_federal_pct: 13.45, tributos_aprox_municipal_pct: 4.69, tributos_aprox_estadual_pct: 0 } }), agora);
+  assert.equal(p.valor_total_tributos_estaduais, 0);
 });
 
 cenario("producao so sai igual a homologacao (menos data, DPS, nome do tomador e informacoes)", () => {

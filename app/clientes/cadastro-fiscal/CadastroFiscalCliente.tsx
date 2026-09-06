@@ -43,8 +43,12 @@ type ClienteForm = {
   retem_pcc: "" | "sim" | "nao";
   retem_irrf: "" | "sim" | "nao";
   retem_inss: "" | "sim" | "nao";
+  // Regime do tomador: optante do Simples nao sofre CRF (Lei 10.833/2003 art. 30 §2). "" = nao informado (aviso na nota).
+  optante_simples: "" | "sim" | "nao";
+  // Template da discriminacao da NFS-e deste tomador (segmentos "|", tokens {RESULTADO} {PEDIDO} {ITEM} {VENCIMENTO} {DATAS} {OS} {FRASE_LEGAL} {ISS} {OBSERVACAO}).
+  nfse_discriminacao_template: string;
 };
-type ClienteNfseRow = { inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null };
+type ClienteNfseRow = { inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; nfse_discriminacao_template?: string | null };
 function triTexto(value: boolean | null | undefined): "" | "sim" | "nao" { return value === true ? "sim" : value === false ? "nao" : ""; }
 function triValor(value: "" | "sim" | "nao"): boolean | null { return value === "sim" ? true : value === "nao" ? false : null; }
 
@@ -74,6 +78,8 @@ const CLIENTE_FIELDS = [
   "retem_pcc",
   "retem_irrf",
   "retem_inss",
+  "optante_simples",
+  "nfse_discriminacao_template",
 ].join(",");
 
 function texto(value: unknown): string {
@@ -104,6 +110,8 @@ function formFromRow(row: ClienteRow): ClienteForm {
     retem_pcc: triTexto((row as ClienteNfseRow).retem_pcc),
     retem_irrf: triTexto((row as ClienteNfseRow).retem_irrf),
     retem_inss: triTexto((row as ClienteNfseRow).retem_inss),
+    optante_simples: triTexto((row as ClienteNfseRow).optante_simples),
+    nfse_discriminacao_template: texto((row as ClienteNfseRow).nfse_discriminacao_template),
   };
 }
 
@@ -320,6 +328,8 @@ export default function CadastroFiscalCliente() {
       retem_pcc: triValor(form.retem_pcc),
       retem_irrf: triValor(form.retem_irrf),
       retem_inss: triValor(form.retem_inss),
+      optante_simples: triValor(form.optante_simples),
+      nfse_discriminacao_template: form.nfse_discriminacao_template.trim() || null,
       atualizado_em: new Date().toISOString(),
     };
 
@@ -582,6 +592,17 @@ export default function CadastroFiscalCliente() {
                         </select>
                       </label>
                     ))}
+                    <label className="space-y-1">
+                      <span className="text-xs text-zinc-300">Optante do Simples Nacional (tomador)</span>
+                      <select className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={form.optante_simples} onChange={(event) => update("optante_simples", event.target.value as "" | "sim" | "nao")}>
+                        <option value="">Não informado (a nota avisa)</option><option value="sim">Sim: a CRF de 4,65% não se aplica (Lei 10.833/2003 art. 30 §2)</option><option value="nao">Não</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs text-zinc-300">Template da discriminação da NFS-e (vazio = padrão)</span>
+                      <textarea className="min-h-16 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={form.nfse_discriminacao_template} onChange={(event) => update("nfse_discriminacao_template", event.target.value)} placeholder="{RESULTADO}|PEDIDO DE COMPRA: {PEDIDO}{ITEM}|VENCIMENTO: {VENCIMENTO} DDL|OS {OS}|{FRASE_LEGAL}|{OBSERVACAO}" />
+                      <span className="text-xs text-zinc-500">Segmentos separados por &ldquo;|&rdquo;; segmento com campo vazio some. Tokens: {"{RESULTADO} {PEDIDO} {ITEM} {VENCIMENTO} {DATAS} {OS} {FRASE_LEGAL} {ISS} {OBSERVACAO}"}. &ldquo;MÃO DE OBRA&rdquo; é recusado.</span>
+                    </label>
                   </div>
                 </section>
 

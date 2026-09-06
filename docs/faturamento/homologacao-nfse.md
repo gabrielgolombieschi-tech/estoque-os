@@ -147,7 +147,7 @@ Iguais: prestador (CNPJ, endereço, e-mail, não optante), tomador (CNPJ 83.475.
 
 ## Ficou aberto
 
-- Perfis 17.09, 14.01 e 07.02 continuam sem revisão (os valores da matriz estão no script `nfse-perfil-revisar.mjs`; 07.02 segue bloqueado). Aplicar quando o contador fechar o NBS divergente do 14.06 (nota 21) e os R$ 0,23 do INSS.
+- 06/09/2026: os quatro perfis foram revisados com os valores do estudo (14.06 e 14.01 com campos travados CONFERIR_08_09; 07.02 segue bloqueado); a revisão zerou a liberação de produção do 14.06. Detalhes, critérios de pronto e perguntas em [nfse-perfis-servico.md](nfse-perfis-servico.md).
 - Débito de PIS/COFINS da NFS-e emitida: o trigger existente da importação usa 0,65%/3,00% como fallback (118,09 e 545,01 na NFS-e 50); confirmar com o contador se o Lucro Real deve registrar 1,65%/7,60%.
 - Template de discriminação por cliente (ArcelorMittal e Regional Telhas usam formato próprio) e o rótulo VENCIMENTO/FATURAMENTO.
 - Por que só duas das nove notas reais levam o grupo IBS/CBS; o ambiente nacional calculou IBS/CBS na 50 sobre (serviço − ISS).

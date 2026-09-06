@@ -55,10 +55,44 @@ function snapshot(value: unknown, label: string): JsonObject {
 export const NOME_TOMADOR_HOMOLOGACAO_NFSE = "NFS-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
 export const CINDOP_PROVISORIO_HOMOLOGACAO: Record<string, string> = { "07.02": "040101", "14.01": "050103" };
-export function codigoIndicadorOperacao(servico: Record<string, unknown>) {
+/** A partir desta data o grupo IBS/CBS e obrigatorio na DPS (Ato Conjunto RFB/CGIBS 4/2026): cIndOp sem default. */
+export const IBS_CBS_OBRIGATORIO_DESDE = "2026-10-01";
+export function codigoIndicadorOperacao(servico: Record<string, unknown>, agora = new Date()) {
   const explicito = text(servico.codigo_indicador_operacao);
   if (explicito && /^[0-9]{6}$/.test(explicito)) return explicito;
+  // Perfil revisado sem cIndOp nao emite: o valor e atributo do perfil, nao deduzido.
+  if (String(servico.tributacao_fonte ?? "") === "PERFIL") {
+    throw new Error("NFS-e incompleta: codigo_indicador_operacao (perfil de servico sem cIndOp; obrigatorio no grupo IBS/CBS).");
+  }
+  if (dataHoraNfeSaoPaulo(agora).slice(0, 10) >= IBS_CBS_OBRIGATORIO_DESDE) {
+    throw new Error(`NFS-e incompleta: codigo_indicador_operacao obrigatorio desde ${IBS_CBS_OBRIGATORIO_DESDE}; o provisorio da fixture nao vale mais.`);
+  }
   return CINDOP_PROVISORIO_HOMOLOGACAO[String(servico.item_servico ?? "")] ?? "050103";
+}
+
+/** Arredondamento meio-par (o que o ambiente nacional aplica no IBS/CBS: 3,325 -> 3,32; 29,925 -> 29,92; 41,02979 -> 41,03). */
+export function arredondarMeioPar(valor: number, casas = 2) {
+  const fator = Math.pow(10, casas);
+  const escalado = valor * fator;
+  const inteiro = Math.floor(escalado);
+  const fracao = escalado - inteiro;
+  if (Math.abs(fracao - 0.5) < 1e-6) return (inteiro % 2 === 0 ? inteiro : inteiro + 1) / fator;
+  return Math.round(escalado) / fator;
+}
+
+/**
+ * IBS/CBS da NFS-e (LC 214/2025 art. 12 §2): base = valor do servico - ISS
+ * (proprio ou retido), aliquotas do perfil (2026: IBS UF 0,10%, IBS mun 0%,
+ * CBS 0,90%). Reproduz as NFS-e 32 (3.500 -> 3.325; 3,32; 29,92) e 37
+ * (42.298,75 -> 41.029,79; 41,03; 369,27) de agosto/2026. Usado na previa e
+ * na conferencia do retorno; a DPS leva so CST, cClassTrib e cIndOp.
+ */
+export function calcularIbsCbsNfse(params: { valorServico: number; valorIss: number; ibsUf: number; ibsMun: number; cbs: number }) {
+  const base = round(params.valorServico - params.valorIss);
+  const ibsUf = arredondarMeioPar(base * params.ibsUf / 100);
+  const ibsMun = arredondarMeioPar(base * params.ibsMun / 100);
+  const cbs = arredondarMeioPar(base * params.cbs / 100);
+  return { base, ibsUf, ibsMun, cbs, total: round(ibsUf + ibsMun + cbs) };
 }
 
 // tpRetPisCofins: 0 nada retido; 3 PIS/COFINS/CSLL retidos.
@@ -181,18 +215,18 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     valor_total_tributos_federais: num(servico.tributos_aprox_federal_pct) !== null
       ? round(valorServico * (num(servico.tributos_aprox_federal_pct) as number) / 100)
       : round(valorServico * ((num(servico.aliquota_pis) ?? 0) + (num(servico.aliquota_cofins) ?? 0)) / 100),
-    valor_total_tributos_estaduais: 0,
+    valor_total_tributos_estaduais: round(valorServico * (num(servico.tributos_aprox_estadual_pct) ?? 0) / 100),
     valor_total_tributos_municipais: num(servico.tributos_aprox_municipal_pct) !== null
       ? round(valorServico * (num(servico.tributos_aprox_municipal_pct) as number) / 100)
       : round(num(servico.valor_iss) ?? 0),
     ibs_cbs_situacao_tributaria: cstIbsCbs,
     ibs_cbs_classificacao_tributaria: cclassTrib,
     // cIndOp e obrigatorio quando o grupo IBS/CBS vai (rejeicao real do ambiente
-    // nacional em 05/09/2026: "indDest not expected, expected cIndOp"). Valor
-    // provisorio de homologacao lido das NFS-e reais de agosto/2026: 040101 na
-    // 07.02 (NFS-e 37) e 050103 na 14.01 (NFS-e 32); os demais itens usam o da
-    // 14.01 ate o contador confirmar a tabela "codigo indicador de operacao".
-    codigo_indicador_operacao: codigoIndicadorOperacao(servico),
+    // nacional em 05/09/2026: "indDest not expected, expected cIndOp"). Com
+    // perfil revisado o valor vem do perfil (sem default); na fixture de
+    // homologacao vale o provisorio lido das NFS-e reais de agosto/2026 (040101
+    // na 07.02, 050103 na 14.01) ate 30/09/2026.
+    codigo_indicador_operacao: codigoIndicadorOperacao(servico, agora),
   };
 
   requiredText(emitente.razao_social, "razao_social_prestador", "empresa");
