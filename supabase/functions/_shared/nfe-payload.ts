@@ -3,9 +3,12 @@ import {
   conflitoDestinacaoAliquota,
   ehDestinacaoValida,
   REDUCAO_AUTOMACAO_SC,
+  REDUCAO_MAQUINAS_CONVENIO_52_91,
   temReducaoAutomacaoSc,
+  temReducaoMaquinas5291,
   textoDestinacao,
   textoReducaoAutomacaoSc,
+  textoReducaoMaquinas5291,
   type DestinacaoMercadoria,
 } from "./fiscal/icms-sc-destinacao.ts";
 import {
@@ -281,6 +284,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   let ibsMunTotal = 0;
   let cbsTotal = 0;
   let usaBeneficioReducaoSc = false;
+  let usaBeneficioMaquinas5291 = false;
   // Só cito a base legal da alíquota quando a nota inteira usa uma única
   // alíquota; com itens em alíquotas diferentes, a citação apontaria para a
   // errada em metade das linhas.
@@ -414,6 +418,21 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
         );
       }
     }
+    // Maquina industrial do Convenio 52/91 (NCM 8460.90.90): CST 20, cBenef do convenio e base
+    // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
+    // Sem isso a nota nao sai — nem a 12% direto, nem a 17% cheia (contador, 06/09/2026).
+    if (temReducaoMaquinas5291(ncm)) {
+      const carga = REDUCAO_MAQUINAS_CONVENIO_52_91.cargaEfetiva;
+      if (situacaoIcms !== "20" || cargaEfetivaIcms === null || Math.abs(cargaEfetivaIcms - carga) > 0.01 || !text(item.cbenef)) {
+        throw new Error(
+          `Solicitação incompleta: item ${codigo}, NCM ${ncm} é máquina do Convênio ICMS 52/91 e exige CST 20, `
+          + `cBenef do convênio e redução de base para carga efetiva de ${carga.toFixed(2).replace(".", ",")}% `
+          + `(${REDUCAO_MAQUINAS_CONVENIO_52_91.baseLegal}). Nota com CST ${situacaoIcms}, carga ${cargaEfetivaIcms ?? "?"}%`
+          + `${text(item.cbenef) ? "" : " e sem cBenef"}.`,
+        );
+      }
+      usaBeneficioMaquinas5291 = true;
+    }
 
     return {
       numero_item: index + 1,
@@ -482,7 +501,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // interna de equipamentos de automação, Anexo 2, Art. 7º, VII) e não da
   // destinação: nesses NCMs a contabilidade lista 12% direto, sem a alternativa
   // de 17%. Só confiro destinação contra alíquota fora desse caso.
-  const conflito = usaBeneficioReducaoSc
+  const conflito = usaBeneficioReducaoSc || usaBeneficioMaquinas5291
     ? null
     : conflitoDestinacaoAliquota(destinacao, aliquotaUnica, interestadual);
   if (conflito) {
@@ -500,6 +519,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     : null;
   const informacoesComplementares = [
     ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc()] : []),
+    ...(usaBeneficioMaquinas5291 ? [textoReducaoMaquinas5291()] : []),
     textoDestinacao(destinacao, aliquotaUnica, interestadual),
     ...(text(solicitacao.pedido_cliente)
       ? [`Pedido de compra do cliente: ${text(solicitacao.pedido_cliente)}`]

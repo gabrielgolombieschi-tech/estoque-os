@@ -104,6 +104,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [clienteNfse, setClienteNfse] = useState<ClienteNfse | null>(null);
   const [prazoCancelamento, setPrazoCancelamento] = useState<number | null>(null);
+  // HORAS: ate N horas apos a autorizacao. MES_EMISSAO: ate o ultimo dia do mes de emissao (Joinville, Decreto 30.798/2018).
+  const [prazoRegra, setPrazoRegra] = useState<"HORAS" | "MES_EMISSAO">("HORAS");
   const [candidatas, setCandidatas] = useState<OsCandidata[]>([]);
   const [linhas, setLinhas] = useState<OsLinha[]>([]);
   const [proximaChave, setProximaChave] = useState(2);
@@ -162,7 +164,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       ]);
       setFixtures((fx as Fixture[] | null) ?? []);
       setClienteNfse((cli as ClienteNfse | null) ?? null);
-      setPrazoCancelamento((ef as { prazo_cancelamento_nfse_horas?: number | null } | null)?.prazo_cancelamento_nfse_horas ?? null);
+      const contextoEmpresa = ef as { prazo_cancelamento_nfse_horas?: number | null; prazo_cancelamento_nfse_regra?: string | null } | null;
+      setPrazoCancelamento(contextoEmpresa?.prazo_cancelamento_nfse_horas ?? null);
+      setPrazoRegra(contextoEmpresa?.prazo_cancelamento_nfse_regra === "MES_EMISSAO" ? "MES_EMISSAO" : "HORAS");
 
       // Rascunho de NFS-e desta OS (nao cancelado, emissao ainda nao AUTORIZADA/CANCELADA) ou a NFS-e autorizada mais recente.
       const { data: itens } = await supabase.schema("f").from("solicitacao_item").select("solicitacao_id").eq("origem_tipo", "OS").eq("origem_id", String(osId)).eq("modelo", "NFSE");
@@ -361,7 +365,10 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const margem = custoReal !== null ? (conferida ? num(previa?.valor_bruto) : totalLinhas) - custoReal : null;
   const bloqueioLocal = !perfil ? "Escolha o perfil de serviço." : perfilBloqueado ? `Perfil ${perfil.item_servico} bloqueado: ${perfil.justificativa_faixa ?? "aguarda o contador."}` : !fixture ? `Sem fixture provisória para o item ${perfil.item_servico}.` : null;
   const producao = emissao?.ambiente === "PRODUCAO";
-  const podeCancelar = autorizada && (!producao || prazoCancelamento !== null);
+  const podeCancelar = autorizada && (!producao || prazoRegra === "MES_EMISSAO" || prazoCancelamento !== null);
+  const textoPrazo = prazoRegra === "MES_EMISSAO"
+    ? "Prazo: até o último dia do mês de emissão (Joinville, Decreto 30.798/2018); depois, só substituição."
+    : prazoCancelamento === null ? null : `Prazo: ${prazoCancelamento} h após a autorização.`;
   const [producaoPronta, setProducaoPronta] = useState<{ pronta: boolean; motivo?: string } | null>(null);
   useEffect(() => {
     if (!solicitacao || !autorizada || producao) { setProducaoPronta(null); return; }
@@ -511,7 +518,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <div className="flex flex-wrap items-end gap-2">
                     <label className={`${label} flex-1`}>Justificativa do cancelamento (15 a 255)<input className={field} value={justificativaCancel} onChange={(e) => setJustificativaCancel(e.target.value)} maxLength={255} /></label>
                     <button type="button" className={botao} disabled={ocupado} onClick={() => void cancelar()}>{producao ? "Cancelar NFS-e real na SEFAZ" : "Cancelar NFS-e (homologação)"}</button>
-                    {prazoCancelamento === null ? <span className="w-full text-xs text-amber-300">Prazo de cancelamento não confirmado pelo contador: em produção este botão fica oculto e só a substituição aparece.</span> : <span className="w-full text-xs text-zinc-500">Prazo: {prazoCancelamento} h após a autorização.</span>}
+                    {textoPrazo === null ? <span className="w-full text-xs text-amber-300">Prazo de cancelamento não confirmado pelo contador: em produção este botão fica oculto e só a substituição aparece.</span> : <span className="w-full text-xs text-zinc-500">{textoPrazo}</span>}
                   </div>
                 ) : null}
                 {producao ? <div className="text-xs text-emerald-300">NFS-e real: documento EMITIDA, título a receber líquido com as retenções por tributo e saldo da OS faturado.</div> : <div className="text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber líquido com as retenções por tributo.</div>}

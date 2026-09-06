@@ -200,6 +200,24 @@ assert.equal(revendaComIpi.items[0].ipi_valor, 97.5);
 assert.equal(revendaComIpi.items[0].icms_base_calculo, 1000, "revenda: IPI fora da base do ICMS");
 assert.equal(revendaComIpi.items[0].icms_valor, 120);
 
+// NCM 8460.90.90 (maquina industrial, Convenio ICMS 52/91; contador 06/09/2026):
+// nao sai a 17% cheia nem a 12% direto. Exige CST 20 + cBenef + base reduzida
+// ate a carga efetiva de 8,80%: interna 17% x (1 - 48,235%) e PR 12% x (1 - 26,667%).
+const industrial = (extra) => contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: { ...solicitacao().operacao_snapshot, natureza_operacao: "VENDA_INDUSTRIALIZACAO_INTERNA", destinacao_mercadoria: "ATIVO_IMOBILIZADO", consumidor_final: 1 },
+  }),
+  itens: [linha({ cfop: "5101", ncm: "84609090", quantidade: 1, valor_unitario: 1000, cst_ipi: "53", ipi_codigo_enquadramento_legal: "999", ...extra })],
+});
+assert.throws(() => montarPayloadNfe(industrial({ aliquota_icms: 17, cbenef: null })), /Convênio ICMS 52\/91/);
+assert.throws(() => montarPayloadNfe(industrial({ aliquota_icms: 12, cbenef: null })), /Convênio ICMS 52\/91/);
+assert.throws(() => montarPayloadNfe(industrial({ cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 48.235, cbenef: null })), /sem cBenef/);
+const maquina = montarPayloadNfe(industrial({ cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 48.235, cbenef: "SC000000" }));
+assert.equal(maquina.items[0].icms_situacao_tributaria, "20");
+assert.equal(maquina.items[0].icms_base_calculo, 517.65);
+assert.equal(maquina.items[0].icms_valor, 88);
+assert.equal(String(maquina.informacoes_adicionais_contribuinte).includes("Convênio ICMS 52/91"), true);
+
 const ipiDaFixture5102 = montarPayloadNfe(contexto({
   itens: [linha({ cst_ipi: null, ipi_codigo_enquadramento_legal: null })],
 }));

@@ -45,10 +45,12 @@ type ClienteForm = {
   retem_inss: "" | "sim" | "nao";
   // Regime do tomador: optante do Simples nao sofre CRF (Lei 10.833/2003 art. 30 §2). "" = nao informado (aviso na nota).
   optante_simples: "" | "sim" | "nao";
+  // Substituto tributario do ISS (orgao publico, banco, hospital, concessionaria): retem o ISS nos servicos 14.01/14.06 (contador, 06/09/2026).
+  iss_substituto_tributario: boolean;
   // Template da discriminacao da NFS-e deste tomador (segmentos "|", tokens {RESULTADO} {PEDIDO} {ITEM} {VENCIMENTO} {DATAS} {OS} {FRASE_LEGAL} {ISS} {OBSERVACAO}).
   nfse_discriminacao_template: string;
 };
-type ClienteNfseRow = { inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; nfse_discriminacao_template?: string | null };
+type ClienteNfseRow = { inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; iss_substituto_tributario?: boolean | null; nfse_discriminacao_template?: string | null };
 function triTexto(value: boolean | null | undefined): "" | "sim" | "nao" { return value === true ? "sim" : value === false ? "nao" : ""; }
 function triValor(value: "" | "sim" | "nao"): boolean | null { return value === "sim" ? true : value === "nao" ? false : null; }
 
@@ -79,6 +81,7 @@ const CLIENTE_FIELDS = [
   "retem_irrf",
   "retem_inss",
   "optante_simples",
+  "iss_substituto_tributario",
   "nfse_discriminacao_template",
 ].join(",");
 
@@ -111,6 +114,7 @@ function formFromRow(row: ClienteRow): ClienteForm {
     retem_irrf: triTexto((row as ClienteNfseRow).retem_irrf),
     retem_inss: triTexto((row as ClienteNfseRow).retem_inss),
     optante_simples: triTexto((row as ClienteNfseRow).optante_simples),
+    iss_substituto_tributario: (row as ClienteNfseRow).iss_substituto_tributario === true,
     nfse_discriminacao_template: texto((row as ClienteNfseRow).nfse_discriminacao_template),
   };
 }
@@ -329,6 +333,7 @@ export default function CadastroFiscalCliente() {
       retem_irrf: triValor(form.retem_irrf),
       retem_inss: triValor(form.retem_inss),
       optante_simples: triValor(form.optante_simples),
+      iss_substituto_tributario: form.iss_substituto_tributario,
       nfse_discriminacao_template: form.nfse_discriminacao_template.trim() || null,
       atualizado_em: new Date().toISOString(),
     };
@@ -597,6 +602,10 @@ export default function CadastroFiscalCliente() {
                       <select className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm" value={form.optante_simples} onChange={(event) => update("optante_simples", event.target.value as "" | "sim" | "nao")}>
                         <option value="">Não informado (a nota avisa)</option><option value="sim">Sim: a CRF de 4,65% não se aplica (Lei 10.833/2003 art. 30 §2)</option><option value="nao">Não</option>
                       </select>
+                    </label>
+                    <label className="flex items-start gap-2 md:col-span-2">
+                      <input type="checkbox" className="mt-1" checked={form.iss_substituto_tributario} onChange={(event) => update("iss_substituto_tributario", event.target.checked)} />
+                      <span className="text-xs text-zinc-300">Substituto tributário do ISS (órgão público, banco, hospital, concessionária de energia, água ou pedágio). Com a marca, a NFS-e de manutenção e instalação (14.01 e 14.06) sai com o ISS retido pelo tomador; sem ela, a Segau recolhe. Regra do contador de 06/09/2026.</span>
                     </label>
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-zinc-300">Template da discriminação da NFS-e (vazio = padrão)</span>

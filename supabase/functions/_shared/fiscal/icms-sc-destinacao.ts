@@ -148,3 +148,26 @@ export function temReducaoAutomacaoSc(ncm: string, interestadual: boolean) {
 export function textoReducaoAutomacaoSc() {
   return `${REDUCAO_AUTOMACAO_SC.observacaoDocumento} - ${REDUCAO_AUTOMACAO_SC.baseLegal}`;
 }
+
+/**
+ * Maquinas e aparelhos industriais do Convenio ICMS 52/91 (RICMS/SC-01, Anexo 2,
+ * Art. 9o): reducao de base para carga efetiva de 8,80%, interna (17% nominal)
+ * e interestadual (12% nominal). Contador, 06/09/2026, sobre o NCM 8460.90.90:
+ * CST 20, cBenef do convenio, aliquota nominal cheia e base reduzida — nunca
+ * 12% direto. O codigo do cBenef nao foi informado e nao e deduzido: o item
+ * precisa te-lo cadastrado, senao a nota nao sai.
+ */
+export const REDUCAO_MAQUINAS_CONVENIO_52_91 = {
+  cargaEfetiva: 8.8,
+  baseLegal: "Convênio ICMS 52/91 - RICMS/SC-01, Anexo 2, Art. 9º",
+  observacaoDocumento: "Base de cálculo reduzida - máquinas e aparelhos industriais",
+  ncms: ["84609090"] as const,
+};
+
+export function temReducaoMaquinas5291(ncm: string) {
+  return (REDUCAO_MAQUINAS_CONVENIO_52_91.ncms as readonly string[]).includes(ncm);
+}
+
+export function textoReducaoMaquinas5291() {
+  return `${REDUCAO_MAQUINAS_CONVENIO_52_91.observacaoDocumento} - ${REDUCAO_MAQUINAS_CONVENIO_52_91.baseLegal}`;
+}

@@ -163,7 +163,7 @@ cenario("producao usa a razao social real do tomador", () => {
 cenario("duas OS: codigo_interno_contribuinte lista as duas", () => {
   const p = montarPayloadNfse(contexto({ servico: { os_numeros: ["328", "287"] } }), agora);
   assert.equal(p.codigo_interno_contribuinte, "OS328OS287");
-  assert.equal(montarPayloadNfse(contexto({ servico: { item_servico: "07.02" } }), agora).codigo_indicador_operacao, "040101");
+  assert.equal(montarPayloadNfse(contexto({ servico: { item_servico: "07.02" } }), agora).codigo_indicador_operacao, "020201");
 });
 
 cenario("bloqueios locais nomeiam campo e cadastro", () => {
@@ -198,7 +198,7 @@ cenario("IBS/CBS no centavo: notas 32 e 37 reais (base = servico - ISS, meio-par
 cenario("cIndOp: perfil revisado sem cIndOp nao emite; fixture usa o provisorio so ate 30/09/2026; estaduais da tabela", () => {
   assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: null } }), agora), /codigo_indicador_operacao \(perfil de servico sem cIndOp/);
   assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: "050103" } }), agora).codigo_indicador_operacao, "050103");
-  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", item_servico: "07.02" } }), agora).codigo_indicador_operacao, "040101");
+  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", item_servico: "07.02" } }), agora).codigo_indicador_operacao, "020201", "07.02 e servico sobre bem imovel (contador 06/09/2026)");
   assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO" } }), new Date("2026-10-01T12:00:00-03:00")), /obrigatorio desde 2026-10-01/);
   const p = montarPayloadNfse(contexto({ servico: { tributos_aprox_federal_pct: 13.45, tributos_aprox_municipal_pct: 4.69, tributos_aprox_estadual_pct: 0 } }), agora);
   assert.equal(p.valor_total_tributos_estaduais, 0);

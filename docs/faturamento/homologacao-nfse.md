@@ -148,6 +148,7 @@ Iguais: prestador (CNPJ, endereço, e-mail, não optante), tomador (CNPJ 83.475.
 ## Ficou aberto
 
 - 06/09/2026: os quatro perfis foram revisados com os valores do estudo (14.06 e 14.01 com campos travados CONFERIR_08_09; 07.02 segue bloqueado); a revisão zerou a liberação de produção do 14.06. Detalhes, critérios de pronto e perguntas em [nfse-perfis-servico.md](nfse-perfis-servico.md).
+- 06/09/2026 (tarde): o contador respondeu às dez perguntas; campos travados confirmados, perfis re-revisados (PIS/COFINS 1,65/7,60, frases da IN RFB 2.141/2023, cIndOp 020201 e NBS 1.0102.41.00 no 07.02), substituto tributário do ISS no cadastro do cliente, cancelamento até o fim do mês de emissão. Ver [respostas-contador-2026-09-06.md](respostas-contador-2026-09-06.md).
 - Débito de PIS/COFINS da NFS-e emitida: o trigger existente da importação usa 0,65%/3,00% como fallback (118,09 e 545,01 na NFS-e 50); confirmar com o contador se o Lucro Real deve registrar 1,65%/7,60%.
 - Template de discriminação por cliente (ArcelorMittal e Regional Telhas usam formato próprio) e o rótulo VENCIMENTO/FATURAMENTO.
 - Por que só duas das nove notas reais levam o grupo IBS/CBS; o ambiente nacional calculou IBS/CBS na 50 sobre (serviço − ISS).

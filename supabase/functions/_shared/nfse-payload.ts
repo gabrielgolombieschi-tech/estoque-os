@@ -54,7 +54,10 @@ function snapshot(value: unknown, label: string): JsonObject {
 
 export const NOME_TOMADOR_HOMOLOGACAO_NFSE = "NFS-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
-export const CINDOP_PROVISORIO_HOMOLOGACAO: Record<string, string> = { "07.02": "040101", "14.01": "050103" };
+// cIndOp (Anexo VII da LC 214/2025), confirmado pelo contador em 06/09/2026: 050103 = servico prestado
+// fisicamente sobre bem movel no endereco do destinatario (14.01, 14.06, 17.09); 020201 = sobre bem imovel
+// (07.02, obra). O 040101 da NFS-e 37 real era "feiras e eventos": estava errado.
+export const CINDOP_PROVISORIO_HOMOLOGACAO: Record<string, string> = { "07.02": "020201", "14.01": "050103" };
 /** A partir desta data o grupo IBS/CBS e obrigatorio na DPS (Ato Conjunto RFB/CGIBS 4/2026): cIndOp sem default. */
 export const IBS_CBS_OBRIGATORIO_DESDE = "2026-10-01";
 export function codigoIndicadorOperacao(servico: Record<string, unknown>, agora = new Date()) {

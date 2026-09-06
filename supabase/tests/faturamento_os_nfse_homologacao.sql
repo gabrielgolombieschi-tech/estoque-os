@@ -23,9 +23,9 @@ insert into public.empresas (id, tenant_id, cnpj, razao_social, nome_fantasia, u
 values ('15400000-0000-4000-8000-000000000002', '15400000-0000-4000-8000-000000000001', '33333333000191', 'EMPRESA TESTE OS NFSE LTDA', 'OS NFSE', 'SC', 'JOINVILLE'),
        ('15400000-0000-4000-8000-000000000003', '15400000-0000-4000-8000-000000000001', '44444444000191', 'OUTRA EMPRESA LTDA', 'OUTRA', 'SC', 'JOINVILLE')
 on conflict (id) do nothing;
-insert into c.empresa_fiscal (empresa_id, inscricao_estadual, inscricao_municipal, crt, certificado_validade_em, serie_nfe, serie_dps, proximo_numero_dps, codigo_opcao_simples_nacional, regime_especial_tributacao)
-values ('15400000-0000-4000-8000-000000000002', '257686835', '152836', 3, current_date + 365, 2, 2, 1, 1, 0),
-       ('15400000-0000-4000-8000-000000000003', '257686836', null, 3, current_date + 365, 2, 2, 1, 1, 0);
+insert into c.empresa_fiscal (empresa_id, inscricao_estadual, inscricao_municipal, crt, certificado_validade_em, serie_nfe, serie_dps, proximo_numero_dps, codigo_opcao_simples_nacional, regime_especial_tributacao, prazo_cancelamento_nfse_regra)
+values ('15400000-0000-4000-8000-000000000002', '257686835', '152836', 3, current_date + 365, 2, 2, 1, 1, 0, 'MES_EMISSAO'),
+       ('15400000-0000-4000-8000-000000000003', '257686836', null, 3, current_date + 365, 2, 2, 1, 1, 0, 'HORAS');
 insert into c.empresa_endereco (empresa_id, tipo, cep, logradouro, numero, bairro, cidade, uf, codigo_municipio_ibge)
 values ('15400000-0000-4000-8000-000000000002', 'FISCAL', '89219600', 'RUA DONA FRANCISCA', '8300', 'ZONA INDUSTRIAL NORTE', 'JOINVILLE', 'SC', '4209102'),
        ('15400000-0000-4000-8000-000000000003', 'FISCAL', '89219600', 'RUA DONA FRANCISCA', '8300', 'ZONA INDUSTRIAL NORTE', 'JOINVILLE', 'SC', '4209102');
@@ -45,16 +45,17 @@ values ('15400000-0000-4000-8000-000000000001', '3.01', 'RECEITA DE SERVICOS', '
 -- Tomadores: 915400 Joinville com IM e retencoes decididas; 915401 Tijucas sem
 -- retencao; 915402 Joinville sem IM; 915403 Joinville com iss_retido indefinido.
 insert into public.clientes (id, tenant_id, empresa_id, nome, documento, razao_social, inscricao_estadual, inscricao_municipal,
-  cep, logradouro, numero_endereco, bairro, cidade, uf, pais, indicador_ie, codigo_ibge_municipio, iss_retido, retem_pcc, retem_irrf, retem_inss, email_nfse, optante_simples)
+  cep, logradouro, numero_endereco, bairro, cidade, uf, pais, indicador_ie, codigo_ibge_municipio, iss_retido, retem_pcc, retem_irrf, retem_inss, email_nfse, optante_simples, iss_substituto_tributario)
 values
   (915400, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR JOINVILLE', '84689090000240', 'TOMADOR JOINVILLE S/A', '222222222', '998877',
-   '89239270', 'RUA DONA FRANCISCA', '11700', 'PIRABEIRABA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', true, true, true, false, 'fiscal@tomador.test', false),
+   '89239270', 'RUA DONA FRANCISCA', '11700', 'PIRABEIRABA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', true, true, true, false, 'fiscal@tomador.test', false, false),
   (915401, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR TIJUCAS', '83475913000272', 'TOMADOR TIJUCAS SA', '333333333', null,
-   '88200000', 'BR 101', 'S/N', 'CENTRO', 'TIJUCAS', 'SC', 'BRASIL', '1', '4218004', false, false, false, false, null, false),
+   '88200000', 'BR 101', 'S/N', 'CENTRO', 'TIJUCAS', 'SC', 'BRASIL', '1', '4218004', false, false, false, false, null, false, false),
+  -- 915402: optante do Simples e substituto tributario do ISS (ex.: concessionaria) — testa as duas excecoes do contador.
   (915402, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR SEM IM', '03818222000104', 'TOMADOR SEM IM LTDA', '444444444', null,
-   '89237780', 'RUA DOS PORTUGUESES', '2240', 'VILA NOVA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', false, false, false, false, null, true),
+   '89237780', 'RUA DOS PORTUGUESES', '2240', 'VILA NOVA', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', false, false, false, false, null, true, true),
   (915403, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'TOMADOR INDEFINIDO', '78872397000107', 'TOMADOR INDEFINIDO SA', '555555555', '112233',
-   '89219600', 'RUA DONA FRANCISCA', '7650', 'ZONA INDUSTRIAL NORTE', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', null, false, false, false, null, null);
+   '89219600', 'RUA DONA FRANCISCA', '7650', 'ZONA INDUSTRIAL NORTE', 'JOINVILLE', 'SC', 'BRASIL', '1', '4209102', null, false, false, false, null, null, false);
 
 -- Perfis de servico sem valor + fixture provisoria (a migration so semeia empresas ja existentes).
 insert into f.perfil_operacao (id, tenant_id, empresa_id, codigo, nome, modelo, natureza_operacao, natureza_texto, crt, item_servico, faixa_automacao, justificativa_faixa, habilitado_producao, vigencia_inicio)
@@ -70,7 +71,7 @@ insert into f.tributacao_provisoria_nfse_homologacao (tenant_id, empresa_id, ite
 values
   ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.06', '140601', '120032900', 'SERVICOS DE INSTALACAO E MONTAGEM', 'CLIENTE', 5, 'POR_TOMADOR', 1.65, 7.6, 'POR_TOMADOR', 4.65, 'POR_TOMADOR', 1.5, 'POR_TOMADOR', 11, 'NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004', null, 'teste', 'teste'),
   ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '17.09', '170901', '114044900', 'LAUDO TECNICO', 'SEDE', 5, 'POR_TOMADOR', 1.65, 7.6, 'POR_TOMADOR', 4.65, 'POR_TOMADOR', 1.5, 'NUNCA', 11, 'NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004',
-   'PARA OS SERVICOS DE LAUDOS E PERICIAS, DEVERA SER RETIDO IRRF A ALIQUOTA DE 1,5% E CRF A ALIQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1%). TRIBUTOS INCIDENTES SOBRE O PRECO LEI 12.741/2012', 'teste', 'teste');
+   'PARA OS SERVICOS DE LAUDOS E PERICIAS, DEVERA SER RETIDO IRRF A ALIQUOTA DE 1,5% E CRF A ALIQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1%). TRIBUTOS APROXIMADOS LEI 12.741/2012: {VTOTTRIB}', 'teste', 'teste');
 insert into f.nfse_tributos_aproximados (tenant_id, empresa_id, item_servico, vigencia_inicio, federal_pct, estadual_pct, municipal_pct, fonte)
 values ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '17.09', date '2026-08-01', 13.45, 0, 3.64, 'teste'),
        ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', '14.01', date '2026-08-01', 13.45, 0, 4.69, 'teste');
@@ -144,9 +145,11 @@ begin
      or (v_serv->>'valor_pcc')::numeric <> 279 or (v_serv->>'valor_liquido')::numeric <> 5331 or jsonb_array_length(v_serv->'retencoes') <> 5 then
     raise exception 'Valores A errados: %', v_serv;
   end if;
-  if v_serv->>'descricao_servico' <> 'LAUDO NR-12 ANALISE DE RISCO. PEDIDO DE COMPRA: 136785. VENCIMENTO: 21 DDL. OS OS-NFSE-1. "PARA OS SERVICOS DE LAUDOS E PERICIAS, DEVERA SER RETIDO IRRF A ALIQUOTA DE 1,5% E CRF A ALIQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1%). TRIBUTOS INCIDENTES SOBRE O PRECO LEI 12.741/2012" Conforme proposta 77.' then
+  -- {VTOTTRIB} = 6.000 x (13,45% + 3,64%) = R$ 1.025,40 (tabela por subitem, contador 06/09/2026).
+  if v_serv->>'descricao_servico' <> 'LAUDO NR-12 ANALISE DE RISCO. PEDIDO DE COMPRA: 136785. VENCIMENTO: 21 DDL. OS OS-NFSE-1. "PARA OS SERVICOS DE LAUDOS E PERICIAS, DEVERA SER RETIDO IRRF A ALIQUOTA DE 1,5% E CRF A ALIQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1%). TRIBUTOS APROXIMADOS LEI 12.741/2012: R$ 1.025,40" Conforme proposta 77.' then
     raise exception 'Discriminacao A fora do padrao: %', v_serv->>'descricao_servico';
   end if;
+  if (v_serv->>'tributos_aprox_valor')::numeric <> 1025.40 then raise exception 'tributos_aprox_valor A errado: %', v_serv->>'tributos_aprox_valor'; end if;
   -- vTotTrib vem da tabela por subitem (17.09: 13,45% federal, 3,64% municipal), nao do calculo.
   if (v_serv->>'tributos_aprox_federal_pct')::numeric <> 13.45 or (v_serv->>'tributos_aprox_municipal_pct')::numeric <> 3.64 or (v_serv->>'tributos_aprox_estadual_pct')::numeric <> 0 then
     raise exception 'vTotTrib A nao veio da tabela: %', v_serv;
@@ -356,8 +359,9 @@ begin
   end;
 
   -- 14.01 revisado: CRF SEMPRE (4,65%), excecao de conserto isolado, ISS travado (CONFERIR_08_09), incidencia no prestador.
+  -- Frases do contador (06/09/2026): a da regra geral (com CRF) em texto_complementar; a generica sem retencao em texto_sem_retencao.
   v_r := f.fn_perfil_operacao_nfse_revisar('15400000-0000-4000-8000-000000000104',
-    '{"codigo_tributacao_nacional":"140101","codigo_nbs":"120015000","descricao_servico_padrao":"MANUTENCAO CORRETIVA","local_prestacao_regra":"CLIENTE","incidencia_iss_regra":"PRESTADOR","tributacao_iss":1,"aliquota_iss":5,"iss_retido_regra":"NUNCA","retencao_pcc_regra":"SEMPRE","aliquota_pcc":4.65,"retencao_irrf_regra":"NUNCA","retencao_inss_regra":"NUNCA","excecao_conserto_isolado":true,"texto_complementar":"NAO HA INCIDENCIA DAS RETENCOES FEDERAIS CONFORME IN SRF N 459/2004","cst_pis":"01","cst_cofins":"01","aliquota_pis":0.65,"aliquota_cofins":3,"cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9,"codigo_indicador_operacao":"050103","campos_conferir":[{"campo":"iss_retido_regra","motivo":"CONFERIR_08_09: nenhuma nota real de 14.01 com ISS retido","prazo":"2026-09-08"}]}'::jsonb,
+    '{"codigo_tributacao_nacional":"140101","codigo_nbs":"120015000","descricao_servico_padrao":"MANUTENCAO CORRETIVA","local_prestacao_regra":"CLIENTE","incidencia_iss_regra":"PRESTADOR","tributacao_iss":1,"aliquota_iss":5,"iss_retido_regra":"NUNCA","retencao_pcc_regra":"SEMPRE","aliquota_pcc":4.65,"retencao_irrf_regra":"NUNCA","retencao_inss_regra":"NUNCA","excecao_conserto_isolado":true,"texto_complementar":"Serviço sujeito à retenção de CRF (4,65%) conforme IN RFB nº 2.141/2023.","texto_sem_retencao":"Serviço não sujeito à retenção de PIS/COFINS/CSLL, conforme IN RFB nº 2.141/2023.","cst_pis":"01","cst_cofins":"01","aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9,"codigo_indicador_operacao":"050103","campos_conferir":[{"campo":"iss_retido_regra","motivo":"CONFERIR_08_09: nenhuma nota real de 14.01 com ISS retido","prazo":"2026-09-08"}]}'::jsonb,
     'Perfil 14.01 conforme estudo das notas 31-32 de agosto/2026');
   if jsonb_array_length(v_r->'campos_conferir') <> 1 then raise exception 'campos_conferir nao gravado: %', v_r; end if;
   -- OS de Tijucas: CRF entra por padrao (regra SEMPRE, cadastro do tomador diz que nao retem); ISS incide em Joinville (5%), nao em Tijucas (2%).
@@ -374,11 +378,16 @@ begin
     raise exception 'CRF padrao do 14.01 errada: % / %', row_to_json(v_sf), v_serv;
   end if;
   if not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'campos_conferir') then raise exception 'Aviso de campos travados ausente: %', v_r->'avisos'; end if;
-  -- Conserto isolado marcado na OS: CRF cai e a observacao registra a base legal.
+  -- Com CRF retida, a frase da nota e a da regra geral (IN RFB 2.141/2023), nunca a de "nao incidencia".
+  if v_serv->>'descricao_servico' not like '%"Serviço sujeito à retenção de CRF (4,65%) conforme IN RFB nº 2.141/2023."%' then
+    raise exception 'Frase da regra geral do 14.01 ausente: %', v_serv->>'descricao_servico';
+  end if;
+  -- Conserto isolado marcado na OS: CRF cai e a frase legal passa a ser a do conserto isolado (art. 2 §2 II).
   v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"conserto_isolado":true}'::jsonb);
   select * into v_sf from f.solicitacao_faturamento where id = v_sol;
   if v_sf.retem_pcc is not false or (v_sf.operacao_snapshot->'servico'->>'valor_pcc')::numeric <> 0 or (select conserto_isolado from public.ordens_servico where id = 915406) is not true
-     or v_sf.operacao_snapshot->'servico'->>'descricao_servico' not like '%CARATER ISOLADO (IN SRF 459/2004%' then
+     or v_sf.operacao_snapshot->'servico'->>'descricao_servico' not like '%Serviço de conserto isolado não sujeito à retenção de PIS/COFINS/CSLL, conforme art. 2º, § 2º, inciso II, da IN RFB nº 2.141/2023.%'
+     or v_sf.operacao_snapshot->'servico'->>'motivo_dispensa_pcc' <> 'CONSERTO_ISOLADO' then
     raise exception 'Excecao de conserto isolado nao aplicada: %', row_to_json(v_sf);
   end if;
   v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"conserto_isolado":false}'::jsonb);
@@ -392,6 +401,25 @@ begin
   if (select retem_pcc from f.solicitacao_faturamento where id = v_sol2) is not false
      or not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'retem_pcc' and a->>'mensagem' like '%Simples%') then
     raise exception 'CRF cobrada de tomador do Simples: %', v_r;
+  end if;
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol2;
+  if v_sf.operacao_snapshot->'servico'->>'descricao_servico' not like '%Tomador optante pelo Simples Nacional: dispensada a retenção%' or v_sf.operacao_snapshot->'servico'->>'motivo_dispensa_pcc' <> 'SIMPLES' then
+    raise exception 'Frase do Simples ausente: %', v_sf.operacao_snapshot->'servico'->>'descricao_servico';
+  end if;
+  -- Substituto tributario do ISS (contador 06/09/2026): regra NUNCA do 14.01, mas o tomador 915402 retem por lei.
+  if v_sf.iss_retido is not true or (v_sf.operacao_snapshot->'servico'->>'iss_substituto_tributario')::boolean is not true
+     or (v_sf.operacao_snapshot->'servico'->>'valor_liquido')::numeric <> 285
+     or not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'iss_substituto_tributario') then
+    raise exception 'Substituto tributario do ISS nao aplicado: % / %', row_to_json(v_sf), v_r->'avisos';
+  end if;
+  -- A tela pode desligar o substituto com justificativa; sem justificativa bloqueia.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol2, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"iss_retido":false}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'retencao_justificativa') then
+    raise exception 'Desligar o substituto sem justificativa passou: %', v_r;
+  end if;
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol2, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"iss_retido":false,"retencao_justificativa":"Tomador deixou de ser substituto em 2026"}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true or (select iss_retido from f.solicitacao_faturamento where id = v_sol2) is not false then
+    raise exception 'Desligar o substituto com justificativa falhou: %', v_r;
   end if;
   perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol2, 'Rascunho Simples descartado no teste');
   -- Campo travado barra a liberacao e o portao de producao; a confirmacao destrava com auditoria.
@@ -543,10 +571,19 @@ begin
 end;
 $autorizada$;
 
--- Cancelamento (homologacao, prazo nao confirmado): claim + finalizar; saldo devolvido.
+-- Cancelamento: regra MES_EMISSAO (Joinville, Decreto 30.798/2018): direto ate o fim do mes de emissao; depois, substituicao.
 do $cancelar$
 declare v_c jsonb; v_r jsonb; v_s record; v_e f.documento_fiscal_emissao%rowtype;
 begin
+  update f.documento_fiscal_emissao set autorizado_em = now() - interval '45 days' where documento_fiscal_id = (select doc_a from ctx);
+  begin
+    perform f.fn_nfse_cancelamento_claim((select doc_a from ctx), 'Cancelamento fora do mes de emissao', null);
+    raise exception 'Cancelamento de nota do mes anterior foi aceito.';
+  exception when sqlstate '55000' then
+    if sqlerrm not like '%fim do mes de emissao%' then raise exception 'Erro inesperado: %', sqlerrm; end if;
+  end;
+  update f.documento_fiscal_emissao set autorizado_em = now() where documento_fiscal_id = (select doc_a from ctx);
+  if f.fn_nfse_cancelamento_limite('15400000-0000-4000-8000-000000000002', now()) <= now() then raise exception 'Limite do mes de emissao no passado.'; end if;
   v_c := f.fn_nfse_cancelamento_claim((select doc_a from ctx), 'Cancelamento no cenario de homologacao 12', null);
   if (v_c->>'deve_cancelar')::boolean is not true then raise exception 'Claim de cancelamento nao liberou: %', v_c; end if;
   v_r := f.fn_nfse_cancelamento_finalizar((select doc_a from ctx), (v_c->>'evento_claim_id')::uuid, 'AUTORIZADA', 'Cancelamento no cenario de homologacao 12', null, '{"status":"cancelado"}'::jsonb);

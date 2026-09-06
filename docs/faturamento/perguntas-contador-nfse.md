@@ -1,5 +1,7 @@
 # Perguntas ao contador — NFS-e e NF-e da Segau (06/09/2026)
 
+> **Respondidas em 06/09/2026.** As respostas e o que mudou no ERP estão em [respostas-contador-2026-09-06.md](respostas-contador-2026-09-06.md).
+
 Texto pronto para enviar. Cada item diz o que o ERP faz hoje e pede um sim/não. Os campos do ERP marcados com **(travado)** ficam como estão até a resposta; a produção desses perfis não abre sem essa confirmação.
 
 ---
