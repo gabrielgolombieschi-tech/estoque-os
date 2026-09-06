@@ -348,6 +348,23 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     } catch (cause) { setErro(await erroFunction(cause)); } finally { await carregar(); await onAtualizar(); setOcupado(false); }
   }
 
+  // E-mail pela Focus (XML + DANFSe), so em producao: em homologacao a nota nao tem valor fiscal.
+  async function enviarEmail() {
+    if (!emissao) return;
+    const sugestao = clienteNfse?.email_nfse ?? "";
+    const digitado = window.prompt("E-mails para envio da NFS-e (XML + DANFSe), separados por vírgula:", sugestao);
+    if (!digitado) return;
+    const emails = digitado.split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+    if (emails.length === 0) return;
+    setOcupado(true); setErro(null); setAviso(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("nfse-ciclo", { body: { acao: "EMAIL", documento_fiscal_id: emissao.documento_fiscal_id, emails } });
+      if (error) throw error;
+      if (data?.error) throw new Error(String(data.error));
+      setAviso(`E-mail enfileirado na Focus para ${emails.join(", ")}.`);
+    } catch (cause) { setErro(await erroFunction(cause)); } finally { await carregar(); setOcupado(false); }
+  }
+
   async function substituir() {
     if (!emissao) return;
     const codigo = window.prompt("Código de justificativa da substituição: 01 desenquadramento SN · 02 enquadramento SN · 03 inclusão retroativa de imunidade · 04 exclusão retroativa · 05 rejeição pelo tomador · 99 outros", "99");
@@ -523,6 +540,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <button type="button" className={botao} disabled={!emissao.xml_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "XML")}>XML</button>
                   <Link className={botao} href={`/faturamento/nfe/${emissao.documento_fiscal_id}`}>Detalhe</Link>
                   <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
+                  {producao ? <button type="button" className={botao} disabled={ocupado} onClick={() => void enviarEmail()}>Enviar por e-mail</button> : null}
                   {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
                   {!producao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NFS-e real (produção)</button> : null}
                 </div>

@@ -45,6 +45,7 @@ pagina.on("dialog", async (d) => {
     const msg = d.message();
     if (/Código de justificativa/i.test(msg)) return d.accept("99");
     if (/Motivo da substituição/i.test(msg)) return d.accept(arg("substituir") ?? "Substituicao no cenario de homologacao 13");
+    if (/E-mails para envio/i.test(msg)) return d.accept(arg("email") ?? "");
     // accept() sem texto devolve string vazia no prompt; o motivo precisa de 15+ caracteres.
     return d.accept("Rascunho refeito no cenario de homologacao da NFS-e");
   }
@@ -116,6 +117,17 @@ if (tem("producao")) {
   console.log("[producao]", resultado ?? `sem estado final em ~3 min: ${await status()}`);
   await navegador.close(); process.exit(0);
 }
+// E-mail da NFS-e real (XML + DANFSe pela Focus). --email destinatario@dominio
+if (arg("email")) {
+  const botao = pagina.getByRole("button", { name: "Enviar por e-mail", exact: true });
+  await botao.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+  if ((await botao.count()) === 0) { console.log("[email] botao ausente (a nota precisa estar AUTORIZADA em producao)"); await foto("email-indisponivel"); await navegador.close(); process.exit(6); }
+  await botao.click();
+  await pagina.waitForTimeout(8000);
+  await foto("email-enviado");
+  console.log("[email]", (await avisos()).filter((t) => /e-mail|E-mail|erro/i.test(t)).slice(0, 4));
+  await navegador.close(); process.exit(0);
+}
 // Segunda nota parcial na mesma OS: abre composicao nova ignorando a autorizada.
 if (tem("nova")) {
   const botao = pagina.getByRole("button", { name: /^Nova NFS-e parcial/ });
@@ -162,6 +174,9 @@ for (const [nome, rotulo] of [["iss", /ISS retido pelo tomador/], ["pcc", /PIS\/
   if (arg(nome)) { const s = pagina.getByLabel(rotulo); if (await s.isEnabled()) await s.selectOption(arg(nome)); }
 }
 if (arg("justificativa")) { const j = pagina.getByLabel(/Justificativa da retenção/); if ((await j.count()) > 0) await j.fill(arg("justificativa")); }
+// --conserto: marca a OS como conserto isolado (dispensa a CRF no 14.01, IN RFB 2.141/2023 art. 2 §2 II).
+if (tem("conserto")) { const c = pagina.getByRole("checkbox").filter({ has: pagina.locator("xpath=..") }).first(); const caixa = pagina.locator('label:has-text("Conserto isolado") input[type="checkbox"]'); if ((await caixa.count()) > 0 && !(await caixa.isChecked())) await caixa.check(); void c; }
+if (arg("material")) { const m = pagina.getByLabel(/Material fornecido e incorporado/); if ((await m.count()) > 0) await m.fill(arg("material")); }
 if (arg("pedido") !== null) await pagina.getByLabel(/Pedido de compra do tomador/).fill(arg("pedido"));
 if (arg("item")) await pagina.getByLabel("Item do pedido").fill(arg("item"));
 if (arg("forma")) await pagina.getByLabel("Forma de pagamento").selectOption(arg("forma"));

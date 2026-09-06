@@ -77,6 +77,31 @@ await foto("faturar-inicio");
 const cabecalho = (await pagina.locator("body").innerText()).replace(/\s+/g, " ");
 console.log("[1]", cabecalho.slice(cabecalho.indexOf("Saldo a faturar"), cabecalho.indexOf("Saldo a faturar") + 160));
 
+// --producao: emite a NF-e REAL da solicitacao ja homologada (perfil liberado para ela).
+if (tem("producao")) {
+  const botao = pagina.getByRole("button", { name: /^Emitir NF-e real/ });
+  await botao.waitFor({ state: "visible", timeout: 30000 }).catch(() => {});
+  if ((await botao.count()) === 0) { console.log("[producao] botao ausente:", (await avisos()).filter((t) => /Produção|Producao|pronta|perfil/i.test(t)).slice(0, 4)); await foto("producao-indisponivel"); await navegador.close(); process.exit(5); }
+  await foto("producao-antes");
+  await botao.click();
+  await pagina.waitForTimeout(15000);
+  await foto("producao-enviada");
+  console.log("[producao] avisos:", (await avisos()).filter((t) => /SEFAZ|PRODU|erro|real/i.test(t)).slice(0, 5));
+  let resultado = null;
+  for (let i = 0; i < 30; i += 1) {
+    const txt = (await pagina.locator("body").innerText()).replace(/\s+/g, " ");
+    const m = txt.match(/NF-e REAL · (AUTORIZADA|REJEITADA|ERRO|PROCESSANDO|ENVIANDO)[^|]{0,160}/);
+    if (m && /AUTORIZADA|REJEITADA|ERRO/.test(m[1])) { resultado = m[0]; break; }
+    await pagina.waitForTimeout(5000);
+    await pagina.reload({ waitUntil: "domcontentloaded" });
+    await pagina.waitForTimeout(4000);
+  }
+  await foto("producao-final");
+  console.log("[producao]", resultado ?? "sem estado final em ~4 min");
+  await navegador.close(); process.exit(0);
+}
+
+
 const jaConferida = (await pagina.getByRole("button", { name: /Reconferir|Tentar emitir novamente|Emitir em homologação/ }).count()) > 0
   && (await pagina.getByRole("button", { name: "Salvar rascunho e conferir" }).count()) === 0;
 if (!jaConferida) {

@@ -56,6 +56,7 @@ type Solicitacao = {
   pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null;
 };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_acesso: string | null; numero: number | null; serie: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null };
+type ProducaoStatus = { pronta?: boolean; motivo?: string | null; preflight_confirmacao_pronto?: boolean; resumo_confirmacao?: { nome_destinatario?: string; documento_destinatario_mascarado?: string | null; valor_total?: number | string; contexto_hash?: string } | null };
 type ItemConferido = { ordem: number; descricao: string; quantidade: number | string; valor_unitario: number | string; cfop: string | null; aliquota_icms: number | string | null; aliquota_ipi: number | string | null; cst_ipi: string | null; aliquota_pis: number | string | null; aliquota_cofins: number | string | null; ncm: string | null; origem_mercadoria: number | null; tributacao_fonte: string | null };
 type Pendencia = { entidade?: string; id?: unknown; campo?: string; mensagem?: string; rota?: string };
 
@@ -254,6 +255,16 @@ export default function FaturarOsPage() {
             const em = emissoes.find((e) => e.solicitacao_id === candidata.id) ?? null;
             if (!em || !["AUTORIZADA", "CANCELADA"].includes(em.status)) { ativa = candidata; emissaoAtiva = em; break; }
           }
+          // Sem rascunho aberto: a homologacao AUTORIZADA que ainda nao virou nota real volta como ativa,
+          // para a emissao em producao (perfil liberado) ou o abandono. Com nota real, abre composicao nova.
+          if (!ativa) {
+            for (const candidata of candidatas) {
+              const emsCand = emissoes.filter((e) => e.solicitacao_id === candidata.id);
+              const hom = emsCand.find((e) => e.ambiente === "HOMOLOGACAO" && e.status === "AUTORIZADA");
+              const prod = emsCand.find((e) => e.ambiente === "PRODUCAO");
+              if (hom && !prod && candidata.status !== "CANCELADA") { ativa = candidata; emissaoAtiva = hom; break; }
+            }
+          }
         }
       }
       setSolicitacao(ativa);
@@ -399,6 +410,26 @@ export default function FaturarOsPage() {
     } catch (cause) { setErro(await erroFunction(cause)); await carregar(); } finally { setOcupado(false); }
   }
 
+  // Producao (mesma disciplina da OV): a Edge Function confere a liberacao do perfil e monta o resumo
+  // de confirmacao a partir do snapshot homologado; a emissao real exige o hash desse contexto.
+  async function emitirProducao() {
+    if (!solicitacao || !emissao) return;
+    setOcupado(true); setErro(null); setAviso(null);
+    try {
+      const { data: statusData, error: statusError } = await supabase.functions.invoke("nfe-emitir-producao", { body: { acao: "STATUS", solicitacao_id: solicitacao.id } });
+      if (statusError) throw statusError;
+      const st = statusData as ProducaoStatus | null;
+      const resumo = st?.resumo_confirmacao;
+      if (!st?.pronta || !st.preflight_confirmacao_pronto || !resumo?.contexto_hash) throw new Error(st?.motivo ?? "A confirmação de produção não pôde ser montada a partir do snapshot homologado.");
+      if (!window.confirm(`EMITIR NF-e REAL (produção) para a OS ${os?.numero_os ?? os?.id}?\n\nDestinatário: ${resumo.nome_destinatario ?? "?"} (${resumo.documento_destinatario_mascarado ?? "?"})\nTotal da nota: ${R$(num(resumo.valor_total))}\n\nGera documento fiscal válido e título a receber.`)) return;
+      const { data, error } = await supabase.functions.invoke("nfe-emitir-producao", { body: { acao: "EMITIR", solicitacao_id: solicitacao.id, confirmacao_contexto_hash: resumo.contexto_hash } });
+      if (error) throw error;
+      if (data?.erro) throw new Error(data.codigo ? `cStat ${data.codigo} · ${data.erro}` : String(data.erro));
+      setAviso("NF-e enviada à SEFAZ em PRODUÇÃO. O retorno chega automaticamente; a nota real aparece em \"Notas desta OS\".");
+      await carregar();
+    } catch (cause) { setErro(await erroFunction(cause)); await carregar(); } finally { setOcupado(false); }
+  }
+
   async function descartarRascunho() {
     if (!solicitacao) return;
     const motivo = window.prompt("Motivo do descarte do rascunho (15 a 255 caracteres):", "Rascunho refeito pela tela de faturar a OS");
@@ -460,6 +491,17 @@ export default function FaturarOsPage() {
   const autorizada = emissao?.status === "AUTORIZADA";
   const emProcessamento = emissao ? ["ENVIANDO", "PROCESSANDO"].includes(emissao.status) : false;
   const notaAtual = notas.find((n) => n.solicitacao_id === solicitacao?.id) ?? null;
+  const notaProducao = notas.find((n) => n.solicitacao_id === solicitacao?.id && n.ambiente === "PRODUCAO") ?? null;
+  const [producaoPronta, setProducaoPronta] = useState<ProducaoStatus | null>(null);
+  useEffect(() => {
+    if (!solicitacao || !autorizada || emissao?.ambiente !== "HOMOLOGACAO" || notaProducao) { setProducaoPronta(null); return; }
+    let ativo = true;
+    void supabase.functions.invoke("nfe-emitir-producao", { body: { acao: "STATUS", solicitacao_id: solicitacao.id } }).then(({ data, error }) => {
+      if (!ativo) return;
+      setProducaoPronta(error ? { pronta: false, motivo: "Não foi possível conferir a liberação de produção." } : ((data as ProducaoStatus | null) ?? null));
+    });
+    return () => { ativo = false; };
+  }, [solicitacao, autorizada, emissao, notaProducao, supabase]);
 
   if (!Number.isInteger(osId) || osId <= 0) return <div className="p-6 text-sm text-red-300">OS inválida.</div>;
 
@@ -621,8 +663,12 @@ export default function FaturarOsPage() {
           <div className="rounded-md border border-zinc-800 p-3 text-sm">
             <div>Status: <strong>{emProcessamento ? "Em processamento" : autorizada ? "Autorizada em homologação" : emissao.status}</strong>{emissao.mensagem ? <span className="text-zinc-400"> · {emissao.codigo_status ? `${emissao.codigo_status} · ` : ""}{emissao.mensagem}</span> : null}</div>
             {emProcessamento ? <div className="text-xs text-zinc-400">Saldo reservado. A tela atualiza sozinha quando a SEFAZ responder.</div> : null}
-            {autorizada && notaAtual ? <div className="mt-2 flex flex-wrap items-center gap-2"><span>NF-e {notaAtual.serie}/{notaAtual.numero} · chave <code className="text-xs">{notaAtual.chave_acesso}</code></span><button type="button" className={botao} onClick={() => void abrirArquivo(notaAtual, "DANFE")}>DANFE</button><button type="button" className={botao} onClick={() => void abrirArquivo(notaAtual, "XML")}>XML</button><Link className={botao} href={`/faturamento/nfe/${notaAtual.documento_fiscal_id}`}>Ciclo de vida</Link></div> : null}
-            {autorizada ? <div className="mt-2 text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber.</div> : null}
+            {autorizada && notaAtual ? <div className="mt-2 flex flex-wrap items-center gap-2"><span>NF-e {notaAtual.serie}/{notaAtual.numero} · chave <code className="text-xs">{notaAtual.chave_acesso}</code></span><button type="button" className={botao} onClick={() => void abrirArquivo(notaAtual, "DANFE")}>DANFE</button><button type="button" className={botao} onClick={() => void abrirArquivo(notaAtual, "XML")}>XML</button><Link className={botao} href={`/faturamento/nfe/${notaAtual.documento_fiscal_id}`}>Ciclo de vida</Link>
+              {emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NF-e real (produção)</button> : null}
+            </div> : null}
+            {autorizada && emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta && !producaoPronta.pronta ? <div className="mt-1 text-xs text-zinc-500">Produção: {producaoPronta.motivo}</div> : null}
+            {notaProducao ? <div className="mt-2 flex flex-wrap items-center gap-2 text-sm"><span className="font-medium text-emerald-300">NF-e REAL · {notaProducao.emissao_status}</span>{notaProducao.serie && notaProducao.numero ? <span>NF-e {notaProducao.serie}/{notaProducao.numero}</span> : null}{notaProducao.chave_acesso ? <code className="text-xs">{notaProducao.chave_acesso}</code> : null}<Link className={botao} href={`/faturamento/nfe/${notaProducao.documento_fiscal_id}`}>Ciclo de vida (cancelar, e-mail)</Link></div> : null}
+            {autorizada && emissao.ambiente === "HOMOLOGACAO" ? <div className="mt-2 text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber.</div> : null}
             {autorizada && saldoDisponivel <= 0.005 ? <div className="mt-2 flex items-center gap-2 text-sm"><span>Saldo zerado.</span><button type="button" className={botao} disabled={ocupado || String(os?.status_fluxo).toLowerCase() !== "concluida"} onClick={() => void marcarFaturada()}>Marcar OS como Faturada</button>{String(os?.status_fluxo).toLowerCase() !== "concluida" ? <span className="text-xs text-zinc-500">exige OS concluída e nota emitida</span> : null}</div> : null}
           </div>
         ) : null}
