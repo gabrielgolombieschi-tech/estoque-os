@@ -1,0 +1,736 @@
+usuario|email|papel_tenant|empresa|papel_empresa|grupo|rotulo|permissao|rls|rpc|menu
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Ordens de serviço|Ver OS|os.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Ordens de serviço|Criar/editar OS|os.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Ordens de serviço|Excluir OS|os.delete|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Ordens de serviço|Lançar itens na OS|os_itens.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Apontamentos|Ver apontamentos de horas|apontamentos.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Apontamentos|Lançar/editar apontamentos|apontamentos.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Apontamentos|Excluir apontamentos|apontamentos.delete|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Apontamentos|Configurar apontamentos|apontamentos.config|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Estoque|Ver estoque|estoque.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Estoque|Movimentar/ajustar estoque|estoque.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Estoque|Ver custos do estoque|estoque_custos.cost_read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar itens|cad_itens.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar clientes|cad_clientes.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Compras|Ver pedidos de compra|compras.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Compras|Criar/editar pedidos de compra|compras.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Compras|Receber pedidos de compra|compras.receive|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Financeiro|Lançar/baixar no financeiro|financeiro.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Ver notas fiscais|fiscal_nf.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Editar notas fiscais|fiscal_nf.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Excluir notas fiscais|fiscal_nf.delete|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Editar dados fiscais do item|fiscal_itens.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Importar XML de entrada|xml_import.execute|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Fiscal|Importar NF de entrada|nf_entrada.import|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|false
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Ordens de serviço|Ver OS|os.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Ordens de serviço|Criar/editar OS|os.write|false|false|true
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Ordens de serviço|Excluir OS|os.delete|false|false|true
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Ordens de serviço|Lançar itens na OS|os_itens.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Apontamentos|Ver apontamentos de horas|apontamentos.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Apontamentos|Lançar/editar apontamentos|apontamentos.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Apontamentos|Excluir apontamentos|apontamentos.delete|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Apontamentos|Configurar apontamentos|apontamentos.config|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Estoque|Ver estoque|estoque.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Estoque|Movimentar/ajustar estoque|estoque.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Estoque|Ver custos do estoque|estoque_custos.cost_read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Cadastros|Cadastrar/editar itens|cad_itens.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Cadastros|Cadastrar/editar clientes|cad_clientes.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Compras|Ver pedidos de compra|compras.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Compras|Criar/editar pedidos de compra|compras.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Compras|Receber pedidos de compra|compras.receive|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Financeiro|Lançar/baixar no financeiro|financeiro.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Ver notas fiscais|fiscal_nf.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Editar notas fiscais|fiscal_nf.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Excluir notas fiscais|fiscal_nf.delete|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Editar dados fiscais do item|fiscal_itens.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Importar XML de entrada|xml_import.execute|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Fiscal|Importar NF de entrada|nf_entrada.import|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|false
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Ordens de serviço|Ver OS|os.read|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Ordens de serviço|Excluir OS|os.delete|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Estoque|Ver estoque|estoque.read|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Financeiro|Ver financeiro|financeiro.read|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Faturamento|Ver faturamento|faturamento.read|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|true
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|false
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|Administração|Gerenciar usuários e papéis|admin.manage_users|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Ver OS|os.read|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Excluir OS|os.delete|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Estoque|Ver estoque|estoque.read|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Ver pedidos de compra|compras.read|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Financeiro|Ver financeiro|financeiro.read|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Faturamento|Ver faturamento|faturamento.read|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|false
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Ordens de serviço|Ver OS|os.read|true|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Ordens de serviço|Excluir OS|os.delete|false|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Estoque|Ver estoque|estoque.read|true|true|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Estoque|Ver custos do estoque|estoque_custos.cost_read|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Compras|Ver pedidos de compra|compras.read|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Compras|Criar/editar pedidos de compra|compras.write|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Compras|Receber pedidos de compra|compras.receive|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Editar notas fiscais|fiscal_nf.write|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Excluir notas fiscais|fiscal_nf.delete|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Ver OS|os.read|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Excluir OS|os.delete|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Estoque|Ver estoque|estoque.read|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Compras|Ver pedidos de compra|compras.read|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Financeiro|Ver financeiro|financeiro.read|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Faturamento|Ver faturamento|faturamento.read|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|false
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|true
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|Administração|Gerenciar usuários e papéis|admin.manage_users|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Ordens de serviço|Ver OS|os.read|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Ordens de serviço|Excluir OS|os.delete|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Estoque|Ver estoque|estoque.read|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Compras|Ver pedidos de compra|compras.read|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Compras|Receber pedidos de compra|compras.receive|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Financeiro|Ver financeiro|financeiro.read|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Faturamento|Ver faturamento|faturamento.read|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|false
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|true
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|Administração|Gerenciar usuários e papéis|admin.manage_users|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Ver OS|os.read|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Excluir OS|os.delete|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Estoque|Ver estoque|estoque.read|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Compras|Ver pedidos de compra|compras.read|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Financeiro|Ver financeiro|financeiro.read|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Faturamento|Ver faturamento|faturamento.read|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|false
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|true
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|Administração|Gerenciar usuários e papéis|admin.manage_users|true|true|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Ver OS|os.read|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Excluir OS|os.delete|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Estoque|Ver estoque|estoque.read|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Ver pedidos de compra|compras.read|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Financeiro|Ver financeiro|financeiro.read|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Faturamento|Ver faturamento|faturamento.read|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|false
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Ver OS|os.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Criar/editar OS|os.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Excluir OS|os.delete|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Lançar itens na OS|os_itens.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Apontamentos|Ver apontamentos de horas|apontamentos.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Apontamentos|Lançar/editar apontamentos|apontamentos.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Apontamentos|Excluir apontamentos|apontamentos.delete|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Apontamentos|Configurar apontamentos|apontamentos.config|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Estoque|Ver estoque|estoque.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Estoque|Movimentar/ajustar estoque|estoque.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Estoque|Ver custos do estoque|estoque_custos.cost_read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar itens|cad_itens.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar clientes|cad_clientes.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Compras|Ver pedidos de compra|compras.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Compras|Criar/editar pedidos de compra|compras.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Compras|Receber pedidos de compra|compras.receive|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Financeiro|Lançar/baixar no financeiro|financeiro.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Ver notas fiscais|fiscal_nf.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Editar notas fiscais|fiscal_nf.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Excluir notas fiscais|fiscal_nf.delete|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Editar dados fiscais do item|fiscal_itens.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Importar XML de entrada|xml_import.execute|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Fiscal|Importar NF de entrada|nf_entrada.import|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|false
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Ordens de serviço|Ver OS|os.read|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Estoque|Ver estoque|estoque.read|true|true|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Compras|Ver pedidos de compra|compras.read|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Compras|Criar/editar pedidos de compra|compras.write|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Compras|Receber pedidos de compra|compras.receive|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Ordens de serviço|Ver OS|os.read|true|true|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Ordens de serviço|Criar/editar OS|os.write|false|false|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Ordens de serviço|Excluir OS|os.delete|false|false|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Ordens de serviço|Lançar itens na OS|os_itens.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Apontamentos|Ver apontamentos de horas|apontamentos.read|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Apontamentos|Lançar/editar apontamentos|apontamentos.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Apontamentos|Excluir apontamentos|apontamentos.delete|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Apontamentos|Configurar apontamentos|apontamentos.config|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Estoque|Ver estoque|estoque.read|true|true|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Estoque|Ver custos do estoque|estoque_custos.cost_read|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Cadastros|Cadastrar/editar itens|cad_itens.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Cadastros|Cadastrar/editar clientes|cad_clientes.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Compras|Ver pedidos de compra|compras.read|true|true|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Financeiro|Lançar/baixar no financeiro|financeiro.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Ver notas fiscais|fiscal_nf.read|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Editar notas fiscais|fiscal_nf.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Excluir notas fiscais|fiscal_nf.delete|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Editar dados fiscais do item|fiscal_itens.write|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Importar XML de entrada|xml_import.execute|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Fiscal|Importar NF de entrada|nf_entrada.import|false|false|false
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Ver OS|os.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Criar/editar OS|os.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Excluir OS|os.delete|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Ordens de serviço|Lançar itens na OS|os_itens.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Apontamentos|Ver apontamentos de horas|apontamentos.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Apontamentos|Lançar/editar apontamentos|apontamentos.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Apontamentos|Excluir apontamentos|apontamentos.delete|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Apontamentos|Configurar apontamentos|apontamentos.config|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Estoque|Ver estoque|estoque.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Estoque|Movimentar/ajustar estoque|estoque.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Estoque|Ver custos do estoque|estoque_custos.cost_read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar itens|cad_itens.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar clientes|cad_clientes.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Compras|Ver pedidos de compra|compras.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Compras|Criar/editar pedidos de compra|compras.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Compras|Aprovar pedidos de compra|compras.approve|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Compras|Receber pedidos de compra|compras.receive|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Financeiro|Lançar/baixar no financeiro|financeiro.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Ver notas fiscais|fiscal_nf.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Editar notas fiscais|fiscal_nf.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Excluir notas fiscais|fiscal_nf.delete|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Editar dados fiscais do item|fiscal_itens.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Importar XML de entrada|xml_import.execute|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Fiscal|Importar NF de entrada|nf_entrada.import|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|false
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Ver OS|os.read|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Criar/editar OS|os.write|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Excluir OS|os.delete|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Apontamentos|Configurar apontamentos|apontamentos.config|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver estoque|estoque.read|true|true|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Ver pedidos de compra|compras.read|true|true|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Criar/editar pedidos de compra|compras.write|true|true|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Aprovar pedidos de compra|compras.approve|true|true|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Compras|Receber pedidos de compra|compras.receive|true|true|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Financeiro|Lançar/baixar no financeiro|financeiro.write|true|true|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Ver faturamento|faturamento.read|false|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Emitir/cancelar notas|faturamento.write|false|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|false|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|false|false|false
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|false|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|false|false|true
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Ordens de serviço|Ver OS|os.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Ordens de serviço|Criar/editar OS|os.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Ordens de serviço|Excluir OS|os.delete|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Ordens de serviço|Executar ações da OS (itens, baixas)|os_rpcs.execute|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Ordens de serviço|Gestão da OS (fluxo, cobrança)|os_gestao.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Ordens de serviço|Lançar itens na OS|os_itens.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Apontamentos|Ver apontamentos de horas|apontamentos.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Apontamentos|Lançar/editar apontamentos|apontamentos.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Apontamentos|Excluir apontamentos|apontamentos.delete|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Apontamentos|Configurar apontamentos|apontamentos.config|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Estoque|Ver estoque|estoque.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Estoque|Movimentar/ajustar estoque|estoque.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Estoque|Ver custos do estoque|estoque_custos.cost_read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Cadastros|Cadastrar/editar itens|cad_itens.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Cadastros|Cadastrar/editar clientes|cad_clientes.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Cadastros|Cadastrar/editar fornecedores|cad_fornecedores.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Compras|Ver pedidos de compra|compras.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Compras|Criar/editar pedidos de compra|compras.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Compras|Aprovar pedidos de compra|compras.approve|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Compras|Receber pedidos de compra|compras.receive|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Financeiro|Ver financeiro|financeiro.read|false|false|false
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Financeiro|Lançar/baixar no financeiro|financeiro.write|false|false|false
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Faturamento|Ver faturamento|faturamento.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Faturamento|Emitir/cancelar notas|faturamento.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Faturamento|Importar XML no faturamento|faturamento.nfe.import_xml|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Ver notas fiscais|fiscal_nf.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Editar notas fiscais|fiscal_nf.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Excluir notas fiscais|fiscal_nf.delete|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Editar dados fiscais do item|fiscal_itens.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Importar XML de entrada|xml_import.execute|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Importar XML pelo faturamento|xml_import_faturamento.execute|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Fiscal|Importar NF de entrada|nf_entrada.import|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Imobilizado|Ver imobilizado e ferramentas|imobilizado.read|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Imobilizado|Editar imobilizado e ferramentas|imobilizado.write|true|true|true
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|Administração|Gerenciar usuários e papéis|admin.manage_users|false|false|false

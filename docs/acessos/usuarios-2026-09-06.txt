@@ -1,0 +1,42 @@
+Analice|analice@segau.com.br|GESTOR|SEG|APONTADOR|ATIVO|SIM
+Analice|analice@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Clarice|clarice@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Clarice|clarice@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Cleiton|cleiton@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Cleiton|cleiton@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Contato|contato@segau.com.br|GESTOR|SEG|PAINEL_TV|ATIVO|SIM
+Contato|contato@segau.com.br|GESTOR|SGU|PAINEL_TV|INATIVO|SIM
+Deyvison|deyvison@segau.com.br|ADMIN|SEG|FINANCEIRO|ATIVO|SIM
+Deyvison|deyvison@segau.com.br|ADMIN|SGU|FINANCEIRO|ATIVO|SIM
+Diogo|diogo@segau.com.br|ADMIN|SEG|DIRETOR|ATIVO|SIM
+Diogo|diogo@segau.com.br|ADMIN|SGU|COORDENACAO|INATIVO|SIM
+Douglas|douglas@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Douglas|douglas@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Ellen|estoque@segau.com.br|GESTOR|SEG|APONTAMENTO_RH|ATIVO|SIM
+Ellen|estoque@segau.com.br|GESTOR|SGU|APONTAMENTO_RH|INATIVO|SIM
+Everton|everton@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Everton|everton@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SEG|ADMIN|ATIVO|SIM
+Gabriel G. Mendes|gabriel@segau.com.br|OWNER|SGU|ADMIN|ATIVO|SIM
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SEG|ADMIN|ATIVO|SIM
+gabriel teste|gabrielgolombieschi@gmail.com|OWNER|SGU|TECNICO|INATIVO|SIM
+Larissa|larissa@segau.com.br|OWNER|SEG|ADMIN|ATIVO|SIM
+Larissa|larissa@segau.com.br|OWNER|SGU|FINANCEIRO|ATIVO|SIM
+Lucas|lucas@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Lucas|lucas@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Marcelo|marcelo@segau.com.br|ADMIN|SEG|DIRETOR|ATIVO|SIM
+Marcelo|marcelo@segau.com.br|ADMIN|SGU|ADMIN|INATIVO|SIM
+Mateus|mateus@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Mateus|mateus@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SEG|APONTADOR|ATIVO|SIM
+Paulo Andre|p.asouza_93@icloud.com|GESTOR|SGU|TECNICO|INATIVO|SIM
+reserva|logistica@segau.com.br|GESTOR|SEG|ALMOXARIFADO|ATIVO|SIM
+reserva|logistica@segau.com.br|GESTOR|SGU|ALMOXARIFADO|INATIVO|SIM
+Rubens|compras@segau.com.br|GESTOR|SEG|COMPRAS|ATIVO|SIM
+Rubens|compras@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SEG|APONTADOR|ATIVO|SIM
+Samuel Dutra|samuelsenzala1103@gmail.com|GESTOR|SGU|TECNICO|INATIVO|SIM
+Vagner|vagner@segau.com.br|GESTOR|SEG|COORDENACAO|ATIVO|SIM
+Vagner|vagner@segau.com.br|GESTOR|SGU|COORDENACAO|INATIVO|SIM
+Vanessa|vanessa@segau.com.br|GESTOR|SEG|FATURAMENTO|ATIVO|SIM
+Vanessa|vanessa@segau.com.br|GESTOR|SGU|FATURAMENTO|ATIVO|SIM
