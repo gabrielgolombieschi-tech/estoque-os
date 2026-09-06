@@ -36,7 +36,8 @@ const comum = {
   tributos_aprox_federal_pct: 13.45,
 };
 const SEM_RETENCAO = "Serviço não sujeito à retenção de PIS/COFINS/CSLL, conforme IN RFB nº 2.141/2023.";
-const COM_CRF = "Serviço sujeito à retenção de CRF (4,65%, sendo PIS 0,65%, COFINS 3,0% e CSLL 1,0%) conforme IN RFB nº 2.141/2023.";
+// Texto exato do contador (06/09/2026, segunda rodada) para o 14.01 com CRF e sem IRRF.
+const COM_CRF = "SERVIÇO SUJEITO À RETENÇÃO DE CRF À ALÍQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) CONFORME IN RFB N° 2.141/2023. TRIBUTOS INCIDENTES SOBRE O PREÇO CONFORME LEI 12.741/2012.";
 const LAUDOS = "Serviço sujeito à retenção de IRRF (1,5%) conforme Art. 714 do RIR/2018, e CRF (4,65%, sendo PIS 0,65%, COFINS 3,0% e CSLL 1,0%) conforme IN RFB nº 2.141/2023. Valor aproximado dos tributos conforme Lei 12.741/2012: {VTOTTRIB}.";
 const valores = {
   // 14.06 (14.06.01): instalacao/montagem = empreitada com escopo fechado. ISS 5% sempre Joinville, sem retencao

@@ -29,18 +29,20 @@ export type PerfilServico = {
   revisao_fiscal_em?: string | null; codigo_tributacao_nacional?: string | null; codigo_nbs?: string | null; aliquota_iss?: number | string | null; local_prestacao_regra?: string | null; incidencia_iss_regra?: string | null;
   iss_retido_regra?: string | null; retencao_pcc_regra?: string | null; retencao_irrf_regra?: string | null; retencao_inss_regra?: string | null;
   codigo_indicador_operacao?: string | null; excecao_conserto_isolado?: boolean | null; campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
+  permite_deducao_material?: boolean | null;
 };
 type Fixture = { item_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; descricao_servico_padrao: string; local_prestacao_regra: string; aliquota_iss: number | string | null; iss_retido_regra: string; retencao_pcc_regra: string; retencao_irrf_regra: string; retencao_inss_regra: string; aliquota_pcc: number | string | null; aliquota_irrf: number | string | null; aliquota_inss: number | string | null; pendencia_contador: string | null; fonte: string | null };
 type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; email_nfse: string | null; inscricao_municipal: string | null; codigo_ibge_municipio: string | null };
 type OsLinha = { chave: number; os_id: number; os_numero: string; descricao: string; valor: string; saldo: number };
 type OsCandidata = { id: number; numero_os: string | null; descricao_servico: string | null; saldo: number };
 type Parcela = { dias: string; valor: string };
-type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; operacao_snapshot: { servico?: Record<string, unknown> } | null; substitui_documento_fiscal_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
+type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; operacao_snapshot: { servico?: Record<string, unknown> } | null; substitui_documento_fiscal_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_nfse: string | null; nfse_numero: string | null; codigo_verificacao: string | null; dps_serie: number | null; dps_numero: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null; valor_liquido: number | string | null; autorizado_em: string | null };
 type Pendencia = { entidade?: string; campo?: string; mensagem?: string; rota?: string };
 type Previa = {
   valor_bruto: number; aliquota_iss: number; valor_iss: number; iss_retido: boolean; valor_irrf: number; valor_pcc: number; valor_inss: number; valor_liquido: number; parcelas: Array<{ numero: string; dias: number; valor: number | null }> | null; descricao_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; municipio_prestacao_ibge: string; data_competencia: string;
   municipio_incidencia_iss?: string | null; tributacao_fonte?: string | null; item_servico?: string | null;
+  valor_deducoes?: number | null; base_iss?: number | null; base_inss?: number | null;
   ibs_cbs?: { base: number; ibs_uf: number; ibs_mun: number; cbs: number; total: number } | null;
   tributos_aprox?: { federal_pct: number | null; municipal_pct: number | null; federal: number; municipal: number } | null;
   campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
@@ -117,6 +119,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [inss, setInss] = useState("");
   // Conserto isolado (IN SRF 459/2004 art. 1 §2 II): marcado na OS, dispensa a CRF nos perfis com excecao (14.01).
   const [consertoIsolado, setConsertoIsolado] = useState<boolean>(props.os?.conserto_isolado === true);
+  // Material incorporado a obra (07.02): sai da base do ISS e do INSS (LC 116/2003 art. 7 §2 I).
+  const [materialDeducao, setMaterialDeducao] = useState("");
   const [justificativa, setJustificativa] = useState("");
   const [pagamentoForma, setPagamentoForma] = useState("15");
   const [pagamentoIndicador, setPagamentoIndicador] = useState("1");
@@ -174,7 +178,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       let ativa: Solicitacao | null = null;
       let emissaoAtiva: Emissao | null = null;
       if (ids.length > 0) {
-        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,operacao_snapshot,substitui_documento_fiscal_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
+        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,operacao_snapshot,substitui_documento_fiscal_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
         const cands = (sols as Solicitacao[] | null) ?? [];
         if (cands.length > 0) {
           const { data: ems } = await supabase.schema("f").from("documento_fiscal_emissao").select("solicitacao_id,documento_fiscal_id,status,ambiente,chave_nfse,nfse_numero,codigo_verificacao,dps_serie,dps_numero,mensagem,codigo_status,danfe_path,xml_path,valor_liquido,autorizado_em").in("solicitacao_id", cands.map((c) => c.id)).order("created_at", { ascending: false });
@@ -197,6 +201,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         if (ativa.data_competencia) setCompetencia(ativa.data_competencia);
         setIssRetido(tri(ativa.iss_retido)); setPcc(tri(ativa.retem_pcc)); setIrrf(tri(ativa.retem_irrf)); setInss(tri(ativa.retem_inss));
         setJustificativa(ativa.retencao_justificativa ?? "");
+        setMaterialDeducao(ativa.valor_deducao_material != null && num(ativa.valor_deducao_material) > 0 ? decimal(ativa.valor_deducao_material) : "");
         if (ativa.pagamento_forma) setPagamentoForma(ativa.pagamento_forma);
         if (ativa.pagamento_indicador != null) setPagamentoIndicador(String(ativa.pagamento_indicador));
         setPagamentoDescricao(ativa.pagamento_descricao ?? "");
@@ -247,6 +252,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       data_competencia: competencia || null,
       iss_retido: deTri(issRetido), retem_pcc: deTri(pcc), retem_irrf: deTri(irrf), retem_inss: deTri(inss),
       conserto_isolado: consertoIsolado,
+      valor_deducao_material: perfil?.permite_deducao_material ? (paraNumero(materialDeducao) ?? 0) : 0,
       retencao_justificativa: justificativa.trim() || null,
       pagamento_forma: pagamentoForma, pagamento_indicador: Number(pagamentoIndicador), pagamento_descricao: pagamentoDescricao || null,
       pagamento_parcelas: pagamentoIndicador === "1" ? parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias.trim()), valor: p.valor.trim() ? paraNumero(p.valor) : null })) : null,
@@ -438,6 +444,12 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
               <option value="">{regraTexto(regra, valorCliente)}</option><option value="sim">Sim, retém (nesta nota)</option><option value="nao">Não retém (nesta nota)</option></select></label>
           ))}
         </div>
+        {perfil?.permite_deducao_material ? (
+          <label className={label}>Material fornecido e incorporado à obra (R$), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)
+            <input className={field} inputMode="decimal" value={materialDeducao} disabled={!editavel} onChange={(e) => setMaterialDeducao(e.target.value)} placeholder="0,00" />
+            <span className="text-xs text-zinc-500">Só com contrato que preveja o fornecimento. O material precisa sair do estoque conforme orientação do contador (remessa). IRRF e CRF, quando houver, seguem sobre o valor integral.</span>
+          </label>
+        ) : null}
         {perfil?.excecao_conserto_isolado || perfil?.item_servico === "14.01" ? (
           <label className="flex items-start gap-2 text-sm text-zinc-200">
             <input type="checkbox" className="mt-1" checked={consertoIsolado} disabled={!editavel} onChange={(e) => setConsertoIsolado(e.target.checked)} />
@@ -483,6 +495,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             </div>
             {previa.parcelas && previa.parcelas.length > 0 ? <div className="text-xs text-zinc-400">Parcelas do líquido: {previa.parcelas.map((p) => `${p.numero} · ${p.dias} dias · ${p.valor != null ? R$(num(p.valor)) : R$(num(previa.valor_liquido))}`).join(" | ")}</div> : <div className="text-xs text-zinc-400">Pagamento à vista.</div>}
             <div className="text-xs text-zinc-400">cTribNac {previa.codigo_tributacao_nacional}{previa.codigo_nbs ? ` · NBS ${previa.codigo_nbs}` : ""} · prestação em {previa.municipio_prestacao_ibge}{previa.municipio_incidencia_iss ? ` · ISS incide em ${previa.municipio_incidencia_iss}` : ""} · competência {previa.data_competencia}</div>
+            {num(previa.valor_deducoes) > 0 ? <div className="text-xs text-zinc-400">Material deduzido {R$(num(previa.valor_deducoes))} · base do ISS e do INSS {R$(num(previa.base_iss))} (LC 116/2003, art. 7º, § 2º, I)</div> : null}
             {previa.ibs_cbs ? <div className="text-xs text-zinc-400">IBS/CBS (base = serviço − ISS {R$(num(previa.ibs_cbs.base))}): IBS UF {R$(num(previa.ibs_cbs.ibs_uf))} · IBS mun {R$(num(previa.ibs_cbs.ibs_mun))} · CBS {R$(num(previa.ibs_cbs.cbs))} · total {R$(num(previa.ibs_cbs.total))} (informativo em 2026; calculado pelo ambiente nacional)</div> : null}
             {previa.tributos_aprox ? <div className="text-xs text-zinc-400">Tributos aproximados (Lei 12.741, tabela por subitem): federal {decimal(previa.tributos_aprox.federal_pct) || "?"}% {R$(num(previa.tributos_aprox.federal))} · municipal {decimal(previa.tributos_aprox.municipal_pct) || "?"}% {R$(num(previa.tributos_aprox.municipal))}</div> : null}
             <label className={label}>Discriminação (montada pelo ERP; não editável)<textarea className={`${field} min-h-24`} readOnly value={previa.descricao_servico} /></label>

@@ -257,6 +257,14 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     payload.pedido_compra = pedidoCompra.slice(0, 60);
     if (pedidoItem) payload.itens_pedido_compra = [{ numero_item_compra: pedidoItem.slice(0, 60) }];
   }
+  // Material incorporado a obra (07.02): sai da base do ISS (LC 116/2003 art. 7 §2 I). No leiaute
+  // nacional e o vDedRed; na Focus, valor_deducao_servico. A conferencia so aceita em perfil com
+  // permite_deducao_material, e o valor fica no snapshot e na emissao (valor_deducoes).
+  const valorDeducoes = round(num(servico.valor_deducoes) ?? 0);
+  if (valorDeducoes > 0) {
+    if (valorDeducoes >= valorServico) throw new Error("NFS-e incompleta: valor_deducao_servico precisa ser menor que valor_servico.");
+    payload.valor_deducao_servico = valorDeducoes;
+  }
   if (retemIrrf && valorIrrf > 0) payload.valor_irrf = valorIrrf;
   if (retemPcc && valorPcc > 0) payload.valor_csll = valorPcc; // soma PIS+COFINS+CSLL retidos (doc Focus)
   if (retemInss && valorInss > 0) payload.valor_cp = valorInss;

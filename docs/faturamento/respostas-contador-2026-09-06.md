@@ -29,11 +29,19 @@ Perguntas em [perguntas-contador-nfse.md](perguntas-contador-nfse.md). Migration
 
 Campos travados confirmados (ISS no 14.01 e 14.06; INSS no 14.06) com a resposta do contador como justificativa, e os quatro perfis re-revisados com os valores acima. Toda revisão zera a liberação de produção: **nenhum perfil de serviço está liberado**. Para emitir NFS-e real: homologar uma nota com o perfil revisado e liberar (auditado). 07.02 segue bloqueado.
 
+## Segunda rodada (06/09/2026, tarde) — migration `20260906140000_nfse_deducao_material.sql`
+
+| Pendência | Resposta do contador | O que o ERP faz agora |
+| --- | --- | --- |
+| Abatimento de material no 07.02 | Pode: LC 116/2003, art. 7º, § 2º, I. Na DPS é o "valor das deduções", motivo Materiais. O contador ainda orienta se o material sai do estoque por NF-e de remessa. | Campo **Material fornecido e incorporado à obra** na tela da OS, só em perfil com `permite_deducao_material` (07.02). Sai da base do ISS e do INSS; IRRF e CRF seguem sobre o valor integral. Vai na DPS como `valor_deducao_servico`, na emissão como `valor_deducoes` e na discriminação como "MATERIAL APLICADO: R$ …". Material igual ou maior que o serviço bloqueia. |
+| Notas de agosto do 14.01 sem CRF | Pode auditar: tomador fora do Simples, nota acima de R$ 215,05 e não conserto isolado = saiu errada; avisar o contador para somar os 4,65% no DARF. | Auditoria feita pelo XML das notas: [auditoria-crf-1401-agosto-2026.xlsx](auditoria-crf-1401-agosto-2026.xlsx). Duas notas 14.01 em agosto, ambas sem CRF: **31** (Portobello, R$ 11.879,00 → CRF R$ 552,37) e **32** (WEG Tintas, R$ 3.500,00 → CRF R$ 162,75). Total R$ 715,12 se nenhuma for conserto isolado. A nota 24 (Portobello, R$ 6.500,00) foi codificada 14.06, mas descreve manutenção. |
+| Frase do 14.01 com CRF | Confirmada. Texto exato: "SERVIÇO SUJEITO À RETENÇÃO DE CRF À ALÍQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) CONFORME IN RFB N° 2.141/2023. TRIBUTOS INCIDENTES SOBRE O PREÇO CONFORME LEI 12.741/2012." | Gravada no perfil 14.01 e na fixture. |
+
 ## O que ficou pendente
 
 1. **Alíquota do 07.02 em São Francisco do Sul**: 2% (NFS-e 1646) ou 3% (NFS-e 37). Auditar na prefeitura antes de desbloquear o perfil.
 2. **cBenef do Convênio 52/91** para o NCM 8460.90.90: o contador não informou o código. Sem ele a nota não sai.
-3. **Abatimento de material no 07.02**: o perfil permite; o campo da DPS (`vDedRed`/documentos) entra na homologação do 07.02.
+3. **Saída do material do estoque no 07.02**: o contador ainda orienta se vai por NF-e de simples remessa. Até lá, a dedução fica só na NFS-e.
 4. **PIS/COFINS das NFS-e importadas do emissor antigo** (janeiro a agosto/2026): a apuração delas ficou com 0,65/3,00. Se a empresa é Lucro Real não cumulativo, o histórico está subestimado. Decisão do contador antes de refazer.
-5. **Notas de agosto do 14.01 sem CRF**: o contador avisa que só estão certas se caírem nas exceções; caso contrário a Segau recolhe o PIS/COFINS/CSLL na apuração. Conferir nota a nota.
+5. **Notas 31 e 32 de agosto**: marcar se foram conserto isolado; as que não forem, o contador soma R$ 552,37 e R$ 162,75 no DARF.
 6. **Arredondamento** (R$ 0,23 na nota 37): o ERP arredonda meio-para-cima nas retenções; a diferença é entre sistemas, sem passivo. Conciliar no contas a receber quando acontecer.

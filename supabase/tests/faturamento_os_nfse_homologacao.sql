@@ -64,7 +64,8 @@ values
   ('15400000-0000-4000-8000-000000000102', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1709', 'Servico 17.09', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '17.09', 'REVISAO', null, false, current_date),
   ('15400000-0000-4000-8000-000000000103', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-0702', 'Servico 07.02', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '07.02', 'BLOQUEADO', 'Obra: aguarda o contador.', false, current_date),
   ('15400000-0000-4000-8000-000000000104', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1401', 'Servico 14.01', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '14.01', 'REVISAO', null, false, current_date),
-  ('15400000-0000-4000-8000-000000000105', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1706', 'Servico 17.06', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '17.06', 'REVISAO', null, false, current_date);
+  ('15400000-0000-4000-8000-000000000105', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-1706', 'Servico 17.06', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '17.06', 'REVISAO', null, false, current_date),
+  ('15400000-0000-4000-8000-000000000106', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'SEG-NFSE-0702-T', 'Servico 07.02 (teste, nao bloqueado)', 'NFSE', 'PRESTACAO_SERVICO', 'PRESTACAO DE SERVICO', '3', '07.02', 'REVISAO', null, false, current_date);
 insert into f.tributacao_provisoria_nfse_homologacao (tenant_id, empresa_id, item_servico, codigo_tributacao_nacional, codigo_nbs, descricao_servico_padrao, local_prestacao_regra,
   aliquota_iss, iss_retido_regra, aliquota_pis, aliquota_cofins, retencao_pcc_regra, aliquota_pcc, retencao_irrf_regra, aliquota_irrf, retencao_inss_regra, aliquota_inss,
   texto_sem_retencao, texto_com_retencao, pendencia_contador, fonte)
@@ -446,6 +447,52 @@ begin
 end;
 $regras_perfil$;
 
+-- Obra (07.02, contador 06/09/2026), no fim para nao deslocar a numeracao da DPS dos cenarios seguintes:
+-- material incorporado sai da base do ISS e do INSS (LC 116 art. 7 §2 I); ISS no municipio da obra retido
+-- pelo tomador; INSS 11%; sem IRRF/CRF; cIndOp 020201; NBS 1.0102.41.00.
+create or replace function pg_temp.cenario_obra() returns void language plpgsql as $obra$
+declare v_sol uuid; v_sol2 uuid; v_r jsonb; v_sf f.solicitacao_faturamento%rowtype; v_serv jsonb;
+begin
+  v_r := f.fn_perfil_operacao_nfse_revisar('15400000-0000-4000-8000-000000000106',
+    '{"codigo_tributacao_nacional":"070201","codigo_nbs":"101024100","descricao_servico_padrao":"EXECUCAO DE INSTALACAO ELETRICA EM OBRA","local_prestacao_regra":"CLIENTE","incidencia_iss_regra":"LOCAL_PRESTACAO","tributacao_iss":1,"aliquota_iss":3,"iss_retido_regra":"SEMPRE","retencao_pcc_regra":"NUNCA","retencao_irrf_regra":"NUNCA","retencao_inss_regra":"SEMPRE","aliquota_inss":11,"permite_deducao_material":true,"cst_pis":"01","cst_cofins":"01","aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9,"codigo_indicador_operacao":"020201"}'::jsonb,
+    'Perfil 07.02 de teste conforme respostas do contador de 06/09/2026');
+  v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000106', jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'AMPLIACAO DA REDE ELETRICA DO GALPAO 2', 'valor_servico', 3500)));
+  -- Material maior que o servico bloqueia.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":3500}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'valor_deducao_material') then
+    raise exception 'Material igual ao servico nao bloqueou: %', v_r;
+  end if;
+  -- 3.500 de servico com 1.000 de material: ISS 3% sobre 2.500 = 75 (retido, obra em Tijucas); INSS 11% sobre 2.500 = 275; liquido 3.150.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1000}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia da obra devolveu pendencias: %', v_r; end if;
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol;
+  v_serv := v_sf.operacao_snapshot->'servico';
+  if v_sf.valor_deducao_material <> 1000 or (v_serv->>'valor_deducoes')::numeric <> 1000 or (v_serv->>'base_iss')::numeric <> 2500
+     or (v_serv->>'valor_iss')::numeric <> 75 or v_sf.iss_retido is not true or v_serv->>'municipio_incidencia_iss' <> '4218004'
+     or (v_serv->>'valor_inss')::numeric <> 275 or (v_serv->>'valor_liquido')::numeric <> 3150 or v_serv->>'codigo_indicador_operacao' <> '020201'
+     or v_serv->>'descricao_servico' not like '%MATERIAL APLICADO: R$ 1.000,00 (deduzido da base do ISS e do INSS, LC 116/2003, art. 7º, § 2º, I)%' then
+    raise exception 'Deducao de material errada: % / %', row_to_json(v_sf), v_serv;
+  end if;
+  -- A deducao vai para a emissao no preparo.
+  declare v_p record; v_e f.documento_fiscal_emissao%rowtype;
+  begin
+    select * into v_p from f.fn_nfse_preparar_documento_solicitacao(v_sol);
+    select * into v_e from f.documento_fiscal_emissao where documento_fiscal_id = v_p.documento_fiscal_id;
+    if v_e.valor_deducoes <> 1000 or v_e.valor_iss <> 75 or v_e.valor_liquido <> 3150 then raise exception 'Emissao da obra sem a deducao: %', row_to_json(v_e); end if;
+    perform f.fn_nfse_abandonar_homologacao(v_sol, 'Obra de teste abandonada apos o preparo');
+  end;
+  -- Perfil sem permissao (14.01) recusa material.
+  v_sol2 := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    '15400000-0000-4000-8000-000000000104', jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'MANUTENCAO DO PAINEL', 'valor_servico', 500)));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol2, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":100}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'permite_deducao_material') then
+    raise exception 'Material em perfil sem permissao nao bloqueou: %', v_r;
+  end if;
+  perform f.fn_solicitacao_nfe_cancelar_rascunho(v_sol2, 'Rascunho de material descartado no teste');
+end;
+$obra$;
+
 -- Preparo: documento RASCUNHO + emissao + DPS numerada, idempotente; producao fechada.
 do $preparar$
 declare v_1 record; v_2 record; v_doc f.documento_fiscal%rowtype; v_e f.documento_fiscal_emissao%rowtype; v_p jsonb;
@@ -721,5 +768,8 @@ begin
   end;
 end;
 $rls$;
+
+-- Obra com deducao de material (funcao temporaria definida no bloco de regras), como o financeiro.
+select pg_temp.cenario_obra();
 
 rollback;

@@ -204,6 +204,17 @@ cenario("cIndOp: perfil revisado sem cIndOp nao emite; fixture usa o provisorio 
   assert.equal(p.valor_total_tributos_estaduais, 0);
 });
 
+cenario("obra (07.02): material deduzido vai como valor_deducao_servico; sem material o campo nao vai", () => {
+  const obra = montarPayloadNfse(contexto({ servico: { item_servico: "07.02", codigo_tributacao_nacional: "070201", codigo_nbs: "101024100", valor_bruto: 3500, valor_deducoes: 1000, valor_iss: 75, iss_retido: true, retem_inss: true, valor_inss: 275, valor_liquido: 3150, codigo_indicador_operacao: "020201", tributacao_fonte: "PERFIL" } }), agora);
+  assert.equal(obra.valor_servico, 3500);
+  assert.equal(obra.valor_deducao_servico, 1000);
+  assert.equal(obra.valor_cp, 275);
+  assert.equal(obra.tipo_retencao_iss, 2);
+  assert.equal(obra.codigo_indicador_operacao, "020201");
+  assert.equal("valor_deducao_servico" in montarPayloadNfse(contexto(), agora), false);
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { valor_bruto: 1000, valor_deducoes: 1000 } }), agora), /menor que valor_servico/);
+});
+
 cenario("producao so sai igual a homologacao (menos data, DPS, nome do tomador e informacoes)", () => {
   const hom = montarPayloadNfse(contexto(), agora);
   const prod = montarPayloadNfse(contexto({ emissao: { ambiente: "PRODUCAO", dps_numero: 1 } }), new Date("2026-09-06T12:00:00Z"));
