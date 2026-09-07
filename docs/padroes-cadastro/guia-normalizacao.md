@@ -246,6 +246,68 @@ Para a linha Phoenix Contact, cujo código de origem é exclusivamente numérico
 
 Exemplos registrados no catálogo: `CONTROLADOR DE SEGURANÇA FLEXI COMPACT 20DI 4DO`, `CORTINA DE LUZ DE SEGURANÇA RECEPTORA 750MM RESOLUÇÃO 30MM ALCANCE 30M` e `SWITCH ETHERNET INDUSTRIAL GERENCIÁVEL COM NAT 8 PORTAS RJ45 10/100MBPS`.
 
+## D-035 — Identidade e grandezas técnicas dos componentes
+
+Decisão aprovada em 05/09/2026 para Siemens, Phoenix, Schneider, WEG e Rittal. O catálogo versão 1.23.0 contém as premissas operacionais em `regras_cadastro_assistido.identificacao_e_grandezas_tecnicas`, antes do histórico, para serem enviadas tanto ao cadastro assistido quanto à sugestão na entrada XML.
+
+- Resistores: resistência e potência nominal; separar potência do acionamento, pico, duração e ciclo. Não converter potência de pico em nominal.
+- Relés de estado sólido: separar entrada e saída, quantidade/tipo de saídas, conexão, corrente e condições térmicas. Sufixo de referência não indica automaticamente quantidade de saídas.
+- Identificação: código comercial do revendedor não é referência oficial. Conflitos entre código, nome e fabricante exigem revisão humana, sem substituição automática. Contatores exigem variante completa da bobina.
+- SFPs: velocidade, meio e conector; fibra exige tipo e alcance. Câmeras: modelo, resolução, interface e montagem confirmados. Lacunas são explícitas; câmera não é sistema de visão completo.
+- Carcaças/armários: material, dimensões com ordem dos eixos, entrada e compatibilidade. B6 não prova seis contatos. Separar acessórios mecânicos, distribuição e climatização.
+- Cortinas: altura protegida, resolução, alcance, tipo, alimentação e composição do fornecimento. Não converter unidade nem saldo por concluir que o produto é um par.
+- Potenciômetros: resistência com símbolo correto (`4,7kΩ`), diâmetro e material. Termostatos: faixa, contato e CA/CC; limites elétricos dependem da carga.
+
+O manifesto `revisao-cinco-fabricantes-2026-09-05.json` fixa 16 melhorias, descrições complementares, fontes e valores anteriores. O disjuntor 3324 e os conflitos de identificação ficam fora. Apenas três grupos existentes são atribuídos: relé Schneider e duas cortinas WEG. Os demais grupos ausentes não são resolvidos por aproximação.
+
+`scripts/aplicar-revisao-fabricantes.mjs` consulta por padrão; `--apply` exige estado anterior compatível, grava backup e atualiza somente nome/descrição/grupo com comparação concorrente, inclusive valores nulos. `--verify` confere idempotência. A verificação pós-gravação também compara os campos protegidos. Fonte e condições técnicas ficam na descrição; registro anterior permanece no backup.
+
+Testes: `node --experimental-strip-types scripts/test-revisao-fabricantes.mjs`, além das regressões de qualidade de descrição e normalização. As verificações textuais detectam ausência de atributos, não certificam a veracidade da ficha. Publicar/reiniciar a aplicação é necessário para carregar a nova versão em instâncias já iniciadas; editar o catálogo local não publica o serviço remoto.
+
+## D-038 — Correções confirmadas dos itens já agrupados
+
+Lote 002 aplicado: 20 contatores Siemens, exclusivamente nome/descrição. As referências completas foram consultadas em páginas/fichas oficiais, sem herdar atributos de predecessores ou de versões com sufixos de embalagem. Corrente AC-3 de 41A em 400VCA para 3RT2035-1AN20/1AG20 (IDs 740/787) e 51A em 400VCA para 3RT2036-1AN20 (758), em vez de 40A/50A dos nomes anteriores. A correção cadastral não substitui a conferência da placa/versão física para dimensionar uma instalação.
+
+Manifesto: `revisoes/lote-002-contatores-agrupados.json`. Eventos: `revisoes/eventos-002-contatores-agrupados.json`. Backup: `backups/revisao-contatores/2026-09-05T20-43-22-830Z.json`. Conferência: `node --experimental-strip-types scripts/aplicar-lote-contatores.mjs --lote=002 --verify`. A execução padrão continua selecionando o lote 001 para preservar compatibilidade; apenas lotes explicitamente listados são aceitos.
+
+A lista original de 104 alertas está congelada em `revisoes/campanha-itens-agrupados.json`. O andamento compara os IDs com os eventos verificados: 20 aprovados nesta campanha, 84 ainda a tratar/pendentes. Não confundir os 38 aprovados somando lotes 001/002 com 38 dos 104: os 18 do lote 001 já estavam corrigidos antes da triagem. Os dois pendentes 795/1540 continuam preservados. CONTATORES:1 permanece válido, sem reabrir aprovações por mudança de versão global.
+
+## D-037 — Exemplos após alteração e histórico dos itens com grupo
+
+Em cada retorno de lote alterado, mostrar exemplos reais com ID/código, antes e depois; identificar quando já estão gravados. Sem evidência do nome anterior, apresentar somente o atual, sem inventar comparação. Essa apresentação é obrigatória mesmo após a aplicação.
+
+O usuário esclareceu que os cadastros com grupo são os que já alteramos. O recorte de 05/09/2026 contém 1.193 IDs (1.179 ativos), preservados em `revisoes/historico-informado-grupos.json`. Destes, 313 já tinham evidência documental/registro novo e 880 passam a ter histórico informado, não aprovação técnica. Não aplicar essa inferência a itens agrupados futuramente. A contagem documental continua separada e sem duplicidades.
+
+`scripts/auditar-itens-com-grupo.mjs --save` faz somente leitura no banco e gera triagem local por ID/grupo, nome, descrição complementar e alertas textuais. Foram sinalizados 104 itens, 99 ativos. Não são 104 erros comprovados: a cobertura é limitada às regras executadas, e o conteúdo complementar e as fontes devem ser conferidos. Ausência de alerta não significa cadastro completo. Nenhuma descrição foi alterada nesta passada.
+
+Priorizar as lacunas dos já agrupados, consultando fontes/alterações antigas antes de pesquisar novamente, sem abandonar a ordem da D-036. A atualização do padrão permanece local até publicação/reinício da aplicação.
+
+## D-036 — Revisão por família, com controle de quem já foi avaliado
+
+Ordem aprovada: disjuntores/contatores; CLPs/remotas/cartões; sensores; painéis. Trabalhar em lotes pequenos, com referência exata e evidência oficial. O lote 001 seleciona 20 contatores Siemens: 18 propostas completas e dois pendentes (795 e 1540), sem alterar unidade, conversão, saldo, preço, código, fabricante, fornecedor ou grupo.
+
+Contator de potência deve explicitar polos, categoria/corrente e tensão de referência, auxiliares integrados, bobina CA/CC, frequência quando CA e conexão. `7A EM 400VCA` caracteriza a operação AC-3; não informa bobina nem tensão máxima de isolação. O critério rastreável desta família é `CONTATORES:1`.
+
+O diretório `revisoes/` contém manifesto, histórico recuperado por ID, eventos verificados e relatório deduplicado. `aprovado` exige confirmação remota; `pendente` foi avaliado, mas não concluído; `historico_recuperado` preserva evidência antiga sem certificá-la novamente. Os 338 IDs históricos não devem ser somados cegamente aos novos lotes. O relatório usa a união dos IDs no tenant/empresa e separa os estados atuais.
+
+Antes de selecionar outro lote, executar `node scripts/andamento-revisoes.mjs --save`. Aprovação com impressão técnica e critério iguais sai da fila. Mudança de dados técnicos ou critério da família reabre; mudança de preço, saldo ou data não. Pendente só retorna com evidência nova ou decisão explícita. Não invalidar todas as famílias por mudança da versão global. As evidências históricas devem ser consultadas antes de repetir uma pesquisa já feita.
+
+Aplicação: `node --experimental-strip-types scripts/aplicar-lote-contatores.mjs` simula; `--apply` grava somente nome/descrição, com backup e comparação concorrente; `--verify` confirma idempotência. Eventos são gerados apenas após conferir todos os retornos e a preservação dos dois pendentes. Uma falha parcial permanece documentada no backup/resultado, sem aprovação antecipada. Testes: `node --experimental-strip-types scripts/test-controle-revisoes.mjs`.
+
+Controle local versionável, sem migration ou tela nova. O agente da aplicação recebe as premissas técnicas pelo catálogo; não lê automaticamente este ledger do projeto. Editar o catálogo não publica a aplicação: instâncias já iniciadas precisam carregar a nova versão após publicação/reinício.
+
+## D-034 — Pesquisa técnica na entrada por XML
+
+Ao usar `Sugerir com IA`, a entrada pesquisa os códigos na web, priorizando fichas oficiais. O fornecedor cadastrado, validado no tenant/empresa, é uma pista de identificação, não uma afirmação de fabricante. Pesquisa não ocorre durante uma simples leitura da nota e não altera itens já vinculados.
+
+Cada sugestão exibe situação da pesquisa, referência e links clicáveis. O servidor aceita apenas links presentes nos metadados reais da busca ou das citações. A indicação de correspondência exata ainda depende de conferir a ficha e a variante: presença de URL não certifica conteúdo.
+
+Sem referência e fonte verificáveis, não são incorporadas novas especificações: mantém-se a descrição da nota normalizada ou a correção humana exata, com pendência e confiança baixa. Correções humanas aprovadas continuam prioritárias. Erros e timeout retornam mensagem sem gravação; a pessoa pode repetir com menos itens. O endpoint mantém o limite de 20 itens, limita chamadas de busca e espera até 150 segundos pela pesquisa.
+
+Não se pesquisam tributos, preços ou saldo. A confirmação humana já existente continua necessária para cadastrar. Não há mudança estrutural no banco nem publicação automática desta implementação.
+
+A integração segue a documentação oficial de [pesquisa web na Responses API](https://developers.openai.com/api/docs/guides/tools-web-search), com busca obrigatória e retorno de fontes. Verificação local: `node --experimental-strip-types scripts/test-pesquisa-cadastro-xml.mjs`; teste opcional real, sem banco: acrescentar `--live` (consome API/pesquisa).
+
 ## D-033 — Revisão técnica SICK e prevenção de descrições genéricas
 
 A revisão de 05/09/2026 inventariou 79 cadastros SICK (72 ativos). O primeiro lote corrige os 21 mais genéricos, sem declarar os demais tecnicamente completos. O manifesto `revisao-sick-2026-09-05.json` registra os nomes anteriores, propostas, grupos, fontes oficiais e lacunas. O script `scripts/revisar-sick.mjs` é somente leitura por padrão; `--apply` grava exclusivamente nome/grupo com backup e proteção contra mudanças concorrentes, e `--verify` confere o resultado.

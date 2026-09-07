@@ -1,0 +1,2719 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data_recuperacao": "2026-09-05T18:39:29.879Z",
+  "origem": "backups/levantamento-cadastros/2026-09-05T18-39-29-879Z.json",
+  "status": "historico_recuperado",
+  "observacao": "Evidência individualizada antiga não equivale à aprovação técnica no critério atual.",
+  "itens": [
+    {
+      "id": 112,
+      "codigo": "1085039",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 113,
+      "codigo": "1085256",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 122,
+      "codigo": "1424655",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 144,
+      "codigo": "2906032",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 178,
+      "codigo": "3110000",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 189,
+      "codigo": "6FX35022XB111AD0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 206,
+      "codigo": "6GK52062BB002AC2",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 217,
+      "codigo": "3SU14001AA101BA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 218,
+      "codigo": "3SU14011BB501AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 224,
+      "codigo": "3SU10500AB300AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 229,
+      "codigo": "5SL62257MB",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 237,
+      "codigo": "3NA3260",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 248,
+      "codigo": "3RT20261AN20",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 257,
+      "codigo": "3RT10541AF36",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 347,
+      "codigo": "1044448",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 348,
+      "codigo": "1085351",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado",
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 365,
+      "codigo": "2900369",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 382,
+      "codigo": "2702881",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro",
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 383,
+      "codigo": "1274118",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 392,
+      "codigo": "1411182",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 395,
+      "codigo": "1416392",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 423,
+      "codigo": "2095653",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 424,
+      "codigo": "2095617",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 425,
+      "codigo": "1091946",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 426,
+      "codigo": "5321176",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 427,
+      "codigo": "5334663",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 428,
+      "codigo": "6025077",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 429,
+      "codigo": "5311138",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 430,
+      "codigo": "2093097",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 431,
+      "codigo": "2076832",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 433,
+      "codigo": "1220126",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 434,
+      "codigo": "1220140",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado",
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 435,
+      "codigo": "6037496",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 436,
+      "codigo": "1003865",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 437,
+      "codigo": "1057091",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 438,
+      "codigo": "6053354",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 439,
+      "codigo": "1036721",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado",
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 440,
+      "codigo": "2096236",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 441,
+      "codigo": "2095619",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 442,
+      "codigo": "1041412",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 477,
+      "codigo": "1424657",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 496,
+      "codigo": "BMTR25X2000",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 497,
+      "codigo": "BMCH25B",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 498,
+      "codigo": "BQECRM3Z16R1",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 499,
+      "codigo": "BQECRM3Z30R1",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 500,
+      "codigo": "BQAFN01-30X55",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 550,
+      "codigo": "3829",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 579,
+      "codigo": "54028026583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 586,
+      "codigo": "ZBE101",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 595,
+      "codigo": "XB5AD912R10K",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 596,
+      "codigo": "XB5AW36B5",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 612,
+      "codigo": "XVGB3",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 638,
+      "codigo": "C11N3TM025L",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 644,
+      "codigo": "XB5AD912R4K7",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 652,
+      "codigo": "8900026465",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 662,
+      "codigo": "BMTR40X4000",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 663,
+      "codigo": "BMCHF40B",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 694,
+      "codigo": "5ST2502",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 696,
+      "codigo": "BQCHBAR20",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 697,
+      "codigo": "BQCHBAR25",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 704,
+      "codigo": "27538",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 705,
+      "codigo": "27536",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 706,
+      "codigo": "546029007A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 707,
+      "codigo": "511A61028A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 708,
+      "codigo": "512160028A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 709,
+      "codigo": "542704010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 710,
+      "codigo": "511A99028A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 711,
+      "codigo": "512017028A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 712,
+      "codigo": "512018028A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 713,
+      "codigo": "542650010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 714,
+      "codigo": "542A77010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 715,
+      "codigo": "542069010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 716,
+      "codigo": "542068010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 717,
+      "codigo": "542066010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 718,
+      "codigo": "544740010A",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 722,
+      "codigo": "5SL11106MB",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 725,
+      "codigo": "A7B10001315425",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 727,
+      "codigo": "6ES71936AF000AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 753,
+      "codigo": "3RU21261KB0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 788,
+      "codigo": "3RH21221AF00",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 800,
+      "codigo": "LZS:PT5A5L24",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 803,
+      "codigo": "A7B10001328580",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 809,
+      "codigo": "3RV20111GA10",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 815,
+      "codigo": "3VM10102ED320AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 816,
+      "codigo": "5SV43470MB",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 820,
+      "codigo": "3RH29112FA40",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 824,
+      "codigo": "3RQ39010D",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 828,
+      "codigo": "3SU11020AB501BA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 830,
+      "codigo": "3SU10001HB200AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 863,
+      "codigo": "6022880",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 894,
+      "codigo": "3212064",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 895,
+      "codigo": "3212066",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 912,
+      "codigo": "6ES72315PA300XB0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 918,
+      "codigo": "5ST37400MB",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 920,
+      "codigo": "5ST37684",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 933,
+      "codigo": "3RW59500CH00",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 937,
+      "codigo": "3VA91570PK15",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 946,
+      "codigo": "5SL32257MB",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 950,
+      "codigo": "3SB62136AA201AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 963,
+      "codigo": "3VT93003HF20",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 997,
+      "codigo": "OP1000H150ATI",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1088,
+      "codigo": "6SL32550AA004CA1",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1095,
+      "codigo": "6ES71556AU020BN0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1109,
+      "codigo": "10194172",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1111,
+      "codigo": "15560296",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1124,
+      "codigo": "6026216",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1135,
+      "codigo": "54034086583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1137,
+      "codigo": "54034088583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1138,
+      "codigo": "54034087583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1143,
+      "codigo": "54034089583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1172,
+      "codigo": "4152",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1176,
+      "codigo": "3525",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1342,
+      "codigo": "8900026465-DUP1342",
+      "ativo": false,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1394,
+      "codigo": "18772462",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 1395,
+      "codigo": "18772436",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 1415,
+      "codigo": "27462",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1422,
+      "codigo": "1418",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1461,
+      "codigo": "54034059583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1466,
+      "codigo": "BQCTA40-1X5MB",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1467,
+      "codigo": "BQEMA40-1CLB",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1468,
+      "codigo": "BQECASA40-1Z14",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1530,
+      "codigo": "54034017583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1532,
+      "codigo": "54034016583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1533,
+      "codigo": "54028077483",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1588,
+      "codigo": "8WA1838",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1613,
+      "codigo": "BQPS30-H150",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1614,
+      "codigo": "BQPS14-H150",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1617,
+      "codigo": "3RQ30521SM30",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1627,
+      "codigo": "3SE63150BB01",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1628,
+      "codigo": "3SE63100BC01",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1687,
+      "codigo": "3SU10022BM600AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1688,
+      "codigo": "3SU10022BF600AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1691,
+      "codigo": "3SU19000DB700AA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1697,
+      "codigo": "1407731",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 1698,
+      "codigo": "1407732",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 1699,
+      "codigo": "1211462",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1700,
+      "codigo": "1211493",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1701,
+      "codigo": "6041811",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1702,
+      "codigo": "1058249",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1703,
+      "codigo": "6043870",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1704,
+      "codigo": "1211501",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1705,
+      "codigo": "1211502",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1706,
+      "codigo": "1211492",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1707,
+      "codigo": "1211464",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1708,
+      "codigo": "6042673",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1709,
+      "codigo": "1106555",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1710,
+      "codigo": "1040779",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1711,
+      "codigo": "1085354",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1712,
+      "codigo": "6054712",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1713,
+      "codigo": "1114954",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1714,
+      "codigo": "6081749",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1715,
+      "codigo": "6054716",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1716,
+      "codigo": "1040763",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 1719,
+      "codigo": "6SL32010BE218AA0",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 1785,
+      "codigo": "G2RV1SG",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1817,
+      "codigo": "VFT8",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1871,
+      "codigo": "13059319",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1879,
+      "codigo": "12778353",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 1938,
+      "codigo": "CI22HBM25AR",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 1941,
+      "codigo": "905",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1956,
+      "codigo": "3774",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1957,
+      "codigo": "3773",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1975,
+      "codigo": "3863",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1976,
+      "codigo": "21259",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1977,
+      "codigo": "21219",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1978,
+      "codigo": "21235",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 1979,
+      "codigo": "21256",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2006,
+      "codigo": "3935",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2007,
+      "codigo": "3587",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2008,
+      "codigo": "24405",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2136,
+      "codigo": "3LD33540TK53",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2137,
+      "codigo": "3SU11002BF601MA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2161,
+      "codigo": "3869",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2162,
+      "codigo": "3861",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2163,
+      "codigo": "21246",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2179,
+      "codigo": "10046540",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2227,
+      "codigo": "12499350",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2264,
+      "codigo": "54028001583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2266,
+      "codigo": "54028003583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2267,
+      "codigo": "54028005583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2268,
+      "codigo": "54028275583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2269,
+      "codigo": "54028163583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2296,
+      "codigo": "1302",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2297,
+      "codigo": "228",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2341,
+      "codigo": "54034016089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2342,
+      "codigo": "54034088089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2343,
+      "codigo": "54034017089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2344,
+      "codigo": "54034018089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2345,
+      "codigo": "54034089089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2353,
+      "codigo": "15985138",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2406,
+      "codigo": "3UG55121BR20",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2441,
+      "codigo": "3SK11211CB41",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2443,
+      "codigo": "3RK31111AA10",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2445,
+      "codigo": "3RK32211AA10",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2448,
+      "codigo": "7MH49602AA01",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2460,
+      "codigo": "3RV23314WC10",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2503,
+      "codigo": "CP6206300",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 2531,
+      "codigo": "2961",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2543,
+      "codigo": "20859",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2629,
+      "codigo": "3666",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2630,
+      "codigo": "3682",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2631,
+      "codigo": "3688",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2632,
+      "codigo": "3696",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2635,
+      "codigo": "3830",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2636,
+      "codigo": "3827",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2637,
+      "codigo": "3798",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2690,
+      "codigo": "857724",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2740,
+      "codigo": "6SL32010BE143AA0",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 2787,
+      "codigo": "27232",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2788,
+      "codigo": "27245",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2789,
+      "codigo": "21234",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2791,
+      "codigo": "54028045583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2809,
+      "codigo": "3SB78110AA100BA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2872,
+      "codigo": "3794",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2873,
+      "codigo": "3777",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2893,
+      "codigo": "54037069319",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2921,
+      "codigo": "3RU29263AA01",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 2935,
+      "codigo": "25187",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 2952,
+      "codigo": "XPSUAF13AP",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 2982,
+      "codigo": "3771",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2983,
+      "codigo": "21266",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2984,
+      "codigo": "3793",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2985,
+      "codigo": "27239",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2986,
+      "codigo": "3801",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2987,
+      "codigo": "3800",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2988,
+      "codigo": "3842",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2989,
+      "codigo": "27247",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 2990,
+      "codigo": "21225",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3014,
+      "codigo": "1100140001",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3016,
+      "codigo": "1110130002",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3017,
+      "codigo": "1100140002",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3099,
+      "codigo": "6SL32010BE210AA0",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3106,
+      "codigo": "54028048483",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3107,
+      "codigo": "54028077583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3129,
+      "codigo": "6ES72314HF320XB0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 3190,
+      "codigo": "ELGN.35532",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 3241,
+      "codigo": "54034027583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3242,
+      "codigo": "54034029583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3265,
+      "codigo": "54034018089-COPIA",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3266,
+      "codigo": "54034018089-COPIA-COPIA",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3274,
+      "codigo": "54028077483",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3275,
+      "codigo": "54028067089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3276,
+      "codigo": "54028058089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3301,
+      "codigo": "25682",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3302,
+      "codigo": "25683",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3303,
+      "codigo": "54034020089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3304,
+      "codigo": "54034021089",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3320,
+      "codigo": "54042014583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3323,
+      "codigo": "54033023839",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3416,
+      "codigo": "6025105",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3417,
+      "codigo": "1040780",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3418,
+      "codigo": "1040764",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3419,
+      "codigo": "1071277",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3420,
+      "codigo": "1040966",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3421,
+      "codigo": "1041014",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3423,
+      "codigo": "243",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3434,
+      "codigo": "6ES71936BP200DA0",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 3451,
+      "codigo": "6043946",
+      "ativo": true,
+      "fontes": [
+        "D-026: referências SICK individualizadas no mapa legado"
+      ]
+    },
+    {
+      "id": 3455,
+      "codigo": "20041204",
+      "ativo": true,
+      "fontes": [
+        "Exemplos individualizados aprovados no catálogo (inclui revisões antigas)"
+      ]
+    },
+    {
+      "id": 3460,
+      "codigo": "FAB-030152",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3461,
+      "codigo": "1119225",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3462,
+      "codigo": "1119212",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3526,
+      "codigo": "3775",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3527,
+      "codigo": "27243",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3528,
+      "codigo": "21265",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3529,
+      "codigo": "27251",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3530,
+      "codigo": "54028009583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3531,
+      "codigo": "54028295583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3532,
+      "codigo": "3812",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3557,
+      "codigo": "6GK59921AM008AA0",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3561,
+      "codigo": "54028027583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3581,
+      "codigo": "54034069583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3583,
+      "codigo": "54028069583",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3584,
+      "codigo": "6GK54084GQ002AM2",
+      "ativo": true,
+      "fontes": [
+        "Propostas do agente confirmadas e auditadas no banco"
+      ]
+    },
+    {
+      "id": 3602,
+      "codigo": "1070302",
+      "ativo": true,
+      "fontes": [
+        "Propostas do agente confirmadas e auditadas no banco"
+      ]
+    },
+    {
+      "id": 3610,
+      "codigo": "6044035",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3611,
+      "codigo": "6044031",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3612,
+      "codigo": "18050494",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3625,
+      "codigo": "3209511",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 3626,
+      "codigo": "1407730",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 3627,
+      "codigo": "1411083",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 3628,
+      "codigo": "CJ1WAD081V1",
+      "ativo": true,
+      "fontes": [
+        "Propostas do agente confirmadas e auditadas no banco"
+      ]
+    },
+    {
+      "id": 3629,
+      "codigo": "CQM1HCPU61",
+      "ativo": true,
+      "fontes": [
+        "Propostas do agente confirmadas e auditadas no banco"
+      ]
+    },
+    {
+      "id": 3632,
+      "codigo": "2904601",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 3634,
+      "codigo": "1159039",
+      "ativo": true,
+      "fontes": [
+        "D-028: referências Phoenix individualizadas; não representa os 135 do lote inteiro"
+      ]
+    },
+    {
+      "id": 3659,
+      "codigo": "6SL32010BE238AA0",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3660,
+      "codigo": "1113245",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3661,
+      "codigo": "1113222",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3666,
+      "codigo": "6080601",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3667,
+      "codigo": "6082806",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3668,
+      "codigo": "2115285",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3669,
+      "codigo": "5311136",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3670,
+      "codigo": "1112263",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3671,
+      "codigo": "6053542",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3691,
+      "codigo": "3.012.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3692,
+      "codigo": "3.012.003.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3693,
+      "codigo": "3.012.004.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3694,
+      "codigo": "3.012.005.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3695,
+      "codigo": "3.016.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3696,
+      "codigo": "3.016.003.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3697,
+      "codigo": "3.016.005.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3698,
+      "codigo": "3.017.004.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3699,
+      "codigo": "3.016.017.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3700,
+      "codigo": "3.017.015.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3701,
+      "codigo": "404.037.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3702,
+      "codigo": "404.036.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3703,
+      "codigo": "3.021.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3704,
+      "codigo": "3.020.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3705,
+      "codigo": "3.019.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3710,
+      "codigo": "3.018.005.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3711,
+      "codigo": "3.018.014.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3712,
+      "codigo": "3.018.002.1.23",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3713,
+      "codigo": "BQEM08-B1CLB",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 3714,
+      "codigo": "BQCT08-B1X5MB",
+      "ativo": true,
+      "fontes": [
+        "D-029: ATI, correspondência de código e fornecedor"
+      ]
+    },
+    {
+      "id": 3727,
+      "codigo": "18036192",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3728,
+      "codigo": "18037499",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3729,
+      "codigo": "18037506",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3730,
+      "codigo": "18037512",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3731,
+      "codigo": "18037513",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3732,
+      "codigo": "18043995",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3733,
+      "codigo": "6ES75101SJ010AB0",
+      "ativo": true,
+      "fontes": [
+        "Propostas do agente confirmadas e auditadas no banco"
+      ]
+    },
+    {
+      "id": 3734,
+      "codigo": "18043996",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3735,
+      "codigo": "18043997",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3736,
+      "codigo": "18043998",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3737,
+      "codigo": "18043999",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3738,
+      "codigo": "18044000",
+      "ativo": true,
+      "fontes": [
+        "D-031: cabos avaliados, incluindo 24 com pendências"
+      ]
+    },
+    {
+      "id": 3739,
+      "codigo": "6021917",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3740,
+      "codigo": "1211505",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3741,
+      "codigo": "2095618",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3742,
+      "codigo": "1211506",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3743,
+      "codigo": "2096235",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3744,
+      "codigo": "2123627",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3745,
+      "codigo": "6009719",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3746,
+      "codigo": "6070805",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3747,
+      "codigo": "2046579",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3748,
+      "codigo": "5312983",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3749,
+      "codigo": "5312982",
+      "ativo": true,
+      "fontes": [
+        "revisao-sick-2026-09-05.json"
+      ]
+    },
+    {
+      "id": 3754,
+      "codigo": "2966650",
+      "ativo": true,
+      "fontes": [
+        "revisao-cinco-fabricantes-2026-09-05.json"
+      ]
+    }
+  ]
+}
+

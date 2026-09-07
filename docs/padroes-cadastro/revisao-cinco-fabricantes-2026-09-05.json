@@ -1,0 +1,346 @@
+{
+  "decisao": "D-035",
+  "data": "2026-09-05",
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "escopo": "16 melhorias confirmadas; não altera código, fabricante, fornecedor, unidades, conversões, estoque, preço ou fiscal. Grupo somente nos três registros explicitamente indicados.",
+  "pendentes_fora_do_lote": [
+    3324,
+    688,
+    2956,
+    2493,
+    2908,
+    547,
+    3614,
+    3567
+  ],
+  "itens": [
+    {
+      "id": 3659,
+      "antes": {
+        "id": 3659,
+        "codigo_interno": "6SL32010BE238AA0",
+        "nome": "RESISTOR DE FRENAGEM FIXO 18KW",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 51,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-08-28T16:20:18.37671"
+      },
+      "nome": "RESISTOR DE FRENAGEM 30Ω POTÊNCIA NOMINAL 925W PICO 18,5kW/12s CICLO 5%",
+      "descricao_tecnica": "Resistência 30Ω; potência nominal 925W. Pico de 18,5kW por 12s em período de 240s (ciclo 5%). Não confundir potência do acionamento compatível com dissipação nominal do resistor.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/b1/Catalog/Product/6SL3201-0BE23-8AA0"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 2740,
+      "antes": {
+        "id": 2740,
+        "codigo_interno": "6SL32010BE143AA0",
+        "nome": "RESISTOR DE FRENAGEM 0,37-1,1kW",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 51,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-04-22T15:53:56.588666"
+      },
+      "nome": "RESISTOR DE FRENAGEM 370Ω POTÊNCIA NOMINAL 75W PICO 1,5kW/12s CICLO 5%",
+      "descricao_tecnica": "Resistência 370Ω; potência nominal 75W. Pico de 1,5kW por 12s em período de 240s (ciclo 5%).",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/it/it/Catalog/Product/6SL3201-0BE14-3AA0"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3099,
+      "antes": {
+        "id": 3099,
+        "codigo_interno": "6SL32010BE210AA0",
+        "nome": "RESISTOR DE FRENAGEM 1,5-3kW",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 51,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-06-18T17:35:44.328423"
+      },
+      "nome": "RESISTOR DE FRENAGEM 140Ω POTÊNCIA NOMINAL 200W PICO 4kW/12s CICLO 5%",
+      "descricao_tecnica": "Resistência 140Ω; potência nominal 200W. Pico de 4kW por 12s em período de 240s (ciclo 5%).",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/cn/Catalog/Product/6SL3201-0BE21-0AA0"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 1719,
+      "antes": {
+        "id": 1719,
+        "codigo_interno": "6SL32010BE218AA0",
+        "nome": "RESISTOR DE FRENAGEM 4-7,5kW",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 51,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-02-19T16:44:05.336458"
+      },
+      "nome": "RESISTOR DE FRENAGEM 75Ω POTÊNCIA NOMINAL 375W PICO 7,5kW/12s CICLO 5%",
+      "descricao_tecnica": "Resistência 75Ω; potência nominal 375W. Pico de 7,5kW por 12s em período de 240s (ciclo 5%).",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/se/Catalog/Product/6SL3201-0BE21-8AA0"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3557,
+      "antes": {
+        "id": 3557,
+        "codigo_interno": "6GK59921AM008AA0",
+        "nome": "MÓDULO SFP 1 PORTA 1000MBPS",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 95,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-08-17T21:25:24.684099"
+      },
+      "nome": "MÓDULO SFP SCALANCE X 1 PORTA 1000Mbit/s FIBRA MONOMODO LC ALCANCE ATÉ 10km",
+      "descricao_tecnica": "Módulo SCALANCE X SFP992-1LD: uma interface óptica de 1000Mbit/s, conector LC, fibra monomodo, alcance até 10km.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/KZ/EN/Catalog/Product/?mlfb=6GK5992-1AM00-8AA0"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3754,
+      "antes": {
+        "id": 3754,
+        "codigo_interno": "2966650",
+        "nome": "RELÉ DE ESTADO SÓLIDO 24VCC 2 SAÍDAS",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 35,
+        "ativo": true,
+        "fornecedor_id": 1,
+        "atualizado_em": "2026-09-04T19:38:46.123696"
+      },
+      "nome": "RELÉ DE ESTADO SÓLIDO PLC-OSC-120UC/24DC/2 ENTRADA 120VCA/110VCC 1NA SAÍDA 3-33VCC ATÉ 3A CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "PLC-INTERFACE PLC-OSC-120UC/24DC/2: entrada nominal 120VCA ou 110VCC; uma saída eletrônica normalmente aberta, faixa 3-33VCC. Corrente contínua limite de 3A sujeita à curva de redução por temperatura do fabricante. Conexão por parafuso. O sufixo /2 da referência não indica duas saídas.",
+      "fontes": [
+        "https://www.phoenixcontact.com/en-us/products/solid-state-relay-module-plc-osc-120uc-24dc-2-2966650"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 477,
+      "antes": {
+        "id": 477,
+        "codigo_interno": "1424657",
+        "nome": "CONECTOR M12 4 POLOS SACC-M12MS-4PL M",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 107,
+        "ativo": true,
+        "fornecedor_id": 1,
+        "atualizado_em": "2026-02-11T14:03:17.425958"
+      },
+      "nome": "CONECTOR M12 MACHO RETO 4 POLOS CODIFICAÇÃO A SACC-M12MS-4PL M CONEXÃO PUSH-LOCK 250VCA/CC",
+      "descricao_tecnica": "SACC-M12MS-4PL M: conector M12 macho reto, quatro polos, codificação A, sem blindagem, conexão dos condutores Push-lock por mola. Tensão nominal 250VCA/CC; corrente nominal 4A, reduzida para 2A com condutor de 0,14mm².",
+      "fontes": [
+        "https://www.phoenixcontact.com/en-us/products/circular-connector-cable-side-sacc-m12ms-4pl-m-1424657"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 2935,
+      "antes": {
+        "id": 2935,
+        "codigo_interno": "25187",
+        "nome": "CARCACA PHOENIX 06 POLOS LAT 1T HC-STA-B   1412575",
+        "descricao": "HC-STA-B06-HLFS-1TTM25-EL-AL\nCARCAÇA B6, PARA TRAVA SIMPLES, MATERIAL: ALUMÍNIO FUNDIDO SOB PRESSÃO, RESISTENTE À ÁGUA DO MAR, SAÍDAS DE CABOS: 1, RETO, 1X M25, ALTURA: 52 MM, CONEXÃO PARA CABOS: SEM, PADRÃO",
+        "fabricante": "PHOENIX",
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 39,
+        "atualizado_em": "2026-05-21T16:21:58.535237"
+      },
+      "nome": "CARCAÇA PARA CONECTOR HEAVYCON HC-STA-B06-HLFS-1TTM25-EL-AL TAMANHO B6 ALUMÍNIO ENTRADA RETA M25 ALTURA 52mm",
+      "descricao_tecnica": "Referência Phoenix 1412575 / HC-STA-B06-HLFS-1TTM25-EL-AL. Carcaça HEAVYCON B6 em alumínio fundido, uma entrada reta M25, altura 52mm, sem prensa-cabo. B6 indica tamanho da carcaça, não quantidade de contatos. O código 25187 permanece como referência comercial do fornecedor.",
+      "fontes": [
+        "https://www.phoenixcontact.com/en-pc/products/housing-hc-sta-b06-hlfs-1ttm25-el-al-1412575"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 2952,
+      "antes": {
+        "id": 2952,
+        "codigo_interno": "XPSUAF13AP",
+        "nome": "CONTROLADOR DE SEGURANCA HARMONY  24V AC/DC",
+        "descricao": null,
+        "fabricante": "SCHNEIDER",
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 119,
+        "atualizado_em": "2026-05-25T12:14:29.043254"
+      },
+      "nome": "RELÉ DE SEGURANÇA HARMONY 2 CANAIS DE ENTRADA 3 SAÍDAS NA 24VCA/CC CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Relé de segurança Harmony XPSUAF13AP, dois canais de entrada, três saídas de segurança normalmente abertas, alimentação 24VCA/CC e conexão por parafuso. A classificação do componente não substitui a validação de segurança da máquina.",
+      "grupo_codigo": "RELES_SEGURANCA",
+      "fontes": [
+        "https://iportal.se.com/Contents/docs/SQD-XPSUAF13AP_DATASHEET.PDF"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 595,
+      "antes": {
+        "id": 595,
+        "codigo_interno": "XB5AD912R10K",
+        "nome": "POTENCIOMETRO PLASTICO 10K;",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 119,
+        "atualizado_em": "2026-01-11T15:34:21.635992"
+      },
+      "nome": "POTENCIÔMETRO COMPLETO HARMONY XB5 10kΩ Ø22mm CORPO PLÁSTICO",
+      "descricao_tecnica": "Potenciômetro completo Harmony XB5, resistência 10kΩ, montagem Ø22mm, corpo plástico.",
+      "fontes": [
+        "https://www.se.com/us/en/product/XB5AD912R10K/complete-potentiometer-harmony-xb5-plastic-22mm-10k/"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 644,
+      "antes": {
+        "id": 644,
+        "codigo_interno": "XB5AD912R4K7",
+        "nome": "POTENCIOMETRO PLASTICO 4 7K;",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 119,
+        "atualizado_em": "2026-01-11T19:48:36.233783"
+      },
+      "nome": "POTENCIÔMETRO COMPLETO HARMONY XB5 4,7kΩ Ø22mm CORPO PLÁSTICO",
+      "descricao_tecnica": "Potenciômetro completo Harmony XB5, resistência 4,7kΩ, montagem Ø22mm, corpo plástico.",
+      "fontes": [
+        "https://eshop.se.com/sg/complete-potentiometer-harmony-xb5-plastic-22mm-4k7-xb5ad912r4k7.html"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 3612,
+      "antes": {
+        "id": 3612,
+        "codigo_interno": "18050494",
+        "nome": "SENSOR INDUSTRIAL",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 102,
+        "ativo": true,
+        "fornecedor_id": 131,
+        "atualizado_em": "2026-08-20T19:13:50.754912"
+      },
+      "nome": "CÂMERA PARA VISÃO INDUSTRIAL MV-CAM1.60E-MF 1,6MP 1440X1080 PIXELS MONTAGEM DE LENTE C/CS IP30",
+      "descricao_tecnica": "Modelo MV-CAM1.60E-MF confirmado na descrição da NF e associado à ficha técnica WEG: câmera para visão industrial, sensor CMOS Sony IMX273, resolução 1440X1080 pixels (1,6MP), obturador global, montagem de lente C/CS, IP30. Câmera não equivale a sistema de visão completo. Interface de comunicação permanece pendente de confirmação na ficha exata.",
+      "fontes": [
+        "https://static.weg.net/medias/downloadcenter/h4b/hdd/WEG_InfoTec_MV-CAM_50146195_pt.pdf"
+      ],
+      "pendencias": [
+        "Confirmar interface de comunicação da câmera."
+      ]
+    },
+    {
+      "id": 1394,
+      "antes": {
+        "id": 1394,
+        "codigo_interno": "18772462",
+        "nome": "CORTINA DE LUZ LIGHT GRID WEG LGW300",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 131,
+        "atualizado_em": "2026-02-06T20:21:10.087211"
+      },
+      "nome": "CONJUNTO DE CORTINA DE LUZ LGW300H-1000 TRANSMISSOR+RECEPTOR ALTURA DE PROTEÇÃO 1000mm RESOLUÇÃO 29mm ALCANCE 0,2-7m TIPO 4 24VCC",
+      "descricao_tecnica": "LGW300H-1000: par transmissor/receptor, altura protegida 1000mm, resolução 29mm, alcance 0,2-7m, tipo 4, alimentação 24VCC. Catálogo informa fornecimento sem cabos e sem relé de segurança; a unidade comercial e o saldo existentes permanecem inalterados.",
+      "grupo_codigo": "CORTINAS_LUZ_SEGURANCA",
+      "fontes": [
+        "https://www.weg.net/catalog/weg/LU/es/Seguridad-de-M%C3%A1quinas%2C-Sensores-Industriales-y-Fuentes-de-Alimentaci%C3%B3n/Seguridad-de-M%C3%A1quinas/Barreras-de-Seguridad/Barreras-de-Seguridad-LGW300/CORTINA-LUZ-LGW300H-1000/p/18772462",
+        "https://static.weg.net/medias/downloadcenter/h98/hf3/WEG-catalogo-solucoes-em-seguranca-50029132-pt.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 1395,
+      "antes": {
+        "id": 1395,
+        "codigo_interno": "18772436",
+        "nome": "CORTINA DE LUZ LIGHT GRID WEG LGW300",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 131,
+        "atualizado_em": "2026-02-06T20:21:10.653887"
+      },
+      "nome": "CONJUNTO DE CORTINA DE LUZ LGW300H-400 TRANSMISSOR+RECEPTOR ALTURA DE PROTEÇÃO 400mm RESOLUÇÃO 29mm ALCANCE 0,2-7m TIPO 4 24VCC",
+      "descricao_tecnica": "LGW300H-400: par transmissor/receptor, altura protegida 400mm, resolução 29mm, alcance 0,2-7m, tipo 4, alimentação 24VCC. Catálogo informa fornecimento sem cabos e sem relé de segurança; a unidade comercial e o saldo existentes permanecem inalterados.",
+      "grupo_codigo": "CORTINAS_LUZ_SEGURANCA",
+      "fontes": [
+        "https://www.weg.net/catalog/weg/CI/tr/S%C3%A9curit%C3%A9/Safety/Safety-Light-Curtains/Safety-Light-Curtains-LGW300/LIGHT-CURTAIN-LGW300H-400/p/18772436",
+        "https://static.weg.net/medias/downloadcenter/h98/hf3/WEG-catalogo-solucoes-em-seguranca-50029132-pt.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 2503,
+      "antes": {
+        "id": 2503,
+        "codigo_interno": "CP6206300",
+        "nome": "EMBREAGEM 120/60",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 2,
+        "atualizado_em": "2026-03-30T12:00:43.917157"
+      },
+      "nome": "ACOPLAMENTO GIRATÓRIO PARA BRAÇO DE SUSTENTAÇÃO CP60 CONEXÃO Ø130mm GIRO 310° ZINCO FUNDIDO RAL7035",
+      "descricao_tecnica": "CP6206.300: acoplamento giratório do sistema de braço de sustentação CP60, conexão Ø130mm, giro 310°, zinco fundido, acabamento RAL7035. Não é embreagem de transmissão.",
+      "fontes": [
+        "https://www.rittal.com/pdf-creator/variant/com-en/6206300"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 178,
+      "antes": {
+        "id": 178,
+        "codigo_interno": "3110000",
+        "nome": "TERMOSTATO 5-55ºC 230/115/60/48/24V.",
+        "descricao": null,
+        "fabricante": "RITTAL",
+        "grupo_id": null,
+        "ativo": true,
+        "fornecedor_id": 2,
+        "atualizado_em": "2026-02-16T12:44:54.370239"
+      },
+      "nome": "TERMOSTATO PARA INTERIOR DE PAINEL SK3110.000 AJUSTE 5-60°C 1 CONTATO REVERSÍVEL 24-230VCA/24-60VCC",
+      "descricao_tecnica": "SK3110.000: termostato bimetálico para interior de painel, ajuste 5-60°C, um contato reversível, tensão de operação 24-230VCA ou 24-60VCC. Contato para aquecimento: 10A resistivos/4A indutivos em CA; resfriamento: 5A resistivos/4A indutivos em CA (cos φ=0,6 para carga indutiva). Em CC, carga máxima 30W; observar limites e diagrama do fabricante.",
+      "fontes": [
+        "https://www.rittal.com/us-en_US/products/PG20231215SCH101/PG20231512SCH301/PRO70850?variantId=3110000"
+      ],
+      "pendencias": []
+    }
+  ]
+}

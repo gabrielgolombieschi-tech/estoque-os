@@ -7,6 +7,8 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
+import type { PesquisaCadastroXml } from "@/lib/itens/pesquisaCadastroXml";
+import { FontesPesquisaCadastro } from "./FontesPesquisaCadastro";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { useImportMotivos, type MotivoCompra } from "./ImportMotivosProvider";
@@ -89,6 +91,7 @@ type NovoGrupoCadastroSuggestion = {
 };
 
 type NormalizacaoCadastroSuggestion = {
+  pesquisa_tecnica?: PesquisaCadastroXml;
   codigo: string;
   descricao_padronizada: string;
   grupo_id: number | null;
@@ -2208,6 +2211,7 @@ export default function ImportarXmlPage() {
           tenant_id: tenantId,
           empresa_id: empresaId,
           correcoes_descricao_locais: lerCorrecoesDescricaoPendentes(),
+          fornecedor_id: fornecedorIdBase ?? fornecedorId ?? null,
           itens: itensUnicos.map((item) => ({
             codigo: normalizeItemCodigo(item.codigo),
             descricao_nf: item.overrideNome?.trim() || item.nome,
@@ -4539,7 +4543,7 @@ export default function ImportarXmlPage() {
                               ) : permiteAutoCadastrarItens && !foundItem && !normalizacaoCadastro ? (
                                 <Can perm="cad_itens.write">
                                   <button type="button" onClick={() => void cadastrarItemComIA(it)} disabled={cadBusy || normalizacaoCadastroBusy} className="text-sky-400 hover:text-sky-300 disabled:opacity-50">
-                                    {normalizacaoCadastroBusy ? "Analisando IA…" : "Sugerir com IA"}
+                                    {normalizacaoCadastroBusy ? "Pesquisando fichas técnicas…" : "Sugerir com IA"}
                                   </button>
                                 </Can>
                               ) : null}
@@ -4564,6 +4568,7 @@ export default function ImportarXmlPage() {
                                   </div>
                                 )}
                                 <div className="text-sky-100/90">{normalizacaoCadastro.justificativa}</div>
+                                <FontesPesquisaCadastro pesquisa={normalizacaoCadastro.pesquisa_tecnica} />
                                 {normalizacaoCadastro.dados_pendentes.length > 0 && (
                                   <div className="text-amber-200">
                                     Falta preencher: {normalizacaoCadastro.dados_pendentes.join(" · ")}
@@ -5129,6 +5134,7 @@ export default function ImportarXmlPage() {
                           </div>
                         )}
                         <div className="text-xs text-sky-100/90">{pedidoItemLinkNormalizacaoCadastro.justificativa}</div>
+                        <FontesPesquisaCadastro pesquisa={pedidoItemLinkNormalizacaoCadastro.pesquisa_tecnica} />
                         {pedidoItemLinkNormalizacaoCadastro.dados_pendentes.length > 0 && (
                           <div className="text-xs text-amber-300">
                             Falta preencher: {pedidoItemLinkNormalizacaoCadastro.dados_pendentes.join(" · ")}

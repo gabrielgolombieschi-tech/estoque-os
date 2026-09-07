@@ -5,6 +5,7 @@ import { getAuthSupabase, jsonError, resolveTenantEmpresa } from "@/app/api/comp
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { normalizarNomeCadastro } from "@/lib/itens/normalizacaoNome";
 import { pendenciasDescricaoTecnica, REGRAS_SENSORES_SEGURANCA } from "@/lib/itens/qualidadeDescricao";
+import { ferramentasPesquisaCadastroXml, fontesPesquisaCadastroXml, REGRAS_PESQUISA_CADASTRO_XML, sanitizarPesquisaCadastroXml, schemaPesquisaCadastroXml, type PesquisaCadastroXml } from "@/lib/itens/pesquisaCadastroXml";
 import {
   aplicarCorrecoesExatas,
   erroTabelaCorrecaoAusente,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/nfe/descricaoCorrecaoIa";
 
 export const runtime = "nodejs";
+export const maxDuration = 180;
 
 type ItemEntrada = {
   codigo: string;
@@ -34,6 +36,7 @@ type CorrecaoDescricaoRow = CorrecaoDescricaoAgente & {
 };
 
 type SugestaoModelo = {
+  pesquisa_tecnica: PesquisaCadastroXml;
   codigo: string;
   descricao_padronizada: string;
   grupo_id: number | null;
@@ -132,8 +135,9 @@ function schemaResposta() {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["codigo", "descricao_padronizada", "grupo_id", "novo_grupo", "justificativa", "dados_pendentes", "confianca"],
+          required: ["codigo", "descricao_padronizada", "grupo_id", "novo_grupo", "justificativa", "dados_pendentes", "confianca", "pesquisa_tecnica"],
           properties: {
+            pesquisa_tecnica: schemaPesquisaCadastroXml,
             codigo: { type: "string" },
             descricao_padronizada: { type: "string" },
             grupo_id: { type: ["integer", "null"] },
@@ -200,6 +204,16 @@ export async function POST(req: NextRequest) {
     if (itens.length > 20) return jsonError(400, "Envie no maximo 20 itens por solicitacao.");
 
     const admin = supabaseAdmin();
+    let fornecedorNome: string | null = null;
+    if (body.fornecedor_id != null) {
+      const fornecedorId = Number(body.fornecedor_id);
+      if (!Number.isSafeInteger(fornecedorId) || fornecedorId <= 0) return jsonError(400, "Fornecedor inválido.");
+      const { data: fornecedor, error: fornecedorError } = await admin.from("fornecedores")
+        .select("id,nome").eq("tenant_id", ctx.tenantId).eq("empresa_id", ctx.empresaId).eq("id", fornecedorId).maybeSingle();
+      if (fornecedorError) return jsonError(400, fornecedorError.message);
+      if (!fornecedor) return jsonError(422, "Fornecedor não pertence à empresa atual.");
+      fornecedorNome = fornecedor.nome;
+    }
     const { data: gruposData, error: gruposError } = await admin
       .from("item_grupos")
       .select("id,codigo,nome,grupo_pai_id")
@@ -250,6 +264,7 @@ export async function POST(req: NextRequest) {
 
     const catalogo = await catalogoNormalizacao();
     const system = [
+      REGRAS_PESQUISA_CADASTRO_XML,
       REGRAS_SENSORES_SEGURANCA,
       "Você é o Agente de Normalização de Cadastro de Produtos do ERP.",
       "Sua função é sugerir cadastro de itens vindos de NF-e. Você nunca cadastra no banco e nunca decide sozinho: a pessoa usuária confirma a sugestão antes da gravação.",
@@ -271,16 +286,19 @@ export async function POST(req: NextRequest) {
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
+      signal: AbortSignal.timeout(150_000),
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
         store: false,
+        ...ferramentasPesquisaCadastroXml(itens.length),
         input: [
           { role: "system", content: system },
           {
             role: "user",
             content: JSON.stringify({
               catalogo_padrao_aprovado: catalogo,
+              fornecedor_contexto: fornecedorNome,
               grupos_disponiveis: gruposParaAgente,
               correcoes_descricao_aprovadas: correcoes.map((correcao) => ({
                 descricao_nf: correcao.descricao_origem,
@@ -313,6 +331,9 @@ export async function POST(req: NextRequest) {
       return jsonError(502, texto(error?.message, 300) ?? "Erro ao consultar o agente de cadastro.");
     }
 
+    if (record(responseJson)?.status !== "completed") return jsonError(502, "A pesquisa técnica não foi concluída. Tente novamente com menos itens; nenhum cadastro foi gravado.");
+    const fontesConsultadas = fontesPesquisaCadastroXml(responseJson);
+
     const respostaTexto = extrairTextoResposta(responseJson);
     const resposta = record(JSON.parse(respostaTexto));
     const porCodigo = new Map(itens.map((item) => [normalizarCodigo(item.codigo), item]));
@@ -324,13 +345,15 @@ export async function POST(req: NextRequest) {
         const codigo = normalizarCodigo(sugestao?.codigo);
         const itemOrigem = porCodigo.get(codigo);
         if (!itemOrigem) return null;
+        const pesquisaTecnica = sanitizarPesquisaCadastroXml(sugestao?.pesquisa_tecnica, fontesConsultadas);
         const descricaoCorrigida = correcoesExatas.get(normalizarDescricaoAprendizado(itemOrigem.descricao_nf));
         const descricaoPadronizada = normalizarNomeCadastro(
-          descricaoCorrigida ?? texto(sugestao?.descricao_padronizada, 300) ?? ""
+          descricaoCorrigida ?? (pesquisaTecnica.status === "exato" ? texto(sugestao?.descricao_padronizada, 300) ?? "" : itemOrigem.descricao_nf)
         );
         const grupoId = sugestao?.grupo_id == null ? null : Number(sugestao.grupo_id);
         const grupo = grupoId && Number.isFinite(grupoId) ? porId.get(grupoId) : null;
-        const pendenciasTecnicas = pendenciasDescricaoTecnica({ descricao: descricaoPadronizada, codigo, grupoCodigo: grupo?.codigo, origem: itemOrigem.descricao_nf });
+        const pendenciasTecnicas = pendenciasDescricaoTecnica({ descricao: descricaoPadronizada, codigo, modeloReferencia: pesquisaTecnica.modelo_referencia, grupoCodigo: grupo?.codigo, origem: itemOrigem.descricao_nf });
+        if (pesquisaTecnica.status !== "exato") pendenciasTecnicas.push(pesquisaTecnica.observacao);
         const novoGrupoRaw = record(sugestao?.novo_grupo);
         const novoGrupoPaiId = novoGrupoRaw?.grupo_pai_id == null ? null : Number(novoGrupoRaw.grupo_pai_id);
         const novoGrupoPai = novoGrupoPaiId && Number.isFinite(novoGrupoPaiId) ? porId.get(novoGrupoPaiId) : null;
@@ -347,6 +370,7 @@ export async function POST(req: NextRequest) {
             : null;
         return {
           codigo,
+          pesquisa_tecnica: pesquisaTecnica,
           descricao_padronizada: descricaoPadronizada,
           grupo_id: grupo ? grupo.id : null,
           novo_grupo: novoGrupo,
@@ -367,6 +391,7 @@ export async function POST(req: NextRequest) {
       const descricaoCorrigida = correcoesExatas.get(normalizarDescricaoAprendizado(item.descricao_nf));
       sugestoes.push({
         codigo: item.codigo,
+        pesquisa_tecnica: sanitizarPesquisaCadastroXml(null, []),
         descricao_padronizada: normalizarNomeCadastro(descricaoCorrigida ?? ""),
         grupo_id: null,
         novo_grupo: null,
@@ -391,6 +416,7 @@ export async function POST(req: NextRequest) {
       }),
     });
   } catch (error: unknown) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return jsonError(504, "A pesquisa técnica excedeu o tempo disponível. Tente novamente com menos itens; nenhum cadastro foi gravado.");
     const message = error instanceof Error ? error.message : "Erro inesperado ao normalizar itens.";
     return jsonError(500, message);
   }

@@ -1,0 +1,5974 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "registrado_em": "2026-09-05T20:33:07.585Z",
+  "origem": "Usuário informou que os itens com grupo são os que já alteramos; recorte registrado nesta consulta, não aprovação técnica automática.",
+  "itens": [
+    {
+      "id": 101,
+      "codigo": "2907380",
+      "grupo_id": 128
+    },
+    {
+      "id": 102,
+      "codigo": "2907379",
+      "grupo_id": 128
+    },
+    {
+      "id": 103,
+      "codigo": "2900299",
+      "grupo_id": 35
+    },
+    {
+      "id": 104,
+      "codigo": "2866763",
+      "grupo_id": 50
+    },
+    {
+      "id": 105,
+      "codigo": "2903151",
+      "grupo_id": 50
+    },
+    {
+      "id": 106,
+      "codigo": "2903149",
+      "grupo_id": 50
+    },
+    {
+      "id": 107,
+      "codigo": "1206421",
+      "grupo_id": 98
+    },
+    {
+      "id": 108,
+      "codigo": "1693539",
+      "grupo_id": 106
+    },
+    {
+      "id": 109,
+      "codigo": "1404408",
+      "grupo_id": 106
+    },
+    {
+      "id": 110,
+      "codigo": "1234301",
+      "grupo_id": 50
+    },
+    {
+      "id": 111,
+      "codigo": "1234302",
+      "grupo_id": 50
+    },
+    {
+      "id": 112,
+      "codigo": "1085039",
+      "grupo_id": 92
+    },
+    {
+      "id": 113,
+      "codigo": "1085256",
+      "grupo_id": 92
+    },
+    {
+      "id": 114,
+      "codigo": "3030271",
+      "grupo_id": 73
+    },
+    {
+      "id": 115,
+      "codigo": "3032198",
+      "grupo_id": 73
+    },
+    {
+      "id": 116,
+      "codigo": "3209510",
+      "grupo_id": 76
+    },
+    {
+      "id": 119,
+      "codigo": "3033710",
+      "grupo_id": 73
+    },
+    {
+      "id": 120,
+      "codigo": "3036916",
+      "grupo_id": 73
+    },
+    {
+      "id": 121,
+      "codigo": "1424656",
+      "grupo_id": 107
+    },
+    {
+      "id": 122,
+      "codigo": "1424655",
+      "grupo_id": 107
+    },
+    {
+      "id": 123,
+      "codigo": "3274056",
+      "grupo_id": 118
+    },
+    {
+      "id": 124,
+      "codigo": "3274054",
+      "grupo_id": 118
+    },
+    {
+      "id": 125,
+      "codigo": "1403252",
+      "grupo_id": 106
+    },
+    {
+      "id": 126,
+      "codigo": "1668124",
+      "grupo_id": 106
+    },
+    {
+      "id": 127,
+      "codigo": "2966676",
+      "grupo_id": 35
+    },
+    {
+      "id": 128,
+      "codigo": "1089521",
+      "grupo_id": 93
+    },
+    {
+      "id": 129,
+      "codigo": "1012538",
+      "grupo_id": 120
+    },
+    {
+      "id": 130,
+      "codigo": "1079553",
+      "grupo_id": 120
+    },
+    {
+      "id": 131,
+      "codigo": "1079554",
+      "grupo_id": 120
+    },
+    {
+      "id": 132,
+      "codigo": "1012520",
+      "grupo_id": 120
+    },
+    {
+      "id": 133,
+      "codigo": "1679414",
+      "grupo_id": 120
+    },
+    {
+      "id": 134,
+      "codigo": "1412720",
+      "grupo_id": 120
+    },
+    {
+      "id": 135,
+      "codigo": "1411327",
+      "grupo_id": 120
+    },
+    {
+      "id": 136,
+      "codigo": "1679427",
+      "grupo_id": 120
+    },
+    {
+      "id": 137,
+      "codigo": "1411174",
+      "grupo_id": 99
+    },
+    {
+      "id": 138,
+      "codigo": "3273376",
+      "grupo_id": 117
+    },
+    {
+      "id": 139,
+      "codigo": "3209523",
+      "grupo_id": 76
+    },
+    {
+      "id": 140,
+      "codigo": "3211634",
+      "grupo_id": 72
+    },
+    {
+      "id": 141,
+      "codigo": "3210567",
+      "grupo_id": 76
+    },
+    {
+      "id": 142,
+      "codigo": "3209536",
+      "grupo_id": 74
+    },
+    {
+      "id": 143,
+      "codigo": "3030417",
+      "grupo_id": 72
+    },
+    {
+      "id": 144,
+      "codigo": "2906032",
+      "grupo_id": 127
+    },
+    {
+      "id": 156,
+      "codigo": "3004524",
+      "grupo_id": 76
+    },
+    {
+      "id": 157,
+      "codigo": "3003347",
+      "grupo_id": 76
+    },
+    {
+      "id": 158,
+      "codigo": "1389510",
+      "grupo_id": 97
+    },
+    {
+      "id": 159,
+      "codigo": "1389508",
+      "grupo_id": 97
+    },
+    {
+      "id": 160,
+      "codigo": "1388915",
+      "grupo_id": 97
+    },
+    {
+      "id": 179,
+      "codigo": "6SL55101BE125AF0",
+      "grupo_id": 49
+    },
+    {
+      "id": 180,
+      "codigo": "3RH29111HA22",
+      "grupo_id": 19
+    },
+    {
+      "id": 181,
+      "codigo": "3RH29111HA11",
+      "grupo_id": 19
+    },
+    {
+      "id": 182,
+      "codigo": "3RT20151BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 183,
+      "codigo": "3RT20171BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 184,
+      "codigo": "3RT20261BB40",
+      "grupo_id": 17
+    },
+    {
+      "id": 185,
+      "codigo": "3RV20214DA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 186,
+      "codigo": "3RV20111EA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 187,
+      "codigo": "3RV20111CA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 188,
+      "codigo": "6FX35025CK321AD0",
+      "grupo_id": 89
+    },
+    {
+      "id": 189,
+      "codigo": "6FX35022XB111AD0",
+      "grupo_id": 89
+    },
+    {
+      "id": 190,
+      "codigo": "6ES72141AH500XB0",
+      "grupo_id": 55
+    },
+    {
+      "id": 191,
+      "codigo": "6ES71316BH010BA0",
+      "grupo_id": 59
+    },
+    {
+      "id": 192,
+      "codigo": "1FL21054AF010HB0",
+      "grupo_id": 90
+    },
+    {
+      "id": 193,
+      "codigo": "3RH29111FA40",
+      "grupo_id": 19
+    },
+    {
+      "id": 194,
+      "codigo": "3RT20161BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 195,
+      "codigo": "3NH34300RC",
+      "grupo_id": 41
+    },
+    {
+      "id": 196,
+      "codigo": "3NH33300RC",
+      "grupo_id": 41
+    },
+    {
+      "id": 197,
+      "codigo": "3NH32300RC",
+      "grupo_id": 41
+    },
+    {
+      "id": 198,
+      "codigo": "3NH30300RC",
+      "grupo_id": 41
+    },
+    {
+      "id": 199,
+      "codigo": "6ES75261BH000AB0",
+      "grupo_id": 63
+    },
+    {
+      "id": 200,
+      "codigo": "6ES75262BF000AB0",
+      "grupo_id": 63
+    },
+    {
+      "id": 201,
+      "codigo": "6ES75901AB600AA0",
+      "grupo_id": 69
+    },
+    {
+      "id": 202,
+      "codigo": "6ES75901AC400AA0",
+      "grupo_id": 69
+    },
+    {
+      "id": 203,
+      "codigo": "6ES75921AM000XB0",
+      "grupo_id": 69
+    },
+    {
+      "id": 204,
+      "codigo": "6ES79548LL040AA0",
+      "grupo_id": 69
+    },
+    {
+      "id": 205,
+      "codigo": "6GK75425DX100XE0",
+      "grupo_id": 84
+    },
+    {
+      "id": 206,
+      "codigo": "6GK52062BB002AC2",
+      "grupo_id": 92
+    },
+    {
+      "id": 207,
+      "codigo": "5SL11047MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 208,
+      "codigo": "5SL11067MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 209,
+      "codigo": "5SL11107MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 210,
+      "codigo": "5SL11167MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 211,
+      "codigo": "5SL13257MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 212,
+      "codigo": "5SL12107MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 213,
+      "codigo": "3RH21311BB40",
+      "grupo_id": 18
+    },
+    {
+      "id": 214,
+      "codigo": "3SU15500AA100AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 215,
+      "codigo": "3SU14001AA101HA0",
+      "grupo_id": 12
+    },
+    {
+      "id": 216,
+      "codigo": "3SU10510AB500AA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 217,
+      "codigo": "3SU14001AA101BA0",
+      "grupo_id": 12
+    },
+    {
+      "id": 218,
+      "codigo": "3SU14011BB501AA0",
+      "grupo_id": 13
+    },
+    {
+      "id": 219,
+      "codigo": "3SU18010AA000AA2",
+      "grupo_id": 10
+    },
+    {
+      "id": 220,
+      "codigo": "3SU10522BF100AA0",
+      "grupo_id": 9
+    },
+    {
+      "id": 221,
+      "codigo": "3SU10016AA300AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 222,
+      "codigo": "3SU15000AA100AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 223,
+      "codigo": "3SU14011BB301AA0",
+      "grupo_id": 13
+    },
+    {
+      "id": 224,
+      "codigo": "3SU10500AB300AA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 225,
+      "codigo": "3SU18020AA000AB1",
+      "grupo_id": 10
+    },
+    {
+      "id": 226,
+      "codigo": "5SV56460",
+      "grupo_id": 42
+    },
+    {
+      "id": 227,
+      "codigo": "5SV46120",
+      "grupo_id": 42
+    },
+    {
+      "id": 228,
+      "codigo": "5SY73637",
+      "grupo_id": 3
+    },
+    {
+      "id": 229,
+      "codigo": "5SL62257MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 230,
+      "codigo": "5SL62167MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 231,
+      "codigo": "3VM10803ED320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 232,
+      "codigo": "3VM91170FK25",
+      "grupo_id": 2
+    },
+    {
+      "id": 233,
+      "codigo": "4NC51172DA21",
+      "grupo_id": 91
+    },
+    {
+      "id": 234,
+      "codigo": "4NC51122CB21",
+      "grupo_id": 91
+    },
+    {
+      "id": 235,
+      "codigo": "3RT20152AB01",
+      "grupo_id": 17
+    },
+    {
+      "id": 236,
+      "codigo": "3RV20111AA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 237,
+      "codigo": "3NA3260",
+      "grupo_id": 40
+    },
+    {
+      "id": 238,
+      "codigo": "3NA3836",
+      "grupo_id": 40
+    },
+    {
+      "id": 239,
+      "codigo": "3SK21121AA10",
+      "grupo_id": 30
+    },
+    {
+      "id": 240,
+      "codigo": "8WH60000AM00",
+      "grupo_id": 75
+    },
+    {
+      "id": 241,
+      "codigo": "3RT10566AP36",
+      "grupo_id": 17
+    },
+    {
+      "id": 242,
+      "codigo": "8WA1206",
+      "grupo_id": 76
+    },
+    {
+      "id": 243,
+      "codigo": "3RV20111CA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 244,
+      "codigo": "3RT20161AN22",
+      "grupo_id": 17
+    },
+    {
+      "id": 245,
+      "codigo": "3RH21311AN20",
+      "grupo_id": 18
+    },
+    {
+      "id": 246,
+      "codigo": "3RV20114AA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 247,
+      "codigo": "3RU21161HB0",
+      "grupo_id": 24
+    },
+    {
+      "id": 248,
+      "codigo": "3RT20261AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 249,
+      "codigo": "3RT20181AN22",
+      "grupo_id": 17
+    },
+    {
+      "id": 250,
+      "codigo": "3RV29011E",
+      "grupo_id": 22
+    },
+    {
+      "id": 251,
+      "codigo": "3RV20111FA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 252,
+      "codigo": "3RV20111AA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 253,
+      "codigo": "3SU14001AA101CA0",
+      "grupo_id": 12
+    },
+    {
+      "id": 254,
+      "codigo": "3SU19000DY300AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 255,
+      "codigo": "3RT20261AG20",
+      "grupo_id": 17
+    },
+    {
+      "id": 256,
+      "codigo": "3SE50000AV071AK2",
+      "grupo_id": 28
+    },
+    {
+      "id": 257,
+      "codigo": "3RT10541AF36",
+      "grupo_id": 17
+    },
+    {
+      "id": 258,
+      "codigo": "3RV20111BA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 259,
+      "codigo": "3RV20111JA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 260,
+      "codigo": "3RV29255AB",
+      "grupo_id": 22
+    },
+    {
+      "id": 345,
+      "codigo": "3SU19000AD810AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 346,
+      "codigo": "3SE50000AV07",
+      "grupo_id": 28
+    },
+    {
+      "id": 347,
+      "codigo": "1044448",
+      "grupo_id": 104
+    },
+    {
+      "id": 348,
+      "codigo": "1085351",
+      "grupo_id": 125
+    },
+    {
+      "id": 355,
+      "codigo": "3273384",
+      "grupo_id": 117
+    },
+    {
+      "id": 357,
+      "codigo": "3213138",
+      "grupo_id": 73
+    },
+    {
+      "id": 358,
+      "codigo": "3213069",
+      "grupo_id": 73
+    },
+    {
+      "id": 359,
+      "codigo": "3244410",
+      "grupo_id": 76
+    },
+    {
+      "id": 360,
+      "codigo": "3273388",
+      "grupo_id": 117
+    },
+    {
+      "id": 362,
+      "codigo": "3273374",
+      "grupo_id": 117
+    },
+    {
+      "id": 364,
+      "codigo": "1387902",
+      "grupo_id": 97
+    },
+    {
+      "id": 365,
+      "codigo": "2900369",
+      "grupo_id": 35
+    },
+    {
+      "id": 366,
+      "codigo": "1421607",
+      "grupo_id": 93
+    },
+    {
+      "id": 367,
+      "codigo": "1656725",
+      "grupo_id": 93
+    },
+    {
+      "id": 368,
+      "codigo": "1407713",
+      "grupo_id": 120
+    },
+    {
+      "id": 369,
+      "codigo": "2903370",
+      "grupo_id": 35
+    },
+    {
+      "id": 371,
+      "codigo": "1416567",
+      "grupo_id": 94
+    },
+    {
+      "id": 372,
+      "codigo": "1421126",
+      "grupo_id": 93
+    },
+    {
+      "id": 373,
+      "codigo": "2966692",
+      "grupo_id": 36
+    },
+    {
+      "id": 374,
+      "codigo": "2966786",
+      "grupo_id": 36
+    },
+    {
+      "id": 375,
+      "codigo": "1407712",
+      "grupo_id": 120
+    },
+    {
+      "id": 376,
+      "codigo": "3030213",
+      "grupo_id": 73
+    },
+    {
+      "id": 377,
+      "codigo": "3212120",
+      "grupo_id": 76
+    },
+    {
+      "id": 378,
+      "codigo": "3211822",
+      "grupo_id": 74
+    },
+    {
+      "id": 379,
+      "codigo": "3211766",
+      "grupo_id": 74
+    },
+    {
+      "id": 380,
+      "codigo": "3211757",
+      "grupo_id": 76
+    },
+    {
+      "id": 381,
+      "codigo": "2907067",
+      "grupo_id": 58
+    },
+    {
+      "id": 382,
+      "codigo": "2702881",
+      "grupo_id": 92
+    },
+    {
+      "id": 383,
+      "codigo": "1274118",
+      "grupo_id": 58
+    },
+    {
+      "id": 384,
+      "codigo": "1413391",
+      "grupo_id": 120
+    },
+    {
+      "id": 385,
+      "codigo": "1411126",
+      "grupo_id": 99
+    },
+    {
+      "id": 386,
+      "codigo": "1415726",
+      "grupo_id": 106
+    },
+    {
+      "id": 387,
+      "codigo": "1407729",
+      "grupo_id": 120
+    },
+    {
+      "id": 388,
+      "codigo": "1394764",
+      "grupo_id": 50
+    },
+    {
+      "id": 389,
+      "codigo": "3030226",
+      "grupo_id": 73
+    },
+    {
+      "id": 390,
+      "codigo": "3036929",
+      "grupo_id": 73
+    },
+    {
+      "id": 391,
+      "codigo": "2982786",
+      "grupo_id": 35
+    },
+    {
+      "id": 392,
+      "codigo": "1411182",
+      "grupo_id": 99
+    },
+    {
+      "id": 393,
+      "codigo": "2865609",
+      "grupo_id": 116
+    },
+    {
+      "id": 394,
+      "codigo": "2865382",
+      "grupo_id": 116
+    },
+    {
+      "id": 395,
+      "codigo": "1416392",
+      "grupo_id": 94
+    },
+    {
+      "id": 396,
+      "codigo": "1513347",
+      "grupo_id": 107
+    },
+    {
+      "id": 397,
+      "codigo": "3210541",
+      "grupo_id": 74
+    },
+    {
+      "id": 398,
+      "codigo": "3210499",
+      "grupo_id": 76
+    },
+    {
+      "id": 399,
+      "codigo": "2865984",
+      "grupo_id": 116
+    },
+    {
+      "id": 400,
+      "codigo": "1389515",
+      "grupo_id": 97
+    },
+    {
+      "id": 401,
+      "codigo": "2903153",
+      "grupo_id": 50
+    },
+    {
+      "id": 402,
+      "codigo": "1683002",
+      "grupo_id": 106
+    },
+    {
+      "id": 403,
+      "codigo": "1681389",
+      "grupo_id": 106
+    },
+    {
+      "id": 404,
+      "codigo": "1424653",
+      "grupo_id": 107
+    },
+    {
+      "id": 405,
+      "codigo": "1424652",
+      "grupo_id": 107
+    },
+    {
+      "id": 406,
+      "codigo": "3030420",
+      "grupo_id": 72
+    },
+    {
+      "id": 407,
+      "codigo": "3212044",
+      "grupo_id": 72
+    },
+    {
+      "id": 408,
+      "codigo": "3212057",
+      "grupo_id": 72
+    },
+    {
+      "id": 423,
+      "codigo": "2095653",
+      "grupo_id": 106
+    },
+    {
+      "id": 424,
+      "codigo": "2095617",
+      "grupo_id": 106
+    },
+    {
+      "id": 425,
+      "codigo": "1091946",
+      "grupo_id": 27
+    },
+    {
+      "id": 426,
+      "codigo": "5321176",
+      "grupo_id": 28
+    },
+    {
+      "id": 427,
+      "codigo": "5334663",
+      "grupo_id": 28
+    },
+    {
+      "id": 428,
+      "codigo": "6025077",
+      "grupo_id": 27
+    },
+    {
+      "id": 429,
+      "codigo": "5311138",
+      "grupo_id": 29
+    },
+    {
+      "id": 430,
+      "codigo": "2093097",
+      "grupo_id": 124
+    },
+    {
+      "id": 431,
+      "codigo": "2076832",
+      "grupo_id": 124
+    },
+    {
+      "id": 432,
+      "codigo": "2066614",
+      "grupo_id": 124
+    },
+    {
+      "id": 433,
+      "codigo": "1220126",
+      "grupo_id": 123
+    },
+    {
+      "id": 434,
+      "codigo": "1220140",
+      "grupo_id": 123
+    },
+    {
+      "id": 435,
+      "codigo": "6037496",
+      "grupo_id": 103
+    },
+    {
+      "id": 436,
+      "codigo": "1003865",
+      "grupo_id": 108
+    },
+    {
+      "id": 437,
+      "codigo": "1057091",
+      "grupo_id": 109
+    },
+    {
+      "id": 438,
+      "codigo": "6053354",
+      "grupo_id": 109
+    },
+    {
+      "id": 439,
+      "codigo": "1036721",
+      "grupo_id": 114
+    },
+    {
+      "id": 440,
+      "codigo": "2096236",
+      "grupo_id": 106
+    },
+    {
+      "id": 441,
+      "codigo": "2095619",
+      "grupo_id": 106
+    },
+    {
+      "id": 442,
+      "codigo": "1041412",
+      "grupo_id": 103
+    },
+    {
+      "id": 447,
+      "codigo": "LZS:PT17040",
+      "grupo_id": 36
+    },
+    {
+      "id": 464,
+      "codigo": "3212138",
+      "grupo_id": 76
+    },
+    {
+      "id": 465,
+      "codigo": "828734",
+      "grupo_id": 100
+    },
+    {
+      "id": 466,
+      "codigo": "828736",
+      "grupo_id": 100
+    },
+    {
+      "id": 467,
+      "codigo": "828740",
+      "grupo_id": 100
+    },
+    {
+      "id": 468,
+      "codigo": "828803",
+      "grupo_id": 100
+    },
+    {
+      "id": 469,
+      "codigo": "828767",
+      "grupo_id": 100
+    },
+    {
+      "id": 470,
+      "codigo": "1013025",
+      "grupo_id": 100
+    },
+    {
+      "id": 471,
+      "codigo": "1013038",
+      "grupo_id": 100
+    },
+    {
+      "id": 472,
+      "codigo": "1013041",
+      "grupo_id": 100
+    },
+    {
+      "id": 473,
+      "codigo": "3211813",
+      "grupo_id": 76
+    },
+    {
+      "id": 474,
+      "codigo": "3212131",
+      "grupo_id": 74
+    },
+    {
+      "id": 475,
+      "codigo": "3212147",
+      "grupo_id": 74
+    },
+    {
+      "id": 476,
+      "codigo": "3212060",
+      "grupo_id": 72
+    },
+    {
+      "id": 477,
+      "codigo": "1424657",
+      "grupo_id": 107
+    },
+    {
+      "id": 478,
+      "codigo": "1446333",
+      "grupo_id": 106
+    },
+    {
+      "id": 479,
+      "codigo": "1415608",
+      "grupo_id": 106
+    },
+    {
+      "id": 550,
+      "codigo": "3829",
+      "grupo_id": 138
+    },
+    {
+      "id": 579,
+      "codigo": "54028026583",
+      "grupo_id": 138
+    },
+    {
+      "id": 583,
+      "codigo": "ZBPA",
+      "grupo_id": 14
+    },
+    {
+      "id": 584,
+      "codigo": "ZB5AZ105",
+      "grupo_id": 14
+    },
+    {
+      "id": 585,
+      "codigo": "ZBE102",
+      "grupo_id": 12
+    },
+    {
+      "id": 586,
+      "codigo": "ZBE101",
+      "grupo_id": 12
+    },
+    {
+      "id": 587,
+      "codigo": "XB5AA41",
+      "grupo_id": 6
+    },
+    {
+      "id": 588,
+      "codigo": "XB5AA21",
+      "grupo_id": 6
+    },
+    {
+      "id": 589,
+      "codigo": "XB5AA31",
+      "grupo_id": 6
+    },
+    {
+      "id": 590,
+      "codigo": "XB5AA51",
+      "grupo_id": 6
+    },
+    {
+      "id": 591,
+      "codigo": "ZB5AW7A3741",
+      "grupo_id": 14
+    },
+    {
+      "id": 593,
+      "codigo": "XB5AS8444",
+      "grupo_id": 7
+    },
+    {
+      "id": 596,
+      "codigo": "XB5AW36B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 597,
+      "codigo": "ZBZ1605",
+      "grupo_id": 14
+    },
+    {
+      "id": 598,
+      "codigo": "XVGB3S",
+      "grupo_id": 15
+    },
+    {
+      "id": 603,
+      "codigo": "ZB5AW0B15",
+      "grupo_id": 14
+    },
+    {
+      "id": 605,
+      "codigo": "ZBA708",
+      "grupo_id": 14
+    },
+    {
+      "id": 606,
+      "codigo": "XVGB1A",
+      "grupo_id": 11
+    },
+    {
+      "id": 607,
+      "codigo": "XB5FJ53",
+      "grupo_id": 9
+    },
+    {
+      "id": 608,
+      "codigo": "XB5KS2M4",
+      "grupo_id": 11
+    },
+    {
+      "id": 609,
+      "codigo": "XVGB1SA",
+      "grupo_id": 11
+    },
+    {
+      "id": 612,
+      "codigo": "XVGB3",
+      "grupo_id": 11
+    },
+    {
+      "id": 614,
+      "codigo": "XB4BS8444",
+      "grupo_id": 7
+    },
+    {
+      "id": 615,
+      "codigo": "XB4BW33B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 616,
+      "codigo": "XB4BW34B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 617,
+      "codigo": "XB4BW73731B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 618,
+      "codigo": "ZBA710",
+      "grupo_id": 14
+    },
+    {
+      "id": 621,
+      "codigo": "XB4BW36B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 625,
+      "codigo": "XB5AW34B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 626,
+      "codigo": "XB5AW33B3",
+      "grupo_id": 6
+    },
+    {
+      "id": 629,
+      "codigo": "ATV12H037M2",
+      "grupo_id": 49
+    },
+    {
+      "id": 630,
+      "codigo": "ATV12HU15M2",
+      "grupo_id": 49
+    },
+    {
+      "id": 631,
+      "codigo": "ATV12H075M2",
+      "grupo_id": 49
+    },
+    {
+      "id": 632,
+      "codigo": "XB5AA45",
+      "grupo_id": 6
+    },
+    {
+      "id": 633,
+      "codigo": "XB5AW33B5",
+      "grupo_id": 6
+    },
+    {
+      "id": 634,
+      "codigo": "ZBVB1",
+      "grupo_id": 13
+    },
+    {
+      "id": 635,
+      "codigo": "EZC100H2025",
+      "grupo_id": 1
+    },
+    {
+      "id": 636,
+      "codigo": "A9F74210",
+      "grupo_id": 3
+    },
+    {
+      "id": 638,
+      "codigo": "C11N3TM025L",
+      "grupo_id": 1
+    },
+    {
+      "id": 641,
+      "codigo": "ATV320U55M3C",
+      "grupo_id": 49
+    },
+    {
+      "id": 645,
+      "codigo": "XB5AS84462",
+      "grupo_id": 7
+    },
+    {
+      "id": 652,
+      "codigo": "8900026465",
+      "grupo_id": 138
+    },
+    {
+      "id": 686,
+      "codigo": "3UG56161CR20",
+      "grupo_id": 45
+    },
+    {
+      "id": 687,
+      "codigo": "3LD34540TK53",
+      "grupo_id": 38
+    },
+    {
+      "id": 688,
+      "codigo": "5SL13507MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 689,
+      "codigo": "5SL12047MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 690,
+      "codigo": "5SL12256MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 691,
+      "codigo": "5SL33407MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 692,
+      "codigo": "3RT20281BB40",
+      "grupo_id": 17
+    },
+    {
+      "id": 693,
+      "codigo": "3RT20271BB40",
+      "grupo_id": 17
+    },
+    {
+      "id": 694,
+      "codigo": "5ST2502",
+      "grupo_id": 4
+    },
+    {
+      "id": 704,
+      "codigo": "27538",
+      "grupo_id": 165
+    },
+    {
+      "id": 705,
+      "codigo": "27536",
+      "grupo_id": 165
+    },
+    {
+      "id": 719,
+      "codigo": "5SL13407MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 720,
+      "codigo": "3VM10633ED320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 721,
+      "codigo": "5SL11256MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 722,
+      "codigo": "5SL11106MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 723,
+      "codigo": "5SL11207MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 724,
+      "codigo": "5SL13327MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 725,
+      "codigo": "A7B10001315425",
+      "grupo_id": 38
+    },
+    {
+      "id": 726,
+      "codigo": "5SL13107MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 727,
+      "codigo": "6ES71936AF000AA0",
+      "grupo_id": 66
+    },
+    {
+      "id": 728,
+      "codigo": "6ES71326BH010BA0",
+      "grupo_id": 59
+    },
+    {
+      "id": 729,
+      "codigo": "6ES71366BA010CA0",
+      "grupo_id": 61
+    },
+    {
+      "id": 730,
+      "codigo": "6ES71366DC000CA0",
+      "grupo_id": 61
+    },
+    {
+      "id": 731,
+      "codigo": "6ES71346HD010BA1",
+      "grupo_id": 60
+    },
+    {
+      "id": 732,
+      "codigo": "6ES71936BP000BA0",
+      "grupo_id": 67
+    },
+    {
+      "id": 733,
+      "codigo": "3VM12165MH320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 734,
+      "codigo": "3VA96870FK25",
+      "grupo_id": 2
+    },
+    {
+      "id": 735,
+      "codigo": "3RA19211DA00",
+      "grupo_id": 23
+    },
+    {
+      "id": 736,
+      "codigo": "5SL13167MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 737,
+      "codigo": "5SV46420",
+      "grupo_id": 42
+    },
+    {
+      "id": 738,
+      "codigo": "5SV53120MB",
+      "grupo_id": 42
+    },
+    {
+      "id": 739,
+      "codigo": "3RT20451AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 740,
+      "codigo": "3RT20351AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 741,
+      "codigo": "3RT20151BB41",
+      "grupo_id": 17
+    },
+    {
+      "id": 742,
+      "codigo": "3RV20111HA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 743,
+      "codigo": "5SL11027MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 744,
+      "codigo": "5SV53440MB",
+      "grupo_id": 42
+    },
+    {
+      "id": 745,
+      "codigo": "5SV53420MB",
+      "grupo_id": 42
+    },
+    {
+      "id": 746,
+      "codigo": "5SL13807MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 747,
+      "codigo": "5SL13067MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 748,
+      "codigo": "3RT19564G",
+      "grupo_id": 19
+    },
+    {
+      "id": 749,
+      "codigo": "3RV20214PA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 750,
+      "codigo": "5SL12067MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 751,
+      "codigo": "3RT20282AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 752,
+      "codigo": "3RV20214NA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 753,
+      "codigo": "3RU21261KB0",
+      "grupo_id": 24
+    },
+    {
+      "id": 754,
+      "codigo": "3RT20152AN22",
+      "grupo_id": 17
+    },
+    {
+      "id": 755,
+      "codigo": "5SL13207MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 756,
+      "codigo": "3SK21221AA10",
+      "grupo_id": 30
+    },
+    {
+      "id": 757,
+      "codigo": "5SL13637MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 758,
+      "codigo": "3RT20361AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 759,
+      "codigo": "3RH21221AN20",
+      "grupo_id": 18
+    },
+    {
+      "id": 760,
+      "codigo": "3RT20281AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 761,
+      "codigo": "3RT20271AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 762,
+      "codigo": "3RT20251AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 763,
+      "codigo": "3RT20161AN21",
+      "grupo_id": 17
+    },
+    {
+      "id": 764,
+      "codigo": "A7B10001295801",
+      "grupo_id": 71
+    },
+    {
+      "id": 765,
+      "codigo": "3RV20111EA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 766,
+      "codigo": "3RU21264AB0",
+      "grupo_id": 24
+    },
+    {
+      "id": 767,
+      "codigo": "3RU21160JB0",
+      "grupo_id": 24
+    },
+    {
+      "id": 768,
+      "codigo": "A7B10000050523",
+      "grupo_id": 38
+    },
+    {
+      "id": 769,
+      "codigo": "A7B10001339607",
+      "grupo_id": 45
+    },
+    {
+      "id": 770,
+      "codigo": "5SL13707MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 771,
+      "codigo": "3RV20314UA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 772,
+      "codigo": "3RT20353AK60",
+      "grupo_id": 17
+    },
+    {
+      "id": 773,
+      "codigo": "3RT20261AK60",
+      "grupo_id": 17
+    },
+    {
+      "id": 774,
+      "codigo": "5SL12066MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 775,
+      "codigo": "3RT20463AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 776,
+      "codigo": "3RA29211BA00",
+      "grupo_id": 23
+    },
+    {
+      "id": 777,
+      "codigo": "3RT20261AN10",
+      "grupo_id": 17
+    },
+    {
+      "id": 778,
+      "codigo": "3RV20111GA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 779,
+      "codigo": "3RT20152BB41",
+      "grupo_id": 17
+    },
+    {
+      "id": 780,
+      "codigo": "3RV29275AA00",
+      "grupo_id": 22
+    },
+    {
+      "id": 781,
+      "codigo": "3RA29112AA00",
+      "grupo_id": 23
+    },
+    {
+      "id": 782,
+      "codigo": "3RV29174A",
+      "grupo_id": 22
+    },
+    {
+      "id": 783,
+      "codigo": "3RV29174B",
+      "grupo_id": 22
+    },
+    {
+      "id": 784,
+      "codigo": "3RV29171A",
+      "grupo_id": 22
+    },
+    {
+      "id": 785,
+      "codigo": "3SB68110AA200BA0",
+      "grupo_id": 10
+    },
+    {
+      "id": 786,
+      "codigo": "3SB78120AA100BA0",
+      "grupo_id": 10
+    },
+    {
+      "id": 787,
+      "codigo": "3RT20351AG20",
+      "grupo_id": 17
+    },
+    {
+      "id": 788,
+      "codigo": "3RH21221AF00",
+      "grupo_id": 18
+    },
+    {
+      "id": 789,
+      "codigo": "3RA29232AA1",
+      "grupo_id": 23
+    },
+    {
+      "id": 790,
+      "codigo": "3RT20251BB40",
+      "grupo_id": 17
+    },
+    {
+      "id": 791,
+      "codigo": "3RT25361AK60",
+      "grupo_id": 17
+    },
+    {
+      "id": 792,
+      "codigo": "3RT20281AG20",
+      "grupo_id": 17
+    },
+    {
+      "id": 793,
+      "codigo": "3RT20371AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 794,
+      "codigo": "3RV20214EA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 795,
+      "codigo": "3RT20182AN22",
+      "grupo_id": 17
+    },
+    {
+      "id": 796,
+      "codigo": "3RU21161CC0",
+      "grupo_id": 24
+    },
+    {
+      "id": 797,
+      "codigo": "3RU21261JC0",
+      "grupo_id": 24
+    },
+    {
+      "id": 798,
+      "codigo": "3RV20111BA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 799,
+      "codigo": "3RV29012E",
+      "grupo_id": 22
+    },
+    {
+      "id": 800,
+      "codigo": "LZS:PT5A5L24",
+      "grupo_id": 35
+    },
+    {
+      "id": 801,
+      "codigo": "3RT20171AB01",
+      "grupo_id": 17
+    },
+    {
+      "id": 802,
+      "codigo": "3RV19151AB",
+      "grupo_id": 22
+    },
+    {
+      "id": 803,
+      "codigo": "A7B10001328580",
+      "grupo_id": 77
+    },
+    {
+      "id": 804,
+      "codigo": "3RT20261AC20",
+      "grupo_id": 17
+    },
+    {
+      "id": 805,
+      "codigo": "3RW30271BB14",
+      "grupo_id": 43
+    },
+    {
+      "id": 806,
+      "codigo": "3RV19151CB",
+      "grupo_id": 22
+    },
+    {
+      "id": 807,
+      "codigo": "3RT10566AF36",
+      "grupo_id": 17
+    },
+    {
+      "id": 808,
+      "codigo": "3RT20181AB01",
+      "grupo_id": 17
+    },
+    {
+      "id": 809,
+      "codigo": "3RV20111GA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 810,
+      "codigo": "3RV19151BB",
+      "grupo_id": 22
+    },
+    {
+      "id": 811,
+      "codigo": "A7B10001328579",
+      "grupo_id": 77
+    },
+    {
+      "id": 812,
+      "codigo": "3RT20231AC20",
+      "grupo_id": 17
+    },
+    {
+      "id": 813,
+      "codigo": "3RT20383AC20",
+      "grupo_id": 17
+    },
+    {
+      "id": 814,
+      "codigo": "3RV20111DA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 815,
+      "codigo": "3VM10102ED320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 816,
+      "codigo": "5SV43470MB",
+      "grupo_id": 42
+    },
+    {
+      "id": 817,
+      "codigo": "3VT91003HC10",
+      "grupo_id": 2
+    },
+    {
+      "id": 818,
+      "codigo": "A7B10000046692",
+      "grupo_id": 17
+    },
+    {
+      "id": 819,
+      "codigo": "5SL11637MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 820,
+      "codigo": "3RH29112FA40",
+      "grupo_id": 19
+    },
+    {
+      "id": 821,
+      "codigo": "3RQ31182AM00",
+      "grupo_id": 35
+    },
+    {
+      "id": 822,
+      "codigo": "3RT20152BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 823,
+      "codigo": "3RT20162BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 824,
+      "codigo": "3RQ39010D",
+      "grupo_id": 36
+    },
+    {
+      "id": 825,
+      "codigo": "3SB62166AA601AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 826,
+      "codigo": "3RT20182BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 827,
+      "codigo": "3SU11020AB301BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 828,
+      "codigo": "3SU11020AB501BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 829,
+      "codigo": "3SU11020AB401BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 830,
+      "codigo": "3SU10001HB200AA0",
+      "grupo_id": 7
+    },
+    {
+      "id": 831,
+      "codigo": "6ES72141AG400XB0",
+      "grupo_id": 55
+    },
+    {
+      "id": 832,
+      "codigo": "6ES72231BL320XB0",
+      "grupo_id": 52
+    },
+    {
+      "id": 833,
+      "codigo": "5SL13047MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 834,
+      "codigo": "3SU10011HB200AA0",
+      "grupo_id": 7
+    },
+    {
+      "id": 863,
+      "codigo": "6022880",
+      "grupo_id": 126
+    },
+    {
+      "id": 894,
+      "codigo": "3212064",
+      "grupo_id": 76
+    },
+    {
+      "id": 895,
+      "codigo": "3212066",
+      "grupo_id": 74
+    },
+    {
+      "id": 897,
+      "codigo": "12381180",
+      "grupo_id": 30
+    },
+    {
+      "id": 912,
+      "codigo": "6ES72315PA300XB0",
+      "grupo_id": 57
+    },
+    {
+      "id": 913,
+      "codigo": "6ES72324HB320XB0",
+      "grupo_id": 57
+    },
+    {
+      "id": 914,
+      "codigo": "6ES72221BD300XB0",
+      "grupo_id": 56
+    },
+    {
+      "id": 915,
+      "codigo": "6ES72213BD300XB0",
+      "grupo_id": 53
+    },
+    {
+      "id": 916,
+      "codigo": "5ST3768",
+      "grupo_id": 4
+    },
+    {
+      "id": 917,
+      "codigo": "5ST2504",
+      "grupo_id": 4
+    },
+    {
+      "id": 918,
+      "codigo": "5ST37400MB",
+      "grupo_id": 4
+    },
+    {
+      "id": 919,
+      "codigo": "5ST37683",
+      "grupo_id": 4
+    },
+    {
+      "id": 920,
+      "codigo": "5ST37684",
+      "grupo_id": 4
+    },
+    {
+      "id": 921,
+      "codigo": "5ST37685",
+      "grupo_id": 4
+    },
+    {
+      "id": 922,
+      "codigo": "6EP33323SB000AX0",
+      "grupo_id": 50
+    },
+    {
+      "id": 923,
+      "codigo": "6EP33333SB000AX0",
+      "grupo_id": 50
+    },
+    {
+      "id": 924,
+      "codigo": "6EP33343SB000AX0",
+      "grupo_id": 50
+    },
+    {
+      "id": 925,
+      "codigo": "6EP33363SB000AX0",
+      "grupo_id": 50
+    },
+    {
+      "id": 926,
+      "codigo": "6EP34343SB000AX0",
+      "grupo_id": 50
+    },
+    {
+      "id": 927,
+      "codigo": "3RA29132AA1",
+      "grupo_id": 23
+    },
+    {
+      "id": 928,
+      "codigo": "3RA29132AA2",
+      "grupo_id": 23
+    },
+    {
+      "id": 931,
+      "codigo": "6ES72111AE400XB0",
+      "grupo_id": 55
+    },
+    {
+      "id": 932,
+      "codigo": "A7B10001328490",
+      "grupo_id": 77
+    },
+    {
+      "id": 933,
+      "codigo": "3RW59500CH00",
+      "grupo_id": 44
+    },
+    {
+      "id": 934,
+      "codigo": "A7B10001315428",
+      "grupo_id": 38
+    },
+    {
+      "id": 935,
+      "codigo": "3VM10632ED320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 936,
+      "codigo": "3RV20110JA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 937,
+      "codigo": "3VA91570PK15",
+      "grupo_id": 2
+    },
+    {
+      "id": 938,
+      "codigo": "3RW55253HA14",
+      "grupo_id": 43
+    },
+    {
+      "id": 939,
+      "codigo": "A7B10001328574",
+      "grupo_id": 77
+    },
+    {
+      "id": 940,
+      "codigo": "A7B10001328576",
+      "grupo_id": 77
+    },
+    {
+      "id": 941,
+      "codigo": "A7B10001315424",
+      "grupo_id": 38
+    },
+    {
+      "id": 942,
+      "codigo": "3VT91004PP30",
+      "grupo_id": 2
+    },
+    {
+      "id": 943,
+      "codigo": "3NP11331CA10",
+      "grupo_id": 82
+    },
+    {
+      "id": 944,
+      "codigo": "8WH60000AF00",
+      "grupo_id": 75
+    },
+    {
+      "id": 945,
+      "codigo": "A7B10000050521",
+      "grupo_id": 38
+    },
+    {
+      "id": 946,
+      "codigo": "5SL32257MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 947,
+      "codigo": "A7B10000050536",
+      "grupo_id": 39
+    },
+    {
+      "id": 948,
+      "codigo": "A7B10001315426",
+      "grupo_id": 38
+    },
+    {
+      "id": 949,
+      "codigo": "14256868",
+      "grupo_id": 1
+    },
+    {
+      "id": 950,
+      "codigo": "3SB62136AA201AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 951,
+      "codigo": "A7B10000046843",
+      "grupo_id": 17
+    },
+    {
+      "id": 952,
+      "codigo": "A7B10000050382",
+      "grupo_id": 77
+    },
+    {
+      "id": 953,
+      "codigo": "3RV10111BA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 954,
+      "codigo": "3RV10111EA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 955,
+      "codigo": "3RV19011E",
+      "grupo_id": 22
+    },
+    {
+      "id": 956,
+      "codigo": "3RV19155A",
+      "grupo_id": 22
+    },
+    {
+      "id": 957,
+      "codigo": "3RA19111AA00",
+      "grupo_id": 23
+    },
+    {
+      "id": 958,
+      "codigo": "A7B10000050519",
+      "grupo_id": 38
+    },
+    {
+      "id": 959,
+      "codigo": "A7B10000050535",
+      "grupo_id": 39
+    },
+    {
+      "id": 960,
+      "codigo": "3VT27252AA360AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 961,
+      "codigo": "3VT92256AB00",
+      "grupo_id": 2
+    },
+    {
+      "id": 962,
+      "codigo": "3VT92003HA10",
+      "grupo_id": 2
+    },
+    {
+      "id": 963,
+      "codigo": "3VT93003HF20",
+      "grupo_id": 2
+    },
+    {
+      "id": 964,
+      "codigo": "3VT93003HG20",
+      "grupo_id": 2
+    },
+    {
+      "id": 965,
+      "codigo": "A7B10000046691",
+      "grupo_id": 17
+    },
+    {
+      "id": 966,
+      "codigo": "3RT19464EA2",
+      "grupo_id": 19
+    },
+    {
+      "id": 967,
+      "codigo": "3SU10501HB100AA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 968,
+      "codigo": "3SU10013AB420AK0",
+      "grupo_id": 6
+    },
+    {
+      "id": 969,
+      "codigo": "3SU14011BB201AA0",
+      "grupo_id": 13
+    },
+    {
+      "id": 970,
+      "codigo": "14256843",
+      "grupo_id": 1
+    },
+    {
+      "id": 971,
+      "codigo": "3SU19000AC810AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 972,
+      "codigo": "14256839",
+      "grupo_id": 1
+    },
+    {
+      "id": 973,
+      "codigo": "3RA29261A",
+      "grupo_id": 23
+    },
+    {
+      "id": 974,
+      "codigo": "14256832",
+      "grupo_id": 1
+    },
+    {
+      "id": 975,
+      "codigo": "6SL32105BB211UV1",
+      "grupo_id": 49
+    },
+    {
+      "id": 976,
+      "codigo": "A7B10000050520",
+      "grupo_id": 38
+    },
+    {
+      "id": 977,
+      "codigo": "8WH60000AG00",
+      "grupo_id": 75
+    },
+    {
+      "id": 978,
+      "codigo": "8WH90031GA00",
+      "grupo_id": 72
+    },
+    {
+      "id": 979,
+      "codigo": "6ED10551CB100BA2",
+      "grupo_id": 86
+    },
+    {
+      "id": 1002,
+      "codigo": "3RA29161A",
+      "grupo_id": 23
+    },
+    {
+      "id": 1003,
+      "codigo": "3RA29212AA00",
+      "grupo_id": 23
+    },
+    {
+      "id": 1028,
+      "codigo": "5SL12807MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1030,
+      "codigo": "5SL12637MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1031,
+      "codigo": "5SL12407MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1032,
+      "codigo": "5SL12257MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1033,
+      "codigo": "5SL12207MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1034,
+      "codigo": "5SL12167MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1035,
+      "codigo": "5SL11066MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1036,
+      "codigo": "5SL11257MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1037,
+      "codigo": "5SL11407MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1038,
+      "codigo": "5SL11507MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1039,
+      "codigo": "5SL11807MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1040,
+      "codigo": "5SL12027MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1048,
+      "codigo": "3RH19211CA01",
+      "grupo_id": 19
+    },
+    {
+      "id": 1080,
+      "codigo": "5SL11327MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1086,
+      "codigo": "5SL32507MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1087,
+      "codigo": "5SL12327MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 1088,
+      "codigo": "6SL32550AA004CA1",
+      "grupo_id": 54
+    },
+    {
+      "id": 1089,
+      "codigo": "3RV20214EA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 1091,
+      "codigo": "6ES71356HD000BA1",
+      "grupo_id": 60
+    },
+    {
+      "id": 1092,
+      "codigo": "6ED10554MH080BA1",
+      "grupo_id": 88
+    },
+    {
+      "id": 1093,
+      "codigo": "6ED10521MD080BA1",
+      "grupo_id": 87
+    },
+    {
+      "id": 1094,
+      "codigo": "6ES72141AF400XB0",
+      "grupo_id": 55
+    },
+    {
+      "id": 1095,
+      "codigo": "6ES71556AU020BN0",
+      "grupo_id": 64
+    },
+    {
+      "id": 1096,
+      "codigo": "6ES72266DA320XB0",
+      "grupo_id": 62
+    },
+    {
+      "id": 1097,
+      "codigo": "3SK11111AB30",
+      "grupo_id": 30
+    },
+    {
+      "id": 1098,
+      "codigo": "3SK12111BB00",
+      "grupo_id": 31
+    },
+    {
+      "id": 1100,
+      "codigo": "17540474",
+      "grupo_id": 50
+    },
+    {
+      "id": 1101,
+      "codigo": "10233130",
+      "grupo_id": 43
+    },
+    {
+      "id": 1102,
+      "codigo": "12428110",
+      "grupo_id": 21
+    },
+    {
+      "id": 1103,
+      "codigo": "12428117",
+      "grupo_id": 21
+    },
+    {
+      "id": 1104,
+      "codigo": "12428128",
+      "grupo_id": 21
+    },
+    {
+      "id": 1105,
+      "codigo": "12428129",
+      "grupo_id": 21
+    },
+    {
+      "id": 1106,
+      "codigo": "12428131",
+      "grupo_id": 21
+    },
+    {
+      "id": 1107,
+      "codigo": "12240801",
+      "grupo_id": 17
+    },
+    {
+      "id": 1108,
+      "codigo": "12542266",
+      "grupo_id": 17
+    },
+    {
+      "id": 1109,
+      "codigo": "10194172",
+      "grupo_id": 43
+    },
+    {
+      "id": 1110,
+      "codigo": "13108206",
+      "grupo_id": 50
+    },
+    {
+      "id": 1111,
+      "codigo": "15560296",
+      "grupo_id": 32
+    },
+    {
+      "id": 1114,
+      "codigo": "18840981",
+      "grupo_id": 38
+    },
+    {
+      "id": 1115,
+      "codigo": "10076389",
+      "grupo_id": 3
+    },
+    {
+      "id": 1116,
+      "codigo": "12381180-DUP1116",
+      "grupo_id": 30
+    },
+    {
+      "id": 1117,
+      "codigo": "3RT20231AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 1118,
+      "codigo": "3RT20181BB42",
+      "grupo_id": 17
+    },
+    {
+      "id": 1124,
+      "codigo": "6026216",
+      "grupo_id": 103
+    },
+    {
+      "id": 1125,
+      "codigo": "3RV29175AA00",
+      "grupo_id": 22
+    },
+    {
+      "id": 1129,
+      "codigo": "3RT20281AK60",
+      "grupo_id": 17
+    },
+    {
+      "id": 1135,
+      "codigo": "54034086583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1137,
+      "codigo": "54034088583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1138,
+      "codigo": "54034087583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1143,
+      "codigo": "54034089583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1172,
+      "codigo": "4152",
+      "grupo_id": 138
+    },
+    {
+      "id": 1205,
+      "codigo": "3VM91170FK21",
+      "grupo_id": 2
+    },
+    {
+      "id": 1206,
+      "codigo": "3VM91130QE00",
+      "grupo_id": 2
+    },
+    {
+      "id": 1342,
+      "codigo": "8900026465-DUP1342",
+      "grupo_id": 138
+    },
+    {
+      "id": 1394,
+      "codigo": "18772462",
+      "grupo_id": 123
+    },
+    {
+      "id": 1395,
+      "codigo": "18772436",
+      "grupo_id": 123
+    },
+    {
+      "id": 1396,
+      "codigo": "13108203",
+      "grupo_id": 50
+    },
+    {
+      "id": 1397,
+      "codigo": "12542197",
+      "grupo_id": 17
+    },
+    {
+      "id": 1398,
+      "codigo": "12240635",
+      "grupo_id": 17
+    },
+    {
+      "id": 1399,
+      "codigo": "3RH29111FA04",
+      "grupo_id": 19
+    },
+    {
+      "id": 1400,
+      "codigo": "3SU19000DG700AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 1401,
+      "codigo": "3SU11020AB601BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 1422,
+      "codigo": "1418",
+      "grupo_id": 138
+    },
+    {
+      "id": 1428,
+      "codigo": "1036721-DUP1428",
+      "grupo_id": 114
+    },
+    {
+      "id": 1429,
+      "codigo": "2096236-DUP1429",
+      "grupo_id": 106
+    },
+    {
+      "id": 1430,
+      "codigo": "2095619-DUP1430",
+      "grupo_id": 106
+    },
+    {
+      "id": 1431,
+      "codigo": "2095617-DUP1431",
+      "grupo_id": 106
+    },
+    {
+      "id": 1432,
+      "codigo": "2095653-DUP1432",
+      "grupo_id": 106
+    },
+    {
+      "id": 1461,
+      "codigo": "54034059583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1466,
+      "codigo": "BQCTA40-1X5MB",
+      "grupo_id": 160
+    },
+    {
+      "id": 1467,
+      "codigo": "BQEMA40-1CLB",
+      "grupo_id": 159
+    },
+    {
+      "id": 1510,
+      "codigo": "FD2084",
+      "grupo_id": 27
+    },
+    {
+      "id": 1512,
+      "codigo": "NSE3ZZ1SQKF40",
+      "grupo_id": 27
+    },
+    {
+      "id": 1515,
+      "codigo": "VNNSF40",
+      "grupo_id": 28
+    },
+    {
+      "id": 1526,
+      "codigo": "10194175",
+      "grupo_id": 43
+    },
+    {
+      "id": 1527,
+      "codigo": "15575568",
+      "grupo_id": 49
+    },
+    {
+      "id": 1530,
+      "codigo": "54034017583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1532,
+      "codigo": "54034016583",
+      "grupo_id": 138
+    },
+    {
+      "id": 1533,
+      "codigo": "54028077483",
+      "grupo_id": 138
+    },
+    {
+      "id": 1539,
+      "codigo": "3RT20182AF02",
+      "grupo_id": 17
+    },
+    {
+      "id": 1540,
+      "codigo": "3RT20152AF02",
+      "grupo_id": 17
+    },
+    {
+      "id": 1541,
+      "codigo": "3RV20111KA20",
+      "grupo_id": 21
+    },
+    {
+      "id": 1542,
+      "codigo": "3RV29277AA00",
+      "grupo_id": 22
+    },
+    {
+      "id": 1547,
+      "codigo": "3RV29177AA00",
+      "grupo_id": 22
+    },
+    {
+      "id": 1549,
+      "codigo": "3SX56012GA10",
+      "grupo_id": 29
+    },
+    {
+      "id": 1550,
+      "codigo": "10076381",
+      "grupo_id": 3
+    },
+    {
+      "id": 1551,
+      "codigo": "10076441",
+      "grupo_id": 3
+    },
+    {
+      "id": 1565,
+      "codigo": "10076405",
+      "grupo_id": 3
+    },
+    {
+      "id": 1566,
+      "codigo": "10076397",
+      "grupo_id": 3
+    },
+    {
+      "id": 1567,
+      "codigo": "10076413",
+      "grupo_id": 3
+    },
+    {
+      "id": 1568,
+      "codigo": "10076461",
+      "grupo_id": 3
+    },
+    {
+      "id": 1573,
+      "codigo": "10076421",
+      "grupo_id": 3
+    },
+    {
+      "id": 1575,
+      "codigo": "10076429",
+      "grupo_id": 3
+    },
+    {
+      "id": 1576,
+      "codigo": "10076465",
+      "grupo_id": 3
+    },
+    {
+      "id": 1577,
+      "codigo": "10076425",
+      "grupo_id": 3
+    },
+    {
+      "id": 1578,
+      "codigo": "A7B10000050714",
+      "grupo_id": 76
+    },
+    {
+      "id": 1579,
+      "codigo": "A7B10000050695",
+      "grupo_id": 76
+    },
+    {
+      "id": 1580,
+      "codigo": "A7B10000050705",
+      "grupo_id": 74
+    },
+    {
+      "id": 1581,
+      "codigo": "A7B10000050703",
+      "grupo_id": 74
+    },
+    {
+      "id": 1582,
+      "codigo": "A7B10000050693",
+      "grupo_id": 76
+    },
+    {
+      "id": 1583,
+      "codigo": "8WA1897",
+      "grupo_id": 73
+    },
+    {
+      "id": 1584,
+      "codigo": "A7B10000050721",
+      "grupo_id": 73
+    },
+    {
+      "id": 1585,
+      "codigo": "8WA1896",
+      "grupo_id": 73
+    },
+    {
+      "id": 1586,
+      "codigo": "8WA1895",
+      "grupo_id": 73
+    },
+    {
+      "id": 1587,
+      "codigo": "A7B10000050722",
+      "grupo_id": 73
+    },
+    {
+      "id": 1588,
+      "codigo": "8WA1838",
+      "grupo_id": 73
+    },
+    {
+      "id": 1589,
+      "codigo": "3RT20271AK60",
+      "grupo_id": 17
+    },
+    {
+      "id": 1590,
+      "codigo": "3RT20361AK60",
+      "grupo_id": 17
+    },
+    {
+      "id": 1596,
+      "codigo": "10076407",
+      "grupo_id": 3
+    },
+    {
+      "id": 1597,
+      "codigo": "14256833",
+      "grupo_id": 1
+    },
+    {
+      "id": 1598,
+      "codigo": "10075739",
+      "grupo_id": 3
+    },
+    {
+      "id": 1599,
+      "codigo": "11134791",
+      "grupo_id": 3
+    },
+    {
+      "id": 1600,
+      "codigo": "10076445",
+      "grupo_id": 3
+    },
+    {
+      "id": 1601,
+      "codigo": "10076437",
+      "grupo_id": 3
+    },
+    {
+      "id": 1602,
+      "codigo": "10076391",
+      "grupo_id": 3
+    },
+    {
+      "id": 1603,
+      "codigo": "10076417",
+      "grupo_id": 3
+    },
+    {
+      "id": 1604,
+      "codigo": "10076401",
+      "grupo_id": 3
+    },
+    {
+      "id": 1605,
+      "codigo": "10076457",
+      "grupo_id": 3
+    },
+    {
+      "id": 1608,
+      "codigo": "10076453",
+      "grupo_id": 3
+    },
+    {
+      "id": 1609,
+      "codigo": "10076399",
+      "grupo_id": 3
+    },
+    {
+      "id": 1610,
+      "codigo": "10076433",
+      "grupo_id": 3
+    },
+    {
+      "id": 1611,
+      "codigo": "10076415",
+      "grupo_id": 3
+    },
+    {
+      "id": 1615,
+      "codigo": "8WH90001GA00",
+      "grupo_id": 72
+    },
+    {
+      "id": 1616,
+      "codigo": "8WH60000CF07",
+      "grupo_id": 74
+    },
+    {
+      "id": 1617,
+      "codigo": "3RQ30521SM30",
+      "grupo_id": 35
+    },
+    {
+      "id": 1618,
+      "codigo": "8WH90206BL10",
+      "grupo_id": 73
+    },
+    {
+      "id": 1619,
+      "codigo": "3RQ30551SM30",
+      "grupo_id": 35
+    },
+    {
+      "id": 1620,
+      "codigo": "3TS29100AN2",
+      "grupo_id": 17
+    },
+    {
+      "id": 1621,
+      "codigo": "3US50001C",
+      "grupo_id": 24
+    },
+    {
+      "id": 1622,
+      "codigo": "6SL32101KE188AF1",
+      "grupo_id": 49
+    },
+    {
+      "id": 1623,
+      "codigo": "6EP41363AB000AY0",
+      "grupo_id": 58
+    },
+    {
+      "id": 1625,
+      "codigo": "6SL32101KE123AF2",
+      "grupo_id": 49
+    },
+    {
+      "id": 1626,
+      "codigo": "3RV29175E",
+      "grupo_id": 22
+    },
+    {
+      "id": 1627,
+      "codigo": "3SE63150BB01",
+      "grupo_id": 27
+    },
+    {
+      "id": 1628,
+      "codigo": "3SE63100BC01",
+      "grupo_id": 28
+    },
+    {
+      "id": 1629,
+      "codigo": "3SU11000AB101BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 1630,
+      "codigo": "3SU11000AB401BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 1631,
+      "codigo": "3SU11000AB201BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 1632,
+      "codigo": "3RU21161BB0",
+      "grupo_id": 24
+    },
+    {
+      "id": 1637,
+      "codigo": "3TK28100BA01",
+      "grupo_id": 30
+    },
+    {
+      "id": 1638,
+      "codigo": "3SU10010AB500AA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 1684,
+      "codigo": "6022880-DUP1684",
+      "grupo_id": 126
+    },
+    {
+      "id": 1685,
+      "codigo": "1041412-DUP1685",
+      "grupo_id": 103
+    },
+    {
+      "id": 1686,
+      "codigo": "3SU10016AA700AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 1687,
+      "codigo": "3SU10022BM600AA0",
+      "grupo_id": 9
+    },
+    {
+      "id": 1688,
+      "codigo": "3SU10022BF600AA0",
+      "grupo_id": 9
+    },
+    {
+      "id": 1689,
+      "codigo": "3SU14011BF601AA0",
+      "grupo_id": 13
+    },
+    {
+      "id": 1690,
+      "codigo": "3SU19500DX300AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 1691,
+      "codigo": "3SU19000DB700AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 1692,
+      "codigo": "3SU19000AH100AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 1693,
+      "codigo": "3SU19500DP800AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 1694,
+      "codigo": "3SU10022BL600AA0",
+      "grupo_id": 9
+    },
+    {
+      "id": 1695,
+      "codigo": "3SU11026AA601AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 1697,
+      "codigo": "1407731",
+      "grupo_id": 120
+    },
+    {
+      "id": 1698,
+      "codigo": "1407732",
+      "grupo_id": 120
+    },
+    {
+      "id": 1699,
+      "codigo": "1211462",
+      "grupo_id": 123
+    },
+    {
+      "id": 1700,
+      "codigo": "1211493",
+      "grupo_id": 123
+    },
+    {
+      "id": 1701,
+      "codigo": "6041811",
+      "grupo_id": 103
+    },
+    {
+      "id": 1702,
+      "codigo": "1058249",
+      "grupo_id": 103
+    },
+    {
+      "id": 1703,
+      "codigo": "6043870",
+      "grupo_id": 103
+    },
+    {
+      "id": 1704,
+      "codigo": "1211501",
+      "grupo_id": 123
+    },
+    {
+      "id": 1705,
+      "codigo": "1211502",
+      "grupo_id": 123
+    },
+    {
+      "id": 1706,
+      "codigo": "1211492",
+      "grupo_id": 123
+    },
+    {
+      "id": 1707,
+      "codigo": "1211464",
+      "grupo_id": 123
+    },
+    {
+      "id": 1708,
+      "codigo": "6042673",
+      "grupo_id": 113
+    },
+    {
+      "id": 1709,
+      "codigo": "1106555",
+      "grupo_id": 105
+    },
+    {
+      "id": 1710,
+      "codigo": "1040779",
+      "grupo_id": 104
+    },
+    {
+      "id": 1711,
+      "codigo": "1085354",
+      "grupo_id": 33
+    },
+    {
+      "id": 1712,
+      "codigo": "6054712",
+      "grupo_id": 110
+    },
+    {
+      "id": 1713,
+      "codigo": "1114954",
+      "grupo_id": 111
+    },
+    {
+      "id": 1714,
+      "codigo": "6081749",
+      "grupo_id": 112
+    },
+    {
+      "id": 1715,
+      "codigo": "6054716",
+      "grupo_id": 110
+    },
+    {
+      "id": 1716,
+      "codigo": "1040763",
+      "grupo_id": 104
+    },
+    {
+      "id": 1719,
+      "codigo": "6SL32010BE218AA0",
+      "grupo_id": 51
+    },
+    {
+      "id": 1730,
+      "codigo": "18840983",
+      "grupo_id": 38
+    },
+    {
+      "id": 1784,
+      "codigo": "D4NL4EFAB",
+      "grupo_id": 27
+    },
+    {
+      "id": 1785,
+      "codigo": "G2RV1SG",
+      "grupo_id": 35
+    },
+    {
+      "id": 1795,
+      "codigo": "S8VKC48024",
+      "grupo_id": 50
+    },
+    {
+      "id": 1805,
+      "codigo": "12429368",
+      "grupo_id": 21
+    },
+    {
+      "id": 1806,
+      "codigo": "12429371",
+      "grupo_id": 21
+    },
+    {
+      "id": 1807,
+      "codigo": "13451026",
+      "grupo_id": 22
+    },
+    {
+      "id": 1808,
+      "codigo": "13451024",
+      "grupo_id": 22
+    },
+    {
+      "id": 1809,
+      "codigo": "12462674",
+      "grupo_id": 22
+    },
+    {
+      "id": 1810,
+      "codigo": "CS MP203M0",
+      "grupo_id": 30
+    },
+    {
+      "id": 1813,
+      "codigo": "FG60BD1D0A",
+      "grupo_id": 27
+    },
+    {
+      "id": 1814,
+      "codigo": "FD2083",
+      "grupo_id": 27
+    },
+    {
+      "id": 1815,
+      "codigo": "FS2996D024M2",
+      "grupo_id": 27
+    },
+    {
+      "id": 1816,
+      "codigo": "NS D4AZ1SMK-F41",
+      "grupo_id": 27
+    },
+    {
+      "id": 1817,
+      "codigo": "VFT8",
+      "grupo_id": 29
+    },
+    {
+      "id": 1818,
+      "codigo": "NSD4AZ1SMKF41",
+      "grupo_id": 27
+    },
+    {
+      "id": 1827,
+      "codigo": "65506",
+      "grupo_id": 27
+    },
+    {
+      "id": 1828,
+      "codigo": "NG2D1D411AF30",
+      "grupo_id": 27
+    },
+    {
+      "id": 1829,
+      "codigo": "87704",
+      "grupo_id": 27
+    },
+    {
+      "id": 1830,
+      "codigo": "NS D3AZ1",
+      "grupo_id": 27
+    },
+    {
+      "id": 1831,
+      "codigo": "87707",
+      "grupo_id": 27
+    },
+    {
+      "id": 1834,
+      "codigo": "NS D3AZ1SQK-F40",
+      "grupo_id": 27
+    },
+    {
+      "id": 1835,
+      "codigo": "VFKEYF21",
+      "grupo_id": 28
+    },
+    {
+      "id": 1836,
+      "codigo": "VFKEYF22",
+      "grupo_id": 28
+    },
+    {
+      "id": 1840,
+      "codigo": "VFT870",
+      "grupo_id": 29
+    },
+    {
+      "id": 1847,
+      "codigo": "36770",
+      "grupo_id": 27
+    },
+    {
+      "id": 1849,
+      "codigo": "VFKEYF2",
+      "grupo_id": 28
+    },
+    {
+      "id": 1869,
+      "codigo": "15044401",
+      "grupo_id": 30
+    },
+    {
+      "id": 1871,
+      "codigo": "13059319",
+      "grupo_id": 49
+    },
+    {
+      "id": 1872,
+      "codigo": "15481464",
+      "grupo_id": 38
+    },
+    {
+      "id": 1873,
+      "codigo": "15481462",
+      "grupo_id": 38
+    },
+    {
+      "id": 1875,
+      "codigo": "13059419",
+      "grupo_id": 49
+    },
+    {
+      "id": 1876,
+      "codigo": "13059320",
+      "grupo_id": 49
+    },
+    {
+      "id": 1878,
+      "codigo": "12775104",
+      "grupo_id": 1
+    },
+    {
+      "id": 1879,
+      "codigo": "12778353",
+      "grupo_id": 2
+    },
+    {
+      "id": 1882,
+      "codigo": "12527548",
+      "grupo_id": 28
+    },
+    {
+      "id": 1883,
+      "codigo": "12258388",
+      "grupo_id": 38
+    },
+    {
+      "id": 1884,
+      "codigo": "12258389",
+      "grupo_id": 38
+    },
+    {
+      "id": 1941,
+      "codigo": "905",
+      "grupo_id": 138
+    },
+    {
+      "id": 1956,
+      "codigo": "3774",
+      "grupo_id": 138
+    },
+    {
+      "id": 1957,
+      "codigo": "3773",
+      "grupo_id": 138
+    },
+    {
+      "id": 1960,
+      "codigo": "18853272",
+      "grupo_id": 38
+    },
+    {
+      "id": 1961,
+      "codigo": "18840896",
+      "grupo_id": 38
+    },
+    {
+      "id": 1968,
+      "codigo": "12240668",
+      "grupo_id": 17
+    },
+    {
+      "id": 1969,
+      "codigo": "12123053",
+      "grupo_id": 19
+    },
+    {
+      "id": 1971,
+      "codigo": "10076449",
+      "grupo_id": 3
+    },
+    {
+      "id": 1975,
+      "codigo": "3863",
+      "grupo_id": 138
+    },
+    {
+      "id": 1976,
+      "codigo": "21259",
+      "grupo_id": 138
+    },
+    {
+      "id": 1977,
+      "codigo": "21219",
+      "grupo_id": 138
+    },
+    {
+      "id": 1978,
+      "codigo": "21235",
+      "grupo_id": 138
+    },
+    {
+      "id": 1979,
+      "codigo": "21256",
+      "grupo_id": 138
+    },
+    {
+      "id": 1980,
+      "codigo": "800253",
+      "grupo_id": 97
+    },
+    {
+      "id": 1983,
+      "codigo": "11043371",
+      "grupo_id": 43
+    },
+    {
+      "id": 2007,
+      "codigo": "3587",
+      "grupo_id": 138
+    },
+    {
+      "id": 2008,
+      "codigo": "24405",
+      "grupo_id": 138
+    },
+    {
+      "id": 2083,
+      "codigo": "15576919",
+      "grupo_id": 49
+    },
+    {
+      "id": 2084,
+      "codigo": "2903148",
+      "grupo_id": 50
+    },
+    {
+      "id": 2134,
+      "codigo": "3SB72136AA601AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 2135,
+      "codigo": "5SV56140",
+      "grupo_id": 42
+    },
+    {
+      "id": 2136,
+      "codigo": "3LD33540TK53",
+      "grupo_id": 38
+    },
+    {
+      "id": 2137,
+      "codigo": "3SU11002BF601MA0",
+      "grupo_id": 9
+    },
+    {
+      "id": 2138,
+      "codigo": "3SU11520AB501BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 2139,
+      "codigo": "3SU11001HB201PG0",
+      "grupo_id": 7
+    },
+    {
+      "id": 2140,
+      "codigo": "6ES72221BH320XB0",
+      "grupo_id": 56
+    },
+    {
+      "id": 2142,
+      "codigo": "15575711",
+      "grupo_id": 49
+    },
+    {
+      "id": 2161,
+      "codigo": "3869",
+      "grupo_id": 138
+    },
+    {
+      "id": 2162,
+      "codigo": "3861",
+      "grupo_id": 138
+    },
+    {
+      "id": 2163,
+      "codigo": "21246",
+      "grupo_id": 138
+    },
+    {
+      "id": 2165,
+      "codigo": "10213180",
+      "grupo_id": 14
+    },
+    {
+      "id": 2166,
+      "codigo": "10185878",
+      "grupo_id": 14
+    },
+    {
+      "id": 2174,
+      "codigo": "12450895",
+      "grupo_id": 24
+    },
+    {
+      "id": 2175,
+      "codigo": "12515189",
+      "grupo_id": 24
+    },
+    {
+      "id": 2176,
+      "codigo": "10047403",
+      "grupo_id": 7
+    },
+    {
+      "id": 2178,
+      "codigo": "10046541",
+      "grupo_id": 11
+    },
+    {
+      "id": 2179,
+      "codigo": "10046540",
+      "grupo_id": 11
+    },
+    {
+      "id": 2180,
+      "codigo": "12330463",
+      "grupo_id": 54
+    },
+    {
+      "id": 2181,
+      "codigo": "11833992",
+      "grupo_id": 54
+    },
+    {
+      "id": 2211,
+      "codigo": "15756246",
+      "grupo_id": 54
+    },
+    {
+      "id": 2213,
+      "codigo": "13108202",
+      "grupo_id": 50
+    },
+    {
+      "id": 2215,
+      "codigo": "10409889",
+      "grupo_id": 40
+    },
+    {
+      "id": 2223,
+      "codigo": "13059321",
+      "grupo_id": 49
+    },
+    {
+      "id": 2224,
+      "codigo": "12429373",
+      "grupo_id": 21
+    },
+    {
+      "id": 2225,
+      "codigo": "12429317",
+      "grupo_id": 21
+    },
+    {
+      "id": 2227,
+      "codigo": "12499350",
+      "grupo_id": 19
+    },
+    {
+      "id": 2228,
+      "codigo": "12429372",
+      "grupo_id": 21
+    },
+    {
+      "id": 2264,
+      "codigo": "54028001583",
+      "grupo_id": 138
+    },
+    {
+      "id": 2266,
+      "codigo": "54028003583",
+      "grupo_id": 138
+    },
+    {
+      "id": 2267,
+      "codigo": "54028005583",
+      "grupo_id": 138
+    },
+    {
+      "id": 2268,
+      "codigo": "54028275583",
+      "grupo_id": 138
+    },
+    {
+      "id": 2269,
+      "codigo": "54028163583",
+      "grupo_id": 138
+    },
+    {
+      "id": 2278,
+      "codigo": "2966634",
+      "grupo_id": 35
+    },
+    {
+      "id": 2296,
+      "codigo": "1302",
+      "grupo_id": 138
+    },
+    {
+      "id": 2297,
+      "codigo": "228",
+      "grupo_id": 138
+    },
+    {
+      "id": 2301,
+      "codigo": "3SB78110AA200BA0",
+      "grupo_id": 10
+    },
+    {
+      "id": 2302,
+      "codigo": "3RH29112HA22",
+      "grupo_id": 19
+    },
+    {
+      "id": 2314,
+      "codigo": "12382551",
+      "grupo_id": 21
+    },
+    {
+      "id": 2317,
+      "codigo": "SMB02F",
+      "grupo_id": 28
+    },
+    {
+      "id": 2318,
+      "codigo": "SMA01N",
+      "grupo_id": 28
+    },
+    {
+      "id": 2319,
+      "codigo": "FD2080",
+      "grupo_id": 27
+    },
+    {
+      "id": 2324,
+      "codigo": "FP2078",
+      "grupo_id": 27
+    },
+    {
+      "id": 2327,
+      "codigo": "FP6R2",
+      "grupo_id": 27
+    },
+    {
+      "id": 2329,
+      "codigo": "12463886",
+      "grupo_id": 22
+    },
+    {
+      "id": 2330,
+      "codigo": "14147977",
+      "grupo_id": 49
+    },
+    {
+      "id": 2341,
+      "codigo": "54034016089",
+      "grupo_id": 138
+    },
+    {
+      "id": 2342,
+      "codigo": "54034088089",
+      "grupo_id": 138
+    },
+    {
+      "id": 2343,
+      "codigo": "54034017089",
+      "grupo_id": 138
+    },
+    {
+      "id": 2344,
+      "codigo": "54034018089",
+      "grupo_id": 138
+    },
+    {
+      "id": 2345,
+      "codigo": "54034089089",
+      "grupo_id": 138
+    },
+    {
+      "id": 2347,
+      "codigo": "15220827",
+      "grupo_id": 3
+    },
+    {
+      "id": 2350,
+      "codigo": "17441416",
+      "grupo_id": 22
+    },
+    {
+      "id": 2351,
+      "codigo": "18134356",
+      "grupo_id": 2
+    },
+    {
+      "id": 2352,
+      "codigo": "17792695",
+      "grupo_id": 1
+    },
+    {
+      "id": 2353,
+      "codigo": "15985138",
+      "grupo_id": 11
+    },
+    {
+      "id": 2354,
+      "codigo": "16525604",
+      "grupo_id": 7
+    },
+    {
+      "id": 2355,
+      "codigo": "12670264",
+      "grupo_id": 14
+    },
+    {
+      "id": 2356,
+      "codigo": "12891186",
+      "grupo_id": 12
+    },
+    {
+      "id": 2357,
+      "codigo": "12891184",
+      "grupo_id": 12
+    },
+    {
+      "id": 2358,
+      "codigo": "12640041",
+      "grupo_id": 13
+    },
+    {
+      "id": 2359,
+      "codigo": "11884182",
+      "grupo_id": 38
+    },
+    {
+      "id": 2362,
+      "codigo": "CSAR05M024",
+      "grupo_id": 30
+    },
+    {
+      "id": 2406,
+      "codigo": "3UG55121BR20",
+      "grupo_id": 45
+    },
+    {
+      "id": 2407,
+      "codigo": "3RT20381AN20",
+      "grupo_id": 17
+    },
+    {
+      "id": 2441,
+      "codigo": "3SK11211CB41",
+      "grupo_id": 30
+    },
+    {
+      "id": 2442,
+      "codigo": "3RM11071AA04",
+      "grupo_id": 80
+    },
+    {
+      "id": 2443,
+      "codigo": "3RK31111AA10",
+      "grupo_id": 30
+    },
+    {
+      "id": 2444,
+      "codigo": "3TK28211CB30",
+      "grupo_id": 30
+    },
+    {
+      "id": 2445,
+      "codigo": "3RK32211AA10",
+      "grupo_id": 33
+    },
+    {
+      "id": 2446,
+      "codigo": "6ES72411CH320XB0",
+      "grupo_id": 85
+    },
+    {
+      "id": 2448,
+      "codigo": "7MH49602AA01",
+      "grupo_id": 83
+    },
+    {
+      "id": 2449,
+      "codigo": "6GK72435DX300XE0",
+      "grupo_id": 85
+    },
+    {
+      "id": 2450,
+      "codigo": "3SE50000AV04",
+      "grupo_id": 28
+    },
+    {
+      "id": 2451,
+      "codigo": "EC14",
+      "grupo_id": 39
+    },
+    {
+      "id": 2452,
+      "codigo": "EC-10",
+      "grupo_id": 39
+    },
+    {
+      "id": 2453,
+      "codigo": "3RV10110CA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 2454,
+      "codigo": "3SE66042BA",
+      "grupo_id": 27
+    },
+    {
+      "id": 2455,
+      "codigo": "3SE50000AV01",
+      "grupo_id": 28
+    },
+    {
+      "id": 2459,
+      "codigo": "5TW00880",
+      "grupo_id": 39
+    },
+    {
+      "id": 2460,
+      "codigo": "3RV23314WC10",
+      "grupo_id": 21
+    },
+    {
+      "id": 2461,
+      "codigo": "6GK75421AX000XE0",
+      "grupo_id": 84
+    },
+    {
+      "id": 2463,
+      "codigo": "6AV21240JC010AX0",
+      "grupo_id": 88
+    },
+    {
+      "id": 2479,
+      "codigo": "CSMP307M0",
+      "grupo_id": 30
+    },
+    {
+      "id": 2497,
+      "codigo": "18968852",
+      "grupo_id": 38
+    },
+    {
+      "id": 2522,
+      "codigo": "17793370",
+      "grupo_id": 1
+    },
+    {
+      "id": 2523,
+      "codigo": "18220527",
+      "grupo_id": 2
+    },
+    {
+      "id": 2535,
+      "codigo": "6GK19011BB102AE0",
+      "grupo_id": 93
+    },
+    {
+      "id": 2536,
+      "codigo": "CSW-CK3R45WH",
+      "grupo_id": 9
+    },
+    {
+      "id": 2545,
+      "codigo": "1201442",
+      "grupo_id": 122
+    },
+    {
+      "id": 2551,
+      "codigo": "1585287",
+      "grupo_id": 50
+    },
+    {
+      "id": 2553,
+      "codigo": "12882262",
+      "grupo_id": 6
+    },
+    {
+      "id": 2554,
+      "codigo": "10705764",
+      "grupo_id": 40
+    },
+    {
+      "id": 2558,
+      "codigo": "13059418",
+      "grupo_id": 49
+    },
+    {
+      "id": 2590,
+      "codigo": "60395922",
+      "grupo_id": 76
+    },
+    {
+      "id": 2591,
+      "codigo": "60395926",
+      "grupo_id": 74
+    },
+    {
+      "id": 2592,
+      "codigo": "60245954",
+      "grupo_id": 72
+    },
+    {
+      "id": 2593,
+      "codigo": "60493412",
+      "grupo_id": 76
+    },
+    {
+      "id": 2594,
+      "codigo": "20023291",
+      "grupo_id": 122
+    },
+    {
+      "id": 2595,
+      "codigo": "60357168",
+      "grupo_id": 73
+    },
+    {
+      "id": 2596,
+      "codigo": "60357169",
+      "grupo_id": 73
+    },
+    {
+      "id": 2597,
+      "codigo": "60357171",
+      "grupo_id": 73
+    },
+    {
+      "id": 2598,
+      "codigo": "60395489",
+      "grupo_id": 76
+    },
+    {
+      "id": 2599,
+      "codigo": "20041291",
+      "grupo_id": 72
+    },
+    {
+      "id": 2600,
+      "codigo": "60395419",
+      "grupo_id": 76
+    },
+    {
+      "id": 2601,
+      "codigo": "60545285",
+      "grupo_id": 72
+    },
+    {
+      "id": 2602,
+      "codigo": "20101291",
+      "grupo_id": 72
+    },
+    {
+      "id": 2603,
+      "codigo": "20161291",
+      "grupo_id": 72
+    },
+    {
+      "id": 2604,
+      "codigo": "60502456",
+      "grupo_id": 76
+    },
+    {
+      "id": 2605,
+      "codigo": "60502457",
+      "grupo_id": 74
+    },
+    {
+      "id": 2606,
+      "codigo": "60407721",
+      "grupo_id": 76
+    },
+    {
+      "id": 2607,
+      "codigo": "60407723",
+      "grupo_id": 74
+    },
+    {
+      "id": 2608,
+      "codigo": "20090110",
+      "grupo_id": 100
+    },
+    {
+      "id": 2609,
+      "codigo": "20090115",
+      "grupo_id": 100
+    },
+    {
+      "id": 2610,
+      "codigo": "2100805",
+      "grupo_id": 100
+    },
+    {
+      "id": 2611,
+      "codigo": "2585005",
+      "grupo_id": 100
+    },
+    {
+      "id": 2612,
+      "codigo": "51309398",
+      "grupo_id": 35
+    },
+    {
+      "id": 2613,
+      "codigo": "60578955",
+      "grupo_id": 35
+    },
+    {
+      "id": 2614,
+      "codigo": "60578957",
+      "grupo_id": 35
+    },
+    {
+      "id": 2615,
+      "codigo": "2100719",
+      "grupo_id": 101
+    },
+    {
+      "id": 2616,
+      "codigo": "2100720",
+      "grupo_id": 101
+    },
+    {
+      "id": 2617,
+      "codigo": "2100721",
+      "grupo_id": 101
+    },
+    {
+      "id": 2618,
+      "codigo": "60562337",
+      "grupo_id": 121
+    },
+    {
+      "id": 2619,
+      "codigo": "60409714",
+      "grupo_id": 101
+    },
+    {
+      "id": 2623,
+      "codigo": "10194175-COPIA",
+      "grupo_id": 43
+    },
+    {
+      "id": 2624,
+      "codigo": "10194172-COPIA",
+      "grupo_id": 43
+    },
+    {
+      "id": 2625,
+      "codigo": "10194175-COPIA-COPIA",
+      "grupo_id": 43
+    },
+    {
+      "id": 2626,
+      "codigo": "10194172-COPIA-COPIA",
+      "grupo_id": 43
+    },
+    {
+      "id": 2629,
+      "codigo": "3666",
+      "grupo_id": 138
+    },
+    {
+      "id": 2630,
+      "codigo": "3682",
+      "grupo_id": 138
+    },
+    {
+      "id": 2631,
+      "codigo": "3688",
+      "grupo_id": 138
+    },
+    {
+      "id": 2632,
+      "codigo": "3696",
+      "grupo_id": 138
+    },
+    {
+      "id": 2633,
+      "codigo": "19204",
+      "grupo_id": 3
+    },
+    {
+      "id": 2635,
+      "codigo": "3830",
+      "grupo_id": 138
+    },
+    {
+      "id": 2636,
+      "codigo": "3827",
+      "grupo_id": 138
+    },
+    {
+      "id": 2637,
+      "codigo": "3798",
+      "grupo_id": 138
+    },
+    {
+      "id": 2639,
+      "codigo": "3SK12112BB40",
+      "grupo_id": 31
+    },
+    {
+      "id": 2640,
+      "codigo": "3SK1220-2AB40",
+      "grupo_id": 31
+    },
+    {
+      "id": 2641,
+      "codigo": "3ZY1212-1BA00",
+      "grupo_id": 46
+    },
+    {
+      "id": 2642,
+      "codigo": "3ZY1212-2DA00",
+      "grupo_id": 46
+    },
+    {
+      "id": 2643,
+      "codigo": "3ZY1212-2BA00",
+      "grupo_id": 46
+    },
+    {
+      "id": 2690,
+      "codigo": "857724",
+      "grupo_id": 35
+    },
+    {
+      "id": 2698,
+      "codigo": "3ZY12121BA00",
+      "grupo_id": 46
+    },
+    {
+      "id": 2699,
+      "codigo": "3ZY12122DA00",
+      "grupo_id": 46
+    },
+    {
+      "id": 2700,
+      "codigo": "3ZY12122BA00",
+      "grupo_id": 46
+    },
+    {
+      "id": 2718,
+      "codigo": "60339946",
+      "grupo_id": 72
+    },
+    {
+      "id": 2719,
+      "codigo": "60395511",
+      "grupo_id": 74
+    },
+    {
+      "id": 2720,
+      "codigo": "60395421",
+      "grupo_id": 74
+    },
+    {
+      "id": 2721,
+      "codigo": "60365990",
+      "grupo_id": 76
+    },
+    {
+      "id": 2722,
+      "codigo": "60365991",
+      "grupo_id": 74
+    },
+    {
+      "id": 2723,
+      "codigo": "60364957",
+      "grupo_id": 76
+    },
+    {
+      "id": 2724,
+      "codigo": "60364959",
+      "grupo_id": 74
+    },
+    {
+      "id": 2725,
+      "codigo": "60426162",
+      "grupo_id": 100
+    },
+    {
+      "id": 2726,
+      "codigo": "60546903",
+      "grupo_id": 76
+    },
+    {
+      "id": 2727,
+      "codigo": "60496928",
+      "grupo_id": 92
+    },
+    {
+      "id": 2728,
+      "codigo": "60569472",
+      "grupo_id": 101
+    },
+    {
+      "id": 2729,
+      "codigo": "3RT20171AN22",
+      "grupo_id": 17
+    },
+    {
+      "id": 2737,
+      "codigo": "6ES72235BL500XB0",
+      "grupo_id": 52
+    },
+    {
+      "id": 2738,
+      "codigo": "6SL32101KE175AF1",
+      "grupo_id": 49
+    },
+    {
+      "id": 2739,
+      "codigo": "6SL32101KE143AF2",
+      "grupo_id": 49
+    },
+    {
+      "id": 2740,
+      "codigo": "6SL32010BE143AA0",
+      "grupo_id": 51
+    },
+    {
+      "id": 2741,
+      "codigo": "3SK11112AB30",
+      "grupo_id": 30
+    },
+    {
+      "id": 2742,
+      "codigo": "5SL11166MB",
+      "grupo_id": 3
+    },
+    {
+      "id": 2746,
+      "codigo": "164224",
+      "grupo_id": 50
+    },
+    {
+      "id": 2747,
+      "codigo": "164222",
+      "grupo_id": 50
+    },
+    {
+      "id": 2748,
+      "codigo": "164284",
+      "grupo_id": 50
+    },
+    {
+      "id": 2750,
+      "codigo": "164225",
+      "grupo_id": 50
+    },
+    {
+      "id": 2770,
+      "codigo": "CSMP203M0",
+      "grupo_id": 30
+    },
+    {
+      "id": 2771,
+      "codigo": "CSMP304M0",
+      "grupo_id": 30
+    },
+    {
+      "id": 2772,
+      "codigo": "CSMP303M0",
+      "grupo_id": 30
+    },
+    {
+      "id": 2773,
+      "codigo": "CSMP205M0",
+      "grupo_id": 30
+    },
+    {
+      "id": 2787,
+      "codigo": "27232",
+      "grupo_id": 138
+    },
+    {
+      "id": 2788,
+      "codigo": "27245",
+      "grupo_id": 138
+    },
+    {
+      "id": 2789,
+      "codigo": "21234",
+      "grupo_id": 138
+    },
+    {
+      "id": 2791,
+      "codigo": "54028045583",
+      "grupo_id": 138
+    },
+    {
+      "id": 2808,
+      "codigo": "800270",
+      "grupo_id": 97
+    },
+    {
+      "id": 2809,
+      "codigo": "3SB78110AA100BA0",
+      "grupo_id": 10
+    },
+    {
+      "id": 2831,
+      "codigo": "60313028",
+      "grupo_id": 35
+    },
+    {
+      "id": 2837,
+      "codigo": "3SK12202AB40",
+      "grupo_id": 31
+    },
+    {
+      "id": 2838,
+      "codigo": "51285597",
+      "grupo_id": 35
+    },
+    {
+      "id": 2839,
+      "codigo": "60507163",
+      "grupo_id": 36
+    },
+    {
+      "id": 2840,
+      "codigo": "60433397",
+      "grupo_id": 35
+    },
+    {
+      "id": 2841,
+      "codigo": "60433398",
+      "grupo_id": 35
+    },
+    {
+      "id": 2842,
+      "codigo": "60599730",
+      "grupo_id": 35
+    },
+    {
+      "id": 2847,
+      "codigo": "10076423",
+      "grupo_id": 3
+    },
+    {
+      "id": 2848,
+      "codigo": "10076393",
+      "grupo_id": 3
+    },
+    {
+      "id": 2860,
+      "codigo": "12526241",
+      "grupo_id": 30
+    },
+    {
+      "id": 2861,
+      "codigo": "13522438",
+      "grupo_id": 17
+    },
+    {
+      "id": 2864,
+      "codigo": "13021727",
+      "grupo_id": 27
+    },
+    {
+      "id": 2872,
+      "codigo": "3794",
+      "grupo_id": 138
+    },
+    {
+      "id": 2873,
+      "codigo": "3777",
+      "grupo_id": 138
+    },
+    {
+      "id": 2889,
+      "codigo": "3RQ30521SM50",
+      "grupo_id": 35
+    },
+    {
+      "id": 2890,
+      "codigo": "3RQ31181AE00",
+      "grupo_id": 35
+    },
+    {
+      "id": 2891,
+      "codigo": "3RQ31181AB00",
+      "grupo_id": 35
+    },
+    {
+      "id": 2892,
+      "codigo": "13960219",
+      "grupo_id": 45
+    },
+    {
+      "id": 2898,
+      "codigo": "3RT29161EH00",
+      "grupo_id": 19
+    },
+    {
+      "id": 2902,
+      "codigo": "3RV20111KA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 2903,
+      "codigo": "3RU21261EB0",
+      "grupo_id": 24
+    },
+    {
+      "id": 2904,
+      "codigo": "801384",
+      "grupo_id": 100
+    },
+    {
+      "id": 2909,
+      "codigo": "15572573",
+      "grupo_id": 49
+    },
+    {
+      "id": 2921,
+      "codigo": "3RU29263AA01",
+      "grupo_id": 25
+    },
+    {
+      "id": 2922,
+      "codigo": "6SL32101KE213AF1",
+      "grupo_id": 49
+    },
+    {
+      "id": 2924,
+      "codigo": "18968851",
+      "grupo_id": 38
+    },
+    {
+      "id": 2930,
+      "codigo": "6ES72211BH500XB0",
+      "grupo_id": 53
+    },
+    {
+      "id": 2931,
+      "codigo": "6ES72235PH500XB0",
+      "grupo_id": 52
+    },
+    {
+      "id": 2945,
+      "codigo": "3RV20110KA10",
+      "grupo_id": 21
+    },
+    {
+      "id": 2952,
+      "codigo": "XPSUAF13AP",
+      "grupo_id": 30
+    },
+    {
+      "id": 2953,
+      "codigo": "LC1D09BDC",
+      "grupo_id": 17
+    },
+    {
+      "id": 2954,
+      "codigo": "LC1D18BDC",
+      "grupo_id": 17
+    },
+    {
+      "id": 2955,
+      "codigo": "LC1DS25M7C",
+      "grupo_id": 17
+    },
+    {
+      "id": 2956,
+      "codigo": "LC1G300",
+      "grupo_id": 17
+    },
+    {
+      "id": 2980,
+      "codigo": "15265745",
+      "grupo_id": 3
+    },
+    {
+      "id": 2981,
+      "codigo": "15265514",
+      "grupo_id": 3
+    },
+    {
+      "id": 2982,
+      "codigo": "3771",
+      "grupo_id": 138
+    },
+    {
+      "id": 2983,
+      "codigo": "21266",
+      "grupo_id": 138
+    },
+    {
+      "id": 2984,
+      "codigo": "3793",
+      "grupo_id": 138
+    },
+    {
+      "id": 2985,
+      "codigo": "27239",
+      "grupo_id": 138
+    },
+    {
+      "id": 2986,
+      "codigo": "3801",
+      "grupo_id": 138
+    },
+    {
+      "id": 2987,
+      "codigo": "3800",
+      "grupo_id": 138
+    },
+    {
+      "id": 2988,
+      "codigo": "3842",
+      "grupo_id": 138
+    },
+    {
+      "id": 2989,
+      "codigo": "27247",
+      "grupo_id": 138
+    },
+    {
+      "id": 2990,
+      "codigo": "21225",
+      "grupo_id": 138
+    },
+    {
+      "id": 2991,
+      "codigo": "3LD93406B",
+      "grupo_id": 39
+    },
+    {
+      "id": 2992,
+      "codigo": "3LD93410A",
+      "grupo_id": 39
+    },
+    {
+      "id": 3045,
+      "codigo": "800263",
+      "grupo_id": 97
+    },
+    {
+      "id": 3082,
+      "codigo": "1407501",
+      "grupo_id": 106
+    },
+    {
+      "id": 3099,
+      "codigo": "6SL32010BE210AA0",
+      "grupo_id": 51
+    },
+    {
+      "id": 3100,
+      "codigo": "6SL32101KE132AF2",
+      "grupo_id": 49
+    },
+    {
+      "id": 3101,
+      "codigo": "6SL32101KE158AF2",
+      "grupo_id": 49
+    },
+    {
+      "id": 3103,
+      "codigo": "12525474",
+      "grupo_id": 27
+    },
+    {
+      "id": 3104,
+      "codigo": "12527551",
+      "grupo_id": 28
+    },
+    {
+      "id": 3106,
+      "codigo": "54028048483",
+      "grupo_id": 138
+    },
+    {
+      "id": 3107,
+      "codigo": "54028077583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3129,
+      "codigo": "6ES72314HF320XB0",
+      "grupo_id": 57
+    },
+    {
+      "id": 3154,
+      "codigo": "1881799",
+      "grupo_id": 97
+    },
+    {
+      "id": 3155,
+      "codigo": "1881803",
+      "grupo_id": 97
+    },
+    {
+      "id": 3156,
+      "codigo": "3240282",
+      "grupo_id": 97
+    },
+    {
+      "id": 3158,
+      "codigo": "10803090",
+      "grupo_id": 43
+    },
+    {
+      "id": 3176,
+      "codigo": "EC-10-COPIA",
+      "grupo_id": 39
+    },
+    {
+      "id": 3177,
+      "codigo": "EC14-COPIA",
+      "grupo_id": 39
+    },
+    {
+      "id": 3178,
+      "codigo": "EC14-COPIA-COPIA",
+      "grupo_id": 39
+    },
+    {
+      "id": 3179,
+      "codigo": "EC14-COPIA-2",
+      "grupo_id": 39
+    },
+    {
+      "id": 3180,
+      "codigo": "EC-10-COPIA-2",
+      "grupo_id": 39
+    },
+    {
+      "id": 3181,
+      "codigo": "18840896-COPIA",
+      "grupo_id": 38
+    },
+    {
+      "id": 3182,
+      "codigo": "EC-10-COPIA-3",
+      "grupo_id": 39
+    },
+    {
+      "id": 3183,
+      "codigo": "5TW3",
+      "grupo_id": 38
+    },
+    {
+      "id": 3184,
+      "codigo": "3SU19000AF810AA0",
+      "grupo_id": 14
+    },
+    {
+      "id": 3208,
+      "codigo": "6ES72121AG500XB0",
+      "grupo_id": 55
+    },
+    {
+      "id": 3209,
+      "codigo": "6ES72314HF500XB0",
+      "grupo_id": 57
+    },
+    {
+      "id": 3213,
+      "codigo": "15514953",
+      "grupo_id": 17
+    },
+    {
+      "id": 3216,
+      "codigo": "15265747",
+      "grupo_id": 3
+    },
+    {
+      "id": 3217,
+      "codigo": "15265762",
+      "grupo_id": 3
+    },
+    {
+      "id": 3218,
+      "codigo": "15265763",
+      "grupo_id": 3
+    },
+    {
+      "id": 3219,
+      "codigo": "15265766",
+      "grupo_id": 3
+    },
+    {
+      "id": 3227,
+      "codigo": "3VJ12201DA320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 3228,
+      "codigo": "3VJ13403DA320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 3229,
+      "codigo": "3VJ12163DA220AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 3230,
+      "codigo": "3VJ92180HD11",
+      "grupo_id": 2
+    },
+    {
+      "id": 3231,
+      "codigo": "3RT20473AL20",
+      "grupo_id": 17
+    },
+    {
+      "id": 3241,
+      "codigo": "54034027583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3242,
+      "codigo": "54034029583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3274,
+      "codigo": "54028077483",
+      "grupo_id": 138
+    },
+    {
+      "id": 3275,
+      "codigo": "54028067089",
+      "grupo_id": 138
+    },
+    {
+      "id": 3276,
+      "codigo": "54028058089",
+      "grupo_id": 138
+    },
+    {
+      "id": 3281,
+      "codigo": "10935573",
+      "grupo_id": 44
+    },
+    {
+      "id": 3289,
+      "codigo": "3VJ12161DA320AA0",
+      "grupo_id": 1
+    },
+    {
+      "id": 3293,
+      "codigo": "2066614-COPIA",
+      "grupo_id": 115
+    },
+    {
+      "id": 3294,
+      "codigo": "2066614-COPIA-COPIA",
+      "grupo_id": 115
+    },
+    {
+      "id": 3301,
+      "codigo": "25682",
+      "grupo_id": 138
+    },
+    {
+      "id": 3302,
+      "codigo": "25683",
+      "grupo_id": 138
+    },
+    {
+      "id": 3303,
+      "codigo": "54034020089",
+      "grupo_id": 138
+    },
+    {
+      "id": 3304,
+      "codigo": "54034021089",
+      "grupo_id": 138
+    },
+    {
+      "id": 3305,
+      "codigo": "10935651",
+      "grupo_id": 44
+    },
+    {
+      "id": 3309,
+      "codigo": "14569189",
+      "grupo_id": 1
+    },
+    {
+      "id": 3320,
+      "codigo": "54042014583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3323,
+      "codigo": "54033023839",
+      "grupo_id": 138
+    },
+    {
+      "id": 3324,
+      "codigo": "17793861",
+      "grupo_id": 1
+    },
+    {
+      "id": 3328,
+      "codigo": "15265681",
+      "grupo_id": 3
+    },
+    {
+      "id": 3329,
+      "codigo": "15514988",
+      "grupo_id": 17
+    },
+    {
+      "id": 3382,
+      "codigo": "14419094",
+      "grupo_id": 43
+    },
+    {
+      "id": 3397,
+      "codigo": "FR 992-D5",
+      "grupo_id": 27
+    },
+    {
+      "id": 3399,
+      "codigo": "22596",
+      "grupo_id": 29
+    },
+    {
+      "id": 3400,
+      "codigo": "NX B31AZ",
+      "grupo_id": 27
+    },
+    {
+      "id": 3401,
+      "codigo": "VF KEYF2",
+      "grupo_id": 28
+    },
+    {
+      "id": 3402,
+      "codigo": "FS 2996D024",
+      "grupo_id": 27
+    },
+    {
+      "id": 3405,
+      "codigo": "3SB62166AA201AA0",
+      "grupo_id": 11
+    },
+    {
+      "id": 3408,
+      "codigo": "15514948",
+      "grupo_id": 17
+    },
+    {
+      "id": 3416,
+      "codigo": "6025105",
+      "grupo_id": 27
+    },
+    {
+      "id": 3417,
+      "codigo": "1040780",
+      "grupo_id": 104
+    },
+    {
+      "id": 3418,
+      "codigo": "1040764",
+      "grupo_id": 104
+    },
+    {
+      "id": 3419,
+      "codigo": "1071277",
+      "grupo_id": 104
+    },
+    {
+      "id": 3420,
+      "codigo": "1040966",
+      "grupo_id": 104
+    },
+    {
+      "id": 3421,
+      "codigo": "1041014",
+      "grupo_id": 104
+    },
+    {
+      "id": 3423,
+      "codigo": "243",
+      "grupo_id": 138
+    },
+    {
+      "id": 3428,
+      "codigo": "3SB71301BC301BA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 3429,
+      "codigo": "3SU10501HB200AA0",
+      "grupo_id": 7
+    },
+    {
+      "id": 3430,
+      "codigo": "3SU10500AB400AA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 3431,
+      "codigo": "3SB74001AA101FB0",
+      "grupo_id": 12
+    },
+    {
+      "id": 3432,
+      "codigo": "6ES71936AG200AA0",
+      "grupo_id": 66
+    },
+    {
+      "id": 3433,
+      "codigo": "6ES71580AD010XA0",
+      "grupo_id": 65
+    },
+    {
+      "id": 3434,
+      "codigo": "6ES71936BP200DA0",
+      "grupo_id": 67
+    },
+    {
+      "id": 3435,
+      "codigo": "6ES71936BP200BA0",
+      "grupo_id": 67
+    },
+    {
+      "id": 3436,
+      "codigo": "6ES71936AR000AA0",
+      "grupo_id": 66
+    },
+    {
+      "id": 3437,
+      "codigo": "6ES71366DB000CA0",
+      "grupo_id": 61
+    },
+    {
+      "id": 3438,
+      "codigo": "6ES71556AU010CN0",
+      "grupo_id": 64
+    },
+    {
+      "id": 3439,
+      "codigo": "6ES71583AD100XA0",
+      "grupo_id": 65
+    },
+    {
+      "id": 3440,
+      "codigo": "6ES71936PA000AA0",
+      "grupo_id": 68
+    },
+    {
+      "id": 3441,
+      "codigo": "3WJ11162AE020AA0",
+      "grupo_id": 81
+    },
+    {
+      "id": 3451,
+      "codigo": "6043946",
+      "grupo_id": 103
+    },
+    {
+      "id": 3454,
+      "codigo": "20022201",
+      "grupo_id": 76
+    },
+    {
+      "id": 3455,
+      "codigo": "20041204",
+      "grupo_id": 76
+    },
+    {
+      "id": 3456,
+      "codigo": "20041201",
+      "grupo_id": 76
+    },
+    {
+      "id": 3457,
+      "codigo": "20021201",
+      "grupo_id": 76
+    },
+    {
+      "id": 3458,
+      "codigo": "60517839",
+      "grupo_id": 72
+    },
+    {
+      "id": 3459,
+      "codigo": "60510362",
+      "grupo_id": 76
+    },
+    {
+      "id": 3460,
+      "codigo": "FAB-030152",
+      "grupo_id": 165
+    },
+    {
+      "id": 3461,
+      "codigo": "1119225",
+      "grupo_id": 165
+    },
+    {
+      "id": 3462,
+      "codigo": "1119212",
+      "grupo_id": 165
+    },
+    {
+      "id": 3526,
+      "codigo": "3775",
+      "grupo_id": 138
+    },
+    {
+      "id": 3527,
+      "codigo": "27243",
+      "grupo_id": 138
+    },
+    {
+      "id": 3528,
+      "codigo": "21265",
+      "grupo_id": 138
+    },
+    {
+      "id": 3529,
+      "codigo": "27251",
+      "grupo_id": 138
+    },
+    {
+      "id": 3530,
+      "codigo": "54028009583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3531,
+      "codigo": "54028295583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3532,
+      "codigo": "3812",
+      "grupo_id": 138
+    },
+    {
+      "id": 3556,
+      "codigo": "6XV18703QH20",
+      "grupo_id": 94
+    },
+    {
+      "id": 3557,
+      "codigo": "6GK59921AM008AA0",
+      "grupo_id": 95
+    },
+    {
+      "id": 3558,
+      "codigo": "5396",
+      "grupo_id": 129
+    },
+    {
+      "id": 3559,
+      "codigo": "1016",
+      "grupo_id": 130
+    },
+    {
+      "id": 3560,
+      "codigo": "597301",
+      "grupo_id": 131
+    },
+    {
+      "id": 3561,
+      "codigo": "54028027583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3562,
+      "codigo": "NVLES0108-040",
+      "grupo_id": 132
+    },
+    {
+      "id": 3563,
+      "codigo": "NVLES0108-025",
+      "grupo_id": 132
+    },
+    {
+      "id": 3564,
+      "codigo": "MONES0002-050",
+      "grupo_id": 132
+    },
+    {
+      "id": 3565,
+      "codigo": "XVR12B04S",
+      "grupo_id": 11
+    },
+    {
+      "id": 3566,
+      "codigo": "3SU10501BD100AA0",
+      "grupo_id": 6
+    },
+    {
+      "id": 3567,
+      "codigo": "3SE53120SG11",
+      "grupo_id": 27
+    },
+    {
+      "id": 3568,
+      "codigo": "811494",
+      "grupo_id": 133
+    },
+    {
+      "id": 3569,
+      "codigo": "5194",
+      "grupo_id": 119
+    },
+    {
+      "id": 3570,
+      "codigo": "7118",
+      "grupo_id": 119
+    },
+    {
+      "id": 3571,
+      "codigo": "138",
+      "grupo_id": 134
+    },
+    {
+      "id": 3572,
+      "codigo": "954",
+      "grupo_id": 135
+    },
+    {
+      "id": 3573,
+      "codigo": "1227",
+      "grupo_id": 135
+    },
+    {
+      "id": 3574,
+      "codigo": "3421",
+      "grupo_id": 135
+    },
+    {
+      "id": 3575,
+      "codigo": "2975",
+      "grupo_id": 135
+    },
+    {
+      "id": 3576,
+      "codigo": "1838",
+      "grupo_id": 136
+    },
+    {
+      "id": 3577,
+      "codigo": "1815",
+      "grupo_id": 136
+    },
+    {
+      "id": 3578,
+      "codigo": "1477",
+      "grupo_id": 136
+    },
+    {
+      "id": 3580,
+      "codigo": "324024054157",
+      "grupo_id": 122
+    },
+    {
+      "id": 3581,
+      "codigo": "54034069583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3582,
+      "codigo": "324024059157",
+      "grupo_id": 137
+    },
+    {
+      "id": 3583,
+      "codigo": "54028069583",
+      "grupo_id": 138
+    },
+    {
+      "id": 3584,
+      "codigo": "6GK54084GQ002AM2",
+      "grupo_id": 92
+    },
+    {
+      "id": 3591,
+      "codigo": "2010138",
+      "grupo_id": 135
+    },
+    {
+      "id": 3592,
+      "codigo": "2010701",
+      "grupo_id": 135
+    },
+    {
+      "id": 3593,
+      "codigo": "2010127",
+      "grupo_id": 135
+    },
+    {
+      "id": 3594,
+      "codigo": "5598",
+      "grupo_id": 139
+    },
+    {
+      "id": 3595,
+      "codigo": "2183",
+      "grupo_id": 96
+    },
+    {
+      "id": 3596,
+      "codigo": "1683",
+      "grupo_id": 140
+    },
+    {
+      "id": 3597,
+      "codigo": "6454",
+      "grupo_id": 141
+    },
+    {
+      "id": 3598,
+      "codigo": "5099",
+      "grupo_id": 101
+    },
+    {
+      "id": 3599,
+      "codigo": "10180",
+      "grupo_id": 26
+    },
+    {
+      "id": 3600,
+      "codigo": "3312",
+      "grupo_id": 96
+    },
+    {
+      "id": 3601,
+      "codigo": "2589",
+      "grupo_id": 131
+    },
+    {
+      "id": 3602,
+      "codigo": "1070302",
+      "grupo_id": 135
+    },
+    {
+      "id": 3604,
+      "codigo": "2001000I",
+      "grupo_id": 142
+    },
+    {
+      "id": 3605,
+      "codigo": "2406570IZB",
+      "grupo_id": 131
+    },
+    {
+      "id": 3606,
+      "codigo": "1008008ZB",
+      "grupo_id": 96
+    },
+    {
+      "id": 3607,
+      "codigo": "333035059451",
+      "grupo_id": 121
+    },
+    {
+      "id": 3608,
+      "codigo": "333014030451",
+      "grupo_id": 121
+    },
+    {
+      "id": 3609,
+      "codigo": "256006062451",
+      "grupo_id": 119
+    },
+    {
+      "id": 3610,
+      "codigo": "6044035",
+      "grupo_id": 103
+    },
+    {
+      "id": 3611,
+      "codigo": "6044031",
+      "grupo_id": 103
+    },
+    {
+      "id": 3612,
+      "codigo": "18050494",
+      "grupo_id": 102
+    },
+    {
+      "id": 3613,
+      "codigo": "17163776",
+      "grupo_id": 108
+    },
+    {
+      "id": 3614,
+      "codigo": "17164047",
+      "grupo_id": 94
+    },
+    {
+      "id": 3615,
+      "codigo": "18059809",
+      "grupo_id": 108
+    },
+    {
+      "id": 3616,
+      "codigo": "18122653",
+      "grupo_id": 143
+    },
+    {
+      "id": 3617,
+      "codigo": "18660646",
+      "grupo_id": 102
+    },
+    {
+      "id": 3618,
+      "codigo": "C034890.0000",
+      "grupo_id": 117
+    },
+    {
+      "id": 3619,
+      "codigo": "C029986.0000",
+      "grupo_id": 2
+    },
+    {
+      "id": 3620,
+      "codigo": "299860000",
+      "grupo_id": 118
+    },
+    {
+      "id": 3621,
+      "codigo": "C010330.0000",
+      "grupo_id": 142
+    },
+    {
+      "id": 3622,
+      "codigo": "1305870000",
+      "grupo_id": 10
+    },
+    {
+      "id": 3623,
+      "codigo": "475360000",
+      "grupo_id": 14
+    },
+    {
+      "id": 3624,
+      "codigo": "1305890000",
+      "grupo_id": 10
+    },
+    {
+      "id": 3625,
+      "codigo": "3209511",
+      "grupo_id": 76
+    },
+    {
+      "id": 3626,
+      "codigo": "1407730",
+      "grupo_id": 120
+    },
+    {
+      "id": 3627,
+      "codigo": "1411083",
+      "grupo_id": 120
+    },
+    {
+      "id": 3628,
+      "codigo": "CJ1WAD081V1",
+      "grupo_id": 48
+    },
+    {
+      "id": 3629,
+      "codigo": "CQM1HCPU61",
+      "grupo_id": 48
+    },
+    {
+      "id": 3630,
+      "codigo": "20021207",
+      "grupo_id": 76
+    },
+    {
+      "id": 3631,
+      "codigo": "20041207",
+      "grupo_id": 76
+    },
+    {
+      "id": 3632,
+      "codigo": "2904601",
+      "grupo_id": 50
+    },
+    {
+      "id": 3633,
+      "codigo": "2907719",
+      "grupo_id": 128
+    },
+    {
+      "id": 3634,
+      "codigo": "1159039",
+      "grupo_id": 50
+    },
+    {
+      "id": 3635,
+      "codigo": "TSK543BJX",
+      "grupo_id": 144
+    },
+    {
+      "id": 3637,
+      "codigo": "49452",
+      "grupo_id": 145
+    },
+    {
+      "id": 3638,
+      "codigo": "49453",
+      "grupo_id": 145
+    },
+    {
+      "id": 3639,
+      "codigo": "82539",
+      "grupo_id": 146
+    },
+    {
+      "id": 3640,
+      "codigo": "106927",
+      "grupo_id": 133
+    },
+    {
+      "id": 3641,
+      "codigo": "EMB094",
+      "grupo_id": 142
+    },
+    {
+      "id": 3642,
+      "codigo": "ZXHK23110203",
+      "grupo_id": 147
+    },
+    {
+      "id": 3643,
+      "codigo": "1137192013",
+      "grupo_id": 139
+    },
+    {
+      "id": 3647,
+      "codigo": "31383",
+      "grupo_id": 148
+    },
+    {
+      "id": 3648,
+      "codigo": "404017",
+      "grupo_id": 135
+    },
+    {
+      "id": 3649,
+      "codigo": "401014",
+      "grupo_id": 149
+    },
+    {
+      "id": 3650,
+      "codigo": "2010641",
+      "grupo_id": 135
+    },
+    {
+      "id": 3651,
+      "codigo": "604028",
+      "grupo_id": 135
+    },
+    {
+      "id": 3652,
+      "codigo": "22699",
+      "grupo_id": 98
+    },
+    {
+      "id": 3653,
+      "codigo": "4005019M",
+      "grupo_id": 149
+    },
+    {
+      "id": 3654,
+      "codigo": "107053",
+      "grupo_id": 150
+    },
+    {
+      "id": 3655,
+      "codigo": "155",
+      "grupo_id": 151
+    },
+    {
+      "id": 3656,
+      "codigo": "171004006259",
+      "grupo_id": 152
+    },
+    {
+      "id": 3657,
+      "codigo": "171004009259",
+      "grupo_id": 142
+    },
+    {
+      "id": 3658,
+      "codigo": "34180",
+      "grupo_id": 153
+    },
+    {
+      "id": 3659,
+      "codigo": "6SL32010BE238AA0",
+      "grupo_id": 51
+    },
+    {
+      "id": 3660,
+      "codigo": "1113245",
+      "grupo_id": 123
+    },
+    {
+      "id": 3661,
+      "codigo": "1113222",
+      "grupo_id": 123
+    },
+    {
+      "id": 3662,
+      "codigo": "2092910I",
+      "grupo_id": 142
+    },
+    {
+      "id": 3663,
+      "codigo": "1906370IZB",
+      "grupo_id": 101
+    },
+    {
+      "id": 3664,
+      "codigo": "1009092IZB",
+      "grupo_id": 154
+    },
+    {
+      "id": 3665,
+      "codigo": "1906660IZB8",
+      "grupo_id": 142
+    },
+    {
+      "id": 3666,
+      "codigo": "6080601",
+      "grupo_id": 125
+    },
+    {
+      "id": 3667,
+      "codigo": "6082806",
+      "grupo_id": 26
+    },
+    {
+      "id": 3668,
+      "codigo": "2115285",
+      "grupo_id": 94
+    },
+    {
+      "id": 3669,
+      "codigo": "5311136",
+      "grupo_id": 29
+    },
+    {
+      "id": 3670,
+      "codigo": "1112263",
+      "grupo_id": 27
+    },
+    {
+      "id": 3671,
+      "codigo": "6053542",
+      "grupo_id": 110
+    },
+    {
+      "id": 3672,
+      "codigo": "13428",
+      "grupo_id": 133
+    },
+    {
+      "id": 3673,
+      "codigo": "10004519",
+      "grupo_id": 155
+    },
+    {
+      "id": 3674,
+      "codigo": "462078",
+      "grupo_id": 156
+    },
+    {
+      "id": 3686,
+      "codigo": "146",
+      "grupo_id": 157
+    },
+    {
+      "id": 3687,
+      "codigo": "183",
+      "grupo_id": 158
+    },
+    {
+      "id": 3688,
+      "codigo": "1077",
+      "grupo_id": 151
+    },
+    {
+      "id": 3689,
+      "codigo": "17153",
+      "grupo_id": 99
+    },
+    {
+      "id": 3690,
+      "codigo": "15876",
+      "grupo_id": 99
+    },
+    {
+      "id": 3691,
+      "codigo": "3.012.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3692,
+      "codigo": "3.012.003.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3693,
+      "codigo": "3.012.004.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3694,
+      "codigo": "3.012.005.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3695,
+      "codigo": "3.016.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3696,
+      "codigo": "3.016.003.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3697,
+      "codigo": "3.016.005.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3698,
+      "codigo": "3.017.004.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3699,
+      "codigo": "3.016.017.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3700,
+      "codigo": "3.017.015.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3701,
+      "codigo": "404.037.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3702,
+      "codigo": "404.036.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3703,
+      "codigo": "3.021.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3704,
+      "codigo": "3.020.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3705,
+      "codigo": "3.019.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3706,
+      "codigo": "1196",
+      "grupo_id": 136
+    },
+    {
+      "id": 3707,
+      "codigo": "591",
+      "grupo_id": 135
+    },
+    {
+      "id": 3708,
+      "codigo": "1458",
+      "grupo_id": 96
+    },
+    {
+      "id": 3709,
+      "codigo": "1809",
+      "grupo_id": 136
+    },
+    {
+      "id": 3710,
+      "codigo": "3.018.005.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3711,
+      "codigo": "3.018.014.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3712,
+      "codigo": "3.018.002.1.23",
+      "grupo_id": 138
+    },
+    {
+      "id": 3713,
+      "codigo": "BQEM08-B1CLB",
+      "grupo_id": 159
+    },
+    {
+      "id": 3714,
+      "codigo": "BQCT08-B1X5MB",
+      "grupo_id": 160
+    },
+    {
+      "id": 3715,
+      "codigo": "625561",
+      "grupo_id": 161
+    },
+    {
+      "id": 3716,
+      "codigo": "655018",
+      "grupo_id": 161
+    },
+    {
+      "id": 3717,
+      "codigo": "450360",
+      "grupo_id": 161
+    },
+    {
+      "id": 3718,
+      "codigo": "431676",
+      "grupo_id": 162
+    },
+    {
+      "id": 3719,
+      "codigo": "350178",
+      "grupo_id": 161
+    },
+    {
+      "id": 3720,
+      "codigo": "218429",
+      "grupo_id": 161
+    },
+    {
+      "id": 3721,
+      "codigo": "198318",
+      "grupo_id": 161
+    },
+    {
+      "id": 3722,
+      "codigo": "1906640IZB8",
+      "grupo_id": 101
+    },
+    {
+      "id": 3723,
+      "codigo": "1008096IWA",
+      "grupo_id": 154
+    },
+    {
+      "id": 3724,
+      "codigo": "564",
+      "grupo_id": 163
+    },
+    {
+      "id": 3725,
+      "codigo": "583",
+      "grupo_id": 135
+    },
+    {
+      "id": 3726,
+      "codigo": "146109",
+      "grupo_id": 96
+    },
+    {
+      "id": 3727,
+      "codigo": "18036192",
+      "grupo_id": 138
+    },
+    {
+      "id": 3728,
+      "codigo": "18037499",
+      "grupo_id": 165
+    },
+    {
+      "id": 3729,
+      "codigo": "18037506",
+      "grupo_id": 165
+    },
+    {
+      "id": 3730,
+      "codigo": "18037512",
+      "grupo_id": 165
+    },
+    {
+      "id": 3731,
+      "codigo": "18037513",
+      "grupo_id": 165
+    },
+    {
+      "id": 3732,
+      "codigo": "18043995",
+      "grupo_id": 165
+    },
+    {
+      "id": 3733,
+      "codigo": "6ES75101SJ010AB0",
+      "grupo_id": 55
+    },
+    {
+      "id": 3734,
+      "codigo": "18043996",
+      "grupo_id": 165
+    },
+    {
+      "id": 3735,
+      "codigo": "18043997",
+      "grupo_id": 165
+    },
+    {
+      "id": 3736,
+      "codigo": "18043998",
+      "grupo_id": 165
+    },
+    {
+      "id": 3737,
+      "codigo": "18043999",
+      "grupo_id": 165
+    },
+    {
+      "id": 3738,
+      "codigo": "18044000",
+      "grupo_id": 165
+    },
+    {
+      "id": 3739,
+      "codigo": "6021917",
+      "grupo_id": 126
+    },
+    {
+      "id": 3740,
+      "codigo": "1211505",
+      "grupo_id": 123
+    },
+    {
+      "id": 3741,
+      "codigo": "2095618",
+      "grupo_id": 106
+    },
+    {
+      "id": 3742,
+      "codigo": "1211506",
+      "grupo_id": 123
+    },
+    {
+      "id": 3743,
+      "codigo": "2096235",
+      "grupo_id": 106
+    },
+    {
+      "id": 3744,
+      "codigo": "2123627",
+      "grupo_id": 166
+    },
+    {
+      "id": 3745,
+      "codigo": "6009719",
+      "grupo_id": 107
+    },
+    {
+      "id": 3746,
+      "codigo": "6070805",
+      "grupo_id": 27
+    },
+    {
+      "id": 3747,
+      "codigo": "2046579",
+      "grupo_id": 115
+    },
+    {
+      "id": 3748,
+      "codigo": "5312983",
+      "grupo_id": 115
+    },
+    {
+      "id": 3749,
+      "codigo": "5312982",
+      "grupo_id": 115
+    },
+    {
+      "id": 3750,
+      "codigo": "588",
+      "grupo_id": 167
+    },
+    {
+      "id": 3751,
+      "codigo": "348900000",
+      "grupo_id": 117
+    },
+    {
+      "id": 3752,
+      "codigo": "1305880000",
+      "grupo_id": 168
+    },
+    {
+      "id": 3753,
+      "codigo": "1879",
+      "grupo_id": 136
+    },
+    {
+      "id": 3754,
+      "codigo": "2966650",
+      "grupo_id": 35
+    }
+  ]
+}
+

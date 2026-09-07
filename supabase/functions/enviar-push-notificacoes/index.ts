@@ -21,17 +21,17 @@ function chunks<T>(items: T[], tamanho: number) {
 }
 
 Deno.serve(async (request) => {
-  // Esta Function e chamada pelo agendador usando um segredo proprio. Nunca
-  // aceite o JWT do aplicativo aqui: o cliente nao pode consumir a fila.
-  const segredo = Deno.env.get('PUSH_DISPATCH_TOKEN');
-  if (!segredo || request.headers.get('authorization') !== `Bearer ${segredo}`) {
-    return new Response('Não autorizado.', { status: 401 });
-  }
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceRoleKey) {
     return new Response('Configuração do Supabase ausente.', { status: 500 });
+  }
+
+  // Esta Function e chamada pelo agendador com a service_role, igual as de
+  // NF-e. O JWT do aplicativo tambem chega ao gateway, entao a comparacao
+  // abaixo e o que impede o cliente de consumir a fila.
+  if (request.headers.get('authorization') !== `Bearer ${serviceRoleKey}`) {
+    return new Response('Não autorizado.', { status: 401 });
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });

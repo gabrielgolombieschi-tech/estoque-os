@@ -1,0 +1,415 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "decisao": "D-036",
+  "lote": "001-contatores-siemens",
+  "familia": "CONTATORES",
+  "criterio": "CONTATORES:1",
+  "data": "2026-09-05",
+  "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+  "pendentes_fora_do_lote": [
+    795,
+    1540
+  ],
+  "itens": [
+    {
+      "id": 779,
+      "antes": {
+        "id": 779,
+        "codigo_interno": "3RT20152BB41",
+        "nome": "CONTATOR AC-3 7A 1NA 24VCC",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T20:13:07.388346"
+      },
+      "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCC CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2015-2BB41. Três polos de potência; corrente operacional AC-3 de 7A em 400VCA. Contatos auxiliares integrados: 1NA. Bobina: 24VCC, corrente contínua. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://cache.industry.siemens.com/dl/files/656/109973656/att_1294484/v1/Conversion_list_components_with_ring_cable_lug_connection_EN.pdf"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 822,
+      "antes": {
+        "id": 822,
+        "codigo_interno": "3RT20152BB42",
+        "nome": "CONTATOR AC-3 7A 1NF 24VCC",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T23:43:24.499714"
+      },
+      "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2015-2BB42. Três polos de potência; corrente operacional AC-3 de 7A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/b1/Catalog/Product/3RT2015-2BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 823,
+      "antes": {
+        "id": 823,
+        "codigo_interno": "3RT20162BB42",
+        "nome": "CONTATOR AC-3 9A 1NF 24VCC",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T23:43:24.990877"
+      },
+      "nome": "CONTATOR 3P AC-3 9A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2016-2BB42. Três polos de potência; corrente operacional AC-3 de 9A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/internationalenergytechnikltd/Catalog/Product?SiepCountryCode=OE&mlfb=3RT2016-2BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 826,
+      "antes": {
+        "id": 826,
+        "codigo_interno": "3RT20182BB42",
+        "nome": "CONTATOR AC-3 16A 1NF 24VCC",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T23:43:26.478213"
+      },
+      "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2018-2BB42. Três polos de potência; corrente operacional AC-3 de 16A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/pt/pt/Catalog/Product/3RT2018-2BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 235,
+      "antes": {
+        "id": 235,
+        "codigo_interno": "3RT20152AB01",
+        "nome": "CONTATOR AC-3 7A 1NA 24V 50/60Hz CONEXÃO POR MOLA",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCA 50/60Hz CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2015-2AB01. Três polos de potência; corrente operacional AC-3 de 7A em 400VCA. Contatos auxiliares integrados: 1NA. Bobina: 24VCA, 50/60Hz. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/3RT2015-2AB01"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 754,
+      "antes": {
+        "id": 754,
+        "codigo_interno": "3RT20152AN22",
+        "nome": "CONTATOR AC-3 7A 1NF 220V 50/60Hz CONEXÃO POR MOLA",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T20:04:26.055948"
+      },
+      "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2015-2AN22. Três polos de potência; corrente operacional AC-3 de 7A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 220VCA, 50/60Hz. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/NO/NO/Catalog/Product/?mlfb=3RT2015-2AN22"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 1539,
+      "antes": {
+        "id": 1539,
+        "codigo_interno": "3RT20182AF02",
+        "nome": "CONTATOR AC-3 16A 1NF 110V 50/60Hz",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-02-12T12:26:40.810909"
+      },
+      "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 110VCA 50/60Hz CONEXÃO POR MOLA",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2018-2AF02. Três polos de potência; corrente operacional AC-3 de 16A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 110VCA, 50/60Hz. Conexão por mola. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2018-2AF02"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 182,
+      "antes": {
+        "id": 182,
+        "codigo_interno": "3RT20151BB42",
+        "nome": "CONTATOR AC-3 7A 1NF 24VCC CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2015-1BB42. Três polos de potência; corrente operacional AC-3 de 7A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/en/Catalog/product?mlfb=3RT20151BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 183,
+      "antes": {
+        "id": 183,
+        "codigo_interno": "3RT20171BB42",
+        "nome": "CONTATOR AC-3 12A 1NF 24VCC CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 12A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2017-1BB42. Três polos de potência; corrente operacional AC-3 de 12A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/de/interhydroilown/Catalog/Product?SiepCountryCode=OE&mlfb=3RT2017-1BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 194,
+      "antes": {
+        "id": 194,
+        "codigo_interno": "3RT20161BB42",
+        "nome": "CONTATOR AC-3 9A 1NF 24VCC CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 9A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2016-1BB42. Três polos de potência; corrente operacional AC-3 de 9A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/de/de/Catalog/product?mlfb=3RT2016-1BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 741,
+      "antes": {
+        "id": 741,
+        "codigo_interno": "3RT20151BB41",
+        "nome": "CONTATOR AC-3 7A 1NA 24VCC CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T20:04:26.055948"
+      },
+      "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCC CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2015-1BB41. Três polos de potência; corrente operacional AC-3 de 7A em 400VCA. Contatos auxiliares integrados: 1NA. Bobina: 24VCC, corrente contínua. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/riederpyown/Catalog/Product/3RT2015-1BB41"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 1118,
+      "antes": {
+        "id": 1118,
+        "codigo_interno": "3RT20181BB42",
+        "nome": "CONTATOR AC-3 16A 1NF 24VCC CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-02-02T16:36:44.513911"
+      },
+      "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2018-1BB42. Três polos de potência; corrente operacional AC-3 de 16A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 24VCC, corrente contínua. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/qa/EN/Catalog/Product/?mlfb=3RT2018-1BB42"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 244,
+      "antes": {
+        "id": 244,
+        "codigo_interno": "3RT20161AN22",
+        "nome": "CONTATOR AC-3 9A 1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 9A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2016-1AN22. Três polos de potência; corrente operacional AC-3 de 9A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 220VCA, 50/60Hz. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2016-1AN22"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 248,
+      "antes": {
+        "id": 248,
+        "codigo_interno": "3RT20261AN20",
+        "nome": "CONTATOR AC-3 25A 1NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2026-1AN20. Três polos de potência; corrente operacional AC-3 de 25A em 400VCA. Contatos auxiliares integrados: 1NA+1NF. Bobina: 220VCA, 50/60Hz. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/es/co/Catalog/Product/3RT2026-1AN20"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 249,
+      "antes": {
+        "id": 249,
+        "codigo_interno": "3RT20181AN22",
+        "nome": "CONTATOR AC-3 16A 1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2018-1AN22. Três polos de potência; corrente operacional AC-3 de 16A em 400VCA. Contatos auxiliares integrados: 1NF. Bobina: 220VCA, 50/60Hz. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2018-1AN22"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 255,
+      "antes": {
+        "id": 255,
+        "codigo_interno": "3RT20261AG20",
+        "nome": "CONTATOR AC-3 25A 1NA+1NF 110V 50/60Hz CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T19:22:18.704222"
+      },
+      "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 110VCA 50/60Hz CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2026-1AG20. Três polos de potência; corrente operacional AC-3 de 25A em 400VCA. Contatos auxiliares integrados: 1NA+1NF. Bobina: 110VCA, 50/60Hz. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/nl/Catalog/Product/3RT2026-1AG20"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 762,
+      "antes": {
+        "id": 762,
+        "codigo_interno": "3RT20251AN20",
+        "nome": "CONTATOR AC-3 17A 1NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T20:04:26.055948"
+      },
+      "nome": "CONTATOR 3P AC-3 17A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2025-1AN20. Três polos de potência; corrente operacional AC-3 de 17A em 400VCA. Contatos auxiliares integrados: 1NA+1NF. Bobina: 220VCA, 50/60Hz. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2025-1AN20"
+      ],
+      "pendencias": []
+    },
+    {
+      "id": 804,
+      "antes": {
+        "id": 804,
+        "codigo_interno": "3RT20261AC20",
+        "nome": "CONTATOR AC-3 25A 1NA+1NF 24V 50/60Hz CONEXÃO POR PARAFUSO",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T20:13:17.869539"
+      },
+      "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 24VCA 50/60Hz CONEXÃO POR PARAFUSO",
+      "descricao_tecnica": "Contator Siemens SIRIUS 3RT2026-1AC20. Três polos de potência; corrente operacional AC-3 de 25A em 400VCA. Contatos auxiliares integrados: 1NA+1NF. Bobina: 24VCA, 50/60Hz. Conexão por parafuso. Os 400VCA são a referência de operação AC-3, não a tensão da bobina nem a tensão máxima de isolação.",
+      "fontes": [
+        "https://mall.industry.siemens.com/mall/en/uk/Catalog/Product/3RT2026-1AC20"
+      ],
+      "pendencias": []
+    }
+  ],
+  "pendentes": [
+    {
+      "id": 795,
+      "antes": {
+        "id": 795,
+        "codigo_interno": "3RT20182AN22",
+        "nome": "CONTATOR AC-3 16A 1NF 220V 50/60Hz CONEXÃO POR MOLA",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-01-20T20:13:14.150772"
+      },
+      "motivo": "Referência exata encontrada em tabela oficial, mas ainda falta conferir cabeçalhos e associação de bobina/frequência/conexão. PDF não pôde ser aberto integralmente; não aprovar por trecho isolado.",
+      "fontes": [
+        "https://assets.new.siemens.com/siemens/assets/api/uuid%3A6b83665d-d50c-409b-8e2e-05ccaa826c49/Fichas-tecnicas-MONTADA-AGO25_original.pdf"
+      ]
+    },
+    {
+      "id": 1540,
+      "antes": {
+        "id": 1540,
+        "codigo_interno": "3RT20152AF02",
+        "nome": "CONTATOR AC-3 7A 1NF 110V 50/60Hz",
+        "descricao": null,
+        "fabricante": null,
+        "grupo_id": 17,
+        "ativo": true,
+        "fornecedor_id": 3,
+        "atualizado_em": "2026-02-12T12:26:41.380667"
+      },
+      "motivo": "Referência exata localizada no catálogo IC10; confirmar visualmente associação de colunas de tensão/frequência/conexão antes de enriquecer. Não herdar especificações do predecessor 3RT1015.",
+      "fontes": [
+        "https://cache.industry.siemens.com/dl/files/995/109771995/att_1058575/v1/SIRIUS_IC10_chap03_English_2021_202103301011258869.pdf"
+      ]
+    }
+  ]
+}
+

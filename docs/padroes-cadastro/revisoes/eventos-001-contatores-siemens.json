@@ -1,0 +1,386 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 182,
+    "codigo": "3RT20151BB42",
+    "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.362Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/en/Catalog/product?mlfb=3RT20151BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5154596b00598ab1d3217849b413ebbff5f1be4a284c8b6a75c5d4e948cf1d3f",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 183,
+    "codigo": "3RT20171BB42",
+    "nome": "CONTATOR 3P AC-3 12A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/de/interhydroilown/Catalog/Product?SiepCountryCode=OE&mlfb=3RT2017-1BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "19b1d62b55f4abe8e7593b42762c839a24a9d795e8e7a3fae558fd1ee49bb58b",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 194,
+    "codigo": "3RT20161BB42",
+    "nome": "CONTATOR 3P AC-3 9A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/de/de/Catalog/product?mlfb=3RT2016-1BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1d36f1c54b5a20c1ef266ec3891fa2822f8d035432a7ee4e9bd0fd7295eb1bee",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 235,
+    "codigo": "3RT20152AB01",
+    "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCA 50/60Hz CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/3RT2015-2AB01"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f51595dc2d8eab94d363e544123c657caf94d15337ab9b31cac6e7db693a74ba",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 244,
+    "codigo": "3RT20161AN22",
+    "nome": "CONTATOR 3P AC-3 9A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2016-1AN22"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "821cede82651ac6a87fc6095ccdcc271328c7cb2a231bc59b661f51cd1037c30",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 248,
+    "codigo": "3RT20261AN20",
+    "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/es/co/Catalog/Product/3RT2026-1AN20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "10bb45c06469f6cc4965fd89885205c6d5f15f5f6b8ae9506a141a99fe9d9551",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 249,
+    "codigo": "3RT20181AN22",
+    "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2018-1AN22"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "df0e20b4e0f1ce16a1cfe213f92e02bdf0bc319fb7093c3d93e9cf22ad627773",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 255,
+    "codigo": "3RT20261AG20",
+    "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 110VCA 50/60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/nl/Catalog/Product/3RT2026-1AG20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c7b110bd938499748e23ef2dcca3a4383f8f2e444c4a906d4de48b7b71fd5b9c",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 741,
+    "codigo": "3RT20151BB41",
+    "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCC CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/riederpyown/Catalog/Product/3RT2015-1BB41"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "fc94ac97695e7558dfbe399d464d905d07f7a941f41f23f9fe52c348738acbda",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 754,
+    "codigo": "3RT20152AN22",
+    "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/NO/NO/Catalog/Product/?mlfb=3RT2015-2AN22"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "866e1142961cf4f0c6ce085537476aa56c06070ee440ecc0d0b5c22058953621",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 762,
+    "codigo": "3RT20251AN20",
+    "nome": "CONTATOR 3P AC-3 17A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2025-1AN20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "fa4452968673c83d85676645f579edf7d60dfdd48c5bda1e4396bad1a240ef4b",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 779,
+    "codigo": "3RT20152BB41",
+    "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCC CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/656/109973656/att_1294484/v1/Conversion_list_components_with_ring_cable_lug_connection_EN.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "00e2fb91b32607367bbc003555970eb9e6237b7c8c5a4b0ea20f6859bc025b8d",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 795,
+    "codigo": "3RT20182AN22",
+    "nome": "CONTATOR AC-3 16A 1NF 220V 50/60Hz CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "pendente",
+    "fontes": [
+      "https://assets.new.siemens.com/siemens/assets/api/uuid%3A6b83665d-d50c-409b-8e2e-05ccaa826c49/Fichas-tecnicas-MONTADA-AGO25_original.pdf"
+    ],
+    "pendencias": [
+      "Referência exata encontrada em tabela oficial, mas ainda falta conferir cabeçalhos e associação de bobina/frequência/conexão. PDF não pôde ser aberto integralmente; não aprovar por trecho isolado."
+    ],
+    "impressao_tecnica": "2dd8f51dfd186a61f1202fe95f32226be88741a5793ec1095d2f7e35aa162c63",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 804,
+    "codigo": "3RT20261AC20",
+    "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 24VCA 50/60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/uk/Catalog/Product/3RT2026-1AC20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b92cb9cb0fb8de4694f58277db2a932104e4ef84b008a19b9e514f2e8f99d022",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 822,
+    "codigo": "3RT20152BB42",
+    "nome": "CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/b1/Catalog/Product/3RT2015-2BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "ec79d6f37f67e102b468b9a87d245d58924248969c5c4f815b625d8891678d6e",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 823,
+    "codigo": "3RT20162BB42",
+    "nome": "CONTATOR 3P AC-3 9A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/en/internationalenergytechnikltd/Catalog/Product?SiepCountryCode=OE&mlfb=3RT2016-2BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "acdb29e755f520c952e3db4bce7893410b43997ca716c9e0041881778b6ac193",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 826,
+    "codigo": "3RT20182BB42",
+    "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/pt/pt/Catalog/Product/3RT2018-2BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "855c5de345fb298b6de058e62e196c1bc81445205d814557fcae4f615325985a",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1118,
+    "codigo": "3RT20181BB42",
+    "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://mall.industry.siemens.com/mall/qa/EN/Catalog/Product/?mlfb=3RT2018-1BB42"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "6a27ff814116b2a68beef73fbf1727e5e45c0abf07648ff771816d5369d5d564",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1539,
+    "codigo": "3RT20182AF02",
+    "nome": "CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 110VCA 50/60Hz CONEXÃO POR MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://support.industry.siemens.com/teddatasheet/?caller=SIOS&format=pdf&language=es&mlfbs=3RT2018-2AF02"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "0b249cc5ed8357879bc8ecbc694d77056a5e781a3c25d827cbdbcb5f2a09edb1",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1540,
+    "codigo": "3RT20152AF02",
+    "nome": "CONTATOR AC-3 7A 1NF 110V 50/60Hz",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "001-contatores-siemens",
+    "revisado_em": "2026-09-05T20:02:02.363Z",
+    "responsavel": "Codex — revisão técnica autorizada pelo usuário",
+    "status": "pendente",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/995/109771995/att_1058575/v1/SIRIUS_IC10_chap03_English_2021_202103301011258869.pdf"
+    ],
+    "pendencias": [
+      "Referência exata localizada no catálogo IC10; confirmar visualmente associação de colunas de tensão/frequência/conexão antes de enriquecer. Não herdar especificações do predecessor 3RT1015."
+    ],
+    "impressao_tecnica": "171ab6df04efa846b89f59765b0c92dd2e19e7ec5e52108e421ace13e7d30838",
+    "backup": "backups/revisao-contatores/2026-09-05T20-01-57-575Z.json"
+  }
+]

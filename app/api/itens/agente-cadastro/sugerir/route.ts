@@ -73,7 +73,13 @@ type FiscalDbRow = {
   credita_cofins: boolean | null;
 };
 
-const DOMINIOS_PESQUISA_MARKETPLACE = [
+// Marketplace generico e otimo para item de consumo e pessimo para material
+// eletrico industrial: disjuntor Siemens, borne WAGO ou fonte Phoenix quase nao
+// tem anuncio no Mercado Livre nem no eBay, e a pesquisa voltava sem preco. Por
+// isso a lista abaixo tem duas partes — os marketplaces, que continuam valendo
+// para o que e vendido la, e os distribuidores industriais, que sao onde esse
+// tipo de peca realmente aparece com preco publicado.
+const DOMINIOS_MARKETPLACE = [
   "mercadolivre.com.br",
   "ebay.com",
   "ebay.com.br",
@@ -82,6 +88,30 @@ const DOMINIOS_PESQUISA_MARKETPLACE = [
   "ebay.ca",
   "ebay.com.au",
 ];
+
+const DOMINIOS_DISTRIBUIDOR_INDUSTRIAL = [
+  // Brasil
+  "lojaeletrica.com.br",
+  "casadoeletricista.com.br",
+  "kalatec.com.br",
+  "acaotecnica.com.br",
+  "eletrozem.com.br",
+  "soumaquina.com.br",
+  // Distribuidores tecnicos internacionais, onde codigo de fabricante aparece
+  // com preco publicado.
+  "digikey.com",
+  "digikey.com.br",
+  "mouser.com",
+  "br.mouser.com",
+  "rs-online.com",
+  "br.rsdelivers.com",
+  "farnell.com",
+  "newark.com",
+  "automation24.com",
+  "radwell.com",
+];
+
+const DOMINIOS_PESQUISA_MARKETPLACE = [...DOMINIOS_MARKETPLACE, ...DOMINIOS_DISTRIBUIDOR_INDUSTRIAL];
 
 type PesquisaPrecoBruta = {
   tipo_correspondencia: "exato" | "similar" | "nao_encontrado";
@@ -115,7 +145,10 @@ function schemaRespostaPesquisaMarketplace() {
     ],
     properties: {
       tipo_correspondencia: { type: "string", enum: ["exato", "similar", "nao_encontrado"] },
-      marketplace: { type: ["string", "null"], enum: ["Mercado Livre", "eBay", null] },
+      // Sem enum de proposito: agora tambem vale distribuidor tecnico, e o
+      // servidor reescreve este campo a partir do dominio da URL
+      // (marketplaceDaFonte). O que o modelo escreve aqui e so indicativo.
+      marketplace: { type: ["string", "null"] },
       fonte: { type: ["string", "null"] },
       titulo: { type: ["string", "null"] },
       fonte_url: { type: ["string", "null"] },
@@ -145,12 +178,31 @@ function fontesDaCotacao(pesquisa: PesquisaPreco, fontes: FonteWeb[]): FonteWeb[
   return fontes.filter((fonte) => urls.has(fonte.url)).slice(0, 3);
 }
 
-function eMarketplace(marketplace: string | null): boolean {
-  return marketplace === "Mercado Livre" || marketplace === "eBay";
+function hostDaUrl(url: string | null): string {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Fonte que publica preco de venda, em oposicao a pagina tecnica do fabricante.
+ * Antes so valia Mercado Livre e eBay, e por isso peca industrial voltava sem
+ * preco: distribuidor tecnico nao era aceito nem quando trazia o codigo exato
+ * com valor na tela. A checagem e pelo host da URL, que o servidor ja resolve,
+ * e nao pelo nome que o modelo escreveu.
+ */
+function eFonteDePreco(pesquisa: Pick<PesquisaPreco, "marketplace" | "fonte_url">): boolean {
+  if (pesquisa.marketplace === "Mercado Livre" || pesquisa.marketplace === "eBay") return true;
+  const host = hostDaUrl(pesquisa.fonte_url);
+  if (!host) return false;
+  return DOMINIOS_DISTRIBUIDOR_INDUSTRIAL.some((dominio) => host === dominio || host.endsWith(`.${dominio}`));
 }
 
 function devePesquisarMarketplaces(pesquisa: PesquisaPreco): boolean {
-  return pesquisa.status !== "encontrado" || !eMarketplace(pesquisa.marketplace);
+  return pesquisa.status !== "encontrado" || !eFonteDePreco(pesquisa);
 }
 
 function deveUsarPesquisaMarketplace(atual: PesquisaPreco, candidata: PesquisaPreco): boolean {
@@ -158,7 +210,7 @@ function deveUsarPesquisaMarketplace(atual: PesquisaPreco, candidata: PesquisaPr
   if (atual.preco_origem == null || !atual.fonte_url) return true;
   if (candidata.status === "encontrado" && atual.status !== "encontrado") return true;
   if (candidata.tipo_correspondencia === "exato" && atual.tipo_correspondencia !== "exato") return true;
-  return candidata.status === "encontrado" && eMarketplace(candidata.marketplace) && !eMarketplace(atual.marketplace);
+  return candidata.status === "encontrado" && eFonteDePreco(candidata) && !eFonteDePreco(atual);
 }
 
 async function complementarCotacaoComPtax(input: {
@@ -167,7 +219,7 @@ async function complementarCotacaoComPtax(input: {
   fontes: FonteWeb[];
 }): Promise<{ pesquisa: PesquisaPrecoBruta; fontes: FonteWeb[] } | null> {
   if (
-    !eMarketplace(input.pesquisa.marketplace) ||
+    !eFonteDePreco(input.pesquisa) ||
     input.pesquisa.preco_origem === null ||
     !input.pesquisa.moeda ||
     input.pesquisa.moeda === "BRL"
@@ -214,7 +266,7 @@ async function pesquisarPrecoEmMarketplaces(input: {
           {
             role: "system",
             content:
-              "Você é o pesquisador de preço do ERP. Use obrigatoriamente a pesquisa web e procure o código exato primeiro no Mercado Livre Brasil e no eBay. Faça consultas com o código informado e com o código normalizado; só use item similar quando o código exato não retornar anúncio. Uma página técnica do fabricante não é fonte de preço. Se houver anúncio de marketplace com preço visível, ele deve ser preferido. Retorne somente um JSON estruturado. fonte_url deve ser a URL exata de uma fonte devolvida pela ferramenta; preco_origem deve ser o número visto no anúncio, sem conversão. marketplace deve identificar Mercado Livre ou eBay. Não pesquise nem estime câmbio nesta etapa: quando a moeda não for BRL, mantenha preco_origem e moeda do anúncio e preencha taxa_cambio_brl, fonte_cambio_url e data_cambio com null. O servidor consulta a PTAX do Banco Central separadamente. Sem anúncio com preço visível, use preco_origem null e explique em observacao.",
+              "Você é o pesquisador de preço do ERP. Use obrigatoriamente a pesquisa web e procure o código exato primeiro no Mercado Livre Brasil e no eBay e, para material elétrico e de automação industrial, também nos distribuidores técnicos liberados (Digi-Key, Mouser, RS, Farnell, Newark, Automation24, Radwell e as lojas elétricas brasileiras). Peça industrial raramente tem anúncio em marketplace de consumo: nesses casos o distribuidor técnico é a fonte esperada. Faça consultas com o código informado e com o código normalizado; só use item similar quando o código exato não retornar anúncio. Uma página técnica do fabricante não é fonte de preço. Se houver anúncio de marketplace com preço visível, ele deve ser preferido. Retorne somente um JSON estruturado. fonte_url deve ser a URL exata de uma fonte devolvida pela ferramenta; preco_origem deve ser o número visto no anúncio, sem conversão. marketplace deve identificar a loja da fonte (Mercado Livre, eBay ou o distribuidor técnico); o servidor confere pelo domínio da URL. Não pesquise nem estime câmbio nesta etapa: quando a moeda não for BRL, mantenha preco_origem e moeda do anúncio e preencha taxa_cambio_brl, fonte_cambio_url e data_cambio com null. O servidor consulta a PTAX do Banco Central separadamente. Sem anúncio com preço visível, use preco_origem null e explique em observacao.",
           },
           {
             role: "user",
@@ -455,7 +507,14 @@ export async function POST(req: NextRequest) {
 
     const apiKey = String(process.env.OPENAI_API_KEY ?? process.env.ASSISTENTE_IA_OPENAI_API_KEY ?? "").trim();
     if (!apiKey) return jsonError(503, "OPENAI_API_KEY não configurada para o agente de cadastro.");
-    const model = String(process.env.ASSISTENTE_IA_OPENAI_MODEL ?? "gpt-5.4-mini").trim();
+    // Variavel propria: o agente de cadastro justifica um modelo caro, porque a
+    // descricao vai para o cadastro definitivo do item. O assistente de
+    // orcamento roda em volume muito maior e continua na variavel dele — antes
+    // as duas rotas liam ASSISTENTE_IA_OPENAI_MODEL e subir o modelo aqui
+    // subia o custo la sem ninguem pedir.
+    const model = String(
+      process.env.AGENTE_CADASTRO_OPENAI_MODEL ?? process.env.ASSISTENTE_IA_OPENAI_MODEL ?? "gpt-5.4-mini"
+    ).trim();
 
     const grupos = await carregarGrupos({ supabase: auth.supabase, tenantId: ctx.tenantId, empresaId: ctx.empresaId });
     const gruposPorId = new Map(grupos.map((grupo) => [grupo.id, grupo]));
@@ -481,7 +540,7 @@ export async function POST(req: NextRequest) {
             role: "system",
             content: [
               promptSistemaAgenteCadastro(),
-              "Protocolo obrigatório de pesquisa: antes de responder, reconheça tecnicamente o código em fonte técnica e pesquise também o mesmo código no Mercado Livre Brasil e no eBay. Execute consultas com o código informado e com a forma normalizada, inclusive sem separadores visuais. Não encerre a cotação com apenas uma página do fabricante sem preço se a pesquisa retornar anúncio de marketplace. Para pesquisa_preco, priorize anúncio de código exato com preço visível; use similar somente quando o exato não existir e declare isso. fonte, titulo, fonte_url, moeda e preco_origem devem corresponder ao anúncio concreto retornado pela ferramenta. O marketplace é identificado pela URL e será validado pelo servidor. Em preço estrangeiro, pesquise uma cotação BRL verificável e informe taxa_cambio_brl, fonte_cambio_url e data_cambio em AAAA-MM-DD; não estime câmbio. A conversão e o acréscimo de importação do eBay são calculados exclusivamente pelo servidor.",
+              "Protocolo obrigatório de pesquisa: antes de responder, reconheça tecnicamente o código em fonte técnica e pesquise também o mesmo código no Mercado Livre Brasil, no eBay e nos distribuidores técnicos liberados, que costumam ser a única fonte com preço para material industrial. Execute consultas com o código informado e com a forma normalizada, inclusive sem separadores visuais. Não encerre a cotação com apenas uma página do fabricante sem preço se a pesquisa retornar anúncio de marketplace. Para pesquisa_preco, priorize anúncio de código exato com preço visível; use similar somente quando o exato não existir e declare isso. fonte, titulo, fonte_url, moeda e preco_origem devem corresponder ao anúncio concreto retornado pela ferramenta. O marketplace é identificado pela URL e será validado pelo servidor. Em preço estrangeiro, pesquise uma cotação BRL verificável e informe taxa_cambio_brl, fonte_cambio_url e data_cambio em AAAA-MM-DD; não estime câmbio. A conversão e o acréscimo de importação do eBay são calculados exclusivamente pelo servidor.",
             ].join(" "),
           },
           {

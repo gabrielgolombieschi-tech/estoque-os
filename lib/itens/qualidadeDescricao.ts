@@ -1,4 +1,4 @@
-/** D-033: critérios compartilhados pelo cadastro assistido e pela importação. */
+/** D-033/D-035: critérios compartilhados pelo cadastro assistido e pela importação. */
 export const REGRAS_SENSORES_SEGURANCA = [
   "Para sensores e itens de segurança, confirme o código exato e a variante no fabricante. Termos fiscais em inglês não definem a função: safety switch é chave de segurança, não switch Ethernet; TR4/STR1 RFID não são travas mecânicas. Acessório não é sensor completo.",
   "Sensores fotoelétricos exigem princípio (barreira, retrorreflexivo, difuso/supressão de fundo), alcance de trabalho, saída (PNP/NPN ou outra), alimentação e conexão. Em barreiras, distinguir emissor, receptor e conjunto somente quando confirmado. Indutivos e ultrassônicos exigem faixa/distância, saída, alimentação, conexão e dimensões confirmadas. Não substituir faixa de trabalho pelo alcance máximo limite.",
@@ -33,6 +33,9 @@ export function pendenciasDescricaoTecnica(input: {
   const saida = /\b(?:PNP|NPN|TTL|HTL|IO-LINK|OSSD)\b|\d+OSSD|\d+(?:-\d+)?MA\b|\bSAIDA\b/.test(tecnico);
 
   if (/^SENSOR(?:ES)? INDUSTRIA(?:L|IS)\b/.test(nome)) exigir(false, "o princípio e a função do sensor, sem usar apenas SENSOR INDUSTRIAL");
+  if (/^(?:ACESSORIO PARA (?:SENSOR(?: INDUSTRIAL)?|ENCODER)|CONTROLADOR DE SEGURANCA|CHAVE DE SEGURANCA|RESISTOR DE TERMINACAO|CONECTOR INDUSTRIAL)$/.test(nome)) {
+    exigir(false, "a função, referência e os atributos que distinguem este componente genérico");
+  }
   if (/^SENSOR(?:ES)? (?:FOTOELETRICO|INDUTIVO|ULTRASSONICO)/.test(nome)) {
     if (/^SENSOR(?:ES)? FOTOELETRICO/.test(nome)) {
       exigir(/BARREIRA|RETROR?REFLEX|DIFUS|SUPRESSAO DE FUNDO|ENERGETICO/.test(tecnico), "o princípio fotoelétrico");
@@ -42,12 +45,48 @@ export function pendenciasDescricaoTecnica(input: {
     exigir(tensao, "a tensão de alimentação do sensor");
     exigir(conexao, "a conexão do sensor");
   }
-  if (/^CORTINA DE LUZ/.test(nome)) {
+  if (/^(?:CONJUNTO (?:DE )?)?CORTINA DE LUZ/.test(nome)) {
     exigir(/TRANSMISSOR|EMISSOR|RECEPTOR|CONJUNTO|PAR\b/.test(tecnico), "se a cortina é emissora, receptora ou conjunto");
-    exigir(/ALTURA\s+\d+(?:[.,]\d+)?\s*(?:MM|CM|M)\b/.test(tecnico), "a altura protegida da cortina");
+    exigir(/ALTURA(?: DE PROTECAO| PROTEGIDA)?\s+\d+(?:[.,]\d+)?\s*(?:MM|CM|M)\b/.test(tecnico), "a altura protegida da cortina");
     exigir(/RESOLUCAO\s+\d+(?:[.,]\d+)?\s*MM\b/.test(tecnico), "a resolução da cortina");
-    exigir(/ALCANCE\s+\d+(?:[.,]\d+)?\s*M\b/.test(tecnico), "o alcance da variante da cortina");
+    exigir(/ALCANCE\s+\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?\s*M\b/.test(tecnico), "o alcance da variante da cortina");
     exigir(/TIPO\s+[24]\b/.test(tecnico), "o tipo de segurança da cortina");
+  }
+  if (/^RESISTOR DE FRENAGEM\b/.test(nome)) {
+    exigir(/\d+(?:[.,]\d+)?\s*(?:[KM]?Ω|OHMS?)(?=$|\s|[,;])/.test(tecnico), "a resistência elétrica do resistor de frenagem");
+    exigir(/POTENCIA NOMINAL\s+\d+(?:[.,]\d+)?\s*(?:K?W)\b/.test(tecnico), "a potência nominal do resistor, distinta da potência do acionamento e do pico");
+    if (/\bPICO\b/.test(tecnico)) {
+      exigir(/PICO\s+\d+(?:[.,]\d+)?\s*K?W\s*(?:\/|POR\s+)\s*\d+(?:[.,]\d+)?\s*S\b/.test(tecnico), "a potência de pico e sua duração");
+      exigir(/CICLO\s+\d+(?:[.,]\d+)?\s*%|PERIODO\s+\d+(?:[.,]\d+)?\s*S\b/.test(tecnico), "o ciclo ou período do regime de pico");
+    }
+  }
+  if (/^RELE DE ESTADO SOLIDO\b/.test(nome)) {
+    exigir(/ENTRADA\s+\d+(?:[.,]\d+)?(?:-\d+(?:[.,]\d+)?)?V(?:CA|CC|AC|DC)/.test(tecnico), "a tensão de entrada do relé de estado sólido");
+    exigir(/SAIDA\s+\d+(?:[.,]\d+)?(?:-\d+(?:[.,]\d+)?)?V(?:CA|CC|AC|DC)/.test(tecnico), "a tensão/faixa da saída do relé de estado sólido");
+    exigir(/\d+\s*(?:NA|NF)\b|\d+\s+SAIDAS?\s+(?:ELETRONICAS?|TRANSISTORIZADAS?)/.test(tecnico), "a quantidade e o tipo das saídas, sem inferir pelos dígitos da referência");
+    exigir(/\d+(?:[.,]\d+)?\s*A\b/.test(tecnico), "o limite de corrente da saída do relé");
+    exigir(/CONEXAO\s+(?:POR\s+)?(?:PARAFUSO|MOLA|PUSH)|BORNES?/.test(tecnico), "a conexão do relé de estado sólido");
+  }
+  if (/^(?:MODULO )?SFP\b/.test(nome)) {
+    exigir(/\d+(?:[.,]\d+)?\s*(?:[GMK]?BIT\/S|[GMK]?BPS)\b/.test(tecnico), "a velocidade do módulo SFP");
+    exigir(/FIBRA|COBRE/.test(tecnico), "o meio físico do módulo SFP");
+    exigir(/\b(?:LC|SC|RJ45)\b/.test(tecnico), "o conector do módulo SFP");
+    if (/FIBRA/.test(tecnico)) {
+      exigir(/MONOMODO|MULTIMODO/.test(tecnico), "o tipo de fibra do módulo SFP");
+      exigir(/ALCANCE(?: ATE)?\s+\d+(?:[.,]\d+)?\s*(?:KM|M)\b/.test(tecnico), "o alcance do módulo SFP óptico");
+    }
+  }
+  if (/^POTENCIOMETRO\b/.test(nome)) {
+    exigir(/\d+(?:[.,]\d+)?\s*(?:[KM]?Ω|OHMS?)(?=$|\s|[,;])/.test(tecnico), "a resistência do potenciômetro com unidade explícita");
+    exigir(/(?:Ø|DIAMETRO\s+)\d+(?:[.,]\d+)?\s*MM\b/.test(tecnico), "o diâmetro de montagem do potenciômetro");
+    exigir(/PLASTICO|METALICO|METAL|ALUMINIO/.test(tecnico), "o material do corpo do potenciômetro");
+  }
+  if (/^CAMERA (?:PARA )?VISAO INDUSTRIAL\b/.test(nome)) {
+    exigir(/\d+(?:[.,]\d+)?\s*MP\b|\d+\s*[X×]\s*\d+\s*PIXELS/.test(tecnico), "a resolução da câmera");
+    exigir(/\b(?:USB|GIGE|ETHERNET|CAMERA LINK|COAXPRESS)\b/.test(tecnico), "a interface de comunicação da câmera, sem inferir pelo modelo");
+  }
+  if (/^CONTATOR\b/.test(nome) && /^LC1G\d+$/.test((input.codigo ?? "").replace(/[\s-]/g, "").toUpperCase())) {
+    exigir(false, "a referência completa do contator LC1G, incluindo a variante/bobina");
   }
   if (/^SENSOR RADAR DE SEGURANCA/.test(nome)) exigir(/ALCANCE\b/.test(tecnico) && distancia, "o alcance do radar de segurança");
   if (/^(?:CHAVE|SENSOR) DE SEGURANCA RFID/.test(nome)) {
@@ -55,6 +94,16 @@ export function pendenciasDescricaoTecnica(input: {
     exigir(/SAO\s+\d+(?:[.,]\d+)?\s*MM\b/.test(tecnico), "a distância assegurada de acionamento Sao");
     exigir(tensao, "a alimentação da chave RFID");
     exigir(conexao, "a conexão da chave RFID");
+  }
+  const caboMontadoCobre = /^CABO (?:PARA SENSOR|DE REDE (?:CANOPEN|DEVICENET)|ADAPTADOR DE PROGRAMACAO PARA ENCODER)/.test(nome);
+  if (caboMontadoCobre) {
+    exigir(/\d+(?:[.,]\d+)?\s*M\b/.test(tecnico), "o comprimento do cabo montado");
+    exigir(/\d+\s*X\s*\d+(?:[.,]\d+)?\s*MM(?:²|2)/.test(tecnico), "a formação e seção dos condutores");
+    exigir(/ISOLACAO\s+\S+/.test(tecnico), "o material da isolação dos condutores, separado da capa");
+    exigir(/CAPA\s+\S+/.test(tecnico), "o material da capa do cabo montado");
+    exigir(/BLINDAD|BLINDAGEM/.test(tecnico), "a presença ou ausência de blindagem");
+    exigir(tensao, "a tensão nominal do conjunto com conectores");
+    exigir(/FEMEA|MACHO/.test(tecnico) && /PONTA LIVRE|\//.test(tecnico) && /PINOS/.test(tecnico), "as terminações de ambas as pontas do cabo montado");
   }
   if ((/^SWITCH\b/.test(nome) || input.grupoCodigo === "SWITCHES_REDE_INDUSTRIAL") && /SAFETY.?SWITCH|SAF\.?\s*SWITCH|STR1-|TR4-|RFID/.test(contexto)) {
     exigir(false, "a classificação: chave RFID/safety switch não é switch de rede");

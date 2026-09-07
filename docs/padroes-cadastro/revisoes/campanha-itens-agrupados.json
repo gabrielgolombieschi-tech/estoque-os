@@ -1,0 +1,1162 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "triagem_em": "2026-09-05T20:36:14.809Z",
+  "itens": [
+    {
+      "id": 108,
+      "codigo": "1693539",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 109,
+      "codigo": "1404408",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 125,
+      "codigo": "1403252",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 126,
+      "codigo": "1668124",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 184,
+      "codigo": "3RT20261BB40",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 241,
+      "codigo": "3RT10566AP36",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 257,
+      "codigo": "3RT10541AF36",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 347,
+      "codigo": "1044448",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 386,
+      "codigo": "1415726",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 402,
+      "codigo": "1683002",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 403,
+      "codigo": "1681389",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 423,
+      "codigo": "2095653",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 424,
+      "codigo": "2095617",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 433,
+      "codigo": "1220126",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 434,
+      "codigo": "1220140",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 435,
+      "codigo": "6037496",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 440,
+      "codigo": "2096236",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 441,
+      "codigo": "2095619",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 442,
+      "codigo": "1041412",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 478,
+      "codigo": "1446333",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 479,
+      "codigo": "1415608",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 692,
+      "codigo": "3RT20281BB40",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 693,
+      "codigo": "3RT20271BB40",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 739,
+      "codigo": "3RT20451AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 740,
+      "codigo": "3RT20351AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 751,
+      "codigo": "3RT20282AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 758,
+      "codigo": "3RT20361AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 760,
+      "codigo": "3RT20281AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 761,
+      "codigo": "3RT20271AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 763,
+      "codigo": "3RT20161AN21",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 772,
+      "codigo": "3RT20353AK60",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 773,
+      "codigo": "3RT20261AK60",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 775,
+      "codigo": "3RT20463AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 777,
+      "codigo": "3RT20261AN10",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 787,
+      "codigo": "3RT20351AG20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 790,
+      "codigo": "3RT20251BB40",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 791,
+      "codigo": "3RT25361AK60",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 792,
+      "codigo": "3RT20281AG20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 793,
+      "codigo": "3RT20371AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 795,
+      "codigo": "3RT20182AN22",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 801,
+      "codigo": "3RT20171AB01",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 807,
+      "codigo": "3RT10566AF36",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 808,
+      "codigo": "3RT20181AB01",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 812,
+      "codigo": "3RT20231AC20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 813,
+      "codigo": "3RT20383AC20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 1107,
+      "codigo": "12240801",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 1108,
+      "codigo": "12542266",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 1117,
+      "codigo": "3RT20231AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 1124,
+      "codigo": "6026216",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1129,
+      "codigo": "3RT20281AK60",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 1397,
+      "codigo": "12542197",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 1398,
+      "codigo": "12240635",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 1429,
+      "codigo": "2096236-DUP1429",
+      "grupo_id": 106,
+      "ativo": false,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 1430,
+      "codigo": "2095619-DUP1430",
+      "grupo_id": 106,
+      "ativo": false,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 1431,
+      "codigo": "2095617-DUP1431",
+      "grupo_id": 106,
+      "ativo": false,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 1432,
+      "codigo": "2095653-DUP1432",
+      "grupo_id": 106,
+      "ativo": false,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    },
+    {
+      "id": 1540,
+      "codigo": "3RT20152AF02",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 1589,
+      "codigo": "3RT20271AK60",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 1590,
+      "codigo": "3RT20361AK60",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 1620,
+      "codigo": "3TS29100AN2",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3.",
+        "Contator: conexão não explícita no nome."
+      ]
+    },
+    {
+      "id": 1627,
+      "codigo": "3SE63150BB01",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar as saídas seguras OSSD na descrição técnica.",
+        "Confirmar e informar a distância assegurada de acionamento Sao na descrição técnica.",
+        "Confirmar e informar a alimentação da chave RFID na descrição técnica."
+      ]
+    },
+    {
+      "id": 1685,
+      "codigo": "1041412-DUP1685",
+      "grupo_id": 103,
+      "ativo": false,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1699,
+      "codigo": "1211462",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 1700,
+      "codigo": "1211493",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 1701,
+      "codigo": "6041811",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1702,
+      "codigo": "1058249",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1703,
+      "codigo": "6043870",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1704,
+      "codigo": "1211501",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 1705,
+      "codigo": "1211502",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 1706,
+      "codigo": "1211492",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 1707,
+      "codigo": "1211464",
+      "grupo_id": 123,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a altura protegida da cortina na descrição técnica.",
+        "Confirmar e informar o tipo de segurança da cortina na descrição técnica."
+      ]
+    },
+    {
+      "id": 1709,
+      "codigo": "1106555",
+      "grupo_id": 105,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o princípio fotoelétrico na descrição técnica.",
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1710,
+      "codigo": "1040779",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1712,
+      "codigo": "6054712",
+      "grupo_id": 110,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1715,
+      "codigo": "6054716",
+      "grupo_id": 110,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1716,
+      "codigo": "1040763",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 1784,
+      "codigo": "D4NL4EFAB",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a função, referência e os atributos que distinguem este componente genérico na descrição técnica."
+      ]
+    },
+    {
+      "id": 1816,
+      "codigo": "NS D4AZ1SMK-F41",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar as saídas seguras OSSD na descrição técnica.",
+        "Confirmar e informar a distância assegurada de acionamento Sao na descrição técnica.",
+        "Confirmar e informar a alimentação da chave RFID na descrição técnica.",
+        "Confirmar e informar a conexão da chave RFID na descrição técnica."
+      ]
+    },
+    {
+      "id": 1818,
+      "codigo": "NSD4AZ1SMKF41",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar as saídas seguras OSSD na descrição técnica.",
+        "Confirmar e informar a distância assegurada de acionamento Sao na descrição técnica.",
+        "Confirmar e informar a alimentação da chave RFID na descrição técnica.",
+        "Confirmar e informar a conexão da chave RFID na descrição técnica."
+      ]
+    },
+    {
+      "id": 1830,
+      "codigo": "NS D3AZ1",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar as saídas seguras OSSD na descrição técnica.",
+        "Confirmar e informar a distância assegurada de acionamento Sao na descrição técnica.",
+        "Confirmar e informar a alimentação da chave RFID na descrição técnica.",
+        "Confirmar e informar a conexão da chave RFID na descrição técnica."
+      ]
+    },
+    {
+      "id": 1834,
+      "codigo": "NS D3AZ1SQK-F40",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar as saídas seguras OSSD na descrição técnica.",
+        "Confirmar e informar a distância assegurada de acionamento Sao na descrição técnica.",
+        "Confirmar e informar a alimentação da chave RFID na descrição técnica.",
+        "Confirmar e informar a conexão da chave RFID na descrição técnica."
+      ]
+    },
+    {
+      "id": 1968,
+      "codigo": "12240668",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2407,
+      "codigo": "3RT20381AN20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2729,
+      "codigo": "3RT20171AN22",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2861,
+      "codigo": "13522438",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2953,
+      "codigo": "LC1D09BDC",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2954,
+      "codigo": "LC1D18BDC",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2955,
+      "codigo": "LC1DS25M7C",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 2956,
+      "codigo": "LC1G300",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a referência completa do contator LC1G, incluindo a variante/bobina na descrição técnica."
+      ]
+    },
+    {
+      "id": 3231,
+      "codigo": "3RT20473AL20",
+      "grupo_id": 17,
+      "ativo": true,
+      "alertas_originais": [
+        "Contator: polos não explícitos no nome.",
+        "Contator: tensão da bobina não identificada explicitamente no nome.",
+        "Contator: conferir tensão de referência da corrente AC-3."
+      ]
+    },
+    {
+      "id": 3294,
+      "codigo": "2066614-COPIA-COPIA",
+      "grupo_id": 115,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a presença ou ausência de blindagem na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica.",
+        "Confirmar e informar as terminações de ambas as pontas do cabo montado na descrição técnica."
+      ]
+    },
+    {
+      "id": 3400,
+      "codigo": "NX B31AZ",
+      "grupo_id": 27,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar as saídas seguras OSSD na descrição técnica.",
+        "Confirmar e informar a distância assegurada de acionamento Sao na descrição técnica.",
+        "Confirmar e informar a alimentação da chave RFID na descrição técnica.",
+        "Confirmar e informar a conexão da chave RFID na descrição técnica."
+      ]
+    },
+    {
+      "id": 3417,
+      "codigo": "1040780",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 3418,
+      "codigo": "1040764",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 3419,
+      "codigo": "1071277",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 3420,
+      "codigo": "1040966",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 3421,
+      "codigo": "1041014",
+      "grupo_id": 104,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 3451,
+      "codigo": "6043946",
+      "grupo_id": 103,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o tipo de saída do sensor na descrição técnica.",
+        "Confirmar e informar a tensão de alimentação do sensor na descrição técnica.",
+        "Confirmar e informar a conexão do sensor na descrição técnica."
+      ]
+    },
+    {
+      "id": 3570,
+      "codigo": "7118",
+      "grupo_id": 119,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a função, referência e os atributos que distinguem este componente genérico na descrição técnica."
+      ]
+    },
+    {
+      "id": 3612,
+      "codigo": "18050494",
+      "grupo_id": 102,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a interface de comunicação da câmera, sem inferir pelo modelo na descrição técnica."
+      ]
+    },
+    {
+      "id": 3668,
+      "codigo": "2115285",
+      "grupo_id": 94,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica."
+      ]
+    },
+    {
+      "id": 3741,
+      "codigo": "2095618",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica."
+      ]
+    },
+    {
+      "id": 3743,
+      "codigo": "2096235",
+      "grupo_id": 106,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica."
+      ]
+    },
+    {
+      "id": 3747,
+      "codigo": "2046579",
+      "grupo_id": 115,
+      "ativo": true,
+      "alertas_originais": [
+        "Confirmar e informar a formação e seção dos condutores na descrição técnica.",
+        "Confirmar e informar o material da isolação dos condutores, separado da capa na descrição técnica.",
+        "Confirmar e informar o material da capa do cabo montado na descrição técnica.",
+        "Confirmar e informar a tensão nominal do conjunto com conectores na descrição técnica."
+      ]
+    }
+  ],
+  "origem": "Correções autorizadas pelo usuário nos itens já agrupados, a partir dos 104 alertas da D-037. Lista fixa; alerta não é diagnóstico confirmado."
+}
+

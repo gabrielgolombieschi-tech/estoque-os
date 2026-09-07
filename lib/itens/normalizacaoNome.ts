@@ -6,7 +6,7 @@ const UNIDADES_COMPACTAS_SEGURAS_RE = new RegExp(
     "(VCA/CC|VAC/DC|VCA|VCC|VAC|VDC|GHZ|MHZ|KHZ|HZ|MVA|KVA|VA|MW|KW|W|HP|CV|KV|MV|KA|[µμ]A|",
     "MM²|MM2|MM³|MM3|MM|CM²|CM2|CM³|CM3|CM|KM|M²|M³|",
     "KG|MG|G|ML|RPM|PPR|GBPS|MBPS|KBPS|BPS|MPA|KPA|PA|BAR|PSI|N·M|NM|",
-    "MS|MIN|DI|DO|AI|AO|%|°C|ºC)",
+    "MS|MIN|DI|DO|AI|AO|[KM]?Ω|OHMS?|[GMK]?BIT/S|%|°C|ºC)",
     "(?=$|[\\s,;:.)\\]}/+×x])",
   ].join(""),
   "giu"
