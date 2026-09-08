@@ -181,10 +181,18 @@ export default function FaturarOsPage() {
   // A conferencia escolhe o perfil tambem pela destinacao declarada (17% consumidor final,
   // 12% contribuinte que revende/usa como insumo/manutencao). Sem esse filtro o quadro
   // mostraria os dois perfis 5101 como se qualquer um valesse para a nota em curso.
+  const hoje = new Date().toISOString().slice(0, 10);
   const perfisDoCfop = perfis.filter((p) => p.modelo !== "NFSE" && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101"));
-  const perfisVigentes = perfisDoCfop.filter((p) => p.faixa_automacao !== "BLOQUEADO" && (!p.vigencia_fim || p.vigencia_fim >= new Date().toISOString().slice(0, 10))
-    && (!destinacao || !p.destinacoes_mercadoria?.length || p.destinacoes_mercadoria.includes(destinacao)));
-  const perfisBloqueados = perfisDoCfop.filter((p) => !perfisVigentes.includes(p));
+  const perfisDaDestinacao = perfisDoCfop.filter((p) => p.faixa_automacao !== "BLOQUEADO" && (!destinacao || !p.destinacoes_mercadoria?.length || p.destinacoes_mercadoria.includes(destinacao)));
+  // Mesma regra da conferencia (fn_os_nfe_conferir_homologacao): so entra perfil com revisao
+  // fiscal salva e dentro da vigencia. Um perfil em REVISAO sem revisao salva existe, mas a
+  // nota ainda cai na fixture — por isso ele aparece como pendente, com o caminho para liberar.
+  const perfisVigentes = perfisDaDestinacao.filter((p) => Boolean(p.revisao_fiscal_em) && (!p.vigencia_inicio || p.vigencia_inicio <= hoje) && (!p.vigencia_fim || p.vigencia_fim >= hoje));
+  const perfisPendentes = perfisDaDestinacao.filter((p) => !perfisVigentes.includes(p));
+  const perfisBloqueados = perfisDoCfop.filter((p) => !perfisDaDestinacao.includes(p));
+  const retornoFaturar = `/os/${osId}/faturar`;
+  const linkPerfil = (codigo?: string) => `/faturamento/perfis?${codigo ? `perfil=${encodeURIComponent(codigo)}&` : ""}retorno=${encodeURIComponent(retornoFaturar)}`;
+  const motivoPendente = (p: Perfil) => !p.revisao_fiscal_em ? "sem revisão fiscal salva" : p.vigencia_inicio && p.vigencia_inicio > hoje ? `vigência a partir de ${p.vigencia_inicio}` : "vigência encerrada";
   const osInterna = useMemo(() => /segau/i.test(cliente?.razao_social ?? cliente?.nome ?? "") && /el[eé]trica/i.test(cliente?.razao_social ?? cliente?.nome ?? ""), [cliente]);
   const osCancelada = String(os?.status_fluxo ?? os?.status ?? "").toLowerCase() === "cancelada";
   const osFaturada = String(os?.status_fluxo ?? "").toLowerCase() === "faturada";
@@ -616,11 +624,23 @@ export default function FaturarOsPage() {
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <div className={label}>Perfil de NF-e vigente (industrialização, {ambito === "INTERNA" ? "dentro de SC" : "outra UF"}{destinacao ? `, ${DESTINACOES.find(([c]) => c === destinacao)?.[1] ?? destinacao}` : ""})</div>
-            {perfisVigentes.length > 0 ? perfisVigentes.map((p) => <div key={p.id} className="mt-1 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-2 text-sm">{p.codigo} · {p.nome} · ICMS {p.aliquota_icms ?? "?"}% {p.habilitado_producao ? <span className="text-xs text-emerald-300">produção</span> : <span className="text-xs text-zinc-400">homologação</span>}</div>) : (
+            {perfisVigentes.length > 0 ? perfisVigentes.map((p) => (
+              <div key={p.id} className="mt-1 flex items-center justify-between gap-2 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-2 text-sm">
+                <span>{p.codigo} · {p.nome} · ICMS {p.aliquota_icms ?? "?"}% {p.habilitado_producao ? <span className="text-xs text-emerald-300">produção</span> : <span className="text-xs text-amber-300">só homologação · falta liberar produção</span>}</span>
+                <Link href={linkPerfil(p.codigo)} className="shrink-0 rounded-md border border-emerald-800 px-2 py-1 text-xs text-emerald-100 hover:bg-emerald-950/60">{p.habilitado_producao ? "Abrir perfil" : "Liberar produção"}</Link>
+              </div>
+            )) : (
               <div className="mt-1 space-y-1 rounded-md border border-amber-900/60 bg-amber-950/20 p-2 text-sm text-amber-100">
                 <div><strong>Nenhum perfil {cfop} vigente{destinacao ? " para esta destinação" : ""}.</strong> A emissão em homologação usa a fixture provisória (NF-e 3527–3553 e 3766 de agosto/2026); produção continua bloqueada.</div>
-                {perfisBloqueados.slice(0, 3).map((p) => <div key={p.id} className="text-xs">{p.codigo} · {p.faixa_automacao} · {p.justificativa_faixa}</div>)}
+                {perfisPendentes.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                    <span>{p.codigo} · {p.faixa_automacao} · ICMS {p.aliquota_icms ?? "?"}% · <strong>{motivoPendente(p)}</strong></span>
+                    <Link href={linkPerfil(p.codigo)} className="shrink-0 rounded-md border border-amber-700 bg-amber-950/40 px-2 py-1 text-xs text-amber-50 hover:bg-amber-900/60">Configurar e liberar</Link>
+                  </div>
+                ))}
+                {perfisPendentes.length === 0 ? perfisBloqueados.slice(0, 3).map((p) => <div key={p.id} className="text-xs">{p.codigo} · {p.faixa_automacao} · {p.justificativa_faixa}</div>) : null}
                 {fixturePendencia ? <div className="text-xs">Falta do contador: {fixturePendencia}</div> : null}
+                <div className="pt-1"><Link href={linkPerfil()} className="rounded-md border border-amber-700 px-2 py-1 text-xs text-amber-100 hover:bg-amber-950/60">Todos os perfis fiscais</Link></div>
               </div>
             )}
           </div>

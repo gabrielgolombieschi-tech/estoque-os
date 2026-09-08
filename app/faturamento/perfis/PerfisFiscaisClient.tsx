@@ -579,7 +579,7 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
   }
 
   const empresaNome = scope.empresa?.nome_fantasia ?? scope.empresa?.razao_social ?? "Empresa ativa";
-  const returnLabel = retorno.startsWith("/comercial/vendas/") ? "Voltar para a OV" : "Voltar para NF-e";
+  const returnLabel = retorno.startsWith("/comercial/vendas/") ? "Voltar para a OV" : retorno.startsWith("/os/") ? "Voltar para a OS" : "Voltar para NF-e";
 
   if (scope.loading || (scope.capabilities === null && !roleAllowsWrite)) {
     return <main className="mx-auto max-w-[1500px] p-6 text-sm text-zinc-400">Carregando escopo fiscal...</main>;

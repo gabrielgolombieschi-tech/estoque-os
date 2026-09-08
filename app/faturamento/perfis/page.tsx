@@ -5,6 +5,8 @@ type PageProps = {
 };
 
 const OV_PATH = /^\/comercial\/vendas\/(?:[1-9]\d*|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+// A tela de faturar OS manda para ca quando falta perfil vigente para a destinacao.
+const OS_PATH = /^\/os\/[1-9]\d*\/faturar$/;
 const PROFILE_KEY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -13,7 +15,7 @@ function first(value: string | string[] | undefined) {
 }
 
 function safeOvReturn(value: string | undefined) {
-  if (!value || value.length > 180 || value.includes("\\") || !OV_PATH.test(value)) {
+  if (!value || value.length > 180 || value.includes("\\") || !(OV_PATH.test(value) || OS_PATH.test(value))) {
     return "/faturamento/nfe";
   }
   return value;
