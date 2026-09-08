@@ -16,6 +16,32 @@ type Contexto = {
   eventos: Evento[];
 };
 
+const EMAIL = /^\S+@\S+\.\S+$/;
+
+function dominio(email: string | null | undefined) {
+  const v = (email ?? "").trim().toLowerCase();
+  const at = v.lastIndexOf("@");
+  return at > 0 ? v.slice(at + 1) : "";
+}
+
+// E-mails do cadastro do cliente, marcando os que estao no dominio da propria empresa
+// emitente: na PBG S/A o "e-mail financeiro" veio gravado como CONTATO@SEGAU.COM.BR e a
+// tela oferecia a Segau como destinataria da nota da Portobello.
+function emailsDoCadastro(ctx: Contexto | null) {
+  const proprioDominio = dominio(ctx?.empresa_fiscal?.email_fisco);
+  const lista: Array<{ rotulo: string; email: string; proprio: boolean }> = [];
+  for (const [rotulo, valor] of [["financeiro", ctx?.cliente?.email_financeiro], ["principal", ctx?.cliente?.email]] as const) {
+    const email = (valor ?? "").trim().toLowerCase();
+    if (!EMAIL.test(email) || lista.some((c) => c.email === email)) continue;
+    lista.push({ rotulo, email, proprio: Boolean(proprioDominio) && dominio(email) === proprioDominio });
+  }
+  return lista;
+}
+
+function emailPadraoCliente(ctx: Contexto | null) {
+  return emailsDoCadastro(ctx).find((c) => !c.proprio)?.email ?? "";
+}
+
 const input = "rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
 const button = "rounded border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -97,7 +123,7 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
     const next = data as Contexto;
     setCtx(next);
     setRemaining(Number(next.cancelamento?.segundos_restantes ?? 0));
-    if (!emails) setEmails(next.cliente?.email_financeiro ?? next.cliente?.email ?? "");
+    if (!emails) setEmails(emailPadraoCliente(next));
   }, [documentoId, emails, supabase]);
 
   useEffect(() => {
@@ -264,6 +290,15 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
         <h3 className="text-sm font-medium">Entregar ao cliente</h3>
         <div className="flex flex-wrap gap-2"><button className={button} disabled={busy || !ctx.emissao.danfe_path} onClick={()=>void abrirArquivo("DANFE")}>Baixar DANFE</button><button className={button} disabled={busy || !ctx.emissao.danfe_path} onClick={()=>void abrirArquivo("DANFE", true)}>Imprimir DANFE</button><button className={button} disabled={busy || !ctx.emissao.xml_path} onClick={()=>void abrirArquivo("XML")}>Baixar XML</button></div>
         <input className={`${input} w-full`} value={emails} onChange={(e)=>setEmails(e.target.value)} placeholder="E-mails separados por vírgula"/>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+          <span>Cadastro do cliente:</span>
+          {emailsDoCadastro(ctx).map((c) => c.proprio ? (
+            <span key={c.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro.">{c.rotulo}: {c.email} · é da própria empresa</span>
+          ) : (
+            <button key={c.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEmails(c.email)}>{c.rotulo}: {c.email}</button>
+          ))}
+          {emailsDoCadastro(ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
+        </div>
         <button className={button} disabled={busy || !producao || !autorizada || !emails.trim() || !ctx.emissao.xml_path || !ctx.emissao.danfe_path} onClick={()=>void enviarAoCliente()}>Revisado: enviar XML + DANFE</button>
         {homologacao ? <p className="text-xs text-amber-300">Documentos de homologação podem ser baixados para conferência, mas nunca são enviados ao cliente por esta tela.</p> : null}
       </div>

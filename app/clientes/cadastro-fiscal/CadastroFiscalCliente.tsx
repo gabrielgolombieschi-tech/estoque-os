@@ -26,6 +26,8 @@ type ClienteForm = {
   razao_social: string;
   documento: string;
   email: string;
+  // Destinatario preferido do XML + DANFE da NF-e (tela de ciclo de vida); vazio = usa o e-mail principal.
+  email_financeiro: string;
   inscricao_estadual: string;
   indicador_ie: "" | IndicadorIe;
   cep: string;
@@ -50,7 +52,7 @@ type ClienteForm = {
   // Template da discriminacao da NFS-e deste tomador (segmentos "|", tokens {RESULTADO} {PEDIDO} {ITEM} {VENCIMENTO} {DATAS} {OS} {FRASE_LEGAL} {ISS} {OBSERVACAO}).
   nfse_discriminacao_template: string;
 };
-type ClienteNfseRow = { inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; iss_substituto_tributario?: boolean | null; nfse_discriminacao_template?: string | null };
+type ClienteNfseRow = { email_financeiro?: string | null; inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; iss_substituto_tributario?: boolean | null; nfse_discriminacao_template?: string | null };
 function triTexto(value: boolean | null | undefined): "" | "sim" | "nao" { return value === true ? "sim" : value === false ? "nao" : ""; }
 function triValor(value: "" | "sim" | "nao"): boolean | null { return value === "sim" ? true : value === "nao" ? false : null; }
 
@@ -63,6 +65,7 @@ const CLIENTE_FIELDS = [
   "razao_social",
   "documento",
   "email",
+  "email_financeiro",
   "inscricao_estadual",
   "indicador_ie",
   "cep",
@@ -95,6 +98,7 @@ function formFromRow(row: ClienteRow): ClienteForm {
     razao_social: texto(row.razao_social),
     documento: texto(row.documento),
     email: texto(row.email),
+    email_financeiro: texto((row as ClienteNfseRow).email_financeiro),
     inscricao_estadual: texto(row.inscricao_estadual),
     indicador_ie: (["1", "2", "9"] as string[]).includes(texto(row.indicador_ie))
       ? (texto(row.indicador_ie) as IndicadorIe)
@@ -316,6 +320,7 @@ export default function CadastroFiscalCliente() {
       razao_social: form.razao_social.trim().toUpperCase(),
       documento: somenteDigitos(form.documento),
       email: form.email.trim() || null,
+      email_financeiro: form.email_financeiro.trim().toLowerCase() || null,
       inscricao_estadual: form.inscricao_estadual.trim().toUpperCase() || null,
       indicador_ie: form.indicador_ie,
       cep: somenteDigitos(form.cep),
@@ -486,6 +491,11 @@ export default function CadastroFiscalCliente() {
                     <label className="space-y-1">
                       <span className="text-xs text-zinc-400">E-mail para envio</span>
                       <input className="w-full px-3 py-2" type="email" value={form.email} onChange={(event) => update("email", event.target.value)} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-zinc-400">E-mail financeiro (XML e DANFE da NF-e)</span>
+                      <input className="w-full px-3 py-2" type="email" value={form.email_financeiro} onChange={(event) => update("email_financeiro", event.target.value)} placeholder="recebimento@cliente.com.br" />
+                      <span className="text-[11px] text-zinc-500">A tela da NF-e sugere este endereço primeiro; vazio, usa o e-mail para envio.</span>
                     </label>
                   </div>
                 </section>
