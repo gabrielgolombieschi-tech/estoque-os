@@ -53,13 +53,16 @@ select e.tenant_id, e.id,
   false, false, false
 from c.empresa e
 where e.codigo = 'SEG' and e.deleted_at is null
-  and not exists (select 1 from f.perfil_operacao_evidencia ev where ev.empresa_id = e.id and ev.cfop = '5101' and ev.origem = 0 and ev.aliquota_icms_observada = 12.0000);
+  -- A evidencia e identificada pela fonte, nao por CFOP/origem/aliquota: a linha 20 da
+  -- matriz CSV63 ja tem evidencia 5101/origem 0/12% ligada ao perfil CSV63-020, e o
+  -- vinculo perfil <-> evidencia e um-para-um (perfil_operacao_evidencia_id_ux).
+  and not exists (select 1 from f.perfil_operacao_evidencia ev where ev.empresa_id = e.id and ev.fonte like '%OC 1311071 de 08/09/2026%');
 
 update f.perfil_operacao po
 set evidencia_id = ev.id
 from f.perfil_operacao_evidencia ev
 where po.codigo = 'SEG-IND-SC-5101-O0-CST00-12' and po.empresa_id = ev.empresa_id and po.evidencia_id is null
-  and ev.cfop = '5101' and ev.origem = 0 and ev.aliquota_icms_observada = 12.0000;
+  and ev.fonte like '%OC 1311071 de 08/09/2026%' and ev.perfil_operacao_id is null;
 
 update f.perfil_operacao_evidencia ev
 set perfil_operacao_id = po.id
