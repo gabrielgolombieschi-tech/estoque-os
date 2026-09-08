@@ -14,8 +14,22 @@ import CadastroItemAgenteModal from "./CadastroItemAgenteModal";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
-type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
-const ITEM_FINALIDADES: ItemFinalidade[] = ["consumo", "materia_prima", "revenda", "imobilizado", "outros"];
+type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros" | "fabricado";
+const ITEM_FINALIDADES: ItemFinalidade[] = ["consumo", "materia_prima", "revenda", "imobilizado", "outros", "fabricado"];
+const FINALIDADE_LABEL: Record<ItemFinalidade, string> = {
+  consumo: "Consumo",
+  materia_prima: "Matéria-prima",
+  revenda: "Revenda",
+  imobilizado: "Imobilizado",
+  outros: "Outros",
+  // Producao propria: nasce pela tela de faturar OS (criar_item_fabricado_da_os)
+  // ou marcando aqui. A flag `fabricado` do banco e derivada desta finalidade.
+  fabricado: "Fabricado (produção própria)",
+};
+function finalidadeLabel(value: string | null | undefined): string {
+  if (!value) return "-";
+  return FINALIDADE_LABEL[value as ItemFinalidade] ?? value.replace(/_/g, " ");
+}
 const PAGE_SIZE = 100;
 
 type Item = {
@@ -31,6 +45,9 @@ type Item = {
   fabricante: string | null;
   finalidade: string | null;
   motivo_compra_id: string | null;
+  fabricado?: boolean | null;
+  origem_os_id?: number | null;
+  origem_os_numero?: string | null;
 
   unidade_medida: string | null;
   unidade_compra: string | null;
@@ -1297,6 +1314,26 @@ export default function ItensClient({
             </button>
           )}
 
+          {!isFinalidadeLocked && (
+            <button
+              type="button"
+              onClick={() => {
+                // Atalho do filtro Finalidade = Fabricado: separa a producao propria dos itens de compra.
+                const proximo: "" | ItemFinalidade = filterFinalidade === "fabricado" ? "" : "fabricado";
+                setDraftFilterFinalidade(proximo);
+                setFilterFinalidade(proximo);
+                setPage(1);
+              }}
+              className={
+                filterFinalidade === "fabricado"
+                  ? "px-3 py-2 rounded-md border border-sky-800 bg-sky-950/40 text-sky-200 hover:bg-sky-950/60"
+                  : "px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+              }
+            >
+              {filterFinalidade === "fabricado" ? "Só fabricados ✓" : "Só fabricados"}
+            </button>
+          )}
+
           <button
             onClick={load}
             className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
@@ -1441,7 +1478,7 @@ export default function ItensClient({
               <option value="">Todos</option>
               {ITEM_FINALIDADES.map((f) => (
                 <option key={f} value={f}>
-                  {String(f).replace(/_/g, " ")}
+                  {FINALIDADE_LABEL[f]}
                 </option>
               ))}
             </select>
@@ -1654,7 +1691,18 @@ export default function ItensClient({
                       )}
                     </td>
                     <td className="px-4 py-3 text-zinc-300 capitalize">{r.tipo}</td>
-                    <td className="px-4 py-3 text-zinc-300">{r.finalidade ? String(r.finalidade).replace(/_/g, " ") : "-"}</td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      {r.fabricado ? (
+                        <span
+                          className="inline-flex items-center rounded-full bg-sky-950/40 text-sky-300 border border-sky-900/40 px-2 py-0.5 text-xs whitespace-nowrap"
+                          title="Produção própria: não é item de compra"
+                        >
+                          Fabricado{r.origem_os_numero ? ` · OS ${r.origem_os_numero}` : ""}
+                        </span>
+                      ) : (
+                        finalidadeLabel(r.finalidade)
+                      )}
+                    </td>
                     {supportsMotivoCompra && (
                       <td className="px-4 py-3 text-zinc-300">{motivoCompraLabel(r.motivo_compra_id)}</td>
                     )}
@@ -1866,7 +1914,11 @@ export default function ItensClient({
                         <option value="revenda">Revenda</option>
                         <option value="imobilizado">Imobilizado</option>
                         <option value="outros">Outros</option>
+                        <option value="fabricado">Fabricado (produção própria)</option>
                       </select>
+                      {form.finalidade === "fabricado" ? (
+                        <div className="text-[11px] text-zinc-500">Produto que a Segau fabrica. Só ele entra na NF-e de industrialização da OS; não é item de compra.</div>
+                      ) : null}
                     </div>
 
                     {supportsMotivoCompra && (

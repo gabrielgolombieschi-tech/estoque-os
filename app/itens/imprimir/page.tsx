@@ -9,7 +9,7 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny } from "@/lib/auth/capabilities";
 
 type ItemTipo = "produto" | "servico" | "despesa";
-type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
+type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros" | "fabricado";
 
 type PrintItem = {
   id: number;
