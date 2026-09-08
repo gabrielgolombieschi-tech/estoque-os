@@ -398,9 +398,12 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
         }
         const rows = payload.perfis;
         const key = preferred ?? selectedIdRef.current ?? perfilInicial;
+        // Sem perfil pedido, abre num perfil que ainda pode ser trabalhado: o primeiro da
+        // lista e uma linha BLOQUEADA da matriz CSV63, que so mostra bloqueios sem saida.
         const selected =
           rows.find((perfil) => perfil.id === key || perfil.codigo === key) ??
           rows.find((perfil) => perfil.id === selectedIdRef.current) ??
+          rows.find((perfil) => perfil.faixa_automacao !== "BLOQUEADO") ??
           rows[0] ??
           null;
         setPerfis(rows);
