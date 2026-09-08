@@ -7,66 +7,25 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny } from "@/lib/auth/capabilities";
-import { applyTenantEmpresa } from "@/lib/db/scopes";
 import type { OrcamentoItemRow, OrcamentoRow } from "@/lib/comercial/types";
-import { getOrcamento } from "@/lib/comercial/orcamentos.service";
 import { formatDecimalBR, formatMoneyBR } from "@/lib/decimal";
 import { n, upperTrim } from "@/lib/comercial/utils";
-
-type EmpresaRow = {
-  id: string;
-  tenant_id: string;
-  cnpj: string;
-  razao_social: string;
-  nome_fantasia: string | null;
-  ie: string | null;
-  uf: string | null;
-  cidade: string | null;
-  endereco: string | null;
-};
-
-type ClienteRow = {
-  id: number;
-  nome: string;
-  razao_social: string | null;
-  documento: string | null;
-  email: string | null;
-  telefone: string | null;
-  logradouro: string | null;
-  numero_endereco: string | null;
-  complemento: string | null;
-  bairro: string | null;
-  cidade: string | null;
-  uf: string | null;
-  cep: string | null;
-};
-
-type UsuarioRow = { id: string; nome: string | null; email: string | null };
-
-type ItemMetaRow = {
-  id: number;
-  codigo_interno: string | null;
-  fabricante: string | null;
-  ncm: string | null;
-  unidade_medida: string | null;
-};
-
-type FiscalItemNcmRow = {
-  item_id: number;
-  ncm: string | null;
-};
-
-type EstoqueRow = {
-  item_id: number;
-  quantidade_atual: number | null;
-};
-
-type ClienteContatoPrintInfo = {
-  nome: string;
-  setor: string;
-  email: string;
-  telefone: string;
-};
+import { carregarImagemNoNavegador } from "@/lib/pdf/imagemPdf";
+import { gerarOrcamentoPdf } from "@/lib/comercial/orcamentoPdf";
+import {
+  carregarDadosOrcamentoPdf,
+  formatDateBR,
+  formatEnderecoCliente,
+  GARANTIA_PADRAO,
+  getClienteContatoPrintInfo,
+  joinNonEmpty,
+  nomeArquivoOrcamentoPdf,
+  validadeDoOrcamento,
+  type ClienteRow,
+  type EmpresaRow,
+  type ItemMetaRow,
+  type UsuarioRow,
+} from "@/lib/comercial/orcamentoPdfDados";
 
 type SaveFilePickerOptionsLike = {
   suggestedName?: string;
@@ -88,75 +47,6 @@ type FileSystemFileHandleLike = {
 type WindowWithSaveFilePicker = Window & {
   showSaveFilePicker?: (options?: SaveFilePickerOptionsLike) => Promise<FileSystemFileHandleLike>;
 };
-
-function formatDateBR(iso?: string | null) {
-  if (!iso) return "-";
-  const [y, m, d] = String(iso).slice(0, 10).split("-");
-  if (!y || !m || !d) return String(iso);
-  return `${d}/${m}/${y}`;
-}
-
-function addDays(dateLike: string | null | undefined, days: number): Date | null {
-  const base = dateLike ? new Date(dateLike) : null;
-  if (!base || Number.isNaN(base.getTime())) return null;
-  const out = new Date(base);
-  out.setDate(out.getDate() + days);
-  return out;
-}
-
-function joinNonEmpty(parts: Array<string | null | undefined>, sep: string) {
-  return parts
-    .map((p) => String(p ?? "").trim())
-    .filter(Boolean)
-    .join(sep);
-}
-
-function formatEnderecoCliente(cli: ClienteRow | null) {
-  if (!cli) return "-";
-  const linha1 = joinNonEmpty(
-    [
-      cli.logradouro,
-      cli.numero_endereco ? `, ${cli.numero_endereco}` : null,
-      cli.complemento ? ` - ${cli.complemento}` : null,
-    ],
-    ""
-  ).trim();
-  const linha2 = joinNonEmpty([cli.bairro, cli.cidade, cli.uf], " - ");
-  const cep = cli.cep ? `CEP: ${cli.cep}` : "";
-  return joinNonEmpty([linha1 || null, linha2 || null, cep || null], " | ") || "-";
-}
-
-function lowerTrim(value: string | null | undefined) {
-  return String(value ?? "").trim().toLocaleLowerCase("pt-BR");
-}
-
-function getClienteContatoPrintInfo(orc: OrcamentoRow | null, cli: ClienteRow | null): ClienteContatoPrintInfo {
-  return {
-    nome: upperTrim(String(orc?.solicitante_nome ?? "")) || "-",
-    setor: upperTrim(String(orc?.solicitante_setor ?? "")) || "-",
-    email: lowerTrim(orc?.solicitante_email) || lowerTrim(cli?.email) || "-",
-    telefone: String(orc?.solicitante_telefone ?? "").trim() || String(cli?.telefone ?? "").trim() || "-",
-  };
-}
-
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string | null>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function fetchImageAsDataUrl(src: string) {
-  try {
-    const res = await fetch(src, { cache: "force-cache" });
-    if (!res.ok) return null;
-    return await blobToDataUrl(await res.blob());
-  } catch {
-    return null;
-  }
-}
 
 async function pickPdfSaveHandle(suggestedName: string): Promise<FileSystemFileHandleLike | "cancelled" | "unsupported"> {
   const picker = (window as WindowWithSaveFilePicker).showSaveFilePicker;
@@ -240,139 +130,15 @@ export default function OrcamentoImprimirPage() {
 
       setLoading(true);
       try {
-        const { orcamento } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam });
-        setOrc(orcamento);
-
-        const { data: itensRows, error: itensErr } = await applyTenantEmpresa(
-          supabase.schema("r").from("r_orcamento_itens").select("*").eq("orcamento_id", orcamento.id).order("seq", { ascending: true }),
-          tenantId,
-          empresaId
-        ).returns<OrcamentoItemRow[]>();
-        if (itensErr) throw itensErr;
-        const itens = (itensRows ?? []) as OrcamentoItemRow[];
-        setItens(itens);
-
-        const { data: emp, error: empErr } = await supabase
-          .from("empresas")
-          .select("id,tenant_id,cnpj,razao_social,nome_fantasia,ie,uf,cidade,endereco")
-          .eq("tenant_id", tenantId)
-          .eq("id", empresaId)
-          .maybeSingle<EmpresaRow>();
-        if (empErr) throw empErr;
-        setEmpresa(emp?.id ? (emp as EmpresaRow) : null);
-
-        const clienteId = Number(orcamento.cliente_id ?? 0);
-        if (Number.isFinite(clienteId) && clienteId > 0) {
-          const { data: cli, error: cliErr } = await applyTenantEmpresa(
-            supabase
-              .from("clientes")
-              .select(
-                "id,nome,razao_social,documento,email,telefone,logradouro,numero_endereco,complemento,bairro,cidade,uf,cep"
-              )
-              .eq("id", clienteId)
-              .maybeSingle<ClienteRow>(),
-            tenantId,
-            empresaId
-          );
-          if (cliErr) throw cliErr;
-          setCliente(cli?.id ? (cli as ClienteRow) : null);
-        } else {
-          setCliente(null);
-        }
-
-        const vendedorId = String(orcamento.vendedor_usuario_id ?? "").trim();
-        if (vendedorId) {
-          const { data: vend, error: vendErr } = await supabase
-            .schema("a")
-            .from("usuario")
-            .select("id,nome,email")
-            .eq("id", vendedorId)
-            .is("deleted_at", null)
-            .maybeSingle<UsuarioRow>();
-          if (!vendErr) setVendedor(vend?.id ? (vend as UsuarioRow) : null);
-        } else {
-          setVendedor(null);
-        }
-
-        const condId = String(orcamento.condicao_pagamento_id ?? "").trim();
-        if (condId) {
-          const { data: cp, error: cpErr } = await applyTenantEmpresa(
-            supabase.schema("c").from("condicao_pagamento").select("id,nome").eq("id", condId).maybeSingle<{ id: string; nome: string | null }>(),
-            tenantId,
-            empresaId
-          );
-          if (!cpErr) setCondicaoNome(cp?.nome ?? condId);
-          else setCondicaoNome(condId);
-        } else {
-          setCondicaoNome(null);
-        }
-
-        // Enrich itens: dados comerciais em itens e NCM oficial em fiscal_itens.
-        // itens.ncm permanece somente como fallback durante a transicao.
-        try {
-          const itemIds = Array.from(
-            new Set(
-              itens
-                .map((it) => Number(it.item_id))
-                .filter((v) => Number.isFinite(v) && v > 0)
-            )
-          );
-          if (itemIds.length > 0) {
-            const { data: metas, error: metasErr } = await applyTenantEmpresa(
-              supabase
-                .from("itens")
-                .select("id,codigo_interno,fabricante,ncm,unidade_medida")
-                .in("id", itemIds),
-              tenantId,
-              empresaId
-            ).returns<ItemMetaRow[]>();
-            if (!metasErr && metas) {
-              const map: Record<number, ItemMetaRow> = {};
-              for (const r of metas) {
-                const id = Number(r.id);
-                if (Number.isFinite(id) && id > 0) map[id] = r;
-              }
-
-              const { data: fiscais, error: fiscaisErr } = await applyTenantEmpresa(
-                supabase
-                  .from("fiscal_itens")
-                  .select("item_id,ncm")
-                  .in("item_id", itemIds),
-                tenantId,
-                empresaId
-              ).returns<FiscalItemNcmRow[]>();
-              if (!fiscaisErr) {
-                for (const fiscal of fiscais ?? []) {
-                  const itemId = Number(fiscal.item_id);
-                  const atual = map[itemId];
-                  if (atual && fiscal.ncm) map[itemId] = { ...atual, ncm: fiscal.ncm };
-                }
-              }
-
-              setItemMetaById(map);
-            }
-
-            const { data: estoqueRows, error: estoqueErr } = await applyTenantEmpresa(
-              supabase.from("estoque").select("item_id,quantidade_atual").in("item_id", itemIds),
-              tenantId,
-              empresaId
-            ).returns<EstoqueRow[]>();
-            if (!estoqueErr && estoqueRows) {
-              const estoqueMap: Record<number, number> = {};
-              for (const row of estoqueRows) {
-                const itemId = Number(row.item_id);
-                const qtd = Number(row.quantidade_atual ?? 0);
-                if (Number.isFinite(itemId) && itemId > 0) estoqueMap[itemId] = Number.isFinite(qtd) ? qtd : 0;
-              }
-              setEstoqueByItemId(estoqueMap);
-            } else {
-              setEstoqueByItemId({});
-            }
-          }
-        } catch {
-          // best-effort
-          setEstoqueByItemId({});
-        }
+        const dados = await carregarDadosOrcamentoPdf(supabase, { tenantId, empresaId, idOrCodigo: idParam });
+        setOrc(dados.orcamento);
+        setItens(dados.itens);
+        setEmpresa(dados.empresa);
+        setCliente(dados.cliente);
+        setVendedor(dados.vendedor);
+        setCondicaoNome(dados.condicaoNome);
+        setItemMetaById(dados.itemMetaById);
+        setEstoqueByItemId(dados.estoqueByItemId);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Erro ao carregar.";
         setErr(msg);
@@ -401,12 +167,10 @@ export default function OrcamentoImprimirPage() {
     return () => clearTimeout(t);
   }, [auto, err, loading, orc]);
 
-  const garantia = "1 ANO CONTRA DEFEITOS DE FABRICACAO.";
-  const validade = useMemo(() => {
-    const ate = addDays(orc?.updated_at, 30);
-    if (!ate) return "30 DIAS.";
-    return `ATE ${ate.toLocaleDateString("pt-BR")}.`;
-  }, [orc?.updated_at]);
+  // Garantia e validade vem do modulo compartilhado para a tela e o PDF do
+  // aplicativo dizerem a mesma coisa.
+  const garantia = GARANTIA_PADRAO;
+  const validade = useMemo(() => validadeDoOrcamento(orc), [orc]);
 
   const totalProdutos = n(orc?.total_produtos);
   const totalMaoDeObra = n(orc?.total_servicos);
@@ -417,11 +181,7 @@ export default function OrcamentoImprimirPage() {
   async function handleDownloadPdf() {
     if (!orc) return;
 
-    const safeFileBase = (upperTrim(orc.codigo) || `orcamento-${idParam}` || "orcamento")
-      .replace(/[\\/:*?"<>|]+/g, "-")
-      .replace(/\s+/g, " ")
-      .trim();
-    const fileName = `${safeFileBase || "orcamento"}.pdf`;
+    const fileName = nomeArquivoOrcamentoPdf(orc, idParam);
 
     setPdfErr(null);
     setDownloadingPdf(true);
@@ -429,253 +189,23 @@ export default function OrcamentoImprimirPage() {
       const saveHandle = await pickPdfSaveHandle(fileName);
       if (saveHandle === "cancelled") return;
 
-      const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
-      const autoTable = autoTableMod.default;
-
-      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      doc.setProperties({
-        title: joinNonEmpty([upperTrim(orc.codigo), upperTrim(orc.titulo) || "ORCAMENTO"], " - ") || "Orcamento",
-        subject: "Orcamento comercial",
-        author: empresa?.razao_social ?? "SEGAU",
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const contentWidth = pageWidth - margin * 2;
-
-      const card = (x: number, y: number, w: number, h: number) => {
-        doc.setDrawColor(154, 154, 154);
-        doc.setLineWidth(0.25);
-        doc.roundedRect(x, y, w, h, 2.5, 2.5, "S");
-      };
-
-      const writeLabelValue = (label: string, value: string, xLabel: number, xValue: number, y: number, valueWidth: number) => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
-        doc.setTextColor(102, 102, 102);
-        doc.text(label, xLabel, y);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(17, 17, 17);
-        const lines = doc.splitTextToSize(value || "-", valueWidth) as string[];
-        doc.text(lines, xValue, y);
-      };
-
-      const codigoTitulo = joinNonEmpty([upperTrim(orc.codigo), upperTrim(orc.titulo) || "ORCAMENTO"], " - ");
-      const clienteNome = cliente ? upperTrim(cliente.razao_social || cliente.nome) : "-";
-      const clienteContato = getClienteContatoPrintInfo(orc, cliente);
-      const clienteEndereco = formatEnderecoCliente(cliente);
-      const usuarioProposta = vendedor?.nome ?? vendedor?.email ?? String(orc.vendedor_usuario_id ?? "-");
-      const dataProposta = formatDateBR(orc.emissao_date);
-      const empresaLinha = joinNonEmpty([empresa?.cnpj ? `CNPJ: ${empresa.cnpj}` : null, empresa?.ie ? `IE: ${empresa.ie}` : null], " | ") || "-";
-      const empresaRodape =
-        joinNonEmpty(
-          [empresa?.endereco, joinNonEmpty([empresa?.cidade, empresa?.uf], " - "), vendedor?.email ? `Contato comercial: ${vendedor.email}` : null],
-          " | "
-        ) || "-";
-
-      const logoDataUrl = await fetchImageAsDataUrl("/Segau2.png");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(17, 17, 17);
-      doc.text(codigoTitulo || "ORCAMENTO", pageWidth / 2, 11.5, { align: "center" });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(80, 80, 80);
-      doc.text("Pagina:", pageWidth - margin - 18, 9.5, { align: "right" });
-      doc.text("Data:", pageWidth - margin - 18, 13.5, { align: "right" });
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(17, 17, 17);
-      doc.text("1", pageWidth - margin, 9.5, { align: "right" });
-      doc.text(formatDateBR(orc.emissao_date), pageWidth - margin, 13.5, { align: "right" });
-
-      const topY = 16;
-      const topH = 45;
-      card(margin, topY, contentWidth, topH);
-
-      if (logoDataUrl) {
-        try {
-          doc.addImage(logoDataUrl, "PNG", margin + 4, topY + 3, 30, 9);
-        } catch {
-          // ignora falha do logo e segue com o PDF
-        }
-      } else {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text("SEGAU", margin + 4, topY + 8);
-      }
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.text(empresa?.razao_social ?? "SEGAU", margin + 4, topY + 17);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(51, 51, 51);
-      doc.text(doc.splitTextToSize(upperTrim(orc.codigo) || "-", 95) as string[], margin + 4, topY + 21);
-      doc.text(doc.splitTextToSize(empresaLinha, 95) as string[], margin + 4, topY + 26);
-      doc.text(doc.splitTextToSize(`Usuario: ${usuarioProposta}`, 95) as string[], margin + 4, topY + 31);
-      doc.text(doc.splitTextToSize(`Data: ${dataProposta}`, 95) as string[], margin + 4, topY + 36);
-      doc.text(doc.splitTextToSize(empresaRodape, contentWidth - 8) as string[], margin + 4, topY + 42.5);
-
-      const proposalSplitX = pageWidth - margin - 96;
-      const proposalLabelX = proposalSplitX + 4;
-      const proposalValueX = proposalSplitX + 42;
-      const proposalValueWidth = 46;
-      doc.setDrawColor(229, 229, 229);
-      doc.line(proposalSplitX, topY + 3, proposalSplitX, topY + topH - 6);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(102, 102, 102);
-      doc.text("Dados da Proposta", pageWidth - margin - 4, topY + 6, { align: "right" });
-
-      writeLabelValue(
-        "Codigo/Numero",
-        joinNonEmpty([orc.codigo, orc.numero ? `N${orc.numero}` : null], " | ") || "-",
-        proposalLabelX,
-        proposalValueX,
-        topY + 10.5,
-        proposalValueWidth
+      // O gerador mora em lib/comercial/orcamentoPdf.ts porque o aplicativo
+      // baixa o mesmo arquivo pela rota /api/comercial/orcamentos/[id]/pdf.
+      const bytes = await gerarOrcamentoPdf(
+        { orcamento: orc, itens, empresa, cliente, vendedor, condicaoNome, itemMetaById, estoqueByItemId },
+        { carregarImagem: carregarImagemNoNavegador }
       );
-      writeLabelValue("Validade", validade, proposalLabelX, proposalValueX, topY + 16.5, proposalValueWidth);
-      writeLabelValue("Condicao", condicaoNome ?? "(sem)", proposalLabelX, proposalValueX, topY + 22.5, proposalValueWidth);
-      writeLabelValue("Garantia", garantia, proposalLabelX, proposalValueX, topY + 28.5, proposalValueWidth);
-      writeLabelValue("Ult. alteracao", formatDateBR(orc.updated_at), proposalLabelX, proposalValueX, topY + 34.5, proposalValueWidth);
+      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
 
-      const clienteY = topY + topH + 3;
-      const clienteH = 40;
-      const itensStartY = clienteY + clienteH + 4;
-      card(margin, clienteY, contentWidth, clienteH);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(17, 17, 17);
-      doc.text("Cliente", margin + 4, clienteY + 6);
-      writeLabelValue("Razao/Nome", clienteNome, margin + 4, margin + 28, clienteY + 11, 110);
-      writeLabelValue("CPF/CNPJ", cliente?.documento ?? "-", margin + 4, margin + 28, clienteY + 16, 110);
-      writeLabelValue("Contato", clienteContato.nome, margin + 4, margin + 28, clienteY + 21, 110);
-      writeLabelValue("Setor", clienteContato.setor, margin + 150, margin + 168, clienteY + 11, 108);
-      writeLabelValue("E-mail", clienteContato.email, margin + 150, margin + 168, clienteY + 16, 108);
-      writeLabelValue("Telefone", clienteContato.telefone, margin + 150, margin + 168, clienteY + 21, 108);
-      writeLabelValue("Endereco", clienteEndereco, margin + 4, margin + 28, clienteY + 32, contentWidth - 32);
-
-      const body = itens.length
-        ? itens.map((it) => {
-            const meta = itemMetaById[Number(it.item_id)];
-            const codigo = upperTrim(String(it.item_codigo_interno ?? "")) || upperTrim(String(meta?.codigo_interno ?? "")) || "-";
-            const marca = upperTrim(String(meta?.fabricante ?? "")) || "-";
-            const ncm = upperTrim(String(meta?.ncm ?? "")) || "-";
-            const unid = upperTrim(String(it.unidade ?? "")) || upperTrim(String(meta?.unidade_medida ?? "")) || "UN";
-            const itemId = Number(it.item_id);
-            const qtdSolicitada = n(it.quantidade);
-            const estoqueAtual = Number(estoqueByItemId[itemId] ?? 0);
-            const prazoLinha =
-              Number.isFinite(itemId) && Number.isFinite(qtdSolicitada) && estoqueAtual >= qtdSolicitada ? "ENTREGA IMEDIATA" : "A CONFIRMAR";
-
-            return [
-              codigo,
-              upperTrim(String(it.item_nome ?? "")) || "-",
-              marca,
-              unid,
-              ncm,
-              formatDecimalBR(n(it.quantidade)),
-              formatMoneyBR(n(it.valor_unitario_liquido)),
-              formatMoneyBR(n(it.valor_total)),
-              prazoLinha,
-            ];
-          })
-        : [["-", "Nenhum item no orcamento.", "-", "-", "-", "-", "-", "-", "-"]];
-
-      autoTable(doc, {
-        startY: itensStartY,
-        margin: { left: margin, right: margin, top: itensStartY, bottom: 34 },
-        head: [["Codigo", "Produto/Servico", "Marca", "Unid", "NCM", "Qtd", "Valor Unit.", "Valor Total", "Prazo"]],
-        body,
-        theme: "grid",
-        styles: {
-          fontSize: 7.5,
-          cellPadding: 1.8,
-          overflow: "linebreak",
-          lineColor: [199, 199, 199],
-          lineWidth: 0.15,
-          textColor: [17, 17, 17],
-          valign: "middle",
-        },
-        headStyles: {
-          fillColor: [233, 233, 233],
-          textColor: [17, 17, 17],
-          fontStyle: "bold",
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245],
-        },
-        columnStyles: {
-          0: { cellWidth: 24 },
-          1: { cellWidth: 96 },
-          2: { cellWidth: 26 },
-          3: { cellWidth: 14 },
-          4: { cellWidth: 22 },
-          5: { cellWidth: 15, halign: "right" },
-          6: { cellWidth: 24, halign: "right" },
-          7: { cellWidth: 24, halign: "right" },
-          8: { cellWidth: 32 },
-        },
-      });
-
-      let footerY = ((doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? itensStartY) + 4;
-      if (footerY > pageHeight - 40) {
-        doc.addPage();
-        footerY = 18;
-      }
-
-      const footerLeftW = 152;
-      const footerRightW = contentWidth - footerLeftW - 4;
-      const footerH = 34;
-
-      card(margin, footerY, footerLeftW, footerH);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.text("Observacoes", margin + 4, footerY + 6);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.text(doc.splitTextToSize(upperTrim(String(orc.observacoes ?? "")) || "-", footerLeftW - 8) as string[], margin + 4, footerY + 11);
-
-      card(margin + footerLeftW + 4, footerY, footerRightW, footerH);
-      const totalXLabel = margin + footerLeftW + 8;
-      const totalXValue = margin + footerLeftW + footerRightW;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.text("Valor total dos produtos", totalXLabel, footerY + 7);
-      doc.text("Valor mao de obra", totalXLabel, footerY + 12);
-      doc.text("Frete", totalXLabel, footerY + 17);
-      doc.setFont("helvetica", "bold");
-      doc.text(formatMoneyBR(totalProdutos), totalXValue - 4, footerY + 7, { align: "right" });
-      doc.text(formatMoneyBR(totalMaoDeObra), totalXValue - 4, footerY + 12, { align: "right" });
-      doc.text(formatMoneyBR(frete), totalXValue - 4, footerY + 17, { align: "right" });
-      doc.setDrawColor(199, 199, 199);
-      doc.line(margin + footerLeftW + 8, footerY + 21, totalXValue - 4, footerY + 21);
-      doc.text("Total proposta", totalXLabel, footerY + 27);
-      doc.setFontSize(10);
-      doc.text(formatMoneyBR(totalProposta), totalXValue - 4, footerY + 27, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.text("Impostos inclusos.", totalXLabel, footerY + 31);
-
-      const pages = doc.getNumberOfPages();
-      for (let i = 1; i <= pages; i += 1) {
-        doc.setPage(i);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7);
-        doc.setTextColor(90, 90, 90);
-        doc.text(`Pagina ${i} de ${pages}`, pageWidth - margin, pageHeight - 4, { align: "right" });
-      }
-
-      const blob = doc.output("blob");
       if (saveHandle === "unsupported") {
-        doc.save(fileName);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
       } else {
         await writeBlobToFileHandle(saveHandle, blob);
       }
