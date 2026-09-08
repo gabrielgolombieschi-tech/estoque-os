@@ -18,6 +18,13 @@ type Body = {
   telefone?: string | null;
   tenantPapel?: string;
   empresaVinculos?: EmpresaVinculo[];
+  /**
+   * Quando vem preenchida, o usuario e criado ja com senha e e-mail confirmado,
+   * em vez de receber convite por e-mail. E o caminho do aplicativo: tecnico e
+   * apontador de campo muitas vezes nao tem e-mail corporativo para abrir o
+   * convite, e quem cadastra entrega a senha na hora.
+   */
+  senha?: string | null;
 };
 
 type AdminContext =
@@ -151,6 +158,7 @@ export async function POST(req: NextRequest) {
     const telefone = String(body.telefone ?? "").trim();
     const tenantPapel = String(body.tenantPapel ?? "GESTOR").trim().toUpperCase();
     const empresaVinculos = Array.isArray(body.empresaVinculos) ? body.empresaVinculos : [];
+    const senha = String(body.senha ?? "").trim();
 
     if (!tenantId) return jerr(400, "tenantId obrigatorio.");
     if (tenantId !== ctx.tenantId) return jerr(403, "Tenant invalido.");
@@ -160,6 +168,7 @@ export async function POST(req: NextRequest) {
 
     if (!nome) return jerr(400, "Nome obrigatorio.");
     if (!TENANT_ROLES.has(tenantPapel)) return jerr(400, "Papel do tenant invalido.");
+    if (senha && senha.length < 8) return jerr(400, "A senha precisa ter ao menos 8 caracteres.");
 
     const { data: canAssignRole, error: canAssignRoleErr } = await ctx.supabase.rpc(
       "admin_can_assign_tenant_role",
@@ -187,6 +196,25 @@ export async function POST(req: NextRequest) {
 
     // Best-effort: if the user already exists, reuse it.
     let authUserId: string | null = await findAuthUserIdByEmail(admin, email);
+
+    // Com senha informada nao ha convite: o usuario nasce pronto para entrar.
+    if (!authUserId && senha) {
+      const { data: criado, error: criarErr } = await admin.auth.admin.createUser({
+        email,
+        password: senha,
+        email_confirm: true,
+        user_metadata: { nome },
+      });
+      if (criarErr) {
+        if (isDuplicateEmailError(criarErr)) {
+          authUserId = await findAuthUserIdByEmail(admin, email);
+        } else {
+          return jerr(400, criarErr.message);
+        }
+      } else {
+        authUserId = criado.user?.id ? String(criado.user.id) : null;
+      }
+    }
 
     if (!authUserId) {
       const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {

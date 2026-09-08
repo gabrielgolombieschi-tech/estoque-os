@@ -154,18 +154,11 @@ const CLIENT_NAME_BASE_NOISE_TOKENS = new Set([
   "SIDERURGICO",
   "SIDERURGICOS",
 ]);
-const FATURAMENTO_TARGETS_BY_YEAR: Partial<Record<number, number>> = {
-  2017: 190000,
-  2018: 214700,
-  2019: 242611,
-  2020: 274150.43,
-  2021: 309789.99,
-  2022: 350062.68,
-  2023: 395570.83,
-  2024: 446995.04,
-  2025: 558743.8,
-  2026: 698429.75,
-};
+// A meta mensal por ano vive em f.meta_faturamento, lida por
+// f.meta_faturamento_listar. Antes era uma constante aqui, e o aplicativo lia a
+// tabela: mudar a meta em so um dos dois fazia as telas discordarem em
+// silencio.
+type MetaPorAno = Partial<Record<number, number>>;
 
 function n(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -476,6 +469,8 @@ export default function AnaliticoFaturamentoClient() {
   const [empresaCatalog, setEmpresaCatalog] = useState(te.empresas);
 
   const [rows, setRows] = useState<DocumentoFiscalRow[]>([]);
+  const [metasPorAno, setMetasPorAno] = useState<MetaPorAno>({});
+  const [empresasSemMeta, setEmpresasSemMeta] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mergedEmpresaCatalog = useMemo(
@@ -655,9 +650,43 @@ export default function AnaliticoFaturamentoClient() {
         if (cancelled) return;
 
         setRows(docs);
+
+        // A meta vem da mesma origem que o aplicativo usa. Uma linha por
+        // empresa e ano; empresas selecionadas que nao tem meta cadastrada
+        // aparecem em empresasSemMeta para a tela avisar, em vez de somar zero
+        // e fazer parecer que a meta foi superada.
+        const { data: metasData, error: metasError } = await supabase
+          .schema("f")
+          .rpc("meta_faturamento_listar", {
+            p_empresa_ids: targetEmpresaIds,
+            p_ano_de: queryFromYear,
+            p_ano_ate: queryToYear,
+          });
+
+        if (cancelled) return;
+        if (metasError) throw metasError;
+
+        const metasRows = (metasData ?? []) as Array<{ empresa_id: string; ano: number; valor_mensal: number | string }>;
+        const somaPorAno: MetaPorAno = {};
+        const empresasComMeta = new Set<string>();
+        for (const meta of metasRows) {
+          const valor = Number(meta.valor_mensal);
+          if (!Number.isFinite(valor)) continue;
+          somaPorAno[meta.ano] = (somaPorAno[meta.ano] ?? 0) + valor;
+          empresasComMeta.add(meta.empresa_id);
+        }
+
+        setMetasPorAno(somaPorAno);
+        setEmpresasSemMeta(
+          targetEmpresaIds
+            .filter((id) => !empresasComMeta.has(id))
+            .map((id) => empresaOptions.find((empresa) => empresa.id === id)?.label ?? id)
+        );
       } catch (loadError: unknown) {
         if (cancelled) return;
         setRows([]);
+        setMetasPorAno({});
+        setEmpresasSemMeta([]);
         setError(loadError instanceof Error ? loadError.message : "Erro ao carregar o analitico de faturamento.");
       } finally {
         if (!cancelled) setLoading(false);
@@ -669,7 +698,7 @@ export default function AnaliticoFaturamentoClient() {
     return () => {
       cancelled = true;
     };
-  }, [currentYear, empresaId, fromYear, ready, selectedEmpresaIds, tenantId, toYear]);
+  }, [currentYear, empresaId, empresaOptions, fromYear, ready, selectedEmpresaIds, tenantId, toYear]);
 
   const rawDocumentos = useMemo<DocumentoAnalitico[]>(() => {
     const liveRows = rows
@@ -824,8 +853,8 @@ export default function AnaliticoFaturamentoClient() {
   }, [documentos, years]);
 
   const monthTargets = useMemo(
-    () => years.map((year) => FATURAMENTO_TARGETS_BY_YEAR[year] ?? null),
-    [years]
+    () => years.map((year) => metasPorAno[year] ?? null),
+    [metasPorAno, years]
   );
 
   const monthTargetTotal = useMemo(
@@ -1115,6 +1144,12 @@ export default function AnaliticoFaturamentoClient() {
       {!ready || loading ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-400">
           Carregando analitico de faturamento...
+        </div>
+      ) : null}
+
+      {ready && !loading && empresasSemMeta.length > 0 ? (
+        <div className="rounded-lg border border-amber-900/60 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+          Sem meta cadastrada para {empresasSemMeta.join(", ")}. As linhas de meta abaixo somam apenas as empresas que têm meta, então a comparação fica incompleta enquanto essas faltarem.
         </div>
       ) : null}
 
