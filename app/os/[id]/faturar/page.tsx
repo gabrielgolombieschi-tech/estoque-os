@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { formatMoneyBR } from "@/lib/decimal";
+import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
 import FaturarNfseOs, { type PerfilServico } from "./FaturarNfseOs";
 
 const R$ = (value: number) => `R$ ${formatMoneyBR(value)}`;
@@ -518,6 +519,59 @@ export default function FaturarOsPage() {
     return () => { ativo = false; };
   }, [solicitacao, autorizada, emissao, notaProducao, supabase]);
 
+  // Entrega ao cliente direto daqui: com a nota real autorizada, a tela carrega o contexto do
+  // ciclo de vida (e-mails do cadastro, e-mail fiscal da empresa, eventos ja registrados) e
+  // oferece o envio de XML + DANFE sem sair da OS. Depois do envio, pergunta se conclui a OS.
+  const notaProducaoAutorizada = notaProducao?.emissao_status === "AUTORIZADA" ? notaProducao : null;
+  type EntregaCtx = ContatoNfe & { eventos?: Array<{ tipo: string; status: string; destinatarios: string[] | null }> };
+  const [entrega, setEntrega] = useState<{ documentoId: string | null; ctx: EntregaCtx | null; emails: string; enviadoPara: string[] | null; enviando: boolean }>({ documentoId: null, ctx: null, emails: "", enviadoPara: null, enviando: false });
+  const [dialogoConcluir, setDialogoConcluir] = useState(false);
+  useEffect(() => {
+    const docId = notaProducaoAutorizada?.documento_fiscal_id ?? null;
+    if (!docId) { setEntrega((atual) => atual.documentoId ? { documentoId: null, ctx: null, emails: "", enviadoPara: null, enviando: false } : atual); return; }
+    if (entrega.documentoId === docId) return;
+    let ativo = true;
+    void supabase.schema("f").rpc("fn_nfe_ciclo_contexto", { p_documento_fiscal_id: docId }).then(({ data }) => {
+      if (!ativo) return;
+      const ctx = (data ?? null) as EntregaCtx | null;
+      const enviado = ctx?.eventos?.find((ev) => ev.tipo === "EMAIL" && !/ERRO|REJEIT|FALH/i.test(ev.status))?.destinatarios ?? null;
+      setEntrega({ documentoId: docId, ctx, emails: emailPadraoCliente(ctx), enviadoPara: enviado, enviando: false });
+    });
+    return () => { ativo = false; };
+  }, [notaProducaoAutorizada, entrega.documentoId, supabase]);
+
+  async function enviarEntrega() {
+    if (!notaProducaoAutorizada) return;
+    const destinatarios = separarEmails(entrega.emails);
+    if (!destinatarios.length) { setErro("Informe ao menos um e-mail para a entrega."); return; }
+    if (!window.confirm(`Enviar XML e DANFE da NF-e ${notaProducaoAutorizada.serie}/${notaProducaoAutorizada.numero} para:\n\n${destinatarios.join("\n")}\n\nConfirme somente após revisar os dois arquivos.`)) return;
+    setEntrega((atual) => ({ ...atual, enviando: true })); setErro(null); setAviso(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("nfe-ciclo", { body: { acao: "EMAIL", emails: destinatarios, documento_fiscal_id: notaProducaoAutorizada.documento_fiscal_id } });
+      if (error) throw error;
+      if (data?.error) throw new Error(String(data.error));
+      setEntrega((atual) => ({ ...atual, enviando: false, enviadoPara: destinatarios }));
+      setAviso(`XML e DANFE da NF-e ${notaProducaoAutorizada.serie}/${notaProducaoAutorizada.numero} enviados para ${destinatarios.join(", ")}.`);
+      setDialogoConcluir(true);
+    } catch (cause) { setEntrega((atual) => ({ ...atual, enviando: false })); setErro(await erroFunction(cause)); }
+  }
+
+  async function concluirEFaturar() {
+    if (!os) return;
+    setOcupado(true); setErro(null);
+    try {
+      if (String(os.status_fluxo).toLowerCase() !== "concluida") {
+        const { error } = await supabase.rpc("os_concluir", { p_os_id: os.id });
+        if (error) throw error;
+      }
+      const { error } = await supabase.rpc("os_faturar", { p_os_id: os.id });
+      if (error) throw error;
+      setDialogoConcluir(false);
+      setAviso("OS concluída e marcada como faturada.");
+      await carregar();
+    } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
+  }
+
   if (!Number.isInteger(osId) || osId <= 0) return <div className="p-6 text-sm text-red-300">OS inválida.</div>;
 
   return (
@@ -697,7 +751,31 @@ export default function FaturarOsPage() {
               {emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NF-e real (produção)</button> : null}
             </div> : null}
             {autorizada && emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta && !producaoPronta.pronta ? <div className="mt-1 text-xs text-zinc-500">Produção: {producaoPronta.motivo}</div> : null}
-            {notaProducao ? <div className="mt-2 flex flex-wrap items-center gap-2 text-sm"><span className="font-medium text-emerald-300">NF-e REAL · {notaProducao.emissao_status}</span>{notaProducao.serie && notaProducao.numero ? <span>NF-e {notaProducao.serie}/{notaProducao.numero}</span> : null}{notaProducao.chave_acesso ? <code className="text-xs">{notaProducao.chave_acesso}</code> : null}<Link className={botao} href={`/faturamento/nfe/${notaProducao.documento_fiscal_id}`}>Ciclo de vida (cancelar, e-mail)</Link></div> : null}
+            {notaProducao ? <div className="mt-2 flex flex-wrap items-center gap-2 text-sm"><span className="font-medium text-emerald-300">NF-e REAL · {notaProducao.emissao_status}</span>{notaProducao.serie && notaProducao.numero ? <span>NF-e {notaProducao.serie}/{notaProducao.numero}</span> : null}{notaProducao.chave_acesso ? <code className="text-xs">{notaProducao.chave_acesso}</code> : null}<Link className={botao} href={`/faturamento/nfe/${notaProducao.documento_fiscal_id}`}>Ciclo de vida (cancelar, carta de correção)</Link></div> : null}
+            {notaProducaoAutorizada ? (
+              <div className="mt-3 space-y-2 rounded-md border border-emerald-900/60 bg-emerald-950/10 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">Entregar ao cliente · NF-e {notaProducaoAutorizada.serie}/{notaProducaoAutorizada.numero}</span>
+                  <span className="flex gap-2"><button type="button" className={botao} disabled={!notaProducaoAutorizada.danfe_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "DANFE")}>DANFE</button><button type="button" className={botao} disabled={!notaProducaoAutorizada.xml_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "XML")}>XML</button></span>
+                </div>
+                <input className={field} value={entrega.emails} onChange={(e) => setEntrega((atual) => ({ ...atual, emails: e.target.value }))} placeholder="E-mails separados por vírgula" />
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                  <span>Cadastro do cliente:</span>
+                  {emailsDoCadastro(entrega.ctx).map((c) => c.proprio ? (
+                    <span key={c.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro fiscal.">{c.rotulo}: {c.email} · é da própria empresa</span>
+                  ) : (
+                    <button key={c.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEntrega((atual) => ({ ...atual, emails: c.email }))}>{c.rotulo}: {c.email}</button>
+                  ))}
+                  {entrega.ctx && emailsDoCadastro(entrega.ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
+                </div>
+                {entrega.enviadoPara ? <div className="text-xs text-emerald-300">Já enviado para {entrega.enviadoPara.join(", ")}. Enviar de novo repete o e-mail.</div> : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={entrega.enviando || ocupado || !entrega.emails.trim() || !notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path} onClick={() => void enviarEntrega()}>{entrega.enviando ? "Enviando..." : "Revisado: enviar XML + DANFE"}</button>
+                  {!notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path ? <span className="text-xs text-zinc-500">Aguardando XML e DANFE da SEFAZ.</span> : null}
+                  <button type="button" className={botao} disabled={ocupado} onClick={() => setDialogoConcluir(true)}>Concluir a OS...</button>
+                </div>
+              </div>
+            ) : null}
             {autorizada && emissao.ambiente === "HOMOLOGACAO" ? <div className="mt-2 text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber.</div> : null}
             {autorizada && saldoDisponivel <= 0.005 ? <div className="mt-2 flex items-center gap-2 text-sm"><span>Saldo zerado.</span><button type="button" className={botao} disabled={ocupado || String(os?.status_fluxo).toLowerCase() !== "concluida"} onClick={() => void marcarFaturada()}>Marcar OS como Faturada</button>{String(os?.status_fluxo).toLowerCase() !== "concluida" ? <span className="text-xs text-zinc-500">exige OS concluída e nota emitida</span> : null}</div> : null}
           </div>
@@ -713,6 +791,31 @@ export default function FaturarOsPage() {
             <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td>{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td>{n.modelo === "NFSE" ? "NFS-e" : "NF-e"}</td><td>{n.ambiente}</td><td>{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : n.nfe_status === "SUBSTITUIDA" ? " · substituída" : ""}</td><td className="text-right">{R$(num(n.valor_total))}</td><td className="space-x-2">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>{n.modelo === "NFSE" ? "DANFSe" : "DANFE"}</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/nfe/${n.documento_fiscal_id}`}>detalhe</Link>{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
         )}
       </section>
+
+      {dialogoConcluir && os ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" onClick={(e) => { if (e.target === e.currentTarget) setDialogoConcluir(false); }}>
+          <div className="w-full max-w-lg space-y-4 rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="dialogo-concluir-titulo">
+            <div>
+              <h2 id="dialogo-concluir-titulo" className="text-lg font-semibold">Concluir a OS {os.numero_os ?? os.id}?</h2>
+              {entrega.enviadoPara ? <p className="mt-1 text-sm text-zinc-400">NF-e {notaProducaoAutorizada?.serie}/{notaProducaoAutorizada?.numero} enviada para {entrega.enviadoPara.join(", ")}.</p> : null}
+            </div>
+            <div className="grid grid-cols-3 gap-3 rounded-md border border-zinc-800 p-3 text-sm">
+              <div><div className="text-xs uppercase text-zinc-500">Orçado/HH</div><div className="font-semibold">{R$(num(saldo?.valor_pedido))}</div></div>
+              <div><div className="text-xs uppercase text-zinc-500">Faturado</div><div className="font-semibold text-emerald-300">{R$(num(saldo?.valor_faturado))}</div></div>
+              <div><div className="text-xs uppercase text-zinc-500">Saldo</div><div className={`font-semibold ${saldoDisponivel <= 0.005 ? "text-emerald-300" : "text-amber-300"}`}>{R$(saldoDisponivel)}</div></div>
+            </div>
+            {saldoDisponivel > 0.005 ? (
+              <p className="text-sm text-amber-200">Ainda restam {R$(saldoDisponivel)} a faturar. A OS só pode ser marcada como faturada com saldo zero — feche e emita o restante quando for a hora.</p>
+            ) : (
+              <p className="text-sm text-zinc-300">{String(os.status_fluxo).toLowerCase() === "concluida" ? "A OS já está concluída. Marcar como faturada encerra o ciclo dela." : "A OS ainda não está concluída. Confirmar conclui a OS e a marca como faturada num só passo."}</p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" className={botao} disabled={ocupado} onClick={() => setDialogoConcluir(false)}>{saldoDisponivel > 0.005 ? "Fechar" : "Agora não"}</button>
+              {saldoDisponivel <= 0.005 ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void concluirEFaturar()}>{String(os.status_fluxo).toLowerCase() === "concluida" ? "Marcar OS como Faturada" : "Concluir e marcar como Faturada"}</button> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

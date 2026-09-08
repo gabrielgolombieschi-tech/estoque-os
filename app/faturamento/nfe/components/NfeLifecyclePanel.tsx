@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { emailPadraoCliente, emailsDoCadastro, separarEmails } from "@/lib/nfe/emailsCliente";
 
-type Evento = { id: string; tipo: string; status: string; justificativa: string | null; protocolo: string | null; destinatarios: string[] | null; sequencia: number | null; resposta?: Record<string, unknown> | null; created_at: string };
+type Evento ={ id: string; tipo: string; status: string; justificativa: string | null; protocolo: string | null; destinatarios: string[] | null; sequencia: number | null; resposta?: Record<string, unknown> | null; created_at: string };
 type Contexto = {
   documento: { serie: string | null; numero: string | null } | null;
   emissao: { status: string; ambiente: string; xml_path: string | null; danfe_path: string | null; autorizado_em: string | null };
@@ -16,33 +17,7 @@ type Contexto = {
   eventos: Evento[];
 };
 
-const EMAIL = /^\S+@\S+\.\S+$/;
-
-function dominio(email: string | null | undefined) {
-  const v = (email ?? "").trim().toLowerCase();
-  const at = v.lastIndexOf("@");
-  return at > 0 ? v.slice(at + 1) : "";
-}
-
-// E-mails do cadastro do cliente, marcando os que estao no dominio da propria empresa
-// emitente: na PBG S/A o "e-mail financeiro" veio gravado como CONTATO@SEGAU.COM.BR e a
-// tela oferecia a Segau como destinataria da nota da Portobello.
-function emailsDoCadastro(ctx: Contexto | null) {
-  const proprioDominio = dominio(ctx?.empresa_fiscal?.email_fisco);
-  const lista: Array<{ rotulo: string; email: string; proprio: boolean }> = [];
-  for (const [rotulo, valor] of [["financeiro", ctx?.cliente?.email_financeiro], ["principal", ctx?.cliente?.email]] as const) {
-    const email = (valor ?? "").trim().toLowerCase();
-    if (!EMAIL.test(email) || lista.some((c) => c.email === email)) continue;
-    lista.push({ rotulo, email, proprio: Boolean(proprioDominio) && dominio(email) === proprioDominio });
-  }
-  return lista;
-}
-
-function emailPadraoCliente(ctx: Contexto | null) {
-  return emailsDoCadastro(ctx).find((c) => !c.proprio)?.email ?? "";
-}
-
-const input = "rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
+const input ="rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
 const button = "rounded border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40";
 
 function message(error: unknown) {
@@ -199,7 +174,7 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
 
   async function enviarAoCliente() {
     if (!ctx || ctx.emissao.ambiente !== "PRODUCAO" || ctx.emissao.status !== "AUTORIZADA") return;
-    const destinatarios = emails.split(/[,;\n]/).map((value) => value.trim()).filter(Boolean);
+    const destinatarios = separarEmails(emails);
     if (!window.confirm(
       `Enviar XML e DANFE da NF-e ${ctx.emissao.ambiente} para:\n\n${destinatarios.join("\n")}\n\nConfirme somente após revisar os dois arquivos.`,
     )) return;
