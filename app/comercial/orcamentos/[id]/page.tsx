@@ -66,6 +66,16 @@ type ItemLookupRow = {
   estoque_atual: number | null;
 };
 
+// A selecao de "Selecionar varios" sobrevive a troca de busca, entao ela guarda
+// o que precisa para exibir o item mesmo quando ele nao esta mais no resultado
+// na tela — sem isso, quem seleciona um painel e depois pesquisa "cabo" fica sem
+// ver o painel que ja escolheu.
+type ItemSelecionadoLookup = {
+  qtd: string;
+  codigo_interno: string | null;
+  nome: string | null;
+};
+
 type ConjuntoCatalogoRow = {
   conjunto_id: string;
   codigo: string | null;
@@ -479,7 +489,7 @@ export default function OrcamentoPage() {
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupErr, setLookupErr] = useState<string | null>(null);
   const [lookupMultiMode, setLookupMultiMode] = useState(false);
-  const [lookupSelecionados, setLookupSelecionados] = useState<Map<number, string>>(new Map());
+  const [lookupSelecionados, setLookupSelecionados] = useState<Map<number, ItemSelecionadoLookup>>(new Map());
   const [lookupBulkBusy, setLookupBulkBusy] = useState(false);
   const [lookupBulkErr, setLookupBulkErr] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("id");
@@ -1049,7 +1059,8 @@ export default function OrcamentoPage() {
 
     setLookupErr(null);
     setLookupBusy(true);
-    setLookupSelecionados(new Map());
+    // A selecao NAO e limpa aqui de proposito: a busca serve para achar o
+    // proximo item, e nao para desfazer o que ja foi escolhido.
     setLookupBulkErr(null);
 
     const nomeTerm = (nextNome ?? lookupNome).trim();
@@ -1245,10 +1256,13 @@ export default function OrcamentoPage() {
     if (lookupSelecionados.size === 0) return;
 
     const entradas = Array.from(lookupSelecionados.entries());
-    for (const [, qtdTexto] of entradas) {
-      const qtd = parseDecimalBR(qtdTexto);
+    for (const [, selecionado] of entradas) {
+      const qtd = parseDecimalBR(selecionado.qtd);
       if (!Number.isFinite(qtd) || qtd <= 0) {
-        setLookupBulkErr("Informe uma quantidade valida (maior que zero) para todos os itens selecionados.");
+        // Com a selecao sobrevivendo a busca, o item com quantidade invalida
+        // pode nao estar na tela — por isso a mensagem diz qual e.
+        const rotulo = selecionado.codigo_interno || selecionado.nome || "sem codigo";
+        setLookupBulkErr(`Informe uma quantidade maior que zero para "${rotulo}".`);
         return;
       }
     }
@@ -1260,10 +1274,10 @@ export default function OrcamentoPage() {
       const token = sessionData.session?.access_token ?? null;
       if (!token) throw new Error("Sessao expirada. Faca login novamente.");
 
-      const itensPayload = entradas.map(([itemId, qtdTexto], idx) => ({
+      const itensPayload = entradas.map(([itemId, selecionado], idx) => ({
         linha: idx + 1,
         produtoId: String(itemId),
-        qtd: parseDecimalBR(qtdTexto),
+        qtd: parseDecimalBR(selecionado.qtd),
       }));
 
       const res = await fetch(`/api/comercial/orcamentos/${encodeURIComponent(idParam)}/assistente-ia/adicionar-itens`, {
@@ -2084,12 +2098,13 @@ export default function OrcamentoPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    // Limpa a busca, nao a selecao — para tirar itens
+                    // escolhidos existe o X de cada um na lista abaixo.
                     setLookupNome("");
                     setLookupFornecedor("");
                     setLookupRows([]);
                     setLookupConjuntoRows([]);
                     setLookupErr(null);
-                    setLookupSelecionados(new Map());
                     setLookupBulkErr(null);
                     void handleLookupSearch("", "");
                   }}
@@ -2130,8 +2145,11 @@ export default function OrcamentoPage() {
                                 setLookupSelecionados((prev) => {
                                   const next = new Map(prev);
                                   sortedLookupRows.forEach((it) => {
-                                    if (checked) next.set(it.id, next.get(it.id) ?? "1");
-                                    else next.delete(it.id);
+                                    if (checked) {
+                                      next.set(it.id, next.get(it.id) ?? { qtd: "1", codigo_interno: it.codigo_interno, nome: it.nome });
+                                    } else {
+                                      next.delete(it.id);
+                                    }
                                   });
                                   return next;
                                 });
@@ -2175,7 +2193,7 @@ export default function OrcamentoPage() {
                                 setLookupSelecionados((prev) => {
                                   const next = new Map(prev);
                                   if (next.has(it.id)) next.delete(it.id);
-                                  else next.set(it.id, "1");
+                                  else next.set(it.id, { qtd: "1", codigo_interno: it.codigo_interno, nome: it.nome });
                                   return next;
                                 });
                                 return;
@@ -2194,7 +2212,7 @@ export default function OrcamentoPage() {
                                     setLookupSelecionados((prev) => {
                                       const next = new Map(prev);
                                       if (next.has(it.id)) next.delete(it.id);
-                                      else next.set(it.id, "1");
+                                      else next.set(it.id, { qtd: "1", codigo_interno: it.codigo_interno, nome: it.nome });
                                       return next;
                                     });
                                   }}
@@ -2215,14 +2233,15 @@ export default function OrcamentoPage() {
                             {lookupMultiMode && (
                               <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                                 <input
-                                  value={lookupSelecionados.get(it.id) ?? ""}
+                                  value={lookupSelecionados.get(it.id)?.qtd ?? ""}
                                   disabled={!selecionado}
                                   onChange={(e) => {
                                     const value = e.target.value;
                                     setLookupSelecionados((prev) => {
-                                      if (!prev.has(it.id)) return prev;
+                                      const atual = prev.get(it.id);
+                                      if (!atual) return prev;
                                       const next = new Map(prev);
-                                      next.set(it.id, value);
+                                      next.set(it.id, { ...atual, qtd: value });
                                       return next;
                                     });
                                   }}
@@ -2292,21 +2311,83 @@ export default function OrcamentoPage() {
                 )}
               </div>
 
+              {/* A selecao atravessa varias buscas, entao ela precisa de um
+                  lugar proprio: aqui o item escolhido continua visivel e com a
+                  quantidade editavel mesmo depois de sumir do resultado. */}
               {lookupMultiMode && lookupSelecionados.size > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
-                  <div className="text-sm text-zinc-200">
-                    {lookupSelecionados.size} item{lookupSelecionados.size === 1 ? "" : "s"} selecionado
-                    {lookupSelecionados.size === 1 ? "" : "s"}
-                    {lookupBulkErr && <span className="ml-3 text-red-400">{lookupBulkErr}</span>}
+                <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-medium text-zinc-200">
+                      {lookupSelecionados.size} item{lookupSelecionados.size === 1 ? "" : "s"} selecionado
+                      {lookupSelecionados.size === 1 ? "" : "s"}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLookupSelecionados(new Map());
+                        setLookupBulkErr(null);
+                      }}
+                      className="text-xs text-zinc-400 underline hover:text-zinc-200"
+                    >
+                      Limpar seleção
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleAddSelecionadosConfirm()}
-                    disabled={lookupBulkBusy}
-                    className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
-                  >
-                    {lookupBulkBusy ? "Adicionando..." : `Adicionar ${lookupSelecionados.size} itens`}
-                  </button>
+
+                  <div className="max-h-48 overflow-y-auto divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-zinc-950">
+                    {Array.from(lookupSelecionados.entries()).map(([itemId, selecionado]) => (
+                      <div key={itemId} className="flex items-center gap-3 px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm text-zinc-200">{selecionado.nome ?? `Item ${itemId}`}</div>
+                          <div className="text-xs text-zinc-500">
+                            {itemId}
+                            {selecionado.codigo_interno ? ` · ${selecionado.codigo_interno}` : ""}
+                          </div>
+                        </div>
+                        <input
+                          value={selecionado.qtd}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setLookupSelecionados((prev) => {
+                              const atual = prev.get(itemId);
+                              if (!atual) return prev;
+                              const next = new Map(prev);
+                              next.set(itemId, { ...atual, qtd: value });
+                              return next;
+                            });
+                          }}
+                          inputMode="decimal"
+                          aria-label={`Quantidade de ${selecionado.nome ?? itemId}`}
+                          className="w-20 shrink-0 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-right"
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Remover ${selecionado.nome ?? itemId} da seleção`}
+                          onClick={() => {
+                            setLookupSelecionados((prev) => {
+                              const next = new Map(prev);
+                              next.delete(itemId);
+                              return next;
+                            });
+                          }}
+                          className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-red-400">{lookupBulkErr}</div>
+                    <button
+                      type="button"
+                      onClick={() => void handleAddSelecionadosConfirm()}
+                      disabled={lookupBulkBusy}
+                      className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                    >
+                      {lookupBulkBusy ? "Adicionando..." : `Adicionar ${lookupSelecionados.size} itens`}
+                    </button>
+                  </div>
                 </div>
               )}
 
