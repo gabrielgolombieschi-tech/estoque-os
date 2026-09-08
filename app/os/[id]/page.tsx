@@ -354,8 +354,9 @@ export default function OsDetailPage() {
   const hideCustos = detailAccess.hideCustos;
   const hideTotais = detailAccess.hideTotais;
   const papelNormalizado = String(empresaPapel ?? "").trim().toUpperCase();
-  const canConcluirFluxo = ["ADMIN", "DIRETOR", "COORDENACAO"].includes(papelNormalizado);
-  const canFaturarFluxo = papelNormalizado === "FINANCEIRO";
+  // Mesmas listas de public.os_concluir / public.os_faturar (20260908140000): quem fatura fecha a OS.
+  const canConcluirFluxo = ["ADMIN", "DIRETOR", "COORDENACAO", "FINANCEIRO", "FATURAMENTO"].includes(papelNormalizado);
+  const canFaturarFluxo = ["FINANCEIRO", "FATURAMENTO", "ADMIN", "DIRETOR"].includes(papelNormalizado);
   // Emitir nota pela OS e ver o quadro de faturamento por valor: decisao de 06/09/2026,
   // restrita a quem fatura — ADMIN, FINANCEIRO e FATURAMENTO na empresa. DIRETOR nao entra.
   const canEmitirNfeOs = ["FATURAMENTO", "FINANCEIRO", "ADMIN"].includes(papelNormalizado);
