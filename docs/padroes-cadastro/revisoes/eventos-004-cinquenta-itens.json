@@ -1,0 +1,1002 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 186,
+    "codigo": "3RV20111EA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,8-4A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.991Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1EA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b9557c8f301525870fcfe17a942ec1303bfa20bafc3ea7ad0ffa58082c2d3cac",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 187,
+    "codigo": "3RV20111CA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,8-2,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.992Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1CA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "71336205811b7a9264841f907e38bf41442ff092a4e552e072237c5bf04f7539",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 236,
+    "codigo": "3RV20111AA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,1-1,6A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.992Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1AA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "826636723fa5259691128a050af00ea1104a6fde3fe78bda94938c97a6238b67",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 243,
+    "codigo": "3RV20111CA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,8-2,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.992Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1CA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1b3a693eb936bf4b956a51ceeec0912b9ffceae825004214feab7865cd2f22fb",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 246,
+    "codigo": "3RV20114AA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 10-16A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.993Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-4AA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "029c450f03992f8c910be11ad8382d1e0b983f65554b533ceccacf2eb3d8acec",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 251,
+    "codigo": "3RV20111FA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 3,5-5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.993Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1FA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "7f8ff81983b862bdb2588f331a4a0dd435d1770687bbd64265929bc819cb4919",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 252,
+    "codigo": "3RV20111AA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,1-1,6A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.993Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1AA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "0be2095144d04f634cd6d26c85bbde223f9d36d8a8a496061019c824da75a514",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 258,
+    "codigo": "3RV20111BA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,4-2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.994Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1BA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e6c3e328aefa3008ce860223eaf1f229f6f4cc81d681f7e71a9fd38bb04868ba",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 259,
+    "codigo": "3RV20111JA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 7-10A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.994Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1JA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "33d499f6cc741ab77bb50f3d20f0d279566e431316a79dc449dd5296924c5484",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 742,
+    "codigo": "3RV20111HA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 5,5-8A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.995Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1HA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "aa48684206f4447d30c68fd08fc550f787bbc33b72f496d4362a1d19d241d32a",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 765,
+    "codigo": "3RV20111EA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,8-4A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.995Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1EA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "9c0fe3df76801d47c09871181fbd74bb5e597c93b3129f6cef79e0dd6075de4a",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 778,
+    "codigo": "3RV20111GA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 4,5-6,3A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.995Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1GA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "31cc2f575b768ce418571ee0661f8e349f0c033abc0ada9223a449989928b3cd",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 798,
+    "codigo": "3RV20111BA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,4-2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.996Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1BA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1038f4c1793fbdc5f6b311d1a9c50f3b4d43ce770a713224fc2a935381bd2bc0",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 809,
+    "codigo": "3RV20111GA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 4,5-6,3A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.997Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1GA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "51f2a53ae461adf4c08724edd71de92d927b0fd77182ab1ebab507c133fd4c10",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 814,
+    "codigo": "3RV20111DA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,2-3,2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.997Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1DA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f775f5d4fd464aaf7b513ac720897ade450d1b4158e414d21ab85f3de277196e",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1115,
+    "codigo": "10076389",
+    "nome": "DISJUNTOR MINI 1P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.998Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "173b0df47ea1d081f1c34cd1af9ddec190ef7aad3a4a99ea4d1a5d227b515959",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1550,
+    "codigo": "10076381",
+    "nome": "DISJUNTOR MINI 1P CURVA C 2A ICN 1,5kA EM 230/400VCA MDW-C2",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.998Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c1c22e8230d44fbbf7c1f9a7d822ef873dc5a5e7cfab42ce7e80219e8e8ac039",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1551,
+    "codigo": "10076441",
+    "nome": "DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 230/400VCA MDW-C32-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.999Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c026829b821b98b93e53b34e6ec7db32d5bee8a5e4a9fed18f572ccb65e62198",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1565,
+    "codigo": "10076405",
+    "nome": "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 230/400VCA MDW-C10",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:08.999Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "7773bcd9edd8d6a367dfd73c556e101a1d0b72f76a5bc11d57071999c957e7b8",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1566,
+    "codigo": "10076397",
+    "nome": "DISJUNTOR MINI 1P CURVA C 6A ICN 3kA EM 230/400VCA MDW-C6",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.000Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c11245d3e2beeeaa0e42e592efe5c460204f92096946179f28c07a92a1da781d",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1567,
+    "codigo": "10076413",
+    "nome": "DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 230/400VCA MDW-C16",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.000Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "59169ffb9a80a1e44410dc90217f3bf5f3744ffa8227789f3e27e94718a2f979",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1568,
+    "codigo": "10076461",
+    "nome": "DISJUNTOR MINI 1P CURVA C 63A ICN 3kA EM 230/400VCA MDW-C63",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.001Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1da785f28ae8289e7ce08bc39e5fd850fb6195b8b4ac71f5ef92881158c2a823",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1573,
+    "codigo": "10076421",
+    "nome": "DISJUNTOR MINI 1P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.001Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "ee49efcf495f6890b20591d43eaa95295c7d8cddcc9bb17fe016f3e9425e12f3",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1575,
+    "codigo": "10076429",
+    "nome": "DISJUNTOR MINI 1P CURVA C 25A ICN 3kA EM 230/400VCA MDW-C25",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.001Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "49766c62523362bf748cb9518edddfa65e1f5044430d078d494309f8a1ebb776",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1576,
+    "codigo": "10076465",
+    "nome": "DISJUNTOR MINI 3P CURVA C 63A ICN 3kA EM 230/400VCA MDW-C63-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.002Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "7b01d3d049bfd6011635578670e39cc4fc1b9e611be3edcb11d364d13213fc2a",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1577,
+    "codigo": "10076425",
+    "nome": "DISJUNTOR MINI 3P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.002Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "db1a382dc8e8ae5023675e858a7776d36f1dba272b1e0b75ae26175d9ef80d3c",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1596,
+    "codigo": "10076407",
+    "nome": "DISJUNTOR MINI 2P CURVA C 10A ICN 3kA EM 230/400VCA MDW-C10-2",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.003Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "2435919e1e1e9dfe491b5ed8dab5acb8ea49b2e7a1dd3724a533ae417d0dd13b",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1598,
+    "codigo": "10075739",
+    "nome": "DISJUNTOR MINI 3P CURVA C 80A ICN 3kA EM 230/400VCA MDW-C80-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.003Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "969ad0bdef1117c7226f8f0c102bb54e99058efe5c3f9efaa2b889ffcbe3d07b",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1599,
+    "codigo": "11134791",
+    "nome": "DISJUNTOR MINI 3P CURVA C 70A ICN 3kA EM 230/400VCA MDW-C70-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.003Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "81f439c912f228bcd687ab7d49445108bb00703a4a6f7ee298db1ccd53ca483f",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1600,
+    "codigo": "10076445",
+    "nome": "DISJUNTOR MINI 1P CURVA C 40A ICN 3kA EM 230/400VCA MDW-C40",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.004Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "91a4b8b5244df2bfc11165d0004e9578129f15b2121b2242968cf8c04dda6ef3",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1601,
+    "codigo": "10076437",
+    "nome": "DISJUNTOR MINI 1P CURVA C 32A ICN 3kA EM 230/400VCA MDW-C32",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.004Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "4114b88f8e4c51e8a37896ec87470eb4a32ea26f25070b31d801901be510b98c",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1602,
+    "codigo": "10076391",
+    "nome": "DISJUNTOR MINI 2P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4-2",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.005Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "bd1a9c8a6d996002a06d8c0dad6ebf196411f814dff439ae29942d37ac90a412",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1603,
+    "codigo": "10076417",
+    "nome": "DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 230/400VCA MDW-C16-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.005Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "51e9a0e75c6835b23a23300bd22c993efc480a65e341648edd08f85d0e40f5f6",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1604,
+    "codigo": "10076401",
+    "nome": "DISJUNTOR MINI 3P CURVA C 6A ICN 3kA EM 230/400VCA MDW-C6-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.006Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "3a16a986ff5c152f57836290df8a183d24f37f3ecfbcade1c2aa8348fa55a3ad",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1605,
+    "codigo": "10076457",
+    "nome": "DISJUNTOR MINI 3P CURVA C 50A ICN 3kA EM 230/400VCA MDW-C50-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.006Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "241dbb734bc4f1fe7b491c6c00682215ca2ac8dc7043d18349d6111175119753",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1608,
+    "codigo": "10076453",
+    "nome": "DISJUNTOR MINI 1P CURVA C 50A ICN 3kA EM 230/400VCA MDW-C50",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.006Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c23d06c4e13a772758586df991edaff658da2d6aa8989f314651c393943a2851",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1609,
+    "codigo": "10076399",
+    "nome": "DISJUNTOR MINI 2P CURVA C 6A ICN 3kA EM 230/400VCA MDW-C6-2",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.007Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "0e202485f82d44683ab4344f23cea2d3ec4fe7d73ac74aab99f8519e1707cf65",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1610,
+    "codigo": "10076433",
+    "nome": "DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 230/400VCA MDW-C25-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.007Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c11fb61f07e50de5a0830440a03965f1a6a619a1dc74d8bfa845b39977f7bef6",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1611,
+    "codigo": "10076415",
+    "nome": "DISJUNTOR MINI 2P CURVA C 16A ICN 3kA EM 230/400VCA MDW-C16-2",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.007Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "69d1712538cc990740513f3f341eeed5926c278ce2214b61e657aa90e11befe3",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1971,
+    "codigo": "10076449",
+    "nome": "DISJUNTOR MINI 3P CURVA C 40A ICN 3kA EM 230/400VCA MDW-C40-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.008Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "6b5180d43fc4ccec0a10381af99c5a4508e02a85dc95eed047f96bc6f36a794c",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2347,
+    "codigo": "15220827",
+    "nome": "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 230/400VCA MDWP-C10",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.008Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c0b0afdeac85b5d145ea859fc9d2c962a3f0a9ed592f6c55fcf88e5bb732b3b7",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2847,
+    "codigo": "10076423",
+    "nome": "DISJUNTOR MINI 2P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20-2",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.008Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "02beea7ec2f5a914bf3fae94c7a9eedf796aeaeee4d2d7620b40fe5ce34e1987",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2848,
+    "codigo": "10076393",
+    "nome": "DISJUNTOR MINI 3P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.009Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "9d416b35712b706ede98281594312a77f780df0201e5e9934c00859bf1362bd7",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2980,
+    "codigo": "15265745",
+    "nome": "DISJUNTOR MINI 3P CURVA C 10A ICN 3kA EM 230/400VCA MDWP-C10-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.009Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "7b561290d9d2f5439ee39770a59a9ba20638dd9d604c5e52d05718982aa9fd25",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2981,
+    "codigo": "15265514",
+    "nome": "DISJUNTOR MINI 1P CURVA C 4A ICN 3kA EM 230/400VCA MDWP-C4",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.010Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "6625312fdbc83d93f9cdd946d1019f527d9362bf50e9a4e18532dffd19438855",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3216,
+    "codigo": "15265747",
+    "nome": "DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 230/400VCA MDWP-C16-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.010Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "eeced4850bc3cd94a93af304c96051b433b7e0669bde94f4d6b3fbdac5b632fb",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3217,
+    "codigo": "15265762",
+    "nome": "DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 230/400VCA MDWP-C25-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.011Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b2dc5dd51ceba090789c20250640a731261ec9ffbd0ded7a308b2c14c9799fd0",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3218,
+    "codigo": "15265763",
+    "nome": "DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 230/400VCA MDWP-C32-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.011Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "bbbeb43c0dfa9e1618e3a45417a3c40449b7d608f325fdbc0d4c3b14a2e3b713",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3219,
+    "codigo": "15265766",
+    "nome": "DISJUNTOR MINI 3P CURVA C 50A ICN 3kA EM 230/400VCA MDWP-C50-3",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.011Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "040e0943081741895abe944b0a739c02c35856bd2889cae2380e531e25929a37",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3328,
+    "codigo": "15265681",
+    "nome": "DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 230/400VCA MDWP-C16",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "004-cinquenta-itens",
+    "revisado_em": "2026-09-07T22:29:09.012Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "ef91baacbebc0a287b9cd84551c9afa7058927ce7f7fb56fcae8c31ad763cd5b",
+    "backup": "backups/revisao-lotes/004-2026-09-07T22-28-57-677Z.json",
+    "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26"
+  }
+]

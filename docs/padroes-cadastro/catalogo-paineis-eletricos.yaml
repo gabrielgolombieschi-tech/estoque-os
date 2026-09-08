@@ -1,4 +1,4 @@
-versao_padrao: "1.26.0"
+versao_padrao: "1.28.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -18,6 +18,28 @@ campos_erp:
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
+  protecao_confirmada_lote_004:
+    decisao: D-040
+    origem: "Lote 004 aprovado pelo usuário em 07/09/2026, aplicado e relido: 35 minidisjuntores WEG e 15 disjuntores-motor Siemens. Aprovação vinculada à assinatura do manifesto em revisoes/aprovacao-004.json."
+    weg_mdw_mdwp: "Confirmar código numérico na tabela oficial e incluir referência alfanumérica. Nas referências do lote 004: MDW até 4A tem Icn 1,5kA nas redes 230/400VCA e 127/220VCA; MDW a partir de 6A e MDWP do lote têm Icn 3kA em 230/400VCA e 5kA em 127/220VCA, IEC 60898-1. Não generalizar para outras linhas/variantes nem trocar Icn por Icu."
+    disjuntores_motor: "Exigir polos, faixa de ajuste térmico, classe de disparo, Icu com tensão de referência e conexão. Na descrição complementar, registrar disparo magnético, Ics na mesma tensão, operação e condicionantes documentados. Não confundir faixa térmica, corrente magnética, tensão de isolação e capacidade de interrupção. Para as referências exatas do lote 004, 3RV2011-4AA10 tem Icu 55kA e Ics 30kA em 400VCA; as outras 14 têm Icu/Ics 100kA em 400VCA. Consultar ficha exata, sem extrapolar para toda a família."
+    criterio_disjuntores_motor: "DISJUNTORES_MOTOR:1"
+    exemplo_weg: "DISJUNTOR MINI 1P CURVA C 2A ICN 1,5kA EM 230/400VCA MDW-C2"
+    exemplo_motor: "DISJUNTOR MOTOR 3P AJUSTE 10-16A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO"
+    limite_aprendizado: "Somente o lote 004 foi aprovado nesta rodada. O lote 005 é proposta separada, sem aplicação e sem exemplos humanos aprovados neste padrão."
+  revisao_em_lotes_de_cinquenta:
+    decisao: D-039
+    fluxo: "Aplicar os primeiros 50 autorizados e apresentar outros 50 antes/depois, sem gravá-los. Nos lotes seguintes, aguardar aprovação humana explícita; correção solicitada altera a proposta e exige nova conferência. Não interpretar aprovação de um lote como autorização dos posteriores."
+    rastreabilidade: "Congelar por tenant/empresa/ID o antes, depois, referência, fonte, data, critério e assinatura do lote. Manter propostas separadas dos eventos aprovados; só emitir evento após gravação e releitura. Preservar grupo, unidade, conversão, estoque, preço e fiscal. Não repetir IDs aprovados inalterados nem propostas já aguardando aprovação."
+    aprendizado: "Incorporar decisões e exemplos aplicados ao padrão ativo; propostas não aprovadas ficam apenas no manifesto de aprovação. Nunca usar uma proposta como exemplo humano aprovado."
+  capacidades_e_frequencias_condicionadas:
+    decisao: D-039
+    minidisjuntores: "Exigir polos, curva, corrente e capacidade acompanhada da tensão/rede e norma da fonte. Distinguir Icn (IEC/NBR NM 60898-1), Icu e Ics (IEC 60947-2); não intercambiar valores nem transferir capacidade de uma tensão para outra. Não confundir tensão de operação, isolação e ensaio de interrupção. Código só numérico exige família/referência alfanumérica oficial confirmada."
+    siemens_5sl: "Para as 45 referências exatas do lote 003, o catálogo Siemens (páginas 8-11, cópia Fegime) confirma Icn em rede 220/380VCA: 5SL1 3kA, 5SL3 4,5kA e 5SL6 6kA, NBR NM 60898-1. Conferir a tabela exata de corrente, curva, polos e variante antes de aplicar em outros itens. ID 688 permanece fora do lote por conflito de fabricante."
+    bobinas_ca: "Quando tensão depende de frequência, manter pares separados: 110VCA 50Hz / 120VCA 60Hz. Não substituir por 110-120VCA 50/60Hz. 3RT2026-1AN10 é 220VCA 60Hz; não acrescentar 50Hz por padrão. 3RT2036-1AK60: AC-3 51A em 400VCA conforme ficha atual, sem inferir 50A do legado."
+    criterio_minidisjuntores: "MINIDISJUNTORES:1"
+    exemplo_minidisjuntor: "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 220/380VCA"
+    exemplo_contator: "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO"
   correcoes_confirmadas_em_itens_agrupados:
     decisao: D-038
     corrente_descritiva: "Não arredondar corrente nominal nem copiar valor de predecessor ou de referência semelhante. Registrar categoria de utilização e tensão associada, com fonte da referência completa. Na ficha consultada, 3RT2035-1AN20 e 3RT2035-1AG20 são 41A em AC-3 a 400VCA; 3RT2036-1AN20 é 51A nas mesmas condições. A correção cadastral não substitui conferência da placa/versão física para dimensionamento."
@@ -1309,10 +1331,19 @@ termos_ambiguos_pendentes:
     status: pendente
     observacao: "Pode indicar conjunto montado, invólucro ou contexto de aplicação; validar caso a caso."
   - termo: "5SL1"
-    status: pendente
-    observacao: "Capacidade de interrupção não confirmada para os registros legados desta série; não incluí-la no nome até validação documental."
+    status: confirmado_no_recorte_documentado
+    observacao: "D-039 confirma a capacidade das 40 referências 5SL1 do lote 003 pela tabela exata Siemens, páginas 8-9. Demais referências/variantes e conflitos de identidade continuam sujeitos a conferência; não extrapolar a série por semelhança."
 
 historico_decisoes:
+  - id: D-040
+    data: "2026-09-07"
+    status: aplicado
+    decisao: "Aplicados e verificados os 50 do lote 004 após aprovação humana. Incorporadas ao padrão ativo as condições Icn das referências MDW/MDWP e o modelo de disjuntor-motor com ajuste, classe, Icu/Ics, tensão e conexão. Backup integral e eventos por ID preservam rastreabilidade. Lote 005 permanece proposta sem autorização de gravação."
+  - id: D-039
+    data: "2026-09-07"
+    status: aplicado
+    origem: "Usuário autorizou primeiros 50 e pediu outros 50 antes/depois para aprovar"
+    decisao: "Fluxo 50 aplicados + 50 propostos, com aprovação humana por lote e aprendizado somente de decisões aprovadas. Lote 003: 45 minidisjuntores Siemens e 5 contatores, apenas nome/descrição. Lote 004: 35 minidisjuntores WEG e 15 disjuntores-motor Siemens, aguardando aprovação, sem gravação nem incorporação de exemplos ao padrão ativo. Registrar fonte, backup, assinatura e evento por ID; preservar CONTATORES:1 e adicionar MINIDISJUNTORES:1. Triagem de 104 alertas não é o universo completo dos itens agrupados."
   - id: D-038
     data: "2026-09-05"
     status: aplicado

@@ -1,12 +1,12 @@
 # Passada nos itens com grupo
 
-Consulta: 2026-09-05T20:44:56.356Z. Tenant: 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa: f0e74f49-a127-46b4-901b-f7b37e43c690.
+Consulta: 2026-09-07T20:27:06.581Z. Tenant: 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa: f0e74f49-a127-46b4-901b-f7b37e43c690.
 
 Usuário informou que os itens com grupo são os que já alteramos; recorte registrado nesta consulta, não aprovação técnica automática.
 
 Passada de triagem textual e cruzamento de histórico, não nova pesquisa técnica de todos os itens. Alertas são candidatos a conferir, inclusive na descrição complementar. Ausência de alerta não certifica completude, identidade ou correção do grupo. Cobertura automática limitada às famílias implementadas.
 
-Itens com grupo: 1193; ativos: 1179; matérias-primas: 1190. Com alertas textuais: 84 (79 ativos).
+Itens com grupo: 1193; ativos: 1179; matérias-primas: 1190. Com alertas textuais: 79 (74 ativos).
 
 Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuário é separado de evidência documental recuperada e de aprovação no critério atual.
 
@@ -14,7 +14,7 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | --- | ---: | ---: |
 | CABOS ELÉTRICOS | 104 | 0 |
 | DISJUNTORES MINI | 84 | 0 |
-| CONTATORES | 70 | 26 |
+| CONTATORES | 70 | 21 |
 | DISJUNTORES MOTOR | 40 | 0 |
 | BORNES DE PASSAGEM | 33 | 0 |
 | CHAVES DE SEGURANÇA | 31 | 7 |
@@ -249,12 +249,12 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 204 | 6ES79548LL040AA0 | ACESSÓRIOS PARA PLC S7-1500 | sem_registro_documental | Cartão de memória 256MB para PLC S7-1200/S7-1500 | Sem alerta nas regras executadas; não equivale a aprovação |
 | 205 | 6GK75425DX100XE0 | MÓDULOS DE COMUNICAÇÃO PARA PLC S7-1500 | sem_registro_documental | Módulo de comunicação PROFIBUS DPV1 mestre/escravo para PLC S7-1500 | Sem alerta nas regras executadas; não equivale a aprovação |
 | 206 | 6GK52062BB002AC2 | SWITCHES DE REDE INDUSTRIAL | historico_recuperado | Switch Ethernet industrial gerenciável Layer 2 6 portas RJ45 100Mbps e 2 portas fibra óptica ST/BFOC 100Mbps | Sem alerta nas regras executadas; não equivale a aprovação |
-| 207 | 5SL11047MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 4A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 208 | 5SL11067MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 6A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 209 | 5SL11107MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 10A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 210 | 5SL11167MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 16A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 211 | 5SL13257MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 25A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 212 | 5SL12107MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 10A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 207 | 5SL11047MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 4A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 208 | 5SL11067MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 6A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 209 | 5SL11107MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 210 | 5SL11167MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 211 | 5SL13257MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 212 | 5SL12107MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 10A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 213 | 3RH21311BB40 | CONTATORES AUXILIARES | sem_registro_documental | CONTATOR AUXILIAR 3NA+1NF 24VCC CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 214 | 3SU15500AA100AA0 | ACESSÓRIOS PARA BOTÕES | sem_registro_documental | SUPORTE DE FIXAÇÃO UNIVERSAL PARA 3 BLOCOS | Sem alerta nas regras executadas; não equivale a aprovação |
 | 215 | 3SU14001AA101HA0 | BLOCOS DE CONTATO | sem_registro_documental | BLOCO DE CONTATO 1NF PARA MONITORAMENTO | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -271,8 +271,8 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 226 | 5SV56460 | INTERRUPTORES DIFERENCIAIS RESIDUAIS | sem_registro_documental | INTERRUPTOR DIFERENCIAL RESIDUAL 3P+N 63A 300mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 227 | 5SV46120 | INTERRUPTORES DIFERENCIAIS RESIDUAIS | sem_registro_documental | INTERRUPTOR DIFERENCIAL RESIDUAL 1P+N 25A 300mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 228 | 5SY73637 | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 63A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 229 | 5SL62257MB | DISJUNTORES MINI | historico_recuperado | DISJUNTOR MINI 2P CURVA C 25A 6kA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 230 | 5SL62167MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 16A 6kA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 229 | 5SL62257MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 25A ICN 6kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 230 | 5SL62167MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 16A ICN 6kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 231 | 3VM10803ED320AA0 | DISJUNTORES CAIXA MOLDADA | sem_registro_documental | DISJUNTOR CAIXA MOLDADA 3P 80A 25kA 380V | Sem alerta nas regras executadas; não equivale a aprovação |
 | 232 | 3VM91170FK25 | ACESSÓRIOS | sem_registro_documental | ACIONAMENTO ROTATIVO EXTERNO DE EMERGÊNCIA PARA DISJUNTOR CAIXA MOLDADA 3P | Sem alerta nas regras executadas; não equivale a aprovação |
 | 233 | 4NC51172DA21 | TRANSFORMADORES DE CORRENTE | sem_registro_documental | Transformador de corrente 100/5A 1VA classe 0,5 | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -439,22 +439,22 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 686 | 3UG56161CR20 | RELÉS DE MONITORAMENTO DE REDE | sem_registro_documental | RELÉ DE MONITORAMENTO DE REDE TRIFÁSICA PARA FALTA, SEQUÊNCIA E ASSIMETRIA DE FASE, FREQUÊNCIA, SOBRETENSÃO E SUBTENSÃO 90-690VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 687 | 3LD34540TK53 | CHAVES SECCIONADORAS | sem_registro_documental | CHAVE SECCIONADORA PRINCIPAL 3P 63A MONTAGEM FRONTAL | Sem alerta nas regras executadas; não equivale a aprovação |
 | 688 | 5SL13507MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 50A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 689 | 5SL12047MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 4A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 690 | 5SL12256MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA B 25A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 691 | 5SL33407MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 40A 4,5kA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 689 | 5SL12047MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 4A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 690 | 5SL12256MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA B 25A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 691 | 5SL33407MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 40A ICN 4,5kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 692 | 3RT20281BB40 | CONTATORES | aprovado | CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 693 | 3RT20271BB40 | CONTATORES | aprovado | CONTATOR 3P AC-3 32A EM 400VCA 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 694 | 5ST2502 | DISJUNTORES MINI - ACESSÓRIOS | historico_recuperado | BLOCO DE DISTRIBUIÇÃO 4P 125A 690V | Sem alerta nas regras executadas; não equivale a aprovação |
 | 704 | 27538 | CABOS PARA SINAL E COMANDO | historico_recuperado | CABO DE CONTROLE PARA MOVIMENTAÇÃO CONTÍNUA ÖLFLEX FD 855 P 25G0,5MM² 300/500V ISOLAÇÃO TPE CAPA PUR SEM BLINDAGEM | Sem alerta nas regras executadas; não equivale a aprovação |
 | 705 | 27536 | CABOS PARA SINAL E COMANDO | historico_recuperado | CABO DE CONTROLE PARA MOVIMENTAÇÃO CONTÍNUA ÖLFLEX FD 855 P 18G0,5MM² 300/500V ISOLAÇÃO TPE CAPA PUR SEM BLINDAGEM | Sem alerta nas regras executadas; não equivale a aprovação |
-| 719 | 5SL13407MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 40A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 719 | 5SL13407MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 40A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 720 | 3VM10633ED320AA0 | DISJUNTORES CAIXA MOLDADA | sem_registro_documental | DISJUNTOR CAIXA MOLDADA 3P 63A 25kA 380V | Sem alerta nas regras executadas; não equivale a aprovação |
-| 721 | 5SL11256MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA B 25A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 722 | 5SL11106MB | DISJUNTORES MINI | historico_recuperado | DISJUNTOR MINI 1P CURVA B 10A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 723 | 5SL11207MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 20A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 724 | 5SL13327MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 32A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 721 | 5SL11256MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA B 25A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 722 | 5SL11106MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA B 10A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 723 | 5SL11207MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 20A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 724 | 5SL13327MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 725 | A7B10001315425 | CHAVES SECCIONADORAS | historico_recuperado | Chave seccionadora 3P 25A montagem frontal com manopla verde | Sem alerta nas regras executadas; não equivale a aprovação |
-| 726 | 5SL13107MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 10A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 726 | 5SL13107MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 10A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 727 | 6ES71936AF000AA0 | ADAPTADORES DE BARRAMENTO PARA PLC ET200SP | historico_recuperado | BusAdapter BA 2xFC para estação ET200SP, 2 conexões FastConnect PROFINET | Sem alerta nas regras executadas; não equivale a aprovação |
 | 728 | 6ES71326BH010BA0 | MÓDULOS DE E/S DIGITAIS PARA PLC ET200SP | sem_registro_documental | Módulo de saídas digitais para PLC ET200SP 16DO 24VCC 0,5A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 729 | 6ES71366BA010CA0 | MÓDULOS DE E/S DE SEGURANÇA PARA PLC ET200SP | sem_registro_documental | Módulo de entradas digitais de segurança para PLC ET200SP 8DI 24VCC | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -464,28 +464,28 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 733 | 3VM12165MH320AA0 | DISJUNTORES CAIXA MOLDADA | sem_registro_documental | DISJUNTOR CAIXA MOLDADA 3P 160A 55kA 380V | Sem alerta nas regras executadas; não equivale a aprovação |
 | 734 | 3VA96870FK25 | ACESSÓRIOS | sem_registro_documental | ACIONAMENTO ROTATIVO EXTERNO DE EMERGÊNCIA PARA DISJUNTOR CAIXA MOLDADA 1000A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 735 | 3RA19211DA00 | CONEXÕES PARA PARTIDA DE MOTORES | sem_registro_documental | CONEXAO 3RV S00S0 C 3RT S00 PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
-| 736 | 5SL13167MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 16A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 736 | 5SL13167MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 737 | 5SV46420 | INTERRUPTORES DIFERENCIAIS RESIDUAIS | sem_registro_documental | INTERRUPTOR DIFERENCIAL RESIDUAL 3P+N 25A 300mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 738 | 5SV53120MB | INTERRUPTORES DIFERENCIAIS RESIDUAIS | sem_registro_documental | INTERRUPTOR DIFERENCIAL RESIDUAL 1P+N 25A 30mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 739 | 3RT20451AN20 | CONTATORES | aprovado | CONTATOR 3P AC-3 80A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 740 | 3RT20351AN20 | CONTATORES | aprovado | CONTATOR 3P AC-3 41A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 741 | 3RT20151BB41 | CONTATORES | aprovado | CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCC CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 742 | 3RV20111HA10 | DISJUNTORES MOTOR | sem_registro_documental | DISJUNTOR MOTOR 5,5-8A CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
-| 743 | 5SL11027MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 2A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 743 | 5SL11027MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 2A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 744 | 5SV53440MB | INTERRUPTORES DIFERENCIAIS RESIDUAIS | sem_registro_documental | INTERRUPTOR DIFERENCIAL RESIDUAL 3P+N 40A 30mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 745 | 5SV53420MB | INTERRUPTORES DIFERENCIAIS RESIDUAIS | sem_registro_documental | INTERRUPTOR DIFERENCIAL RESIDUAL 3P+N 25A 30mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
-| 746 | 5SL13807MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 80A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 747 | 5SL13067MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 6A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 746 | 5SL13807MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 80A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 747 | 5SL13067MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 6A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 748 | 3RT19564G | ACESSÓRIOS PARA CONTATORES | sem_registro_documental | BLOCO DE TERMINAIS PARA CONTATOR TAMANHO S6 ATÉ 120mm² | Sem alerta nas regras executadas; não equivale a aprovação |
 | 749 | 3RV20214PA10 | DISJUNTORES MOTOR | sem_registro_documental | DISJUNTOR MOTOR 30-36A CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
-| 750 | 5SL12067MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 6A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 750 | 5SL12067MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 6A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 751 | 3RT20282AN20 | CONTATORES | aprovado | CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 752 | 3RV20214NA20 | DISJUNTORES MOTOR | sem_registro_documental | DISJUNTOR MOTOR 23-28A CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 753 | 3RU21261KB0 | RELÉS DE SOBRECARGA | historico_recuperado | RELÉ DE SOBRECARGA 9-12,5A TAMANHO S0 CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 754 | 3RT20152AN22 | CONTATORES | aprovado | CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 755 | 5SL13207MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 20A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 755 | 5SL13207MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 20A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 756 | 3SK21221AA10 | RELÉS DE SEGURANÇA | sem_registro_documental | RELÉ DE SEGURANÇA PROGRAMÁVEL 24VCC CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
-| 757 | 5SL13637MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 63A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 757 | 5SL13637MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 63A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 758 | 3RT20361AN20 | CONTATORES | aprovado | CONTATOR 3P AC-3 51A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 759 | 3RH21221AN20 | CONTATORES AUXILIARES | sem_registro_documental | CONTATOR AUXILIAR 2NA+2NF 220V 50/60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 760 | 3RT20281AN20 | CONTATORES | aprovado | CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -498,14 +498,14 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 767 | 3RU21160JB0 | RELÉS DE SOBRECARGA | sem_registro_documental | RELÉ DE SOBRECARGA 0,7-1A TAMANHO S00 CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 768 | A7B10000050523 | CHAVES SECCIONADORAS | sem_registro_documental | Chave seccionadora 3P 50A montagem frontal | Sem alerta nas regras executadas; não equivale a aprovação |
 | 769 | A7B10001339607 | RELÉS DE MONITORAMENTO DE REDE | sem_registro_documental | Relé de monitoramento de fase para falta e sequência de fase 220-440VCA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 770 | 5SL13707MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 70A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 770 | 5SL13707MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 70A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 771 | 3RV20314UA10 | DISJUNTORES MOTOR | sem_registro_documental | DISJUNTOR MOTOR CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 772 | 3RT20353AK60 | CONTATORES | sem_registro_documental | CONTATOR AC-3 40A 1NA+1NF 120V 60Hz CONEXÃO POR MOLA | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3. |
-| 773 | 3RT20261AK60 | CONTATORES | sem_registro_documental | CONTATOR AC-3 25A 1NA+1NF 120V 60Hz CONEXÃO POR PARAFUSO | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3. |
-| 774 | 5SL12066MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA B 6A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 773 | 3RT20261AK60 | CONTATORES | aprovado | CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
+| 774 | 5SL12066MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA B 6A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 775 | 3RT20463AN20 | CONTATORES | sem_registro_documental | CONTATOR AC-3 95A 1NA+1NF 220V 50/60Hz | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3.; Contator: conexão não explícita no nome. |
 | 776 | 3RA29211BA00 | CONEXÕES PARA PARTIDA DE MOTORES | sem_registro_documental | CONEXAO 3RV S00S0 C 3RT S0 CC PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
-| 777 | 3RT20261AN10 | CONTATORES | sem_registro_documental | CONTATOR AC-3 25A 1NA+1NF 220V 60Hz CONEXÃO POR PARAFUSO | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3. |
+| 777 | 3RT20261AN10 | CONTATORES | aprovado | CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 220VCA 60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 778 | 3RV20111GA20 | DISJUNTORES MOTOR | sem_registro_documental | DISJUNTOR MOTOR 4,5-6,3A CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 779 | 3RT20152BB41 | CONTATORES | aprovado | CONTATOR 3P AC-3 7A EM 400VCA 1NA BOBINA 24VCC CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 780 | 3RV29275AA00 | ACESSÓRIOS PARA DISJUNTORES MOTOR | sem_registro_documental | PLUG POTENCIA S0 P INFEED SYSTEM MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -547,7 +547,7 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 816 | 5SV43470MB | INTERRUPTORES DIFERENCIAIS RESIDUAIS | historico_recuperado | INTERRUPTOR DIFERENCIAL RESIDUAL 3P+N 80A 30mA TIPO AC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 817 | 3VT91003HC10 | ACESSÓRIOS | sem_registro_documental | ACOPLADOR PARA ACIONAMENTO ROTATIVO LATERAL ESQUERDO PARA DISJUNTOR CAIXA MOLDADA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 818 | A7B10000046692 | CONTATORES | sem_registro_documental | CONTATOR BOBINA 220V 50/60Hz | Sem alerta nas regras executadas; não equivale a aprovação |
-| 819 | 5SL11637MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 63A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 819 | 5SL11637MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 63A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 820 | 3RH29112FA40 | ACESSÓRIOS PARA CONTATORES | historico_recuperado | BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR MOLA PARA CONTATOR | Sem alerta nas regras executadas; não equivale a aprovação |
 | 821 | 3RQ31182AM00 | RELÉS DE INTERFACE | sem_registro_documental | RELÉ DE INTERFACE COM RELÉ ENCAIXÁVEL 1 REVERSÍVEL 24VCC CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 822 | 3RT20152BB42 | CONTATORES | aprovado | CONTATOR 3P AC-3 7A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -561,7 +561,7 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 830 | 3SU10001HB200AA0 | BOTÕES DE EMERGÊNCIA | historico_recuperado | BOTÃO DE EMERGÊNCIA TIPO COGUMELO 40mm PARA FURO 22mm PLÁSTICO VERMELHO COM TRAVAMENTO E DESTRAVAMENTO GIRATÓRIO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 831 | 6ES72141AG400XB0 | CONTROLADORES PROGRAMÁVEIS S7-1200 | sem_registro_documental | CONTROLADOR PROGRAMÁVEL S7-1200 14DI/10DO/2AI 24VCC | Sem alerta nas regras executadas; não equivale a aprovação |
 | 832 | 6ES72231BL320XB0 | MÓDULOS DE ENTRADAS E SAÍDAS DIGITAIS PARA PLC S7-1200 | sem_registro_documental | MÓDULO DE ENTRADAS E SAÍDAS DIGITAIS PARA PLC S7-1200 16DI/16DO 24VCC | Sem alerta nas regras executadas; não equivale a aprovação |
-| 833 | 5SL13047MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 4A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 833 | 5SL13047MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 3P CURVA C 4A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 834 | 3SU10011HB200AA0 | BOTÕES DE EMERGÊNCIA | sem_registro_documental | BOTÃO DE EMERGÊNCIA ILUMINADO TIPO COGUMELO 40mm PARA FURO 22mm PLÁSTICO VERMELHO COM TRAVAMENTO E DESTRAVAMENTO GIRATÓRIO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 863 | 6022880 | DISPOSITIVOS DE HABILITAÇÃO | historico_recuperado | DISPOSITIVO DE HABILITAÇÃO DE SEGURANÇA 2NF+2NA CABO 10M | Sem alerta nas regras executadas; não equivale a aprovação |
 | 894 | 3212064 | BORNES DE PASSAGEM | historico_recuperado | BORNE DE PASSAGEM 35MM² PTPOWER 35 | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -599,7 +599,7 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 943 | 3NP11331CA10 | CHAVES SECCIONADORAS PORTA-FUSÍVEL | sem_registro_documental | Chave seccionadora porta-fusível 3P 160A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 944 | 8WH60000AF00 | BORNES DE PASSAGEM PLUG-IN | sem_registro_documental | Borne plug-in de passagem 2 condutores 2,5mm² | Sem alerta nas regras executadas; não equivale a aprovação |
 | 945 | A7B10000050521 | CHAVES SECCIONADORAS | sem_registro_documental | Chave seccionadora 3P 32A montagem frontal | Sem alerta nas regras executadas; não equivale a aprovação |
-| 946 | 5SL32257MB | DISJUNTORES MINI | historico_recuperado | DISJUNTOR MINI 2P CURVA C 25A 4,5kA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 946 | 5SL32257MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 25A ICN 4,5kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 947 | A7B10000050536 | ACESSÓRIOS PARA CHAVES SECCIONADORAS | sem_registro_documental | Acionamento com trava para cadeado para chave seccionadora 32-100A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 948 | A7B10001315426 | CHAVES SECCIONADORAS | sem_registro_documental | Chave seccionadora 3P 32A montagem frontal com manopla verde | Sem alerta nas regras executadas; não equivale a aprovação |
 | 949 | 14256868 | DISJUNTORES CAIXA MOLDADA | sem_registro_documental | DISJUNTOR CAIXA MOLDADA 3P 800A | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -635,22 +635,22 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 979 | 6ED10551CB100BA2 | MÓDULOS DE EXPANSÃO PARA PLC LOGO! | sem_registro_documental | Módulo de expansão digital para PLC LOGO! 8 8DI/8DO 24VCC saídas PNP | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1002 | 3RA29161A | CONEXÕES PARA PARTIDA DE MOTORES | sem_registro_documental | CONECTOR PARA MONTAGEM EM SÉRIE DE 2 CONTATORES | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1003 | 3RA29212AA00 | CONEXÕES PARA PARTIDA DE MOTORES | sem_registro_documental | CONEXAO 3RV S0 C 3RT S0 MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1028 | 5SL12807MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 80A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1030 | 5SL12637MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 63A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1031 | 5SL12407MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 40A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1032 | 5SL12257MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 25A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1033 | 5SL12207MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 20A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1034 | 5SL12167MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 16A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1035 | 5SL11066MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA B 6A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1036 | 5SL11257MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 25A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1037 | 5SL11407MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 40A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1038 | 5SL11507MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 50A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1039 | 5SL11807MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 80A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1040 | 5SL12027MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 2A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1028 | 5SL12807MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 80A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1030 | 5SL12637MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 63A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1031 | 5SL12407MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 40A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1032 | 5SL12257MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 25A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1033 | 5SL12207MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 20A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1034 | 5SL12167MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 16A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1035 | 5SL11066MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA B 6A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1036 | 5SL11257MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 25A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1037 | 5SL11407MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 40A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1038 | 5SL11507MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 50A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1039 | 5SL11807MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 80A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1040 | 5SL12027MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 2A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1048 | 3RH19211CA01 | ACESSÓRIOS PARA CONTATORES | sem_registro_documental | BLOCO DE CONTATO AUXILIAR FRONTAL 1NF CONEXÃO POR PARAFUSO PARA CONTATOR | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1080 | 5SL11327MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA C 32A | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1086 | 5SL32507MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 50A 4,5kA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1087 | 5SL12327MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 32A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1080 | 5SL11327MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA C 32A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1086 | 5SL32507MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 50A ICN 4,5kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1087 | 5SL12327MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 2P CURVA C 32A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1088 | 6SL32550AA004CA1 | ACESSÓRIOS PARA INVERSORES DE FREQUÊNCIA | historico_recuperado | PAINEL DE OPERAÇÃO BOP-2 PARA INVERSOR SINAMICS G120 | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1089 | 3RV20214EA10 | DISJUNTORES MOTOR | sem_registro_documental | DISJUNTOR MOTOR 27-32A CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1091 | 6ES71356HD000BA1 | MÓDULOS DE E/S ANALÓGICAS PARA PLC ET200SP | sem_registro_documental | Módulo de saídas analógicas para PLC ET200SP 4AO ±10V / ±5V / 1-5V / 0-10V / ±20mA / 0-20mA / 4-20mA | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -680,7 +680,7 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 1118 | 3RT20181BB42 | CONTATORES | aprovado | CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1124 | 6026216 | SENSORES FOTOELÉTRICOS | historico_recuperado | SENSOR FOTOELÉTRICO ENERGÉTICO M12 2-300MM | Confirmar e informar o tipo de saída do sensor na descrição técnica.; Confirmar e informar a tensão de alimentação do sensor na descrição técnica. |
 | 1125 | 3RV29175AA00 | ACESSÓRIOS PARA DISJUNTORES MOTOR | sem_registro_documental | PLUG POTENCIA S00 P INFEED SYSTEM MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1129 | 3RT20281AK60 | CONTATORES | sem_registro_documental | CONTATOR AC-3 38A 1NA+1NF 120V 60Hz | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3.; Contator: conexão não explícita no nome. |
+| 1129 | 3RT20281AK60 | CONTATORES | aprovado | CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1135 | 54034086583 | CABOS ELÉTRICOS | historico_recuperado | CABO ELÉTRICO FLEXÍVEL UNIPOLAR 1X10MM² 0,6/1kV ISOLAÇÃO HEPR CAPA PVC SEM BLINDAGEM BRANCO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1137 | 54034088583 | CABOS ELÉTRICOS | historico_recuperado | CABO ELÉTRICO FLEXÍVEL UNIPOLAR 1X16MM² 0,6/1kV ISOLAÇÃO HEPR CAPA PVC SEM BLINDAGEM BRANCO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1138 | 54034087583 | CABOS ELÉTRICOS | historico_recuperado | CABO ELÉTRICO FLEXÍVEL UNIPOLAR 1X10MM² 0,6/1kV ISOLAÇÃO HEPR CAPA PVC SEM BLINDAGEM VERMELHO | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -741,8 +741,8 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 1586 | 8WA1895 | PENTES PARA BORNES | sem_registro_documental | Pente de ligação para bornes 2 polos 2,5mm² | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1587 | A7B10000050722 | PENTES PARA BORNES | sem_registro_documental | Pente de ligação para bornes 10 polos 4mm² | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1588 | 8WA1838 | PENTES PARA BORNES | historico_recuperado | Pente de ligação para bornes 10 polos 2 andares 2,5mm² | Sem alerta nas regras executadas; não equivale a aprovação |
-| 1589 | 3RT20271AK60 | CONTATORES | sem_registro_documental | CONTATOR AC-3 32A 1NA+1NF 120V 60Hz CONEXÃO POR PARAFUSO | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3. |
-| 1590 | 3RT20361AK60 | CONTATORES | sem_registro_documental | CONTATOR AC-3 50A 1NA+1NF 120V 60Hz CONEXÃO POR PARAFUSO | Contator: polos não explícitos no nome.; Contator: tensão da bobina não identificada explicitamente no nome.; Contator: conferir tensão de referência da corrente AC-3. |
+| 1589 | 3RT20271AK60 | CONTATORES | aprovado | CONTATOR 3P AC-3 32A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
+| 1590 | 3RT20361AK60 | CONTATORES | aprovado | CONTATOR 3P AC-3 51A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1596 | 10076407 | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 2P CURVA C 10A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1597 | 14256833 | DISJUNTORES CAIXA MOLDADA | sem_registro_documental | DISJUNTOR CAIXA MOLDADA 3P 125A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 1598 | 10075739 | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 3P CURVA C 80A | Sem alerta nas regras executadas; não equivale a aprovação |
@@ -1028,7 +1028,7 @@ Nenhum cadastro foi alterado por esta triagem. Histórico informado pelo usuári
 | 2739 | 6SL32101KE143AF2 | INVERSORES DE FREQUÊNCIA | sem_registro_documental | INVERSOR DE FREQUÊNCIA 380VCA 1,5kW 4,1A | Sem alerta nas regras executadas; não equivale a aprovação |
 | 2740 | 6SL32010BE143AA0 | RESISTORES DE FRENAGEM | historico_recuperado | RESISTOR DE FRENAGEM 370Ω POTÊNCIA NOMINAL 75W PICO 1,5kW/12s CICLO 5% | Sem alerta nas regras executadas; não equivale a aprovação |
 | 2741 | 3SK11112AB30 | RELÉS DE SEGURANÇA | sem_registro_documental | RELÉ DE SEGURANÇA 3NA+1NF 24VCA/CC CONEXÃO POR MOLA | Sem alerta nas regras executadas; não equivale a aprovação |
-| 2742 | 5SL11166MB | DISJUNTORES MINI | sem_registro_documental | DISJUNTOR MINI 1P CURVA B 16A | Sem alerta nas regras executadas; não equivale a aprovação |
+| 2742 | 5SL11166MB | DISJUNTORES MINI | aprovado | DISJUNTOR MINI 1P CURVA B 16A ICN 3kA EM 220/380VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 2746 | 164224 | FONTES DE ALIMENTAÇÃO | sem_registro_documental | FONTE DE ALIMENTAÇÃO 24VCC 5A ENTRADA 100-240VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 2747 | 164222 | FONTES DE ALIMENTAÇÃO | sem_registro_documental | FONTE DE ALIMENTAÇÃO 24VCC 2,5A ENTRADA 100-240VCA | Sem alerta nas regras executadas; não equivale a aprovação |
 | 2748 | 164284 | FONTES DE ALIMENTAÇÃO | sem_registro_documental | FONTE DE ALIMENTAÇÃO 24VCC 1,2A ENTRADA 100-240VCA | Sem alerta nas regras executadas; não equivale a aprovação |

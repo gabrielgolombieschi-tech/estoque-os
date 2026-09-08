@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 
 export const tenantId = "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7";
 export const empresaId = "f0e74f49-a127-46b4-901b-f7b37e43c690";
-export const criterios = { CONTATORES: "CONTATORES:1" };
+export const criterios = { CONTATORES: "CONTATORES:1", MINIDISJUNTORES: "MINIDISJUNTORES:1", DISJUNTORES_MOTOR: "DISJUNTORES_MOTOR:1", CONTATORES_AUXILIARES: "CONTATORES_AUXILIARES:1", RELES_SOBRECARGA: "RELES_SOBRECARGA:1", ACESSORIOS_CONTATORES: "ACESSORIOS_CONTATORES:1", ACESSORIOS_DISJUNTORES_MOTOR: "ACESSORIOS_DISJUNTORES_MOTOR:1", ACESSORIOS_MINIDISJUNTORES: "ACESSORIOS_MINIDISJUNTORES:1" };
 export const diretorio = "docs/padroes-cadastro/revisoes";
 export function validarEscopo(registro) {
   assert.equal(registro.tenant_id, tenantId, "Tenant divergente");

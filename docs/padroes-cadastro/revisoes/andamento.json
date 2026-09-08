@@ -1,23 +1,23 @@
 {
-  "consultado_em": "2026-09-05T20:44:54.680Z",
+  "consultado_em": "2026-09-07T22:44:57.450Z",
   "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
   "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
-  "total": 3597,
-  "ativos": 3540,
+  "total": 3598,
+  "ativos": 3541,
   "materias_primas": 3129,
   "contagens": {
-    "aprovado": 38,
+    "aprovado": 138,
     "pendente": 2,
     "reavaliar": 0,
-    "historico_recuperado": 337,
-    "historico_informado": 860,
-    "nao_revisado": 2360
+    "historico_recuperado": 333,
+    "historico_informado": 764,
+    "nao_revisado": 2361
   },
-  "avaliados_minimo_sem_duplicidade": 377,
+  "avaliados_minimo_sem_duplicidade": 473,
   "campanha_agrupados": {
     "total": 104,
-    "aprovados": 20,
-    "restantes": 84,
+    "aprovados": 25,
+    "restantes": 79,
     "registros": [
       {
         "id": 108,
@@ -430,7 +430,7 @@
           "Contator: tensão da bobina não identificada explicitamente no nome.",
           "Contator: conferir tensão de referência da corrente AC-3."
         ],
-        "status": "historico_informado"
+        "status": "aprovado"
       },
       {
         "id": 775,
@@ -455,7 +455,7 @@
           "Contator: tensão da bobina não identificada explicitamente no nome.",
           "Contator: conferir tensão de referência da corrente AC-3."
         ],
-        "status": "historico_informado"
+        "status": "aprovado"
       },
       {
         "id": 787,
@@ -646,7 +646,7 @@
           "Contator: conferir tensão de referência da corrente AC-3.",
           "Contator: conexão não explícita no nome."
         ],
-        "status": "historico_informado"
+        "status": "aprovado"
       },
       {
         "id": 1397,
@@ -749,7 +749,7 @@
           "Contator: tensão da bobina não identificada explicitamente no nome.",
           "Contator: conferir tensão de referência da corrente AC-3."
         ],
-        "status": "historico_informado"
+        "status": "aprovado"
       },
       {
         "id": 1590,
@@ -761,7 +761,7 @@
           "Contator: tensão da bobina não identificada explicitamente no nome.",
           "Contator: conferir tensão de referência da corrente AC-3."
         ],
-        "status": "historico_informado"
+        "status": "aprovado"
       },
       {
         "id": 1620,
@@ -1290,8 +1290,427 @@
       "avaliados": 20,
       "aprovados": 20,
       "pendentes": 0
+    },
+    {
+      "lote": "003-cinquenta-itens",
+      "avaliados": 50,
+      "aprovados": 50,
+      "pendentes": 0
+    },
+    {
+      "lote": "004-cinquenta-itens",
+      "avaliados": 50,
+      "aprovados": 50,
+      "pendentes": 0
     }
   ],
+  "propostas_nao_aplicadas": {
+    "total_ids": 50,
+    "aguardando_aprovacao": 50,
+    "desatualizadas": 0,
+    "registros": [
+      {
+        "id": 185,
+        "codigo": "3RV20214DA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 18-25A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 18-25A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 749,
+        "codigo": "3RV20214PA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 30-36A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 30-36A CLASSE 10 ICU 20kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 752,
+        "codigo": "3RV20214NA20",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 23-28A CONEXÃO POR MOLA",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 23-28A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 771,
+        "codigo": "3RV20314UA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 32-40A CLASSE 10 ICU 65kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 794,
+        "codigo": "3RV20214EA20",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 27-32A CONEXÃO POR MOLA",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 936,
+        "codigo": "3RV20110JA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 0,7-1A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 0,7-1A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1089,
+        "codigo": "3RV20214EA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 27-32A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 2902,
+        "codigo": "3RV20111KA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 9-12A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 9-12,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 2945,
+        "codigo": "3RV20110KA10",
+        "lote": "005-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 0,9-1,25A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 0,9-1,25A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 247,
+        "codigo": "3RU21161HB0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 5,5-8A TAMANHO S00 CONEXÃO POR PARAFUSO",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 5,5-8A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 753,
+        "codigo": "3RU21261KB0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 9-12,5A TAMANHO S0 CONEXÃO POR PARAFUSO",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 9-12,5A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 766,
+        "codigo": "3RU21264AB0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 11-16A TAMANHO S0 CONEXÃO POR PARAFUSO",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 11-16A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 767,
+        "codigo": "3RU21160JB0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 0,7-1A TAMANHO S00 CONEXÃO POR PARAFUSO",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 0,7-1A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 796,
+        "codigo": "3RU21161CC0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 1,8-2,5A TAMANHO S00",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,8-2,5A CLASSE 10 S00 CONEXÃO POR MOLA",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 797,
+        "codigo": "3RU21261JC0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 7-10A TAMANHO S0",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 7-10A CLASSE 10 S0 CONEXÃO POR MOLA",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1621,
+        "codigo": "3US50001C",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 1,6-2,5A",
+        "depois_proposto": "RELÉ DE SOBRECARGA AJUSTE 1,6-2,5A CLASSE 10A 1NA+1NF PARA 3TS29-32/3TB39-41",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1632,
+        "codigo": "3RU21161BB0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 1,4-2A TAMANHO S00 CONEXÃO POR PARAFUSO",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,4-2A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 2903,
+        "codigo": "3RU21261EB0",
+        "lote": "005-cinquenta-itens",
+        "antes": "RELÉ DE SOBRECARGA 2,8-4A TAMANHO S0 CONEXÃO POR PARAFUSO",
+        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 2,8-4A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 213,
+        "codigo": "3RH21311BB40",
+        "lote": "005-cinquenta-itens",
+        "antes": "CONTATOR AUXILIAR 3NA+1NF 24VCC CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR AUXILIAR 3NA+1NF BOBINA 24VCC S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 245,
+        "codigo": "3RH21311AN20",
+        "lote": "005-cinquenta-itens",
+        "antes": "CONTATOR AUXILIAR 3NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR AUXILIAR 3NA+1NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 759,
+        "codigo": "3RH21221AN20",
+        "lote": "005-cinquenta-itens",
+        "antes": "CONTATOR AUXILIAR 2NA+2NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR AUXILIAR 2NA+2NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 788,
+        "codigo": "3RH21221AF00",
+        "lote": "005-cinquenta-itens",
+        "antes": "CONTATOR AUXILIAR 2NA+2NF 110V 50/60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR AUXILIAR 2NA+2NF BOBINA 110VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 180,
+        "codigo": "3RH29111HA22",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 181,
+        "codigo": "3RH29111HA11",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 193,
+        "codigo": "3RH29111FA40",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR PARAFUSO PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 748,
+        "codigo": "3RT19564G",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE TERMINAIS PARA CONTATOR TAMANHO S6 ATÉ 120mm²",
+        "depois_proposto": "BLOCO DE TERMINAIS TIPO CAIXA ATÉ 120mm² PARA 3RT1/3RB2 S6",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 820,
+        "codigo": "3RH29112FA40",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR MOLA PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 916,
+        "codigo": "5ST3768",
+        "lote": "005-cinquenta-itens",
+        "antes": "BORNE ISOLADO PARA BARRAMENTO COM CONEXÃO LATERAL",
+        "depois_proposto": "BORNE DE ALIMENTAÇÃO CURTO ATÉ 25mm² 690VCA PARA BARRAMENTO TIPO PINO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1048,
+        "codigo": "3RH19211CA01",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT1",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1399,
+        "codigo": "3RH29111FA04",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2.1/3RH2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 2302,
+        "codigo": "3RH29112HA22",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF CONEXÃO POR MOLA PARA CONTATOR",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 2898,
+        "codigo": "3RT29161EH00",
+        "lote": "005-cinquenta-itens",
+        "antes": "SUPRESSOR DE SURTO PARA CONTATOR",
+        "depois_proposto": "SUPRESSOR DE SURTO COMBINAÇÃO DE DIODOS 12-250VCC PARA 3RT2.1/3RH2 S00",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 250,
+        "codigo": "3RV29011E",
+        "lote": "005-cinquenta-itens",
+        "antes": "CONTATO AUX. FRONTAL INNOV 3RV2901-1E",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR PARAFUSO PARA 3RV2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 260,
+        "codigo": "3RV29255AB",
+        "lote": "005-cinquenta-itens",
+        "antes": "BORNE ALIM. TRIF. CONEXÃO POR CIMA INNOV",
+        "depois_proposto": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0 CONEXÃO POR PARAFUSO",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 780,
+        "codigo": "3RV29275AA00",
+        "lote": "005-cinquenta-itens",
+        "antes": "PLUG POTENCIA S0 P INFEED SYSTEM MOLA",
+        "depois_proposto": "PLUGUE DE POTÊNCIA 3P 32A 500VCA CONEXÃO POR MOLA PARA INFEED 3RV2 S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 782,
+        "codigo": "3RV29174A",
+        "lote": "005-cinquenta-itens",
+        "antes": "EXP. BARRAMENTO INFEED P 2 DISJUNTORES",
+        "depois_proposto": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 2 DISJUNTORES 3RV2 S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 783,
+        "codigo": "3RV29174B",
+        "lote": "005-cinquenta-itens",
+        "antes": "EXP. BARRAMENTO INFEED P 3 DISJUNTORES",
+        "depois_proposto": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 3 DISJUNTORES 3RV2 S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 784,
+        "codigo": "3RV29171A",
+        "lote": "005-cinquenta-itens",
+        "antes": "BASE INFEED SYSTEM ALIMENTACAO ESQUERDA",
+        "depois_proposto": "BARRAMENTO TRIFÁSICO 63A 500VCA ALIMENTAÇÃO À ESQUERDA PARA 2 DISJUNTORES 3RV2 S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 799,
+        "codigo": "3RV29012E",
+        "lote": "005-cinquenta-itens",
+        "antes": "CONTATO AUX. FRONTAL 1NA1NF PARA 3RV2",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR MOLA PARA 3RV2",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 802,
+        "codigo": "3RV19151AB",
+        "lote": "005-cinquenta-itens",
+        "antes": "BARRA INTERL.P2 DISJ.S00 S0 ESPAÇ.45MM",
+        "depois_proposto": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 2 DISJUNTORES 3RV2 S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 806,
+        "codigo": "3RV19151CB",
+        "lote": "005-cinquenta-itens",
+        "antes": "BARRA INTERL.P4 DISJ.S00 S0 ESPAÇ.45MM",
+        "depois_proposto": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 4 DISJUNTORES 3RV2 S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 810,
+        "codigo": "3RV19151BB",
+        "lote": "005-cinquenta-itens",
+        "antes": "BARRA INTERL.P3 DISJ.S00 S0 ESPAÇ.45MM",
+        "depois_proposto": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 3 DISJUNTORES 3RV2 S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 917,
+        "codigo": "5ST2504",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE DISTRIBUIÇÃO 1P 80A 690V",
+        "depois_proposto": "BLOCO DE DISTRIBUIÇÃO 1P 80A 1000VCA/1500VCC IEC CONEXÃO POR PARAFUSO TRILHO DIN",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 919,
+        "codigo": "5ST37683",
+        "lote": "005-cinquenta-itens",
+        "antes": "BORNE PARA BARRAMENTO COM CONEXÃO CENTRAL 80A 690VCA",
+        "depois_proposto": "BORNE PARA BARRAMENTO ENTRADA CENTRAL 80A 690VCA/1000VCC IP20",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 956,
+        "codigo": "3RV19155A",
+        "lote": "005-cinquenta-itens",
+        "antes": "BORNE ALIM. TRIFASICO CONEXAO POR CIMA",
+        "depois_proposto": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO TIPO PINO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1125,
+        "codigo": "3RV29175AA00",
+        "lote": "005-cinquenta-itens",
+        "antes": "PLUG POTENCIA S00 P INFEED SYSTEM MOLA",
+        "depois_proposto": "PLUGUE DE POTÊNCIA 3P 16A 500VCA CONEXÃO POR MOLA PARA INFEED S00",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1542,
+        "codigo": "3RV29277AA00",
+        "lote": "005-cinquenta-itens",
+        "antes": "BASE PARA CONTATOR S00S0 INFEED SYSTEM",
+        "depois_proposto": "BASE PARA CONTATOR S00/S0 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1547,
+        "codigo": "3RV29177AA00",
+        "lote": "005-cinquenta-itens",
+        "antes": "BASE PARA CONTATOR S00 INFEED SYSTEM",
+        "depois_proposto": "BASE PARA CONTATOR S00 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 1626,
+        "codigo": "3RV29175E",
+        "lote": "005-cinquenta-itens",
+        "antes": "PLUG DE EXPANSAO ULTRA LONGO P INFEED",
+        "depois_proposto": "CONECTOR DE EXPANSÃO LARGO 3P 63A 500VCA PARA BARRAMENTOS 3RV2917",
+        "status": "aguardando_aprovacao"
+      },
+      {
+        "id": 694,
+        "codigo": "5ST2502",
+        "lote": "005-cinquenta-itens",
+        "antes": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V",
+        "depois_proposto": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V CONEXÃO POR PARAFUSO TRILHO DIN",
+        "status": "aguardando_aprovacao"
+      }
+    ]
+  },
   "historico_documentado_ou_informado_sem_duplicidade": 1237,
   "observacao": "Histórico recuperado não é aprovação no critério atual. Pendentes aguardam fonte/decisão, não entram em repetição automática. Relatório é uma fotografia; executar novamente para detectar mudanças técnicas.",
   "registros": [
@@ -2846,20 +3265,20 @@
     {
       "id": 186,
       "codigo": "3RV20111EA10",
-      "nome": "DISJUNTOR MOTOR 2,8-4A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,8-4A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 187,
       "codigo": "3RV20111CA10",
-      "nome": "DISJUNTOR MOTOR 1,8-2,5A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,8-2,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 188,
@@ -3035,56 +3454,56 @@
     {
       "id": 207,
       "codigo": "5SL11047MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 4A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 208,
       "codigo": "5SL11067MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 6A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 6A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 209,
       "codigo": "5SL11107MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 210,
       "codigo": "5SL11167MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 211,
       "codigo": "5SL13257MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 25A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 212,
       "codigo": "5SL12107MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 10A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 213,
@@ -3233,20 +3652,20 @@
     {
       "id": 229,
       "codigo": "5SL62257MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 25A 6kA",
+      "nome": "DISJUNTOR MINI 2P CURVA C 25A ICN 6kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 230,
       "codigo": "5SL62167MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 16A 6kA",
+      "nome": "DISJUNTOR MINI 2P CURVA C 16A ICN 6kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 231,
@@ -3296,11 +3715,11 @@
     {
       "id": 236,
       "codigo": "3RV20111AA20",
-      "nome": "DISJUNTOR MOTOR 1,1-1,6A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,1-1,6A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 237,
@@ -3359,11 +3778,11 @@
     {
       "id": 243,
       "codigo": "3RV20111CA20",
-      "nome": "DISJUNTOR MOTOR 1,8-2,5A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,8-2,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 244,
@@ -3386,11 +3805,11 @@
     {
       "id": 246,
       "codigo": "3RV20114AA10",
-      "nome": "DISJUNTOR MOTOR 10-16A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 10-16A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 247,
@@ -3431,20 +3850,20 @@
     {
       "id": 251,
       "codigo": "3RV20111FA10",
-      "nome": "DISJUNTOR MOTOR 3,5-5A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 3,5-5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 252,
       "codigo": "3RV20111AA10",
-      "nome": "DISJUNTOR MOTOR 1,1-1,6A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,1-1,6A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 253,
@@ -3494,20 +3913,20 @@
     {
       "id": 258,
       "codigo": "3RV20111BA10",
-      "nome": "DISJUNTOR MOTOR 1,4-2A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,4-2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 259,
       "codigo": "3RV20111JA10",
-      "nome": "DISJUNTOR MOTOR 7-10A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 7-10A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 260,
@@ -7076,29 +7495,29 @@
     {
       "id": 689,
       "codigo": "5SL12047MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 4A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 690,
       "codigo": "5SL12256MB",
-      "nome": "DISJUNTOR MINI 2P CURVA B 25A",
+      "nome": "DISJUNTOR MINI 2P CURVA B 25A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 691,
       "codigo": "5SL33407MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 40A 4,5kA",
+      "nome": "DISJUNTOR MINI 3P CURVA C 40A ICN 4,5kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 692,
@@ -7346,11 +7765,11 @@
     {
       "id": 719,
       "codigo": "5SL13407MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 40A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 40A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 720,
@@ -7364,38 +7783,38 @@
     {
       "id": 721,
       "codigo": "5SL11256MB",
-      "nome": "DISJUNTOR MINI 1P CURVA B 25A",
+      "nome": "DISJUNTOR MINI 1P CURVA B 25A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 722,
       "codigo": "5SL11106MB",
-      "nome": "DISJUNTOR MINI 1P CURVA B 10A",
+      "nome": "DISJUNTOR MINI 1P CURVA B 10A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 723,
       "codigo": "5SL11207MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 20A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 20A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 724,
       "codigo": "5SL13327MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 32A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 725,
@@ -7409,11 +7828,11 @@
     {
       "id": 726,
       "codigo": "5SL13107MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 10A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 727,
@@ -7499,11 +7918,11 @@
     {
       "id": 736,
       "codigo": "5SL13167MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 737,
@@ -7553,20 +7972,20 @@
     {
       "id": 742,
       "codigo": "3RV20111HA10",
-      "nome": "DISJUNTOR MOTOR 5,5-8A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 5,5-8A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 743,
       "codigo": "5SL11027MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 2A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 2A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 744,
@@ -7589,20 +8008,20 @@
     {
       "id": 746,
       "codigo": "5SL13807MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 80A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 80A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 747,
       "codigo": "5SL13067MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 6A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 6A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 748,
@@ -7625,11 +8044,11 @@
     {
       "id": 750,
       "codigo": "5SL12067MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 6A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 6A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 751,
@@ -7670,11 +8089,11 @@
     {
       "id": 755,
       "codigo": "5SL13207MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 20A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 20A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 756,
@@ -7688,11 +8107,11 @@
     {
       "id": 757,
       "codigo": "5SL13637MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 63A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 63A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 758,
@@ -7760,11 +8179,11 @@
     {
       "id": 765,
       "codigo": "3RV20111EA20",
-      "nome": "DISJUNTOR MOTOR 2,8-4A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,8-4A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 766,
@@ -7805,11 +8224,11 @@
     {
       "id": 770,
       "codigo": "5SL13707MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 70A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 70A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 771,
@@ -7832,20 +8251,20 @@
     {
       "id": 773,
       "codigo": "3RT20261AK60",
-      "nome": "CONTATOR AC-3 25A 1NA+1NF 120V 60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 774,
       "codigo": "5SL12066MB",
-      "nome": "DISJUNTOR MINI 2P CURVA B 6A",
+      "nome": "DISJUNTOR MINI 2P CURVA B 6A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 775,
@@ -7868,20 +8287,20 @@
     {
       "id": 777,
       "codigo": "3RT20261AN10",
-      "nome": "CONTATOR AC-3 25A 1NA+1NF 220V 60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 220VCA 60Hz CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 778,
       "codigo": "3RV20111GA20",
-      "nome": "DISJUNTOR MOTOR 4,5-6,3A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 4,5-6,3A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 779,
@@ -8057,11 +8476,11 @@
     {
       "id": 798,
       "codigo": "3RV20111BA20",
-      "nome": "DISJUNTOR MOTOR 1,4-2A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,4-2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 799,
@@ -8156,11 +8575,11 @@
     {
       "id": 809,
       "codigo": "3RV20111GA10",
-      "nome": "DISJUNTOR MOTOR 4,5-6,3A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 4,5-6,3A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 810,
@@ -8201,11 +8620,11 @@
     {
       "id": 814,
       "codigo": "3RV20111DA10",
-      "nome": "DISJUNTOR MOTOR 2,2-3,2A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,2-3,2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 815,
@@ -8246,11 +8665,11 @@
     {
       "id": 819,
       "codigo": "5SL11637MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 63A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 63A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 820,
@@ -8372,11 +8791,11 @@
     {
       "id": 833,
       "codigo": "5SL13047MB",
-      "nome": "DISJUNTOR MINI 3P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 4A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 834,
@@ -9389,11 +9808,11 @@
     {
       "id": 946,
       "codigo": "5SL32257MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 25A 4,5kA",
+      "nome": "DISJUNTOR MINI 2P CURVA C 25A ICN 4,5kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 947,
@@ -10127,11 +10546,11 @@
     {
       "id": 1028,
       "codigo": "5SL12807MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 80A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 80A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1029,
@@ -10145,101 +10564,101 @@
     {
       "id": 1030,
       "codigo": "5SL12637MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 63A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 63A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1031,
       "codigo": "5SL12407MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 40A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 40A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1032,
       "codigo": "5SL12257MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 25A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 25A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1033,
       "codigo": "5SL12207MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 20A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 20A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1034,
       "codigo": "5SL12167MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 16A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1035,
       "codigo": "5SL11066MB",
-      "nome": "DISJUNTOR MINI 1P CURVA B 6A",
+      "nome": "DISJUNTOR MINI 1P CURVA B 6A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1036,
       "codigo": "5SL11257MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 25A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 25A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1037,
       "codigo": "5SL11407MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 40A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 40A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1038,
       "codigo": "5SL11507MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 50A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 50A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1039,
       "codigo": "5SL11807MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 80A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 80A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1040,
       "codigo": "5SL12027MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 2A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 2A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1041,
@@ -10595,11 +11014,11 @@
     {
       "id": 1080,
       "codigo": "5SL11327MB",
-      "nome": "DISJUNTOR MINI 1P CURVA C 32A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 32A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1081,
@@ -10649,20 +11068,20 @@
     {
       "id": 1086,
       "codigo": "5SL32507MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 50A 4,5kA",
+      "nome": "DISJUNTOR MINI 2P CURVA C 50A ICN 4,5kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1087,
       "codigo": "5SL12327MB",
-      "nome": "DISJUNTOR MINI 2P CURVA C 32A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 32A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1088,
@@ -10910,11 +11329,11 @@
     {
       "id": 1115,
       "codigo": "10076389",
-      "nome": "DISJUNTOR MINI 1P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1116,
@@ -11036,11 +11455,11 @@
     {
       "id": 1129,
       "codigo": "3RT20281AK60",
-      "nome": "CONTATOR AC-3 38A 1NA+1NF 120V 60Hz",
+      "nome": "CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1130,
@@ -14735,20 +15154,20 @@
     {
       "id": 1550,
       "codigo": "10076381",
-      "nome": "DISJUNTOR MINI 1P CURVA C 2A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 2A ICN 1,5kA EM 230/400VCA MDW-C2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1551,
       "codigo": "10076441",
-      "nome": "DISJUNTOR MINI 3P CURVA C 32A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 230/400VCA MDW-C32-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1552,
@@ -14861,38 +15280,38 @@
     {
       "id": 1565,
       "codigo": "10076405",
-      "nome": "DISJUNTOR MINI 1P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 230/400VCA MDW-C10",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1566,
       "codigo": "10076397",
-      "nome": "DISJUNTOR MINI 1P CURVA C 6A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 6A ICN 3kA EM 230/400VCA MDW-C6",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1567,
       "codigo": "10076413",
-      "nome": "DISJUNTOR MINI 1P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 230/400VCA MDW-C16",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1568,
       "codigo": "10076461",
-      "nome": "DISJUNTOR MINI 1P CURVA C 63A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 63A ICN 3kA EM 230/400VCA MDW-C63",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1569,
@@ -14933,11 +15352,11 @@
     {
       "id": 1573,
       "codigo": "10076421",
-      "nome": "DISJUNTOR MINI 1P CURVA C 20A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1574,
@@ -14951,29 +15370,29 @@
     {
       "id": 1575,
       "codigo": "10076429",
-      "nome": "DISJUNTOR MINI 1P CURVA C 25A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 25A ICN 3kA EM 230/400VCA MDW-C25",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1576,
       "codigo": "10076465",
-      "nome": "DISJUNTOR MINI 3P CURVA C 63A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 63A ICN 3kA EM 230/400VCA MDW-C63-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1577,
       "codigo": "10076425",
-      "nome": "DISJUNTOR MINI 3P CURVA C 20A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1578,
@@ -15077,20 +15496,20 @@
     {
       "id": 1589,
       "codigo": "3RT20271AK60",
-      "nome": "CONTATOR AC-3 32A 1NA+1NF 120V 60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR 3P AC-3 32A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1590,
       "codigo": "3RT20361AK60",
-      "nome": "CONTATOR AC-3 50A 1NA+1NF 120V 60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR 3P AC-3 51A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1591,
@@ -15140,11 +15559,11 @@
     {
       "id": 1596,
       "codigo": "10076407",
-      "nome": "DISJUNTOR MINI 2P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 10A ICN 3kA EM 230/400VCA MDW-C10-2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1597,
@@ -15158,74 +15577,74 @@
     {
       "id": 1598,
       "codigo": "10075739",
-      "nome": "DISJUNTOR MINI 3P CURVA C 80A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 80A ICN 3kA EM 230/400VCA MDW-C80-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1599,
       "codigo": "11134791",
-      "nome": "DISJUNTOR MINI 3P CURVA C 70A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 70A ICN 3kA EM 230/400VCA MDW-C70-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1600,
       "codigo": "10076445",
-      "nome": "DISJUNTOR MINI 1P CURVA C 40A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 40A ICN 3kA EM 230/400VCA MDW-C40",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1601,
       "codigo": "10076437",
-      "nome": "DISJUNTOR MINI 1P CURVA C 32A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 32A ICN 3kA EM 230/400VCA MDW-C32",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1602,
       "codigo": "10076391",
-      "nome": "DISJUNTOR MINI 2P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4-2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1603,
       "codigo": "10076417",
-      "nome": "DISJUNTOR MINI 3P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 230/400VCA MDW-C16-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1604,
       "codigo": "10076401",
-      "nome": "DISJUNTOR MINI 3P CURVA C 6A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 6A ICN 3kA EM 230/400VCA MDW-C6-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1605,
       "codigo": "10076457",
-      "nome": "DISJUNTOR MINI 3P CURVA C 50A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 50A ICN 3kA EM 230/400VCA MDW-C50-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1606,
@@ -15248,38 +15667,38 @@
     {
       "id": 1608,
       "codigo": "10076453",
-      "nome": "DISJUNTOR MINI 1P CURVA C 50A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 50A ICN 3kA EM 230/400VCA MDW-C50",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1609,
       "codigo": "10076399",
-      "nome": "DISJUNTOR MINI 2P CURVA C 6A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 6A ICN 3kA EM 230/400VCA MDW-C6-2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1610,
       "codigo": "10076433",
-      "nome": "DISJUNTOR MINI 3P CURVA C 25A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 230/400VCA MDW-C25-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1611,
       "codigo": "10076415",
-      "nome": "DISJUNTOR MINI 2P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 16A ICN 3kA EM 230/400VCA MDW-C16-2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1612,
@@ -18263,11 +18682,11 @@
     {
       "id": 1971,
       "codigo": "10076449",
-      "nome": "DISJUNTOR MINI 3P CURVA C 40A 3kA",
+      "nome": "DISJUNTOR MINI 3P CURVA C 40A ICN 3kA EM 230/400VCA MDW-C40-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1972,
@@ -21512,11 +21931,11 @@
     {
       "id": 2347,
       "codigo": "15220827",
-      "nome": "DISJUNTOR MINI 1P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 230/400VCA MDWP-C10",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2348,
@@ -24851,11 +25270,11 @@
     {
       "id": 2742,
       "codigo": "5SL11166MB",
-      "nome": "DISJUNTOR MINI 1P CURVA B 16A",
+      "nome": "DISJUNTOR MINI 1P CURVA B 16A ICN 3kA EM 220/380VCA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2745,
@@ -25733,20 +26152,20 @@
     {
       "id": 2847,
       "codigo": "10076423",
-      "nome": "DISJUNTOR MINI 2P CURVA C 20A",
+      "nome": "DISJUNTOR MINI 2P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20-2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2848,
       "codigo": "10076393",
-      "nome": "DISJUNTOR MINI 3P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2849,
@@ -26894,20 +27313,20 @@
     {
       "id": 2980,
       "codigo": "15265745",
-      "nome": "DISJUNTOR MINI 3P CURVA C 10A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 10A ICN 3kA EM 230/400VCA MDWP-C10-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2981,
       "codigo": "15265514",
-      "nome": "DISJUNTOR MINI 1P CURVA C 4A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 4A ICN 3kA EM 230/400VCA MDWP-C4",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2982,
@@ -28991,38 +29410,38 @@
     {
       "id": 3216,
       "codigo": "15265747",
-      "nome": "DISJUNTOR MINI 3P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 230/400VCA MDWP-C16-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 3217,
       "codigo": "15265762",
-      "nome": "DISJUNTOR MINI 3P CURVA C 25A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 230/400VCA MDWP-C25-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 3218,
       "codigo": "15265763",
-      "nome": "DISJUNTOR MINI 3P CURVA C 32A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 230/400VCA MDWP-C32-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 3219,
       "codigo": "15265766",
-      "nome": "DISJUNTOR MINI 3P CURVA C 50A",
+      "nome": "DISJUNTOR MINI 3P CURVA C 50A ICN 3kA EM 230/400VCA MDWP-C50-3",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 3220,
@@ -29954,11 +30373,11 @@
     {
       "id": 3328,
       "codigo": "15265681",
-      "nome": "DISJUNTOR MINI 1P CURVA C 16A",
+      "nome": "DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 230/400VCA MDWP-C16",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 3329,
@@ -33663,6 +34082,15 @@
       "id": 3757,
       "codigo": "FAB-OS303-01",
       "nome": "PAINEL DE AUTOMACAO LINHA INCEPA",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3758,
+      "codigo": "FAB-OS319-01",
+      "nome": "SISTEMA DE CONTROLE DE FLUXO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "revenda",

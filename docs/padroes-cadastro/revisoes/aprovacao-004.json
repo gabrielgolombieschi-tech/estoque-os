@@ -1,0 +1,11 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "lote": "004-cinquenta-itens",
+  "assinatura_lote": "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26",
+  "status": "aprovado",
+  "data": "2026-09-07",
+  "origem": "Resposta do usuário após apresentação do lote 004 com seus 50 antes/depois",
+  "mensagem_usuario": "pode seguir...",
+  "escopo": "Aplicar os 50 nomes e descrições do manifesto 004, sem alteração dos demais campos. Preparar próximo lote somente para aprovação."
+}

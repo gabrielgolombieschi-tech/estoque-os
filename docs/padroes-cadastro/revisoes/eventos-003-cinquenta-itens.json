@@ -1,0 +1,1002 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 207,
+    "codigo": "5SL11047MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 4A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.195Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "96562f5d9389cd6e09c543b2c0810cb669fdbfd8e54f5a8b619eac4a9c6e021e",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 208,
+    "codigo": "5SL11067MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 6A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.195Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "530b81dbe8d808206242bd96ca05affec476aabfc13c1da8c2dcc05c90da7c54",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 209,
+    "codigo": "5SL11107MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 10A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.195Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e9decdfd748305a23ddece6b63a65aa4161f352ccb6a88ace310fb3f90667e1d",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 210,
+    "codigo": "5SL11167MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 16A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.196Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "ccf4470eee3effff17c8b6b807ab52e3e7453f50c0165a15d89829c11cadb461",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 211,
+    "codigo": "5SL13257MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 25A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.196Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "32b0d07684c5f4ad1229acc062cdc5bdf4ea9e03f1d994d33b51d157fa80129b",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 212,
+    "codigo": "5SL12107MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 10A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.197Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "57a57925ed07a1274db89c7a0245a725914f6a3a1106b7db33cfc1013192e5e6",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 229,
+    "codigo": "5SL62257MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 25A ICN 6kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.197Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c189bc6f954502acfd25ee79116b530df179675c2f48e81ea0785a86b4cf1a7c",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 230,
+    "codigo": "5SL62167MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 16A ICN 6kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.197Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b9077aadba231afd48e2fe9c80602c388dbe8736b69cb46083dfa5a99844c104",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 689,
+    "codigo": "5SL12047MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 4A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.198Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "98f23f956f7d5d91edc1d3386f14131cebae1309c7524290ec83a2020f651506",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 690,
+    "codigo": "5SL12256MB",
+    "nome": "DISJUNTOR MINI 2P CURVA B 25A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.198Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "aa61532b6720ed8ac18ba5b46757f3269f5c6b141f5b80d94eea2fdcf458ef1f",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 691,
+    "codigo": "5SL33407MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 40A ICN 4,5kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.198Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f1d05ca8dca1157a68d967f672873c7a38c7a2b95b52f6806f795bb923f8bf15",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 719,
+    "codigo": "5SL13407MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 40A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.199Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "17c87ab21507386934879f49f2ea2bcc0ac6370f1dd55650a8c4d5c89e34669a",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 721,
+    "codigo": "5SL11256MB",
+    "nome": "DISJUNTOR MINI 1P CURVA B 25A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.199Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "4aa6e05cc36e0219bcfd8a6f39304a4996c95bbaa02ad42ab57de44736e31b74",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 722,
+    "codigo": "5SL11106MB",
+    "nome": "DISJUNTOR MINI 1P CURVA B 10A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.199Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "53991001568baa02f4279a18ccf75ea8bc51ddc04ca00e9dd717f33a1cbfec4c",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 723,
+    "codigo": "5SL11207MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 20A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.201Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "574caa5a40e8f2c770bed84eb16a5ef8ebec2c9772e64ddccacfe880df32c6e6",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 724,
+    "codigo": "5SL13327MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 32A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.201Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "bf62952ddd96d6b22ed7fa8e051ed0ac16a46b4cdb22942740693d01ac13e7d6",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 726,
+    "codigo": "5SL13107MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 10A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.202Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "cf05f04da28ebc0a56ef9092219353711a2cc194081a644ea5376510753f486a",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 736,
+    "codigo": "5SL13167MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 16A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.202Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "d48f40b219812df42a3ff391ad22c6e00cdfa7f6fb29743ec592bf1f9deb333e",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 743,
+    "codigo": "5SL11027MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 2A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.202Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "bcf333cd715af65e47aeec851c26dbc0ee0497a0ebfa1b88a64efa7b5e0d79ec",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 746,
+    "codigo": "5SL13807MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 80A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.203Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "2ec083333c503fe0baf0bdcf7813b45137b046612d9bfe012601010f0fa37078",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 747,
+    "codigo": "5SL13067MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 6A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.203Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f254d0e18ef81e6a4aeb439d10fd7c18ddf706c2f8134fbd18d98284034f904c",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 750,
+    "codigo": "5SL12067MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 6A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.203Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e424ccd97f1669513b00984425ba870cb68d5b969bdc56f81d65253a56223245",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 755,
+    "codigo": "5SL13207MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 20A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.204Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "43c1c5bf622e5a5e71659b3b9a8c97119c1baf5a23f87f02a13f18bf972e8abb",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 757,
+    "codigo": "5SL13637MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 63A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.204Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b65cd075b5fb0a344f0bf51d38c59200fc6a67f31c5bcb0e62a355b0e2f5e0ff",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 770,
+    "codigo": "5SL13707MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 70A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.204Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c5f0ea567352f25e28aa6ac9d5eac90eee6fd6d619485fec6c934a808b6035c2",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 773,
+    "codigo": "3RT20261AK60",
+    "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.205Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2026-1AK60"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "cf1f95e8ec77322cb9f8f8d05af2581d60c6e992b2160ab57418101c3868f6d2",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 774,
+    "codigo": "5SL12066MB",
+    "nome": "DISJUNTOR MINI 2P CURVA B 6A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.205Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "d2cc75b924e5bed27b9eddb505a6407c80b1a12a11dcdb5082941cf26e5f9cfe",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 777,
+    "codigo": "3RT20261AN10",
+    "nome": "CONTATOR 3P AC-3 25A EM 400VCA 1NA+1NF BOBINA 220VCA 60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.206Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2026-1AN10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "64f21ef42dff3e27c038322b07500ff000d4c04b2061f4b87252ca0ec1d37e92",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 819,
+    "codigo": "5SL11637MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 63A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.206Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "bd6f1682cb9f5ea44bb03d8f997a5a02bb616016097539fec7856911eef25ac5",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 833,
+    "codigo": "5SL13047MB",
+    "nome": "DISJUNTOR MINI 3P CURVA C 4A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.207Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "78c293cc3befedc69197547e7b41f9efdfeba1e3fd4366bfb227c414c9ad26f6",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 946,
+    "codigo": "5SL32257MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 25A ICN 4,5kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.207Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "51628e92bb6aedf20d1ac258bc217012c3cd9998393fb182c977f5c8faa84cf3",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1028,
+    "codigo": "5SL12807MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 80A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.207Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "63569e07727ba8bdc9838e58c8815cec66a8cce08999a6b5092b982276ed0e48",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1030,
+    "codigo": "5SL12637MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 63A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.208Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "d31f13584c2188241843ecad8590dfec7a94a110a318432dda8f92f4ecda7654",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1031,
+    "codigo": "5SL12407MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 40A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.208Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "368493520b77e304026cb33d114b2ddbdebf6413b79e35766a33b52160366be5",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1032,
+    "codigo": "5SL12257MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 25A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.209Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "08b2ebdfc3b016ddd7a57c71b20c2dacc6cab1fd85edd44e5f62874e1eb4d16e",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1033,
+    "codigo": "5SL12207MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 20A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.209Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "a39f3dfaad8869ca09f074682eea3445bc44dced22cd7a925c8bf322d1b678b1",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1034,
+    "codigo": "5SL12167MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 16A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.209Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "94b23e004d8ebd73e27d1be627de9a16407139e7063a203bc5afd10e019e9583",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1035,
+    "codigo": "5SL11066MB",
+    "nome": "DISJUNTOR MINI 1P CURVA B 6A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.210Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "914d5ea656901060ad351113b093055b571a67229e5aa236336f615294a6f4a4",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1036,
+    "codigo": "5SL11257MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 25A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.210Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "0f3220b37848c9f16a7daf1541d7824a4c6938eef61eeb53ba315609601a1e9e",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1037,
+    "codigo": "5SL11407MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 40A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.210Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1cdb534e0012d4e8ac0a604ce1e519201971d56b5b297aa4d0fbd6edc29d8bc8",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1038,
+    "codigo": "5SL11507MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 50A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.211Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1f366c22b8146eda4a1b291ea5575bbdd14b2c7360e9a695880a8aba3c39bdb2",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1039,
+    "codigo": "5SL11807MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 80A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.211Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "98b46e6caba5505e9375a7a1edcd615a6230261987ecf6d1bfda6dbcf4da9229",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1040,
+    "codigo": "5SL12027MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 2A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.212Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5bfe605f57e3a4f39f2242637ef46cb3f6cd414a003b6fa2af42de262ae33462",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1080,
+    "codigo": "5SL11327MB",
+    "nome": "DISJUNTOR MINI 1P CURVA C 32A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.212Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c8ca5a182eaf45bfc22f1b53871b27edac6e1cc86b9ac19d1732ada0f94bada0",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1086,
+    "codigo": "5SL32507MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 50A ICN 4,5kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.212Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "3106c9f457ddd339ae6913946ba1b27d3cdbf8f526c3d902da2e680dd8b52cdf",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1087,
+    "codigo": "5SL12327MB",
+    "nome": "DISJUNTOR MINI 2P CURVA C 32A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.213Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "a1830cdf7579aaa70ae91dc013975e0fa6ef1ea18c95f4d1223d70480f458a14",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1129,
+    "codigo": "3RT20281AK60",
+    "nome": "CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.213Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2028-1AK60"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "922dbb89b9727af0bb5f4aee1cc933db56b75428e6b85271e1888d0500c262b8",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1589,
+    "codigo": "3RT20271AK60",
+    "nome": "CONTATOR 3P AC-3 32A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.214Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2027-1AK60"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "cd76e52dccba8f2824b9db354df886594a877dbab7ca7c4a8956942a488075e6",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1590,
+    "codigo": "3RT20361AK60",
+    "nome": "CONTATOR 3P AC-3 51A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.214Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2036-1AK60"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "432eba81eb9011edd5122a80f75225bb0b813b03977e4a2dc91f9d13ffb21dfd",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2742,
+    "codigo": "5SL11166MB",
+    "nome": "DISJUNTOR MINI 1P CURVA B 16A ICN 3kA EM 220/380VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "003-cinquenta-itens",
+    "revisado_em": "2026-09-07T20:26:17.214Z",
+    "responsavel": "Revisão assistida Codex; autorização e aprovação de lotes pelo usuário",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "2e07339e193a085946932ae51441c43de9500dbb0ae177ad6faa68437c36dd32",
+    "backup": "backups/revisao-lotes/003-2026-09-07T20-26-06-525Z.json",
+    "assinatura_lote": "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58"
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-07",
+  "status": "triagem_documental_adiada",
+  "observacao": "Fora dos 50 propostos. Nenhuma alteração no ERP; não são eventos de aprovação. Consultar este registro antes de selecionar outra rodada; retomar com nova fonte ou decisão humana. HTTP 404 deste serviço não significa produto inexistente ou descontinuado.",
+  "itens": [
+    { "id": 955, "codigo": "3RV19011E", "motivo": "Ficha exata indisponível (HTTP 404) no serviço consultado.", "fonte": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19011E" },
+    { "id": 966, "codigo": "3RT19464EA2", "motivo": "Ficha exata indisponível (HTTP 404) no serviço consultado.", "fonte": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT19464EA2" },
+    { "id": 918, "codigo": "5ST37400MB", "motivo": "Ficha exata indisponível (HTTP 404) no serviço consultado.", "fonte": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37400MB" },
+    { "id": 1541, "codigo": "3RV20111KA20", "motivo": "Divergência interna na ficha exata 3RV2011-1KA20: resumo da página 1 indica 9-12A; tabela da página 2 indica 9-12,5A. Não substituir pelo valor de referência semelhante. Buscar confirmação oficial ou placa/versão física.", "fonte": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20111KA20", "sha256_pdf": "72171e3249702f1ab156e1ad5e2ccbc319d3df942f9e812641ee1f61b64be73c" }
+  ]
+}
