@@ -39,7 +39,7 @@ type Cliente = {
 };
 type Saldo = { valor_pedido: number | string; valor_faturado: number | string; valor_reservado: number | string; saldo: number | string; usa_relatorio_hh: boolean };
 type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null };
-type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; descricao: string; quantidade: string; valor_unitario: string };
+type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; buscou: string | null; descricao: string; quantidade: string; valor_unitario: string };
 type Parcela = { dias: string; valor: string };
 type Perfil = {
   id: string; codigo: string; nome: string; modelo: string; item_servico: string | null; cfop_interno: string | null; cfop_externo: string | null; faixa_automacao: string; habilitado_producao: boolean; vigencia_inicio: string | null; vigencia_fim: string | null; justificativa_faixa: string | null; natureza_operacao: string;
@@ -295,7 +295,7 @@ export default function FaturarOsPage() {
         setItensConferidos([]);
         setConferida(false);
         setLinhas((atuais) => atuais.length > 0 ? atuais : [{
-          chave: 1, produto: null, busca: "", resultados: [],
+          chave: 1, produto: null, busca: "", resultados: [], buscou: null,
           descricao: osRow.descricao_servico ?? `OS ${osRow.numero_os ?? osRow.id}`,
           quantidade: "1", valor_unitario: decimal(num(saldoRow?.saldo).toFixed(2)),
         }]);
@@ -332,7 +332,9 @@ export default function FaturarOsPage() {
     if (!linha || !tenantId || !empresaId) return;
     const { data, error } = await supabase.schema("f").rpc("fn_faturamento_buscar_itens", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_termo: linha.busca, p_limite: 12 });
     if (error) { setErro(error.message); return; }
-    atualizarLinha(chave, { resultados: (data as Produto[] | null) ?? [] });
+    // Guarda o termo pesquisado: sem isso a busca sem resultado nao renderiza nada
+    // e a tela fica muda, como se o botao nao tivesse funcionado.
+    atualizarLinha(chave, { resultados: (data as Produto[] | null) ?? [], buscou: linha.busca });
   }
   async function criarProdutoDaOs(chave: number) {
     if (!os) return;
@@ -344,7 +346,7 @@ export default function FaturarOsPage() {
       });
       if (error) throw error;
       const id = Number(data);
-      atualizarLinha(chave, { produto: { id, codigo: `FAB-OS${os.numero_os ?? os.id}`, nome: novoProduto.nome.toUpperCase(), unidade: novoProduto.unidade, valor_unitario: null }, resultados: [] });
+      atualizarLinha(chave, { produto: { id, codigo: `FAB-OS${os.numero_os ?? os.id}`, nome: novoProduto.nome.toUpperCase(), unidade: novoProduto.unidade, valor_unitario: null }, resultados: [], buscou: null });
       setCriandoProduto(null);
       setAviso(`Produto fabricado ${id} criado com o cadastro fiscal completo e vinculado à linha.`);
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
@@ -560,7 +562,7 @@ export default function FaturarOsPage() {
 
       {/* 2 · Linhas */}
       <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-        <div className="flex items-center justify-between"><h2 className="font-semibold">Linhas da nota</h2>{!solicitacao ? <button type="button" className={botao} onClick={() => { setLinhas((a) => [...a, { chave: proximaChave, produto: null, busca: "", resultados: [], descricao: "", quantidade: "1", valor_unitario: "" }]); setProximaChave((k) => k + 1); }}>Adicionar linha</button> : null}</div>
+        <div className="flex items-center justify-between"><h2 className="font-semibold">Linhas da nota</h2>{!solicitacao ? <button type="button" className={botao} onClick={() => { setLinhas((a) => [...a, { chave: proximaChave, produto: null, busca: "", resultados: [], buscou: null, descricao: "", quantidade: "1", valor_unitario: "" }]); setProximaChave((k) => k + 1); }}>Adicionar linha</button> : null}</div>
         {solicitacao ? (
           <table className="w-full text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="text-left">Descrição</th><th className="text-right">Qtd</th><th className="text-right">Unitário</th><th className="text-right">Total</th><th className="text-left">CFOP</th><th className="text-right">ICMS</th><th className="text-right">IPI</th><th className="text-left">NCM / origem</th></tr></thead>
             <tbody>{itensConferidos.map((i) => <tr key={i.ordem} className="border-t border-zinc-800"><td>{i.descricao}</td><td className="text-right">{decimal(i.quantidade)}</td><td className="text-right">{R$(num(i.valor_unitario))}</td><td className="text-right">{R$(num(i.quantidade) * num(i.valor_unitario))}</td><td>{i.cfop ?? "—"}</td><td className="text-right">{i.aliquota_icms != null ? `${decimal(i.aliquota_icms)}%` : "—"}</td><td className="text-right">{i.cst_ipi ?? "—"}{i.aliquota_ipi != null ? ` · ${decimal(i.aliquota_ipi)}%` : ""}</td><td>{i.ncm ?? "—"} / {i.origem_mercadoria ?? "—"}</td></tr>)}</tbody></table>
@@ -573,7 +575,9 @@ export default function FaturarOsPage() {
               <button type="button" className={botao} onClick={() => { setCriandoProduto(linha.chave); setNovoProduto({ nome: linha.descricao || os?.descricao_servico || "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "" }); }}>Criar da OS</button>
             </div>
             {linha.produto ? <div className="rounded-md bg-zinc-900 px-3 py-2 text-xs text-zinc-300">Produto: <strong>{linha.produto.codigo}</strong> · {linha.produto.nome} <button type="button" className="ml-2 text-zinc-500 hover:text-zinc-200" onClick={() => atualizarLinha(linha.chave, { produto: null })}>desvincular</button></div> : <div className="text-xs text-amber-300">Sem produto vinculado. A NF-e exige produto com NCM, origem e unidade tributável.</div>}
-            {linha.resultados.length > 0 ? <div className="max-h-40 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900">{linha.resultados.map((p) => <button key={p.id} type="button" className="block w-full px-3 py-1.5 text-left text-xs hover:bg-zinc-800" onClick={() => atualizarLinha(linha.chave, { produto: p, resultados: [], busca: "" })}>{p.codigo} · {p.nome}</button>)}</div> : null}
+            {linha.resultados.length > 0 ? <div className="max-h-40 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900">{linha.resultados.map((p) => <button key={p.id} type="button" className="block w-full px-3 py-1.5 text-left text-xs hover:bg-zinc-800" onClick={() => atualizarLinha(linha.chave, { produto: p, resultados: [], buscou: null, busca: "" })}>{p.codigo} · {p.nome}</button>)}</div> : linha.buscou !== null ? (
+              <div className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-400">Nenhum produto ativo encontrado para <strong className="text-zinc-200">{linha.buscou.trim() === "" ? "(busca vazia)" : linha.buscou}</strong>. A busca casa por código, código de barras ou nome — a descrição da OS costuma não bater com o nome cadastrado. Tente <strong className="text-zinc-200">FAB-OS{os?.numero_os ?? os?.id}</strong> para os produtos já fabricados nesta OS, ou use &ldquo;Criar da OS&rdquo;.</div>
+            ) : null}
             <div className="grid gap-2 md:grid-cols-[1fr_120px_160px_160px]">
               <label className={label}>Descrição impressa<input className={field} value={linha.descricao} onChange={(e) => atualizarLinha(linha.chave, { descricao: e.target.value })} /></label>
               <label className={label}>Quantidade<input className={field} inputMode="decimal" value={linha.quantidade} onChange={(e) => atualizarLinha(linha.chave, { quantidade: e.target.value })} /></label>
