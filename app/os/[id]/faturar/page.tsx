@@ -46,7 +46,7 @@ type Perfil = {
   revisao_fiscal_em: string | null; codigo_tributacao_nacional: string | null; codigo_nbs: string | null; aliquota_iss: number | string | null; local_prestacao_regra: string | null; incidencia_iss_regra: string | null;
   iss_retido_regra: string | null; retencao_pcc_regra: string | null; retencao_irrf_regra: string | null; retencao_inss_regra: string | null;
   codigo_indicador_operacao: string | null; excecao_conserto_isolado: boolean | null; campos_conferir: Array<{ campo: string; motivo: string; prazo?: string }> | null;
-  permite_deducao_material: boolean | null;
+  permite_deducao_material: boolean | null; destinacoes_mercadoria: string[] | null; aliquota_icms: number | string | null;
 };
 type Nota = { documento_fiscal_id: string; solicitacao_id: string; solicitacao_status: string | null; modelo: string; ambiente: string; emissao_status: string; nfe_status: string | null; serie: string | null; numero: string | null; chave_acesso: string | null; valor_total: number | string | null; autorizado_em: string | null; danfe_path: string | null; xml_path: string | null; referencia_externa: string; created_at: string };
 type Solicitacao = {
@@ -178,8 +178,13 @@ export default function FaturarOsPage() {
   const saldoDisponivel = num(saldo?.saldo);
   const ambito = cliente?.uf && cliente.uf.toUpperCase() === "SC" ? "INTERNA" : "INTERESTADUAL";
   const cfop = ambito === "INTERNA" ? "5101" : "6101";
-  const perfisVigentes = perfis.filter((p) => p.modelo !== "NFSE" && p.faixa_automacao !== "BLOQUEADO" && (!p.vigencia_fim || p.vigencia_fim >= new Date().toISOString().slice(0, 10)) && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101"));
-  const perfisBloqueados = perfis.filter((p) => p.modelo !== "NFSE" && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101") && !perfisVigentes.includes(p));
+  // A conferencia escolhe o perfil tambem pela destinacao declarada (17% consumidor final,
+  // 12% contribuinte que revende/usa como insumo/manutencao). Sem esse filtro o quadro
+  // mostraria os dois perfis 5101 como se qualquer um valesse para a nota em curso.
+  const perfisDoCfop = perfis.filter((p) => p.modelo !== "NFSE" && (ambito === "INTERNA" ? p.cfop_interno === "5101" : p.cfop_externo === "6101"));
+  const perfisVigentes = perfisDoCfop.filter((p) => p.faixa_automacao !== "BLOQUEADO" && (!p.vigencia_fim || p.vigencia_fim >= new Date().toISOString().slice(0, 10))
+    && (!destinacao || !p.destinacoes_mercadoria?.length || p.destinacoes_mercadoria.includes(destinacao)));
+  const perfisBloqueados = perfisDoCfop.filter((p) => !perfisVigentes.includes(p));
   const osInterna = useMemo(() => /segau/i.test(cliente?.razao_social ?? cliente?.nome ?? "") && /el[eé]trica/i.test(cliente?.razao_social ?? cliente?.nome ?? ""), [cliente]);
   const osCancelada = String(os?.status_fluxo ?? os?.status ?? "").toLowerCase() === "cancelada";
   const osFaturada = String(os?.status_fluxo ?? "").toLowerCase() === "faturada";
@@ -215,7 +220,7 @@ export default function FaturarOsPage() {
       setSaldo(saldoRow);
       const { data: notasData } = await supabase.schema("f").rpc("fn_os_notas", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osId });
       setNotas((notasData as Nota[] | null) ?? []);
-      const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,modelo,item_servico,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao,revisao_fiscal_em,codigo_tributacao_nacional,codigo_nbs,aliquota_iss,local_prestacao_regra,incidencia_iss_regra,iss_retido_regra,retencao_pcc_regra,retencao_irrf_regra,retencao_inss_regra,codigo_indicador_operacao,excecao_conserto_isolado,campos_conferir,permite_deducao_material").or("cfop_interno.eq.5101,cfop_externo.eq.6101,modelo.eq.NFSE").order("codigo");
+      const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,modelo,item_servico,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao,revisao_fiscal_em,codigo_tributacao_nacional,codigo_nbs,aliquota_iss,local_prestacao_regra,incidencia_iss_regra,iss_retido_regra,retencao_pcc_regra,retencao_irrf_regra,retencao_inss_regra,codigo_indicador_operacao,excecao_conserto_isolado,campos_conferir,permite_deducao_material,destinacoes_mercadoria,aliquota_icms").or("cfop_interno.eq.5101,cfop_externo.eq.6101,modelo.eq.NFSE").order("codigo");
       setPerfis((perfisData as Perfil[] | null) ?? []);
       const { data: ctxEmpresa } = await supabase.schema("f").rpc("fn_nfse_contexto_empresa", { p_empresa_id: empresaId });
       setEmpresaIbge((ctxEmpresa as { codigo_municipio_ibge?: string | null } | null)?.codigo_municipio_ibge ?? null);
@@ -606,10 +611,10 @@ export default function FaturarOsPage() {
         <h2 className="font-semibold">Operação</h2>
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <div className={label}>Perfil de NF-e vigente (industrialização, {ambito === "INTERNA" ? "dentro de SC" : "outra UF"})</div>
-            {perfisVigentes.length > 0 ? perfisVigentes.map((p) => <div key={p.id} className="mt-1 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-2 text-sm">{p.codigo} · {p.nome} {p.habilitado_producao ? <span className="text-xs text-emerald-300">produção</span> : <span className="text-xs text-zinc-400">homologação</span>}</div>) : (
+            <div className={label}>Perfil de NF-e vigente (industrialização, {ambito === "INTERNA" ? "dentro de SC" : "outra UF"}{destinacao ? `, ${DESTINACOES.find(([c]) => c === destinacao)?.[1] ?? destinacao}` : ""})</div>
+            {perfisVigentes.length > 0 ? perfisVigentes.map((p) => <div key={p.id} className="mt-1 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-2 text-sm">{p.codigo} · {p.nome} · ICMS {p.aliquota_icms ?? "?"}% {p.habilitado_producao ? <span className="text-xs text-emerald-300">produção</span> : <span className="text-xs text-zinc-400">homologação</span>}</div>) : (
               <div className="mt-1 space-y-1 rounded-md border border-amber-900/60 bg-amber-950/20 p-2 text-sm text-amber-100">
-                <div><strong>Nenhum perfil {cfop} vigente.</strong> A emissão em homologação usa a fixture provisória (NF-e 3527–3553 e 3766 de agosto/2026); produção continua bloqueada.</div>
+                <div><strong>Nenhum perfil {cfop} vigente{destinacao ? " para esta destinação" : ""}.</strong> A emissão em homologação usa a fixture provisória (NF-e 3527–3553 e 3766 de agosto/2026); produção continua bloqueada.</div>
                 {perfisBloqueados.slice(0, 3).map((p) => <div key={p.id} className="text-xs">{p.codigo} · {p.faixa_automacao} · {p.justificativa_faixa}</div>)}
                 {fixturePendencia ? <div className="text-xs">Falta do contador: {fixturePendencia}</div> : null}
               </div>
