@@ -43,11 +43,13 @@ insert into f.perfil_operacao_evidencia (
   divergencia_ipi, divergencia_fabricado_revenda, divergencia_cabo_beneficio
 )
 select e.tenant_id, e.id,
-  'regras-nfe-63-combinacoes.csv linha 20 (CFOP 5101, origem 0, CST 00, 12%) + carta da PORTOBELLO (Lei 17.878/2019) + OC 1311071 de 08/09/2026', 20,
+  'regras-nfe-63-combinacoes.csv linha 20 (CFOP 5101, origem 0, CST 00, 12%: 3 itens em 2 NF-e de agosto/2026) + carta da PORTOBELLO (Lei 17.878/2019) + OC 1311071 de 08/09/2026', 20,
   'VENDA INDUSTRIALIZACAO DENTRO ESTADO', '5101', 0, '000', '00',
-  12.0000, 0.0000, false, 0, 0,
+  -- Observacao real da linha 20 da matriz (mesma base da evidencia do CSV63-020): a
+  -- evidencia exige itens e notas observados maiores que zero.
+  12.0000, 0.0000, false, 3, 2,
   array['85371019','85372090','85389090','90328929'],
-  array[]::integer[],
+  array[3743, 3768],
   'Saida interna de producao propria para destinatario contribuinte do ICMS que declara revenda, insumo, manutencao ou consignado: 12% pela Lei 10.297/96, art. 19, III, "n", e Lei 17.878/2019. A carta da PORTOBELLO e a OC 1311071 ("COMPRA MANUT (ICMS)") listam manutencao entre as utilizacoes de 12% e recusam nota com aliquota divergente. Base cheia, sem cBenef: e aliquota, nao beneficio.',
   'REVISAO', 'Perfil de industrializacao a 12%; primeira nota assistida.',
   false, false, false
