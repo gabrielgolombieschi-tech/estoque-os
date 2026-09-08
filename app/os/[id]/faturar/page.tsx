@@ -155,7 +155,7 @@ export default function FaturarOsPage() {
   const [conferida, setConferida] = useState(false);
 
   const [criandoProduto, setCriandoProduto] = useState<number | null>(null);
-  const [novoProduto, setNovoProduto] = useState({ nome: "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "", cenq: "" });
+  const [novoProduto, setNovoProduto] = useState({ nome: "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "" });
   // Modelo da nota: NF-e (industrializacao) ou NFS-e (servico, perfil escolhido no cabecalho).
   const [operacaoSel, setOperacaoSel] = useState("NFE");
   const [versao, setVersao] = useState(0);
@@ -335,7 +335,7 @@ export default function FaturarOsPage() {
     try {
       const { data, error } = await supabase.rpc("criar_item_fabricado_da_os", {
         p_os_id: os.id, p_nome: novoProduto.nome, p_ncm: novoProduto.ncm, p_origem: novoProduto.origem === "" ? null : Number(novoProduto.origem),
-        p_unidade: novoProduto.unidade, p_cst_ipi: novoProduto.cst_ipi, p_aliquota_ipi: paraNumero(novoProduto.aliquota_ipi), p_cenq: novoProduto.cenq || null,
+        p_unidade: novoProduto.unidade, p_cst_ipi: novoProduto.cst_ipi, p_aliquota_ipi: paraNumero(novoProduto.aliquota_ipi), p_cenq: null,
       });
       if (error) throw error;
       const id = Number(data);
@@ -565,7 +565,7 @@ export default function FaturarOsPage() {
             <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
               <input className={field} value={linha.busca} onChange={(e) => atualizarLinha(linha.chave, { busca: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void buscarProduto(linha.chave); } }} placeholder="Buscar produto fabricado no cadastro (código ou nome)" />
               <button type="button" className={botao} onClick={() => void buscarProduto(linha.chave)}>Buscar</button>
-              <button type="button" className={botao} onClick={() => { setCriandoProduto(linha.chave); setNovoProduto({ nome: linha.descricao || os?.descricao_servico || "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "", cenq: "" }); }}>Criar da OS</button>
+              <button type="button" className={botao} onClick={() => { setCriandoProduto(linha.chave); setNovoProduto({ nome: linha.descricao || os?.descricao_servico || "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "" }); }}>Criar da OS</button>
             </div>
             {linha.produto ? <div className="rounded-md bg-zinc-900 px-3 py-2 text-xs text-zinc-300">Produto: <strong>{linha.produto.codigo}</strong> · {linha.produto.nome} <button type="button" className="ml-2 text-zinc-500 hover:text-zinc-200" onClick={() => atualizarLinha(linha.chave, { produto: null })}>desvincular</button></div> : <div className="text-xs text-amber-300">Sem produto vinculado. A NF-e exige produto com NCM, origem e unidade tributável.</div>}
             {linha.resultados.length > 0 ? <div className="max-h-40 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900">{linha.resultados.map((p) => <button key={p.id} type="button" className="block w-full px-3 py-1.5 text-left text-xs hover:bg-zinc-800" onClick={() => atualizarLinha(linha.chave, { produto: p, resultados: [], busca: "" })}>{p.codigo} · {p.nome}</button>)}</div> : null}
@@ -586,7 +586,8 @@ export default function FaturarOsPage() {
                   <label className={label}>Unidade tributável<input className={field} value={novoProduto.unidade} onChange={(e) => setNovoProduto({ ...novoProduto, unidade: e.target.value })} /></label>
                   <label className={label}>CST IPI<select className={field} value={novoProduto.cst_ipi} onChange={(e) => setNovoProduto({ ...novoProduto, cst_ipi: e.target.value })}><option value="">Confirme...</option><option value="50">50 · Saída tributada</option><option value="51">51 · Saída tributável com alíquota zero</option><option value="52">52 · Saída isenta</option><option value="53">53 · Saída não tributada</option><option value="54">54 · Saída imune</option><option value="55">55 · Saída com suspensão</option><option value="99">99 · Outras saídas</option></select></label>
                   <label className={label}>Alíquota IPI (%){novoProduto.cst_ipi === "50" || novoProduto.cst_ipi === "99" ? " · obrigatória" : ""}<input className={field} inputMode="decimal" value={novoProduto.aliquota_ipi} onChange={(e) => setNovoProduto({ ...novoProduto, aliquota_ipi: e.target.value })} placeholder="9,75" /></label>
-                  <label className={label}>cEnq (opcional, padrão 999)<input className={field} value={novoProduto.cenq} onChange={(e) => setNovoProduto({ ...novoProduto, cenq: e.target.value })} /></label>
+                  {/* cEnq nao entra no cadastro do item: e do perfil de operacao (fixture 5101 usa 999) e o
+                      trigger tg_fiscal_item_bloquear_cenq_produto recusa qualquer valor em fiscal_itens. */}
                 </div>
                 <div className="flex gap-2"><button type="button" className="rounded-md bg-sky-600 px-3 py-2 text-sm text-white hover:bg-sky-500 disabled:opacity-40" disabled={ocupado} onClick={() => void criarProdutoDaOs(linha.chave)}>Criar e vincular</button><button type="button" className={botao} onClick={() => setCriandoProduto(null)}>Cancelar</button></div>
               </div>
