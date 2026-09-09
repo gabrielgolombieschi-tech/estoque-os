@@ -1,0 +1,10 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "lote": "005-cinquenta-itens",
+  "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a",
+  "status": "aprovado",
+  "data": "2026-09-09",
+  "mensagem_usuario": "PODE SEGUIR...",
+  "escopo": "Aplicar os 50 nomes e descrições do lote 005 apresentado, mantendo os demais campos. Preparar os próximos 50 apenas para aprovação."
+}

@@ -1,14 +1,14 @@
 # Lote 005 — 50 itens
 
-AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO
+APLICADO E VERIFICADO
 
 Data da revisão: 2026-09-07. Escopo: tenant 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa f0e74f49-a127-46b4-901b-f7b37e43c690.
 
-50 Siemens: 9 disjuntores-motor, 9 relés de sobrecarga, 4 contatores auxiliares, 9 acessórios de contatores, 15 acessórios de disjuntores-motor e 4 acessórios de minidisjuntores. Alterações somente em nome e descrição complementar. A tabela é uma proposta: nenhum destes 50 foi alterado por este lote.
+50 Siemens: 9 disjuntores-motor, 9 relés de sobrecarga, 4 contatores auxiliares, 9 acessórios de contatores, 15 acessórios de disjuntores-motor e 4 acessórios de minidisjuntores. Alterações somente em nome e descrição complementar. Todos os 50 foram aplicados e verificados.
 
 Grupo, código, fabricante, fornecedor, unidades, multiplicadores, preço, saldo e dados fiscais permanecem iguais. Cada comparação usa o cadastro real capturado, não um exemplo inventado.
 
-Para aprovar: informe “aprovo o lote 005” ou indique os IDs e ajustes desejados. Antes de aplicar, reconferir alterações concorrentes; este relatório não autoriza lotes seguintes. A ficha atual não substitui a conferência da placa/versão física para dimensionamento.
+As fontes técnicas e os registros de aplicação estão vinculados por ID. A ficha não substitui a conferência da placa/versão do item físico para dimensionamento.
 
 Pontos para sua atenção: ID 2902 passa de 9-12A para 9-12,5A conforme ficha exata; ID 917 passa de 690V para IEC 1000VCA/1500VCC, com limite UL separado no complemento; ID 1621 recebe somente os dados disponíveis, sem inventar tensão/conexão/rearme. Os barramentos 802/806/810 não recebem tensão ausente na fonte. Aprovação é das alterações propostas, não certificação de todos os atributos possíveis.
 
@@ -16,7 +16,7 @@ Fora destes 50: IDs 955, 966 e 918 tiveram ficha indisponível nesta consulta; I
 
 ## Antes e depois dos 50
 
-| Nº | ID / código | Antes | Depois proposto |
+| Nº | ID / código | Antes | Depois aplicado |
 | ---: | --- | --- | --- |
 | 1 | 185<br>3RV20214DA10 | DISJUNTOR MOTOR 18-25A CONEXÃO POR PARAFUSO | DISJUNTOR MOTOR 3P AJUSTE 18-25A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO |
 | 2 | 749<br>3RV20214PA10 | DISJUNTOR MOTOR 30-36A CONEXÃO POR PARAFUSO | DISJUNTOR MOTOR 3P AJUSTE 30-36A CLASSE 10 ICU 20kA EM 400VCA CONEXÃO POR PARAFUSO |
@@ -577,4 +577,4 @@ Assinatura SHA-256 do manifesto: e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfb
 
 Manifesto: lote-005-cinquenta-itens.json.
 
-Eventos de aplicação confirmados: 0.
+Eventos de aplicação confirmados: 50.

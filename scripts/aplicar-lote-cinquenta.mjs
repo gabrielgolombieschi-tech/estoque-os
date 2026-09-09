@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { tenantId, empresaId, diretorio, impressaoTecnica } from "./lib/controle-revisoes.mjs";
 import { validarCinquenta, exigirAutorizacao, planejarCinquenta, conferirCinquenta, assinatura } from "./lib/lotes-cinquenta.mjs";
 const numero = process.argv.find((a) => a.startsWith("--lote="))?.slice(7) ?? "003";
-assert.ok(["003", "004", "005"].includes(numero));
+assert.ok(["003", "004", "005", "006"].includes(numero));
 const m = JSON.parse(fs.readFileSync(`${diretorio}/lote-${numero}-cinquenta-itens.json`, "utf8"));
 validarCinquenta(m);
 const aplicar = process.argv.includes("--apply");

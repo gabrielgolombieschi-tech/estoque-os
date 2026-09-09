@@ -4,7 +4,9 @@ import yaml from "js-yaml";
 import { diretorio, impressaoTecnica, situacaoRevisao } from "./lib/controle-revisoes.mjs";
 import { validarCinquenta, exigirAutorizacao, planejarCinquenta, conferirCinquenta, assinatura } from "./lib/lotes-cinquenta.mjs";
 const ler = (n) => JSON.parse(fs.readFileSync(`${diretorio}/lote-${n}-cinquenta-itens.json`, "utf8"));
-const m3 = ler("003"), m4 = ler("004"), m5 = ler("005");
+const m3 = ler("003"), m4 = ler("004"), m5 = ler("005"), m6 = ler("006");
+assert.equal(assinatura(m6), "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d");
+assert.equal(new Set([...m3.itens,...m4.itens,...m5.itens,...m6.itens].map(i => i.id)).size,200);
 assert.equal(assinatura(m3), "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58");
 assert.equal(assinatura(m4), "8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26");
 const anteriores = fs.readdirSync(diretorio).filter((n) => /^eventos-00[12]-/.test(n)).flatMap((n) => JSON.parse(fs.readFileSync(`${diretorio}/${n}`, "utf8")));
@@ -20,8 +22,22 @@ assert.throws(() => exigirAutorizacao(m4, { ...aprovacao, empresa_id: "outra" })
 assert.throws(() => exigirAutorizacao(m4, { ...aprovacao, assinatura_lote: assinatura(m3) }));
 assert.throws(() => exigirAutorizacao({ ...m4, data: "outra" }, aprovacao), /mudou após aprovação/);
 assert.throws(() => exigirAutorizacao(m5), /aprovação humana/);
-assert.throws(() => exigirAutorizacao(m5, { ...aprovacao, lote: m5.lote, assinatura_lote: assinatura(m5) }), /aprovação humana/);
-for (const m of [m3, m4, m5]) {
+assert.throws(() => exigirAutorizacao(m5, aprovacao));
+const aprovacao5 = JSON.parse(fs.readFileSync(`${diretorio}/aprovacao-005.json`, "utf8"));
+exigirAutorizacao(m5, aprovacao5);
+assert.throws(() => exigirAutorizacao(m5, { ...aprovacao5, empresa_id: "outra" }));
+assert.throws(() => exigirAutorizacao({ ...m5, data: "alterada" }, aprovacao5), /mudou após aprovação/);
+assert.throws(() => exigirAutorizacao(m6), /006 aguarda aprovação/);
+assert.throws(() => exigirAutorizacao({...m6,autorizacao:m3.autorizacao}, {...aprovacao5,lote:m6.lote,assinatura_lote:assinatura(m6)}), /006 aguarda aprovação/);
+assert.ok(m6.itens.every(i => !anteriores.some(e => e.item_id === i.id)));
+assert.ok(!fs.existsSync(`${diretorio}/eventos-${m6.lote}.json`));
+for (const i of m6.itens) {
+  const pdf = fs.readFileSync(`backups/fontes-lote-006/${i.id}.pdf`);
+  assert.equal(pdf.subarray(0,5).toString(),"%PDF-");
+  // Evidência pública preservada, proposta não altera histórico aprovado.
+  assert.equal((await import("node:crypto")).createHash("sha256").update(pdf).digest("hex"),i.evidencia.sha256);
+}
+for (const m of [m3, m4, m5, m6]) {
   validarCinquenta(m);
   const atuais = m.itens.map((i) => i.antes);
   const plano = planejarCinquenta(m, atuais);
@@ -54,7 +70,7 @@ assert.match(m4.itens.find((i) => i.id === 246).descricao_tecnica, /Ics 30kA/);
 const catalogo = yaml.load(fs.readFileSync("docs/padroes-cadastro/catalogo-paineis-eletricos.yaml", "utf8"));
 assert.equal(catalogo.historico_decisoes.filter((d) => d.id === "D-039").length, 1);
 assert.equal(catalogo.historico_decisoes.filter((d) => d.id === "D-040").length, 1);
-assert.match(catalogo.regras_cadastro_assistido.protecao_confirmada_lote_004.limite_aprendizado, /005 é proposta/);
+assert.match(catalogo.regras_cadastro_assistido.protecao_e_acessorios_confirmados_lote_005.limite, /006 não são exemplos humanos aprovados/);
 assert.ok(!m5.itens.some((i) => [955,966,918,1541].includes(i.id)));
 assert.match(m5.itens.find((i) => i.id === 2902).nome, /9-12,5A/);
 assert.match(m5.itens.find((i) => i.id === 749).descricao_tecnica, /Icu 20kA e Ics 10kA/);
@@ -62,4 +78,8 @@ assert.match(m5.itens.find((i) => i.id === 2898).nome, /DIODOS 12-250VCC/);
 assert.match(m5.itens.find((i) => i.id === 1399).nome, /PARA 3RT2\.1\/3RH2$/);
 assert.equal(m5.itens.find((i) => i.id === 1621).atributos_nao_confirmados.length, 3);
 assert.match(catalogo.regras_cadastro_assistido.revisao_em_lotes_de_cinquenta.fluxo, /aguardar aprovação humana explícita/);
-console.log("OK: 150 IDs distintos, lotes 003/004 autorizados, 005 bloqueado, idempotência, CAS, campos protegidos e especificações condicionadas.");
+assert.equal(catalogo.historico_decisoes.filter(d => d.id === "D-041").length,1);
+assert.equal(m6.itens.filter(i => i.familia === "BASES_FUSIVEIS_NH").length,4);
+assert.match(m6.itens.find(i => i.id === 964).nome,/ESPELHO FRONTAL PRETO IP66/);
+assert.match(m6.itens.find(i => i.id === 772).nome,/41A/);
+console.log("OK: 200 IDs distintos, lotes 003/004/005 autorizados por conteúdo exato, 006 bloqueado, PDFs íntegros, idempotência, CAS e campos protegidos.");

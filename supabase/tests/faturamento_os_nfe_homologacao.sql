@@ -161,8 +161,10 @@ begin
   if (select pedido_compra from public.ordens_servico where id = 915300) <> '749919' then
     raise exception 'Pedido de compra nao foi gravado na OS.';
   end if;
+  -- Reserva na mesma moeda do faturado (migration 20260909120000): 600 de mercadoria
+  -- + 9,75% de IPI da fixture = 658,50, sobrando 341,50 do pedido de 1000.
   select * into v_s from f.fn_os_saldo_a_faturar('15300000-0000-4000-8000-000000000001', '15300000-0000-4000-8000-000000000002', 915300);
-  if v_s.valor_reservado <> 600 or v_s.saldo <> 400 then
+  if v_s.valor_reservado <> 658.50 or v_s.saldo <> 341.50 then
     raise exception 'Saldo apos rascunho conferido incorreto: %', row_to_json(v_s);
   end if;
 
@@ -177,7 +179,7 @@ begin
 end;
 $conferir_a$;
 
--- Rascunho B: 500 (acima do saldo de 400). A conferencia bloqueia antes de qualquer envio.
+-- Rascunho B: 500 (acima do saldo de 341,50). A conferencia bloqueia antes de qualquer envio.
 update ctx set sol_b = f.fn_solicitacao_faturamento_criar_os_livre(
   '15300000-0000-4000-8000-000000000001', '15300000-0000-4000-8000-000000000002', 915300,
   jsonb_build_array(jsonb_build_object('descricao', 'EXCEDENTE', 'quantidade', 1, 'unidade', 'UN', 'valor_unitario', 500, 'item_id', (select item_id from ctx))),
@@ -273,7 +275,7 @@ begin
     raise exception 'Homologacao criou titulo financeiro.';
   end if;
   select * into v_s from f.fn_os_saldo_a_faturar('15300000-0000-4000-8000-000000000001', '15300000-0000-4000-8000-000000000002', 915300);
-  if v_s.valor_faturado <> 0 or v_s.valor_reservado <> 600 or v_s.saldo <> 400 then
+  if v_s.valor_faturado <> 0 or v_s.valor_reservado <> 658.50 or v_s.saldo <> 341.50 then
     raise exception 'Saldo apos autorizacao em homologacao incorreto: %', row_to_json(v_s);
   end if;
   if (select count(*) from f.fn_os_notas('15300000-0000-4000-8000-000000000001', '15300000-0000-4000-8000-000000000002', 915300)) <> 1 then

@@ -1,4 +1,4 @@
-versao_padrao: "1.28.0"
+versao_padrao: "1.29.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -18,6 +18,17 @@ campos_erp:
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
+  protecao_e_acessorios_confirmados_lote_005:
+    decisao: D-041
+    origem: "50 itens do lote 005 aprovados em 09/09/2026, aplicados e relidos. Aprovação vinculada ao manifesto em revisoes/aprovacao-005.json. Lotes seguintes não estão autorizados."
+    contatores_auxiliares: "Distinguir contator auxiliar de contator de potência: exigir composição NA/NF, bobina CA/CC, frequência para CA, tamanho e conexão confirmados. Não chamar contatos de comando de polos AC-3."
+    reles_sobrecarga: "Registrar natureza térmica quando confirmada, polos, ajuste, classe, tamanho, conexão principal/auxiliar e rearme documentados. CLASSE 10A não é corrente de 10A. Relé de sobrecarga não substitui proteção contra curto-circuito. No 3US5000-1C, a ficha resumida confirma ajuste, classe, auxiliares e compatibilidade, mas não tensão/conexão/rearme: manter essas lacunas explícitas, sem preencher por similaridade."
+    acessorios: "Exigir função, montagem, conexão e compatibilidade exata; capacidades elétricas somente quando aplicáveis e documentadas. Em contatos auxiliares, sempre associar corrente, categoria e tensão: AC-12 10A não equivale a AC-15 6A em 230VCA. Bloco 3RH2911-1FA04 tem compatibilidade 3RT2.1/3RH2, não toda a série 3RT2."
+    distribuicao: "Em barramentos separar polos de quantidade de dispositivos e informar passo, conexão e alimentação. Em bornes, distinguir seção de condutor maciço/encordoado de flexível com terminal. Bases de montagem não têm bobina. Não atribuir IP20 sem respeitar condições da ficha. Classificações IEC e UL não são intercambiáveis."
+    divergencias: "Ficha com conflito interno exige nova evidência, sem escolher silenciosamente uma das versões: 3RV2011-1KA20 permanece fora do lote. Para o 3RV2011-1KA10 aprovado, a ficha exata confirma 9-12,5A. HTTP 404 em um serviço não prova inexistência ou descontinuação do produto."
+    exemplo_supressor: "SUPRESSOR DE SURTO COMBINAÇÃO DE DIODOS 12-250VCC PARA 3RT2.1/3RH2 S00"
+    exemplo_rele: "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,8-2,5A CLASSE 10 S00 CONEXÃO POR MOLA"
+    limite: "Aprovação refere-se às alterações documentadas; atributos explicitamente não confirmados continuam não confirmados. Propostas do lote 006 não são exemplos humanos aprovados."
   protecao_confirmada_lote_004:
     decisao: D-040
     origem: "Lote 004 aprovado pelo usuário em 07/09/2026, aplicado e relido: 35 minidisjuntores WEG e 15 disjuntores-motor Siemens. Aprovação vinculada à assinatura do manifesto em revisoes/aprovacao-004.json."
@@ -26,7 +37,7 @@ regras_cadastro_assistido:
     criterio_disjuntores_motor: "DISJUNTORES_MOTOR:1"
     exemplo_weg: "DISJUNTOR MINI 1P CURVA C 2A ICN 1,5kA EM 230/400VCA MDW-C2"
     exemplo_motor: "DISJUNTOR MOTOR 3P AJUSTE 10-16A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO"
-    limite_aprendizado: "Somente o lote 004 foi aprovado nesta rodada. O lote 005 é proposta separada, sem aplicação e sem exemplos humanos aprovados neste padrão."
+    limite_aprendizado: "A aprovação do lote 004 não se estende a outros lotes. O lote 005 recebeu aprovação própria, posteriormente registrada na D-041."
   revisao_em_lotes_de_cinquenta:
     decisao: D-039
     fluxo: "Aplicar os primeiros 50 autorizados e apresentar outros 50 antes/depois, sem gravá-los. Nos lotes seguintes, aguardar aprovação humana explícita; correção solicitada altera a proposta e exige nova conferência. Não interpretar aprovação de um lote como autorização dos posteriores."
@@ -1335,6 +1346,10 @@ termos_ambiguos_pendentes:
     observacao: "D-039 confirma a capacidade das 40 referências 5SL1 do lote 003 pela tabela exata Siemens, páginas 8-9. Demais referências/variantes e conflitos de identidade continuam sujeitos a conferência; não extrapolar a série por semelhança."
 
 historico_decisoes:
+  - id: D-041
+    data: "2026-09-09"
+    status: aplicado
+    decisao: "Aplicados e verificados os 50 do lote 005 após aprovação humana. Incorporados modelos e regras de relés, contatores auxiliares e acessórios ao padrão ativo, preservando lacunas documentais explícitas. Fontes e antes/depois por ID; nenhum atributo não confirmado passa a confirmado por aprovação do lote. Próximo lote exige nova aprovação."
   - id: D-040
     data: "2026-09-07"
     status: aplicado

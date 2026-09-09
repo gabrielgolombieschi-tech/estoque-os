@@ -167,7 +167,10 @@ insert into public.ordens_servico (
   'em_andamento', 910001,
   '10000000-0000-4000-8000-000000000001',
   '20000000-0000-4000-8000-000000000001',
-  'em_andamento', 'OV', 'OV-SEGTESTE-00001-026', 1, 200
+  -- Orcado = pedido do cliente, com IPI: 200 de mercadoria + 5% = 210, que e o vNF
+  -- da nota de producao deste cenario. E assim que o saldo zera desde a migration
+  -- 20260909120000.
+  'em_andamento', 'OV', 'OV-SEGTESTE-00001-026', 1, 210
 );
 
 insert into public.os_itens (

@@ -1,0 +1,17 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-09",
+  "status": "pesquisa_adiada_sem_alteracao_no_ERP",
+  "itens": [
+    {"id":1620,"motivo":"Ficha resumida insuficiente para completar polos e conexões com segurança; excluído da proposta 006."},
+    {"id":2459,"codigo":"5TW00880","motivo":"Endpoint oficial de ficha técnica retornou HTTP 404; não prova inexistência do produto. Excluído da proposta 006."}
+  ],
+  "ressalvas_dentro_da_proposta_006": [
+    {"ids":[195,196,197,198],"motivo":"Bases NH: fichas atuais EN/PT confirmam tamanho, corrente e versão TP, mas não tensão 690VCA do cadastro anterior, polos ou conexão. Revisão parcial; proposta de retirar tensão do nome e preservar sua origem no complemento, sujeita à aprovação."},
+    {"ids":[942],"motivo":"35mm do cadastro anterior não confirmado na ficha atual do adaptador DIN."},
+    {"ids":[953],"motivo":"Ficha diverge em Icu/Ics para 500V; proposta utiliza somente os valores confirmados em 400VCA."},
+    {"ids":[2992],"motivo":"Material e IP da tampa não informados; não inferidos."}
+  ],
+  "retomada":"Buscar nova fonte oficial ou placa/versão física; não repetir mesma consulta sem evidência adicional. Proposta não equivale a aprovação nem certificação completa."
+}

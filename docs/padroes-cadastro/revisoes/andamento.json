@@ -1,19 +1,19 @@
 {
-  "consultado_em": "2026-09-07T22:44:57.450Z",
+  "consultado_em": "2026-09-09T13:18:45.888Z",
   "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
   "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
-  "total": 3598,
-  "ativos": 3541,
-  "materias_primas": 3129,
+  "total": 3639,
+  "ativos": 3582,
+  "materias_primas": 3143,
   "contagens": {
-    "aprovado": 138,
+    "aprovado": 188,
     "pendente": 2,
     "reavaliar": 0,
-    "historico_recuperado": 333,
-    "historico_informado": 764,
-    "nao_revisado": 2361
+    "historico_recuperado": 329,
+    "historico_informado": 718,
+    "nao_revisado": 2402
   },
-  "avaliados_minimo_sem_duplicidade": 473,
+  "avaliados_minimo_sem_duplicidade": 519,
   "campanha_agrupados": {
     "total": 104,
     "aprovados": 25,
@@ -1302,6 +1302,12 @@
       "avaliados": 50,
       "aprovados": 50,
       "pendentes": 0
+    },
+    {
+      "lote": "005-cinquenta-itens",
+      "avaliados": 50,
+      "aprovados": 50,
+      "pendentes": 0
     }
   ],
   "propostas_nao_aplicadas": {
@@ -1310,403 +1316,403 @@
     "desatualizadas": 0,
     "registros": [
       {
-        "id": 185,
-        "codigo": "3RV20214DA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 18-25A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 18-25A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 231,
+        "codigo": "3VM10803ED320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 80A 25kA 380V",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 80A ICU 25kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 749,
-        "codigo": "3RV20214PA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 30-36A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 30-36A CLASSE 10 ICU 20kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 720,
+        "codigo": "3VM10633ED320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 63A 25kA 380V",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 63A ICU 25kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 752,
-        "codigo": "3RV20214NA20",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 23-28A CONEXÃO POR MOLA",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 23-28A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
+        "id": 733,
+        "codigo": "3VM12165MH320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 160A 55kA 380V",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA MAGNÉTICO 3P 160A ICU 55kA EM 415VCA SEM PROTEÇÃO TÉRMICA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 771,
-        "codigo": "3RV20314UA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 32-40A CLASSE 10 ICU 65kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 815,
+        "codigo": "3VM10102ED320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 100A 16kA 380V",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 100A ICU 16kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 794,
-        "codigo": "3RV20214EA20",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 27-32A CONEXÃO POR MOLA",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
+        "id": 935,
+        "codigo": "3VM10632ED320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 63A 16kA 380V",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 63A ICU 16kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 936,
-        "codigo": "3RV20110JA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 0,7-1A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 0,7-1A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 960,
+        "codigo": "3VT27252AA360AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 250A 36kA SEM DISPARADOR",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA 3P 250A ICU 36kA EM 415VCA SEM UNIDADE DE DISPARO 3VT2",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1089,
-        "codigo": "3RV20214EA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 27-32A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 3227,
+        "codigo": "3VJ12201DA320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 200A 18kA 380V FIXO",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 200A ICU 18kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 2902,
-        "codigo": "3RV20111KA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 9-12A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 9-12,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 3228,
+        "codigo": "3VJ13403DA320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 400A 25kA 380V FIXO",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 400A ICU 25kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 2945,
-        "codigo": "3RV20110KA10",
-        "lote": "005-cinquenta-itens",
-        "antes": "DISJUNTOR MOTOR 0,9-1,25A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 0,9-1,25A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+        "id": 3229,
+        "codigo": "3VJ12163DA220AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 2P 160A 25kA 380V FIXO",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 2P 160A ICU 25kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 247,
-        "codigo": "3RU21161HB0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 5,5-8A TAMANHO S00 CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 5,5-8A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+        "id": 3289,
+        "codigo": "3VJ12161DA320AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR CAIXA MOLDADA 3P 160A 18kA 380V FIXO",
+        "depois_proposto": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 160A ICU 18kA EM 415VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 753,
-        "codigo": "3RU21261KB0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 9-12,5A TAMANHO S0 CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 9-12,5A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+        "id": 3441,
+        "codigo": "3WJ11162AE020AA0",
+        "lote": "006-cinquenta-itens",
+        "antes": "Disjuntor aberto 3P 1600A 50kA",
+        "depois_proposto": "DISJUNTOR ABERTO FIXO 3P 1600A ICU 50kA EM 440VCA PROTEÇÃO LSI CONEXÃO TRASEIRA HORIZONTAL",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 766,
-        "codigo": "3RU21264AB0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 11-16A TAMANHO S0 CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 11-16A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+        "id": 232,
+        "codigo": "3VM91170FK25",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACIONAMENTO ROTATIVO EXTERNO DE EMERGÊNCIA PARA DISJUNTOR CAIXA MOLDADA 3P",
+        "depois_proposto": "ACIONAMENTO ROTATIVO DE PORTA EMERGÊNCIA IP65 COM INTERTRAVAMENTO PARA 3VM10/11",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 767,
-        "codigo": "3RU21160JB0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 0,7-1A TAMANHO S00 CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 0,7-1A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+        "id": 734,
+        "codigo": "3VA96870FK25",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACIONAMENTO ROTATIVO EXTERNO DE EMERGÊNCIA PARA DISJUNTOR CAIXA MOLDADA 1000A",
+        "depois_proposto": "ACIONAMENTO ROTATIVO DE PORTA EMERGÊNCIA IP65 COM INTERTRAVAMENTO PARA 3VA15/25/26",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 796,
-        "codigo": "3RU21161CC0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 1,8-2,5A TAMANHO S00",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,8-2,5A CLASSE 10 S00 CONEXÃO POR MOLA",
+        "id": 817,
+        "codigo": "3VT91003HC10",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACOPLADOR PARA ACIONAMENTO ROTATIVO LATERAL ESQUERDO PARA DISJUNTOR CAIXA MOLDADA",
+        "depois_proposto": "MECANISMO ROTATIVO LATERAL ESQUERDO SEM MANOPLA E SEM TRAVA PARA VT160",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 797,
-        "codigo": "3RU21261JC0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 7-10A TAMANHO S0",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 7-10A CLASSE 10 S0 CONEXÃO POR MOLA",
+        "id": 937,
+        "codigo": "3VA91570PK15",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACIONAMENTO ROTATIVO LATERAL PARA DISJUNTORES CAIXA MOLDADA 3VA1 (100A / 160A)",
+        "depois_proposto": "ACIONAMENTO ROTATIVO LATERAL EMERGÊNCIA IP65 PARA 3VA10/11",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1621,
-        "codigo": "3US50001C",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 1,6-2,5A",
-        "depois_proposto": "RELÉ DE SOBRECARGA AJUSTE 1,6-2,5A CLASSE 10A 1NA+1NF PARA 3TS29-32/3TB39-41",
+        "id": 942,
+        "codigo": "3VT91004PP30",
+        "lote": "006-cinquenta-itens",
+        "antes": "ADAPTADOR PARA TRILHO DIN 35mm PARA DISJUNTOR CAIXA MOLDADA",
+        "depois_proposto": "ADAPTADOR DE MONTAGEM EM TRILHO DIN PARA DISJUNTOR VT160",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1632,
-        "codigo": "3RU21161BB0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 1,4-2A TAMANHO S00 CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,4-2A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+        "id": 961,
+        "codigo": "3VT92256AB00",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISPARADOR DE SOBRECORRENTE PARA DISJUNTOR CAIXA MOLDADA 250A",
+        "depois_proposto": "UNIDADE DE DISPARO ELETRÔNICA ETU LI 3P IR 250A IRM 4IR PARA VT250",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 2903,
-        "codigo": "3RU21261EB0",
-        "lote": "005-cinquenta-itens",
-        "antes": "RELÉ DE SOBRECARGA 2,8-4A TAMANHO S0 CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 2,8-4A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+        "id": 962,
+        "codigo": "3VT92003HA10",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACOPLADOR PARA ACIONAMENTO ROTATIVO PARA DISJUNTOR CAIXA MOLDADA",
+        "depois_proposto": "MECANISMO ROTATIVO FRONTAL SEM MANOPLA E SEM TRAVA PARA VT250",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 213,
-        "codigo": "3RH21311BB40",
-        "lote": "005-cinquenta-itens",
-        "antes": "CONTATOR AUXILIAR 3NA+1NF 24VCC CONEXÃO POR PARAFUSO",
-        "depois_proposto": "CONTATOR AUXILIAR 3NA+1NF BOBINA 24VCC S00 CONEXÃO POR PARAFUSO",
+        "id": 963,
+        "codigo": "3VT93003HF20",
+        "lote": "006-cinquenta-itens",
+        "antes": "MANOPLA VERMELHA PARA ACIONAMENTO ROTATIVO DE DISJUNTOR CAIXA MOLDADA 3VT2 250A",
+        "depois_proposto": "MANOPLA VERMELHA/AMARELA COM TRAVA PARA VT250/VT630",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 245,
-        "codigo": "3RH21311AN20",
-        "lote": "005-cinquenta-itens",
-        "antes": "CONTATOR AUXILIAR 3NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
-        "depois_proposto": "CONTATOR AUXILIAR 3NA+1NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+        "id": 964,
+        "codigo": "3VT93003HG20",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACOPLADOR PARA ACIONAMENTO ROTATIVO EM PORTA DE PAINEL IP66 PARA DISJUNTOR CAIXA MOLDADA",
+        "depois_proposto": "ESPELHO FRONTAL PRETO IP66 PARA MANOPLA VT250/VT630",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 759,
-        "codigo": "3RH21221AN20",
-        "lote": "005-cinquenta-itens",
-        "antes": "CONTATOR AUXILIAR 2NA+2NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
-        "depois_proposto": "CONTATOR AUXILIAR 2NA+2NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+        "id": 1205,
+        "codigo": "3VM91170FK21",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACIONAMENTO ROTATIVO EXTERNO PARA DISJUNTOR CAIXA MOLDADA 3P",
+        "depois_proposto": "ACIONAMENTO ROTATIVO DE PORTA PADRÃO IP65 COM INTERTRAVAMENTO PARA 3VM10/11",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 788,
-        "codigo": "3RH21221AF00",
-        "lote": "005-cinquenta-itens",
-        "antes": "CONTATOR AUXILIAR 2NA+2NF 110V 50/60Hz CONEXÃO POR PARAFUSO",
-        "depois_proposto": "CONTATOR AUXILIAR 2NA+2NF BOBINA 110VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+        "id": 1206,
+        "codigo": "3VM91130QE00",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONEXÃO TRASEIRA PLANA 3P PARA DISJUNTOR CAIXA MOLDADA",
+        "depois_proposto": "TERMINAL PLANO DE CONEXÃO TRASEIRA PARA 3VM10/11 CONJUNTO 3 PEÇAS",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 180,
-        "codigo": "3RH29111HA22",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF CONEXÃO POR PARAFUSO PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+        "id": 3230,
+        "codigo": "3VJ92180HD11",
+        "lote": "006-cinquenta-itens",
+        "antes": "ACIONAMENTO ROTATIVO EXTERNO COMPLETO PARA DISJUNTOR CAIXA MOLDADA",
+        "depois_proposto": "ACIONAMENTO ROTATIVO DE PORTA PADRÃO IP65 COM INTERTRAVAMENTO PARA 3VJ12 250A",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 181,
-        "codigo": "3RH29111HA11",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF CONEXÃO POR PARAFUSO PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+        "id": 241,
+        "codigo": "3RT10566AP36",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR 3P AC-3 185A 2NA+2NF 220-240VCA/CC 50/60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR 3P AC-3 185A EM 400VCA 2NA+2NF BOBINA 220-240VCA/CC 50/60Hz EM CA POTÊNCIA BARRAMENTO COMANDO PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 193,
-        "codigo": "3RH29111FA40",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR PARAFUSO PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+        "id": 257,
+        "codigo": "3RT10541AF36",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR 3P AC-3 115A 2NA+2NF 110-127VCA/CC 50/60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR 3P AC-3 115A EM 400VCA 2NA+2NF BOBINA 110-127VCA/CC 50/60Hz EM CA POTÊNCIA BORNE TIPO CAIXA COMANDO PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 748,
-        "codigo": "3RT19564G",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE TERMINAIS PARA CONTATOR TAMANHO S6 ATÉ 120mm²",
-        "depois_proposto": "BLOCO DE TERMINAIS TIPO CAIXA ATÉ 120mm² PARA 3RT1/3RB2 S6",
+        "id": 772,
+        "codigo": "3RT20353AK60",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR AC-3 40A 1NA+1NF 120V 60Hz CONEXÃO POR MOLA",
+        "depois_proposto": "CONTATOR 3P AC-3 41A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 820,
-        "codigo": "3RH29112FA40",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR MOLA PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
+        "id": 775,
+        "codigo": "3RT20463AN20",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR AC-3 95A 1NA+1NF 220V 50/60Hz",
+        "depois_proposto": "CONTATOR 3P AC-3 95A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 916,
-        "codigo": "5ST3768",
-        "lote": "005-cinquenta-itens",
-        "antes": "BORNE ISOLADO PARA BARRAMENTO COM CONEXÃO LATERAL",
-        "depois_proposto": "BORNE DE ALIMENTAÇÃO CURTO ATÉ 25mm² 690VCA PARA BARRAMENTO TIPO PINO",
+        "id": 791,
+        "codigo": "3RT25361AK60",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR 4P AC-3 41A 2NA+2NF 120V 60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR 4P AC-3 41A EM 400VCA PRINCIPAIS 2NA+2NF AUX 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1048,
-        "codigo": "3RH19211CA01",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF CONEXÃO POR PARAFUSO PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT1",
+        "id": 807,
+        "codigo": "3RT10566AF36",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR 3P AC-3 185A 2NA+2NF 110-127VCA/CC 50/60Hz CONEXÃO POR PARAFUSO",
+        "depois_proposto": "CONTATOR 3P AC-3 185A EM 400VCA 2NA+2NF BOBINA 110-127VCA/CC 50/60Hz EM CA POTÊNCIA BARRAMENTO COMANDO PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1399,
-        "codigo": "3RH29111FA04",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF CONEXÃO POR PARAFUSO PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2.1/3RH2",
+        "id": 813,
+        "codigo": "3RT20383AC20",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR AC-3 80A 1NA+1NF 24V 50/60Hz",
+        "depois_proposto": "CONTATOR 3P AC-3 80A EM 400VCA 1NA+1NF BOBINA 24VCA 50/60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 2302,
-        "codigo": "3RH29112HA22",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF CONEXÃO POR MOLA PARA CONTATOR",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
+        "id": 3231,
+        "codigo": "3RT20473AL20",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATOR AC-3 110A 1NA+1NF 230V 50/60Hz CONEXÃO POR MOLA",
+        "depois_proposto": "CONTATOR 3P AC-3 110A EM 400VCA 1NA+1NF BOBINA 230VCA 50/60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 2898,
-        "codigo": "3RT29161EH00",
-        "lote": "005-cinquenta-itens",
-        "antes": "SUPRESSOR DE SURTO PARA CONTATOR",
-        "depois_proposto": "SUPRESSOR DE SURTO COMBINAÇÃO DE DIODOS 12-250VCC PARA 3RT2.1/3RH2 S00",
+        "id": 228,
+        "codigo": "5SY73637",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR MINI 3P CURVA C 63A",
+        "depois_proposto": "DISJUNTOR MINI 3P CURVA C 63A ICN 15kA EM 400VCA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 250,
-        "codigo": "3RV29011E",
-        "lote": "005-cinquenta-itens",
-        "antes": "CONTATO AUX. FRONTAL INNOV 3RV2901-1E",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR PARAFUSO PARA 3RV2",
+        "id": 920,
+        "codigo": "5ST37684",
+        "lote": "006-cinquenta-itens",
+        "antes": "BORNE PARA BARRAMENTO COM CONEXÃO LATERAL ESQUERDA 80A 690VCA",
+        "depois_proposto": "BORNE PARA BARRAMENTO ENTRADA À ESQUERDA 80A 690VCA/1000VCC IP20",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 260,
-        "codigo": "3RV29255AB",
-        "lote": "005-cinquenta-itens",
-        "antes": "BORNE ALIM. TRIF. CONEXÃO POR CIMA INNOV",
-        "depois_proposto": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0 CONEXÃO POR PARAFUSO",
+        "id": 921,
+        "codigo": "5ST37685",
+        "lote": "006-cinquenta-itens",
+        "antes": "BORNE PARA BARRAMENTO COM CONEXÃO LATERAL DIREITA 80A 690VCA",
+        "depois_proposto": "BORNE PARA BARRAMENTO ENTRADA À DIREITA 80A 690VCA/1000VCC IP20",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 780,
-        "codigo": "3RV29275AA00",
-        "lote": "005-cinquenta-itens",
-        "antes": "PLUG POTENCIA S0 P INFEED SYSTEM MOLA",
-        "depois_proposto": "PLUGUE DE POTÊNCIA 3P 32A 500VCA CONEXÃO POR MOLA PARA INFEED 3RV2 S0",
+        "id": 953,
+        "codigo": "3RV10111BA10",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 1,4-2A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 1,4-2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 782,
-        "codigo": "3RV29174A",
-        "lote": "005-cinquenta-itens",
-        "antes": "EXP. BARRAMENTO INFEED P 2 DISJUNTORES",
-        "depois_proposto": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 2 DISJUNTORES 3RV2 S00/S0",
+        "id": 954,
+        "codigo": "3RV10111EA10",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 2,8-4A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 2,8-4A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 783,
-        "codigo": "3RV29174B",
-        "lote": "005-cinquenta-itens",
-        "antes": "EXP. BARRAMENTO INFEED P 3 DISJUNTORES",
-        "depois_proposto": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 3 DISJUNTORES 3RV2 S00/S0",
+        "id": 2453,
+        "codigo": "3RV10110CA10",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 0,18-0,25A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MOTOR 3P AJUSTE 0,18-0,25A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 784,
-        "codigo": "3RV29171A",
-        "lote": "005-cinquenta-itens",
-        "antes": "BASE INFEED SYSTEM ALIMENTACAO ESQUERDA",
-        "depois_proposto": "BARRAMENTO TRIFÁSICO 63A 500VCA ALIMENTAÇÃO À ESQUERDA PARA 2 DISJUNTORES 3RV2 S00/S0",
+        "id": 2460,
+        "codigo": "3RV23314WC10",
+        "lote": "006-cinquenta-itens",
+        "antes": "DISJUNTOR MOTOR 52A CONEXÃO POR PARAFUSO",
+        "depois_proposto": "DISJUNTOR MAGNÉTICO PARA PARTIDA 3P 52A ICU 65kA EM 400VCA SEM PROTEÇÃO TÉRMICA CONEXÃO POR PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 799,
-        "codigo": "3RV29012E",
-        "lote": "005-cinquenta-itens",
-        "antes": "CONTATO AUX. FRONTAL 1NA1NF PARA 3RV2",
-        "depois_proposto": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR MOLA PARA 3RV2",
+        "id": 195,
+        "codigo": "3NH34300RC",
+        "lote": "006-cinquenta-itens",
+        "antes": "BASE PARA FUSÍVEL NH TAMANHO 3 630A 690VCA",
+        "depois_proposto": "BASE PARA FUSÍVEL NH TAMANHO 3 630A VERSÃO TP",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 802,
-        "codigo": "3RV19151AB",
-        "lote": "005-cinquenta-itens",
-        "antes": "BARRA INTERL.P2 DISJ.S00 S0 ESPAÇ.45MM",
-        "depois_proposto": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 2 DISJUNTORES 3RV2 S00/S0",
+        "id": 196,
+        "codigo": "3NH33300RC",
+        "lote": "006-cinquenta-itens",
+        "antes": "BASE PARA FUSÍVEL NH TAMANHO 2 400A 690VCA",
+        "depois_proposto": "BASE PARA FUSÍVEL NH TAMANHO 2 400A VERSÃO TP",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 806,
-        "codigo": "3RV19151CB",
-        "lote": "005-cinquenta-itens",
-        "antes": "BARRA INTERL.P4 DISJ.S00 S0 ESPAÇ.45MM",
-        "depois_proposto": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 4 DISJUNTORES 3RV2 S00/S0",
+        "id": 197,
+        "codigo": "3NH32300RC",
+        "lote": "006-cinquenta-itens",
+        "antes": "BASE PARA FUSÍVEL NH TAMANHO 1 250A 690VCA",
+        "depois_proposto": "BASE PARA FUSÍVEL NH TAMANHO 1 250A VERSÃO TP",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 810,
-        "codigo": "3RV19151BB",
-        "lote": "005-cinquenta-itens",
-        "antes": "BARRA INTERL.P3 DISJ.S00 S0 ESPAÇ.45MM",
-        "depois_proposto": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 3 DISJUNTORES 3RV2 S00/S0",
+        "id": 198,
+        "codigo": "3NH30300RC",
+        "lote": "006-cinquenta-itens",
+        "antes": "BASE PARA FUSÍVEL NH TAMANHO 00 160A 690VCA",
+        "depois_proposto": "BASE PARA FUSÍVEL NH TAMANHO 00 160A VERSÃO TP",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 917,
-        "codigo": "5ST2504",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE DISTRIBUIÇÃO 1P 80A 690V",
-        "depois_proposto": "BLOCO DE DISTRIBUIÇÃO 1P 80A 1000VCA/1500VCC IEC CONEXÃO POR PARAFUSO TRILHO DIN",
+        "id": 237,
+        "codigo": "3NA3260",
+        "lote": "006-cinquenta-itens",
+        "antes": "FUSÍVEL NH TAMANHO 2 400A 500VCA",
+        "depois_proposto": "FUSÍVEL NH TAMANHO 2 gG 400A 500VCA/440VCC INTERRUPÇÃO 120kA EM CA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 919,
-        "codigo": "5ST37683",
-        "lote": "005-cinquenta-itens",
-        "antes": "BORNE PARA BARRAMENTO COM CONEXÃO CENTRAL 80A 690VCA",
-        "depois_proposto": "BORNE PARA BARRAMENTO ENTRADA CENTRAL 80A 690VCA/1000VCC IP20",
+        "id": 238,
+        "codigo": "3NA3836",
+        "lote": "006-cinquenta-itens",
+        "antes": "FUSÍVEL NH TAMANHO 00 160A 500VCA",
+        "depois_proposto": "FUSÍVEL NH TAMANHO 00 gG 160A 500VCA/250VCC INTERRUPÇÃO 120kA EM CA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 956,
-        "codigo": "3RV19155A",
-        "lote": "005-cinquenta-itens",
-        "antes": "BORNE ALIM. TRIFASICO CONEXAO POR CIMA",
-        "depois_proposto": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO TIPO PINO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0",
+        "id": 943,
+        "codigo": "3NP11331CA10",
+        "lote": "006-cinquenta-itens",
+        "antes": "Chave seccionadora porta-fusível 3P 160A",
+        "depois_proposto": "CHAVE SECCIONADORA PORTA-FUSÍVEL 3P NH00 160A AC-23B EM 400VCA MONTAGEM EM PLACA",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1125,
-        "codigo": "3RV29175AA00",
-        "lote": "005-cinquenta-itens",
-        "antes": "PLUG POTENCIA S00 P INFEED SYSTEM MOLA",
-        "depois_proposto": "PLUGUE DE POTÊNCIA 3P 16A 500VCA CONEXÃO POR MOLA PARA INFEED S00",
+        "id": 2921,
+        "codigo": "3RU29263AA01",
+        "lote": "006-cinquenta-itens",
+        "antes": "SUPORTE INDIVIDUAL PARA RELÉ DE SOBRECARGA TAMANHO S0",
+        "depois_proposto": "SUPORTE DE MONTAGEM INDIVIDUAL PARA RELÉ 3RU21/3RB30/3RB31/3RR2 S0 CONEXÃO POR PARAFUSO",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1542,
-        "codigo": "3RV29277AA00",
-        "lote": "005-cinquenta-itens",
-        "antes": "BASE PARA CONTATOR S00S0 INFEED SYSTEM",
-        "depois_proposto": "BASE PARA CONTATOR S00/S0 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
+        "id": 687,
+        "codigo": "3LD34540TK53",
+        "lote": "006-cinquenta-itens",
+        "antes": "CHAVE SECCIONADORA PRINCIPAL 3P 63A MONTAGEM FRONTAL",
+        "depois_proposto": "CHAVE SECCIONADORA 3P IU 63A AC-23A 22kW EM 400VCA MANOPLA VERMELHA/AMARELA FURO 22,5mm",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1547,
-        "codigo": "3RV29177AA00",
-        "lote": "005-cinquenta-itens",
-        "antes": "BASE PARA CONTATOR S00 INFEED SYSTEM",
-        "depois_proposto": "BASE PARA CONTATOR S00 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
+        "id": 2136,
+        "codigo": "3LD33540TK53",
+        "lote": "006-cinquenta-itens",
+        "antes": "CHAVE SECCIONADORA PRINCIPAL 3P 40A MONTAGEM FRONTAL",
+        "depois_proposto": "CHAVE SECCIONADORA 3P IU 40A AC-23A 18,5kW EM 400VCA MANOPLA VERMELHA/AMARELA FURO 22,5mm",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 1626,
-        "codigo": "3RV29175E",
-        "lote": "005-cinquenta-itens",
-        "antes": "PLUG DE EXPANSAO ULTRA LONGO P INFEED",
-        "depois_proposto": "CONECTOR DE EXPANSÃO LARGO 3P 63A 500VCA PARA BARRAMENTOS 3RV2917",
+        "id": 2991,
+        "codigo": "3LD93406B",
+        "lote": "006-cinquenta-itens",
+        "antes": "CONTATO AUXILIAR 1NA+1NF PARA CHAVE SECCIONADORA",
+        "depois_proposto": "BLOCO DE CONTATO AUXILIAR 1NA+1NF AC-15 3A EM 230VCA MONTAGEM FRONTAL PARA 3LD3",
         "status": "aguardando_aprovacao"
       },
       {
-        "id": 694,
-        "codigo": "5ST2502",
-        "lote": "005-cinquenta-itens",
-        "antes": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V",
-        "depois_proposto": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V CONEXÃO POR PARAFUSO TRILHO DIN",
+        "id": 2992,
+        "codigo": "3LD93410A",
+        "lote": "006-cinquenta-itens",
+        "antes": "CAPA PARA TERMINAIS 3P DE CHAVE SECCIONADORA",
+        "depois_proposto": "TAMPA DE PROTEÇÃO DE TERMINAIS 3P PARA CHAVE SECCIONADORA 3LD3",
         "status": "aguardando_aprovacao"
       }
     ]
@@ -3211,20 +3217,20 @@
     {
       "id": 180,
       "codigo": "3RH29111HA22",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 181,
       "codigo": "3RH29111HA11",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 182,
@@ -3256,11 +3262,11 @@
     {
       "id": 185,
       "codigo": "3RV20214DA10",
-      "nome": "DISJUNTOR MOTOR 18-25A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 18-25A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 186,
@@ -3328,11 +3334,11 @@
     {
       "id": 193,
       "codigo": "3RH29111FA40",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR PARAFUSO PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 194,
@@ -3508,11 +3514,11 @@
     {
       "id": 213,
       "codigo": "3RH21311BB40",
-      "nome": "CONTATOR AUXILIAR 3NA+1NF 24VCC CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR AUXILIAR 3NA+1NF BOBINA 24VCC S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 214,
@@ -3796,11 +3802,11 @@
     {
       "id": 245,
       "codigo": "3RH21311AN20",
-      "nome": "CONTATOR AUXILIAR 3NA+1NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR AUXILIAR 3NA+1NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 246,
@@ -3814,11 +3820,11 @@
     {
       "id": 247,
       "codigo": "3RU21161HB0",
-      "nome": "RELÉ DE SOBRECARGA 5,5-8A TAMANHO S00 CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 5,5-8A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 248,
@@ -3841,11 +3847,11 @@
     {
       "id": 250,
       "codigo": "3RV29011E",
-      "nome": "CONTATO AUX. FRONTAL INNOV 3RV2901-1E",
+      "nome": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR PARAFUSO PARA 3RV2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 251,
@@ -3931,11 +3937,11 @@
     {
       "id": 260,
       "codigo": "3RV29255AB",
-      "nome": "BORNE ALIM. TRIF. CONEXÃO POR CIMA INNOV",
+      "nome": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 268,
@@ -7540,11 +7546,11 @@
     {
       "id": 694,
       "codigo": "5ST2502",
-      "nome": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V",
+      "nome": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V CONEXÃO POR PARAFUSO TRILHO DIN",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 695,
@@ -8026,20 +8032,20 @@
     {
       "id": 748,
       "codigo": "3RT19564G",
-      "nome": "BLOCO DE TERMINAIS PARA CONTATOR TAMANHO S6 ATÉ 120mm²",
+      "nome": "BLOCO DE TERMINAIS TIPO CAIXA ATÉ 120mm² PARA 3RT1/3RB2 S6",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 749,
       "codigo": "3RV20214PA10",
-      "nome": "DISJUNTOR MOTOR 30-36A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 30-36A CLASSE 10 ICU 20kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 750,
@@ -8062,20 +8068,20 @@
     {
       "id": 752,
       "codigo": "3RV20214NA20",
-      "nome": "DISJUNTOR MOTOR 23-28A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 23-28A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 753,
       "codigo": "3RU21261KB0",
-      "nome": "RELÉ DE SOBRECARGA 9-12,5A TAMANHO S0 CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 9-12,5A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 754,
@@ -8125,11 +8131,11 @@
     {
       "id": 759,
       "codigo": "3RH21221AN20",
-      "nome": "CONTATOR AUXILIAR 2NA+2NF 220V 50/60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR AUXILIAR 2NA+2NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 760,
@@ -8188,20 +8194,20 @@
     {
       "id": 766,
       "codigo": "3RU21264AB0",
-      "nome": "RELÉ DE SOBRECARGA 11-16A TAMANHO S0 CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 11-16A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 767,
       "codigo": "3RU21160JB0",
-      "nome": "RELÉ DE SOBRECARGA 0,7-1A TAMANHO S00 CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 0,7-1A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 768,
@@ -8233,11 +8239,11 @@
     {
       "id": 771,
       "codigo": "3RV20314UA10",
-      "nome": "DISJUNTOR MOTOR CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 32-40A CLASSE 10 ICU 65kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 772,
@@ -8314,11 +8320,11 @@
     {
       "id": 780,
       "codigo": "3RV29275AA00",
-      "nome": "PLUG POTENCIA S0 P INFEED SYSTEM MOLA",
+      "nome": "PLUGUE DE POTÊNCIA 3P 32A 500VCA CONEXÃO POR MOLA PARA INFEED 3RV2 S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 781,
@@ -8332,29 +8338,29 @@
     {
       "id": 782,
       "codigo": "3RV29174A",
-      "nome": "EXP. BARRAMENTO INFEED P 2 DISJUNTORES",
+      "nome": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 2 DISJUNTORES 3RV2 S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 783,
       "codigo": "3RV29174B",
-      "nome": "EXP. BARRAMENTO INFEED P 3 DISJUNTORES",
+      "nome": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 3 DISJUNTORES 3RV2 S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 784,
       "codigo": "3RV29171A",
-      "nome": "BASE INFEED SYSTEM ALIMENTACAO ESQUERDA",
+      "nome": "BARRAMENTO TRIFÁSICO 63A 500VCA ALIMENTAÇÃO À ESQUERDA PARA 2 DISJUNTORES 3RV2 S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 785,
@@ -8386,11 +8392,11 @@
     {
       "id": 788,
       "codigo": "3RH21221AF00",
-      "nome": "CONTATOR AUXILIAR 2NA+2NF 110V 50/60Hz CONEXÃO POR PARAFUSO",
+      "nome": "CONTATOR AUXILIAR 2NA+2NF BOBINA 110VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 789,
@@ -8440,11 +8446,11 @@
     {
       "id": 794,
       "codigo": "3RV20214EA20",
-      "nome": "DISJUNTOR MOTOR 27-32A CONEXÃO POR MOLA",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 795,
@@ -8458,20 +8464,20 @@
     {
       "id": 796,
       "codigo": "3RU21161CC0",
-      "nome": "RELÉ DE SOBRECARGA 1,8-2,5A TAMANHO S00",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,8-2,5A CLASSE 10 S00 CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 797,
       "codigo": "3RU21261JC0",
-      "nome": "RELÉ DE SOBRECARGA 7-10A TAMANHO S0",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 7-10A CLASSE 10 S0 CONEXÃO POR MOLA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 798,
@@ -8485,11 +8491,11 @@
     {
       "id": 799,
       "codigo": "3RV29012E",
-      "nome": "CONTATO AUX. FRONTAL 1NA1NF PARA 3RV2",
+      "nome": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR MOLA PARA 3RV2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 800,
@@ -8512,11 +8518,11 @@
     {
       "id": 802,
       "codigo": "3RV19151AB",
-      "nome": "BARRA INTERL.P2 DISJ.S00 S0 ESPAÇ.45MM",
+      "nome": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 2 DISJUNTORES 3RV2 S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 803,
@@ -8548,11 +8554,11 @@
     {
       "id": 806,
       "codigo": "3RV19151CB",
-      "nome": "BARRA INTERL.P4 DISJ.S00 S0 ESPAÇ.45MM",
+      "nome": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 4 DISJUNTORES 3RV2 S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 807,
@@ -8584,11 +8590,11 @@
     {
       "id": 810,
       "codigo": "3RV19151BB",
-      "nome": "BARRA INTERL.P3 DISJ.S00 S0 ESPAÇ.45MM",
+      "nome": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 3 DISJUNTORES 3RV2 S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 811,
@@ -8674,11 +8680,11 @@
     {
       "id": 820,
       "codigo": "3RH29112FA40",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA CONEXÃO POR MOLA PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 821,
@@ -9538,20 +9544,20 @@
     {
       "id": 916,
       "codigo": "5ST3768",
-      "nome": "BORNE ISOLADO PARA BARRAMENTO COM CONEXÃO LATERAL",
+      "nome": "BORNE DE ALIMENTAÇÃO CURTO ATÉ 25mm² 690VCA PARA BARRAMENTO TIPO PINO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 917,
       "codigo": "5ST2504",
-      "nome": "BLOCO DE DISTRIBUIÇÃO 1P 80A 690V",
+      "nome": "BLOCO DE DISTRIBUIÇÃO 1P 80A 1000VCA/1500VCC IEC CONEXÃO POR PARAFUSO TRILHO DIN",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 918,
@@ -9565,11 +9571,11 @@
     {
       "id": 919,
       "codigo": "5ST37683",
-      "nome": "BORNE PARA BARRAMENTO COM CONEXÃO CENTRAL 80A 690VCA",
+      "nome": "BORNE PARA BARRAMENTO ENTRADA CENTRAL 80A 690VCA/1000VCC IP20",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 920,
@@ -9718,11 +9724,11 @@
     {
       "id": 936,
       "codigo": "3RV20110JA10",
-      "nome": "DISJUNTOR MOTOR 0,7-1A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 0,7-1A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 937,
@@ -9898,11 +9904,11 @@
     {
       "id": 956,
       "codigo": "3RV19155A",
-      "nome": "BORNE ALIM. TRIFASICO CONEXAO POR CIMA",
+      "nome": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO TIPO PINO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 957,
@@ -10726,11 +10732,11 @@
     {
       "id": 1048,
       "codigo": "3RH19211CA01",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT1",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1049,
@@ -11095,11 +11101,11 @@
     {
       "id": 1089,
       "codigo": "3RV20214EA10",
-      "nome": "DISJUNTOR MOTOR 27-32A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1090,
@@ -11419,11 +11425,11 @@
     {
       "id": 1125,
       "codigo": "3RV29175AA00",
-      "nome": "PLUG POTENCIA S00 P INFEED SYSTEM MOLA",
+      "nome": "PLUGUE DE POTÊNCIA 3P 16A 500VCA CONEXÃO POR MOLA PARA INFEED S00",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1126,
@@ -13795,11 +13801,11 @@
     {
       "id": 1399,
       "codigo": "3RH29111FA04",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF CONEXÃO POR PARAFUSO PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2.1/3RH2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1400,
@@ -15082,11 +15088,11 @@
     {
       "id": 1542,
       "codigo": "3RV29277AA00",
-      "nome": "BASE PARA CONTATOR S00S0 INFEED SYSTEM",
+      "nome": "BASE PARA CONTATOR S00/S0 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1543,
@@ -15127,11 +15133,11 @@
     {
       "id": 1547,
       "codigo": "3RV29177AA00",
-      "nome": "BASE PARA CONTATOR S00 INFEED SYSTEM",
+      "nome": "BASE PARA CONTATOR S00 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1548,
@@ -15784,11 +15790,11 @@
     {
       "id": 1621,
       "codigo": "3US50001C",
-      "nome": "RELÉ DE SOBRECARGA 1,6-2,5A",
+      "nome": "RELÉ DE SOBRECARGA AJUSTE 1,6-2,5A CLASSE 10A 1NA+1NF PARA 3TS29-32/3TB39-41",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1622,
@@ -15829,11 +15835,11 @@
     {
       "id": 1626,
       "codigo": "3RV29175E",
-      "nome": "PLUG DE EXPANSAO ULTRA LONGO P INFEED",
+      "nome": "CONECTOR DE EXPANSÃO LARGO 3P 63A 500VCA PARA BARRAMENTOS 3RV2917",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1627,
@@ -15883,11 +15889,11 @@
     {
       "id": 1632,
       "codigo": "3RU21161BB0",
-      "nome": "RELÉ DE SOBRECARGA 1,4-2A TAMANHO S00 CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,4-2A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1633,
@@ -21535,11 +21541,11 @@
     {
       "id": 2302,
       "codigo": "3RH29112HA22",
-      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF CONEXÃO POR MOLA PARA CONTATOR",
+      "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2303,
@@ -26602,11 +26608,11 @@
     {
       "id": 2898,
       "codigo": "3RT29161EH00",
-      "nome": "SUPRESSOR DE SURTO PARA CONTATOR",
+      "nome": "SUPRESSOR DE SURTO COMBINAÇÃO DE DIODOS 12-250VCC PARA 3RT2.1/3RH2 S00",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2899,
@@ -26638,20 +26644,20 @@
     {
       "id": 2902,
       "codigo": "3RV20111KA10",
-      "nome": "DISJUNTOR MOTOR 9-12A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 9-12,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2903,
       "codigo": "3RU21261EB0",
-      "nome": "RELÉ DE SOBRECARGA 2,8-4A TAMANHO S0 CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 2,8-4A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2904,
@@ -27016,11 +27022,11 @@
     {
       "id": 2945,
       "codigo": "3RV20110KA10",
-      "nome": "DISJUNTOR MOTOR 0,9-1,25A CONEXÃO POR PARAFUSO",
+      "nome": "DISJUNTOR MOTOR 3P AJUSTE 0,9-1,25A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2946,
@@ -34066,7 +34072,7 @@
       "nome": "ADICIONAL BARRA NO CARRO",
       "ativo": true,
       "tipo": "produto",
-      "finalidade": "revenda",
+      "finalidade": "fabricado",
       "status": "nao_revisado"
     },
     {
@@ -34075,7 +34081,7 @@
       "nome": "PAINEL DE COMANDO DO CARRO",
       "ativo": true,
       "tipo": "produto",
-      "finalidade": "revenda",
+      "finalidade": "fabricado",
       "status": "nao_revisado"
     },
     {
@@ -34084,7 +34090,7 @@
       "nome": "PAINEL DE AUTOMACAO LINHA INCEPA",
       "ativo": true,
       "tipo": "produto",
-      "finalidade": "revenda",
+      "finalidade": "fabricado",
       "status": "nao_revisado"
     },
     {
@@ -34093,7 +34099,376 @@
       "nome": "SISTEMA DE CONTROLE DE FLUXO",
       "ativo": true,
       "tipo": "produto",
+      "finalidade": "fabricado",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3759,
+      "codigo": "111569",
+      "nome": "AGUARRÁS 900ML",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3760,
+      "codigo": "5222",
+      "nome": "1040225| GMK-M20DG CONTRA PORCA M-20X1.5 (CINZA ESCURO)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3761,
+      "codigo": "5202",
+      "nome": "1040205| GMK-P21DG CONTRA PORCA PG-21 (CINZA ESCURO)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3762,
+      "codigo": "8532",
+      "nome": "1040436| WQSG AD28.5DG SUPORTE FECHADO AD-28.5 (CINZA)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3763,
+      "codigo": "5461",
+      "nome": "SUPORTE ABERTO PARA IDENTIFICAÇÃO DE GRUPO",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3764,
+      "codigo": "6233",
+      "nome": "SUPORTE ABERTO AD-13.0 (PRETO)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3765,
+      "codigo": "12105",
+      "nome": "1040649| WQS AD21.2B SUPORTE ABERTO AD-21 (PRETO)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3766,
+      "codigo": "6698",
+      "nome": "CONTRA PORCA PG9 CINZA",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3767,
+      "codigo": "736136",
+      "nome": "CORRENTE DE ROLOS DIN 16 B2 1MT AXXIUS",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3768,
+      "codigo": "664394",
+      "nome": "EMENDA DIN 16 B2 COMBAT",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3769,
+      "codigo": "736110",
+      "nome": "CORRENTE DE ROLOS DIN 10 B1 1MT AXXIUS",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3770,
+      "codigo": "661618",
+      "nome": "EMENDA DIN 10 B1 COMBAT",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3771,
+      "codigo": "8660007",
+      "nome": "BASE SOLEIRA VX 1200X100MM",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3772,
+      "codigo": "8206500",
+      "nome": "ARMÁRIO TS 1200X2000X600MM RAL7035",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3773,
+      "codigo": "28952",
+      "nome": "ACOPLADOR DE REDE PROFIBUS",
+      "ativo": true,
+      "tipo": "produto",
       "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3774,
+      "codigo": "28936",
+      "nome": "CONJUNTO ACOPLADORES DE REDE PROFINET",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3775,
+      "codigo": "28937",
+      "nome": "CONJUNTO ADAPTADORES PARA ACOPLADOR PROFINET",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3776,
+      "codigo": "28954",
+      "nome": "CONJUNTO CHAVES DE SEGURANCA ACIONADAS POR CABO COM ACESSORIOS",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3777,
+      "codigo": "28944",
+      "nome": "CONJUNTO CHAVES DE SEGURANCA SEM CONTATO",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3778,
+      "codigo": "28945",
+      "nome": "CONJUNTO CHAVES FIM DE CURSO",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3779,
+      "codigo": "28947",
+      "nome": "CONJUNTO CONECTORES M12 FEMEA 5 PINOS",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3780,
+      "codigo": "28935",
+      "nome": "CONJUNTO CONVERSORES DE SINAL",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3781,
+      "codigo": "28941",
+      "nome": "CONJUNTO CORTINA DE LUZ DE SEGURANCA (EMISSOR + RECEPTOR + FIXACAO)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3782,
+      "codigo": "28946",
+      "nome": "CONJUNTO DE ATUADORES ANGULAR PARA CHAVE DE SEGURANCA",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3783,
+      "codigo": "28956",
+      "nome": "CONJUNTO DE ATUADORES PARA CHAVE DE SEGURANCA DE MAQUINAS",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3784,
+      "codigo": "28940",
+      "nome": "CONJUNTO DE CABOS INDUSTRIAIS M12",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3785,
+      "codigo": "28938",
+      "nome": "CONJUNTO DISJUNTORES BIPOLARES 10 A",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3786,
+      "codigo": "28953",
+      "nome": "CONJUNTO DISPOSITIVO DE COMANDO DE SEGURANCA",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3787,
+      "codigo": "28955",
+      "nome": "CONJUNTO ESPELHO CONVEXO",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3788,
+      "codigo": "28933",
+      "nome": "CONJUNTO MODULOS OPTICOS PARA SWITCH",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3789,
+      "codigo": "28942",
+      "nome": "CONJUNTO SENSORES FOTOELETRICOS COM REFLETORES",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3790,
+      "codigo": "28943",
+      "nome": "CONJUNTO SISTEMA DE RADAR DE SEGURANCA (CONTROLE + SENSORES)",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3791,
+      "codigo": "28948",
+      "nome": "CONJUNTO TRAVAS DE SEGURANCA SEM CONTATO",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3792,
+      "codigo": "28949",
+      "nome": "CPU DE CONTROLADOR INDUSTRIAL",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3793,
+      "codigo": "28939",
+      "nome": "DISJUNTOR MONOPOLAR 2A",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3794,
+      "codigo": "28950",
+      "nome": "GATEWAY DE COMUNICACAO INDUSTRIAL",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3795,
+      "codigo": "28951",
+      "nome": "MODULO DE BACKUP DE MEMORIA PARA CONTROLADOR",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3796,
+      "codigo": "28934",
+      "nome": "SWITCH ETHERNET INDUSTRIAL GERENCIAVEL 6 PORTAS RJ45 / 2 FIBRA OPTICA",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3797,
+      "codigo": "20105",
+      "nome": "SWITCH ETHERNET INDUSTRIAL GERENCIAVEL MODULAR - 8 PORTAS RJ 45",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "revenda",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3803,
+      "codigo": "FAB-OS288-01",
+      "nome": "SISTEMA DE CONTROLE DE NIVEL PARA ENCHENTE",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "fabricado",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3804,
+      "codigo": "FAB-OS287-01",
+      "nome": "PAINEL DE COMANDO/DISTRIBUIÇÃO",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "fabricado",
       "status": "nao_revisado"
     }
   ]

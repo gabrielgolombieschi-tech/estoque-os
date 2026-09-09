@@ -39,7 +39,9 @@ type Cliente = {
   indicador_ie: string | null; cidade: string | null; uf: string | null; codigo_ibge_municipio: string | null;
 };
 type Saldo = { valor_pedido: number | string; valor_faturado: number | string; valor_reservado: number | string; saldo: number | string; usa_relatorio_hh: boolean };
-type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null };
+// cst_ipi/aliquota_ipi vem do cadastro fiscal do item (f.fn_faturamento_buscar_itens):
+// e o que deixa a composicao ja somar o IPI, antes de conferir.
+type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null; cst_ipi?: string | null; aliquota_ipi?: number | string | null };
 type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; buscou: string | null; descricao: string; quantidade: string; valor_unitario: string };
 type Parcela = { dias: string; valor: string };
 type Perfil = {
@@ -176,6 +178,19 @@ export default function FaturarOsPage() {
   const clienteNfse = useMemo(() => cliente ? { id: cliente.id, uf: cliente.uf, codigo_ibge_municipio: cliente.codigo_ibge_municipio } : null, [cliente]);
 
   const totalLinhas = useMemo(() => linhas.reduce((acc, l) => acc + (paraNumero(l.quantidade) ?? 0) * (paraNumero(l.valor_unitario) ?? 0), 0), [linhas]);
+  // IPI previsto ja na composicao, pelo cadastro fiscal do produto vinculado. A nota
+  // vai para a SEFAZ com o imposto por fora, entao a linha precisa mostrar o total
+  // que sera emitido — nao so a mercadoria — para bater com o saldo da OS, que
+  // conta o IPI desde a migration 20260909120000. Mesmo arredondamento do builder:
+  // por item, duas casas.
+  const ipiLinhas = useMemo(() => linhas.reduce((acc, l) => {
+    // Number direto, e nao num(): a aliquota chega do banco como decimal com ponto
+    // ("9.7500") e num() trata ponto como separador de milhar.
+    const aliquota = Number(l.produto?.aliquota_ipi ?? 0);
+    if (!["00", "49", "50", "99"].includes(String(l.produto?.cst_ipi ?? "")) || !Number.isFinite(aliquota) || aliquota <= 0) return acc;
+    const base = Math.round((paraNumero(l.quantidade) ?? 0) * (paraNumero(l.valor_unitario) ?? 0) * 100) / 100;
+    return acc + Math.round(base * aliquota) / 100;
+  }, 0), [linhas]);
   const saldoDisponivel = num(saldo?.saldo);
   const ambito = cliente?.uf && cliente.uf.toUpperCase() === "SC" ? "INTERNA" : "INTERESTADUAL";
   const cfop = ambito === "INTERNA" ? "5101" : "6101";
@@ -355,7 +370,7 @@ export default function FaturarOsPage() {
       });
       if (error) throw error;
       const id = Number(data);
-      atualizarLinha(chave, { produto: { id, codigo: `FAB-OS${os.numero_os ?? os.id}`, nome: novoProduto.nome.toUpperCase(), unidade: novoProduto.unidade, valor_unitario: null }, resultados: [], buscou: null });
+      atualizarLinha(chave, { produto: { id, codigo: `FAB-OS${os.numero_os ?? os.id}`, nome: novoProduto.nome.toUpperCase(), unidade: novoProduto.unidade, valor_unitario: null, cst_ipi: novoProduto.cst_ipi, aliquota_ipi: paraNumero(novoProduto.aliquota_ipi) }, resultados: [], buscou: null });
       setCriandoProduto(null);
       setAviso(`Produto fabricado ${id} criado com o cadastro fiscal completo e vinculado à linha.`);
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
@@ -387,7 +402,9 @@ export default function FaturarOsPage() {
         if (invalida >= 0) throw new Error(`Linha ${invalida + 1}: descrição, quantidade e valor precisam estar preenchidos.`);
         const semProduto = linhas.findIndex((l) => !l.produto);
         if (semProduto >= 0) throw new Error(`Linha ${semProduto + 1}: vincule um produto fabricado ou crie um a partir da OS.`);
-        if (totalLinhas > saldoDisponivel + 0.005) throw new Error(`Total das linhas ${R$(totalLinhas)} acima do saldo da OS ${R$(saldoDisponivel)}.`);
+        // Compara o total que vai para a nota (mercadoria + IPI do cadastro), porque
+        // e ele que o saldo da OS consome.
+        if (totalLinhas + ipiLinhas > saldoDisponivel + 0.005) throw new Error(`Total da nota ${R$(totalLinhas + ipiLinhas)}${ipiLinhas > 0.005 ? ` (mercadoria ${R$(totalLinhas)} + IPI ${R$(ipiLinhas)})` : ""} acima do saldo da OS ${R$(saldoDisponivel)}.`);
         const { data, error } = await supabase.schema("f").rpc("fn_solicitacao_faturamento_criar_os_livre", {
           p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: os.id,
           p_linhas: linhas.map((l) => ({ descricao: l.descricao.trim(), quantidade: paraNumero(l.quantidade), unidade: l.produto?.unidade || "UN", valor_unitario: paraNumero(l.valor_unitario), item_id: l.produto?.id ?? null })),
@@ -494,15 +511,36 @@ export default function FaturarOsPage() {
   }
 
   const totalConferido = itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario), 0);
+  // Consumidor final (uso/consumo ou ativo): o IPI entra na base do ICMS, como o
+  // builder ja faz em supabase/functions/_shared/nfe-payload.ts. Sem isso a previa
+  // mostrava um ICMS menor que o do XML e assustava quem conferia a nota.
+  const consumidorFinal = destinacao === "USO_CONSUMO" || destinacao === "ATIVO_IMOBILIZADO";
   const impostosPrevia = useMemo(() => {
-    const icms = itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario) * num(i.aliquota_icms) / 100, 0);
-    const ipi = itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario) * num(i.aliquota_ipi) / 100, 0);
-    const pis = itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario) * num(i.aliquota_pis) / 100, 0);
-    const cofins = itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario) * num(i.aliquota_cofins) / 100, 0);
+    const base = (i: ItemConferido) => num(i.quantidade) * num(i.valor_unitario);
+    const ipiDoItem = (i: ItemConferido) => base(i) * num(i.aliquota_ipi) / 100;
+    const icms = itensConferidos.reduce((s, i) => s + (base(i) + (consumidorFinal ? ipiDoItem(i) : 0)) * num(i.aliquota_icms) / 100, 0);
+    const ipi = itensConferidos.reduce((s, i) => s + ipiDoItem(i), 0);
+    const pis = itensConferidos.reduce((s, i) => s + base(i) * num(i.aliquota_pis) / 100, 0);
+    const cofins = itensConferidos.reduce((s, i) => s + base(i) * num(i.aliquota_cofins) / 100, 0);
     const ibs = totalConferido * 0.001;
     const cbs = totalConferido * 0.009;
     return { icms, ipi, pis, cofins, ibs, cbs, totalNota: totalConferido + ipi };
-  }, [itensConferidos, totalConferido]);
+  }, [itensConferidos, totalConferido, consumidorFinal]);
+  // O saldo da OS conta o IPI (migration 20260909120000), entao a comparacao daqui
+  // tambem: antes de conferir so temos a mercadoria, depois vale o total da nota. E
+  // a reserva que a propria solicitacao ja fez volta para a base, senao a nota
+  // conferida pareceria estourar o saldo que ela mesma segurou.
+  const totalNotaPrevisto = conferida ? impostosPrevia.totalNota : totalLinhas + ipiLinhas;
+  const ipiPrevisto = conferida ? impostosPrevia.ipi : ipiLinhas;
+  const mercadoriaPrevista = conferida ? totalConferido : totalLinhas;
+  const saldoParaComposicao = saldoDisponivel + (conferida ? impostosPrevia.totalNota : 0);
+  const acimaDoSaldo = totalNotaPrevisto > saldoParaComposicao + 0.005;
+  // A conferencia so consegue comparar mercadoria contra saldo, porque a aliquota de
+  // IPI ainda nao existe quando as linhas sao montadas. Com a nota ja conferida da
+  // para fechar a conta, e ai o estouro vira bloqueio de emissao.
+  const bloqueiosNota = useMemo(() => (conferida && acimaDoSaldo
+    ? [...bloqueios, { texto: `Total da nota ${R$(totalNotaPrevisto)} acima do saldo da OS ${R$(saldoParaComposicao)}; com o IPI a nota passa do pedido.` }]
+    : bloqueios), [bloqueios, conferida, acimaDoSaldo, totalNotaPrevisto, saldoParaComposicao]);
   const margem = custoReal ? (conferida ? totalConferido : totalLinhas) - custoReal.total : null;
   const autorizada = emissao?.status === "AUTORIZADA";
   const emProcessamento = emissao ? ["ENVIANDO", "PROCESSANDO"].includes(emissao.status) : false;
@@ -522,7 +560,18 @@ export default function FaturarOsPage() {
   // Entrega ao cliente direto daqui: com a nota real autorizada, a tela carrega o contexto do
   // ciclo de vida (e-mails do cadastro, e-mail fiscal da empresa, eventos ja registrados) e
   // oferece o envio de XML + DANFE sem sair da OS. Depois do envio, pergunta se conclui a OS.
-  const notaProducaoAutorizada = notaProducao?.emissao_status === "AUTORIZADA" ? notaProducao : null;
+  //
+  // A nota real vem das notas da OS, nao da solicitacao em edicao: depois da producao
+  // AUTORIZADA o carregar() deixa de eleger aquela solicitacao como ativa, e ate 09/09/2026
+  // isso levava junto a entrega e o "Marcar OS como Faturada" no primeiro recarregamento da
+  // tela. Foi o que travou a OS 288 — concluida, NF-e 2/6 real autorizada, saldo zero e sem
+  // ninguem conseguindo marca-la como faturada por aqui.
+  const notaProducaoAutorizada = useMemo(() => {
+    if (notaProducao?.emissao_status === "AUTORIZADA") return notaProducao;
+    return notas
+      .filter((n) => n.modelo !== "NFSE" && n.ambiente === "PRODUCAO" && n.emissao_status === "AUTORIZADA" && String(n.nfe_status ?? "").toUpperCase() !== "CANCELADA")
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null;
+  }, [notaProducao, notas]);
   type EntregaCtx = ContatoNfe & { eventos?: Array<{ tipo: string; status: string; destinatarios: string[] | null }> };
   const [entrega, setEntrega] = useState<{ documentoId: string | null; ctx: EntregaCtx | null; emails: string; enviadoPara: string[] | null; enviando: boolean }>({ documentoId: null, ctx: null, emails: "", enviadoPara: null, enviando: false });
   const [dialogoConcluir, setDialogoConcluir] = useState(false);
@@ -666,7 +715,7 @@ export default function FaturarOsPage() {
           </div>
         ))}
         <div className="grid gap-2 rounded-lg border border-zinc-800 p-3 text-sm md:grid-cols-3">
-          <div>Total das linhas <strong>{R$(conferida ? totalConferido : totalLinhas)}</strong> × saldo {R$(saldoDisponivel + (conferida ? totalConferido : 0))}{(conferida ? totalConferido : totalLinhas) > saldoDisponivel + (conferida ? totalConferido : 0) + 0.005 ? <span className="ml-2 text-red-300">acima do saldo</span> : null}</div>
+          <div>Total da nota <strong>{R$(totalNotaPrevisto)}</strong>{ipiPrevisto > 0.005 ? <span className="text-xs text-zinc-500"> (mercadoria {R$(mercadoriaPrevista)} + IPI {R$(ipiPrevisto)})</span> : null} × saldo {R$(saldoParaComposicao)}{acimaDoSaldo ? <span className="ml-2 text-red-300">acima do saldo</span> : null}</div>
           <div>Custo real da OS <strong>{custoReal ? R$(custoReal.total) : "—"}</strong>{custoReal ? <span className="text-xs text-zinc-500"> (material {R$(custoReal.materiais)} · mão de obra {R$(custoReal.maoObra)} · despesas {R$(custoReal.despesas)} · impostos {R$(custoReal.impostos)})</span> : null}</div>
           <div>Margem <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
         </div>
@@ -724,7 +773,7 @@ export default function FaturarOsPage() {
       {/* 5 · Prévia e emissão */}
       <section className="space-y-3 rounded-xl border border-sky-900/60 bg-sky-950/10 p-4">
         <h2 className="font-semibold">Prévia e emissão</h2>
-        {bloqueios.length > 0 ? <div className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm"><div className="font-medium text-red-200">Bloqueios</div><ul className="mt-1 list-disc pl-5 text-red-100">{bloqueios.map((b, i) => <li key={i}>{b.texto}{b.rota ? <> · <Link className="underline" href={b.rota}>corrigir</Link></> : null}</li>)}</ul></div> : null}
+        {bloqueiosNota.length > 0 ? <div className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm"><div className="font-medium text-red-200">Bloqueios</div><ul className="mt-1 list-disc pl-5 text-red-100">{bloqueiosNota.map((b, i) => <li key={i}>{b.texto}{b.rota ? <> · <Link className="underline" href={b.rota}>corrigir</Link></> : null}</li>)}</ul></div> : null}
         {conferida ? (
           <div className="grid gap-2 text-sm md:grid-cols-4">
             <div>Produtos <strong>{R$(totalConferido)}</strong></div>
@@ -739,7 +788,7 @@ export default function FaturarOsPage() {
             <button type="button" className={botao} disabled={ocupado || Boolean(motivoBloqueioOs) || !destinacao} onClick={() => void conferir()}>{solicitacao ? "Reconferir" : "Salvar rascunho e conferir"}</button>
           ) : null}
           {solicitacao && conferida && (!emissao || ["RASCUNHO", "REJEITADA", "ERRO"].includes(emissao.status)) ? (
-            <button type="button" className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={ocupado || bloqueios.length > 0 || Boolean(motivoBloqueioOs)} onClick={() => void emitir()}>{emissao ? "Tentar emitir novamente" : "Emitir em homologação"}</button>
+            <button type="button" className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={ocupado || bloqueiosNota.length > 0 || Boolean(motivoBloqueioOs)} onClick={() => void emitir()}>{emissao ? "Tentar emitir novamente" : "Emitir em homologação"}</button>
           ) : null}
           {solicitacao && (!emissao || ["RASCUNHO", "REJEITADA", "ERRO", "AUTORIZADA"].includes(emissao.status)) ? <button type="button" className={botao} disabled={ocupado} onClick={() => void descartarRascunho()}>{autorizada ? "Abandonar homologação e liberar saldo" : "Descartar rascunho"}</button> : null}
         </div>
@@ -752,35 +801,47 @@ export default function FaturarOsPage() {
             </div> : null}
             {autorizada && emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta && !producaoPronta.pronta ? <div className="mt-1 text-xs text-zinc-500">Produção: {producaoPronta.motivo}</div> : null}
             {notaProducao ? <div className="mt-2 flex flex-wrap items-center gap-2 text-sm"><span className="font-medium text-emerald-300">NF-e REAL · {notaProducao.emissao_status}</span>{notaProducao.serie && notaProducao.numero ? <span>NF-e {notaProducao.serie}/{notaProducao.numero}</span> : null}{notaProducao.chave_acesso ? <code className="text-xs">{notaProducao.chave_acesso}</code> : null}<Link className={botao} href={`/faturamento/nfe/${notaProducao.documento_fiscal_id}`}>Ciclo de vida (cancelar, carta de correção)</Link></div> : null}
-            {notaProducaoAutorizada ? (
-              <div className="mt-3 space-y-2 rounded-md border border-emerald-900/60 bg-emerald-950/10 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">Entregar ao cliente · NF-e {notaProducaoAutorizada.serie}/{notaProducaoAutorizada.numero}</span>
-                  <span className="flex gap-2"><button type="button" className={botao} disabled={!notaProducaoAutorizada.danfe_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "DANFE")}>DANFE</button><button type="button" className={botao} disabled={!notaProducaoAutorizada.xml_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "XML")}>XML</button></span>
-                </div>
-                <input className={field} value={entrega.emails} onChange={(e) => setEntrega((atual) => ({ ...atual, emails: e.target.value }))} placeholder="E-mails separados por vírgula" />
-                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                  <span>Cadastro do cliente:</span>
-                  {emailsDoCadastro(entrega.ctx).map((c) => c.proprio ? (
-                    <span key={c.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro fiscal.">{c.rotulo}: {c.email} · é da própria empresa</span>
-                  ) : (
-                    <button key={c.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEntrega((atual) => ({ ...atual, emails: c.email }))}>{c.rotulo}: {c.email}</button>
-                  ))}
-                  {entrega.ctx && emailsDoCadastro(entrega.ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
-                </div>
-                {entrega.enviadoPara ? <div className="text-xs text-emerald-300">Já enviado para {entrega.enviadoPara.join(", ")}. Enviar de novo repete o e-mail.</div> : null}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={entrega.enviando || ocupado || !entrega.emails.trim() || !notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path} onClick={() => void enviarEntrega()}>{entrega.enviando ? "Enviando..." : "Revisado: enviar XML + DANFE"}</button>
-                  {!notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path ? <span className="text-xs text-zinc-500">Aguardando XML e DANFE da SEFAZ.</span> : null}
-                  <button type="button" className={botao} disabled={ocupado} onClick={() => setDialogoConcluir(true)}>Concluir a OS...</button>
-                </div>
-              </div>
-            ) : null}
             {autorizada && emissao.ambiente === "HOMOLOGACAO" ? <div className="mt-2 text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber.</div> : null}
-            {autorizada && saldoDisponivel <= 0.005 ? <div className="mt-2 flex items-center gap-2 text-sm"><span>Saldo zerado.</span><button type="button" className={botao} disabled={ocupado || String(os?.status_fluxo).toLowerCase() !== "concluida"} onClick={() => void marcarFaturada()}>Marcar OS como Faturada</button>{String(os?.status_fluxo).toLowerCase() !== "concluida" ? <span className="text-xs text-zinc-500">exige OS concluída e nota emitida</span> : null}</div> : null}
           </div>
         ) : null}
       </section>
+
+      {/* 6 · Nota real: entrega ao cliente e fechamento da OS.
+          Seção própria, fora do bloco da emissão em curso: com a produção autorizada a
+          solicitação sai de cena no recarregamento, e a entrega e o fechamento precisam
+          continuar ao alcance de quem fatura. */}
+      {notaProducaoAutorizada ? (
+        <section className="space-y-2 rounded-xl border border-emerald-900/60 bg-emerald-950/10 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">Entregar ao cliente · NF-e REAL {notaProducaoAutorizada.serie}/{notaProducaoAutorizada.numero}</h2>
+            <span className="flex flex-wrap gap-2"><button type="button" className={botao} disabled={!notaProducaoAutorizada.danfe_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "DANFE")}>DANFE</button><button type="button" className={botao} disabled={!notaProducaoAutorizada.xml_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "XML")}>XML</button><Link className={botao} href={`/faturamento/nfe/${notaProducaoAutorizada.documento_fiscal_id}`}>Ciclo de vida</Link></span>
+          </div>
+          {notaProducaoAutorizada.chave_acesso ? <div className="text-xs text-zinc-400">Chave <code>{notaProducaoAutorizada.chave_acesso}</code></div> : null}
+          <input className={field} value={entrega.emails} onChange={(e) => setEntrega((atual) => ({ ...atual, emails: e.target.value }))} placeholder="E-mails separados por vírgula" />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+            <span>Cadastro do cliente:</span>
+            {emailsDoCadastro(entrega.ctx).map((c) => c.proprio ? (
+              <span key={c.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro fiscal.">{c.rotulo}: {c.email} · é da própria empresa</span>
+            ) : (
+              <button key={c.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEntrega((atual) => ({ ...atual, emails: c.email }))}>{c.rotulo}: {c.email}</button>
+            ))}
+            {entrega.ctx && emailsDoCadastro(entrega.ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
+          </div>
+          {entrega.enviadoPara ? <div className="text-xs text-emerald-300">Já enviado para {entrega.enviadoPara.join(", ")}. Enviar de novo repete o e-mail.</div> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={entrega.enviando || ocupado || !entrega.emails.trim() || !notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path} onClick={() => void enviarEntrega()}>{entrega.enviando ? "Enviando..." : "Revisado: enviar XML + DANFE"}</button>
+            {!notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path ? <span className="text-xs text-zinc-500">Aguardando XML e DANFE da SEFAZ.</span> : null}
+            <button type="button" className={botao} disabled={ocupado} onClick={() => setDialogoConcluir(true)}>Concluir a OS...</button>
+          </div>
+          {osFaturada ? (
+            <div className="text-sm text-emerald-300">OS já marcada como faturada.</div>
+          ) : saldoDisponivel <= 0.005 ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm"><span>Saldo zerado.</span><button type="button" className={botao} disabled={ocupado || String(os?.status_fluxo).toLowerCase() !== "concluida"} onClick={() => void marcarFaturada()}>Marcar OS como Faturada</button>{String(os?.status_fluxo).toLowerCase() !== "concluida" ? <span className="text-xs text-zinc-500">exige OS concluída e nota emitida</span> : null}</div>
+          ) : (
+            <div className="text-sm text-amber-200">Ainda restam {R$(saldoDisponivel)} a faturar; a OS só é marcada como faturada com saldo zero.</div>
+          )}
+        </section>
+      ) : null}
       </>)}
 
       {/* Notas da OS */}

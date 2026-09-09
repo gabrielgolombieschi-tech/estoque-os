@@ -1,0 +1,1002 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 180,
+    "codigo": "3RH29111HA22",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.208Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111HA22"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e46053e3ec98efcbef65248136e53332ac48d3da0aa5b19627d2d2a71ae88734",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 181,
+    "codigo": "3RH29111HA11",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.208Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111HA11"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f684517896a827ed461ede0fedc61317be77db7855f6efefdfeecb1f38833f9d",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 185,
+    "codigo": "3RV20214DA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 18-25A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.209Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214DA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "41d934fc6e539df7cae66c499440d7f240c2f3b3c5593baef61f04b75ee8abc5",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 193,
+    "codigo": "3RH29111FA40",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2/3RH2",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.210Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111FA40"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "8121c2f69c5ac850e3ba4bc3eaf20cc9635157439f001acea67174a80166d786",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 213,
+    "codigo": "3RH21311BB40",
+    "nome": "CONTATOR AUXILIAR 3NA+1NF BOBINA 24VCC S00 CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES_AUXILIARES",
+    "criterio": "CONTATORES_AUXILIARES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.211Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21311BB40"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "248c85bb8b14855cce9d2c4b76f5c583b741522f8392686c7a1e5b69f29310a8",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 245,
+    "codigo": "3RH21311AN20",
+    "nome": "CONTATOR AUXILIAR 3NA+1NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES_AUXILIARES",
+    "criterio": "CONTATORES_AUXILIARES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.212Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21311AN20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f2373180cc59250e9d57c708b5d7433de5e0f8efd330186e20ac0e52adca7f76",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 247,
+    "codigo": "3RU21161HB0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 5,5-8A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.213Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21161HB0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "3abff7281daf9b5269d404c24838341958406cfeb6f5f15642033ef740e45685",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 250,
+    "codigo": "3RV29011E",
+    "nome": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR PARAFUSO PARA 3RV2",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.213Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29011E"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "82dbef94a766235fbc18844d015fd0bd16f233bd8875f3dbf584dc50f2e66aa6",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 260,
+    "codigo": "3RV29255AB",
+    "nome": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0 CONEXÃO POR PARAFUSO",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.214Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29255AB"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "9339b679984b2e1fc506ae8d8bbfaf267d37d9b243c50040d403cb8410c05dda",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 694,
+    "codigo": "5ST2502",
+    "nome": "BLOCO DE DISTRIBUIÇÃO 4P 125A 690V CONEXÃO POR PARAFUSO TRILHO DIN",
+    "familia": "ACESSORIOS_MINIDISJUNTORES",
+    "criterio": "ACESSORIOS_MINIDISJUNTORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.215Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST2502"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "9cbfd6d32fe9566fe969561fd27f6f5fb20f978cc0edf0429c467bf0e4fde181",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 748,
+    "codigo": "3RT19564G",
+    "nome": "BLOCO DE TERMINAIS TIPO CAIXA ATÉ 120mm² PARA 3RT1/3RB2 S6",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.215Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT19564G"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "df916781f64649318ca6ffce63daac023f00a57741045180eb168eceebc9fff1",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 749,
+    "codigo": "3RV20214PA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 30-36A CLASSE 10 ICU 20kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.216Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214PA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "af4bdbe1d9dcc66aee01a942ef99e250c42dc25a22a97b7a3733280dd5bb8078",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 752,
+    "codigo": "3RV20214NA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 23-28A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.217Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214NA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "d2d195557714a1aa1f6e9dc637b06b33e5bdbef6067513c977351e2ee4a84982",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 753,
+    "codigo": "3RU21261KB0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 9-12,5A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.217Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21261KB0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "078b0f50021e267abc59c0faf3b014956f41935613158f5b1ddd98daa112114f",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 759,
+    "codigo": "3RH21221AN20",
+    "nome": "CONTATOR AUXILIAR 2NA+2NF BOBINA 220VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES_AUXILIARES",
+    "criterio": "CONTATORES_AUXILIARES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.221Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21221AN20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "fc17667219d4941394061be0e5f80eec830d20aceef8d25758070fbed020bc6a",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 766,
+    "codigo": "3RU21264AB0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 11-16A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.222Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21264AB0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "82c05971b36f5d614dd17e0484c53a9aa0864de9c290a523701e632f21660617",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 767,
+    "codigo": "3RU21160JB0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 0,7-1A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.222Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21160JB0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b879f70603d28645363fd64b219f4f3af51baf6d4d027027945991ea72f6b0f7",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 771,
+    "codigo": "3RV20314UA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 32-40A CLASSE 10 ICU 65kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.223Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20314UA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "8eb1eeb00ddb599ba8afb1629a37343cd2c694e39df94da000d15a7acc1acaba",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 780,
+    "codigo": "3RV29275AA00",
+    "nome": "PLUGUE DE POTÊNCIA 3P 32A 500VCA CONEXÃO POR MOLA PARA INFEED 3RV2 S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.223Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29275AA00"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "624ba13f2be147174222692bfa3d33fa5a5c8f6b341fe28f03eefe706bca3cf9",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 782,
+    "codigo": "3RV29174A",
+    "nome": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 2 DISJUNTORES 3RV2 S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.224Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29174A"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "caf395c2d5bee206cee0dcc57f4e64cb2d1163359cf56beb0c0e36d4c8e6c8f9",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 783,
+    "codigo": "3RV29174B",
+    "nome": "BARRAMENTO DE EXPANSÃO TRIFÁSICO 63A 500VCA PARA 3 DISJUNTORES 3RV2 S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.225Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29174B"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "6396a00ff3905cb20bb390b4d543de9824c0e79e989666f110a2c4b02f148a0d",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 784,
+    "codigo": "3RV29171A",
+    "nome": "BARRAMENTO TRIFÁSICO 63A 500VCA ALIMENTAÇÃO À ESQUERDA PARA 2 DISJUNTORES 3RV2 S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.226Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29171A"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "8eb22c23bc162069101b4c5492c2d8d861514de597e2ee19ecc8c3ac51209f04",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 788,
+    "codigo": "3RH21221AF00",
+    "nome": "CONTATOR AUXILIAR 2NA+2NF BOBINA 110VCA 50/60Hz S00 CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES_AUXILIARES",
+    "criterio": "CONTATORES_AUXILIARES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.226Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21221AF00"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "43f627705d01b3dd6352515663a8917678bc4bfd476c38023c8f8f9382546f51",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 794,
+    "codigo": "3RV20214EA20",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR MOLA",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.227Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214EA20"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "2a8456a05d403f5f5f03c1a9af503ecf2cd59f6fd22faee99fddfece91348cc0",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 796,
+    "codigo": "3RU21161CC0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,8-2,5A CLASSE 10 S00 CONEXÃO POR MOLA",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.229Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21161CC0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "69023576c0ba440e0add8c141fbbbe977e45849b875a56846293725bb1e35239",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 797,
+    "codigo": "3RU21261JC0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 7-10A CLASSE 10 S0 CONEXÃO POR MOLA",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.229Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21261JC0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "d793837fef2cd03f1d2980d8608c0de4cbf505db5d25b900b7bcbfcf8b04fec8",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 799,
+    "codigo": "3RV29012E",
+    "nome": "BLOCO DE CONTATO AUXILIAR TRANSVERSAL 1NA+1NF CONEXÃO POR MOLA PARA 3RV2",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.230Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29012E"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "9a3f5d63903aa1b1cb2054d984b6c1876c91600042cf0694733f334301f16645",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 802,
+    "codigo": "3RV19151AB",
+    "nome": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 2 DISJUNTORES 3RV2 S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.232Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19151AB"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "87c42898ceda30bcd99a514a0bb1ff189b4b766ac3e1d7a6fc098b6d018ba9e0",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 806,
+    "codigo": "3RV19151CB",
+    "nome": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 4 DISJUNTORES 3RV2 S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.233Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19151CB"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "6e8168eab6d11153a910a5c7f60494e262c872e784c00548c5a196cf015cc8c2",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 810,
+    "codigo": "3RV19151BB",
+    "nome": "BARRAMENTO TRIFÁSICO TIPO GARFO 63A PASSO 45mm PARA 3 DISJUNTORES 3RV2 S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.234Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19151BB"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "7d92220db9b33d2c534b367fb68630e4230010a35eaa2cc64923b15706c83c52",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 820,
+    "codigo": "3RH29112FA40",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NA AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.234Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29112FA40"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "8e9ccd7852ca007087bfad60de1bdc16692435c1e5b7d5a5861157b39d0c9df5",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 916,
+    "codigo": "5ST3768",
+    "nome": "BORNE DE ALIMENTAÇÃO CURTO ATÉ 25mm² 690VCA PARA BARRAMENTO TIPO PINO",
+    "familia": "ACESSORIOS_MINIDISJUNTORES",
+    "criterio": "ACESSORIOS_MINIDISJUNTORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.235Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST3768"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "515d0372d021c47ebbbec365e51c6ad91ff74f0720b0132f77c0df7b0f6f8d1a",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 917,
+    "codigo": "5ST2504",
+    "nome": "BLOCO DE DISTRIBUIÇÃO 1P 80A 1000VCA/1500VCC IEC CONEXÃO POR PARAFUSO TRILHO DIN",
+    "familia": "ACESSORIOS_MINIDISJUNTORES",
+    "criterio": "ACESSORIOS_MINIDISJUNTORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.236Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST2504"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b1d10120e38f736be9e76a196a0a5726ba1ef567de33d4ebba457bc0d088ac78",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 919,
+    "codigo": "5ST37683",
+    "nome": "BORNE PARA BARRAMENTO ENTRADA CENTRAL 80A 690VCA/1000VCC IP20",
+    "familia": "ACESSORIOS_MINIDISJUNTORES",
+    "criterio": "ACESSORIOS_MINIDISJUNTORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.237Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37683"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5895238e922f5ddf23be3eda594f57a662c7054da9de17b5425532629d06558d",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 936,
+    "codigo": "3RV20110JA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 0,7-1A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.238Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20110JA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "ce88b419895c8accd44eccff8bf8e93cdafb2f20e554fa11fa884013217c1fdd",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 956,
+    "codigo": "3RV19155A",
+    "nome": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO TIPO PINO 63A ENTRADA SUPERIOR PARA BARRAMENTO S00/S0",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.238Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19155A"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "6f7d931c118a25a902dabb1a28df9637af59776cc7ed5d077a947921d60dc396",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1048,
+    "codigo": "3RH19211CA01",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT1",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.239Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH19211CA01"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "a781a26f5a4b4e340ec4983536c2f6be0f76a413f1f8f89f6c8ad6d172d04306",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1089,
+    "codigo": "3RV20214EA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 27-32A CLASSE 10 ICU 55kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.240Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214EA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "a97b4ef6ef426249d8d7e442a5c99c6b0bb448e8d2a9b159f8b081c2fd648843",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1125,
+    "codigo": "3RV29175AA00",
+    "nome": "PLUGUE DE POTÊNCIA 3P 16A 500VCA CONEXÃO POR MOLA PARA INFEED S00",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.241Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29175AA00"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c64044d9d4ebf21846a31a34b947464b4a494097507a402be4a56470063f0287",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1399,
+    "codigo": "3RH29111FA04",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 4NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2.1/3RH2",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.241Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111FA04"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "f0e7a0c14a11bb291583f37764e69dd947c301d860066a96bb81cd321c60ee45",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1542,
+    "codigo": "3RV29277AA00",
+    "nome": "BASE PARA CONTATOR S00/S0 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.243Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29277AA00"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5520e08a14c56bc62319e010fffafd8a7c2d303dacb568e5c5944142657e4fa9",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1547,
+    "codigo": "3RV29177AA00",
+    "nome": "BASE PARA CONTATOR S00 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.243Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29177AA00"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c39f56096c7c5a7fdf40c8bbdbe6185a65e2347324ef91e19d0940e54beede87",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1621,
+    "codigo": "3US50001C",
+    "nome": "RELÉ DE SOBRECARGA AJUSTE 1,6-2,5A CLASSE 10A 1NA+1NF PARA 3TS29-32/3TB39-41",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.244Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3US50001C"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5b050b4afe2ca67847680009f660f319ebd8373fc05cdb5bc37d9848e93ee4f3",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1626,
+    "codigo": "3RV29175E",
+    "nome": "CONECTOR DE EXPANSÃO LARGO 3P 63A 500VCA PARA BARRAMENTOS 3RV2917",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.245Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29175E"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "12b1a0cb2e208a8c67f080196a9ce67a1513d26bdcf20cb031641ad7643bfa93",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1632,
+    "codigo": "3RU21161BB0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,4-2A CLASSE 10 S00 CONEXÃO POR PARAFUSO",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.245Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21161BB0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5f4297802c24d2ac8d50a0c7f72cc5ce416bbe448e3dd3a9394e12c909e3e201",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2302,
+    "codigo": "3RH29112HA22",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.246Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29112HA22"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "a10de0bad5dbd4fb71f06aaab712b564b1f5d422193b0028443082fa174b076b",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2898,
+    "codigo": "3RT29161EH00",
+    "nome": "SUPRESSOR DE SURTO COMBINAÇÃO DE DIODOS 12-250VCC PARA 3RT2.1/3RH2 S00",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.247Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT29161EH00"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5b4e77003dc79e792e4b68c17b1ce0221e9c1b00598773a5c168a5915b6498cb",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2902,
+    "codigo": "3RV20111KA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 9-12,5A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.247Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20111KA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "054ae185c887b50db042aaf6360d8f477c4db5ba69e978ccc1dc9fcf454d1499",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2903,
+    "codigo": "3RU21261EB0",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 2,8-4A CLASSE 10 S0 CONEXÃO POR PARAFUSO",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.248Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21261EB0"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e1b8a6ccce6e44b01af0bb833ed970aa302b8c26e19fd9bf9381ef5a3b632edf",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2945,
+    "codigo": "3RV20110KA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 0,9-1,25A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "005-cinquenta-itens",
+    "revisado_em": "2026-09-09T13:01:51.249Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20110KA10"
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1a75b1498a9ea9cad8de2df88bcb4238125e9f9dc9f51fa912a937cdedd1c456",
+    "backup": "backups/revisao-lotes/005-2026-09-09T13-01-40-870Z.json",
+    "assinatura_lote": "e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"
+  }
+]

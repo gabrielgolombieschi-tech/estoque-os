@@ -61,7 +61,7 @@ assert.equal(normalizarNomeCadastro("POTENCIÔMETRO 4,7 kΩ Ø22 mm"), "POTENCI�
 assert.equal(normalizarNomeCadastro("RESISTOR 30 Ω 925 W"), "RESISTOR 30Ω 925W");
 assert.equal(normalizarNomeCadastro("MÓDULO SFP 1000 Mbit/s"), "MÓDULO SFP 1000Mbit/s");
 const yaml = fs.readFileSync("docs/padroes-cadastro/catalogo-paineis-eletricos.yaml", "utf8").split("\nhistorico_decisoes:")[0];
-assert.match(yaml, /versao_padrao: "1\.28\.0"/);
+assert.match(yaml, /versao_padrao: "1\.29\.0"/);
 assert.match(yaml, /decisao: D-035/);
 assert.match(yaml, /não gerar enriquecimento automático/);
 console.log("D-035: lote de 16 itens, idempotência, concorrência, campos protegidos e regras técnicas aprovados.");
