@@ -1,0 +1,10 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "lote": "006-cinquenta-itens",
+  "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d",
+  "status": "aprovado",
+  "data": "2026-09-09",
+  "mensagem_usuario": "pode seguir",
+  "escopo": "Aplicar somente os 50 nomes e descrições apresentados no lote 006, inclusive as ressalvas explícitas. As quatro bases NH continuam sem tensão, polos e conexão confirmados; aprovação da redação não confirma esses atributos. Próximos 50 apenas para aprovação."
+}

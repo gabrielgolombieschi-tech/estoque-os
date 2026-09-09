@@ -75,7 +75,7 @@ Depois: Referência Siemens 5SL1104-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 208 — 5SL1106-7MB
 
@@ -85,7 +85,7 @@ Depois: Referência Siemens 5SL1106-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 209 — 5SL1110-7MB
 
@@ -97,7 +97,7 @@ Referência Siemens 5SL1110-7MB, família 5SL1. Minidisjuntor termomagnético, 1
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 210 — 5SL1116-7MB
 
@@ -107,7 +107,7 @@ Depois: Referência Siemens 5SL1116-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 211 — 5SL1325-7MB
 
@@ -117,7 +117,7 @@ Depois: Referência Siemens 5SL1325-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 212 — 5SL1210-7MB
 
@@ -127,7 +127,7 @@ Depois: Referência Siemens 5SL1210-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 229 — 5SL6225-7MB
 
@@ -137,7 +137,7 @@ Depois: Referência Siemens 5SL6225-7MB, família 5SL6. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 10, 11. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 10, 11. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 230 — 5SL6216-7MB
 
@@ -147,7 +147,7 @@ Depois: Referência Siemens 5SL6216-7MB, família 5SL6. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 10, 11. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 10, 11. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 689 — 5SL1204-7MB
 
@@ -157,7 +157,7 @@ Depois: Referência Siemens 5SL1204-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 690 — 5SL1225-6MB
 
@@ -167,7 +167,7 @@ Depois: Referência Siemens 5SL1225-6MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 691 — 5SL3340-7MB
 
@@ -177,7 +177,7 @@ Depois: Referência Siemens 5SL3340-7MB, família 5SL3. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 10, 11. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 10, 11. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 719 — 5SL1340-7MB
 
@@ -187,7 +187,7 @@ Depois: Referência Siemens 5SL1340-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 721 — 5SL1125-6MB
 
@@ -197,7 +197,7 @@ Depois: Referência Siemens 5SL1125-6MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 722 — 5SL1110-6MB
 
@@ -207,7 +207,7 @@ Depois: Referência Siemens 5SL1110-6MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 723 — 5SL1120-7MB
 
@@ -217,7 +217,7 @@ Depois: Referência Siemens 5SL1120-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 724 — 5SL1332-7MB
 
@@ -227,7 +227,7 @@ Depois: Referência Siemens 5SL1332-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 726 — 5SL1310-7MB
 
@@ -237,7 +237,7 @@ Depois: Referência Siemens 5SL1310-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 736 — 5SL1316-7MB
 
@@ -247,7 +247,7 @@ Depois: Referência Siemens 5SL1316-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 743 — 5SL1102-7MB
 
@@ -257,7 +257,7 @@ Depois: Referência Siemens 5SL1102-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 746 — 5SL1380-7MB
 
@@ -267,7 +267,7 @@ Depois: Referência Siemens 5SL1380-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 747 — 5SL1306-7MB
 
@@ -277,7 +277,7 @@ Depois: Referência Siemens 5SL1306-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 750 — 5SL1206-7MB
 
@@ -287,7 +287,7 @@ Depois: Referência Siemens 5SL1206-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 755 — 5SL1320-7MB
 
@@ -297,7 +297,7 @@ Depois: Referência Siemens 5SL1320-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 757 — 5SL1363-7MB
 
@@ -307,7 +307,7 @@ Depois: Referência Siemens 5SL1363-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 770 — 5SL1370-7MB
 
@@ -317,7 +317,7 @@ Depois: Referência Siemens 5SL1370-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 774 — 5SL1206-6MB
 
@@ -327,7 +327,7 @@ Depois: Referência Siemens 5SL1206-6MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 819 — 5SL1163-7MB
 
@@ -337,7 +337,7 @@ Depois: Referência Siemens 5SL1163-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 833 — 5SL1304-7MB
 
@@ -347,7 +347,7 @@ Depois: Referência Siemens 5SL1304-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 946 — 5SL3225-7MB
 
@@ -357,7 +357,7 @@ Depois: Referência Siemens 5SL3225-7MB, família 5SL3. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 10, 11. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 10, 11. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1028 — 5SL1280-7MB
 
@@ -367,7 +367,7 @@ Depois: Referência Siemens 5SL1280-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1030 — 5SL1263-7MB
 
@@ -377,7 +377,7 @@ Depois: Referência Siemens 5SL1263-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1031 — 5SL1240-7MB
 
@@ -387,7 +387,7 @@ Depois: Referência Siemens 5SL1240-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1032 — 5SL1225-7MB
 
@@ -397,7 +397,7 @@ Depois: Referência Siemens 5SL1225-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1033 — 5SL1220-7MB
 
@@ -407,7 +407,7 @@ Depois: Referência Siemens 5SL1220-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1034 — 5SL1216-7MB
 
@@ -417,7 +417,7 @@ Depois: Referência Siemens 5SL1216-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1035 — 5SL1106-6MB
 
@@ -427,7 +427,7 @@ Depois: Referência Siemens 5SL1106-6MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1036 — 5SL1125-7MB
 
@@ -437,7 +437,7 @@ Depois: Referência Siemens 5SL1125-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1037 — 5SL1140-7MB
 
@@ -447,7 +447,7 @@ Depois: Referência Siemens 5SL1140-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1038 — 5SL1150-7MB
 
@@ -457,7 +457,7 @@ Depois: Referência Siemens 5SL1150-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1039 — 5SL1180-7MB
 
@@ -467,7 +467,7 @@ Depois: Referência Siemens 5SL1180-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1040 — 5SL1202-7MB
 
@@ -477,7 +477,7 @@ Depois: Referência Siemens 5SL1202-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1080 — 5SL1132-7MB
 
@@ -487,7 +487,7 @@ Depois: Referência Siemens 5SL1132-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1086 — 5SL3250-7MB
 
@@ -497,7 +497,7 @@ Depois: Referência Siemens 5SL3250-7MB, família 5SL3. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 10, 11. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 10, 11. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 1087 — 5SL1232-7MB
 
@@ -507,7 +507,7 @@ Depois: Referência Siemens 5SL1232-7MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 2742 — 5SL1116-6MB
 
@@ -517,7 +517,7 @@ Depois: Referência Siemens 5SL1116-6MB, família 5SL1. Minidisjuntor termomagn�
 
 Fonte: [documento técnico da referência](https://www.fegime.pt/images/uploaded/Catalogos/siemens-catalogo-minidisjutores.pdf).
 
-Páginas conferidas: 8, 9. SHA-256 do documento: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
+Evidência: Catálogo Siemens Minidisjuntores 5SL, 5SY e 5SP (cópia publicada pela Fegime); páginas 8, 9. SHA-256: 59deeeb50738e242e70ed9b85a2dd9f558eae46316dd4f33ce1b4152542e8e5e.
 
 ### ID 773 — 3RT2026-1AK60
 
@@ -527,7 +527,7 @@ Depois: Referência Siemens 3RT2026-1AK60. Circuito principal: 3 polos, categori
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2026-1AK60).
 
-Páginas conferidas: 1. SHA-256 do documento: 782155191398bae88a875cfe53bd75144d3a055e67ad73f934a19db37868e5b1.
+Evidência: 3RT2026-1AK60; páginas 1. SHA-256: 782155191398bae88a875cfe53bd75144d3a055e67ad73f934a19db37868e5b1.
 
 ### ID 777 — 3RT2026-1AN10
 
@@ -537,7 +537,7 @@ Depois: Referência Siemens 3RT2026-1AN10. Circuito principal: 3 polos, categori
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2026-1AN10).
 
-Páginas conferidas: 1. SHA-256 do documento: 56f1b277637d5e7263051d7213078b71806fb5bdbe1e63712db5323ad4ba186e.
+Evidência: 3RT2026-1AN10; páginas 1. SHA-256: 56f1b277637d5e7263051d7213078b71806fb5bdbe1e63712db5323ad4ba186e.
 
 ### ID 1129 — 3RT2028-1AK60
 
@@ -547,7 +547,7 @@ Depois: Referência Siemens 3RT2028-1AK60. Circuito principal: 3 polos, categori
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2028-1AK60).
 
-Páginas conferidas: 1. SHA-256 do documento: 48bb7a091fd08c852ea25422c1675d4a4a1c2d57a542a3f67a6627ecc103a566.
+Evidência: 3RT2028-1AK60; páginas 1. SHA-256: 48bb7a091fd08c852ea25422c1675d4a4a1c2d57a542a3f67a6627ecc103a566.
 
 ### ID 1589 — 3RT2027-1AK60
 
@@ -557,7 +557,7 @@ Depois: Referência Siemens 3RT2027-1AK60. Circuito principal: 3 polos, categori
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2027-1AK60).
 
-Páginas conferidas: 1. SHA-256 do documento: 92f1aff86771b17438674930baac1a01d4173a6f95a5ec0d128f5e643759d617.
+Evidência: 3RT2027-1AK60; páginas 1. SHA-256: 92f1aff86771b17438674930baac1a01d4173a6f95a5ec0d128f5e643759d617.
 
 ### ID 1590 — 3RT2036-1AK60
 
@@ -567,7 +567,7 @@ Depois: Referência Siemens 3RT2036-1AK60. Circuito principal: 3 polos, categori
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT2036-1AK60).
 
-Páginas conferidas: 1. SHA-256 do documento: c12e96d9a8d4f98706fda61d4ea62d2f3c656e7d98bc7a74015409a80bc95f6f.
+Evidência: 3RT2036-1AK60; páginas 1. SHA-256: c12e96d9a8d4f98706fda61d4ea62d2f3c656e7d98bc7a74015409a80bc95f6f.
 
 ## Controle
 

@@ -377,8 +377,15 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     const ipiNaBaseIcms = num(operacao.consumidor_final) === 1 ? ipiValor : 0;
     const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
     const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
-    const pisValor = aliquotaPis === null ? null : round(base * aliquotaPis / 100);
-    const cofinsValor = aliquotaCofins === null ? null : round(base * aliquotaCofins / 100);
+    // O ICMS destacado sai da base de PIS/COFINS (STF, RE 574.706/PR, Tema 69, com
+    // efeitos desde 15/03/2017; nos embargos de 13/05/2021 ficou definido que o valor
+    // a excluir e o ICMS DESTACADO na nota, nao o efetivamente recolhido). Sem isso a
+    // base ia como o proprio valor da mercadoria — apontado pela contabilidade em
+    // 09/09/2026 sobre as NF-e 2/5 a 2/8. Operacao sem ICMS destacado (isenta, nao
+    // tributada, ST) mantem a base cheia, porque nao ha o que excluir.
+    const basePisCofins = round(Math.max(base - (icmsValor ?? 0), 0));
+    const pisValor = aliquotaPis === null ? null : round(basePisCofins * aliquotaPis / 100);
+    const cofinsValor = aliquotaCofins === null ? null : round(basePisCofins * aliquotaCofins / 100);
     const aliquotaIbsUf = regraIbsCbs.pIBSUF;
     const aliquotaIbsMun = regraIbsCbs.pIBSMun;
     const aliquotaCbs = regraIbsCbs.pCBS;
@@ -464,9 +471,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ipi_codigo_enquadramento_legal: enquadramentoIpi,
       ...(aliquotaIpi !== null ? { ipi_base_calculo: base, ipi_aliquota: aliquotaIpi, ipi_valor: ipiValor } : {}),
       pis_situacao_tributaria: cstPis,
-      ...(aliquotaPis !== null ? { pis_base_calculo: base, pis_aliquota_porcentual: aliquotaPis, pis_valor: pisValor } : {}),
+      ...(aliquotaPis !== null ? { pis_base_calculo: basePisCofins, pis_aliquota_porcentual: aliquotaPis, pis_valor: pisValor } : {}),
       cofins_situacao_tributaria: cstCofins,
-      ...(aliquotaCofins !== null ? { cofins_base_calculo: base, cofins_aliquota_porcentual: aliquotaCofins, cofins_valor: cofinsValor } : {}),
+      ...(aliquotaCofins !== null ? { cofins_base_calculo: basePisCofins, cofins_aliquota_porcentual: aliquotaCofins, cofins_valor: cofinsValor } : {}),
       ibs_cbs_situacao_tributaria: cstIbsCbs,
       ibs_cbs_classificacao_tributaria: cclassTrib,
       ibs_cbs_base_calculo: base,

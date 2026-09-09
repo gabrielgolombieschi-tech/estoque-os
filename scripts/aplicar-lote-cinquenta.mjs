@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { createClient } from "@supabase/supabase-js";
-import { tenantId, empresaId, diretorio, impressaoTecnica } from "./lib/controle-revisoes.mjs";
+import { tenantId, empresaId, diretorio, criterios, impressaoTecnica } from "./lib/controle-revisoes.mjs";
 import { validarCinquenta, exigirAutorizacao, planejarCinquenta, conferirCinquenta, assinatura } from "./lib/lotes-cinquenta.mjs";
 const numero = process.argv.find((a) => a.startsWith("--lote="))?.slice(7) ?? "003";
-assert.ok(["003", "004", "005", "006"].includes(numero));
+assert.ok(["003", "004", "005", "006", "007"].includes(numero));
 const m = JSON.parse(fs.readFileSync(`${diretorio}/lote-${numero}-cinquenta-itens.json`, "utf8"));
 validarCinquenta(m);
 const aplicar = process.argv.includes("--apply");
@@ -48,7 +48,7 @@ if (aplicar) {
   for (const p of plano) conferirCinquenta(p, atuais.find((i) => i.id === p.antes.id));
   const eventos = atuais.map((i) => {
     const proposta = m.itens.find((p) => p.id === i.id);
-    return { tenant_id: tenantId, empresa_id: empresaId, item_id: i.id, codigo: i.codigo_interno, nome: i.nome, familia: proposta.familia, criterio: proposta.criterio, lote: m.lote, revisado_em: new Date().toISOString(), responsavel: m.responsavel, status: "aprovado", fontes: proposta.fontes, pendencias: [], impressao_tecnica: impressaoTecnica(i), backup, assinatura_lote: assinatura(m) };
+    return { tenant_id: tenantId, empresa_id: empresaId, item_id: i.id, codigo: i.codigo_interno, nome: i.nome, familia: proposta.familia, criterio: criterios[proposta.familia], lote: m.lote, revisado_em: new Date().toISOString(), responsavel: m.responsavel, status: "aprovado", fontes: proposta.fontes, pendencias: [], atributos_nao_confirmados: proposta.atributos_nao_confirmados ?? [], impressao_tecnica: impressaoTecnica(i), backup, assinatura_lote: assinatura(m) };
   });
   const arquivo = `${diretorio}/eventos-${m.lote}.json`;
   if (fs.existsSync(arquivo)) {

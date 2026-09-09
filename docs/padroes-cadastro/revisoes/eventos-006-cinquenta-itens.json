@@ -1,0 +1,1073 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 195,
+    "codigo": "3NH34300RC",
+    "nome": "BASE PARA FUSÍVEL NH TAMANHO 3 630A VERSÃO TP",
+    "familia": "BASES_FUSIVEIS_NH",
+    "criterio": "BASES_FUSIVEIS_NH:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.624Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH34300RC"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_690VCA_do_cadastro_anterior",
+      "polos",
+      "conexao"
+    ],
+    "impressao_tecnica": "539ac98147339a6f24ce599166612c5f94ed82934393d09bce4bcab3074e99e2",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 196,
+    "codigo": "3NH33300RC",
+    "nome": "BASE PARA FUSÍVEL NH TAMANHO 2 400A VERSÃO TP",
+    "familia": "BASES_FUSIVEIS_NH",
+    "criterio": "BASES_FUSIVEIS_NH:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.624Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH33300RC"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_690VCA_do_cadastro_anterior",
+      "polos",
+      "conexao"
+    ],
+    "impressao_tecnica": "a0f0a259e3ce8efeaad6c7ef73c6ae3d33916f5d3b963cd86f4d118850ee157f",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 197,
+    "codigo": "3NH32300RC",
+    "nome": "BASE PARA FUSÍVEL NH TAMANHO 1 250A VERSÃO TP",
+    "familia": "BASES_FUSIVEIS_NH",
+    "criterio": "BASES_FUSIVEIS_NH:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.625Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH32300RC"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_690VCA_do_cadastro_anterior",
+      "polos",
+      "conexao"
+    ],
+    "impressao_tecnica": "d29a5e00824999fe7fbfb6c84eda2add5cc96657a3af54d5c23b74412fa0bc87",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 198,
+    "codigo": "3NH30300RC",
+    "nome": "BASE PARA FUSÍVEL NH TAMANHO 00 160A VERSÃO TP",
+    "familia": "BASES_FUSIVEIS_NH",
+    "criterio": "BASES_FUSIVEIS_NH:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.625Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH30300RC"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_690VCA_do_cadastro_anterior",
+      "polos",
+      "conexao"
+    ],
+    "impressao_tecnica": "399017064139dc47a5519c9a82dac109c389f4db83214f24af17503c1d04d5ec",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 228,
+    "codigo": "5SY73637",
+    "nome": "DISJUNTOR MINI 3P CURVA C 63A ICN 15kA EM 400VCA",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.625Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5SY73637"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "6ed2caa1543809f6156ba855346e5da6d981602ffeef2a20dc0ec818e8cb25f1",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 231,
+    "codigo": "3VM10803ED320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 80A ICU 25kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.626Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10803ED320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "d698f550ed75fb3b1b8a1b0a090bb1a5c3b289ac90b8a911bce2c3a70c3d7ba2",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 232,
+    "codigo": "3VM91170FK25",
+    "nome": "ACIONAMENTO ROTATIVO DE PORTA EMERGÊNCIA IP65 COM INTERTRAVAMENTO PARA 3VM10/11",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.626Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM91170FK25"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "6c7ccaadc5264ca7642c2482cb405d547d24ee78f4d0dec349426f38078a5e8d",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 237,
+    "codigo": "3NA3260",
+    "nome": "FUSÍVEL NH TAMANHO 2 gG 400A 500VCA/440VCC INTERRUPÇÃO 120kA EM CA",
+    "familia": "FUSIVEIS_NH",
+    "criterio": "FUSIVEIS_NH:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.627Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NA3260"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "a8d424cbb575d94a780cc2d5c63b551fe8dcab4e85a39b5956b2598e10648caf",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 238,
+    "codigo": "3NA3836",
+    "nome": "FUSÍVEL NH TAMANHO 00 gG 160A 500VCA/250VCC INTERRUPÇÃO 120kA EM CA",
+    "familia": "FUSIVEIS_NH",
+    "criterio": "FUSIVEIS_NH:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.627Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NA3836"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "35ac7cdcb8c7dc1481695d2cc5e1248c961f3cfa616da00f9ad848dde4985251",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 241,
+    "codigo": "3RT10566AP36",
+    "nome": "CONTATOR 3P AC-3 185A EM 400VCA 2NA+2NF BOBINA 220-240VCA/CC 50/60Hz EM CA POTÊNCIA BARRAMENTO COMANDO PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.627Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT10566AP36"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "8a0fe04c7ea9b3ed05a0cfa562df69b2bafb74cdfd922f7e05c2d1cd5ee67bc2",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 257,
+    "codigo": "3RT10541AF36",
+    "nome": "CONTATOR 3P AC-3 115A EM 400VCA 2NA+2NF BOBINA 110-127VCA/CC 50/60Hz EM CA POTÊNCIA BORNE TIPO CAIXA COMANDO PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.628Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT10541AF36"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "b0b5ca9450d6eeb26b793c55f917be269758d336940dab1ab97d2ad53619d072",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 687,
+    "codigo": "3LD34540TK53",
+    "nome": "CHAVE SECCIONADORA 3P IU 63A AC-23A 22kW EM 400VCA MANOPLA VERMELHA/AMARELA FURO 22,5mm",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.628Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD34540TK53"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "fffb0228e5877326c03a66769a2771be7faec8dfab01a4ec7edb9557792fe09a",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 720,
+    "codigo": "3VM10633ED320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 63A ICU 25kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.629Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10633ED320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "ea531da223e0d1a6f3429cfb72786878b1e66970f9eac7286acded6f57fe7fed",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 733,
+    "codigo": "3VM12165MH320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA MAGNÉTICO 3P 160A ICU 55kA EM 415VCA SEM PROTEÇÃO TÉRMICA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.629Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM12165MH320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "6e3395d98a5402bfe6ac4869f18698fc20d50a3a5a25fb32331a15b5804ddf4f",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 734,
+    "codigo": "3VA96870FK25",
+    "nome": "ACIONAMENTO ROTATIVO DE PORTA EMERGÊNCIA IP65 COM INTERTRAVAMENTO PARA 3VA15/25/26",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.630Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VA96870FK25"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "e2f57905cb148e0e025c98270fc8b50a8bca1f9ba19b44b103b14457e0f3808b",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 772,
+    "codigo": "3RT20353AK60",
+    "nome": "CONTATOR 3P AC-3 41A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.630Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20353AK60"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "39932c509c0cb3e81b198d8a1ce87e1064ce425b619854cc84a8cdc5cce6645b",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 775,
+    "codigo": "3RT20463AN20",
+    "nome": "CONTATOR 3P AC-3 95A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.630Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20463AN20"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "e4de73cf4b57d654bdabd02fac963ba8a8552c04470729a70e6aee610b6845bc",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 791,
+    "codigo": "3RT25361AK60",
+    "nome": "CONTATOR 4P AC-3 41A EM 400VCA PRINCIPAIS 2NA+2NF AUX 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.631Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT25361AK60"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "fc02bdbade0c886d1f13a9ccf1a6b02adf524ffa653d3d7d4b6138a55ad9b5c2",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 807,
+    "codigo": "3RT10566AF36",
+    "nome": "CONTATOR 3P AC-3 185A EM 400VCA 2NA+2NF BOBINA 110-127VCA/CC 50/60Hz EM CA POTÊNCIA BARRAMENTO COMANDO PARAFUSO",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.631Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT10566AF36"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "b1bf3c9fa31c1bd4c1edaea9d9d68d1c41ba1fd48c4e37c1e56fd293e4f76524",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 813,
+    "codigo": "3RT20383AC20",
+    "nome": "CONTATOR 3P AC-3 80A EM 400VCA 1NA+1NF BOBINA 24VCA 50/60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.631Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20383AC20"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "29798f6dca9ee025b5e54bb985341e2e8e8ba0f4184f9115e20fd041544a261b",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 815,
+    "codigo": "3VM10102ED320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 100A ICU 16kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.632Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10102ED320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "cbc93ef4c8bfc037ba804b2a2bc9be041c8b647728398b96f8ef3a0b54b58220",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 817,
+    "codigo": "3VT91003HC10",
+    "nome": "MECANISMO ROTATIVO LATERAL ESQUERDO SEM MANOPLA E SEM TRAVA PARA VT160",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.633Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT91003HC10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "c23743ac8f76adc54049537df46310cfa7dd4f82281f20778a2d5bd201b7475d",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 920,
+    "codigo": "5ST37684",
+    "nome": "BORNE PARA BARRAMENTO ENTRADA À ESQUERDA 80A 690VCA/1000VCC IP20",
+    "familia": "ACESSORIOS_MINIDISJUNTORES",
+    "criterio": "ACESSORIOS_MINIDISJUNTORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.633Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37684"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "586c6daf9daaa1a2730820dd13fd1428610543b2e7a544b771a485abb6633f36",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 921,
+    "codigo": "5ST37685",
+    "nome": "BORNE PARA BARRAMENTO ENTRADA À DIREITA 80A 690VCA/1000VCC IP20",
+    "familia": "ACESSORIOS_MINIDISJUNTORES",
+    "criterio": "ACESSORIOS_MINIDISJUNTORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.633Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37685"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "82f0f9480a7b225a438dd6c7566ef1a96a3fe4b7a6e124ae40274d4dff2e0845",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 935,
+    "codigo": "3VM10632ED320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 63A ICU 16kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.634Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10632ED320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "4e0a75202ff58651bb1c08785fbba80d72aee77684a4a93ef1dfeab6c12ab178",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 937,
+    "codigo": "3VA91570PK15",
+    "nome": "ACIONAMENTO ROTATIVO LATERAL EMERGÊNCIA IP65 PARA 3VA10/11",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.634Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VA91570PK15"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "ad933b4bd6c66f8585e482c160ff051c82426bd7453854aa55c05e281e3f3453",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 942,
+    "codigo": "3VT91004PP30",
+    "nome": "ADAPTADOR DE MONTAGEM EM TRILHO DIN PARA DISJUNTOR VT160",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.635Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT91004PP30"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "largura_trilho_35mm_do_cadastro_anterior"
+    ],
+    "impressao_tecnica": "539c5788880a47595542ed3edb7a399740702d23a64d7ef258f859f317186d60",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 943,
+    "codigo": "3NP11331CA10",
+    "nome": "CHAVE SECCIONADORA PORTA-FUSÍVEL 3P NH00 160A AC-23B EM 400VCA MONTAGEM EM PLACA",
+    "familia": "SECCIONADORAS_FUSIVEIS",
+    "criterio": "SECCIONADORAS_FUSIVEIS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.635Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NP11331CA10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "3929a5995f8b8707d036a9b13e5d21d8b79aa88d62eb9299059e24cd348cc29f",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 953,
+    "codigo": "3RV10111BA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,4-2A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.635Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV10111BA10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "d9fcde53c512dfb0aaa313aad18913c0c2df618d5128431483a8cecc93e7dc0c",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 954,
+    "codigo": "3RV10111EA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 2,8-4A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.636Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV10111EA10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "1fb4456faf03ce3274f82226fa5a6e4a6c50a6ab41c1dab8a0b3384c6c49258e",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 960,
+    "codigo": "3VT27252AA360AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA 3P 250A ICU 36kA EM 415VCA SEM UNIDADE DE DISPARO 3VT2",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.636Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT27252AA360AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "56e7f39e1c5cd757a06e0ce51b666880f22ea265dd5608649db49aea6a7fcdba",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 961,
+    "codigo": "3VT92256AB00",
+    "nome": "UNIDADE DE DISPARO ELETRÔNICA ETU LI 3P IR 250A IRM 4IR PARA VT250",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.636Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT92256AB00"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "a1d7a24e4b62db6d3854a101327fe07527855bb315eff4fe54697acee3411173",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 962,
+    "codigo": "3VT92003HA10",
+    "nome": "MECANISMO ROTATIVO FRONTAL SEM MANOPLA E SEM TRAVA PARA VT250",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.637Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT92003HA10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "b3f36c714b632f9744a3ff18049e2f92442604ff8664dcfd1bbf3ae3779afe0a",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 963,
+    "codigo": "3VT93003HF20",
+    "nome": "MANOPLA VERMELHA/AMARELA COM TRAVA PARA VT250/VT630",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.637Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT93003HF20"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "8c59494edc73d27eec637c44c2d652a2c195b6c5a76cae3c0234cc099f0d638d",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 964,
+    "codigo": "3VT93003HG20",
+    "nome": "ESPELHO FRONTAL PRETO IP66 PARA MANOPLA VT250/VT630",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.637Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT93003HG20"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "90d7fb4c4168ebaa93649a8c1794bc5c7971e9a596894a4a4507cf33eb0c8163",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1205,
+    "codigo": "3VM91170FK21",
+    "nome": "ACIONAMENTO ROTATIVO DE PORTA PADRÃO IP65 COM INTERTRAVAMENTO PARA 3VM10/11",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.638Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM91170FK21"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "4f6d49a0765a468067f24448ce6dd911263e898b33f440ecf64ef0df819f049a",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1206,
+    "codigo": "3VM91130QE00",
+    "nome": "TERMINAL PLANO DE CONEXÃO TRASEIRA PARA 3VM10/11 CONJUNTO 3 PEÇAS",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.638Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM91130QE00"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "2764190687d289cb56ddde852b3e0068d3e982a00f6fb4a72f071c3185e915b1",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2136,
+    "codigo": "3LD33540TK53",
+    "nome": "CHAVE SECCIONADORA 3P IU 40A AC-23A 18,5kW EM 400VCA MANOPLA VERMELHA/AMARELA FURO 22,5mm",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.638Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD33540TK53"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "a7cfc3c0bfb2db284122d47388f9554a266ebd5466a8e52f85ca85682c582fad",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2453,
+    "codigo": "3RV10110CA10",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 0,18-0,25A CLASSE 10 ICU 100kA EM 400VCA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.639Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV10110CA10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "c0e38bbb02db593f27f3836b55690c9d12e01718502300570313b047e033e513",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2460,
+    "codigo": "3RV23314WC10",
+    "nome": "DISJUNTOR MAGNÉTICO PARA PARTIDA 3P 52A ICU 65kA EM 400VCA SEM PROTEÇÃO TÉRMICA CONEXÃO POR PARAFUSO",
+    "familia": "DISJUNTORES_PARTIDA_MAGNETICOS",
+    "criterio": "DISJUNTORES_PARTIDA_MAGNETICOS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.639Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV23314WC10"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "eca48538358c1bf265669dcff6f62d1cebca3ebba57963c9a57c5726d6eff1be",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2921,
+    "codigo": "3RU29263AA01",
+    "nome": "SUPORTE DE MONTAGEM INDIVIDUAL PARA RELÉ 3RU21/3RB30/3RB31/3RR2 S0 CONEXÃO POR PARAFUSO",
+    "familia": "ACESSORIOS_RELES",
+    "criterio": "ACESSORIOS_RELES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.639Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU29263AA01"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "57d146330259c490ee2b206ea3d79a7c047750ade5d9a2b07d3fc74ec6bae374",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2991,
+    "codigo": "3LD93406B",
+    "nome": "BLOCO DE CONTATO AUXILIAR 1NA+1NF AC-15 3A EM 230VCA MONTAGEM FRONTAL PARA 3LD3",
+    "familia": "ACESSORIOS_SECCIONADORAS",
+    "criterio": "ACESSORIOS_SECCIONADORAS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.640Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD93406B"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "bc29e371a006b178419350e78cc3480b7a1f8c475f8371509d20549ac94e61a0",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2992,
+    "codigo": "3LD93410A",
+    "nome": "TAMPA DE PROTEÇÃO DE TERMINAIS 3P PARA CHAVE SECCIONADORA 3LD3",
+    "familia": "ACESSORIOS_SECCIONADORAS",
+    "criterio": "ACESSORIOS_SECCIONADORAS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.640Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD93410A"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "material",
+      "grau_IP"
+    ],
+    "impressao_tecnica": "a119e338da7f2c603231838f97a2e8308dcee6cfb5ab5220e0362f4f3689d62b",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3227,
+    "codigo": "3VJ12201DA320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 200A ICU 18kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.641Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ12201DA320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "80bde47647cdb70330eb3dc68f2d19a95b7d34fa0c997d9d789fd23e7c4b9ebf",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3228,
+    "codigo": "3VJ13403DA320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 400A ICU 25kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.641Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ13403DA320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "6bee1997c3b19351b2ce22bd8fe584b434cd95db329d16cd25d07c079f69068b",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3229,
+    "codigo": "3VJ12163DA220AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 2P 160A ICU 25kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.641Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ12163DA220AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "540c298bbb37cd00ffca40d5d8a09d29f5bb8af324fbb99da72656ba15c135eb",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3230,
+    "codigo": "3VJ92180HD11",
+    "nome": "ACIONAMENTO ROTATIVO DE PORTA PADRÃO IP65 COM INTERTRAVAMENTO PARA 3VJ12 250A",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.642Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ92180HD11"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "69e8f587634dac7e61826399b9cf14510e5f925718a59cade6daf879de7f7c4c",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3231,
+    "codigo": "3RT20473AL20",
+    "nome": "CONTATOR 3P AC-3 110A EM 400VCA 1NA+1NF BOBINA 230VCA 50/60Hz POTÊNCIA PARAFUSO COMANDO MOLA",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.642Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20473AL20"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "ffe5072ef2f77d7a149fa22bc08f59b285c54dfdb5ddc9f4679d36625e386905",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3289,
+    "codigo": "3VJ12161DA320AA0",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 160A ICU 18kA EM 415VCA",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.642Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ12161DA320AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "432cbb53e68d3907bc77ceab20e6c5b45942f8d81a47850c37bcc8e7f4fdb014",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3441,
+    "codigo": "3WJ11162AE020AA0",
+    "nome": "DISJUNTOR ABERTO FIXO 3P 1600A ICU 50kA EM 440VCA PROTEÇÃO LSI CONEXÃO TRASEIRA HORIZONTAL",
+    "familia": "DISJUNTORES_ABERTOS",
+    "criterio": "DISJUNTORES_ABERTOS:1",
+    "lote": "006-cinquenta-itens",
+    "revisado_em": "2026-09-09T19:10:45.643Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3WJ11162AE020AA0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "3fb45f583eaff31cb37de90451f26eb51b69fd4c6c3df8d4cb274d6374eb4439",
+    "backup": "backups/revisao-lotes/006-2026-09-09T19-10-34-146Z.json",
+    "assinatura_lote": "2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"
+  }
+]

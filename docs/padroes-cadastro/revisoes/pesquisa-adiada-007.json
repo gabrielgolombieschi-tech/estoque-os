@@ -1,0 +1,14 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-09",
+  "nao_aplicados": [1872,1873,1883,2351,2523,3329],
+  "motivos": {
+    "1872/1873/1883": "Modelos MSW antigos: não copiar Ue, Ui ou categoria dos substitutos atuais. Buscar catálogo histórico ou placa.",
+    "2351/2523": "Referências exatas das manoplas CBW3 ainda não confirmadas por código numérico na documentação consultada.",
+    "3329": "Código 15514988 ainda sem correspondência oficial exata confirmada. Não presumir CWBC50-12-30D23 por corrente e tensão do nome anterior."
+  },
+  "limites_fontes": "Diversas páginas individuais WEG retornaram HTTP 403; catálogos públicos e resultados de consulta oficial preservados. Algumas URLs antigas de PDF retornaram 404. Isso não prova inexistência do produto.",
+  "revisao_parcial_proposta": {"id":1884,"motivo":"Identidade MSW 16 P3 H confirmada em página exata. Tensão histórica 1000VCA, categoria por tensão e cor da manopla não confirmadas; ressalvas no lote 007."},
+  "retomar": "Pesquisar nova evidência exata; não repetir inferências por modelo parecido. Nenhuma aprovação ou alteração produzida por este arquivo."
+}

@@ -1,28 +1,28 @@
 # Lote 006 — 50 itens
 
-AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO
+APLICADO E VERIFICADO
 
 Data da revisão: 2026-09-09. Escopo: tenant 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa f0e74f49-a127-46b4-901b-f7b37e43c690.
 
-50 Siemens, todos com grupo: 10 disjuntores em caixa moldada, 12 acessórios de caixa moldada, 1 disjuntor aberto, 8 contatores, 1 minidisjuntor, 2 bornes de barramento, 3 disjuntores-motor, 1 disjuntor magnético para partida, 4 bases NH, 2 fusíveis NH, 1 seccionadora porta-fusível, 1 suporte de relé, 2 seccionadoras e 2 acessórios de seccionadoras. Alterações somente em nome e descrição complementar. A tabela é uma proposta: nenhum destes 50 foi alterado por este lote.
+50 Siemens, todos com grupo: 10 disjuntores em caixa moldada, 12 acessórios de caixa moldada, 1 disjuntor aberto, 8 contatores, 1 minidisjuntor, 2 bornes de barramento, 3 disjuntores-motor, 1 disjuntor magnético para partida, 4 bases NH, 2 fusíveis NH, 1 seccionadora porta-fusível, 1 suporte de relé, 2 seccionadoras e 2 acessórios de seccionadoras. Alterações somente em nome e descrição complementar. Todos os 50 foram aplicados e verificados.
 
 Grupo, código, fabricante, fornecedor, unidades, multiplicadores, preço, saldo e dados fiscais permanecem iguais. Cada comparação usa o cadastro real capturado, não um exemplo inventado.
 
-Para aprovar: informe “aprovo o lote 006” ou indique os IDs e ajustes desejados. Antes de aplicar, reconferir alterações concorrentes; este relatório não autoriza lotes seguintes. A ficha atual não substitui a conferência da placa/versão física para dimensionamento.
+As fontes técnicas e os registros de aplicação estão vinculados por ID. A ficha não substitui a conferência da placa/versão do item físico para dimensionamento.
 
 ## Pontos que precisam da sua atenção
 
 - IDs 733 e 2460: proteção magnética, sem proteção térmica. ID 960: unidade fornecida sem disparador ETU; não é proteção completa.
 - ID 791: 4 polos principais 2NA+2NF e auxiliares 1NA+1NF. IDs 772/775/813/3231: potência por parafuso, comando/auxiliares por mola.
-- IDs 195/196/197/198: revisão PARCIAL. A proposta retira 690VCA do nome porque as fichas atuais não confirmam essa tensão; preserva o valor antigo, identificado como não confirmado, no complemento. Isso não demonstra que 690VCA esteja errado. Tensão, polos e conexão precisam de placa ou documentação histórica antes do dimensionamento. Você pode pedir que esses quatro aguardem nova evidência.
+- IDs 195/196/197/198: revisão PARCIAL. A redação retira 690VCA do nome porque as fichas atuais não confirmam essa tensão; preserva o valor antigo, identificado como não confirmado, no complemento. Isso não demonstra que 690VCA esteja errado. Tensão, polos e conexão precisam de placa ou documentação histórica antes do dimensionamento.
 - ID 942: largura de trilho 35mm do cadastro anterior não confirmada na ficha atual. ID 2992: material/IP não inferidos. ID 953: valores inconsistentes em 500V na ficha não utilizados; proposta limitada à capacidade em 400VCA.
 - IDs 1620 e 2459 ficam fora: ficha resumida insuficiente e HTTP 404, respectivamente. Não presumir produto inexistente nem completar dados por similaridade.
 
-Aprovar as alterações não certifica atributos ausentes. Este lote não foi incorporado aos modelos humanos aprovados do agente. As novas famílias têm critério provisório de proposta, sem evento de aprovação.
+Lote aprovado, aplicado e incorporado ao padrão do agente pela decisão D-042, versão 1.30.0. O manifesto original conserva seus critérios provisórios para preservar a assinatura aprovada; os eventos usam os critérios ativos. Aprovação não certifica atributos ausentes; as ressalvas parciais permanecem registradas.
 
 ## Antes e depois dos 50
 
-| Nº | ID / código | Antes | Depois proposto |
+| Nº | ID / código | Antes | Depois aplicado |
 | ---: | --- | --- | --- |
 | 1 | 231<br>3VM10803ED320AA0 | DISJUNTOR CAIXA MOLDADA 3P 80A 25kA 380V | DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 80A ICU 25kA EM 415VCA |
 | 2 | 720<br>3VM10633ED320AA0 | DISJUNTOR CAIXA MOLDADA 3P 63A 25kA 380V | DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 63A ICU 25kA EM 415VCA |
@@ -85,7 +85,7 @@ Depois: Referência Siemens 3VM1080-3ED32-0AA0. 3 polos, 80A; disparador TM210 F
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10803ED320AA0).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 0e7a514d0c429c042fb8d8758c6899d35357faf56bfcfffa24a2e60345e315fd.
+Evidência: 3VM1080-3ED32-0AA0; páginas 1, 2. SHA-256: 0e7a514d0c429c042fb8d8758c6899d35357faf56bfcfffa24a2e60345e315fd.
 
 ### ID 720 — 3VM1063-3ED32-0AA0
 
@@ -95,7 +95,7 @@ Depois: Referência Siemens 3VM1063-3ED32-0AA0. 3 polos, 63A; disparador TM210 F
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10633ED320AA0).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 3382480c27ae37447a9f1623e9f2583a0a8b3c75fe838eb5c2d8a22402e0a11c.
+Evidência: 3VM1063-3ED32-0AA0; páginas 1, 2. SHA-256: 3382480c27ae37447a9f1623e9f2583a0a8b3c75fe838eb5c2d8a22402e0a11c.
 
 ### ID 733 — 3VM1216-5MH32-0AA0
 
@@ -105,7 +105,7 @@ Depois: Referência Siemens 3VM1216-5MH32-0AA0. Disparador TM120 M, proteção e
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM12165MH320AA0).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 9bdc35dec5369839a9e0537c51a75ceadbf9a890d8e930d2fba56fa0a45fe029.
+Evidência: 3VM1216-5MH32-0AA0; páginas 1, 2. SHA-256: 9bdc35dec5369839a9e0537c51a75ceadbf9a890d8e930d2fba56fa0a45fe029.
 
 ### ID 815 — 3VM1010-2ED32-0AA0
 
@@ -115,7 +115,7 @@ Depois: Referência Siemens 3VM1010-2ED32-0AA0. 3 polos, 100A; disparador TM210 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10102ED320AA0).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 173ba1241bffb70b6c5d291ea0dddccc85d54f1cda6506391bb617b375814483.
+Evidência: 3VM1010-2ED32-0AA0; páginas 1, 2. SHA-256: 173ba1241bffb70b6c5d291ea0dddccc85d54f1cda6506391bb617b375814483.
 
 ### ID 935 — 3VM1063-2ED32-0AA0
 
@@ -125,7 +125,7 @@ Depois: Referência Siemens 3VM1063-2ED32-0AA0. 3 polos, 63A; disparador TM210 F
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM10632ED320AA0).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 37aaa8d818ec2d5eba00308b45b00bc38ad836d189440bc9190d0ee65184444f.
+Evidência: 3VM1063-2ED32-0AA0; páginas 1, 2. SHA-256: 37aaa8d818ec2d5eba00308b45b00bc38ad836d189440bc9190d0ee65184444f.
 
 ### ID 960 — 3VT2725-2AA36-0AA0
 
@@ -135,7 +135,7 @@ Depois: Referência Siemens 3VT2725-2AA36-0AA0. Unidade de contatos 3VT2, 3 polo
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT27252AA360AA0).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 89d2e45240e2e954161a7775607a9260e2aa07562f794a8432dd5a07cc5496a5.
+Evidência: 3VT2725-2AA36-0AA0; páginas 1, 2. SHA-256: 89d2e45240e2e954161a7775607a9260e2aa07562f794a8432dd5a07cc5496a5.
 
 ### ID 3227 — 3VJ1220-1DA32-0AA0
 
@@ -145,7 +145,7 @@ Depois: Referência Siemens 3VJ1220-1DA32-0AA0. 3 polos, 200A; disparador FTFM, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ12201DA320AA0).
 
-Páginas conferidas: 1. SHA-256 do documento: 25acce88fce7c8132836cb15398235a0974480156852361fe0b40be8a1ea2bf0.
+Evidência: 3VJ1220-1DA32-0AA0; páginas 1. SHA-256: 25acce88fce7c8132836cb15398235a0974480156852361fe0b40be8a1ea2bf0.
 
 ### ID 3228 — 3VJ1340-3DA32-0AA0
 
@@ -155,7 +155,7 @@ Depois: Referência Siemens 3VJ1340-3DA32-0AA0. 3 polos, 400A; disparador FTFM, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ13403DA320AA0).
 
-Páginas conferidas: 1. SHA-256 do documento: 14cf2d4f982594556db6c5f2595c25685c7f67ba592d727cd4fb2707c891a3c9.
+Evidência: 3VJ1340-3DA32-0AA0; páginas 1. SHA-256: 14cf2d4f982594556db6c5f2595c25685c7f67ba592d727cd4fb2707c891a3c9.
 
 ### ID 3229 — 3VJ1216-3DA22-0AA0
 
@@ -165,7 +165,7 @@ Depois: Referência Siemens 3VJ1216-3DA22-0AA0. 2 polos, 160A; disparador FTFM, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ12163DA220AA0).
 
-Páginas conferidas: 1. SHA-256 do documento: 38da272114709a36e58de61248fb11d6382d8935c0347b862d832d6c6ea0005e.
+Evidência: 3VJ1216-3DA22-0AA0; páginas 1. SHA-256: 38da272114709a36e58de61248fb11d6382d8935c0347b862d832d6c6ea0005e.
 
 ### ID 3289 — 3VJ1216-1DA32-0AA0
 
@@ -175,7 +175,7 @@ Depois: Referência Siemens 3VJ1216-1DA32-0AA0. 3 polos, 160A; disparador FTFM, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ12161DA320AA0).
 
-Páginas conferidas: 1. SHA-256 do documento: 24132e90124c62945e13e6777a67911691dc82df5c271e4772a3b938c4e872f5.
+Evidência: 3VJ1216-1DA32-0AA0; páginas 1. SHA-256: 24132e90124c62945e13e6777a67911691dc82df5c271e4772a3b938c4e872f5.
 
 ### ID 3441 — 3WJ1116-2AE02-0AA0
 
@@ -185,7 +185,7 @@ Depois: Referência Siemens 3WJ1116-2AE02-0AA0. Disjuntor aberto 3WJ1, montagem 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3WJ11162AE020AA0).
 
-Páginas conferidas: 1. SHA-256 do documento: a6fb7038fa7c2c888a4902ec1467801d7e5c76da0b983ff920f32f46621ee8a6.
+Evidência: 3WJ1116-2AE02-0AA0; páginas 1. SHA-256: a6fb7038fa7c2c888a4902ec1467801d7e5c76da0b983ff920f32f46621ee8a6.
 
 ### ID 232 — 3VM9117-0FK25
 
@@ -195,7 +195,7 @@ Depois: Referência Siemens 3VM9117-0FK25. Acionamento de porta EMERGENCY OFF, I
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM91170FK25).
 
-Páginas conferidas: 1. SHA-256 do documento: f98475bbfd42690db427d9127b606fbab0dbc09c4603c7c824108828eaf0b8a8.
+Evidência: 3VM9117-0FK25; páginas 1. SHA-256: f98475bbfd42690db427d9127b606fbab0dbc09c4603c7c824108828eaf0b8a8.
 
 ### ID 734 — 3VA9687-0FK25
 
@@ -205,7 +205,7 @@ Depois: Referência Siemens 3VA9687-0FK25. Acionamento rotativo de porta EMERGEN
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VA96870FK25).
 
-Páginas conferidas: 1. SHA-256 do documento: 1f66ee99e535a5790d78787e4358bd35ee6f3fc0cfe642490e97b96487b21518.
+Evidência: 3VA9687-0FK25; páginas 1. SHA-256: 1f66ee99e535a5790d78787e4358bd35ee6f3fc0cfe642490e97b96487b21518.
 
 ### ID 817 — 3VT9100-3HC10
 
@@ -215,7 +215,7 @@ Depois: Referência Siemens 3VT9100-3HC10. Mecanismo lateral esquerdo para VT160
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT91003HC10).
 
-Páginas conferidas: 1. SHA-256 do documento: 09288b3f5d7b26a15987306f96ae202f9c2cf82dedf81ee7c9fbe7c42af1c6a0.
+Evidência: 3VT9100-3HC10; páginas 1. SHA-256: 09288b3f5d7b26a15987306f96ae202f9c2cf82dedf81ee7c9fbe7c42af1c6a0.
 
 ### ID 937 — 3VA9157-0PK15
 
@@ -225,7 +225,7 @@ Depois: Referência Siemens 3VA9157-0PK15. Acionamento rotativo de montagem na p
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VA91570PK15).
 
-Páginas conferidas: 1. SHA-256 do documento: e056b0efb72c818754243f3532f7b29e32f20da1e439c59b0fa035dfd1f14f1d.
+Evidência: 3VA9157-0PK15; páginas 1. SHA-256: e056b0efb72c818754243f3532f7b29e32f20da1e439c59b0fa035dfd1f14f1d.
 
 ### ID 942 — 3VT9100-4PP30
 
@@ -235,7 +235,9 @@ Depois: Referência Siemens 3VT9100-4PP30. Adaptador de montagem em trilho DIN p
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT91004PP30).
 
-Páginas conferidas: 1. SHA-256 do documento: 95a03cb8365d3ade0ef06d78213cadcb50496f3d77d22a13f893fd06bd2c42e9.
+Evidência: 3VT9100-4PP30; páginas 1. SHA-256: 95a03cb8365d3ade0ef06d78213cadcb50496f3d77d22a13f893fd06bd2c42e9.
+
+Atributos não confirmados: largura_trilho_35mm_do_cadastro_anterior.
 
 ### ID 961 — 3VT9225-6AB00
 
@@ -245,7 +247,7 @@ Depois: Referência Siemens 3VT9225-6AB00. ETU LP com funções LI para VT250, 3
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT92256AB00).
 
-Páginas conferidas: 1. SHA-256 do documento: 7ce3fbefabb1f80cf118d29e3c95cb9f4b9173db714885c62ece1388fe1f66f6.
+Evidência: 3VT9225-6AB00; páginas 1. SHA-256: 7ce3fbefabb1f80cf118d29e3c95cb9f4b9173db714885c62ece1388fe1f66f6.
 
 ### ID 962 — 3VT9200-3HA10
 
@@ -255,7 +257,7 @@ Depois: Referência Siemens 3VT9200-3HA10. Mecanismo frontal para VT250, sem tra
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT92003HA10).
 
-Páginas conferidas: 1. SHA-256 do documento: cc8248ed9737b62fc0101d3db0e33fcf63af50f3c38545a8c972c6c261905c25.
+Evidência: 3VT9200-3HA10; páginas 1. SHA-256: cc8248ed9737b62fc0101d3db0e33fcf63af50f3c38545a8c972c6c261905c25.
 
 ### ID 963 — 3VT9300-3HF20
 
@@ -265,7 +267,7 @@ Depois: Referência Siemens 3VT9300-3HF20. Manopla vermelha/amarela com trava, c
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT93003HF20).
 
-Páginas conferidas: 1. SHA-256 do documento: 4f1bff45e0a224e1f87a8d57d620f4b2c0be3a867a4508bf7c5edc6c41f5beed.
+Evidência: 3VT9300-3HF20; páginas 1. SHA-256: 4f1bff45e0a224e1f87a8d57d620f4b2c0be3a867a4508bf7c5edc6c41f5beed.
 
 ### ID 964 — 3VT9300-3HG20
 
@@ -275,7 +277,7 @@ Depois: Referência Siemens 3VT9300-3HG20. Espelho frontal preto para manopla do
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VT93003HG20).
 
-Páginas conferidas: 1. SHA-256 do documento: b6324d5b6101315886440abeff58b36e84ff478bf0a24f8d879b3b742ee70791.
+Evidência: 3VT9300-3HG20; páginas 1. SHA-256: b6324d5b6101315886440abeff58b36e84ff478bf0a24f8d879b3b742ee70791.
 
 ### ID 1205 — 3VM9117-0FK21
 
@@ -285,7 +287,7 @@ Depois: Referência Siemens 3VM9117-0FK21. Acionamento de porta padrão, IP65 se
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM91170FK21).
 
-Páginas conferidas: 1. SHA-256 do documento: 93c297a7b2a9c1484f4022ff98bade67496771ae31b4c2ede3c493a88367c358.
+Evidência: 3VM9117-0FK21; páginas 1. SHA-256: 93c297a7b2a9c1484f4022ff98bade67496771ae31b4c2ede3c493a88367c358.
 
 ### ID 1206 — 3VM9113-0QE00
 
@@ -295,7 +297,7 @@ Depois: Referência Siemens 3VM9113-0QE00. Terminais planos de conexão traseira
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VM91130QE00).
 
-Páginas conferidas: 1. SHA-256 do documento: b9709865edbb7babc5ce6bf39037e427f12ab815d52b9340ef5c6a9523ff29b4.
+Evidência: 3VM9113-0QE00; páginas 1. SHA-256: b9709865edbb7babc5ce6bf39037e427f12ab815d52b9340ef5c6a9523ff29b4.
 
 ### ID 3230 — 3VJ9218-0HD11
 
@@ -305,7 +307,7 @@ Depois: Referência Siemens 3VJ9218-0HD11. Acionamento rotativo de porta padrão
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3VJ92180HD11).
 
-Páginas conferidas: 1. SHA-256 do documento: 3a5a090816ab2b4adae86f322017f55ce313b87d60803c61d8d28f0f101fd4da.
+Evidência: 3VJ9218-0HD11; páginas 1. SHA-256: 3a5a090816ab2b4adae86f322017f55ce313b87d60803c61d8d28f0f101fd4da.
 
 ### ID 241 — 3RT1056-6AP36
 
@@ -315,7 +317,7 @@ Depois: Referência Siemens 3RT1056-6AP36. Contator 3 polos, AC-3/AC-3e 185A em 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT10566AP36).
 
-Páginas conferidas: 1. SHA-256 do documento: 224e79427d599987bae525101a30046346391205006d5ddd7917b489cbc1aa04.
+Evidência: 3RT1056-6AP36; páginas 1. SHA-256: 224e79427d599987bae525101a30046346391205006d5ddd7917b489cbc1aa04.
 
 ### ID 257 — 3RT1054-1AF36
 
@@ -325,7 +327,7 @@ Depois: Referência Siemens 3RT1054-1AF36. Contator 3 polos, AC-3/AC-3e 115A em 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT10541AF36).
 
-Páginas conferidas: 1. SHA-256 do documento: 42f24531a003f52278c7c9e56e3a6c0b1992c108f792d79696a84661fbcfc764.
+Evidência: 3RT1054-1AF36; páginas 1. SHA-256: 42f24531a003f52278c7c9e56e3a6c0b1992c108f792d79696a84661fbcfc764.
 
 ### ID 772 — 3RT2035-3AK60
 
@@ -335,7 +337,7 @@ Depois: Referência Siemens 3RT2035-3AK60. Contator 3 polos, AC-3/AC-3e 41A em 4
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20353AK60).
 
-Páginas conferidas: 1. SHA-256 do documento: 777e2dfbc6db432d00c05f0743f43f2b7e1c853bf95e41c8b5c0673b2636d5dd.
+Evidência: 3RT2035-3AK60; páginas 1. SHA-256: 777e2dfbc6db432d00c05f0743f43f2b7e1c853bf95e41c8b5c0673b2636d5dd.
 
 ### ID 775 — 3RT2046-3AN20
 
@@ -345,7 +347,7 @@ Depois: Referência Siemens 3RT2046-3AN20. Contator 3 polos, AC-3/AC-3e 95A em 4
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20463AN20).
 
-Páginas conferidas: 1. SHA-256 do documento: 19fa08a55a83105187fa119d87912ee2736e3b1e80471617018e8a8a2c66aed9.
+Evidência: 3RT2046-3AN20; páginas 1. SHA-256: 19fa08a55a83105187fa119d87912ee2736e3b1e80471617018e8a8a2c66aed9.
 
 ### ID 791 — 3RT2536-1AK60
 
@@ -355,7 +357,7 @@ Depois: Referência Siemens 3RT2536-1AK60. Contator SIRIUS S2, 4 polos principai
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT25361AK60).
 
-Páginas conferidas: 1. SHA-256 do documento: f8cb5e9db6a36f98c55f7a840932da0b40ee88b1a4af2a7d13fa72297544d0f6.
+Evidência: 3RT2536-1AK60; páginas 1. SHA-256: f8cb5e9db6a36f98c55f7a840932da0b40ee88b1a4af2a7d13fa72297544d0f6.
 
 ### ID 807 — 3RT1056-6AF36
 
@@ -365,7 +367,7 @@ Depois: Referência Siemens 3RT1056-6AF36. Contator 3 polos, AC-3/AC-3e 185A em 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT10566AF36).
 
-Páginas conferidas: 1. SHA-256 do documento: 58d6f015bf4744077ba0afbd48db17a5d8a004c4cf3db84028ace52db9e0534a.
+Evidência: 3RT1056-6AF36; páginas 1. SHA-256: 58d6f015bf4744077ba0afbd48db17a5d8a004c4cf3db84028ace52db9e0534a.
 
 ### ID 813 — 3RT2038-3AC20
 
@@ -375,7 +377,7 @@ Depois: Referência Siemens 3RT2038-3AC20. Contator 3 polos, AC-3/AC-3e 80A em 4
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20383AC20).
 
-Páginas conferidas: 1. SHA-256 do documento: 5b1dfe3d21292ac4882c30d2719423712dea0f29be8be6c9f5f99b2373f5fa64.
+Evidência: 3RT2038-3AC20; páginas 1. SHA-256: 5b1dfe3d21292ac4882c30d2719423712dea0f29be8be6c9f5f99b2373f5fa64.
 
 ### ID 3231 — 3RT2047-3AL20
 
@@ -385,7 +387,7 @@ Depois: Referência Siemens 3RT2047-3AL20. Contator 3 polos, AC-3/AC-3e 110A em 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT20473AL20).
 
-Páginas conferidas: 1. SHA-256 do documento: 79667b0137bc1fddd659ee5b538a553d937c3fae209cbc4d80a3b11bb533aa10.
+Evidência: 3RT2047-3AL20; páginas 1. SHA-256: 79667b0137bc1fddd659ee5b538a553d937c3fae209cbc4d80a3b11bb533aa10.
 
 ### ID 228 — 5SY7363-7
 
@@ -395,7 +397,7 @@ Depois: Referência Siemens 5SY7363-7. Minidisjuntor 3 polos, curva C, corrente 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5SY73637).
 
-Páginas conferidas: 1. SHA-256 do documento: f2786a3f990dd731d88c48e12cec3f6fc32a56975f9190efa738313c66918a47.
+Evidência: 5SY7363-7; páginas 1. SHA-256: f2786a3f990dd731d88c48e12cec3f6fc32a56975f9190efa738313c66918a47.
 
 ### ID 920 — 5ST3768-4
 
@@ -405,7 +407,7 @@ Depois: Referência Siemens 5ST3768-4. Borne de conexão, entrada de cabo à esq
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37684).
 
-Páginas conferidas: 1. SHA-256 do documento: d004b058ca5cdc09eb8048578d5302549ff02fff100175be92dbd8a08a99d04a.
+Evidência: 5ST3768-4; páginas 1. SHA-256: d004b058ca5cdc09eb8048578d5302549ff02fff100175be92dbd8a08a99d04a.
 
 ### ID 921 — 5ST3768-5
 
@@ -415,7 +417,7 @@ Depois: Referência Siemens 5ST3768-5. Borne de conexão, entrada de cabo à dir
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37685).
 
-Páginas conferidas: 1. SHA-256 do documento: cf11b3d71aed1fefd9b3dc88b7f4cff13e24796da5df9a71f5de5a4a5f945159.
+Evidência: 5ST3768-5; páginas 1. SHA-256: cf11b3d71aed1fefd9b3dc88b7f4cff13e24796da5df9a71f5de5a4a5f945159.
 
 ### ID 953 — 3RV1011-1BA10
 
@@ -425,7 +427,7 @@ Depois: Referência Siemens 3RV1011-1BA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV10111BA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 0fe8293dde16017b9bf4b2aafab47e650cf3756a392ffd3666d8c95437a9cbba.
+Evidência: 3RV1011-1BA10; páginas 1, 2. SHA-256: 0fe8293dde16017b9bf4b2aafab47e650cf3756a392ffd3666d8c95437a9cbba.
 
 ### ID 954 — 3RV1011-1EA10
 
@@ -435,7 +437,7 @@ Depois: Referência Siemens 3RV1011-1EA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV10111EA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 68384ef4f424cd3a543d15c58f0ac9ad8ffc019a086cf26c25aca61db98e9e5f.
+Evidência: 3RV1011-1EA10; páginas 1, 2. SHA-256: 68384ef4f424cd3a543d15c58f0ac9ad8ffc019a086cf26c25aca61db98e9e5f.
 
 ### ID 2453 — 3RV1011-0CA10
 
@@ -445,7 +447,7 @@ Depois: Referência Siemens 3RV1011-0CA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV10110CA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 0d9364eee0e4856f215b53ae02b2b7b4e7f198fc9eb440c4d59ccfb3abfa87df.
+Evidência: 3RV1011-0CA10; páginas 1, 2. SHA-256: 0d9364eee0e4856f215b53ae02b2b7b4e7f198fc9eb440c4d59ccfb3abfa87df.
 
 ### ID 2460 — 3RV2331-4WC10
 
@@ -455,7 +457,7 @@ Depois: Referência Siemens 3RV2331-4WC10. Disjuntor 3RV2 tamanho S2 para combin
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV23314WC10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: a2d269921fd350ab702095d140bfb3ab95ee1e3159efd9a8eb40c1c5b2b4d431.
+Evidência: 3RV2331-4WC10; páginas 1, 2. SHA-256: a2d269921fd350ab702095d140bfb3ab95ee1e3159efd9a8eb40c1c5b2b4d431.
 
 ### ID 195 — 3NH3430-0RC
 
@@ -465,7 +467,9 @@ Depois: Referência Siemens 3NH3430-0RC. Base NH tamanho 3, 630A, versão TP, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH34300RC).
 
-Páginas conferidas: 1. SHA-256 do documento: 275e2fb95e2abde78b002258b559315bd50fa33c5ad037e548e82a5b44825ca2.
+Evidência: 3NH3430-0RC; páginas 1. SHA-256: 275e2fb95e2abde78b002258b559315bd50fa33c5ad037e548e82a5b44825ca2.
+
+Atributos não confirmados: tensao_690VCA_do_cadastro_anterior, polos, conexao.
 
 ### ID 196 — 3NH3330-0RC
 
@@ -475,7 +479,9 @@ Depois: Referência Siemens 3NH3330-0RC. Base NH tamanho 2, 400A, versão TP, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH33300RC).
 
-Páginas conferidas: 1. SHA-256 do documento: 16cd534128326b99b22f11a4bbdfb0524697c65bd1c30c5503ee69284167bb41.
+Evidência: 3NH3330-0RC; páginas 1. SHA-256: 16cd534128326b99b22f11a4bbdfb0524697c65bd1c30c5503ee69284167bb41.
+
+Atributos não confirmados: tensao_690VCA_do_cadastro_anterior, polos, conexao.
 
 ### ID 197 — 3NH3230-0RC
 
@@ -485,7 +491,9 @@ Depois: Referência Siemens 3NH3230-0RC. Base NH tamanho 1, 250A, versão TP, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH32300RC).
 
-Páginas conferidas: 1. SHA-256 do documento: 21a237e43987d1855768d46046de747c4d36f155a477f8e395c10bdaf2154c45.
+Evidência: 3NH3230-0RC; páginas 1. SHA-256: 21a237e43987d1855768d46046de747c4d36f155a477f8e395c10bdaf2154c45.
+
+Atributos não confirmados: tensao_690VCA_do_cadastro_anterior, polos, conexao.
 
 ### ID 198 — 3NH3030-0RC
 
@@ -495,7 +503,9 @@ Depois: Referência Siemens 3NH3030-0RC. Base NH tamanho 00, 160A, versão TP, c
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NH30300RC).
 
-Páginas conferidas: 1. SHA-256 do documento: 44116cccd7fb6a9abeddb065965c2e5d7aa57272d3ce7304a43423ed1e5b50b4.
+Evidência: 3NH3030-0RC; páginas 1. SHA-256: 44116cccd7fb6a9abeddb065965c2e5d7aa57272d3ce7304a43423ed1e5b50b4.
+
+Atributos não confirmados: tensao_690VCA_do_cadastro_anterior, polos, conexao.
 
 ### ID 237 — 3NA3260
 
@@ -505,7 +515,7 @@ Depois: Referência Siemens 3NA3260. Fusível NH2, categoria gG, 400A, 500VCA/44
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NA3260).
 
-Páginas conferidas: 1. SHA-256 do documento: 2b7b8a1567911061228eebc5d86e5ce0b8978b95af91dafe1e96cda40b4ba9d9.
+Evidência: 3NA3260; páginas 1. SHA-256: 2b7b8a1567911061228eebc5d86e5ce0b8978b95af91dafe1e96cda40b4ba9d9.
 
 ### ID 238 — 3NA3836
 
@@ -515,7 +525,7 @@ Depois: Referência Siemens 3NA3836. Fusível NH00, categoria gG, 160A, 500VCA/2
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NA3836).
 
-Páginas conferidas: 1. SHA-256 do documento: 298cf18a11c86044bbe892c43625c9fac131d0bd4bd33bf512d7eaa47915d2cd.
+Evidência: 3NA3836; páginas 1. SHA-256: 298cf18a11c86044bbe892c43625c9fac131d0bd4bd33bf512d7eaa47915d2cd.
 
 ### ID 943 — 3NP1133-1CA10
 
@@ -525,7 +535,7 @@ Depois: Referência Siemens 3NP1133-1CA10. Seccionadora porta-fusível 3NP1, 3 p
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3NP11331CA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 8478c38d7f33a08aaa8daa695a55252e60bbd893c929c691c996fd777074104c.
+Evidência: 3NP1133-1CA10; páginas 1, 2. SHA-256: 8478c38d7f33a08aaa8daa695a55252e60bbd893c929c691c996fd777074104c.
 
 ### ID 2921 — 3RU2926-3AA01
 
@@ -535,7 +545,7 @@ Depois: Referência Siemens 3RU2926-3AA01. Suporte de montagem individual para 3
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU29263AA01).
 
-Páginas conferidas: 1. SHA-256 do documento: e787dc0e63981eeef83a260aa61f469f8531d458b4df27ac2b188df419de4b97.
+Evidência: 3RU2926-3AA01; páginas 1. SHA-256: e787dc0e63981eeef83a260aa61f469f8531d458b4df27ac2b188df419de4b97.
 
 ### ID 687 — 3LD3454-0TK53
 
@@ -545,7 +555,7 @@ Depois: Referência Siemens 3LD3454-0TK53. Seccionadora 3LD3, 3 polos, corrente 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD34540TK53).
 
-Páginas conferidas: 1. SHA-256 do documento: 33de4f378e664a2b793afe78c7541c39b928717da7ae31cce922712b6c9e01aa.
+Evidência: 3LD3454-0TK53; páginas 1. SHA-256: 33de4f378e664a2b793afe78c7541c39b928717da7ae31cce922712b6c9e01aa.
 
 ### ID 2136 — 3LD3354-0TK53
 
@@ -555,7 +565,7 @@ Depois: Referência Siemens 3LD3354-0TK53. Seccionadora 3LD3, 3 polos, corrente 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD33540TK53).
 
-Páginas conferidas: 1. SHA-256 do documento: 7e33b7c4c1c6e0fed0624af065a61f9c52a02197e78c03f2d73d05bb85148b81.
+Evidência: 3LD3354-0TK53; páginas 1. SHA-256: 7e33b7c4c1c6e0fed0624af065a61f9c52a02197e78c03f2d73d05bb85148b81.
 
 ### ID 2991 — 3LD9340-6B
 
@@ -565,7 +575,7 @@ Depois: Referência Siemens 3LD9340-6B. Auxiliar frontal para seccionadoras 3LD3
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD93406B).
 
-Páginas conferidas: 1. SHA-256 do documento: 6e6fa1daa6168adae97326dcdb7842180145f2c4d3bf0c79abd4ee756b1ce691.
+Evidência: 3LD9340-6B; páginas 1. SHA-256: 6e6fa1daa6168adae97326dcdb7842180145f2c4d3bf0c79abd4ee756b1ce691.
 
 ### ID 2992 — 3LD9341-0A
 
@@ -575,7 +585,9 @@ Depois: Referência Siemens 3LD9341-0A. Tampa de proteção de terminais para 3 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3LD93410A).
 
-Páginas conferidas: 1. SHA-256 do documento: c7459349715702859796fb70af434c7ff2c044c98a5a143d7c3af64018759549.
+Evidência: 3LD9341-0A; páginas 1. SHA-256: c7459349715702859796fb70af434c7ff2c044c98a5a143d7c3af64018759549.
+
+Atributos não confirmados: material, grau_IP.
 
 ## Controle
 
@@ -583,4 +595,4 @@ Assinatura SHA-256 do manifesto: 2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9
 
 Manifesto: lote-006-cinquenta-itens.json.
 
-Eventos de aplicação confirmados: 0.
+Eventos de aplicação confirmados: 50.

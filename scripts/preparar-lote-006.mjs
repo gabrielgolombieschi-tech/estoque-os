@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { tenantId, empresaId, diretorio, criterios, validarEscopo, impressaoTecnica } from "./lib/controle-revisoes.mjs";
+import { tenantId, empresaId, diretorio, criterios, familiasNovas006, validarEscopo, impressaoTecnica } from "./lib/controle-revisoes.mjs";
 import { ids006, grupos006, validarCinquenta, assinatura } from "./lib/lotes-cinquenta.mjs";
 // Somente geração local de proposta. Nenhuma conexão ou gravação no ERP.
 const arquivoBase = "backups/base-revisao/2026-09-09T13-00-31-806Z.json";
@@ -105,7 +105,7 @@ const itens = ids006.map(id => {
   const descricao_tecnica = `Referência Siemens ${referencia}. ${conteudo}`;
   const fontes = [`https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=${antes.codigo_interno}`];
   const descricao = [antes.descricao,descricao_tecnica,`Fontes técnicas consultadas em ${data}:\n${fontes.join("\n")}`].filter(Boolean).join("\n\n");
-  return {id,antes,impressao_antes:impressaoTecnica(antes),familia,criterio:criterios[familia] ?? `${familia}:proposta006`,referencia,nome,descricao_tecnica,depois:{nome,descricao},atributos,fontes,evidencia:{documento:referencia,paginas,sha256:createHash("sha256").update(fs.readFileSync(`${pasta}/${id}.pdf`)).digest("hex")},pendencias:[],atributos_nao_confirmados:naoConfirmados};
+  return {id,antes,impressao_antes:impressaoTecnica(antes),familia,criterio:familiasNovas006.includes(familia) ? `${familia}:proposta006` : criterios[familia],referencia,nome,descricao_tecnica,depois:{nome,descricao},atributos,fontes,evidencia:{documento:referencia,paginas,sha256:createHash("sha256").update(fs.readFileSync(`${pasta}/${id}.pdf`)).digest("hex")},pendencias:[],atributos_nao_confirmados:naoConfirmados};
 });
 const m = {tenant_id:tenantId,empresa_id:empresaId,numero:"006",lote:"006-cinquenta-itens",data,responsavel:"Revisão assistida Codex; proposta sujeita à aprovação humana",autorizacao:"aguardando_aprovacao_humana",base:arquivoBase,itens};
 validarCinquenta(m);

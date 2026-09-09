@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { mensagemErro } from "@/lib/supabase/erro";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
@@ -610,7 +611,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       if (mode === "new" && opts?.redirect !== false) router.replace(`/faturamento/nfse/${savedId}`);
       return { ok: true as const, id: savedId };
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro inesperado ao salvar NFS-e.");
+      setError(mensagemErro(e, "Erro inesperado ao salvar NFS-e."));
       return { ok: false as const, id: null as string | null };
     } finally {
       setSaving(false);
@@ -670,7 +671,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       setOk("Emitida. Contas a Receber gerado automaticamente.");
       if (mode === "new") router.replace(`/faturamento/nfse/${savedId}`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro inesperado ao emitir NFS-e.");
+      setError(mensagemErro(e, "Erro inesperado ao emitir NFS-e."));
     } finally {
       setEmitting(false);
     }
@@ -705,7 +706,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
       if (updErr) throw updErr;
       setOk(osSelection ? "OS vinculada atualizada." : "Vinculo com OS removido.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro inesperado ao salvar a OS vinculada.");
+      setError(mensagemErro(e, "Erro inesperado ao salvar a OS vinculada."));
     } finally {
       setSavingOsLink(false);
     }
@@ -736,7 +737,7 @@ export default function NfseForm({ mode, id }: { mode: "new" | "edit"; id?: stri
 
       router.replace("/faturamento/nfse");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro inesperado ao excluir NFS-e.");
+      setError(mensagemErro(e, "Erro inesperado ao excluir NFS-e."));
     } finally {
       setDeleting(false);
     }

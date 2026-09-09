@@ -159,9 +159,16 @@ export function textoReducaoAutomacaoSc() {
  */
 export const REDUCAO_MAQUINAS_CONVENIO_52_91 = {
   cargaEfetiva: 8.8,
-  baseLegal: "Convênio ICMS 52/91 - RICMS/SC-01, Anexo 2, Art. 9º",
+  cbenef: "SC820028",
+  // Inciso I conforme a tabela de cBenef de SC e a orientacao da contabilidade em
+  // 09/09/2026: "Saidas internas e interestaduais de maquinas, aparelhos e
+  // equipamentos industriais", cBenef SC820028, CST 20, com reducao de base.
+  baseLegal: "Convênio ICMS 52/91 - RICMS/SC-01, Anexo 2, Art. 9º, I",
   observacaoDocumento: "Base de cálculo reduzida - máquinas e aparelhos industriais",
-  ncms: ["84609090"] as const,
+  // 8479.81.90 entrou pela NF-e 3805 da ARCELORMITTAL (ERP antigo, 04/09/2026), que
+  // saiu com CST 020, aliquota 17% e base reduzida para a carga de 8,80% — os mesmos
+  // 48,2353% de reducao. Foi a nota que a contabilidade usou de referencia.
+  ncms: ["84609090", "84798190"] as const,
 };
 
 export function temReducaoMaquinas5291(ncm: string) {

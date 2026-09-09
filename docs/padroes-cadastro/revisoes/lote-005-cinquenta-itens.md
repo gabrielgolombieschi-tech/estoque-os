@@ -79,7 +79,7 @@ Depois: Referência Siemens 3RV2021-4DA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214DA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: e25a1796f2d10d4a84eb0609b461a58f10740f9780db894a31117430fb6f1521.
+Evidência: 3RV2021-4DA10; páginas 1, 2. SHA-256: e25a1796f2d10d4a84eb0609b461a58f10740f9780db894a31117430fb6f1521.
 
 ### ID 749 — 3RV2021-4PA10
 
@@ -89,7 +89,7 @@ Depois: Referência Siemens 3RV2021-4PA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214PA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: a51266d593157ca10ee06dda3a61b03a2e5a4bf80904eb3cde67e3d9cfd861ab.
+Evidência: 3RV2021-4PA10; páginas 1, 2. SHA-256: a51266d593157ca10ee06dda3a61b03a2e5a4bf80904eb3cde67e3d9cfd861ab.
 
 ### ID 752 — 3RV2021-4NA20
 
@@ -99,7 +99,7 @@ Depois: Referência Siemens 3RV2021-4NA20. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214NA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 8e08a86363b3ea66b9610d9fa4293694fae724b10a91eb36ee897d91892662b2.
+Evidência: 3RV2021-4NA20; páginas 1, 2. SHA-256: 8e08a86363b3ea66b9610d9fa4293694fae724b10a91eb36ee897d91892662b2.
 
 ### ID 771 — 3RV2031-4UA10
 
@@ -109,7 +109,7 @@ Depois: Referência Siemens 3RV2031-4UA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20314UA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 82dba32613754039c00658481106e275dbbb29feed4bed3f7ebff572e8937f89.
+Evidência: 3RV2031-4UA10; páginas 1, 2. SHA-256: 82dba32613754039c00658481106e275dbbb29feed4bed3f7ebff572e8937f89.
 
 ### ID 794 — 3RV2021-4EA20
 
@@ -119,7 +119,7 @@ Depois: Referência Siemens 3RV2021-4EA20. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214EA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: c282467feecba3dacaa117c7e5e5cc7b2fe39af8fab85014672260025fe646ce.
+Evidência: 3RV2021-4EA20; páginas 1, 2. SHA-256: c282467feecba3dacaa117c7e5e5cc7b2fe39af8fab85014672260025fe646ce.
 
 ### ID 936 — 3RV2011-0JA10
 
@@ -129,7 +129,7 @@ Depois: Referência Siemens 3RV2011-0JA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20110JA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 06c4c0c1a34c730d2e5cc037b4c7becf65094e8f718f5e2f74314ac17db58964.
+Evidência: 3RV2011-0JA10; páginas 1, 2. SHA-256: 06c4c0c1a34c730d2e5cc037b4c7becf65094e8f718f5e2f74314ac17db58964.
 
 ### ID 1089 — 3RV2021-4EA10
 
@@ -139,7 +139,7 @@ Depois: Referência Siemens 3RV2021-4EA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20214EA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 28003f8a1b9e0fc2121112f8d68b0000be890e5e088f147a7bc76466a927c8a9.
+Evidência: 3RV2021-4EA10; páginas 1, 2. SHA-256: 28003f8a1b9e0fc2121112f8d68b0000be890e5e088f147a7bc76466a927c8a9.
 
 ### ID 2902 — 3RV2011-1KA10
 
@@ -149,7 +149,7 @@ Depois: Referência Siemens 3RV2011-1KA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20111KA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: f2326113de07a3bdffc6ef57d9512e816a71ce68017775db14911756953fa764.
+Evidência: 3RV2011-1KA10; páginas 1, 2. SHA-256: f2326113de07a3bdffc6ef57d9512e816a71ce68017775db14911756953fa764.
 
 ### ID 2945 — 3RV2011-0KA10
 
@@ -159,7 +159,7 @@ Depois: Referência Siemens 3RV2011-0KA10. Proteção termomagnética de motor, 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV20110KA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 58759120a90b676634d9b4ee7504532a7a95076c4613fe8672f65da07dec6514.
+Evidência: 3RV2011-0KA10; páginas 1, 2. SHA-256: 58759120a90b676634d9b4ee7504532a7a95076c4613fe8672f65da07dec6514.
 
 ### ID 247 — 3RU2116-1HB0
 
@@ -169,7 +169,7 @@ Depois: Referência Siemens 3RU2116-1HB0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21161HB0).
 
-Páginas conferidas: 1. SHA-256 do documento: 7471a9afb848c7ce5461bf01f259a23645f35ea212576a2900ff003b42cee4e5.
+Evidência: 3RU2116-1HB0; páginas 1. SHA-256: 7471a9afb848c7ce5461bf01f259a23645f35ea212576a2900ff003b42cee4e5.
 
 ### ID 753 — 3RU2126-1KB0
 
@@ -179,7 +179,7 @@ Depois: Referência Siemens 3RU2126-1KB0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21261KB0).
 
-Páginas conferidas: 1. SHA-256 do documento: e10e5c40006feae545cc4530679f7d739af265a45d59f8db5ce8d215f9e22ee6.
+Evidência: 3RU2126-1KB0; páginas 1. SHA-256: e10e5c40006feae545cc4530679f7d739af265a45d59f8db5ce8d215f9e22ee6.
 
 ### ID 766 — 3RU2126-4AB0
 
@@ -189,7 +189,7 @@ Depois: Referência Siemens 3RU2126-4AB0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21264AB0).
 
-Páginas conferidas: 1. SHA-256 do documento: 9a8e290a46fadcb7da3a3fa7f9ed8b36846ca74124874fa37720f3189d3db439.
+Evidência: 3RU2126-4AB0; páginas 1. SHA-256: 9a8e290a46fadcb7da3a3fa7f9ed8b36846ca74124874fa37720f3189d3db439.
 
 ### ID 767 — 3RU2116-0JB0
 
@@ -199,7 +199,7 @@ Depois: Referência Siemens 3RU2116-0JB0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21160JB0).
 
-Páginas conferidas: 1. SHA-256 do documento: 9fc822dbb043383a0ae8b7cb31321c9a139f4d91c62dcf4b89afc4cb4fdecdba.
+Evidência: 3RU2116-0JB0; páginas 1. SHA-256: 9fc822dbb043383a0ae8b7cb31321c9a139f4d91c62dcf4b89afc4cb4fdecdba.
 
 ### ID 796 — 3RU2116-1CC0
 
@@ -209,7 +209,7 @@ Depois: Referência Siemens 3RU2116-1CC0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21161CC0).
 
-Páginas conferidas: 1. SHA-256 do documento: ebfb06f493f52171554013a90182fd22fe76a70118997862e4b1d53733b7345a.
+Evidência: 3RU2116-1CC0; páginas 1. SHA-256: ebfb06f493f52171554013a90182fd22fe76a70118997862e4b1d53733b7345a.
 
 ### ID 797 — 3RU2126-1JC0
 
@@ -219,7 +219,7 @@ Depois: Referência Siemens 3RU2126-1JC0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21261JC0).
 
-Páginas conferidas: 1. SHA-256 do documento: 4d2e346690ecbd8e514136fe931c47594a662eb451c5150268ccbc11e20a9f9f.
+Evidência: 3RU2126-1JC0; páginas 1. SHA-256: 4d2e346690ecbd8e514136fe931c47594a662eb451c5150268ccbc11e20a9f9f.
 
 ### ID 1621 — 3US5000-1C
 
@@ -229,7 +229,9 @@ Depois: Referência Siemens 3US5000-1C. Faixa de ajuste 1,6-2,5A, classe de disp
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3US50001C).
 
-Páginas conferidas: 1. SHA-256 do documento: 9f046eaf3a13defbbf5a468c4d3ac98140890374ea5e6e5a41ce84ba2e87f640.
+Evidência: 3US5000-1C; páginas 1. SHA-256: 9f046eaf3a13defbbf5a468c4d3ac98140890374ea5e6e5a41ce84ba2e87f640.
+
+Atributos não confirmados: tensao, conexao, rearme.
 
 ### ID 1632 — 3RU2116-1BB0
 
@@ -239,7 +241,7 @@ Depois: Referência Siemens 3RU2116-1BB0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21161BB0).
 
-Páginas conferidas: 1. SHA-256 do documento: 6922f1405c8bc95cd56b8826c04118c8f98ee613cf5ef007bc0024656af2c29d.
+Evidência: 3RU2116-1BB0; páginas 1. SHA-256: 6922f1405c8bc95cd56b8826c04118c8f98ee613cf5ef007bc0024656af2c29d.
 
 ### ID 2903 — 3RU2126-1EB0
 
@@ -249,7 +251,7 @@ Depois: Referência Siemens 3RU2126-1EB0. Relé térmico de proteção de motor,
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RU21261EB0).
 
-Páginas conferidas: 1. SHA-256 do documento: bd1f8c66f3c84f221c4861da7027f7028b52625a3b719561cc565fcc2239bf20.
+Evidência: 3RU2126-1EB0; páginas 1. SHA-256: bd1f8c66f3c84f221c4861da7027f7028b52625a3b719561cc565fcc2239bf20.
 
 ### ID 213 — 3RH2131-1BB40
 
@@ -259,7 +261,7 @@ Depois: Referência Siemens 3RH2131-1BB40. Contator auxiliar de comando, contato
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21311BB40).
 
-Páginas conferidas: 1. SHA-256 do documento: 061d0fd656d91e487cdf9888e91f237fd2de50cd72cd22cbee43a323895cbaf1.
+Evidência: 3RH2131-1BB40; páginas 1. SHA-256: 061d0fd656d91e487cdf9888e91f237fd2de50cd72cd22cbee43a323895cbaf1.
 
 ### ID 245 — 3RH2131-1AN20
 
@@ -269,7 +271,7 @@ Depois: Referência Siemens 3RH2131-1AN20. Contator auxiliar de comando, contato
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21311AN20).
 
-Páginas conferidas: 1. SHA-256 do documento: d9db5843cac51ad5dccc244da71614e5a9a77effc491e1374fd9e27bd0fc29e0.
+Evidência: 3RH2131-1AN20; páginas 1. SHA-256: d9db5843cac51ad5dccc244da71614e5a9a77effc491e1374fd9e27bd0fc29e0.
 
 ### ID 759 — 3RH2122-1AN20
 
@@ -279,7 +281,7 @@ Depois: Referência Siemens 3RH2122-1AN20. Contator auxiliar de comando, contato
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21221AN20).
 
-Páginas conferidas: 1. SHA-256 do documento: 80c3a59c26f0a9776a1f46cca113b461663363cd4f848e29a642cc9e32f4cc66.
+Evidência: 3RH2122-1AN20; páginas 1. SHA-256: 80c3a59c26f0a9776a1f46cca113b461663363cd4f848e29a642cc9e32f4cc66.
 
 ### ID 788 — 3RH2122-1AF00
 
@@ -289,7 +291,7 @@ Depois: Referência Siemens 3RH2122-1AF00. Contator auxiliar de comando, contato
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH21221AF00).
 
-Páginas conferidas: 1. SHA-256 do documento: a86d0001d112dcf9bf25360b64377cb1cb1a47f055e9a1b69671a801fe531220.
+Evidência: 3RH2122-1AF00; páginas 1. SHA-256: a86d0001d112dcf9bf25360b64377cb1cb1a47f055e9a1b69671a801fe531220.
 
 ### ID 180 — 3RH2911-1HA22
 
@@ -299,7 +301,7 @@ Depois: Referência Siemens 3RH2911-1HA22. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111HA22).
 
-Páginas conferidas: 1. SHA-256 do documento: d21b3437fe787bdd0e15848d2383f514857e373724fe96ef634a3c836f5bfc92.
+Evidência: 3RH2911-1HA22; páginas 1. SHA-256: d21b3437fe787bdd0e15848d2383f514857e373724fe96ef634a3c836f5bfc92.
 
 ### ID 181 — 3RH2911-1HA11
 
@@ -309,7 +311,7 @@ Depois: Referência Siemens 3RH2911-1HA11. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111HA11).
 
-Páginas conferidas: 1. SHA-256 do documento: 471a781a71fd2c300682d8d853a86f9c4d7cdb56a5c2e278b86e80cb5e23c737.
+Evidência: 3RH2911-1HA11; páginas 1. SHA-256: 471a781a71fd2c300682d8d853a86f9c4d7cdb56a5c2e278b86e80cb5e23c737.
 
 ### ID 193 — 3RH2911-1FA40
 
@@ -319,7 +321,7 @@ Depois: Referência Siemens 3RH2911-1FA40. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111FA40).
 
-Páginas conferidas: 1. SHA-256 do documento: b5a7695ec39c66b4a4cc123ed20b1c799083d4fac27423050db300e12e2e5c3f.
+Evidência: 3RH2911-1FA40; páginas 1. SHA-256: b5a7695ec39c66b4a4cc123ed20b1c799083d4fac27423050db300e12e2e5c3f.
 
 ### ID 748 — 3RT1956-4G
 
@@ -329,7 +331,7 @@ Depois: Referência Siemens 3RT1956-4G. Bloco de terminais tipo caixa para 3RT1/
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT19564G).
 
-Páginas conferidas: 1. SHA-256 do documento: 594d4364360d75c16b3865819fa1f0d779ff5b38d3cb45689e1fe168acfb21d6.
+Evidência: 3RT1956-4G; páginas 1. SHA-256: 594d4364360d75c16b3865819fa1f0d779ff5b38d3cb45689e1fe168acfb21d6.
 
 ### ID 820 — 3RH2911-2FA40
 
@@ -339,7 +341,7 @@ Depois: Referência Siemens 3RH2911-2FA40. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29112FA40).
 
-Páginas conferidas: 1. SHA-256 do documento: b36d0d3da53a61d46984b706a3abf8f7a301084c3c9edf6ba6661adf3e275efb.
+Evidência: 3RH2911-2FA40; páginas 1. SHA-256: b36d0d3da53a61d46984b706a3abf8f7a301084c3c9edf6ba6661adf3e275efb.
 
 ### ID 916 — 5ST3768
 
@@ -349,7 +351,7 @@ Depois: Referência Siemens 5ST3768. Borne de alimentação curto para barrament
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST3768).
 
-Páginas conferidas: 1. SHA-256 do documento: c7073c33809b053b4c51a4826aa3c16f0514e0c27db92b34144e0053d7aa9387.
+Evidência: 5ST3768; páginas 1. SHA-256: c7073c33809b053b4c51a4826aa3c16f0514e0c27db92b34144e0053d7aa9387.
 
 ### ID 1048 — 3RH1921-1CA01
 
@@ -359,7 +361,7 @@ Depois: Referência Siemens 3RH1921-1CA01. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH19211CA01).
 
-Páginas conferidas: 1. SHA-256 do documento: 10c96fce2261adfc06ff28e31369c3e64e2401a7404f85a0af6658cee6b84367.
+Evidência: 3RH1921-1CA01; páginas 1. SHA-256: 10c96fce2261adfc06ff28e31369c3e64e2401a7404f85a0af6658cee6b84367.
 
 ### ID 1399 — 3RH2911-1FA04
 
@@ -369,7 +371,7 @@ Depois: Referência Siemens 3RH2911-1FA04. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29111FA04).
 
-Páginas conferidas: 1. SHA-256 do documento: fa9241f68231264128dc9763ee42cff9dd9b54dd3e55acaa0da552436c938f19.
+Evidência: 3RH2911-1FA04; páginas 1. SHA-256: fa9241f68231264128dc9763ee42cff9dd9b54dd3e55acaa0da552436c938f19.
 
 ### ID 2302 — 3RH2911-2HA22
 
@@ -379,7 +381,7 @@ Depois: Referência Siemens 3RH2911-2HA22. Bloco auxiliar frontal de encaixe, co
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RH29112HA22).
 
-Páginas conferidas: 1. SHA-256 do documento: b4dbc5433b2fa63ce418936a9a52c8185d819e9c0faedd265e0ab61e789569d1.
+Evidência: 3RH2911-2HA22; páginas 1. SHA-256: b4dbc5433b2fa63ce418936a9a52c8185d819e9c0faedd265e0ab61e789569d1.
 
 ### ID 2898 — 3RT2916-1EH00
 
@@ -389,7 +391,7 @@ Depois: Referência Siemens 3RT2916-1EH00. Combinação de diodos para supressã
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RT29161EH00).
 
-Páginas conferidas: 1. SHA-256 do documento: cd3c4ad2fadedfb3a411b598ceacd36764fbfec280f357cf3a5b2897a2cac368.
+Evidência: 3RT2916-1EH00; páginas 1. SHA-256: cd3c4ad2fadedfb3a411b598ceacd36764fbfec280f357cf3a5b2897a2cac368.
 
 ### ID 250 — 3RV2901-1E
 
@@ -399,7 +401,7 @@ Depois: Referência Siemens 3RV2901-1E. Montagem transversal, 1NA+1NF instantân
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29011E).
 
-Páginas conferidas: 1. SHA-256 do documento: 851dff5d69e23405401461cd125fc35323e85bb481dc6c9db128bfea2a6bcb62.
+Evidência: 3RV2901-1E; páginas 1. SHA-256: 851dff5d69e23405401461cd125fc35323e85bb481dc6c9db128bfea2a6bcb62.
 
 ### ID 260 — 3RV2925-5AB
 
@@ -409,7 +411,7 @@ Depois: Referência Siemens 3RV2925-5AB. Terminal de alimentação trifásico, e
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29255AB).
 
-Páginas conferidas: 1. SHA-256 do documento: c0e4b62b4a136717490215f70b34874486e94a2a328803af89a09b245538514a.
+Evidência: 3RV2925-5AB; páginas 1. SHA-256: c0e4b62b4a136717490215f70b34874486e94a2a328803af89a09b245538514a.
 
 ### ID 780 — 3RV2927-5AA00
 
@@ -419,7 +421,7 @@ Depois: Referência Siemens 3RV2927-5AA00. Plugue de conexão de cabos para sist
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29275AA00).
 
-Páginas conferidas: 1. SHA-256 do documento: bd0df417a359cb4963f555f253733fa029139a0f08ed8a8f15ddc89ec25bd96f.
+Evidência: 3RV2927-5AA00; páginas 1. SHA-256: bd0df417a359cb4963f555f253733fa029139a0f08ed8a8f15ddc89ec25bd96f.
 
 ### ID 782 — 3RV2917-4A
 
@@ -429,7 +431,7 @@ Depois: Referência Siemens 3RV2917-4A. Barramento trifásico de expansão para 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29174A).
 
-Páginas conferidas: 1. SHA-256 do documento: 03b4ec2698269b14d85404e6a54d3388a922793a628ce867e030605d016aadb8.
+Evidência: 3RV2917-4A; páginas 1. SHA-256: 03b4ec2698269b14d85404e6a54d3388a922793a628ce867e030605d016aadb8.
 
 ### ID 783 — 3RV2917-4B
 
@@ -439,7 +441,7 @@ Depois: Referência Siemens 3RV2917-4B. Barramento trifásico de expansão para 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29174B).
 
-Páginas conferidas: 1. SHA-256 do documento: 44420cd4d6155941da36f956a2877202953629a1a54f74776daca183077fc43e.
+Evidência: 3RV2917-4B; páginas 1. SHA-256: 44420cd4d6155941da36f956a2877202953629a1a54f74776daca183077fc43e.
 
 ### ID 784 — 3RV2917-1A
 
@@ -449,7 +451,7 @@ Depois: Referência Siemens 3RV2917-1A. Barramento de alimentação trifásico p
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29171A).
 
-Páginas conferidas: 1. SHA-256 do documento: 4d7397701ddcd7a0fad627333d5dccc205badd5394113f6f486e80ccd36c1dca.
+Evidência: 3RV2917-1A; páginas 1. SHA-256: 4d7397701ddcd7a0fad627333d5dccc205badd5394113f6f486e80ccd36c1dca.
 
 ### ID 799 — 3RV2901-2E
 
@@ -459,7 +461,7 @@ Depois: Referência Siemens 3RV2901-2E. Montagem transversal, 1NA+1NF instantân
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29012E).
 
-Páginas conferidas: 1. SHA-256 do documento: 5e9efcc59e0afcaf5e10e56a32156a12e4e82500e4aa795d3a20f0d344b7be37.
+Evidência: 3RV2901-2E; páginas 1. SHA-256: 5e9efcc59e0afcaf5e10e56a32156a12e4e82500e4aa795d3a20f0d344b7be37.
 
 ### ID 802 — 3RV1915-1AB
 
@@ -469,7 +471,7 @@ Depois: Referência Siemens 3RV1915-1AB. Barramento trifásico tipo garfo, corre
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19151AB).
 
-Páginas conferidas: 1. SHA-256 do documento: 84ac803bd04d441202c6b28a455491f1927d0c6c3a40e4a57622cee8f1d4f950.
+Evidência: 3RV1915-1AB; páginas 1. SHA-256: 84ac803bd04d441202c6b28a455491f1927d0c6c3a40e4a57622cee8f1d4f950.
 
 ### ID 806 — 3RV1915-1CB
 
@@ -479,7 +481,7 @@ Depois: Referência Siemens 3RV1915-1CB. Barramento trifásico tipo garfo, corre
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19151CB).
 
-Páginas conferidas: 1. SHA-256 do documento: 5c56a7a6fb3725ecefb0b32f2ca46ef945f60ace8742c722e31f0d88ebd08421.
+Evidência: 3RV1915-1CB; páginas 1. SHA-256: 5c56a7a6fb3725ecefb0b32f2ca46ef945f60ace8742c722e31f0d88ebd08421.
 
 ### ID 810 — 3RV1915-1BB
 
@@ -489,7 +491,7 @@ Depois: Referência Siemens 3RV1915-1BB. Barramento trifásico tipo garfo, corre
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19151BB).
 
-Páginas conferidas: 1. SHA-256 do documento: d3d62f90595839bf5e584062e2ce9a90b06bc8b8b4be8fa527186b1931f22d20.
+Evidência: 3RV1915-1BB; páginas 1. SHA-256: d3d62f90595839bf5e584062e2ce9a90b06bc8b8b4be8fa527186b1931f22d20.
 
 ### ID 917 — 5ST2504
 
@@ -499,7 +501,7 @@ Depois: Referência Siemens 5ST2504. Bloco de distribuição 1 polo, 80A, conex�
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST2504).
 
-Páginas conferidas: 1. SHA-256 do documento: de75742a4e39bb155e4e26bdcff35ac79ed4054c9fd8ea66baeb8a85430ada97.
+Evidência: 5ST2504; páginas 1. SHA-256: de75742a4e39bb155e4e26bdcff35ac79ed4054c9fd8ea66baeb8a85430ada97.
 
 ### ID 919 — 5ST3768-3
 
@@ -509,7 +511,7 @@ Depois: Referência Siemens 5ST3768-3. Borne de conexão com entrada central de 
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST37683).
 
-Páginas conferidas: 1. SHA-256 do documento: 137d13cf67cfd71af229301da2b33504c32264132ea4242c0e81d572ecaa1b94.
+Evidência: 5ST3768-3; páginas 1. SHA-256: 137d13cf67cfd71af229301da2b33504c32264132ea4242c0e81d572ecaa1b94.
 
 ### ID 956 — 3RV1915-5A
 
@@ -519,7 +521,7 @@ Depois: Referência Siemens 3RV1915-5A. Terminal de alimentação trifásico tip
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV19155A).
 
-Páginas conferidas: 1. SHA-256 do documento: a7fc2b72c1ece00eb3d5ebd6df12c654ad062cec20be83b1b690f233183ed748.
+Evidência: 3RV1915-5A; páginas 1. SHA-256: a7fc2b72c1ece00eb3d5ebd6df12c654ad062cec20be83b1b690f233183ed748.
 
 ### ID 1125 — 3RV2917-5AA00
 
@@ -529,7 +531,7 @@ Depois: Referência Siemens 3RV2917-5AA00. Plugue de conexão de cabos para sist
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29175AA00).
 
-Páginas conferidas: 1. SHA-256 do documento: 6126bee16d4afa8e13ff5252d8b09c79284a3b3c7e3e54513b61ed8d5b45617f.
+Evidência: 3RV2917-5AA00; páginas 1. SHA-256: 6126bee16d4afa8e13ff5252d8b09c79284a3b3c7e3e54513b61ed8d5b45617f.
 
 ### ID 1542 — 3RV2927-7AA00
 
@@ -539,7 +541,7 @@ Depois: Referência Siemens 3RV2927-7AA00. Base para montagem de contatores S00/
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29277AA00).
 
-Páginas conferidas: 1. SHA-256 do documento: f89cf3d000730d94aeb27f8541b00b0c4de8885d64ddea021f36e35816586e0b.
+Evidência: 3RV2927-7AA00; páginas 1. SHA-256: f89cf3d000730d94aeb27f8541b00b0c4de8885d64ddea021f36e35816586e0b.
 
 ### ID 1547 — 3RV2917-7AA00
 
@@ -549,7 +551,7 @@ Depois: Referência Siemens 3RV2917-7AA00. Base para contator tamanho S00 com te
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29177AA00).
 
-Páginas conferidas: 1. SHA-256 do documento: f58262bb06fd5fced6a907b3d0132c22781d05f7f5ff8619ddfdfd075125475c.
+Evidência: 3RV2917-7AA00; páginas 1. SHA-256: f58262bb06fd5fced6a907b3d0132c22781d05f7f5ff8619ddfdfd075125475c.
 
 ### ID 1626 — 3RV2917-5E
 
@@ -559,7 +561,7 @@ Depois: Referência Siemens 3RV2917-5E. Conector de expansão largo para barrame
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV29175E).
 
-Páginas conferidas: 1. SHA-256 do documento: ea454ecf26057e9b931f0429dcbd6e32301668acdf91f11c5b81b3ec2bbf105b.
+Evidência: 3RV2917-5E; páginas 1. SHA-256: ea454ecf26057e9b931f0429dcbd6e32301668acdf91f11c5b81b3ec2bbf105b.
 
 ### ID 694 — 5ST2502
 
@@ -569,7 +571,7 @@ Depois: Referência Siemens 5ST2502. Bloco de distribuição 4 polos, 125A, tens
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=5ST2502).
 
-Páginas conferidas: 1. SHA-256 do documento: 9a33635e2de799fcc68009cbab369c0073de503fa58bbe1554936bcfb9f1897e.
+Evidência: 5ST2502; páginas 1. SHA-256: 9a33635e2de799fcc68009cbab369c0073de503fa58bbe1554936bcfb9f1897e.
 
 ## Controle
 

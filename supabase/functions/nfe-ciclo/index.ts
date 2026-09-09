@@ -17,6 +17,9 @@ type CicloBody = {
   correcao?: string;
   emails?: string[];
   arquivo?: "XML" | "DANFE";
+  // true: a URL assinada vem com Content-Disposition attachment, e o navegador salva o
+  // arquivo em vez de abrir. Fica false na impressao do DANFE, que precisa dele aberto.
+  download?: boolean;
   serie?: number;
   numero_inicial?: number;
   numero_final?: number;
@@ -130,7 +133,15 @@ Deno.serve(async (request) => {
       const tipo = body.arquivo === "XML" ? "XML" : "DANFE";
       const path = String(tipo === "XML" ? emissao.xml_path ?? "" : emissao.danfe_path ?? "").trim();
       if (!path) throw new Error(`${tipo} ainda nao foi arquivado no Storage privado.`);
-      const { data, error } = await admin.storage.from("nfe-documentos").createSignedUrl(path, 60);
+      // Nome do arquivo salvo: a chave de acesso identifica a nota melhor que o caminho
+      // interno do Storage, e e como a contabilidade arquiva.
+      const identificador = String(emissao.chave_acesso ?? "").replace(/\D/g, "") || referencia;
+      const nomeArquivo = `${identificador}-${tipo === "XML" ? "nfe.xml" : "danfe.pdf"}`;
+      const { data, error } = await admin.storage.from("nfe-documentos").createSignedUrl(
+        path,
+        60,
+        body.download ? { download: nomeArquivo } : undefined,
+      );
       if (error) throw error;
       await registrarEvento(admin, {
         p_documento_fiscal_id: documentoId, p_tipo: "DOWNLOAD", p_status: "CONCLUIDO",

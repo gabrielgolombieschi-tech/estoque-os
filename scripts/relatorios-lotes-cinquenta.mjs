@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { diretorio } from "./lib/controle-revisoes.mjs";
 import { validarCinquenta, assinatura } from "./lib/lotes-cinquenta.mjs";
 const celula = (s) => String(s ?? "—").replace(/\|/g, "/").replace(/\r?\n/g, "<br>");
-for (const n of ["003", "004", "005", "006"]) {
+for (const n of ["003", "004", "005", "006", "007"]) {
   const m = JSON.parse(fs.readFileSync(`${diretorio}/lote-${n}-cinquenta-itens.json`, "utf8"));
   validarCinquenta(m);
   const evento = `${diretorio}/eventos-${m.lote}.json`;
@@ -10,6 +10,7 @@ for (const n of ["003", "004", "005", "006"]) {
   const aplicado = aplicados.length === 50;
   const status = aplicado ? "APLICADO E VERIFICADO" : m.autorizacao === "aguardando_aprovacao_humana" ? "AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO" : "AUTORIZADO — APLICAÇÃO AINDA NÃO CONFIRMADA";
   const composicao = { "003": "45 minidisjuntores Siemens + 5 contatores Siemens.", "004": "35 minidisjuntores WEG (27 MDW + 8 MDWP) + 15 disjuntores-motor Siemens.", "005": "50 Siemens: 9 disjuntores-motor, 9 relés de sobrecarga, 4 contatores auxiliares, 9 acessórios de contatores, 15 acessórios de disjuntores-motor e 4 acessórios de minidisjuntores." };
+  composicao["007"] = "49 WEG + 1 Schneider, todos com grupo: 10 disjuntores em caixa moldada, 11 disjuntores-motor, 5 contatores de motor, 1 contator para segurança, 2 contatores para capacitores, 7 seccionadoras, 1 seccionadora porta-fusível, 5 acessórios de disjuntor-motor, 1 manopla de disjuntor, 2 auxiliares de contator, 2 relés de sobrecarga, 2 fusíveis NH e 1 minidisjuntor.";
   composicao["006"] = "50 Siemens, todos com grupo: 10 disjuntores em caixa moldada, 12 acessórios de caixa moldada, 1 disjuntor aberto, 8 contatores, 1 minidisjuntor, 2 bornes de barramento, 3 disjuntores-motor, 1 disjuntor magnético para partida, 4 bases NH, 2 fusíveis NH, 1 seccionadora porta-fusível, 1 suporte de relé, 2 seccionadoras e 2 acessórios de seccionadoras.";
   const linhas = [
     `# Lote ${n} — 50 itens`, "", status, "",
@@ -28,11 +29,21 @@ for (const n of ["003", "004", "005", "006"]) {
     "## Pontos que precisam da sua atenção", "",
     "- IDs 733 e 2460: proteção magnética, sem proteção térmica. ID 960: unidade fornecida sem disparador ETU; não é proteção completa.",
     "- ID 791: 4 polos principais 2NA+2NF e auxiliares 1NA+1NF. IDs 772/775/813/3231: potência por parafuso, comando/auxiliares por mola.",
-    "- IDs 195/196/197/198: revisão PARCIAL. A proposta retira 690VCA do nome porque as fichas atuais não confirmam essa tensão; preserva o valor antigo, identificado como não confirmado, no complemento. Isso não demonstra que 690VCA esteja errado. Tensão, polos e conexão precisam de placa ou documentação histórica antes do dimensionamento. Você pode pedir que esses quatro aguardem nova evidência.",
+    "- IDs 195/196/197/198: revisão PARCIAL. A redação retira 690VCA do nome porque as fichas atuais não confirmam essa tensão; preserva o valor antigo, identificado como não confirmado, no complemento. Isso não demonstra que 690VCA esteja errado. Tensão, polos e conexão precisam de placa ou documentação histórica antes do dimensionamento.",
     "- ID 942: largura de trilho 35mm do cadastro anterior não confirmada na ficha atual. ID 2992: material/IP não inferidos. ID 953: valores inconsistentes em 500V na ficha não utilizados; proposta limitada à capacidade em 400VCA.",
     "- IDs 1620 e 2459 ficam fora: ficha resumida insuficiente e HTTP 404, respectivamente. Não presumir produto inexistente nem completar dados por similaridade.",
-    "", "Aprovar as alterações não certifica atributos ausentes. Este lote não foi incorporado aos modelos humanos aprovados do agente. As novas famílias têm critério provisório de proposta, sem evento de aprovação.", "");
-  for (const i of m.itens) linhas.push(`### ID ${i.id} — ${i.referencia}`, "", `Antes: ${i.antes.descricao ?? "(sem descrição complementar)"}`, "", `Depois: ${i.depois.descricao.split("\n\nFontes técnicas")[0]}`, "", ...i.fontes.map((f) => `Fonte: [documento técnico da referência](${f}).`), "", `Páginas conferidas: ${(i.evidencia.paginas_impressas ?? i.evidencia.paginas).join(", ")}. SHA-256 do documento: ${i.evidencia.sha256}.`, "");
+    "", aplicado ? "Lote aprovado, aplicado e incorporado ao padrão do agente pela decisão D-042, versão 1.30.0. O manifesto original conserva seus critérios provisórios para preservar a assinatura aprovada; os eventos usam os critérios ativos. Aprovação não certifica atributos ausentes; as ressalvas parciais permanecem registradas." : "Aprovar as alterações não certifica atributos ausentes. Novas famílias ainda não incorporadas aos modelos aprovados.", "");
+  if(n === "007") linhas.splice(linhas.indexOf("## Antes e depois dos 50"),0,
+    "## Atenção antes de aprovar", "",
+    "- ID 3324: identificado como disjuntor para GERADOR, ajustes térmico 280-400A e magnético 1000-2000A. Não é disjuntor genérico 440V.",
+    "- IDs 3213/3408: a corrente AC-6b a 55°C é 40A/28A, não 32A/25A do número do modelo; nome usa potência reativa 25kvar/20kvar em 380-415VCA a 55°C.",
+    "- ID 2554: aR 100kA em 690VCA, não 120kA da família gL/gG.",
+    "- ID 1884: revisão PARCIAL. Retira do nome 1000VCA/cor não confirmados e preserva esses dados como históricos no complemento. Confirmar placa/catálogo antigo antes de dimensionar. Não copiar dados do substituto.",
+    "- Outros limites estão discriminados por item: comprimentos antigos dos barramentos, tensão dos auxiliares, dados elétricos atribuídos ao conector e cor/IP da manopla não foram inventados. Aprovar a redação não certifica esses atributos.",
+    "- ID 636: Icu 20kA em 220-240VCA, não Icn. Descontinuação comercial não altera atividade ou código no ERP. ID 2359 mantém grupo 38; não há reclassificação neste lote.",
+    "- Fora do lote: IDs 1872/1873/1883 (documentação da versão antiga), 2351/2523 (referência da manopla) e 3329 (identidade exata do código do contator para capacitores ainda não confirmada).", "",
+    "Nenhum dos 50 foi aplicado. As novas regras específicas de CWBC/CWBS são propostas, não modelos humanos aprovados.", "");
+  for (const i of m.itens) linhas.push(`### ID ${i.id} — ${i.referencia}`, "", `Antes: ${i.antes.descricao ?? "(sem descrição complementar)"}`, "", `Depois: ${i.depois.descricao.split("\n\nFontes técnicas")[0]}`, "", ...i.fontes.map((f) => `Fonte: [documento técnico da referência](${f}).`), "", ...(i.evidencias ?? [i.evidencia]).map(e=>`Evidência: ${e.documento ?? i.referencia}; ${(e.paginas_impressas ?? e.paginas).length ? `páginas ${(e.paginas_impressas ?? e.paginas).join(", ")}` : "consulta web/HTML, sem paginação"}. SHA-256: ${e.sha256}.${e.arquivo ? ` Arquivo: ${e.arquivo}.` : ""}`), "", ...(i.atributos_nao_confirmados?.length ? [`Atributos não confirmados: ${i.atributos_nao_confirmados.join(", ")}.`, ""] : []));
   linhas.push("## Controle", "", `Assinatura SHA-256 do manifesto: ${assinatura(m)}.`, "", `Manifesto: lote-${m.lote}.json.`, "", `Eventos de aplicação confirmados: ${aplicados.length}.`, "");
   fs.writeFileSync(`${diretorio}/lote-${m.lote}.md`, linhas.join("\n"));
 }

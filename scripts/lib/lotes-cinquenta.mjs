@@ -1,24 +1,26 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { criterios, validarEscopo, impressaoTecnica } from "./controle-revisoes.mjs";
+import { criterios, familiasNovas006, validarEscopo, impressaoTecnica } from "./controle-revisoes.mjs";
 import { normalizarNomeCadastro } from "../../lib/itens/normalizacaoNome.ts";
 
 export const ids003 = [207,208,209,210,211,212,229,230,689,690,691,719,721,722,723,724,726,736,743,746,747,750,755,757,770,774,819,833,946,1028,1030,1031,1032,1033,1034,1035,1036,1037,1038,1039,1040,1080,1086,1087,2742,773,777,1129,1589,1590];
 export const ids004 = [1115,1550,1551,1565,1566,1567,1568,1573,1575,1576,1577,1596,1598,1599,1600,1601,1602,1603,1604,1605,1608,1609,1610,1611,1971,2847,2848,2347,2980,2981,3216,3217,3218,3219,3328,186,187,236,243,246,251,252,258,259,742,765,778,798,809,814];
 export const assinatura = (obj) => createHash("sha256").update(JSON.stringify(obj)).digest("hex");
+export const ids007 = [949,970,972,974,1597,3309,1102,1103,1104,1105,1106,2314,1805,1806,2224,2225,2228,1107,1108,1397,1398,1968,2861,1114,1730,1960,1961,2497,2924,1807,1808,1809,2329,2350,1878,1879,1969,2227,2174,2175,2215,2554,2352,2522,3324,2359,3213,3408,1884,636];
+export const familiasNovas007 = ["CONTATORES_CAPACITORES", "CONTATORES_SEGURANCA"];
 export const ids005 = [185,749,752,771,794,936,1089,2902,2945,247,753,766,767,796,797,1621,1632,2903,213,245,759,788,180,181,193,748,820,916,1048,1399,2302,2898,250,260,780,782,783,784,799,802,806,810,917,919,956,1125,1542,1547,1626,694];
 export const ids006 = [231,720,733,815,935,960,3227,3228,3229,3289,3441,232,734,817,937,942,961,962,963,964,1205,1206,3230,241,257,772,775,791,807,813,3231,228,920,921,953,954,2453,2460,195,196,197,198,237,238,943,2921,687,2136,2991,2992];
 export const grupos006 = {DISJUNTORES_CAIXA_MOLDADA:1,ACESSORIOS_CAIXA_MOLDADA:2,DISJUNTORES_ABERTOS:81,CONTATORES:17,MINIDISJUNTORES:3,ACESSORIOS_MINIDISJUNTORES:4,DISJUNTORES_MOTOR:21,DISJUNTORES_PARTIDA_MAGNETICOS:21,BASES_FUSIVEIS_NH:41,FUSIVEIS_NH:40,SECCIONADORAS_FUSIVEIS:82,ACESSORIOS_RELES:25,SECCIONADORAS:38,ACESSORIOS_SECCIONADORAS:39};
 export function validarCinquenta(m) {
   validarEscopo(m);
-  assert.ok(["003", "004", "005", "006"].includes(m.numero));
+  assert.ok(["003", "004", "005", "006", "007"].includes(m.numero));
   assert.equal(m.itens.length, 50);
-  assert.deepEqual(m.itens.map((i) => i.id).sort((a,b) => a-b), ({"003": ids003, "004": ids004, "005": ids005, "006":ids006}[m.numero]).slice().sort((a,b) => a-b));
+  assert.deepEqual(m.itens.map((i) => i.id).sort((a,b) => a-b), ({"003": ids003, "004": ids004, "005": ids005, "006":ids006, "007":ids007}[m.numero]).slice().sort((a,b) => a-b));
   for (const i of m.itens) {
     validarEscopo(i.antes);
     assert.equal(i.id, i.antes.id);
     assert.equal(i.impressao_antes, impressaoTecnica(i.antes));
-    assert.equal(i.criterio, criterios[i.familia] ?? (m.numero === "006" && grupos006[i.familia] ? `${i.familia}:proposta006` : undefined));
+    assert.equal(i.criterio, m.numero === "007" && familiasNovas007.includes(i.familia) ? `${i.familia}:proposta007` : m.numero === "006" && familiasNovas006.includes(i.familia) ? `${i.familia}:proposta006` : criterios[i.familia]);
     assert.ok(i.criterio && i.antes.ativo && i.antes.grupo_id);
     assert.equal(i.pendencias.length, 0);
     assert.equal(i.nome, normalizarNomeCadastro(i.nome));
@@ -27,7 +29,23 @@ export function validarCinquenta(m) {
     assert.deepEqual(Object.keys(i.depois).sort(), ["descricao", "nome"]);
     assert.equal(i.depois.nome, i.nome);
     assert.ok(i.depois.descricao.includes(i.descricao_tecnica));
-    if (m.numero === "006") {
+    if (m.numero === "007") {
+      const grupos = {...grupos006,ACESSORIOS_DISJUNTORES_MOTOR:22,ACESSORIOS_CONTATORES:19,RELES_SOBRECARGA:24,CONTATORES_CAPACITORES:17,CONTATORES_SEGURANCA:17};
+      assert.equal(i.antes.grupo_id, i.id === 2359 ? 38 : grupos[i.familia]);
+      assert.ok(i.nome.includes(i.referencia));
+      assert.ok(i.descricao_tecnica.includes(i.referencia));
+      assert.ok(i.evidencias.length);
+      for (const e of i.evidencias) {
+        assert.match(e.sha256,/^[a-f0-9]{64}$/);
+        assert.ok(e.arquivo.startsWith("backups/fontes-lote-007/"));
+      }
+      if (i.id === 1884) {
+        assert.ok(!i.nome.includes("1000V"));
+        assert.ok(i.atributos_nao_confirmados.includes("tensao_1000VCA_historica"));
+      }
+      if (i.id === 2554) assert.match(i.nome,/100kA EM 690VCA/);
+      if (i.id === 3324) assert.match(i.nome,/GERADOR.*280-400A/);
+    } else if (m.numero === "006") {
       assert.equal(i.antes.grupo_id, grupos006[i.familia]);
       assert.ok(i.descricao_tecnica.includes(i.referencia));
       assert.match(i.evidencia.sha256, /^[a-f0-9]{64}$/);
@@ -66,7 +84,7 @@ export function validarCinquenta(m) {
 // A aprovação vincula o conteúdo congelado; mudar flag/status não basta.
 export function exigirAutorizacao(m, aprovacao = null) {
   validarCinquenta(m);
-  assert.notEqual(m.numero, "006", "Lote 006 aguarda aprovação humana; gravação bloqueada");
+  assert.notEqual(m.numero, "007", "Lote 007 exige nova aprovação humana; gravação bloqueada");
   if (m.numero === "003") {
     assert.equal(m.autorizacao, "primeiros_50_autorizados_pelo_usuario");
     assert.equal(assinatura(m), "e3c564701791e73c258a4007df905f97e8199505e239a45b1d05db8751facb58");
@@ -74,10 +92,10 @@ export function exigirAutorizacao(m, aprovacao = null) {
   }
   assert.ok(aprovacao, "Lote exige aprovação humana registrada; gravação bloqueada");
   validarEscopo(aprovacao);
-  assert.ok(["004", "005"].includes(m.numero));
+  assert.ok(["004", "005", "006"].includes(m.numero));
   assert.equal(aprovacao.lote, m.lote);
   assert.equal(aprovacao.status, "aprovado");
-  assert.equal(aprovacao.assinatura_lote, {"004":"8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26","005":"e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a"}[m.numero]);
+  assert.equal(aprovacao.assinatura_lote, {"004":"8dfcc93fa2471aa24881f22ec41574c889f3b03bd5c7b6ab9996f3f3c7af0a26","005":"e34497cce0e1c0aa7aa59ba8eb97f4efe4cd5caf02fcdfbd0ab09f9d6476d66a","006":"2b7e14820510b475d1d8f1a6027a37527d1ad32b41416c9eeaf5e0fb66ad031d"}[m.numero]);
   assert.equal(assinatura(m), aprovacao.assinatura_lote, "Proposta mudou após aprovação");
 }
 

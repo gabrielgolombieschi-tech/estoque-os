@@ -75,7 +75,7 @@ Depois: Código WEG 10076389: referência oficial MDW-C4, família MDW. Minidisj
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1550 — MDW-C2
 
@@ -85,7 +85,7 @@ Depois: Código WEG 10076381: referência oficial MDW-C2, família MDW. Minidisj
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1551 — MDW-C32-3
 
@@ -95,7 +95,7 @@ Depois: Código WEG 10076441: referência oficial MDW-C32-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1565 — MDW-C10
 
@@ -105,7 +105,7 @@ Depois: Código WEG 10076405: referência oficial MDW-C10, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1566 — MDW-C6
 
@@ -115,7 +115,7 @@ Depois: Código WEG 10076397: referência oficial MDW-C6, família MDW. Minidisj
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1567 — MDW-C16
 
@@ -125,7 +125,7 @@ Depois: Código WEG 10076413: referência oficial MDW-C16, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1568 — MDW-C63
 
@@ -135,7 +135,7 @@ Depois: Código WEG 10076461: referência oficial MDW-C63, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1573 — MDW-C20
 
@@ -145,7 +145,7 @@ Depois: Código WEG 10076421: referência oficial MDW-C20, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1575 — MDW-C25
 
@@ -155,7 +155,7 @@ Depois: Código WEG 10076429: referência oficial MDW-C25, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1576 — MDW-C63-3
 
@@ -165,7 +165,7 @@ Depois: Código WEG 10076465: referência oficial MDW-C63-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1577 — MDW-C20-3
 
@@ -175,7 +175,7 @@ Depois: Código WEG 10076425: referência oficial MDW-C20-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1596 — MDW-C10-2
 
@@ -185,7 +185,7 @@ Depois: Código WEG 10076407: referência oficial MDW-C10-2, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1598 — MDW-C80-3
 
@@ -195,7 +195,7 @@ Depois: Código WEG 10075739: referência oficial MDW-C80-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1599 — MDW-C70-3
 
@@ -205,7 +205,7 @@ Depois: Código WEG 11134791: referência oficial MDW-C70-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1600 — MDW-C40
 
@@ -215,7 +215,7 @@ Depois: Código WEG 10076445: referência oficial MDW-C40, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1601 — MDW-C32
 
@@ -225,7 +225,7 @@ Depois: Código WEG 10076437: referência oficial MDW-C32, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1602 — MDW-C4-2
 
@@ -235,7 +235,7 @@ Depois: Código WEG 10076391: referência oficial MDW-C4-2, família MDW. Minidi
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1603 — MDW-C16-3
 
@@ -245,7 +245,7 @@ Depois: Código WEG 10076417: referência oficial MDW-C16-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1604 — MDW-C6-3
 
@@ -255,7 +255,7 @@ Depois: Código WEG 10076401: referência oficial MDW-C6-3, família MDW. Minidi
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1605 — MDW-C50-3
 
@@ -265,7 +265,7 @@ Depois: Código WEG 10076457: referência oficial MDW-C50-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1608 — MDW-C50
 
@@ -275,7 +275,7 @@ Depois: Código WEG 10076453: referência oficial MDW-C50, família MDW. Minidis
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1609 — MDW-C6-2
 
@@ -285,7 +285,7 @@ Depois: Código WEG 10076399: referência oficial MDW-C6-2, família MDW. Minidi
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1610 — MDW-C25-3
 
@@ -295,7 +295,7 @@ Depois: Código WEG 10076433: referência oficial MDW-C25-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1611 — MDW-C16-2
 
@@ -305,7 +305,7 @@ Depois: Código WEG 10076415: referência oficial MDW-C16-2, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 1971 — MDW-C40-3
 
@@ -315,7 +315,7 @@ Depois: Código WEG 10076449: referência oficial MDW-C40-3, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 2847 — MDW-C20-2
 
@@ -325,7 +325,7 @@ Depois: Código WEG 10076423: referência oficial MDW-C20-2, família MDW. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 2848 — MDW-C4-3
 
@@ -335,7 +335,7 @@ Depois: Código WEG 10076393: referência oficial MDW-C4-3, família MDW. Minidi
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 23, 25. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 23, 25. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 2347 — MDWP-C10
 
@@ -345,7 +345,7 @@ Depois: Código WEG 15220827: referência oficial MDWP-C10, família MDWP. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 2980 — MDWP-C10-3
 
@@ -355,7 +355,7 @@ Depois: Código WEG 15265745: referência oficial MDWP-C10-3, família MDWP. Min
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 2981 — MDWP-C4
 
@@ -365,7 +365,7 @@ Depois: Código WEG 15265514: referência oficial MDWP-C4, família MDWP. Minidi
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 3216 — MDWP-C16-3
 
@@ -375,7 +375,7 @@ Depois: Código WEG 15265747: referência oficial MDWP-C16-3, família MDWP. Min
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 3217 — MDWP-C25-3
 
@@ -385,7 +385,7 @@ Depois: Código WEG 15265762: referência oficial MDWP-C25-3, família MDWP. Min
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 3218 — MDWP-C32-3
 
@@ -395,7 +395,7 @@ Depois: Código WEG 15265763: referência oficial MDWP-C32-3, família MDWP. Min
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 3219 — MDWP-C50-3
 
@@ -405,7 +405,7 @@ Depois: Código WEG 15265766: referência oficial MDWP-C50-3, família MDWP. Min
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 3328 — MDWP-C16
 
@@ -415,7 +415,7 @@ Depois: Código WEG 15265681: referência oficial MDWP-C16, família MDWP. Minid
 
 Fonte: [documento técnico da referência](https://static.weg.net/medias/downloadcenter/h24/h69/WEG-MDW-MDWH-QDW-SPW-RDW-DWP-50023623-en.pdf).
 
-Páginas conferidas: 7, 8. SHA-256 do documento: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
+Evidência: WEG Integrated Solutions for Electrical Installations 50023623; páginas 7, 8. SHA-256: 4de4f3b8ac8f64d95875c033b16e9683abf385551ada205789f77bbae0bea341.
 
 ### ID 186 — 3RV2011-1EA10
 
@@ -425,7 +425,7 @@ Depois: Referência Siemens 3RV2011-1EA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1EA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: a53a0e964fd61d6e264e1a4ad1d2fedb6b53125bf80037c6bc3bf76254ba40d1.
+Evidência: 3RV2011-1EA10; páginas 1, 2. SHA-256: a53a0e964fd61d6e264e1a4ad1d2fedb6b53125bf80037c6bc3bf76254ba40d1.
 
 ### ID 187 — 3RV2011-1CA10
 
@@ -435,7 +435,7 @@ Depois: Referência Siemens 3RV2011-1CA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1CA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 06d56fe948efa8bcc59d132f932529fb4ab939fd3ea36ce8630861d746cfd047.
+Evidência: 3RV2011-1CA10; páginas 1, 2. SHA-256: 06d56fe948efa8bcc59d132f932529fb4ab939fd3ea36ce8630861d746cfd047.
 
 ### ID 236 — 3RV2011-1AA20
 
@@ -445,7 +445,7 @@ Depois: Referência Siemens 3RV2011-1AA20, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1AA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 53f139b181f6fbe20a5625f435b7e165f779f54902d8aa1e0078a8a084ef0b0f.
+Evidência: 3RV2011-1AA20; páginas 1, 2. SHA-256: 53f139b181f6fbe20a5625f435b7e165f779f54902d8aa1e0078a8a084ef0b0f.
 
 ### ID 243 — 3RV2011-1CA20
 
@@ -455,7 +455,7 @@ Depois: Referência Siemens 3RV2011-1CA20, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1CA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 93ed7602b73463d507aebd3e5dc7a68c493f60bd6da3c8ad072c816cb011d36e.
+Evidência: 3RV2011-1CA20; páginas 1, 2. SHA-256: 93ed7602b73463d507aebd3e5dc7a68c493f60bd6da3c8ad072c816cb011d36e.
 
 ### ID 246 — 3RV2011-4AA10
 
@@ -465,7 +465,7 @@ Depois: Referência Siemens 3RV2011-4AA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-4AA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 5a1eb87266da248898e3f2ef5d5cb1561d0d959c528dd441a62b5df5678e8201.
+Evidência: 3RV2011-4AA10; páginas 1, 2. SHA-256: 5a1eb87266da248898e3f2ef5d5cb1561d0d959c528dd441a62b5df5678e8201.
 
 ### ID 251 — 3RV2011-1FA10
 
@@ -475,7 +475,7 @@ Depois: Referência Siemens 3RV2011-1FA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1FA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 64d143233579c7e73d641ddf90110ab0ab598937740cd48b1b2957316f714aed.
+Evidência: 3RV2011-1FA10; páginas 1, 2. SHA-256: 64d143233579c7e73d641ddf90110ab0ab598937740cd48b1b2957316f714aed.
 
 ### ID 252 — 3RV2011-1AA10
 
@@ -485,7 +485,7 @@ Depois: Referência Siemens 3RV2011-1AA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1AA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 25b3bca7666327819b4c8f74bbfb27f4f5d8924842c235612705d6d6e866366b.
+Evidência: 3RV2011-1AA10; páginas 1, 2. SHA-256: 25b3bca7666327819b4c8f74bbfb27f4f5d8924842c235612705d6d6e866366b.
 
 ### ID 258 — 3RV2011-1BA10
 
@@ -495,7 +495,7 @@ Depois: Referência Siemens 3RV2011-1BA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1BA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 3a8bfc6075d138af405312543d5805f31d8b00cefc9f17483573622a8c538d19.
+Evidência: 3RV2011-1BA10; páginas 1, 2. SHA-256: 3a8bfc6075d138af405312543d5805f31d8b00cefc9f17483573622a8c538d19.
 
 ### ID 259 — 3RV2011-1JA10
 
@@ -505,7 +505,7 @@ Depois: Referência Siemens 3RV2011-1JA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1JA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: d35d45d890be1348feea4d82f79096c6b4f285aaf66a875e64c90834c30c10ba.
+Evidência: 3RV2011-1JA10; páginas 1, 2. SHA-256: d35d45d890be1348feea4d82f79096c6b4f285aaf66a875e64c90834c30c10ba.
 
 ### ID 742 — 3RV2011-1HA10
 
@@ -515,7 +515,7 @@ Depois: Referência Siemens 3RV2011-1HA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1HA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: c63a6db70fd9f4f44b65a5d760d0ad38f30826f5b7b8ac0921fa99f6f0bd749e.
+Evidência: 3RV2011-1HA10; páginas 1, 2. SHA-256: c63a6db70fd9f4f44b65a5d760d0ad38f30826f5b7b8ac0921fa99f6f0bd749e.
 
 ### ID 765 — 3RV2011-1EA20
 
@@ -525,7 +525,7 @@ Depois: Referência Siemens 3RV2011-1EA20, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1EA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: ce933cd73a128a9e06fe5671071ab04345eb02d0bcb2f5856c5e5e6c6669fbc8.
+Evidência: 3RV2011-1EA20; páginas 1, 2. SHA-256: ce933cd73a128a9e06fe5671071ab04345eb02d0bcb2f5856c5e5e6c6669fbc8.
 
 ### ID 778 — 3RV2011-1GA20
 
@@ -535,7 +535,7 @@ Depois: Referência Siemens 3RV2011-1GA20, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1GA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 1d2dd2071acbec233f1225ed413d665a2f3b8b6bffff1f49181bd994a96eb800.
+Evidência: 3RV2011-1GA20; páginas 1, 2. SHA-256: 1d2dd2071acbec233f1225ed413d665a2f3b8b6bffff1f49181bd994a96eb800.
 
 ### ID 798 — 3RV2011-1BA20
 
@@ -545,7 +545,7 @@ Depois: Referência Siemens 3RV2011-1BA20, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1BA20).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 4bd11c01460a20ef38db88b75ebb2fe12edd0bfcaf8475e37ddee00f0c3dd578.
+Evidência: 3RV2011-1BA20; páginas 1, 2. SHA-256: 4bd11c01460a20ef38db88b75ebb2fe12edd0bfcaf8475e37ddee00f0c3dd578.
 
 ### ID 809 — 3RV2011-1GA10
 
@@ -555,7 +555,7 @@ Depois: Referência Siemens 3RV2011-1GA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1GA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: 2bc53e6b2170a57ec03788d3a13c8098805a55938c5816287f92c9705f08b525.
+Evidência: 3RV2011-1GA10; páginas 1, 2. SHA-256: 2bc53e6b2170a57ec03788d3a13c8098805a55938c5816287f92c9705f08b525.
 
 ### ID 814 — 3RV2011-1DA10
 
@@ -565,7 +565,7 @@ Depois: Referência Siemens 3RV2011-1DA10, tamanho S00. Proteção termomagnéti
 
 Fonte: [documento técnico da referência](https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RV2011-1DA10).
 
-Páginas conferidas: 1, 2. SHA-256 do documento: e529503c37652c12cf6d4b8225126c2883cb285e4a7cfd0fe84d06bc7a9f3df5.
+Evidência: 3RV2011-1DA10; páginas 1, 2. SHA-256: e529503c37652c12cf6d4b8225126c2883cb285e4a7cfd0fe84d06bc7a9f3df5.
 
 ## Controle
 

@@ -1,0 +1,31 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { diretorio } from "./lib/controle-revisoes.mjs";
+import { ids003,ids004,ids005,ids006,ids007,validarCinquenta,exigirAutorizacao,planejarCinquenta,conferirCinquenta } from "./lib/lotes-cinquenta.mjs";
+const m=JSON.parse(fs.readFileSync(`${diretorio}/lote-007-cinquenta-itens.json`,"utf8"));
+validarCinquenta(m);
+assert.equal(new Set([...ids003,...ids004,...ids005,...ids006,...ids007]).size,250);
+assert.throws(()=>exigirAutorizacao(m),/007 exige nova aprovação/);
+assert.throws(()=>exigirAutorizacao({...m,autorizacao:"aprovado"},{status:"aprovado"}),/007 exige nova aprovação/);
+assert.ok(!fs.existsSync(`${diretorio}/eventos-007-cinquenta-itens.json`));
+const plano=planejarCinquenta(m,m.itens.map(i=>i.antes));
+assert.ok(plano.every(p=>!p.aplicado));
+assert.ok(planejarCinquenta(m,m.itens.map(i=>({...i.antes,...i.depois}))).every(p=>p.aplicado));
+const alterados=m.itens.map(i=>({...i.antes}));alterados[0].fator_conversao_estoque=100;
+assert.throws(()=>planejarCinquenta(m,alterados),/concorrente/);
+assert.throws(()=>conferirCinquenta(plano[0],{...plano[0].antes,...plano[0].depois,grupo_id:999}));
+const eventos=fs.readdirSync(diretorio).filter(f=>/^eventos-.*\.json$/.test(f)).flatMap(f=>JSON.parse(fs.readFileSync(`${diretorio}/${f}`,"utf8")));
+for(const i of m.itens) {
+  assert.ok(!eventos.some(e=>e.item_id===i.id));
+  for(const e of i.evidencias) assert.equal(createHash("sha256").update(fs.readFileSync(e.arquivo)).digest("hex"),e.sha256);
+}
+assert.match(m.itens.find(i=>i.id===3324).nome,/GERADOR.*280-400A.*1000-2000A/);
+assert.match(m.itens.find(i=>i.id===3213).nome,/25kvar/);
+assert.match(m.itens.find(i=>i.id===3408).nome,/20kvar/);
+assert.match(m.itens.find(i=>i.id===2175).nome,/2P.*0,4-0,63A/);
+assert.match(m.itens.find(i=>i.id===2227).nome,/CWC07-16 3P.*PARAFUSO/);
+assert.match(m.itens.find(i=>i.id===2224).nome,/ICU 10kA/);
+assert.match(m.itens.find(i=>i.id===1104).nome,/ICU 50kA/);
+assert.ok(!m.itens.some(i=>[1872,1873,1883,2351,2523,3329].includes(i.id)));
+console.log("OK: lote 007, 50 propostas não aplicadas, 250 IDs distintos, hashes de evidência íntegros, CAS e aprovação bloqueada.");

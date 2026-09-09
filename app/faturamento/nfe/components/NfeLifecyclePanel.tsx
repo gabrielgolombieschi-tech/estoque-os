@@ -134,7 +134,8 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
   async function abrirArquivo(arquivo: "XML" | "DANFE", imprimir = false) {
     const novaAba = imprimir ? window.open("about:blank", "_blank") : null;
     if (novaAba) novaAba.opener = null;
-    const data = await invoke({ acao: "ARQUIVO", arquivo });
+    // Baixar salva o arquivo; imprimir precisa dele aberto no visualizador do navegador.
+    const data = await invoke({ acao: "ARQUIVO", arquivo, download: !imprimir });
     if (data?.url) {
       if (imprimir) {
         if (!novaAba) {

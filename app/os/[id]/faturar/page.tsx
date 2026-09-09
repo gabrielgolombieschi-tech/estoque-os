@@ -490,7 +490,7 @@ export default function FaturarOsPage() {
   }
 
   async function abrirArquivoDoc(documentoFiscalId: string, arquivo: "XML" | "DANFE") {
-    const { data, error } = await supabase.functions.invoke("nfe-ciclo", { body: { acao: "ARQUIVO", arquivo, documento_fiscal_id: documentoFiscalId } });
+    const { data, error } = await supabase.functions.invoke("nfe-ciclo", { body: { acao: "ARQUIVO", arquivo, documento_fiscal_id: documentoFiscalId, download: true } });
     if (error || data?.error) { setErro(data?.error ?? (await erroFunction(error))); return; }
     if (data?.url) window.location.assign(String(data.url));
   }
@@ -518,10 +518,14 @@ export default function FaturarOsPage() {
   const impostosPrevia = useMemo(() => {
     const base = (i: ItemConferido) => num(i.quantidade) * num(i.valor_unitario);
     const ipiDoItem = (i: ItemConferido) => base(i) * num(i.aliquota_ipi) / 100;
-    const icms = itensConferidos.reduce((s, i) => s + (base(i) + (consumidorFinal ? ipiDoItem(i) : 0)) * num(i.aliquota_icms) / 100, 0);
+    const icmsDoItem = (i: ItemConferido) => (base(i) + (consumidorFinal ? ipiDoItem(i) : 0)) * num(i.aliquota_icms) / 100;
+    // PIS/COFINS sobre a mercadoria menos o ICMS destacado (STF, Tema 69), igual ao
+    // builder da NF-e em supabase/functions/_shared/nfe-payload.ts.
+    const basePisCofins = (i: ItemConferido) => Math.max(base(i) - icmsDoItem(i), 0);
+    const icms = itensConferidos.reduce((s, i) => s + icmsDoItem(i), 0);
     const ipi = itensConferidos.reduce((s, i) => s + ipiDoItem(i), 0);
-    const pis = itensConferidos.reduce((s, i) => s + base(i) * num(i.aliquota_pis) / 100, 0);
-    const cofins = itensConferidos.reduce((s, i) => s + base(i) * num(i.aliquota_cofins) / 100, 0);
+    const pis = itensConferidos.reduce((s, i) => s + basePisCofins(i) * num(i.aliquota_pis) / 100, 0);
+    const cofins = itensConferidos.reduce((s, i) => s + basePisCofins(i) * num(i.aliquota_cofins) / 100, 0);
     const ibs = totalConferido * 0.001;
     const cbs = totalConferido * 0.009;
     return { icms, ipi, pis, cofins, ibs, cbs, totalNota: totalConferido + ipi };

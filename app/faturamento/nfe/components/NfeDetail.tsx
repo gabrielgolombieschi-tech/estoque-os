@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { mensagemErro } from "@/lib/supabase/erro";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { formatMoneyBR } from "@/lib/decimal";
@@ -646,7 +647,7 @@ export default function NfeDetail({
         setRelatorioDestino(relatorioDestinoImportacao);
       } catch (e: unknown) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NF-e.");
+        setError(mensagemErro(e, "Erro inesperado ao carregar NF-e."));
         setDoc(null);
         setItens([]);
         setImpostos([]);
@@ -724,7 +725,7 @@ export default function NfeDetail({
       setDoc((prev) => (prev ? { ...prev, os_id_import: osSelection?.id ?? null } : prev));
       setOsFeedback(osSelection ? "OS vinculada atualizada." : "Vinculo com OS removido.");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro inesperado ao salvar a OS vinculada.");
+      setError(mensagemErro(e, "Erro inesperado ao salvar a OS vinculada."));
     } finally {
       setOsSaving(false);
     }
@@ -772,7 +773,7 @@ export default function NfeDetail({
 
       router.replace("/faturamento/nfe");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro inesperado ao excluir NF-e.");
+      setError(mensagemErro(e, "Erro inesperado ao excluir NF-e."));
     } finally {
       setDeleting(false);
     }

@@ -1,4 +1,4 @@
-versao_padrao: "1.29.0"
+versao_padrao: "1.30.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -18,6 +18,17 @@ campos_erp:
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
+  protecao_e_conexoes_confirmadas_lote_006:
+    decisao: D-042
+    origem: "Lote 006 aprovado em 09/09/2026 após apresentação dos 50 antes/depois e ressalvas. Aplicação conferida por ID; assinatura em revisoes/aprovacao-006.json."
+    protecao: "Distinguir termomagnético, somente magnético e unidade sem disparador. 3VM1216-5MH32-0AA0 e 3RV2331-4WC10 não recebem proteção térmica por similaridade; 3VT2725-2AA36-0AA0 é unidade sem ETU. Classe isolada em tabela não prova proteção térmica quando a ficha declara ausência dessa função. Disjuntor aberto: informar montagem fixa/extraível, tensão, capacidade, funções LSI/LSIG presentes e conexão. Cabeçalho vazio não prova proteção G."
+    capacidades: "Vincular Icu/Ics/Icn à tensão e norma exatas. Não recalcular Ics por percentual presumido. Divergência em outra condição permanece explícita, sem extrapolar a condição confirmada. Seccionadoras: separar Iu, categoria e potência/corrente por tensão e temperatura. Fusíveis: distinguir gG/aR/gR, tamanho NH e interrupção CA/CC com condições."
+    contatores: "Separar polos/contatos principais de auxiliares: 3RT2536-1AK60 tem principais 4P 2NA+2NF e auxiliares 1NA+1NF. Conferir conexões por circuito: potência por parafuso e comando/auxiliares por mola podem coexistir. Distinguir barramento de borne tipo caixa. Frequência da bobina CA/CC aplica-se somente à alimentação CA."
+    acessorios: "Mecanismo, manopla, espelho, terminal, suporte e kit completo não são sinônimos. Informar peças ausentes; quantidade de peças não vira polos ou multiplicador de estoque. IP de acessório não é IP do painel."
+    lacunas: "Bases 3NH3430-0RC/3NH3330-0RC/3NH3230-0RC/3NH3030-0RC: redação aprovada retira 690VCA não confirmado do nome e preserva origem no complemento. Isso não prova tensão errada nem confirma tensão/polos/conexão. Revisão parcial permanece sinalizada; exigir placa ou fonte histórica antes de dimensionar. Largura de trilho, material e IP ausentes não são inventados."
+    exemplo_conexao: "CONTATOR 3P AC-3 41A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz POTÊNCIA PARAFUSO COMANDO MOLA"
+    exemplo_acessorio: "ESPELHO FRONTAL PRETO IP66 PARA MANOPLA VT250/VT630"
+    limite: "Lote 007 exige nova aprovação; propostas não são exemplos humanos aprovados. Aprovação da redação não certifica atributos ausentes."
   protecao_e_acessorios_confirmados_lote_005:
     decisao: D-041
     origem: "50 itens do lote 005 aprovados em 09/09/2026, aplicados e relidos. Aprovação vinculada ao manifesto em revisoes/aprovacao-005.json. Lotes seguintes não estão autorizados."
@@ -28,7 +39,7 @@ regras_cadastro_assistido:
     divergencias: "Ficha com conflito interno exige nova evidência, sem escolher silenciosamente uma das versões: 3RV2011-1KA20 permanece fora do lote. Para o 3RV2011-1KA10 aprovado, a ficha exata confirma 9-12,5A. HTTP 404 em um serviço não prova inexistência ou descontinuação do produto."
     exemplo_supressor: "SUPRESSOR DE SURTO COMBINAÇÃO DE DIODOS 12-250VCC PARA 3RT2.1/3RH2 S00"
     exemplo_rele: "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 1,8-2,5A CLASSE 10 S00 CONEXÃO POR MOLA"
-    limite: "Aprovação refere-se às alterações documentadas; atributos explicitamente não confirmados continuam não confirmados. Propostas do lote 006 não são exemplos humanos aprovados."
+    limite: "Aprovação refere-se às alterações documentadas; atributos explicitamente não confirmados continuam não confirmados. Lote 006 recebeu aprovação própria na D-042; seguintes não estão autorizados."
   protecao_confirmada_lote_004:
     decisao: D-040
     origem: "Lote 004 aprovado pelo usuário em 07/09/2026, aplicado e relido: 35 minidisjuntores WEG e 15 disjuntores-motor Siemens. Aprovação vinculada à assinatura do manifesto em revisoes/aprovacao-004.json."
@@ -1346,6 +1357,10 @@ termos_ambiguos_pendentes:
     observacao: "D-039 confirma a capacidade das 40 referências 5SL1 do lote 003 pela tabela exata Siemens, páginas 8-9. Demais referências/variantes e conflitos de identidade continuam sujeitos a conferência; não extrapolar a série por semelhança."
 
 historico_decisoes:
+  - id: D-042
+    data: "2026-09-09"
+    status: aplicado
+    decisao: "Aplicados e verificados os 50 nomes e descrições do lote 006. Incorporadas distinções de proteção, capacidade condicionada, conexões por circuito e função dos acessórios. Ressalvas preservadas, inclusive quatro bases NH parcialmente documentadas. Lote 007 não aprovado."
   - id: D-041
     data: "2026-09-09"
     status: aplicado
