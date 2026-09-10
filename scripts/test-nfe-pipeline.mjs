@@ -200,6 +200,36 @@ assert.equal(revendaComIpi.items[0].ipi_valor, 97.5);
 assert.equal(revendaComIpi.items[0].icms_base_calculo, 1000, "revenda: IPI fora da base do ICMS");
 assert.equal(revendaComIpi.items[0].icms_valor, 120);
 
+// O IPI na base do ICMS segue a destinacao, nao o indFinal (CF art. 155, §2º, XI:
+// entre contribuintes E destinado a industrializacao ou comercializacao — cumulativo).
+// Manutencao e o caso que separa os dois: o comprador e contribuinte (indFinal 0), mas
+// manter o proprio parque nao e industrializar nem revender, entao o IPI entra na base.
+// Lendo por indFinal a OS 319 sairia com R$ 1.657,50 de ICMS a menos a cada R$ 100 mil
+// (contabilidade, 10/09/2026).
+const porDestinacao = (destinacao) => montarPayloadNfe(contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      natureza_operacao: "VENDA_INDUSTRIALIZACAO_INTERNA",
+      destinacao_mercadoria: destinacao,
+      consumidor_final: 0,
+    },
+  }),
+  itens: [linha({ cfop: "5101", ncm: "90328989", quantidade: 1, valor_unitario: 1000, aliquota_icms: 12, cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+})).items[0];
+
+const manutencao = porDestinacao("MANUTENCAO");
+assert.equal(manutencao.ipi_valor, 97.5);
+assert.equal(manutencao.icms_base_calculo, 1097.5, "manutencao: IPI dentro da base do ICMS");
+assert.equal(manutencao.icms_valor, 131.7);
+
+const insumo = porDestinacao("INSUMO");
+assert.equal(insumo.icms_base_calculo, 1000, "insumo: IPI fora da base do ICMS");
+assert.equal(insumo.icms_valor, 120);
+
+const consignado = porDestinacao("CONSIGNADO");
+assert.equal(consignado.icms_base_calculo, 1000, "consignacao segue para revenda: IPI fora da base");
+
 // NCM 8460.90.90 (maquina industrial, Convenio ICMS 52/91; contador 06/09/2026):
 // nao sai a 17% cheia nem a 12% direto. Exige CST 20 + cBenef + base reduzida
 // ate a carga efetiva de 8,80%: interna 17% x (1 - 48,235%) e PR 12% x (1 - 26,667%).
@@ -630,4 +660,4 @@ assert.throws(
 );
 assert.doesNotThrow(() => validarAcaoCicloPorAmbiente("EMAIL", "PRODUCAO"));
 
-console.log("77 cenarios locais do pipeline NF-e passaram.");
+console.log("81 cenarios locais do pipeline NF-e passaram.");

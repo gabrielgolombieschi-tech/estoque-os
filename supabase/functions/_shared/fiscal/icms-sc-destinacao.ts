@@ -17,32 +17,54 @@
  * INSUMO, sem repetir um termo que pertence a outro fluxo.
  */
 
+/**
+ * `ipiForaDaBaseIcms` diz se esta destinacao satisfaz a segunda condicao do
+ * art. 155, § 2º, XI da Constituicao: o IPI so fica fora da base do ICMS quando a
+ * operacao e entre contribuintes E o produto se destina a industrializacao ou a
+ * comercializacao (as tres condicoes sao cumulativas).
+ *
+ * Ser contribuinte nao basta. Manutencao e o caso que mostra a diferenca: o
+ * comprador e contribuinte, mas usa a mercadoria para manter o proprio parque —
+ * nao industrializa nem revende. Ali o IPI integra a base. Consignacao fica fora
+ * porque a mercadoria segue para revenda pelo consignatario.
+ */
 export const DESTINACOES_MERCADORIA = {
   REVENDA: {
     rotulo: "revenda",
     contribuinte: true,
+    ipiForaDaBaseIcms: true,
   },
   INSUMO: {
     rotulo: "insumo de produção",
     contribuinte: true,
+    ipiForaDaBaseIcms: true,
   },
   MANUTENCAO: {
     rotulo: "manutenção",
     contribuinte: true,
+    ipiForaDaBaseIcms: false,
   },
   CONSIGNADO: {
     rotulo: "mercadoria em consignação",
     contribuinte: true,
+    ipiForaDaBaseIcms: true,
   },
   USO_CONSUMO: {
     rotulo: "uso e consumo do adquirente",
     contribuinte: false,
+    ipiForaDaBaseIcms: false,
   },
   ATIVO_IMOBILIZADO: {
     rotulo: "ativo imobilizado do adquirente",
     contribuinte: false,
+    ipiForaDaBaseIcms: false,
   },
 } as const;
+
+/** O IPI integra a base do ICMS nesta destinacao? */
+export function ipiIntegraBaseIcms(destinacao: DestinacaoMercadoria) {
+  return !DESTINACOES_MERCADORIA[destinacao].ipiForaDaBaseIcms;
+}
 
 export type DestinacaoMercadoria = keyof typeof DESTINACOES_MERCADORIA;
 

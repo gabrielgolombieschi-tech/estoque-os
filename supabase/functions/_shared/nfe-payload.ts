@@ -5,6 +5,7 @@ import {
   REDUCAO_AUTOMACAO_SC,
   REDUCAO_MAQUINAS_CONVENIO_52_91,
   temReducaoAutomacaoSc,
+  ipiIntegraBaseIcms,
   temReducaoMaquinas5291,
   textoDestinacao,
   textoReducaoAutomacaoSc,
@@ -410,12 +411,14 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     }
     // O IPI so fica FORA da base do ICMS quando a operacao e entre contribuintes e o
     // produto se destina a industrializacao ou comercializacao (CF art. 155, §2º, XI,
-    // reproduzido na LC 87/96, art. 13, §2º). Destinacao a uso e consumo ou a ativo
-    // imobilizado nao e nenhuma das duas: ali o IPI integra a base.
+    // reproduzido na LC 87/96, art. 13, §2º). Sao condicoes cumulativas.
     //
-    // Por isso a regra sai da destinacao declarada, via indFinal, e nao de precedente
-    // empirico — a ancora anterior era a NF-e 3766 (contabilidade, 09/09/2026).
-    const ipiNaBaseIcms = num(operacao.consumidor_final) === 1 ? ipiValor : 0;
+    // A regra sai da destinacao declarada, nao de indFinal. Eram equivalentes ate
+    // aparecer a manutencao: o comprador e contribuinte (indFinal 0), mas manter o
+    // proprio parque nao e industrializar nem revender, entao o IPI integra a base.
+    // Lendo por indFinal a nota saia com ICMS a menos — na OS 319, R$ 1.657,50 a cada
+    // R$ 100 mil (contabilidade, 10/09/2026).
+    const ipiNaBaseIcms = ipiIntegraBaseIcms(destinacao) ? ipiValor : 0;
     const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
     const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
     // O ICMS destacado sai da base de PIS/COFINS (STF, RE 574.706/PR, Tema 69, com
