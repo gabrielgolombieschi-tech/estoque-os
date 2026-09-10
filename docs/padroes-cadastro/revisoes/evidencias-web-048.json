@@ -1,0 +1,11 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-10",
+  "tipo": "conferencia_web_de_documentos_primarios_nao_e_pdf_baixado",
+  "itens": [
+    {"id":1619,"url":"https://support.industry.siemens.com/cs/attachments/109771997/SIRIUS_IC10_chap05_English_2025_202501240949051090.pdf","pagina_impressa":"5/40","resultado":"A linha da referência 3RQ3055-1SM30 na coluna de terminais por parafuso informa capacidade de saída CC entre 5mA e 5A. A tabela foi lida com seu cabeçalho. Consulta visual web falhou por cache miss; texto técnico legível confirmou o limite junto ao resumo da ficha individual e catálogo de produto."},
+    {"id":735,"url":"https://cache.industry.siemens.com/dl/files/771/48217771/att_932117/v1/3022d_201710181150494597.pdf?download=true","pagina_pdf":5,"resultado":"Certificado 3022d identifica 3RA1921-1DA00 como ligação S00 com terminais por parafuso. Nome novo foi limitado ao conteúdo diretamente confirmado na ficha individual."},
+    {"id":1088,"url":"https://mall.industry.siemens.com/mall/en/riederpyown/Catalog/Product?SiepCountryCode=OE&mlfb=6SL3255-0AA00-4CA1","resultado":"Catálogo Siemens identifica a referência como SINAMICS G120 BOP-2. Não presume fornecimento de kit de montagem."}
+  ]
+}

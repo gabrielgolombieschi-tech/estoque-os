@@ -1,4 +1,4 @@
-versao_padrao: "1.35.0"
+versao_padrao: "1.36.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -18,6 +18,16 @@ campos_erp:
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
+  reavaliacao_e_duplicados:
+    decisao: D-048
+    precedencia: "Refina a D-047 após solicitação do usuário: revisar novamente as exceções, comparar duplicados pelos dados completos e trazer dificuldades no próprio chat. Não restringir pesquisa à ficha individual quando o catálogo oficial identifica a referência."
+    identidade: "Separar dúvida de identidade/variante/compatibilidade de atributo complementar ausente. Com referência exata e atributos essenciais confirmados, melhorar nome e descrição apenas com esses dados; registrar lacunas não certificadas sem inventá-las. Isso não reduz requisitos essenciais dos cabos, como seção, tensão, material e terminação."
+    unidades: "35mm² é seção de borne; 16mm é largura. Conferir a coluna e a grandeza, não apenas o número. Dimensão detalhada e denominação comercial arredondada podem coexistir, desde que ambas sejam identificadas pela fonte e não apresentadas como precisão equivalente."
+    fontes: "8WA com ficha 404 devem ser buscados em catálogo histórico. Catálogo LV10 2021 confirma 8WA1895/1896/1897 para dois/três/quatro bornes 2,5mm² e 8WA1838 para nível inferior de bornes duplos de 4mm²; não copiar seção antiga sem conferir."
+    duplicados: "Mesma referência técnica após retirar separadores visuais exige comparação no mesmo tenant/empresa, fabricante, variante, unidade e fator. Comparar itens e fiscal_itens: NCM, origem, CST, enquadramento e alíquotas, além de descrição e histórico. Zero preenchido é diferente de nulo; quantidade de campos não prova correção fiscal. Referência igual de fabricante diferente não é automaticamente duplicado."
+    preferencia: "Selecionar USAR para o cadastro mais completo e RESERVA para os demais quando a equivalência estiver confirmada; empate, conflito fiscal ou unidade incompatível exige decisão. Nesta rodada, 2698/2699/2700 têm NCM e quatro alíquotas, ausentes em 2641/2642/2643. A escolha não certifica tributação nem preenche CST/origem faltantes."
+    marcacao: "Não há campo próprio USAR/RESERVA identificado. Local da marcação (nome ou observações) solicitado ao usuário; não tratar opção preselecionada como resposta. Até confirmar, guardar a comparação e a escolha proposta sem declarar marcação aplicada. Não excluir, mesclar, inativar, mover saldo ou reatribuir documentos."
+    rastreabilidade: "Reavaliação 013 registra cada uma das 36 exceções: 23 redações claras para aplicação, sete dúvidas técnicas/comerciais e três pares aguardando local da marcação. Não reescrever os manifestos históricos nem chamar lacunas omitidas de atributos confirmados."
   revisao_continua_por_referencia_clara:
     decisao: D-047
     precedencia: "Decisão de 10/09/2026 substitui a exigência de aprovação de cada lote da D-039 nesta campanha. Autorização literal em revisoes/autorizacao-referencias-claras.json. Não se estende à gravação autônoma de novas entradas/XML."
@@ -1427,6 +1437,10 @@ termos_ambiguos_pendentes:
     observacao: "D-039 confirma a capacidade das 40 referências 5SL1 do lote 003 pela tabela exata Siemens, páginas 8-9. Demais referências/variantes e conflitos de identidade continuam sujeitos a conferência; não extrapolar a série por semelhança."
 
 historico_decisoes:
+  - id: D-048
+    data: "2026-09-10"
+    tema: "Reavaliação das exceções e preferência entre cadastros duplicados"
+    decisao: "Usuário solicitou comparar a completude, incluindo impostos/NCM, escolher USAR/RESERVA e trazer dificuldades no chat. Reavaliados 36 IDs: 23 nomes/descrições corrigidos com conferência integral dos campos e preservação de 36 registros fiscais; sete dúvidas técnicas/comerciais e três pares aguardam local da marcação. Referência exata permite redação segura sem inventar atributos acessórios ausentes. Catálogos e desenhos complementam fichas resumidas; HTTP 404 isolado não basta para declarar referência obscura. Não excluir, mesclar, inativar ou migrar estoque."
   - id: D-047
     data: "2026-09-10"
     tema: "Revisão contínua autorizada para referências claras; retorno somente de exceções"

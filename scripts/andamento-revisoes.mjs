@@ -12,6 +12,9 @@ eventos.forEach(validarEscopo);
 const arquivoExcecoes = `${diretorio}/excecoes-referencias-claras.json`;
 const excecoesClaras = fs.existsSync(arquivoExcecoes) ? JSON.parse(fs.readFileSync(arquivoExcecoes,"utf8")) : null;
 if (excecoesClaras) validarEscopo(excecoesClaras);
+const arquivoReavaliacao = `${diretorio}/reavaliacao-048.json`;
+const reavaliacao = fs.existsSync(arquivoReavaliacao) ? JSON.parse(fs.readFileSync(arquivoReavaliacao,"utf8")) : null;
+if (reavaliacao) validarEscopo(reavaliacao);
 const env = Object.fromEntries(fs.readFileSync(".env.local", "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.trim().startsWith("#")).map((l) => {
   const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^(["'])(.*)\1$/, "$2")];
 }));
@@ -34,10 +37,10 @@ const propostas = fs.readdirSync(diretorio).filter((n) => /^lote-.*\.json$/.test
   const arquivoLiberacao = `${diretorio}/liberacao-${numero}-referencias-claras.json`;
   const liberacao = fs.existsSync(arquivoLiberacao) ? JSON.parse(fs.readFileSync(arquivoLiberacao,"utf8")) : null;
   if (liberacao) validarEscopo(liberacao);
-  return lote.itens.filter((i) => !eventos.some((e) => e.lote === lote.lote && e.item_id === i.id && e.status === "aprovado")).map((i) => {
+  return lote.itens.filter((i) => !eventos.some((e) => (e.lote === lote.lote || e.lote === "013-reavaliacao-pendencias") && e.item_id === i.id && e.status === "aprovado")).map((i) => {
     const atual = itens.find((a) => a.id === i.id);
     return { id: i.id, codigo: i.antes.codigo_interno, lote: lote.lote, antes: i.antes.nome, depois_proposto: i.nome,
-      status: atual && impressaoTecnica(atual) === i.impressao_antes && atual.ativo === i.antes.ativo ? liberacao?.retidos.includes(i.id) ? "aguardando_esclarecimento_tecnico" : "aguardando_aprovacao" : "proposta_desatualizada" };
+      status: atual && impressaoTecnica(atual) === i.impressao_antes && atual.ativo === i.antes.ativo ? reavaliacao?.pares.some(p=>p.usar===i.id||p.reserva===i.id) ? "aguardando_local_da_marcacao" : liberacao?.retidos.includes(i.id) ? "aguardando_esclarecimento_tecnico" : "aguardando_aprovacao" : "proposta_desatualizada" };
   });
 });
 const campanha = JSON.parse(fs.readFileSync(`${diretorio}/campanha-itens-agrupados.json`, "utf8"));
@@ -51,10 +54,10 @@ const resultado = { consultado_em: new Date().toISOString(), tenant_id: tenantId
   total: registros.length, ativos: registros.filter((i) => i.ativo).length,
   materias_primas: registros.filter((i) => i.finalidade === "materia_prima").length,
   contagens, avaliados_minimo_sem_duplicidade: registros.filter((i) => !["nao_revisado", "historico_informado"].includes(i.status)).length,
-  excecoes_referencias_claras: { total: excecoesClaras?.itens.length ?? 0, relatorio: "excecoes-referencias-claras.md", observacao: "Dimensão separada, não somar a aprovados nem duplicar os 22 retidos das propostas 011. Inclui conferência complementar; não classifica a fila ainda não pesquisada como dúvida técnica." },
+  excecoes_referencias_claras: { total: excecoesClaras?.itens.length ?? 0, marcacao_pendente_ids: excecoesClaras?.pendencia_marcacao?.total_ids ?? 0, relatorio: "excecoes-referencias-claras.md", observacao: "Dimensão separada; não somar a aprovados nem duplicar retidos das propostas 011. D-048 separa dúvidas técnicas/comerciais de pares aguardando local da marcação. Não classifica fila ainda não pesquisada como dúvida técnica." },
   campanha_agrupados: { total: campanhaAtual.length, aprovados: campanhaAtual.filter((i) => i.status === "aprovado").length, restantes: campanhaAtual.filter((i) => i.status !== "aprovado").length, registros: campanhaAtual },
   lotes_aplicados: lotesAplicados,
-  propostas_nao_aplicadas: { total_ids: new Set(propostas.map((p) => p.id)).size, aguardando_aprovacao: propostas.filter((p) => p.status === "aguardando_aprovacao").length, aguardando_esclarecimento_tecnico: propostas.filter(p=>p.status==="aguardando_esclarecimento_tecnico").length, desatualizadas: propostas.filter((p) => p.status === "proposta_desatualizada").length, registros: propostas },
+  propostas_nao_aplicadas: { total_ids: new Set(propostas.map((p) => p.id)).size, aguardando_aprovacao: propostas.filter((p) => p.status === "aguardando_aprovacao").length, aguardando_esclarecimento_tecnico: propostas.filter(p=>p.status==="aguardando_esclarecimento_tecnico").length, aguardando_local_da_marcacao: propostas.filter(p=>p.status==="aguardando_local_da_marcacao").length, desatualizadas: propostas.filter((p) => p.status === "proposta_desatualizada").length, registros: propostas },
   historico_documentado_ou_informado_sem_duplicidade: registros.filter((i) => i.status !== "nao_revisado").length,
   observacao: "Histórico recuperado não é aprovação no critério atual. Pendentes aguardam fonte/decisão, não entram em repetição automática. Relatório é uma fotografia; executar novamente para detectar mudanças técnicas.",
   registros };
@@ -73,7 +76,7 @@ if (process.argv.includes("--save")) {
     "## Lotes verificados", "", ...lotesAplicados.map((l) => `- ${l.lote}: ${l.avaliados} avaliados, ${l.aprovados} aprovados, ${l.pendentes} pendentes no fechamento do lote.`), "",
     "## Propostas não aplicadas", "",
     `${resultado.propostas_nao_aplicadas.aguardando_aprovacao} itens aguardam aprovação; ${resultado.propostas_nao_aplicadas.aguardando_esclarecimento_tecnico} aguardam esclarecimento técnico; ${resultado.propostas_nao_aplicadas.desatualizadas} propostas ficaram desatualizadas. D-047 permite aplicar referências claras sem aprovar novos lotes de 50; não permite resolver lacunas por suposição. São filas separadas, não revisões concluídas.`, "",
-    `${resultado.excecoes_referencias_claras.total} exceções técnicas nesta rodada, incluindo os retidos do 011 e a conferência complementar. [Somente itens não claros](excecoes-referencias-claras.md). Fila ainda não pesquisada separada em fila-paineis-referencias-claras.json.`, "",
+    `${resultado.excecoes_referencias_claras.total} exceções técnicas/comerciais; ${resultado.excecoes_referencias_claras.marcacao_pendente_ids} IDs em pares aguardam local da marcação. ${resultado.propostas_nao_aplicadas.aguardando_local_da_marcacao} desses IDs têm proposta histórica 011 ainda não aplicada. [Detalhes internos](excecoes-referencias-claras.md); apresentar dificuldades no próprio chat. Fila ainda não pesquisada separada em fila-paineis-referencias-claras.json.`, "",
     ...[...new Set(propostas.map((p) => p.lote))].map((lote) => `[Antes/depois — lote ${lote}](lote-${lote}.md).`), "",
     "A campanha original de 104 alertas é um recorte de triagem, não o universo completo dos 1.193 itens agrupados. Outros agrupados também recebem revisão técnica por família.", "",
     "## Sequência aprovada", "", "1. Disjuntores e contatores — lotes 003 a 007 aplicados; pendências documentais separadas, etapa ainda não equivale a 100% da família.",

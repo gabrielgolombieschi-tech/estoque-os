@@ -23,14 +23,14 @@ for(const campo of ["tenant_id","empresa_id","codigo_interno","grupo_id","ativo"
 assert.throws(()=>conferirCinquenta(plano[0],{...plano[0].antes,...plano[0].depois,preco:999}));
 const eventos=fs.readdirSync(diretorio).filter(f=>/^eventos-.*\.json$/.test(f)).flatMap(f=>JSON.parse(fs.readFileSync(`${diretorio}/${f}`,"utf8")));
 for(const i of m.itens){
-  assert.ok(ids011.includes(i.id)); assert.ok(!eventos.some(e=>e.item_id===i.id && e.lote!==m.lote));
+  assert.ok(ids011.includes(i.id)); assert.ok(!eventos.some(e=>e.item_id===i.id && e.lote!==m.lote && e.lote!=="013-reavaliacao-pendencias"));
   assert.equal(createHash("sha256").update(fs.readFileSync(i.evidencia.arquivo)).digest("hex"),i.evidencia.sha256);
   const prefixo=i.evidencia.arquivo.slice(0,-4); assert.ok(fs.readFileSync(`${prefixo}.txt`,"utf8").includes(i.referencia));
   for(const p of i.evidencia.paginas) assert.ok(fs.existsSync(`${prefixo}-p${p}.png`));
   assert.ok(i.depois.descricao.includes(i.antes.nome));
   if(i.antes.descricao) assert.ok(i.depois.descricao.includes(i.antes.descricao));
 }
-for(const familia of Object.keys(grupos011)) assert.equal(criterios[familia],["ATUADORES_CHAVES_SEGURANCA","INTERRUPTORES_DR","CONEXOES_PARTIDA","FONTES_ALIMENTACAO","RELES_INTERFACE","RELES_MONITORAMENTO"].includes(familia)?`${familia}:1`:undefined);
+for(const familia of Object.keys(grupos011)) assert.equal(criterios[familia],["ATUADORES_CHAVES_SEGURANCA","INTERRUPTORES_DR","CONEXOES_PARTIDA","FONTES_ALIMENTACAO","RELES_INTERFACE","RELES_MONITORAMENTO","BORNES_PASSAGEM_PLUG_IN","BORNES_PROTECAO","TAMPAS_BORNES","PENTES_BORNES","ACESSORIOS_RELES_INTERFACE","ACESSORIOS_INVERSORES","UPS_CC"].includes(familia)?`${familia}:1`:undefined);
 const item=id=>m.itens.find(i=>i.id===id);
 for(const id of [226,227,737,2135]) {assert.match(item(id).nome,/50Hz/); assert.ok(!item(id).nome.includes("60Hz"));}
 for(const id of [738,744,745,816]) assert.match(item(id).nome,/60Hz/);
@@ -47,6 +47,6 @@ const relatorio=fs.readFileSync(`${diretorio}/lote-011-cinquenta-itens.md`,"utf8
 assert.equal(relatorio.split("\n").filter(l=>/^\| \d+ \|/.test(l)).length,50);
 assert.match(relatorio,/AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO|APLICAÇÃO PARCIAL SOB AUTORIZAÇÃO CONDICIONAL/);
 const catalogo=yaml.load(fs.readFileSync("docs/padroes-cadastro/catalogo-paineis-eletricos.yaml","utf8"));
-assert.equal(catalogo.versao_padrao,"1.35.0"); assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-046").length,1);
+assert.equal(catalogo.versao_padrao,"1.36.0"); assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-046").length,1);
 assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-047").length,1);
 console.log("OK: 50 propostas 011, 450 IDs únicos, fontes/páginas íntegras, ressalvas, campos protegidos e aplicação bloqueada antes da conexão.");

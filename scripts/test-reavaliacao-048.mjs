@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import yaml from 'js-yaml';
+import {validar048,planejar048} from './lib/reavaliacao-048.mjs';
+import {conferirCinquenta} from './lib/lotes-cinquenta.mjs';
+const m=JSON.parse(fs.readFileSync('docs/padroes-cadastro/revisoes/reavaliacao-048.json','utf8'));validar048(m);
+const plano=planejar048(m,m.itens.map(i=>i.antes));assert.equal(plano.filter(p=>!p.aplicado).length,23);
+assert.ok(planejar048(m,m.itens.map(i=>({...i.antes,...i.depois}))).every(p=>p.aplicado));
+assert.throws(()=>validar048({...m,empresa_id:'errada'}));
+const adulterado=structuredClone(m);adulterado.itens[0].depois.ncm='00000000';assert.throws(()=>validar048(adulterado));
+const concorrente=m.itens.map(i=>({...i.antes}));concorrente[0].nome='ALTERAÇÃO CONCORRENTE';assert.throws(()=>planejar048(m,concorrente));
+for(const c of ['ncm','preco_unitario','unidade_medida','ativo'])assert.throws(()=>conferirCinquenta(plano[0],{...plano[0].antes,...plano[0].depois,[c]:'alterado'}));
+assert.match(m.itens.find(i=>i.id===240).depois.nome,/35mm².*125A.*1000V.*16mm/);
+assert.match(m.itens.find(i=>i.id===1588).depois.nome,/INFERIOR.*4mm²/);
+assert.deepEqual(m.pares.map(p=>[p.usar,p.reserva]),[[2698,2641],[2699,2642],[2700,2643]]);
+assert.ok(m.pares.every(p=>p.status==='aguardando_local_da_marcacao'));
+assert.equal(yaml.load(fs.readFileSync('docs/padroes-cadastro/catalogo-paineis-eletricos.yaml','utf8')).versao_padrao,'1.36.0');
+console.log('OK D-048: 36 avaliados, 23 redações, sete pendências e três pares; escopo, hash, fontes, CAS, idempotência e campos protegidos. Sem conexão ao banco.');

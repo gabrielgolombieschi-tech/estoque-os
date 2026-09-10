@@ -25,6 +25,8 @@ for (const familia of ["PULSADORES","BOTOES_EMERGENCIA","SELETORES","BOTOEIRAS_C
 
 // D-047: somente famílias com itens claros liberados sob autorização condicional.
 for (const familia of ["INTERRUPTORES_DR","CONEXOES_PARTIDA","FONTES_ALIMENTACAO","RELES_INTERFACE","RELES_MONITORAMENTO"]) criterios[familia] = `${familia}:1`;
+// D-048: identidade confirmada; lacuna acessória explícita não impede redação segura.
+for (const familia of ["BORNES_PASSAGEM_PLUG_IN","BORNES_PASSAGEM_PARAFUSO","BORNES_PROTECAO","TAMPAS_BORNES","PENTES_BORNES","ACESSORIOS_RELES_INTERFACE","ACESSORIOS_INVERSORES","UPS_CC"]) criterios[familia] = `${familia}:1`;
 
 // Não reabrir revisão por preço, saldo, atividade ou timestamp administrativo.
 // Inclui todos os campos de unidade/conversão existentes, sem presumir seu nome.

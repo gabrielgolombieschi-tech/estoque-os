@@ -9,6 +9,8 @@ for (const n of ["003", "004", "005", "006", "007", "008", "009", "010", "011"])
   const aplicados = fs.existsSync(evento) ? JSON.parse(fs.readFileSync(evento, "utf8")) : [];
   const aplicado = aplicados.length === 50;
   const parcial = aplicados.length > 0 && !aplicado;
+  const arquivoReavaliacao = `${diretorio}/eventos-013-reavaliacao-pendencias.json`;
+  const reavaliados = n === "011" && fs.existsSync(arquivoReavaliacao) ? JSON.parse(fs.readFileSync(arquivoReavaliacao,"utf8")).filter(e=>m.itens.some(i=>i.id===e.item_id)) : [];
   const status = parcial ? "APLICAÇÃO PARCIAL SOB AUTORIZAÇÃO CONDICIONAL D-047" : aplicado ? "APLICADO E VERIFICADO" : m.autorizacao === "aguardando_aprovacao_humana" ? "AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO" : "AUTORIZADO — APLICAÇÃO AINDA NÃO CONFIRMADA";
   const composicao = { "003": "45 minidisjuntores Siemens + 5 contatores Siemens.", "004": "35 minidisjuntores WEG (27 MDW + 8 MDWP) + 15 disjuntores-motor Siemens.", "005": "50 Siemens: 9 disjuntores-motor, 9 relés de sobrecarga, 4 contatores auxiliares, 9 acessórios de contatores, 15 acessórios de disjuntores-motor e 4 acessórios de minidisjuntores." };
   composicao["008"] = "50 Siemens, todos com grupo: 7 CLPs, 10 módulos/placas digitais, 6 analógicos, 6 módulos de segurança, 4 interfaces/acopladores de remotas, 11 acessórios, 3 módulos de comunicação, 1 módulo de pesagem e 2 interfaces de operação.";
@@ -19,6 +21,7 @@ for (const n of ["003", "004", "005", "006", "007", "008", "009", "010", "011"])
   composicao["006"] = "50 Siemens, todos com grupo: 10 disjuntores em caixa moldada, 12 acessórios de caixa moldada, 1 disjuntor aberto, 8 contatores, 1 minidisjuntor, 2 bornes de barramento, 3 disjuntores-motor, 1 disjuntor magnético para partida, 4 bases NH, 2 fusíveis NH, 1 seccionadora porta-fusível, 1 suporte de relé, 2 seccionadoras e 2 acessórios de seccionadoras.";
   const linhas = [
     `# Lote ${n} — 50 itens`, "", status, "",
+    ...(reavaliados.length ? [`ATUALIZAÇÃO D-048: ${reavaliados.length} dos retidos deste relatório foram reavaliados e receberam OUTRA redação no lote 013. A coluna Depois abaixo preserva a proposta histórica, não o nome atual desses IDs. Conferir reavaliacao-048.json e eventos-013-reavaliacao-pendencias.json; não reaplicar o texto antigo.`, ""] : []),
     `Data da revisão: ${m.data}. Escopo: tenant ${m.tenant_id}; empresa ${m.empresa_id}.`, "",
     `${composicao[n]} Alterações somente em nome e descrição complementar. ${parcial ? `${aplicados.length} aplicados e verificados; ${50-aplicados.length} retidos sem alteração por dúvida técnica.` : aplicado ? "Todos os 50 foram aplicados e verificados." : "A tabela é uma proposta: nenhum destes 50 foi alterado por este lote."}`, "",
     "Grupo, código, fabricante, fornecedor, unidades, multiplicadores, preço, saldo e dados fiscais permanecem iguais. Cada comparação usa o cadastro real capturado, não um exemplo inventado.", "",
@@ -27,7 +30,7 @@ for (const n of ["003", "004", "005", "006", "007", "008", "009", "010", "011"])
     "## Antes e depois dos 50", "",
     parcial ? "| Nº | ID / código | Antes | Depois (ver situação) | Situação |" : "| Nº | ID / código | Antes | Depois " + (aplicado ? "aplicado" : "proposto") + " |",
     parcial ? "| ---: | --- | --- | --- | --- |" : "| ---: | --- | --- | --- |",
-    ...m.itens.map((i,k) => `| ${k+1} | ${i.id}<br>${celula(i.antes.codigo_interno)} | ${celula(i.antes.nome)} | ${celula(i.nome)} |${parcial?` ${aplicados.some(e=>e.item_id===i.id)?"Aplicado e verificado":"RETIDO — NÃO APLICADO"} |`:""}`), "",
+    ...m.itens.map((i,k) => `| ${k+1} | ${i.id}<br>${celula(i.antes.codigo_interno)} | ${celula(i.antes.nome)} | ${celula(i.nome)} |${parcial?` ${reavaliados.some(e=>e.item_id===i.id)?"REAVALIADO NO 013 COM OUTRA REDAÇÃO":aplicados.some(e=>e.item_id===i.id)?"Aplicado e verificado":"RETIDO — NÃO APLICADO"} |`:""}`), "",
     "## Descrição complementar e evidências por item", "",
   ];
   if (n === "006") linhas.splice(linhas.indexOf("## Antes e depois dos 50"), 0,

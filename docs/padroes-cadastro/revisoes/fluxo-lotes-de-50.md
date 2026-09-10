@@ -1,5 +1,7 @@
 # Fluxo de revisão contínua por referência clara
 
+Atualização D-048, padrão 1.36.0: reavaliados os 36 retidos da rodada anterior. Aplicados e verificados 23 nomes/descrições, preservando os 36 registros fiscais; sete dificuldades técnicas/comerciais continuam, três pares têm escolha proposta de USAR/RESERVA, aguardando confirmação de onde marcar. Nenhum duplicado foi excluído, mesclado ou inativado. Traga dificuldades no próprio chat, não somente por arquivo. Manifesto `reavaliacao-048.json`, eventos `eventos-013-reavaliacao-pendencias.json`; backup `backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json`. Os números D-047 abaixo são históricos, não o estado atual das exceções.
+
 Decisão vigente D-047, 10/09/2026, padrão 1.35.0. Substitui a aprovação repetida a cada 50 da D-039 nesta campanha: aplicar todas as referências tecnicamente claras, registrar por ID e apresentar somente exceções. Não altera a autonomia da entrada de novos itens por XML nem autoriza mudanças além de nome/descrição.
 
 - Aplicado: lote 003, 50 IDs únicos (45 minidisjuntores + 5 contatores Siemens).

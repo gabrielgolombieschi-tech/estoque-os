@@ -53,7 +53,7 @@ const relatorio=fs.readFileSync(`${diretorio}/lote-010-cinquenta-itens.md`,"utf8
 assert.equal(relatorio.split("\n").filter(l=>/^\| \d+ \|/.test(l)).length,50);
 assert.match(relatorio,/APLICADO E VERIFICADO|AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO/);
 const catalogo=yaml.load(fs.readFileSync("docs/padroes-cadastro/catalogo-paineis-eletricos.yaml","utf8"));
-assert.equal(catalogo.versao_padrao,"1.35.0");
+assert.equal(catalogo.versao_padrao,"1.36.0");
 assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-045").length,1);
 assert.match(catalogo.regras_cadastro_assistido.sensores_e_seguranca_confirmados_lote_009.ressalvas,/1708.*438/);
 assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-046").length,1);

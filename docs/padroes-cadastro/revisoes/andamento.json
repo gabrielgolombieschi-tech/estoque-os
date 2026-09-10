@@ -1,23 +1,24 @@
 {
-  "consultado_em": "2026-09-10T18:07:43.305Z",
+  "consultado_em": "2026-09-10T19:17:34.234Z",
   "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
   "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
-  "total": 3650,
-  "ativos": 3593,
-  "materias_primas": 3152,
+  "total": 3651,
+  "ativos": 3594,
+  "materias_primas": 3153,
   "contagens": {
-    "aprovado": 467,
+    "aprovado": 490,
     "pendente": 2,
     "reavaliar": 0,
-    "historico_recuperado": 246,
-    "historico_informado": 522,
-    "nao_revisado": 2413
+    "historico_recuperado": 243,
+    "historico_informado": 502,
+    "nao_revisado": 2414
   },
-  "avaliados_minimo_sem_duplicidade": 715,
+  "avaliados_minimo_sem_duplicidade": 735,
   "excecoes_referencias_claras": {
-    "total": 36,
+    "total": 7,
+    "marcacao_pendente_ids": 6,
     "relatorio": "excecoes-referencias-claras.md",
-    "observacao": "Dimensão separada, não somar a aprovados nem duplicar os 22 retidos das propostas 011. Inclui conferência complementar; não classifica a fila ainda não pesquisada como dúvida técnica."
+    "observacao": "Dimensão separada; não somar a aprovados nem duplicar retidos das propostas 011. D-048 separa dúvidas técnicas/comerciais de pares aguardando local da marcação. Não classifica fila ainda não pesquisada como dúvida técnica."
   },
   "campanha_agrupados": {
     "total": 104,
@@ -1355,156 +1356,27 @@
       "avaliados": 1,
       "aprovados": 1,
       "pendentes": 0
+    },
+    {
+      "lote": "013-reavaliacao-pendencias",
+      "avaliados": 23,
+      "aprovados": 23,
+      "pendentes": 0
     }
   ],
   "propostas_nao_aplicadas": {
-    "total_ids": 22,
+    "total_ids": 5,
     "aguardando_aprovacao": 0,
-    "aguardando_esclarecimento_tecnico": 22,
+    "aguardando_esclarecimento_tecnico": 2,
+    "aguardando_local_da_marcacao": 3,
     "desatualizadas": 0,
     "registros": [
-      {
-        "id": 240,
-        "codigo": "8WH60000AM00",
-        "lote": "011-cinquenta-itens",
-        "antes": "Borne plug-in de passagem 35mm²",
-        "depois_proposto": "BORNE DE PASSAGEM SENTRON IPO PLUG-IN 35mm² 2 CONEXÕES 1 NÍVEL CINZA 125A 1000V",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 256,
-        "codigo": "3SE50000AV071AK2",
-        "lote": "011-cinquenta-itens",
-        "antes": "ATUADOR RADIAL UNIVERSAL AJUSTÁVEL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO 67mm",
-        "depois_proposto": "ATUADOR RADIAL UNIVERSAL SIRIUS 3SE5 HEAVY DUTY 67mm AJUSTE VERTICAL/HORIZONTAL FIXAÇÃO POR PARAFUSO",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 346,
-        "codigo": "3SE50000AV07",
-        "lote": "011-cinquenta-itens",
-        "antes": "ATUADOR RADIAL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO",
-        "depois_proposto": "ATUADOR RADIAL UNIVERSAL SIRIUS 3SE5 HEAVY DUTY 77mm AJUSTE VERTICAL/HORIZONTAL FIXAÇÃO POR PARAFUSO",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 735,
-        "codigo": "3RA19211DA00",
-        "lote": "011-cinquenta-itens",
-        "antes": "CONEXAO 3RV S00S0 C 3RT S00 PARAFUSO",
-        "depois_proposto": "MÓDULO DE LIGAÇÃO ELÉTRICA/MECÂNICA SIRIUS 3P 3RV2.1/3RV2.2 S00/S0 A 3RT2.1 S00 CA/CC",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 776,
-        "codigo": "3RA29211BA00",
-        "lote": "011-cinquenta-itens",
-        "antes": "CONEXAO 3RV S00S0 C 3RT S0 CC PARAFUSO",
-        "depois_proposto": "MÓDULO DE LIGAÇÃO ELÉTRICA/MECÂNICA SIRIUS 3P 3RV2.1/3RV2.2 A 3RT2.2 S0 CC CONEXÃO POR PARAFUSO",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 824,
-        "codigo": "3RQ39010D",
-        "lote": "011-cinquenta-itens",
-        "antes": "PENTE DE CONEXÃO 16 POLOS PARA RELÉS DE INTERFACE",
-        "depois_proposto": "PENTE DE LIGAÇÃO SIRIUS 3RQ3/3RS7 16 POLOS ALIMENTAÇÃO MÁXIMA 6A",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 944,
-        "codigo": "8WH60000AF00",
-        "lote": "011-cinquenta-itens",
-        "antes": "Borne plug-in de passagem 2 condutores 2,5mm²",
-        "depois_proposto": "BORNE DE PASSAGEM SENTRON IPO PLUG-IN 2,5mm² 2 CONEXÕES 1 NÍVEL CINZA 24A 800V",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
       {
         "id": 957,
         "codigo": "3RA19111AA00",
         "lote": "011-cinquenta-itens",
         "antes": "CONEXAO 3RV S00 C/ 3RT S00 AC/DC (1UNID)",
         "depois_proposto": "MÓDULO DE LIGAÇÃO ELÉTRICA/MECÂNICA SIRIUS 3P S00 PARA 3RV1011 E 3RT2.1/3RW301 CA/CC",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 977,
-        "codigo": "8WH60000AG00",
-        "lote": "011-cinquenta-itens",
-        "antes": "Borne plug-in de passagem 2 condutores 4mm²",
-        "depois_proposto": "BORNE DE PASSAGEM SENTRON IPO PLUG-IN 4mm² 2 CONEXÕES 1 NÍVEL CINZA 32A 800V",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 978,
-        "codigo": "8WH90031GA00",
-        "lote": "011-cinquenta-itens",
-        "antes": "Tampa final para borne 4mm²",
-        "depois_proposto": "TAMPA FINAL SENTRON PARA BORNE DE PASSAGEM POR MOLA 4mm² CINZA ESPESSURA 2,2mm",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 1088,
-        "codigo": "6SL32550AA004CA1",
-        "lote": "011-cinquenta-itens",
-        "antes": "PAINEL DE OPERAÇÃO BOP-2 PARA INVERSOR SINAMICS G120",
-        "depois_proposto": "PAINEL DE OPERAÇÃO SINAMICS BOP-2 LCD MONOCROMÁTICO 70×106,85×19,6mm IP55",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 1615,
-        "codigo": "8WH90001GA00",
-        "lote": "011-cinquenta-itens",
-        "antes": "Tampa final para borne 2,5mm²",
-        "depois_proposto": "TAMPA FINAL SENTRON PARA BORNE DE PASSAGEM POR MOLA 2,5mm² CINZA ESPESSURA 2,2mm",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 1616,
-        "codigo": "8WH60000CF07",
-        "lote": "011-cinquenta-itens",
-        "antes": "Borne plug-in de proteção 2 condutores 2,5mm²",
-        "depois_proposto": "BORNE DE PROTEÇÃO PE SENTRON IPO PLUG-IN 2,5mm² 2 CONEXÕES 1 NÍVEL VERDE/AMARELO TERMOPLÁSTICO TRILHO TH35",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 1618,
-        "codigo": "8WH90206BL10",
-        "lote": "011-cinquenta-itens",
-        "antes": "Pente de ligação para bornes 10 polos 2,5mm²",
-        "depois_proposto": "PENTE DE LIGAÇÃO TRANSVERSAL SENTRON 10 POLOS ENCAIXÁVEL PASSO 5,2mm ISOLADO PARA CENTRO DO BORNE",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 1619,
-        "codigo": "3RQ30551SM30",
-        "lote": "011-cinquenta-itens",
-        "antes": "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24VCC SAÍDA 30VCC 5A CONEXÃO POR PARAFUSO",
-        "depois_proposto": "RELÉ DE INTERFACE OPTOACOPLADO SIRIUS 3RQ3 1NA TRANSISTOR ENTRADA 24VCC SAÍDA 10-30VCC 5A PARAFUSO",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 1623,
-        "codigo": "6EP41363AB000AY0",
-        "lote": "011-cinquenta-itens",
-        "antes": "UPS CC 24VCC 20A",
-        "depois_proposto": "MÓDULO UPS CC SITOP UPS1600 ENTRADA 24VCC SAÍDA 24VCC 20A 480W SEM INTERFACE PC IP20",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 2450,
-        "codigo": "3SE50000AV04",
-        "lote": "011-cinquenta-itens",
-        "antes": "ATUADOR RADIAL ESQUERDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
-        "depois_proposto": "ATUADOR RADIAL ESQUERDO SIRIUS 3SE5 PARA CHAVES 3SE51/3SE52/3SE53 FIXAÇÃO POR PARAFUSO",
-        "status": "aguardando_esclarecimento_tecnico"
-      },
-      {
-        "id": 2455,
-        "codigo": "3SE50000AV01",
-        "lote": "011-cinquenta-itens",
-        "antes": "ATUADOR PADRÃO EM ZINCO FUNDIDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
-        "depois_proposto": "ATUADOR PADRÃO SIRIUS 3SE5 ZINCO FUNDIDO PARA CHAVES 3SE51/3SE52/3SE53 FIXAÇÃO POR PARAFUSO",
         "status": "aguardando_esclarecimento_tecnico"
       },
       {
@@ -1521,7 +1393,7 @@
         "lote": "011-cinquenta-itens",
         "antes": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 17,5mm",
         "depois_proposto": "CONECTOR DE DISPOSITIVOS SIRIUS 3ZY1 PARA RELÉ DE SEGURANÇA 3SK1 LARGURA 17,5mm",
-        "status": "aguardando_esclarecimento_tecnico"
+        "status": "aguardando_local_da_marcacao"
       },
       {
         "id": 2642,
@@ -1529,7 +1401,7 @@
         "lote": "011-cinquenta-itens",
         "antes": "CONECTOR DE TERMINAÇÃO PARA RELÉ DE SEGURANÇA 22,5mm",
         "depois_proposto": "CONECTOR DE TERMINAÇÃO SIRIUS 3ZY1 PARA RELÉ DE SEGURANÇA 3SK1 LARGURA 22,5mm",
-        "status": "aguardando_esclarecimento_tecnico"
+        "status": "aguardando_local_da_marcacao"
       },
       {
         "id": 2643,
@@ -1537,7 +1409,7 @@
         "lote": "011-cinquenta-itens",
         "antes": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 22,5mm",
         "depois_proposto": "CONECTOR DE DISPOSITIVOS SIRIUS 3ZY1 PARA RELÉ DE SEGURANÇA 3SK1 LARGURA 22,5mm",
-        "status": "aguardando_esclarecimento_tecnico"
+        "status": "aguardando_local_da_marcacao"
       }
     ]
   },
@@ -3581,11 +3453,11 @@
     {
       "id": 240,
       "codigo": "8WH60000AM00",
-      "nome": "Borne plug-in de passagem 35mm²",
+      "nome": "BORNE DE PASSAGEM SIEMENS SENTRON IPO 35mm² 2 CONEXÕES CINZA 125A 1000V LARGURA 16mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 241,
@@ -3599,11 +3471,11 @@
     {
       "id": 242,
       "codigo": "8WA1206",
-      "nome": "Borne de passagem 70mm²",
+      "nome": "BORNE DE PASSAGEM SIEMENS 8WA1 70mm² 2 CONEXÕES BEGE 192A CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 243,
@@ -3725,11 +3597,11 @@
     {
       "id": 256,
       "codigo": "3SE50000AV071AK2",
-      "nome": "ATUADOR RADIAL UNIVERSAL AJUSTÁVEL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO 67mm",
+      "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 RADIAL UNIVERSAL HEAVY DUTY 67mm AJUSTÁVEL VERTICAL/HORIZONTAL",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 257,
@@ -4472,11 +4344,11 @@
     {
       "id": 346,
       "codigo": "3SE50000AV07",
-      "nome": "ATUADOR RADIAL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO",
+      "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 RADIAL UNIVERSAL HEAVY DUTY 77mm AJUSTÁVEL VERTICAL/HORIZONTAL",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 347,
@@ -5345,11 +5217,11 @@
     {
       "id": 447,
       "codigo": "LZS:PT17040",
-      "nome": "Placa de identificação para relé de interface",
+      "nome": "PLACA DE IDENTIFICAÇÃO SIEMENS SIRIUS LZS PARA RELÉ PT LARGURA 26,5mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 464,
@@ -7739,11 +7611,11 @@
     {
       "id": 735,
       "codigo": "3RA19211DA00",
-      "nome": "CONEXAO 3RV S00S0 C 3RT S00 PARAFUSO",
+      "nome": "MÓDULO DE LIGAÇÃO SIEMENS SIRIUS 3P 3RV2.1/3RV2.2 A 3RT2.1 S00 CA/CC",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 736,
@@ -8108,11 +7980,11 @@
     {
       "id": 776,
       "codigo": "3RA29211BA00",
-      "nome": "CONEXAO 3RV S00S0 C 3RT S0 CC PARAFUSO",
+      "nome": "MÓDULO DE LIGAÇÃO SIEMENS SIRIUS 3P 3RV2.1/3RV2.2 A 3RT2.2 S0 BOBINA CC PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 777,
@@ -8540,11 +8412,11 @@
     {
       "id": 824,
       "codigo": "3RQ39010D",
-      "nome": "PENTE DE CONEXÃO 16 POLOS PARA RELÉS DE INTERFACE",
+      "nome": "PENTE DE LIGAÇÃO SIEMENS SIRIUS 3RQ3/3RS7 16 POLOS ALIMENTAÇÃO MÁXIMA 6A",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 825,
@@ -9620,11 +9492,11 @@
     {
       "id": 944,
       "codigo": "8WH60000AF00",
-      "nome": "Borne plug-in de passagem 2 condutores 2,5mm²",
+      "nome": "BORNE DE PASSAGEM SIEMENS SENTRON IPO 2,5mm² 2 CONEXÕES CINZA 24A 800V LARGURA 5,2mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 945,
@@ -9917,20 +9789,20 @@
     {
       "id": 977,
       "codigo": "8WH60000AG00",
-      "nome": "Borne plug-in de passagem 2 condutores 4mm²",
+      "nome": "BORNE DE PASSAGEM SIEMENS SENTRON IPO 4mm² 2 CONEXÕES CINZA 32A 800V LARGURA 6,2mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 978,
       "codigo": "8WH90031GA00",
-      "nome": "Tampa final para borne 4mm²",
+      "nome": "TAMPA FINAL SIEMENS SENTRON PARA BORNE IPO 4mm² 2 CONEXÕES CINZA ESPESSURA 2,2mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 979,
@@ -10916,11 +10788,11 @@
     {
       "id": 1088,
       "codigo": "6SL32550AA004CA1",
-      "nome": "PAINEL DE OPERAÇÃO BOP-2 PARA INVERSOR SINAMICS G120",
+      "nome": "PAINEL DE OPERAÇÃO SIEMENS SINAMICS BOP-2 LCD MONOCROMÁTICO 70×106,85×19,6mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 1089,
@@ -15272,11 +15144,11 @@
     {
       "id": 1583,
       "codigo": "8WA1897",
-      "nome": "Pente de ligação para bornes 4 polos 2,5mm²",
+      "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 4 POLOS PARA BORNES 2,5mm²",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1584,
@@ -15290,20 +15162,20 @@
     {
       "id": 1585,
       "codigo": "8WA1896",
-      "nome": "Pente de ligação para bornes 3 polos 2,5mm²",
+      "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 3 POLOS PARA BORNES 2,5mm²",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1586,
       "codigo": "8WA1895",
-      "nome": "Pente de ligação para bornes 2 polos 2,5mm²",
+      "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 2 POLOS PARA BORNES 2,5mm²",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1587,
@@ -15317,11 +15189,11 @@
     {
       "id": 1588,
       "codigo": "8WA1838",
-      "nome": "Pente de ligação para bornes 10 polos 2 andares 2,5mm²",
+      "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 10 POLOS PARA NÍVEL INFERIOR DE BORNES DUPLOS 4mm²",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_recuperado"
+      "status": "aprovado"
     },
     {
       "id": 1589,
@@ -15560,20 +15432,20 @@
     {
       "id": 1615,
       "codigo": "8WH90001GA00",
-      "nome": "Tampa final para borne 2,5mm²",
+      "nome": "TAMPA FINAL SIEMENS SENTRON PARA BORNE IPO 2,5mm² 2 CONEXÕES CINZA ESPESSURA 2,2mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1616,
       "codigo": "8WH60000CF07",
-      "nome": "Borne plug-in de proteção 2 condutores 2,5mm²",
+      "nome": "BORNE DE PROTEÇÃO PE SIEMENS SENTRON IPO 2,5mm² 2 CONEXÕES VERDE/AMARELO TRILHO TH35",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1617,
@@ -15587,20 +15459,20 @@
     {
       "id": 1618,
       "codigo": "8WH90206BL10",
-      "nome": "Pente de ligação para bornes 10 polos 2,5mm²",
+      "nome": "PENTE DE LIGAÇÃO SIEMENS SENTRON 10 POLOS PARA BORNES 2,5mm² PASSO 5,2mm 24A",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1619,
       "codigo": "3RQ30551SM30",
-      "nome": "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24VCC SAÍDA 30VCC 5A CONEXÃO POR PARAFUSO",
+      "nome": "RELÉ DE INTERFACE SIEMENS SIRIUS 3RQ3 1NA TRANSISTOR ENTRADA 24VCC SAÍDA 10-30VCC 5A PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1620,
@@ -15632,11 +15504,11 @@
     {
       "id": 1623,
       "codigo": "6EP41363AB000AY0",
-      "nome": "UPS CC 24VCC 20A",
+      "nome": "MÓDULO UPS CC SIEMENS SITOP UPS1600 ENTRADA 24VCC SAÍDA 24VCC 20A SEM INTERFACE PC",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 1624,
@@ -22571,11 +22443,11 @@
     {
       "id": 2450,
       "codigo": "3SE50000AV04",
-      "nome": "ATUADOR RADIAL ESQUERDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
+      "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 RADIAL ESQUERDO BASE 50×28mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2451,
@@ -22616,11 +22488,11 @@
     {
       "id": 2455,
       "codigo": "3SE50000AV01",
-      "nome": "ATUADOR PADRÃO EM ZINCO FUNDIDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
+      "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 PADRÃO ZINCO FUNDIDO COMPRIMENTO 75,6mm",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",
-      "status": "historico_informado"
+      "status": "aprovado"
     },
     {
       "id": 2459,
@@ -34389,6 +34261,15 @@
       "id": 3816,
       "codigo": "780256",
       "nome": "ROLAMENTO DE ESFERAS 608 2RSH",
+      "ativo": true,
+      "tipo": "produto",
+      "finalidade": "materia_prima",
+      "status": "nao_revisado"
+    },
+    {
+      "id": 3817,
+      "codigo": "20559",
+      "nome": "CONTATOR 3P AC-3 18A 24VCC 50/60HZ CONEXÃO POR PARAFUSO",
       "ativo": true,
       "tipo": "produto",
       "finalidade": "materia_prima",

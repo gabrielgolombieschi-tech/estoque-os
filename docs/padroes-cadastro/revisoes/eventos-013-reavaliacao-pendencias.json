@@ -1,0 +1,562 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 240,
+    "codigo": "8WH60000AM00",
+    "nome": "BORNE DE PASSAGEM SIEMENS SENTRON IPO 35mm² 2 CONEXÕES CINZA 125A 1000V LARGURA 16mm",
+    "familia": "BORNES_PASSAGEM_PLUG_IN",
+    "criterio": "BORNES_PASSAGEM_PLUG_IN:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AM00",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Polímero não identificado; não declarar PA, PP, PUR ou PVC por aparência."
+    ],
+    "impressao_tecnica": "cae1fdf3befa8a992da6ca18a6ea42490a5c7dbc7b43a5bcf1d9e638783a73f4",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 944,
+    "codigo": "8WH60000AF00",
+    "nome": "BORNE DE PASSAGEM SIEMENS SENTRON IPO 2,5mm² 2 CONEXÕES CINZA 24A 800V LARGURA 5,2mm",
+    "familia": "BORNES_PASSAGEM_PLUG_IN",
+    "criterio": "BORNES_PASSAGEM_PLUG_IN:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AF00",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não certificar polímero nem faixa para condutor encordoado sem terminal."
+    ],
+    "impressao_tecnica": "5c293f21a664a124d955dfe663a670bd6aab7e4287ca67f2119aff6e1a619edf",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 977,
+    "codigo": "8WH60000AG00",
+    "nome": "BORNE DE PASSAGEM SIEMENS SENTRON IPO 4mm² 2 CONEXÕES CINZA 32A 800V LARGURA 6,2mm",
+    "familia": "BORNES_PASSAGEM_PLUG_IN",
+    "criterio": "BORNES_PASSAGEM_PLUG_IN:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AG00",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não certificar polímero nem faixa para condutor encordoado sem terminal."
+    ],
+    "impressao_tecnica": "5617ad70e2a665583f2edd2a34ffb751f5261a582c470a0efdb1ee3e9a499d51",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1616,
+    "codigo": "8WH60000CF07",
+    "nome": "BORNE DE PROTEÇÃO PE SIEMENS SENTRON IPO 2,5mm² 2 CONEXÕES VERDE/AMARELO TRILHO TH35",
+    "familia": "BORNES_PROTECAO",
+    "criterio": "BORNES_PROTECAO:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000CF07",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Faixa de condutor encordoado sem terminal continua não certificada."
+    ],
+    "impressao_tecnica": "40017f808a4ab917591e06552305d39fd4ea7daeb1156f658882e17d2cf53a34",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1615,
+    "codigo": "8WH90001GA00",
+    "nome": "TAMPA FINAL SIEMENS SENTRON PARA BORNE IPO 2,5mm² 2 CONEXÕES CINZA ESPESSURA 2,2mm",
+    "familia": "TAMPAS_BORNES",
+    "criterio": "TAMPAS_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90001GA00",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Polímero específico não informado; não inventar composição."
+    ],
+    "impressao_tecnica": "d7a79631dbd96a37f2e5de31bca2949aa65047db180c288fbe9637f1f1818c00",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 978,
+    "codigo": "8WH90031GA00",
+    "nome": "TAMPA FINAL SIEMENS SENTRON PARA BORNE IPO 4mm² 2 CONEXÕES CINZA ESPESSURA 2,2mm",
+    "familia": "TAMPAS_BORNES",
+    "criterio": "TAMPAS_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90031GA00",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Polímero específico não informado; não inventar composição."
+    ],
+    "impressao_tecnica": "4be8c92ca8448e3d0fe7b49a6e648e1dd950445edbea8c16ef097e0e23a141ba",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1583,
+    "codigo": "8WA1897",
+    "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 4 POLOS PARA BORNES 2,5mm²",
+    "familia": "PENTES_BORNES",
+    "criterio": "PENTES_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não atribuir ao acessório corrente/tensão genéricas de toda a família."
+    ],
+    "impressao_tecnica": "0c7f211febcc6f46ea60bbe5143d65afd65873f9836e317e17ec6c1f4f888e19",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1585,
+    "codigo": "8WA1896",
+    "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 3 POLOS PARA BORNES 2,5mm²",
+    "familia": "PENTES_BORNES",
+    "criterio": "PENTES_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não atribuir ao acessório corrente/tensão genéricas de toda a família."
+    ],
+    "impressao_tecnica": "f094a5b93845ae91c28156340636c6530e7e4529a87a30e007cf85bb9ba3b5fa",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1586,
+    "codigo": "8WA1895",
+    "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 2 POLOS PARA BORNES 2,5mm²",
+    "familia": "PENTES_BORNES",
+    "criterio": "PENTES_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não atribuir ao acessório corrente/tensão genéricas de toda a família."
+    ],
+    "impressao_tecnica": "a0575cd2475cad6b3ad8e1a2df0ba4f8fd2a109a6d4ff686be35b43fc565090b",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1588,
+    "codigo": "8WA1838",
+    "nome": "PENTE DE LIGAÇÃO SIEMENS 8WA1 10 POLOS PARA NÍVEL INFERIOR DE BORNES DUPLOS 4mm²",
+    "familia": "PENTES_BORNES",
+    "criterio": "PENTES_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "0075115e548d97b930f037bfea03b3ce4893eb8e4c2e0d39cf53e9792e4b9f0b",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 242,
+    "codigo": "8WA1206",
+    "nome": "BORNE DE PASSAGEM SIEMENS 8WA1 70mm² 2 CONEXÕES BEGE 192A CONEXÃO POR PARAFUSO",
+    "familia": "BORNES_PASSAGEM_PARAFUSO",
+    "criterio": "BORNES_PASSAGEM_PARAFUSO:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Material específico não declarado nesta revisão. Condições IEC/UL não devem ser intercambiadas."
+    ],
+    "impressao_tecnica": "b0b63d3525978e99ee5c129a8432bccaea2069e063e4180ff3bda4c857b5f980",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1618,
+    "codigo": "8WH90206BL10",
+    "nome": "PENTE DE LIGAÇÃO SIEMENS SENTRON 10 POLOS PARA BORNES 2,5mm² PASSO 5,2mm 24A",
+    "familia": "PENTES_BORNES",
+    "criterio": "PENTES_BORNES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90206BL10",
+      "https://cache.industry.siemens.com/dl/files/653/109750653/att_1088610/v1/14_TerminalBlocks_LV10_102021_EN_202111300957253644.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Cor e polímero não certificados; conferir fisicamente se forem requisito da aplicação."
+    ],
+    "impressao_tecnica": "db47282434eb292bff630004ad640a8852293ed65ddeca88ce0e5627ca688915",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 256,
+    "codigo": "3SE50000AV071AK2",
+    "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 RADIAL UNIVERSAL HEAVY DUTY 67mm AJUSTÁVEL VERTICAL/HORIZONTAL",
+    "familia": "ATUADORES_CHAVES_SEGURANCA",
+    "criterio": "ATUADORES_CHAVES_SEGURANCA:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV071AK2",
+      "https://cache.industry.siemens.com/dl/files/593/24236593/att_1139519/v1/A5E51063887001A_RS-AB_002_202304240859463018.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Material não identificado. A versão -1AK2 é descrita como 67mm na ficha e possui cota total de 67,4mm no desenho; usar o desenho para montagem."
+    ],
+    "impressao_tecnica": "bac12ae278425f80c7e2058e238646b060f4a87888c440b94a0924e7b9e007f7",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 346,
+    "codigo": "3SE50000AV07",
+    "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 RADIAL UNIVERSAL HEAVY DUTY 77mm AJUSTÁVEL VERTICAL/HORIZONTAL",
+    "familia": "ATUADORES_CHAVES_SEGURANCA",
+    "criterio": "ATUADORES_CHAVES_SEGURANCA:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV07",
+      "https://cache.industry.siemens.com/dl/files/593/24236593/att_1139519/v1/A5E51063887001A_RS-AB_002_202304240859463018.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Material não identificado. A versão -1AK2 é descrita como 67mm na ficha e possui cota total de 67,4mm no desenho; usar o desenho para montagem."
+    ],
+    "impressao_tecnica": "7fe09a9df1ec01c69e78be6ecc745cbcb5c3af5c84634acf08cfdb1a8266f26c",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2450,
+    "codigo": "3SE50000AV04",
+    "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 RADIAL ESQUERDO BASE 50×28mm",
+    "familia": "ATUADORES_CHAVES_SEGURANCA",
+    "criterio": "ATUADORES_CHAVES_SEGURANCA:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV04",
+      "https://cache.industry.siemens.com/dl/files/593/24236593/att_1139519/v1/A5E51063887001A_RS-AB_002_202304240859463018.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Material não confirmado; não inferir metal específico."
+    ],
+    "impressao_tecnica": "634d602952e6f624d0a9d47c5e01bf871852047d2a67fa601609565c66453fde",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2455,
+    "codigo": "3SE50000AV01",
+    "nome": "ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 PADRÃO ZINCO FUNDIDO COMPRIMENTO 75,6mm",
+    "familia": "ATUADORES_CHAVES_SEGURANCA",
+    "criterio": "ATUADORES_CHAVES_SEGURANCA:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV01",
+      "https://cache.industry.siemens.com/dl/files/593/24236593/att_1139519/v1/A5E51063887001A_RS-AB_002_202304240859463018.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "5e89064124a4fdc211dbb4034410c67d5b27b93e3e84a82839f89ea07c1da3b0",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 447,
+    "codigo": "LZS:PT17040",
+    "nome": "PLACA DE IDENTIFICAÇÃO SIEMENS SIRIUS LZS PARA RELÉ PT LARGURA 26,5mm",
+    "familia": "ACESSORIOS_RELES_INTERFACE",
+    "criterio": "ACESSORIOS_RELES_INTERFACE:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=LZS%3APT17040"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Material não confirmado. Quantidade comercial e unidade do ERP preservadas."
+    ],
+    "impressao_tecnica": "ecccc041ca26824448703ba33edb750baa9849f5ed454c855a899f28d2b16932",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 824,
+    "codigo": "3RQ39010D",
+    "nome": "PENTE DE LIGAÇÃO SIEMENS SIRIUS 3RQ3/3RS7 16 POLOS ALIMENTAÇÃO MÁXIMA 6A",
+    "familia": "ACESSORIOS_RELES_INTERFACE",
+    "criterio": "ACESSORIOS_RELES_INTERFACE:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RQ39010D"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Tensão/material ausentes não foram preenchidos por analogia."
+    ],
+    "impressao_tecnica": "e881ba63020a15f722edb8a158ad3fa3617fbbd3192d7e2ff0be69448236696f",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 735,
+    "codigo": "3RA19211DA00",
+    "nome": "MÓDULO DE LIGAÇÃO SIEMENS SIRIUS 3P 3RV2.1/3RV2.2 A 3RT2.1 S00 CA/CC",
+    "familia": "CONEXOES_PARTIDA",
+    "criterio": "CONEXOES_PARTIDA:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA19211DA00"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Tipo de terminal não incluído no nome desta revisão; conferir montagem pelo manual exato."
+    ],
+    "impressao_tecnica": "6c26990e49c537817bfc855bc5495bd7022f7864fc5dd4f57b3a25d1801ba591",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 776,
+    "codigo": "3RA29211BA00",
+    "nome": "MÓDULO DE LIGAÇÃO SIEMENS SIRIUS 3P 3RV2.1/3RV2.2 A 3RT2.2 S0 BOBINA CC PARAFUSO",
+    "familia": "CONEXOES_PARTIDA",
+    "criterio": "CONEXOES_PARTIDA:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA29211BA00"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "O resumo também cita CA/CC, 3RW3 e 3RF34; essas extensões não são certificadas por esta revisão."
+    ],
+    "impressao_tecnica": "e8d5de33b347a4654cc6f38799e49cee12d59c7d7f0e898787a96b306c8cabc6",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1088,
+    "codigo": "6SL32550AA004CA1",
+    "nome": "PAINEL DE OPERAÇÃO SIEMENS SINAMICS BOP-2 LCD MONOCROMÁTICO 70×106,85×19,6mm",
+    "familia": "ACESSORIOS_INVERSORES",
+    "criterio": "ACESSORIOS_INVERSORES:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6SL32550AA004CA1"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não declarar kit de montagem incluído nem compatibilidade universal com todos os inversores."
+    ],
+    "impressao_tecnica": "d1b1b7d2422da9beebd3bceacad7e01d9da0c770f31b8509672a283168858dd3",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1623,
+    "codigo": "6EP41363AB000AY0",
+    "nome": "MÓDULO UPS CC SIEMENS SITOP UPS1600 ENTRADA 24VCC SAÍDA 24VCC 20A SEM INTERFACE PC",
+    "familia": "UPS_CC",
+    "criterio": "UPS_CC:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6EP41363AB000AY0"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Não presumir bateria/fonte externa fornecida; composição comercial não é alterada."
+    ],
+    "impressao_tecnica": "9b1c8518c8b504d7bf1a7456f5faade4612c5dbd275af7c9986101b539a516d1",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1619,
+    "codigo": "3RQ30551SM30",
+    "nome": "RELÉ DE INTERFACE SIEMENS SIRIUS 3RQ3 1NA TRANSISTOR ENTRADA 24VCC SAÍDA 10-30VCC 5A PARAFUSO",
+    "familia": "RELES_INTERFACE",
+    "criterio": "RELES_INTERFACE:1",
+    "lote": "013-reavaliacao-pendencias",
+    "revisado_em": "2026-09-10T19:11:59.905Z",
+    "responsavel": "Codex: reavaliação D-048 sob continuidade autorizada D-047",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-048",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RQ30551SM30",
+      "https://support.industry.siemens.com/cs/attachments/109771997/SIRIUS_IC10_chap05_English_2025_202501240949051090.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "Faixa de corrente reconfirmada pela consulta web ao catálogo oficial, não por inferência da corrente térmica."
+    ],
+    "impressao_tecnica": "8d2ce3e6e7e56280fddc76515979d624b6a67715840d1d5427434c82f725c2a3",
+    "backup": "backups/reavaliacao-048/aplicacao-2026-09-10T19-11-54-335Z.json",
+    "assinatura_lote": "d0e6cd2b9dccc1a8b5081aaf6ef6f47899b299e343827253a58b75906c9f4823"
+  }
+]

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {tenantId,empresaId,diretorio,validarEscopo,impressaoTecnica} from './lib/controle-revisoes.mjs';
 import {grupos011} from './lib/lotes-cinquenta.mjs';
 const ler=f=>JSON.parse(fs.readFileSync(f,'utf8'));
+assert.ok(!fs.existsSync(`${diretorio}/eventos-013-reavaliacao-pendencias.json`),'D-048 aplicada: usar fechar-reavaliacao-048.mjs; não reconstruir exceções superadas pela D-047.');
 const baseArquivo=fs.readdirSync('backups/base-revisao').filter(f=>f.endsWith('.json')).sort().at(-1);
 const base=ler(`backups/base-revisao/${baseArquivo}`);validarEscopo(base);
 const m=ler(`${diretorio}/lote-011-cinquenta-itens.json`),l=ler(`${diretorio}/liberacao-011-referencias-claras.json`);
