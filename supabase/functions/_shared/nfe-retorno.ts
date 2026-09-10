@@ -29,6 +29,31 @@ async function armazenar(
   };
 }
 
+/**
+ * Mesma coisa, mas nao propaga: devolve { erro } em vez de lancar. Existe porque
+ * antes o Promise.all([xml, danfe]) derrubava os dois juntos quando so um falhava
+ * — a OV-SEG-00006-026 ficou com a nota REALMENTE autorizada pela SEFAZ (chave e
+ * protocolo ja tinham voltado da Focus, cStat 100) presa em PROCESSANDO porque o
+ * download do DANFE falhou e arrastou o XML, que teria baixado sem problema. O
+ * XML segue obrigatorio (fn_nfe_aplicar_retorno_producao nao marca AUTORIZADA sem
+ * ele); o DANFE nao — falta so o PDF, e a nota entra no sistema do mesmo jeito.
+ */
+async function armazenarTolerante(
+  supabase: SupabaseClient,
+  tenantId: string,
+  empresaId: string,
+  referencia: string,
+  caminho: string | null,
+  extensao: "xml" | "pdf",
+  ambiente: FocusAmbiente,
+) {
+  try {
+    return { ...(await armazenar(supabase, tenantId, empresaId, referencia, caminho, extensao, ambiente)), erro: null as string | null };
+  } catch (cause) {
+    return { path: null, raw: null, erro: cause instanceof Error ? cause.message : String(cause) };
+  }
+}
+
 export async function aplicarRetorno(
   supabase: SupabaseClient,
   payload: unknown,
@@ -53,10 +78,29 @@ export async function aplicarRetorno(
     if (!retorno.chaveAcesso) {
       throw new Error(`Retorno autorizado sem chave de acesso reconhecivel (${diagnosticoFocus(payload)}).`);
     }
-    [xml, danfe] = await Promise.all([
-      armazenar(supabase, emissao.tenant_id, emissao.empresa_id, referencia, retorno.caminhoXml, "xml", emissao.ambiente),
-      armazenar(supabase, emissao.tenant_id, emissao.empresa_id, referencia, retorno.caminhoDanfe, "pdf", emissao.ambiente),
+    // Independentes: o XML e obrigatorio para marcar AUTORIZADA (mais abaixo, na
+    // RPC), o DANFE nao. Antes um Promise.all acoplava os dois — a falha isolada
+    // do PDF derrubava tambem o XML e deixava a nota (ja real, ja com chave e
+    // protocolo da SEFAZ) presa em PROCESSANDO sem motivo registrado.
+    const [xmlResultado, danfeResultado] = await Promise.all([
+      armazenarTolerante(supabase, emissao.tenant_id, emissao.empresa_id, referencia, retorno.caminhoXml, "xml", emissao.ambiente),
+      armazenarTolerante(supabase, emissao.tenant_id, emissao.empresa_id, referencia, retorno.caminhoDanfe, "pdf", emissao.ambiente),
     ]);
+    if (xmlResultado.erro) {
+      throw new Error(
+        `NF-e ${referencia} JA FOI AUTORIZADA pela SEFAZ (chave ${retorno.chaveAcesso}, protocolo ${retorno.protocolo ?? "?"}) `
+        + `— nao e rejeicao, nao reemita. O download do XML na Focus falhou: ${xmlResultado.erro}. `
+        + `Reconcilie de novo em alguns instantes para so buscar o arquivo e liberar o registro.`,
+      );
+    }
+    xml = xmlResultado;
+    if (danfeResultado.erro) {
+      // Nao bloqueia: chave, protocolo e XML (o que a lei exige) sao gravados
+      // mesmo assim. O DANFE fica pendente e pode ser buscado depois.
+      console.error(`DANFE de ${referencia} (chave ${retorno.chaveAcesso}) nao pode ser baixado da Focus: ${danfeResultado.erro}`);
+    } else {
+      danfe = danfeResultado;
+    }
   }
   const { data, error } = await supabase.schema("f").rpc(rpcRetorno, {
     p_referencia_externa: referencia,
