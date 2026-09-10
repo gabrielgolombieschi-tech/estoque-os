@@ -438,7 +438,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
-    // Para o texto "VALOR APROXIMADO DOS TRIBUTOS" da revenda, mais abaixo — nao e
+    // Para o texto "Valor aproximado dos tributos" da revenda, mais abaixo — nao e
     // IBPT (a tarifa exigiria tabela por NCM que a Segau nao tem, Lei 12.741/2012).
     // O emissor antigo somava exatamente ICMS + IPI da propria nota: conferido contra
     // uma amostra de 20 das 98 notas reais dele com essa frase no XML (NCM e CFOP
@@ -582,13 +582,16 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const observacaoSolicitacao = observacaoBruta && !/^Composi[cç][aã]o parcial da (OV|OS)\b/i.test(observacaoBruta)
     ? observacaoBruta
     : null;
-  // "VALOR APROXIMADO DOS TRIBUTOS" (Lei 12.741/2012), so na revenda (5102) e no
-  // inicio do infCpl — mesma frase e mesma conta (ICMS + IPI da nota) do emissor
-  // antigo, pedido do Gabriel em 10/09/2026. Na industrializacao (5101/6101) o infCpl
-  // ja abre com a base legal da aliquota/destinacao; fica de fora por ora.
+  // "Valor aproximado dos tributos" (Lei 12.741/2012), so na revenda (5102) e no
+  // inicio do infCpl — mesma conta (ICMS + IPI da nota) do emissor antigo, pedido do
+  // Gabriel em 10/09/2026; o emissor antigo escrevia tudo em caixa alta
+  // ("VALOR APROXIMADO DOS TRIBUTOS: ..."), mas isso destoava dos outros fragmentos
+  // do infCpl (destinacao, pedido), que sao frase normal — aqui vai no mesmo padrao
+  // deles. Na industrializacao (5101/6101) o infCpl ja abre com a base legal da
+  // aliquota/destinacao; fica de fora por ora.
   const valorAproximadoTributos = round(icmsTotal + valorIpi);
   const textoTributosAproximados = natureza.codigo === "VENDA_MERCADORIA_TERCEIROS"
-    ? `VALOR APROXIMADO DOS TRIBUTOS: ${valorAproximadoTributos.toFixed(2).replace(".", ",")}.`
+    ? `Valor aproximado dos tributos: ${valorAproximadoTributos.toFixed(2).replace(".", ",")}.`
     : null;
   const informacoesComplementares = [
     ...(textoTributosAproximados ? [textoTributosAproximados] : []),

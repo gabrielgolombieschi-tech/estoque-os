@@ -110,7 +110,7 @@ for (const cenario of cenarios) {
   }
 }
 
-// "VALOR APROXIMADO DOS TRIBUTOS" (Lei 12.741/2012), so na revenda: mesma frase e
+// "Valor aproximado dos tributos" (Lei 12.741/2012), so na revenda: mesma frase e
 // mesma conta (ICMS + IPI da nota) do emissor antigo, pedido do Gabriel em 10/09/2026
 // — conferido contra 20 notas reais dele (ver comentario em nfe-payload.ts). Reusa o
 // cenario A (IPI por fora), so trocando a natureza e o CFOP do item para revenda.
@@ -121,7 +121,7 @@ for (const cenario of cenarios) {
   ctx.itens[0].documento_item.cfop = "5102";
   const payload = montarPayloadNfe(ctx);
   const infCpl = String(payload.informacoes_adicionais_contribuinte ?? "");
-  const esperadoTexto = "VALOR APROXIMADO DOS TRIBUTOS: 2556,68.";
+  const esperadoTexto = "Valor aproximado dos tributos: 2556,68.";
   const bate = infCpl.startsWith(esperadoTexto);
   if (!bate) falhas += 1;
   console.log(`\nC · Revenda (5102) — texto no infCpl`);
