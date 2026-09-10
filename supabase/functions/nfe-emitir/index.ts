@@ -241,23 +241,62 @@ Deno.serve(async (request) => {
             reconciliado_antes_do_retry: true,
           }, aplicado.retorno.status === "PROCESSANDO" ? 202 : 200);
         }
-        return json({
-          erro: aplicado.retorno.mensagem ?? "A Focus confirmou que a referencia de homologacao nao foi autorizada.",
-          codigo: aplicado.retorno.codigoStatus,
-          documento_fiscal_id: documentoId,
-          referencia: emissao.referencia_externa,
-          status: aplicado.retorno.status,
-          reconciliado_antes_do_retry: true,
-        }, aplicado.retorno.status === "ERRO" ? 502 : 422);
+        // Rejeicao confirmada nao e beco sem saida: nada foi autorizado e nenhum
+        // numero foi consumido na SEFAZ. A referencia velha ja teve desfecho na
+        // Focus e nao pode ser reusada, entao a emissao volta a RASCUNHO com uma
+        // referencia nova e o payload recusado descartado — e o fluxo segue abaixo
+        // montando o payload de novo, agora com o cadastro ja corrigido.
+        if (aplicado.retorno.status === "REJEITADA") {
+          const { data: recomeco, error: recomecoError } = await admin.schema("f").rpc(
+            "fn_nfe_recomecar_rejeitada",
+            {
+              p_documento_fiscal_id: documentoId,
+              p_referencia_externa: emissao.referencia_externa,
+              p_status_focus: aplicado.retorno.status,
+              p_prova_focus: consulta.body ?? null,
+              p_codigo_status: aplicado.retorno.codigoStatus ?? null,
+              p_mensagem: aplicado.retorno.mensagem ?? null,
+            },
+          );
+          if (recomecoError) {
+            return json({
+              erro: `A nota foi rejeitada e o recomeco automatico falhou: ${recomecoError.message}`,
+              codigo: aplicado.retorno.codigoStatus,
+              documento_fiscal_id: documentoId,
+              referencia: emissao.referencia_externa,
+              status: aplicado.retorno.status,
+            }, recomecoError.code === "42501" ? 403 : 422);
+          }
+          const referenciaNova = (recomeco as { referencia_externa?: string } | null)?.referencia_externa;
+          if (typeof referenciaNova !== "string" || !referenciaNova) {
+            throw new Error("O recomeco da emissao rejeitada nao devolveu a referencia nova.");
+          }
+          emissao.referencia_externa = referenciaNova;
+          emissao.status = "RASCUNHO";
+          emissao.payload_enviado = null;
+          emissao.enviado_em = null;
+          emissao.tentativa_count = 0;
+          reconciliacaoConfirmada = true;
+        } else {
+          return json({
+            erro: aplicado.retorno.mensagem ?? "A Focus confirmou que a referencia de homologacao nao foi autorizada.",
+            codigo: aplicado.retorno.codigoStatus,
+            documento_fiscal_id: documentoId,
+            referencia: emissao.referencia_externa,
+            status: aplicado.retorno.status,
+            reconciliado_antes_do_retry: true,
+          }, aplicado.retorno.status === "ERRO" ? 502 : 422);
+        }
+      } else {
+        if (consulta.response.status !== 404) {
+          return json({
+            erro: `Consulta preventiva da Focus falhou (HTTP ${consulta.response.status}).`,
+            documento_fiscal_id: documentoId,
+            referencia: emissao.referencia_externa,
+          }, 502);
+        }
+        reconciliacaoConfirmada = true;
       }
-      if (consulta.response.status !== 404) {
-        return json({
-          erro: `Consulta preventiva da Focus falhou (HTTP ${consulta.response.status}).`,
-          documento_fiscal_id: documentoId,
-          referencia: emissao.referencia_externa,
-        }, 502);
-      }
-      reconciliacaoConfirmada = true;
     }
 
     let payload: ReturnType<typeof montarPayloadNfe>;

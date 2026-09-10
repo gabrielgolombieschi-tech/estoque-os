@@ -318,13 +318,23 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       throw new Error(`Solicitação incompleta: item ${codigo}, informe CST de ICMS ou CSOSN, nunca ambos.`);
     }
     const situacaoIcms = (cstIcms ?? csosn)!;
+    // A fixture de IPI por CFOP e tapa-buraco de homologacao para quando ninguem
+    // sabe dizer o CST — preenche o que falta, nunca sobrescreve quem sabe. Se o
+    // item traz CST (do perfil de operacao ou do cadastro do produto conferido
+    // contra f.tipi_ncm), ele manda.
+    //
+    // Sobrescrever custou a rejeicao 610 da OV-SEG-00007-026 em 10/09/2026: a
+    // chave de seguranca (NCM 85365090) saiu com o IPI de 9,75% do cadastro e o
+    // CST 53 da fixture — nao tributada com imposto destacado —, e o somatorio da
+    // SEFAZ nao fechou.
     const fixtureIpi = ambiente === "HOMOLOGACAO"
       ? tributacaoProvisoria.ipiPorCfop[cfop as keyof typeof tributacaoProvisoria.ipiPorCfop]
       : undefined;
-    const cstIpi = fixtureIpi?.cst ?? requiredText(item.cst_ipi, `item ${codigo}, CST de IPI do perfil de operação`);
+    const cstIpi = text(item.cst_ipi)
+      ?? requiredText(fixtureIpi?.cst, `item ${codigo}, CST de IPI do perfil de operação`);
     const enquadramentoIpi = digits(
-      fixtureIpi?.cEnq
-        ?? requiredText(item.ipi_codigo_enquadramento_legal, `item ${codigo}, cEnq do perfil de operação`),
+      text(item.ipi_codigo_enquadramento_legal)
+        ?? requiredText(fixtureIpi?.cEnq, `item ${codigo}, cEnq do perfil de operação`),
     );
     if (enquadramentoIpi.length !== 3) {
       throw new Error(`Solicitação incompleta: item ${codigo}, enquadramento legal do IPI deve ter 3 dígitos.`);
@@ -370,6 +380,17 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     );
     if (reducao < 0 || reducao > 100) {
       throw new Error(`Solicitação incompleta: item ${codigo}, redução da base de ICMS inválida.`);
+    }
+    // Par impossivel: so os CST 50 (saida tributada) e 99 (outras saidas) admitem
+    // IPI destacado. Em 51, 52, 53, 54 e 55 a saida nao e tributada, e mandar vIPI
+    // junto faz o somatorio da SEFAZ nao fechar (rejeicao 610). Melhor recusar aqui,
+    // com o motivo, do que descobrir pelo retorno da nota.
+    if (aliquotaIpi !== null && aliquotaIpi > 0 && !impostoTributado(cstIpi, ["50", "99"])) {
+      throw new Error(
+        `Solicitação incompleta: item ${codigo}, CST de IPI ${cstIpi} não é saída tributada `
+        + `mas a alíquota é de ${aliquotaIpi.toFixed(2).replace(".", ",")}%. `
+        + `Use o CST 50 para destacar o IPI ou zere a alíquota.`,
+      );
     }
     const ipiValor = aliquotaIpi === null ? 0 : round(base * aliquotaIpi / 100);
     // Rede final da trava da TIPI: a conferencia ja recusa NCM tributado saindo sem IPI
@@ -597,7 +618,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(textoTributosAproximados ? [textoTributosAproximados] : []),
     ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc()] : []),
     ...(usaBeneficioMaquinas5291 ? [textoReducaoMaquinas5291()] : []),
-    textoDestinacao(destinacao, aliquotaUnica, interestadual),
+    textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291),
     ...(text(solicitacao.pedido_cliente)
       ? [`Pedido de compra do cliente: ${text(solicitacao.pedido_cliente)}`]
       : []),

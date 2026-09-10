@@ -111,14 +111,21 @@ export function rotuloDestinacao(destinacao: DestinacaoMercadoria) {
  * uma das duas aliquotas internas conhecidas. Em operacao interestadual a
  * aliquota vem da tabela do Senado e nao cabe citar as duas leis de SC, entao
  * so a destinacao e declarada.
+ *
+ * `cargaVemDeReducaoDeBase` desliga a citacao da lei da aliquota. Quando os 12%
+ * saem de CST 20 a 17% com base reduzida, quem os concedeu foi o beneficio —
+ * Anexo 2, Art. 7o, VII ou o Convenio 52/91, ja escritos na nota — e nao a
+ * aliquota reduzida da Lei 10.297/96, art. 19, III, "n". Citar as duas seria
+ * afirmar dois fundamentos excludentes para o mesmo imposto.
  */
 export function textoDestinacao(
   destinacao: DestinacaoMercadoria,
   aliquotaIcms: number | null,
   interestadual: boolean,
+  cargaVemDeReducaoDeBase = false,
 ) {
   const declaracao = `Destinação informada pelo destinatário: ${rotuloDestinacao(destinacao)}`;
-  if (interestadual || aliquotaIcms === null) return declaracao;
+  if (interestadual || aliquotaIcms === null || cargaVemDeReducaoDeBase) return declaracao;
   const base = BASE_LEGAL_ALIQUOTA_INTERNA.find((regra) => regra.aliquota === aliquotaIcms);
   return base ? `${declaracao}. ${base.texto}` : declaracao;
 }

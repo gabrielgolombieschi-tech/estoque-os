@@ -1442,6 +1442,14 @@ export default function OvNfeDraftsPanel({
           )
         );
         const podeAbandonarRejeitada = podeEmitir && ["REJEITADA", "ERRO"].includes(draft.emissao?.status ?? "");
+        // Rejeicao em homologacao nao autorizou nada e nao consumiu numero na SEFAZ:
+        // o certo e corrigir o que ela apontou e mandar de novo, nao jogar fora a
+        // solicitacao. O servidor cunha uma referencia nova e descarta o payload
+        // recusado quando a Focus confirma a rejeicao (f.fn_nfe_recomecar_rejeitada),
+        // entao daqui basta reabrir a conferencia. Producao continua congelada.
+        const podeRefazerRejeitada = podeEmitir
+          && rejeitada
+          && draft.emissao?.ambiente === "HOMOLOGACAO";
         // Homologacao autorizada nao tem existencia fiscal (tpAmb=2, base separada da
         // SEFAZ, sem SPED, sem ICMS) — nao ha o que regularizar. Mesmo assim ela segurava
         // o saldo da OV para sempre, porque so status CANCELADA devolve reserva. Aqui a
@@ -1675,6 +1683,7 @@ export default function OvNfeDraftsPanel({
                 {!draft.emissao && podeEmitir ? <button type="button" onClick={() => abrirConferencia(draft)} disabled={busyId === draft.id} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">Conferir e emitir em homologação</button> : null}
                 {homologacaoAutorizada && liberacaoProducao?.pronta && podeEmitir ? <button type="button" onClick={() => abrirConferencia(draft, "PRODUCAO")} disabled={busyId === draft.id} className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50">Conferir e emitir em produção</button> : null}
                 {podeContinuarConferencia ? <button type="button" onClick={() => abrirConferencia(draft, "HOMOLOGACAO")} disabled={busyId === draft.id} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">Continuar conferência</button> : null}
+                {podeRefazerRejeitada ? <button type="button" onClick={() => abrirConferencia(draft, "HOMOLOGACAO")} disabled={busyId === draft.id} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50" title="A rejeição não autorizou nada nem consumiu número. Reveja a conferência e emita de novo com uma referência nova.">Corrigir e emitir de novo</button> : null}
               </div>
             </div>
 
