@@ -12,7 +12,13 @@ import type { OrcamentoListaRow, OrcamentoStatus } from "@/lib/comercial/types";
 import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getOrcamentoStatusLabel } from "@/lib/comercial/status";
 import { mapOrcamentoError, n, toSupabaseErrorLike } from "@/lib/comercial/utils";
-import { atualizarStatusOrcamento, listOrcamentos } from "@/lib/comercial/orcamentos.service";
+import {
+  atualizarStatusOrcamento,
+  listOrcamentos,
+  listOrcamentosAgrupadoCliente,
+  listOrcamentosDoCliente,
+  type OrcamentoGrupoCliente,
+} from "@/lib/comercial/orcamentos.service";
 import OrcamentoStatusDialog, { type OrcamentoStatusDialogPayload } from "./OrcamentoStatusDialog";
 
 const PAGE_SIZE = 50;
@@ -22,6 +28,14 @@ const STATUS_OPTIONS: Array<{ value: OrcamentoStatus | "TODOS"; label: string }>
   { value: "FECHADO", label: "Fechado" },
   { value: "PERDIDO", label: "Perdido" },
 ];
+
+/** Como o filtro se le no subtitulo, na mesma forma da tela de OS ("74 em andamento"). */
+function rotuloSituacao(status: OrcamentoStatus | "TODOS"): string {
+  if (status === "ANDAMENTO") return "em andamento";
+  if (status === "FECHADO") return "fechados";
+  if (status === "PERDIDO") return "perdidos";
+  return "no total";
+}
 
 type StatusDialogState =
   | { open: false }
@@ -79,6 +93,17 @@ export default function OrcamentosClient() {
   const pageSafe = Math.min(Math.max(1, page), totalPages);
   const [statusDialog, setStatusDialog] = useState<StatusDialogState>({ open: false });
 
+  // Visao "Por cliente", igual a de ordens de servico. Os totais vem do servidor
+  // (m.fn_orcamento_agrupado_cliente) porque a lista pagina: somar as linhas da
+  // pagina daria o total dela, nao o do cliente.
+  const [vista, setVista] = useState<"lista" | "cliente">("lista");
+  const [grupos, setGrupos] = useState<OrcamentoGrupoCliente[]>([]);
+  const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(new Set());
+  const [orcamentosPorCliente, setOrcamentosPorCliente] = useState<Record<string, OrcamentoListaRow[]>>({});
+  const [clientesCarregando, setClientesCarregando] = useState<Set<string>>(new Set());
+
+  const chaveCliente = (clienteId: number | null) => (clienteId === null ? "sem-cliente" : String(clienteId));
+
   const reload = useCallback(async () => {
     setErr(null);
     setOk(null);
@@ -115,9 +140,62 @@ export default function OrcamentosClient() {
     }
   }, [empresaId, from, pageSafe, q, status, supabase, tenantId, to]);
 
+  const carregarGrupos = useCallback(async () => {
+    if (!supabase || !tenantId || !empresaId) return;
+    setLoading(true);
+    setErr(null);
+    try {
+      setGrupos(await listOrcamentosAgrupadoCliente(supabase, { tenantId, empresaId, q, status }));
+    } catch (e: unknown) {
+      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao agrupar orcamentos por cliente."));
+      setGrupos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [empresaId, q, status, supabase, tenantId]);
+
+  // Trocar de filtro invalida o que ja foi aberto: os orcamentos de cada cliente
+  // sao os do filtro, nao todos os dele.
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    setOrcamentosPorCliente({});
+    setGruposAbertos(new Set());
+  }, [q, status, from, to]);
+
+  useEffect(() => {
+    if (vista === "cliente") void carregarGrupos();
+    else void reload();
+  }, [carregarGrupos, reload, vista]);
+
+  const alternarCliente = useCallback(async (grupo: OrcamentoGrupoCliente) => {
+    const chave = chaveCliente(grupo.cliente_id);
+    const abrindo = !gruposAbertos.has(chave);
+    setGruposAbertos((atual) => {
+      const proximo = new Set(atual);
+      if (abrindo) proximo.add(chave);
+      else proximo.delete(chave);
+      return proximo;
+    });
+    if (!abrindo || orcamentosPorCliente[chave] || !supabase || !tenantId || !empresaId) return;
+    setClientesCarregando((atual) => new Set(atual).add(chave));
+    try {
+      const linhas = await listOrcamentosDoCliente(supabase, {
+        tenantId,
+        empresaId,
+        clienteId: grupo.cliente_id,
+        q,
+        status,
+      });
+      setOrcamentosPorCliente((atual) => ({ ...atual, [chave]: linhas }));
+    } catch (e: unknown) {
+      setErr(mapOrcamentoError(toSupabaseErrorLike(e), "Erro ao carregar os orcamentos do cliente."));
+    } finally {
+      setClientesCarregando((atual) => {
+        const proximo = new Set(atual);
+        proximo.delete(chave);
+        return proximo;
+      });
+    }
+  }, [empresaId, gruposAbertos, orcamentosPorCliente, q, status, supabase, tenantId]);
 
   useEffect(() => {
     if (page !== pageSafe) setPage(pageSafe);
@@ -245,10 +323,33 @@ export default function OrcamentosClient() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold">Orcamentos</h1>
-          <p className="text-sm text-zinc-400 mt-1">Crie, edite e atualize status dos orcamentos.</p>
+          <h1 className="text-2xl font-semibold">Orçamentos</h1>
+          <p className="text-sm text-zinc-400 mt-1">
+            {vista === "cliente"
+              ? `${grupos.reduce((soma, g) => soma + Number(g.quantidade_orcamentos ?? 0), 0)} ${rotuloSituacao(status)} · ${grupos.length} ${grupos.length === 1 ? "cliente" : "clientes"}`
+              : `${count} ${count === 1 ? "orçamento" : "orçamentos"} ${rotuloSituacao(status)}`}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Mesmo par da tela de OS: agrupar por cliente ou ver a lista corrida. */}
+          <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-950 p-1">
+            <button
+              type="button"
+              onClick={() => setVista("lista")}
+              aria-pressed={vista === "lista"}
+              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition ${vista === "lista" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"}`}
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista("cliente")}
+              aria-pressed={vista === "cliente"}
+              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition ${vista === "cliente" ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"}`}
+            >
+              Por cliente
+            </button>
+          </div>
           <button
             type="button"
             onClick={startNew}
@@ -357,6 +458,75 @@ export default function OrcamentosClient() {
       {err && <div className="text-sm text-red-400">{err}</div>}
       {ok && <div className="text-sm text-emerald-300">{ok}</div>}
 
+      {vista === "cliente" ? (
+        <div className="space-y-2">
+          {loading && grupos.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6 text-center text-sm text-zinc-400">
+              Agrupando orçamentos por cliente...
+            </div>
+          ) : grupos.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-6 text-center text-sm text-zinc-400">
+              Nenhum orçamento encontrado.
+            </div>
+          ) : (
+            grupos.map((grupo) => {
+              const chave = chaveCliente(grupo.cliente_id);
+              const aberto = gruposAbertos.has(chave);
+              const linhas = orcamentosPorCliente[chave] ?? [];
+              const vendedores = (grupo.vendedores ?? []).filter(Boolean);
+              return (
+                <div key={chave} className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => void alternarCliente(grupo)}
+                    aria-expanded={aberto}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-zinc-900/60"
+                  >
+                    <span className={`text-zinc-500 transition ${aberto ? "rotate-90" : ""}`}>›</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-zinc-100">{grupo.cliente_nome}</span>
+                      <span className="mt-0.5 block text-xs text-zinc-400">
+                        {grupo.quantidade_orcamentos} {Number(grupo.quantidade_orcamentos) === 1 ? "orçamento" : "orçamentos"}
+                        {" · "}{grupo.quantidade_itens} {Number(grupo.quantidade_itens) === 1 ? "item" : "itens"}
+                        {vendedores.length ? ` · ${vendedores.join(", ")}` : ""}
+                      </span>
+                    </span>
+                    <span className="whitespace-nowrap text-right font-semibold text-zinc-100">
+                      {n(grupo.valor_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </button>
+                  {aberto ? (
+                    <div className="border-t border-zinc-800/80">
+                      {clientesCarregando.has(chave) ? (
+                        <div className="px-4 py-3 text-xs text-zinc-400">Carregando orçamentos...</div>
+                      ) : linhas.length === 0 ? (
+                        <div className="px-4 py-3 text-xs text-zinc-500">Nenhum orçamento deste cliente no filtro.</div>
+                      ) : (
+                        linhas.map((linha) => (
+                          <Link
+                            key={linha.id}
+                            href={`/comercial/orcamentos/${linha.id}`}
+                            className="flex items-center gap-3 border-b border-zinc-900 px-4 py-2.5 last:border-b-0 hover:bg-zinc-900/50"
+                          >
+                            <span className="w-32 shrink-0 font-mono text-xs text-sky-300">{linha.codigo}</span>
+                            <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">{linha.titulo}</span>
+                            <span className="hidden shrink-0 text-xs text-zinc-500 sm:block">
+                              {getOrcamentoStatusLabel(linha.status)}
+                            </span>
+                            <span className="w-32 shrink-0 text-right text-sm text-zinc-100">
+                              {n(linha.total_liquido).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
       <div className="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950">
         <div className="overflow-auto">
           <table className="w-full text-sm">
@@ -483,6 +653,7 @@ export default function OrcamentosClient() {
           </div>
         </div>
       </div>
+      )}
 
       {statusDialog.open && (
         <OrcamentoStatusDialog

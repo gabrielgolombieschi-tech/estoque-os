@@ -875,3 +875,59 @@ export async function getItemByCodigo(
 
   return null;
 }
+
+/** Um cartao por cliente com os totais do filtro, para a visao "Por cliente". */
+export type OrcamentoGrupoCliente = {
+  cliente_id: number | null;
+  cliente_nome: string;
+  quantidade_orcamentos: number;
+  quantidade_itens: number;
+  valor_total: number | string;
+  ultima_emissao: string | null;
+  vendedores: string[] | null;
+};
+
+/**
+ * O agregado vem do servidor porque a listagem pagina: somar as linhas da pagina
+ * daria o total do que coube nela, nao o do cliente. A Portobello sozinha tem 89
+ * orcamentos, contra uma pagina de 50.
+ */
+export async function listOrcamentosAgrupadoCliente(
+  supabase: SupabaseClient,
+  filters: { tenantId: string; empresaId: string; q?: string; status?: OrcamentoStatus | "TODOS" }
+): Promise<OrcamentoGrupoCliente[]> {
+  const status = filters.status ?? "TODOS";
+  const statusValues = status === "TODOS" ? null : getOrcamentoStatusFilterValues(status);
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_agrupado_cliente", {
+    p_tenant_id: filters.tenantId,
+    p_empresa_id: filters.empresaId,
+    p_statuses: statusValues,
+    p_busca: trimToNull(filters.q),
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []) as OrcamentoGrupoCliente[];
+}
+
+/** Orcamentos de um cliente, carregados quando o cartao dele e aberto. */
+export async function listOrcamentosDoCliente(
+  supabase: SupabaseClient,
+  filters: {
+    tenantId: string;
+    empresaId: string;
+    clienteId: number | null;
+    q?: string;
+    status?: OrcamentoStatus | "TODOS";
+  }
+): Promise<OrcamentoListaRow[]> {
+  const status = filters.status ?? "TODOS";
+  const statusValues = status === "TODOS" ? null : getOrcamentoStatusFilterValues(status);
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_do_cliente", {
+    p_tenant_id: filters.tenantId,
+    p_empresa_id: filters.empresaId,
+    p_cliente_id: filters.clienteId,
+    p_statuses: statusValues,
+    p_busca: trimToNull(filters.q),
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []) as OrcamentoListaRow[];
+}
