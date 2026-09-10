@@ -110,5 +110,23 @@ for (const cenario of cenarios) {
   }
 }
 
-console.log(falhas === 0 ? "\nTributos da NF-e: os dois cenarios passaram." : `\nTributos da NF-e: ${falhas} divergencia(s).`);
+// "VALOR APROXIMADO DOS TRIBUTOS" (Lei 12.741/2012), so na revenda: mesma frase e
+// mesma conta (ICMS + IPI da nota) do emissor antigo, pedido do Gabriel em 10/09/2026
+// — conferido contra 20 notas reais dele (ver comentario em nfe-payload.ts). Reusa o
+// cenario A (IPI por fora), so trocando a natureza e o CFOP do item para revenda.
+{
+  const ctx = contexto(9000.00);
+  ctx.solicitacao.operacao_snapshot.natureza_operacao = "VENDA_MERCADORIA_TERCEIROS";
+  ctx.itens[0].solicitacao_item.cfop = "5102";
+  ctx.itens[0].documento_item.cfop = "5102";
+  const payload = montarPayloadNfe(ctx);
+  const infCpl = String(payload.informacoes_adicionais_contribuinte ?? "");
+  const esperadoTexto = "VALOR APROXIMADO DOS TRIBUTOS: 2556,68.";
+  const bate = infCpl.startsWith(esperadoTexto);
+  if (!bate) falhas += 1;
+  console.log(`\nC · Revenda (5102) — texto no infCpl`);
+  console.log(`  ${bate ? "ok   " : "FALHA"} ${"infCpl".padEnd(12)} ${JSON.stringify(infCpl.slice(0, 60))}${bate ? "" : `  (esperado iniciar com ${JSON.stringify(esperadoTexto)})`}`);
+}
+
+console.log(falhas === 0 ? "\nTributos da NF-e: todos os cenarios passaram." : `\nTributos da NF-e: ${falhas} divergencia(s).`);
 process.exit(falhas === 0 ? 0 : 1);

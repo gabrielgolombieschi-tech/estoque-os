@@ -279,6 +279,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   let valorProdutos = 0;
   let valorDesconto = 0;
   let valorIpi = 0;
+  let icmsTotal = 0;
   let baseIbsCbsTotal = 0;
   let vItemTotal = 0;
   let ibsUfTotal = 0;
@@ -437,6 +438,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
+    // Para o texto "VALOR APROXIMADO DOS TRIBUTOS" da revenda, mais abaixo — nao e
+    // IBPT (a tarifa exigiria tabela por NCM que a Segau nao tem, Lei 12.741/2012).
+    // O emissor antigo somava exatamente ICMS + IPI da propria nota: conferido contra
+    // uma amostra de 20 das 98 notas reais dele com essa frase no XML (NCM e CFOP
+    // variados, com e sem IPI), sem excecao — backups/pre_conferencia_destino_perfil_
+    // 20260903_1145_data.sql.
+    icmsTotal = round(icmsTotal + (icmsValor ?? 0));
     baseIbsCbsTotal = round(baseIbsCbsTotal + baseIbsCbs);
     // vNFTot da NT 2025.002-RTC v1.30 (pag. 47): soma dos vItem, e vItem NAO leva
     // vIBSUF, vIBSMun, vIBS, vCBS nem vIS em 2025 e 2026 — era exatamente o que estava
@@ -574,7 +582,16 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const observacaoSolicitacao = observacaoBruta && !/^Composi[cç][aã]o parcial da (OV|OS)\b/i.test(observacaoBruta)
     ? observacaoBruta
     : null;
+  // "VALOR APROXIMADO DOS TRIBUTOS" (Lei 12.741/2012), so na revenda (5102) e no
+  // inicio do infCpl — mesma frase e mesma conta (ICMS + IPI da nota) do emissor
+  // antigo, pedido do Gabriel em 10/09/2026. Na industrializacao (5101/6101) o infCpl
+  // ja abre com a base legal da aliquota/destinacao; fica de fora por ora.
+  const valorAproximadoTributos = round(icmsTotal + valorIpi);
+  const textoTributosAproximados = natureza.codigo === "VENDA_MERCADORIA_TERCEIROS"
+    ? `VALOR APROXIMADO DOS TRIBUTOS: ${valorAproximadoTributos.toFixed(2).replace(".", ",")}.`
+    : null;
   const informacoesComplementares = [
+    ...(textoTributosAproximados ? [textoTributosAproximados] : []),
     ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc()] : []),
     ...(usaBeneficioMaquinas5291 ? [textoReducaoMaquinas5291()] : []),
     textoDestinacao(destinacao, aliquotaUnica, interestadual),

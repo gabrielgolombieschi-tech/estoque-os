@@ -282,8 +282,11 @@ const reduzida = montarPayloadNfe(contexto({
 }));
 assert.equal(reduzida.items[0].icms_base_calculo, 141.18);
 assert.match(
+  // Nao ancorado no inicio: revenda (natureza padrao desta fixture) agora abre o
+  // infCpl com "VALOR APROXIMADO DOS TRIBUTOS" (Lei 12.741/2012, pedido de
+  // 10/09/2026) — o texto do beneficio continua presente, so nao e mais o primeiro.
   reduzida.informacoes_adicionais_contribuinte,
-  /^Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS\/SC-01, Anexo 2, Art\. 7º, VII/,
+  /Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS\/SC-01, Anexo 2, Art\. 7º, VII/,
 );
 
 // Caminho 2, a faculdade da alinea "a": 12% direto sobre a base integral. O

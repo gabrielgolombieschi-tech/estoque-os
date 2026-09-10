@@ -404,6 +404,7 @@ function rotuloDestinacao(codigo: string) {
 // 23 códigos e oferecer todos aqui só aumentaria a chance de escolher errado.
 const FORMAS_PAGAMENTO: Array<[string, string]> = [
   ["15", "15 · Boleto bancário"],
+  ["16", "16 · Depósito bancário"],
   ["03", "03 · Cartão de crédito"],
   ["04", "04 · Cartão de débito"],
   ["17", "17 · PIX dinâmico"],
@@ -497,7 +498,24 @@ function aceitaMemoria(draft: Draft) {
   return draft.modalidade_frete == null;
 }
 
-function formOperacao(draft: Draft, memoria?: MemoriaOperacao | null): OperacaoForm {
+// Padrao do CLIENTE (public.clientes.transportador_padrao_*), diferente da memoria
+// acima que e da OV: quem transporta pra este cliente nao muda venda a venda, e por
+// isso sobrevive entre OVs — a memoria da OV so alcanca a nota seguinte da mesma OV.
+type TransportadorPadraoCliente = {
+  nome: string;
+  documento: string;
+  ie: string;
+  endereco: string;
+  municipio: string;
+  uf: string;
+  modalidade_frete: string;
+};
+
+function formOperacao(
+  draft: Draft,
+  memoria?: MemoriaOperacao | null,
+  padraoCliente?: TransportadorPadraoCliente | null,
+): OperacaoForm {
   const transportador = draft.transportador_dados ?? {};
   const volume = draft.volumes_dados?.[0] ?? {};
   const base: OperacaoForm = {
@@ -528,18 +546,34 @@ function formOperacao(draft: Draft, memoria?: MemoriaOperacao | null): OperacaoF
     volume_peso_bruto: decimal(volume.peso_bruto),
   };
 
-  if (!memoria || !aceitaMemoria(draft)) return base;
-  for (const campo of CAMPOS_LEMBRADOS) {
-    if (campo === "pagamento_parcelas") {
-      // A memoria de parcelas so vale quando o rascunho ainda esta no padrao.
-      const atual = base.pagamento_parcelas;
-      const lembrado = memoria.campos.pagamento_parcelas;
-      if (lembrado && atual.length === 1 && atual[0].dias === PARCELA_PADRAO.dias && atual[0].valor === "") {
-        base.pagamento_parcelas = lembrado.map((parcela) => ({ ...parcela }));
+  if (memoria && aceitaMemoria(draft)) {
+    for (const campo of CAMPOS_LEMBRADOS) {
+      if (campo === "pagamento_parcelas") {
+        // A memoria de parcelas so vale quando o rascunho ainda esta no padrao.
+        const atual = base.pagamento_parcelas;
+        const lembrado = memoria.campos.pagamento_parcelas;
+        if (lembrado && atual.length === 1 && atual[0].dias === PARCELA_PADRAO.dias && atual[0].valor === "") {
+          base.pagamento_parcelas = lembrado.map((parcela) => ({ ...parcela }));
+        }
+        continue;
       }
-      continue;
+      if (base[campo] === "") base[campo] = memoria.campos[campo] ?? "";
     }
-    if (base[campo] === "") base[campo] = memoria.campos[campo] ?? "";
+  }
+
+  // Padrao do cliente: so preenche o que a memoria da propria OV deixou vazio — ela e
+  // mais recente e mais especifica que o padrao do cliente. Peso e volumes nao tem
+  // padrao de cliente (variam por pedido) e continuam so na memoria da OV, acima.
+  if (padraoCliente?.nome && aceitaMemoria(draft) && base.transportador_nome === "") {
+    base.transportador_nome = padraoCliente.nome;
+    base.transportador_documento = padraoCliente.documento;
+    base.transportador_ie = padraoCliente.ie;
+    base.transportador_endereco = padraoCliente.endereco;
+    base.transportador_municipio = padraoCliente.municipio;
+    base.transportador_uf = padraoCliente.uf;
+  }
+  if (padraoCliente?.modalidade_frete && aceitaMemoria(draft) && base.modalidade_frete === "") {
+    base.modalidade_frete = padraoCliente.modalidade_frete;
   }
   return base;
 }
@@ -742,6 +776,7 @@ export default function OvNfeDraftsPanel({
   const [etapaConferencia, setEtapaConferencia] = useState<"DESTINO" | "FISCAL">("DESTINO");
   const [destinoTipo, setDestinoTipo] = useState<"" | "SC" | "FORA">("");
   const [ufCliente, setUfCliente] = useState<string | null>(null);
+  const [padraoTransportador, setPadraoTransportador] = useState<TransportadorPadraoCliente | null>(null);
   const [destinoUf, setDestinoUf] = useState("");
   const [resolucaoPerfis, setResolucaoPerfis] = useState<ResolucaoPerfis | null>(null);
   const [resolvendoDestino, setResolvendoDestino] = useState(false);
@@ -835,15 +870,28 @@ export default function OvNfeDraftsPanel({
       if (clienteId) {
         const clienteResult = await supabase
           .from("clientes")
-          .select("uf")
+          .select("uf,transportador_padrao_nome,transportador_padrao_documento,transportador_padrao_ie,transportador_padrao_endereco,transportador_padrao_municipio,transportador_padrao_uf,transportador_padrao_modalidade_frete")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
           .eq("id", clienteId)
           .maybeSingle();
         const uf = String(clienteResult.data?.uf ?? "").trim().toUpperCase();
         setUfCliente(/^[A-Z]{2}$/.test(uf) ? uf : null);
+        const nomePadrao = String(clienteResult.data?.transportador_padrao_nome ?? "").trim();
+        setPadraoTransportador(nomePadrao ? {
+          nome: nomePadrao,
+          documento: String(clienteResult.data?.transportador_padrao_documento ?? ""),
+          ie: String(clienteResult.data?.transportador_padrao_ie ?? ""),
+          endereco: String(clienteResult.data?.transportador_padrao_endereco ?? ""),
+          municipio: String(clienteResult.data?.transportador_padrao_municipio ?? ""),
+          uf: String(clienteResult.data?.transportador_padrao_uf ?? ""),
+          modalidade_frete: clienteResult.data?.transportador_padrao_modalidade_frete != null
+            ? String(clienteResult.data.transportador_padrao_modalidade_frete)
+            : "",
+        } : null);
       } else {
         setUfCliente(null);
+        setPadraoTransportador(null);
       }
 
       const statusProducao = await Promise.all(lista.map(async (draft) => {
@@ -902,7 +950,7 @@ export default function OvNfeDraftsPanel({
   function abrirConferencia(draft: Draft, ambiente: "HOMOLOGACAO" | "PRODUCAO" = "HOMOLOGACAO") {
     setAmbienteConferencia(ambiente);
     setOpenId(draft.id);
-    setOperacao(formOperacao(draft, memoria));
+    setOperacao(formOperacao(draft, memoria, padraoTransportador));
     setItensForm(draft.itens.map(formItem));
     setEtapaConferencia("DESTINO");
     // Ordem: o que a nota ja confirmou; senao a UF do cadastro do cliente como
@@ -971,7 +1019,7 @@ export default function OvNfeDraftsPanel({
   function alterarDestino(draft: Draft) {
     setEtapaConferencia("DESTINO");
     setResolucaoPerfis(null);
-    setOperacao(formOperacao(draft, memoria));
+    setOperacao(formOperacao(draft, memoria, padraoTransportador));
     setItensForm(draft.itens.map(formItem));
     avisar(draft.id, "");
   }
@@ -1098,6 +1146,26 @@ export default function OvNfeDraftsPanel({
           },
         });
         if (transporteError) throw transporteError;
+
+        // Padrao do cliente: quem transporta pra ele nao muda venda a venda, entao a
+        // transportadora e a modalidade confirmadas aqui passam a ser a sugestao da
+        // proxima OV deste cliente (public.clientes.transportador_padrao_*). Peso e
+        // volumes ficam de fora — so a memoria da propria OV cobre esses.
+        // Nao bloqueia a emissao se falhar: e conveniencia, a nota ja foi conferida.
+        if (draft.cliente_id && operacaoPayload.transportador) {
+          const { error: padraoError } = await supabase.rpc("clientes_salvar_transportador_padrao", {
+            p_cliente_id: draft.cliente_id,
+            p_nome: operacaoPayload.transportador.nome,
+            p_documento: operacaoPayload.transportador.documento,
+            p_ie: operacaoPayload.transportador.inscricao_estadual,
+            p_endereco: operacaoPayload.transportador.endereco,
+            p_municipio: operacaoPayload.transportador.municipio,
+            p_uf: operacaoPayload.transportador.uf,
+            p_modalidade_frete: Number(operacao.modalidade_frete),
+            p_empresa_id: empresaId,
+          });
+          if (padraoError) console.error("Nao foi possivel salvar a transportadora padrao do cliente:", padraoError);
+        }
 
         const { data: validacao, error: validarError } = await supabase
           .schema("f")
@@ -1625,6 +1693,11 @@ export default function OvNfeDraftsPanel({
 
                           <section className="space-y-4 rounded-lg border border-zinc-800 p-4">
                             <div><h3 className="font-medium">Frete e transportadora <span className="text-xs font-normal text-amber-300">confirmar em cada nota</span></h3><p className="mt-1 text-xs text-zinc-500">Na modalidade 9 não há ocorrência de transporte e o grupo vol não é enviado.</p></div>
+                            {padraoTransportador?.nome && aceitaMemoria(draft) && !memoria?.campos.transportador_nome ? (
+                              <p className="rounded border border-sky-900/70 bg-sky-950/30 px-3 py-2 text-xs text-sky-200">
+                                Transportadora e modalidade vieram do cadastro de {clienteNome} ({padraoTransportador.nome}). Revise antes de emitir — a conferência continua sendo sua.
+                              </p>
+                            ) : null}
                             <div className="grid gap-3 md:grid-cols-4">
                               <label className={label}>Modalidade do frete<select className={field} value={operacao.modalidade_frete} onChange={(event) => setOperacao({ ...operacao, modalidade_frete: event.target.value })}><option value="">Confirme...</option><option value="0">0 · Emitente</option><option value="1">1 · Destinatário</option><option value="2">2 · Terceiros</option><option value="3">3 · Próprio emitente</option><option value="4">4 · Próprio destinatário</option><option value="9">9 · Sem frete</option></select></label>
                               <label className={label}>Frete (R$)<input required className={field} inputMode="decimal" value={operacao.valor_frete} onChange={(event) => setOperacao({ ...operacao, valor_frete: event.target.value })} placeholder="Digite 0 quando não houver" /></label>
