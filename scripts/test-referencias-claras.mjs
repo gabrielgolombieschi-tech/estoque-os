@@ -1,0 +1,31 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+import {diretorio} from "./lib/controle-revisoes.mjs";
+import {validarLiberacaoClara,planejarReferenciasClaras} from "./lib/referencias-claras.mjs";
+import {planejarCinquenta,conferirCinquenta} from "./lib/lotes-cinquenta.mjs";
+const ler=f=>JSON.parse(fs.readFileSync(`${diretorio}/${f}`,"utf8"));
+const m=ler("lote-011-cinquenta-itens.json"),l=ler("liberacao-011-referencias-claras.json"),a=ler("autorizacao-referencias-claras.json");
+assert.equal(validarLiberacaoClara(m,l,a).length,28);
+assert.throws(()=>validarLiberacaoClara(m,l,{...a,status:"aguardando"}));
+assert.throws(()=>validarLiberacaoClara(m,l,{...a,empresa_id:"outra"}));
+assert.throws(()=>validarLiberacaoClara(m,l,{...a,campos_permitidos:["nome","descricao","unidade"]}));
+assert.throws(()=>validarLiberacaoClara(m,{...l,assinatura_lote:"alterada"},a));
+for(const id of [776,944,1619,2535]) {
+ const liberacao={...l,ids_claros:[...l.ids_claros,id],retidos:l.retidos.filter(n=>n!==id)};
+ assert.throws(()=>validarLiberacaoClara(m,liberacao,a));
+}
+const atuais=m.itens.map(i=>l.ids_claros.includes(i.id)?{...i.antes,...i.depois}:i.antes);
+const plano=planejarCinquenta(m,atuais);
+assert.equal(plano.filter(p=>p.aplicado).length,28);
+assert.equal(plano.filter(p=>!p.aplicado).length,22);
+const primeiro=plano[0]; assert.throws(()=>conferirCinquenta(primeiro,{...primeiro.antes,...primeiro.depois,preco:999}));
+const retido=structuredClone(atuais); retido.find(i=>i.id===944).descricao="Concorrente";
+assert.throws(()=>planejarCinquenta(m,retido));
+const complemento=ler("lote-012-referencias-claras.json"),lc=ler("liberacao-012-referencias-claras.json");
+assert.equal(validarLiberacaoClara(complemento,lc,a).length,1);
+assert.equal(planejarReferenciasClaras(complemento,complemento.itens.map(i=>i.antes)).filter(p=>!p.aplicado).length,1);
+assert.ok(planejarReferenciasClaras(complemento,complemento.itens.map(i=>({...i.antes,...i.depois}))).every(p=>p.aplicado));
+assert.throws(()=>planejarReferenciasClaras(complemento,[]));
+const alterado=structuredClone(complemento);alterado.itens[0].depois.preco=123;
+assert.throws(()=>validarLiberacaoClara(alterado,lc,a));
+console.log("OK: autorização D-047 limitada a 28 claros, 22 retidos protegidos, escopo, hash, idempotência e concorrência. Nenhuma conexão nos testes.");

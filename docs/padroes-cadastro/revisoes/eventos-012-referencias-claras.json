@@ -1,0 +1,24 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 800,
+    "codigo": "LZS:PT5A5L24",
+    "nome": "RELÉ DE INTERFACE SIRIUS LZS COMPLETO ENCAIXÁVEL 4REV BOBINA 24VCC AC-15 4A EM 250VCA DC-13 4A EM 24VCC LED VERMELHO PARAFUSO",
+    "familia": "RELES_INTERFACE",
+    "criterio": "RELES_INTERFACE:1",
+    "lote": "012-referencias-claras",
+    "revisado_em": "2026-09-10T18:02:30.256Z",
+    "responsavel": "Codex: conferência técnica sob autorização condicional D-047, não aprovação humana individual",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-047",
+    "fontes": [
+      "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=LZS%3APT5A5L24"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "3114507bfaf83f658a8ec537a531bbb0f9c982e66442a471cd2fd4212931d4c5",
+    "backup": "backups/revisao-lotes/012-claros-2026-09-10T18-02-28-407Z.json",
+    "assinatura_lote": "ba2c2d9911c66faf716e4789d3783c1178ceaa603e3f767dc865827bfb4c8417"
+  }
+]

@@ -1,0 +1,61 @@
+import fs from "node:fs";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import yaml from "js-yaml";
+import { diretorio,criterios } from "./lib/controle-revisoes.mjs";
+import { ids003,ids004,ids005,ids006,ids007,ids008,ids009,ids010,grupos010,validarCinquenta,exigirAutorizacao,planejarCinquenta,conferirCinquenta,assinatura } from "./lib/lotes-cinquenta.mjs";
+const m=JSON.parse(fs.readFileSync(`${diretorio}/lote-010-cinquenta-itens.json`,"utf8"));
+validarCinquenta(m);
+assert.equal(assinatura(m),"6b82344ea80f3e00a8c260b5e4866879cc3850a5aeba56c8b6b32d904d4d2276");
+assert.equal(new Set([...ids003,...ids004,...ids005,...ids006,...ids007,...ids008,...ids009,...ids010]).size,400);
+const a9=JSON.parse(fs.readFileSync(`${diretorio}/aprovacao-009.json`,"utf8"));
+const a10=JSON.parse(fs.readFileSync(`${diretorio}/aprovacao-010.json`,"utf8"));
+exigirAutorizacao(m,a10);
+assert.throws(()=>exigirAutorizacao(m),/aprovação humana registrada/);
+assert.throws(()=>exigirAutorizacao(m,a9));
+assert.throws(()=>exigirAutorizacao({...m,autorizacao:"aprovado"},a10),/Proposta mudou/);
+assert.throws(()=>exigirAutorizacao(m,{...a10,tenant_id:"outro"}));
+assert.throws(()=>exigirAutorizacao(m,{...a10,status:"pendente"}));
+// Testes são locais: nunca executar --apply de lote aprovado.
+const atuais=m.itens.map(i=>i.antes);
+const plano=planejarCinquenta(m,atuais);
+assert.ok(plano.every(p=>!p.aplicado));
+assert.ok(planejarCinquenta(m,m.itens.map(i=>({...i.antes,...i.depois}))).every(p=>p.aplicado));
+for(const c of ["empresa_id","tenant_id","grupo_id","ativo","unidade_medida","fator_conversao_estoque","descricao"]) {
+  const mudados=structuredClone(atuais); mudados[0][c]=c==="ativo"?false:"divergente";
+  assert.throws(()=>planejarCinquenta(m,mudados));
+}
+assert.throws(()=>conferirCinquenta(plano[0],{...plano[0].antes,...plano[0].depois,preco:999}));
+const eventos=fs.readdirSync(diretorio).filter(f=>/^eventos-.*\.json$/.test(f)).flatMap(f=>JSON.parse(fs.readFileSync(`${diretorio}/${f}`,"utf8")));
+for(const i of m.itens) {
+  assert.ok(!eventos.some(e=>e.item_id===i.id && e.lote!==m.lote));
+  assert.equal(createHash("sha256").update(fs.readFileSync(i.evidencia.arquivo)).digest("hex"),i.evidencia.sha256);
+  const prefixo=i.evidencia.arquivo.slice(0,-4),texto=fs.readFileSync(`${prefixo}.txt`,"utf8");
+  assert.ok(texto.includes(i.referencia));
+  for(const p of i.evidencia.paginas) assert.ok(fs.existsSync(`${prefixo}-p${p}.png`));
+  assert.ok(i.depois.descricao.includes(i.antes.nome));
+  if(i.antes.descricao) assert.ok(i.depois.descricao.includes(i.antes.descricao));
+}
+for(const f of Object.keys(grupos010)) assert.equal(criterios[f],`${f}:1`);
+const item=id=>m.itens.find(i=>i.id===id);
+assert.match(item(1695).antes.nome,/220VCA\/CC/);
+assert.match(item(1695).nome,/24VCA\/CC/);
+assert.match(item(215).descricao_tecnica,/PARCIAL/);
+assert.equal(item(215).atributos_nao_confirmados.length,1);
+assert.match(item(967).nome,/RETENTIVO/);
+assert.match(item(3566).nome,/MOMENTÂNEO/);
+assert.match(item(834).nome,/SEM LED E CONTATOS/);
+assert.match(item(2139).nome,/2NF.*PLACA AMARELA/);
+assert.match(item(2454).descricao_tecnica,/não significam comutar 250mA em 100V/);
+assert.match(item(3567).nome,/2000N ISO14119/);
+assert.match(item(1690).nome,/5 CADEADOS/);
+const relatorio=fs.readFileSync(`${diretorio}/lote-010-cinquenta-itens.md`,"utf8");
+assert.equal(relatorio.split("\n").filter(l=>/^\| \d+ \|/.test(l)).length,50);
+assert.match(relatorio,/APLICADO E VERIFICADO|AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO/);
+const catalogo=yaml.load(fs.readFileSync("docs/padroes-cadastro/catalogo-paineis-eletricos.yaml","utf8"));
+assert.equal(catalogo.versao_padrao,"1.35.0");
+assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-045").length,1);
+assert.match(catalogo.regras_cadastro_assistido.sensores_e_seguranca_confirmados_lote_009.ressalvas,/1708.*438/);
+assert.equal(catalogo.historico_decisoes.filter(d=>d.id==="D-046").length,1);
+assert.match(catalogo.regras_cadastro_assistido.comandos_painel_confirmados_lote_010.ressalvas,/215/);
+console.log("OK: lote 010 aprovado por assinatura exata, 400 IDs distintos, PDFs íntegros, concorrência, campos protegidos e ressalvas.");

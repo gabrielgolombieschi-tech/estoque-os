@@ -1,0 +1,740 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "gerado_em": "2026-09-10T18:04:58.293Z",
+  "base": "backups/base-revisao/2026-09-10T18-04-42-805Z.json",
+  "aplicados_nesta_rodada": 29,
+  "total_excecoes": 36,
+  "itens": [
+    {
+      "id": 240,
+      "codigo": "8WH60000AM00",
+      "nome_atual": "Borne plug-in de passagem 35mm²",
+      "motivo": "Material isolante não identificado; largura não conciliada com o passo da tabela.",
+      "necessario": "Catálogo/desenho dimensional e polímero da referência exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AM00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/240.pdf",
+        "documento": "Ficha oficial Siemens 8WH6000-0AM00",
+        "paginas": [
+          1
+        ],
+        "sha256": "98937dee37d7b9524b27bde8c233ca488c86e8e9ffcd3550443bb584c18d49ea",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AM00",
+        "consultado_em": "2026-09-10T13:17:21.391Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 256,
+      "codigo": "3SE50000AV071AK2",
+      "nome_atual": "ATUADOR RADIAL UNIVERSAL AJUSTÁVEL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO 67mm",
+      "motivo": "Material do atuador não confirmado.",
+      "necessario": "Ficha ou confirmação do fabricante sobre material da versão de 67mm.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV071AK2"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/256.pdf",
+        "documento": "Ficha oficial Siemens 3SE5000-0AV07-1AK2",
+        "paginas": [
+          1
+        ],
+        "sha256": "2d9280a7c7fe93e07ab8bb50dbc0788ea0f477febda55c71fb40d54aeb571a64",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV071AK2",
+        "consultado_em": "2026-09-10T13:17:23.710Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 346,
+      "codigo": "3SE50000AV07",
+      "nome_atual": "ATUADOR RADIAL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO",
+      "motivo": "Material do atuador não confirmado.",
+      "necessario": "Ficha ou confirmação do fabricante sobre material da versão de 77mm.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV07"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/346.pdf",
+        "documento": "Ficha oficial Siemens 3SE5000-0AV07",
+        "paginas": [
+          1
+        ],
+        "sha256": "e3129e0c1d1182bbdb48b86cd6f6460d9f4b3f4ae97c672fe1b9797c7f44f2a3",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV07",
+        "consultado_em": "2026-09-10T13:17:24.166Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 735,
+      "codigo": "3RA19211DA00",
+      "nome_atual": "CONEXAO 3RV S00S0 C 3RT S00 PARAFUSO",
+      "motivo": "Tipo de conexão do histórico não explícito na ficha consultada.",
+      "necessario": "Documento que confirme os terminais e a combinação disjuntor/contator.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA19211DA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/735.pdf",
+        "documento": "Ficha oficial Siemens 3RA1921-1DA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "aa57f05573ebe1350e68e6e5c3a14912e18db61d41ec98a5952786f2c2e9e4ef",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA19211DA00",
+        "consultado_em": "2026-09-10T13:17:23.389Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 776,
+      "codigo": "3RA29211BA00",
+      "nome_atual": "CONEXAO 3RV S00S0 C 3RT S0 CC PARAFUSO",
+      "motivo": "Resumo inclui CA/CC e outros dispositivos; tabela limita a bobina a CC.",
+      "necessario": "Compatibilidade exata por versão de contator e bobina.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA29211BA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/776.pdf",
+        "documento": "Ficha oficial Siemens 3RA2921-1BA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "2d938f623994e6c1cf615df185b4b5d6e8dba0874c590b2b1ed13a052795fe65",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA29211BA00",
+        "consultado_em": "2026-09-10T13:17:26.184Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 824,
+      "codigo": "3RQ39010D",
+      "nome_atual": "PENTE DE CONEXÃO 16 POLOS PARA RELÉS DE INTERFACE",
+      "motivo": "Tensão e material do pente de interface ausentes.",
+      "necessario": "Ficha completa da referência, com limites elétricos e material.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RQ39010D"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/824.pdf",
+        "documento": "Ficha oficial Siemens 3RQ3901-0D",
+        "paginas": [
+          1
+        ],
+        "sha256": "032b65afe56fd8a04c1784fd7d72b32fe532159268dbf3fc7551ae483d015df3",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RQ39010D",
+        "consultado_em": "2026-09-10T13:17:38.175Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 944,
+      "codigo": "8WH60000AF00",
+      "nome_atual": "Borne plug-in de passagem 2 condutores 2,5mm²",
+      "motivo": "Faixa de condutor encordoado invertida na tabela; polímero não identificado.",
+      "necessario": "Correção do fabricante ou manual exato com seção por tipo de condutor.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AF00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/944.pdf",
+        "documento": "Ficha oficial Siemens 8WH6000-0AF00",
+        "paginas": [
+          1
+        ],
+        "sha256": "30db77ded32c065875a8d103d2e5b022d6ea2a2ae72317339b7f4f8cd506561b",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AF00",
+        "consultado_em": "2026-09-10T13:17:43.095Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 957,
+      "codigo": "3RA19111AA00",
+      "nome_atual": "CONEXAO 3RV S00 C/ 3RT S00 AC/DC (1UNID)",
+      "motivo": "Resumo e tabela indicam gerações diferentes de contatores compatíveis.",
+      "necessario": "Manual que identifique exatamente as referências compatíveis.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA19111AA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/957.pdf",
+        "documento": "Ficha oficial Siemens 3RA1911-1AA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "e7808247aceee5c3a6de819e6aa612f1a177bf1990e0f1a644a500d14d87563e",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RA19111AA00",
+        "consultado_em": "2026-09-10T13:17:43.375Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 977,
+      "codigo": "8WH60000AG00",
+      "nome_atual": "Borne plug-in de passagem 2 condutores 4mm²",
+      "motivo": "Polímero e largura dimensional não confirmados.",
+      "necessario": "Ficha/desenho com material e largura, sem confundir seção com passo.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AG00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/977.pdf",
+        "documento": "Ficha oficial Siemens 8WH6000-0AG00",
+        "paginas": [
+          1
+        ],
+        "sha256": "acbb1a4403e92641ac53250e8858c1ecc52308d8ff0f9b0c95d2f6aca75024ff",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000AG00",
+        "consultado_em": "2026-09-10T13:17:43.927Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 978,
+      "codigo": "8WH90031GA00",
+      "nome_atual": "Tampa final para borne 4mm²",
+      "motivo": "Polímero e referência exata do borne compatível não confirmados.",
+      "necessario": "Lista oficial de compatibilidade da tampa e material.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90031GA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/978.pdf",
+        "documento": "Ficha oficial Siemens 8WH9003-1GA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "f270c87e8899e8cdfe4db0eed43e412537f5df97c0383b623f72211d4e79aaa5",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90031GA00",
+        "consultado_em": "2026-09-10T13:17:45.149Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1088,
+      "codigo": "6SL32550AA004CA1",
+      "nome_atual": "PAINEL DE OPERAÇÃO BOP-2 PARA INVERSOR SINAMICS G120",
+      "motivo": "Compatibilidade G120 e composição do kit não confirmadas na ficha resumida.",
+      "necessario": "Manual do BOP-2 e lista de fornecimento/montagem da referência.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6SL32550AA004CA1"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/1088.pdf",
+        "documento": "Ficha oficial Siemens 6SL3255-0AA00-4CA1",
+        "paginas": [
+          1
+        ],
+        "sha256": "7b25700e6b4ccf164d7dc3f3a241b1a1e59493714c5349cb5ec2d3f992b7890a",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6SL32550AA004CA1",
+        "consultado_em": "2026-09-10T13:18:43.973Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1615,
+      "codigo": "8WH90001GA00",
+      "nome_atual": "Tampa final para borne 2,5mm²",
+      "motivo": "Polímero e referência exata do borne compatível não confirmados.",
+      "necessario": "Lista oficial de compatibilidade da tampa e material.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90001GA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/1615.pdf",
+        "documento": "Ficha oficial Siemens 8WH9000-1GA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "414e9680228775674a7fb72e490170fee88437df048eaba5435f94614a07fcdf",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90001GA00",
+        "consultado_em": "2026-09-10T13:17:46.839Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1616,
+      "codigo": "8WH60000CF07",
+      "nome_atual": "Borne plug-in de proteção 2 condutores 2,5mm²",
+      "motivo": "Limites de condutor encordoado invertidos na tabela.",
+      "necessario": "Manual ou correção do fabricante. Não transformar PE em PEN.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000CF07"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/1616.pdf",
+        "documento": "Ficha oficial Siemens 8WH6000-0CF07",
+        "paginas": [
+          1
+        ],
+        "sha256": "d2e97976938268a4fc78ef789f69dc5d2ea8a0d122a08679d3ab28eb31eca6b8",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH60000CF07",
+        "consultado_em": "2026-09-10T13:17:49.280Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1618,
+      "codigo": "8WH90206BL10",
+      "nome_atual": "Pente de ligação para bornes 10 polos 2,5mm²",
+      "motivo": "Cor conflitante; seção histórica, material e limites elétricos não confirmados.",
+      "necessario": "Ficha/catálogo exato que esclareça a cor, compatibilidade e limites.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90206BL10"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/1618.pdf",
+        "documento": "Ficha oficial Siemens 8WH9020-6BL10",
+        "paginas": [
+          1
+        ],
+        "sha256": "66c2bd3289147ee19f9d230d9a5b98c81342ab36d6194325cf9bbe8e323fbcd8",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WH90206BL10",
+        "consultado_em": "2026-09-10T13:17:48.173Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1619,
+      "codigo": "3RQ30551SM30",
+      "nome_atual": "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24VCC SAÍDA 30VCC 5A CONEXÃO POR PARAFUSO",
+      "motivo": "Resumo/corrente térmica indicam 5A; faixa da saída informa apenas 5mA, sem máximo.",
+      "necessario": "Tabela oficial completa de corrente da saída e condições de carga.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RQ30551SM30"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/1619.pdf",
+        "documento": "Ficha oficial Siemens 3RQ3055-1SM30",
+        "paginas": [
+          1,
+          2
+        ],
+        "sha256": "1ccb089bfbd25f1e5bef8a4905e6b40311544f959a041ebadffd9f06e0c546a4",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3RQ30551SM30",
+        "consultado_em": "2026-09-10T13:17:48.961Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1623,
+      "codigo": "6EP41363AB000AY0",
+      "nome_atual": "UPS CC 24VCC 20A",
+      "motivo": "Fornecimento de bateria e fonte externa não confirmado.",
+      "necessario": "Composição da compra ou lista oficial de fornecimento; não presumir UPS completo.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6EP41363AB000AY0"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/1623.pdf",
+        "documento": "Ficha oficial Siemens 6EP4136-3AB00-0AY0",
+        "paginas": [
+          1,
+          2
+        ],
+        "sha256": "899dcce857edc37ad51d146a7a9325c8bc28d5ef78c6b3ec7e03199e841e3241",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6EP41363AB000AY0",
+        "consultado_em": "2026-09-10T13:18:47.518Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2450,
+      "codigo": "3SE50000AV04",
+      "nome_atual": "ATUADOR RADIAL ESQUERDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
+      "motivo": "Material e comprimento do atuador não confirmados.",
+      "necessario": "Desenho e material da referência exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV04"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2450.pdf",
+        "documento": "Ficha oficial Siemens 3SE5000-0AV04",
+        "paginas": [
+          1
+        ],
+        "sha256": "e7e22ff5604f30a75f2588a0fd00506bd6887c7dc54632ca70c2ee4abf306637",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV04",
+        "consultado_em": "2026-09-10T13:17:51.262Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2455,
+      "codigo": "3SE50000AV01",
+      "nome_atual": "ATUADOR PADRÃO EM ZINCO FUNDIDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
+      "motivo": "Comprimento do atuador não confirmado.",
+      "necessario": "Desenho dimensional da referência exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV01"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2455.pdf",
+        "documento": "Ficha oficial Siemens 3SE5000-0AV01",
+        "paginas": [
+          1
+        ],
+        "sha256": "688bc53ee533f3876d1275cd4d59df6a2dde270f8330714ae5c1fa26f3c257bb",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3SE50000AV01",
+        "consultado_em": "2026-09-10T13:17:51.530Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2535,
+      "codigo": "6GK19011BB102AE0",
+      "nome_atual": "Conector RJ45 macho blindado 4 polos para rede industrial",
+      "motivo": "Ficha indica embalagem com 50 peças; relação com a unidade comercial do ERP é desconhecida.",
+      "necessario": "Documento de compra e conferência da unidade. Nenhum fator será alterado nesta revisão.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6GK19011BB102AE0"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2535.pdf",
+        "documento": "Ficha oficial Siemens 6GK1901-1BB10-2AE0",
+        "paginas": [
+          1
+        ],
+        "sha256": "50d4f50af0c8e98d2584427a4e432865341f25ece0aafd62ac743b9dd0e5218e",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6GK19011BB102AE0",
+        "consultado_em": "2026-09-10T13:18:50.044Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2641,
+      "codigo": "3ZY1212-1BA00",
+      "nome_atual": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 17,5mm",
+      "motivo": "Limites elétricos ausentes; código coincide após normalização com ID 2698.",
+      "necessario": "Ficha completa e conferência cadastral da dupla; não fundir registros.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12121BA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2641.pdf",
+        "documento": "Ficha oficial Siemens 3ZY1212-1BA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "893904a02299469e724093335e8f6716c15c126d63e4b5f9db53c0ecba9bdec2",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12121BA00",
+        "consultado_em": "2026-09-10T13:17:52.948Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2642,
+      "codigo": "3ZY1212-2DA00",
+      "nome_atual": "CONECTOR DE TERMINAÇÃO PARA RELÉ DE SEGURANÇA 22,5mm",
+      "motivo": "Limites elétricos ausentes; código coincide após normalização com ID 2699.",
+      "necessario": "Ficha completa e conferência cadastral da dupla; não fundir registros.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122DA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2642.pdf",
+        "documento": "Ficha oficial Siemens 3ZY1212-2DA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "788caade419628a9e94d04fdb251c4928a2cc0f4b3923fe6a05813524f2b0316",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122DA00",
+        "consultado_em": "2026-09-10T13:17:53.514Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2643,
+      "codigo": "3ZY1212-2BA00",
+      "nome_atual": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 22,5mm",
+      "motivo": "Limites elétricos ausentes; código coincide após normalização com ID 2700.",
+      "necessario": "Ficha completa e conferência cadastral da dupla; não fundir registros.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122BA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2643.pdf",
+        "documento": "Ficha oficial Siemens 3ZY1212-2BA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "6d313c9ea711d3a401a3e0d5756dfed4712175c4c36ce3c888ebc31c463a103c",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122BA00",
+        "consultado_em": "2026-09-10T13:17:52.653Z"
+      },
+      "origem": "011-retido",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 242,
+      "codigo": "8WA1206",
+      "nome_atual": "Borne de passagem 70mm²",
+      "motivo": "Ficha oficial indisponível (HTTP 404); identidade técnica não reconfirmada.",
+      "necessario": "Catálogo histórico ou ficha do fabricante para o código exato.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WA1206"
+      ],
+      "evidencia": null,
+      "origem": "pesquisa-adiada-011",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1583,
+      "codigo": "8WA1897",
+      "nome_atual": "Pente de ligação para bornes 4 polos 2,5mm²",
+      "motivo": "Ficha oficial indisponível (HTTP 404); identidade técnica não reconfirmada.",
+      "necessario": "Catálogo histórico ou ficha do fabricante para o código exato.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WA1897"
+      ],
+      "evidencia": null,
+      "origem": "pesquisa-adiada-011",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1585,
+      "codigo": "8WA1896",
+      "nome_atual": "Pente de ligação para bornes 3 polos 2,5mm²",
+      "motivo": "Ficha oficial indisponível (HTTP 404); identidade técnica não reconfirmada.",
+      "necessario": "Catálogo histórico ou ficha do fabricante para o código exato.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WA1896"
+      ],
+      "evidencia": null,
+      "origem": "pesquisa-adiada-011",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1586,
+      "codigo": "8WA1895",
+      "nome_atual": "Pente de ligação para bornes 2 polos 2,5mm²",
+      "motivo": "Ficha oficial indisponível (HTTP 404); identidade técnica não reconfirmada.",
+      "necessario": "Catálogo histórico ou ficha do fabricante para o código exato.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WA1895"
+      ],
+      "evidencia": null,
+      "origem": "pesquisa-adiada-011",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1588,
+      "codigo": "8WA1838",
+      "nome_atual": "Pente de ligação para bornes 10 polos 2 andares 2,5mm²",
+      "motivo": "Ficha oficial indisponível (HTTP 404); identidade técnica não reconfirmada.",
+      "necessario": "Catálogo histórico ou ficha do fabricante para o código exato.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=8WA1838"
+      ],
+      "evidencia": null,
+      "origem": "pesquisa-adiada-011",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 769,
+      "codigo": "A7B10001339607",
+      "nome_atual": "Relé de monitoramento de fase para falta e sequência de fase 220-440VCA",
+      "motivo": "Código A7B não retornou ficha oficial. Correspondência com código técnico não confirmada pelo fabricante.",
+      "necessario": "Catálogo Siemens ou etiqueta que vincule o código A7B à referência técnica exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10001339607"
+      ],
+      "evidencia": {
+        "id": 769,
+        "codigo": "A7B10001339607",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10001339607",
+        "erro": "HTTP 404",
+        "consultado_em": "2026-09-10T17:57:41.762Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1580,
+      "codigo": "A7B10000050705",
+      "nome_atual": "Borne de proteção PE 6mm²",
+      "motivo": "Código A7B não retornou ficha oficial. Correspondência com código técnico não confirmada pelo fabricante.",
+      "necessario": "Catálogo Siemens ou etiqueta que vincule o código A7B à referência técnica exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050705"
+      ],
+      "evidencia": {
+        "id": 1580,
+        "codigo": "A7B10000050705",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050705",
+        "erro": "HTTP 404",
+        "consultado_em": "2026-09-10T17:57:44.241Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1581,
+      "codigo": "A7B10000050703",
+      "nome_atual": "Borne de proteção 2,5mm²",
+      "motivo": "Código A7B não retornou ficha oficial. Correspondência com código técnico não confirmada pelo fabricante.",
+      "necessario": "Catálogo Siemens ou etiqueta que vincule o código A7B à referência técnica exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050703"
+      ],
+      "evidencia": {
+        "id": 1581,
+        "codigo": "A7B10000050703",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050703",
+        "erro": "HTTP 404",
+        "consultado_em": "2026-09-10T17:57:45.802Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1584,
+      "codigo": "A7B10000050721",
+      "nome_atual": "Pente de ligação para bornes 10 polos 2,5mm²",
+      "motivo": "Código A7B não retornou ficha oficial. Correspondência com código técnico não confirmada pelo fabricante.",
+      "necessario": "Catálogo Siemens ou etiqueta que vincule o código A7B à referência técnica exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050721"
+      ],
+      "evidencia": {
+        "id": 1584,
+        "codigo": "A7B10000050721",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050721",
+        "erro": "HTTP 404",
+        "consultado_em": "2026-09-10T17:57:47.465Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 1587,
+      "codigo": "A7B10000050722",
+      "nome_atual": "Pente de ligação para bornes 10 polos 4mm²",
+      "motivo": "Código A7B não retornou ficha oficial. Correspondência com código técnico não confirmada pelo fabricante.",
+      "necessario": "Catálogo Siemens ou etiqueta que vincule o código A7B à referência técnica exata.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050722"
+      ],
+      "evidencia": {
+        "id": 1587,
+        "codigo": "A7B10000050722",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=A7B10000050722",
+        "erro": "HTTP 404",
+        "consultado_em": "2026-09-10T17:57:48.795Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 447,
+      "codigo": "LZS:PT17040",
+      "nome_atual": "Placa de identificação para relé de interface",
+      "motivo": "Resumo informa placa de 26mm; tabela informa largura de 26,5mm. Material não confirmado.",
+      "necessario": "Desenho/medição identificada e confirmação do material, distinguindo dimensão nominal e física.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=LZS%3APT17040"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-complemento-paineis/447.pdf",
+        "paginas": [
+          1
+        ]
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2698,
+      "codigo": "3ZY12121BA00",
+      "nome_atual": "BASE PARA RELÉ DE SEGURANÇA 17,5mm",
+      "motivo": "Mesma referência normalizada do ID 2641; ficha resumida não informa limites elétricos.",
+      "necessario": "Conferência cadastral da dupla 2641/2698 e ficha completa; não fundir registros.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12121BA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2641.pdf",
+        "documento": "Ficha oficial Siemens 3ZY1212-1BA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "893904a02299469e724093335e8f6716c15c126d63e4b5f9db53c0ecba9bdec2",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12121BA00",
+        "consultado_em": "2026-09-10T13:17:52.948Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2699,
+      "codigo": "3ZY12122DA00",
+      "nome_atual": "BASE DE TERMINAÇÃO PARA RELÉ DE SEGURANÇA 22,5mm",
+      "motivo": "Mesma referência normalizada do ID 2642; ficha resumida não informa limites elétricos.",
+      "necessario": "Conferência cadastral da dupla 2642/2699 e ficha completa; não fundir registros.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122DA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2642.pdf",
+        "documento": "Ficha oficial Siemens 3ZY1212-2DA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "788caade419628a9e94d04fdb251c4928a2cc0f4b3923fe6a05813524f2b0316",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122DA00",
+        "consultado_em": "2026-09-10T13:17:53.514Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    },
+    {
+      "id": 2700,
+      "codigo": "3ZY12122BA00",
+      "nome_atual": "BASE PARA RELÉ DE SEGURANÇA 22,5mm",
+      "motivo": "Mesma referência normalizada do ID 2643; ficha resumida não informa limites elétricos.",
+      "necessario": "Conferência cadastral da dupla 2643/2700 e ficha completa; não fundir registros.",
+      "fontes": [
+        "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122BA00"
+      ],
+      "evidencia": {
+        "arquivo": "backups/fontes-lote-011/2643.pdf",
+        "documento": "Ficha oficial Siemens 3ZY1212-2BA00",
+        "paginas": [
+          1
+        ],
+        "sha256": "6d313c9ea711d3a401a3e0d5756dfed4712175c4c36ce3c888ebc31c463a103c",
+        "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=3ZY12122BA00",
+        "consultado_em": "2026-09-10T13:17:52.653Z"
+      },
+      "origem": "complemento-siemens",
+      "status": "aguardando_esclarecimento_tecnico"
+    }
+  ]
+}

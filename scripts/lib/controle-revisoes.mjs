@@ -8,10 +8,23 @@ export const diretorio = "docs/padroes-cadastro/revisoes";
 // D-042: critérios ativos após aprovação do lote 006; manifesto histórico não é reescrito.
 export const familiasNovas006 = ["DISJUNTORES_CAIXA_MOLDADA","ACESSORIOS_CAIXA_MOLDADA","DISJUNTORES_ABERTOS","DISJUNTORES_PARTIDA_MAGNETICOS","BASES_FUSIVEIS_NH","FUSIVEIS_NH","SECCIONADORAS_FUSIVEIS","ACESSORIOS_RELES","SECCIONADORAS","ACESSORIOS_SECCIONADORAS"];
 for (const familia of familiasNovas006) criterios[familia] = `${familia}:1`;
+// D-043: aprovação específica do lote 007, sem reescrever seu manifesto congelado.
+for (const familia of ["CONTATORES_CAPACITORES", "CONTATORES_SEGURANCA"]) criterios[familia] = `${familia}:1`;
+// D-044: critérios aprovados especificamente no lote 008.
+for (const familia of ["CLPS", "MODULOS_DIGITAIS_CLP", "MODULOS_ANALOGICOS_CLP", "MODULOS_SEGURANCA_CLP", "INTERFACES_REMOTAS_CLP", "ACESSORIOS_CLP", "MODULOS_COMUNICACAO_CLP", "IHMS_CLP", "PESAGEM_CLP"]) criterios[familia] = `${familia}:1`;
 export function validarEscopo(registro) {
   assert.equal(registro.tenant_id, tenantId, "Tenant divergente");
   assert.equal(registro.empresa_id, empresaId, "Empresa divergente");
 }
+
+// D-045: critérios do lote SICK 009 aprovado em 10/09/2026; ressalvas preservadas.
+for (const familia of ["CHAVES_SEGURANCA","ATUADORES_CHAVES_SEGURANCA","ACESSORIOS_CHAVES_SEGURANCA","MODULOS_SEGURANCA_MODULARES","SENSORES_FOTOELETRICOS","SENSORES_INDUTIVOS","SENSORES_TIPO_GARFO","CABOS_PARA_SENSORES","ACESSORIOS_PARA_SENSORES","SENSORES_NIVEL","SENSORES_ULTRASSONICOS","SENSORES_FLUXO","SENSORES_TEMPERATURA","SENSORES_PRESSAO","ENCODERS","CORTINAS_LUZ_SEGURANCA","ACESSORIOS_CORTINAS_LUZ","CONTROLADORES_SEGURANCA","DISPOSITIVOS_HABILITACAO"]) criterios[familia] = `${familia}:1`;
+
+// D-046: famílias dos 50 itens Siemens do lote 010 aprovado; ressalva 215 preservada.
+for (const familia of ["PULSADORES","BOTOES_EMERGENCIA","SELETORES","BOTOEIRAS_CAIXAS","SINALEIROS","BLOCOS_CONTATO","MODULOS_LED","ACESSORIOS_BOTOES"]) criterios[familia] = `${familia}:1`;
+
+// D-047: somente famílias com itens claros liberados sob autorização condicional.
+for (const familia of ["INTERRUPTORES_DR","CONEXOES_PARTIDA","FONTES_ALIMENTACAO","RELES_INTERFACE","RELES_MONITORAMENTO"]) criterios[familia] = `${familia}:1`;
 
 // Não reabrir revisão por preço, saldo, atividade ou timestamp administrativo.
 // Inclui todos os campos de unidade/conversão existentes, sem presumir seu nome.

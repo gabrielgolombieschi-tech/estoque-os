@@ -1,0 +1,15 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-09",
+  "lote": "008-cinquenta-itens",
+  "itens": [
+    {
+      "id": 2461,
+      "codigo": "6GK75421AX000XE0",
+      "motivo": "Consulta da ficha técnica exata retornou HTTP 404; dados insuficientes para proposta segura nesta rodada.",
+      "url": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs=6GK75421AX000XE0",
+      "acao": "Manter cadastro sem alteração. Confirmar referência pela placa/documento de compra e buscar nova fonte oficial. HTTP 404 não comprova inexistência do produto. Não repetir a mesma consulta sem nova evidência."
+    }
+  ]
+}

@@ -1,16 +1,16 @@
 # Lote 007 — 50 itens
 
-AGUARDANDO SUA APROVAÇÃO — NÃO APLICADO
+APLICADO E VERIFICADO
 
 Data da revisão: 2026-09-09. Escopo: tenant 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa f0e74f49-a127-46b4-901b-f7b37e43c690.
 
-49 WEG + 1 Schneider, todos com grupo: 10 disjuntores em caixa moldada, 11 disjuntores-motor, 5 contatores de motor, 1 contator para segurança, 2 contatores para capacitores, 7 seccionadoras, 1 seccionadora porta-fusível, 5 acessórios de disjuntor-motor, 1 manopla de disjuntor, 2 auxiliares de contator, 2 relés de sobrecarga, 2 fusíveis NH e 1 minidisjuntor. Alterações somente em nome e descrição complementar. A tabela é uma proposta: nenhum destes 50 foi alterado por este lote.
+49 WEG + 1 Schneider, todos com grupo: 10 disjuntores em caixa moldada, 11 disjuntores-motor, 5 contatores de motor, 1 contator para segurança, 2 contatores para capacitores, 7 seccionadoras, 1 seccionadora porta-fusível, 5 acessórios de disjuntor-motor, 1 manopla de disjuntor, 2 auxiliares de contator, 2 relés de sobrecarga, 2 fusíveis NH e 1 minidisjuntor. Alterações somente em nome e descrição complementar. Todos os 50 foram aplicados e verificados.
 
 Grupo, código, fabricante, fornecedor, unidades, multiplicadores, preço, saldo e dados fiscais permanecem iguais. Cada comparação usa o cadastro real capturado, não um exemplo inventado.
 
-Para aprovar: informe “aprovo o lote 007” ou indique os IDs e ajustes desejados. Antes de aplicar, reconferir alterações concorrentes; este relatório não autoriza lotes seguintes. A ficha atual não substitui a conferência da placa/versão física para dimensionamento.
+As fontes técnicas e os registros de aplicação estão vinculados por ID. A ficha não substitui a conferência da placa/versão do item físico para dimensionamento.
 
-## Atenção antes de aprovar
+## Ressalvas preservadas na aplicação
 
 - ID 3324: identificado como disjuntor para GERADOR, ajustes térmico 280-400A e magnético 1000-2000A. Não é disjuntor genérico 440V.
 - IDs 3213/3408: a corrente AC-6b a 55°C é 40A/28A, não 32A/25A do número do modelo; nome usa potência reativa 25kvar/20kvar em 380-415VCA a 55°C.
@@ -20,11 +20,11 @@ Para aprovar: informe “aprovo o lote 007” ou indique os IDs e ajustes deseja
 - ID 636: Icu 20kA em 220-240VCA, não Icn. Descontinuação comercial não altera atividade ou código no ERP. ID 2359 mantém grupo 38; não há reclassificação neste lote.
 - Fora do lote: IDs 1872/1873/1883 (documentação da versão antiga), 2351/2523 (referência da manopla) e 3329 (identidade exata do código do contator para capacitores ainda não confirmada).
 
-Nenhum dos 50 foi aplicado. As novas regras específicas de CWBC/CWBS são propostas, não modelos humanos aprovados.
+Lote aprovado, aplicado e verificado: 50 itens. Regras específicas de CWBC/CWBS incorporadas ao padrão do agente na decisão D-043, versão 1.31.0. Aprovação da redação não certifica os atributos ausentes; ID 1884 continua parcial. O manifesto original permanece congelado, e os eventos usam os critérios ativos.
 
 ## Antes e depois dos 50
 
-| Nº | ID / código | Antes | Depois proposto |
+| Nº | ID / código | Antes | Depois aplicado |
 | ---: | --- | --- | --- |
 | 1 | 949<br>14256868 | DISJUNTOR CAIXA MOLDADA 3P 800A | DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 800A ICU 35kA EM 400VCA DWP800L-800-3 |
 | 2 | 970<br>14256843 | DISJUNTOR CAIXA MOLDADA 3P 400A | DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 400A ICU 35kA EM 400VCA DWP400L-400-3 |
@@ -617,4 +617,4 @@ Assinatura SHA-256 do manifesto: 02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad
 
 Manifesto: lote-007-cinquenta-itens.json.
 
-Eventos de aplicação confirmados: 0.
+Eventos de aplicação confirmados: 50.

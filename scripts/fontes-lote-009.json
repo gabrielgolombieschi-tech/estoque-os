@@ -1,0 +1,324 @@
+[
+  {
+    "id": 347,
+    "c": "1044448",
+    "url": "https://www.sick.com/media/pdf/5/95/495/dataSheet_IME12-04BPSZW5K_1044448_en.pdf"
+  },
+  {
+    "id": 348,
+    "c": "1085351",
+    "url": "https://www.sick.com/media/pdf/5/75/375/dataSheet_FLX3-CPUC200_1085351_en.pdf"
+  },
+  {
+    "id": 423,
+    "c": "2095653",
+    "busca": true,
+    "retry": true,
+    "url": "https://www.sick.com/media/pdf/7/17/317/dataSheet_YF2A18-050UA5XLEAX_2095653_en.pdf"
+  },
+  {
+    "id": 424,
+    "c": "2095617",
+    "url": "https://www.sick.com/media/pdf/2/62/262/dataSheet_YF2A15-020UB5XLEAX_2095617_en.pdf"
+  },
+  {
+    "id": 425,
+    "c": "1091946",
+    "url": "https://www.sick.com/media/pdf/3/53/453/dataSheet_IME2S12-04N4DC0_1091946_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 426,
+    "c": "5321176",
+    "busca": true,
+    "retry": true,
+    "url": "https://www.sick.com/media/docs/0/50/550/operating_instructions_tr110_lock_fr_im0086550.pdf",
+    "paginas": [],
+    "tipo_fonte": "manual oficial TR110 Lock, tabela de atuadores",
+    "arquivo": "426-manual"
+  },
+  {
+    "id": 427,
+    "c": "5334663",
+    "busca": true,
+    "retry": true,
+    "url": "https://www.sick.com/media/docs/0/50/550/operating_instructions_tr110_lock_fr_im0086550.pdf",
+    "paginas": [],
+    "tipo_fonte": "manual oficial TR110 Lock, tabela de atuadores",
+    "arquivo": "427-manual"
+  },
+  {
+    "id": 428,
+    "c": "6025077",
+    "url": "https://www.sick.com/media/pdf/8/88/588/dataSheet_i110-RP223_6025077_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 429,
+    "c": "5311138",
+    "url": "https://www.sick.com/media/pdf/3/53/353/dataSheet_iE110-P20_5311138_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 430,
+    "c": "2093097",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/3/43/843/dataSheet_SP2-2000_2093097_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 431,
+    "c": "2076832",
+    "busca": true,
+    "retry": true,
+    "url": "https://www.sick.com/media/pdf/4/44/244/dataSheet_SP1-1000_2076832_en.pdf"
+  },
+  {
+    "id": 433,
+    "c": "1220126",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/2/52/852/dataSheet_C4P-SA07531A00_1220126_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 434,
+    "c": "1220140",
+    "url": "https://www.sick.com/media/pdf/4/94/894/dataSheet_C4P-EA07531C00_1220140_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 435,
+    "c": "6037496",
+    "url": "https://www.sick.com/media/pdf/6/36/936/dataSheet_VL180-2P42436_6037496_en.pdf"
+  },
+  {
+    "id": 436,
+    "c": "1003865",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/3/73/673/dataSheet_PL80A_1003865_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 437,
+    "c": "1057091",
+    "url": "https://www.sick.com/media/pdf/0/20/220/dataSheet_LFP2000-A4NMB_1057091_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 438,
+    "c": "6053354",
+    "busca": true,
+    "retry": true,
+    "url": "https://www.sick.com/media/docs/0/70/370/product_information_lfv200_en_im0026370.pdf",
+    "tipo_fonte": "catálogo LFV200, linha exata do modelo",
+    "paginas": [
+      7,
+      11
+    ]
+  },
+  {
+    "id": 439,
+    "c": "1036721",
+    "url": "https://www.sick.com/media/pdf/0/50/050/dataSheet_DFS60B-S4PC10000_1036721_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 440,
+    "c": "2096236",
+    "busca": true,
+    "retry": true,
+    "url": "https://www.sick.com/media/pdf/9/59/259/dataSheet_YF2A14-100VB3XLEAX_2096236_en.pdf"
+  },
+  {
+    "id": 441,
+    "c": "2095619",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/5/65/265/dataSheet_YF2A15-100UB5XLEAX_2095619_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 442,
+    "c": "1041412",
+    "url": "https://www.sick.com/media/pdf/3/93/293/dataSheet_WTB12-3P2433_1041412_en.pdf"
+  },
+  {
+    "id": 863,
+    "c": "6022880",
+    "url": "https://www.sick.com/media/pdf/3/93/593/dataSheet_E100-B2A22S10A_6022880_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1124,
+    "c": "6026216",
+    "url": "https://www.sick.com/media/pdf/7/47/647/dataSheet_VT12T-2P430_6026216_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1699,
+    "c": "1211462",
+    "url": "https://www.sick.com/media/pdf/2/32/132/dataSheet_C4C-SA03030A10000_1211462_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1700,
+    "c": "1211493",
+    "url": "https://www.sick.com/media/pdf/9/59/159/dataSheet_C4C-EA04530A10000_1211493_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1701,
+    "c": "6041811",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/3/23/923/dataSheet_VTE180-2P42482_6041811_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 1702,
+    "c": "1058249",
+    "url": "https://www.sick.com/media/pdf/7/57/057/dataSheet_WSE4SL-3P2237_1058249_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1703,
+    "c": "6043870",
+    "url": "https://www.sick.com/media/pdf/3/63/763/dataSheet_VTB180-2P42412_6043870_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1704,
+    "c": "1211501",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/8/38/138/dataSheet_C4C-SA12030A10000_1211501_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 1705,
+    "c": "1211502",
+    "url": "https://www.sick.com/media/pdf/4/64/164/dataSheet_C4C-EA12030A10000_1211502_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1706,
+    "c": "1211492",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/3/33/133/dataSheet_C4C-SA04530A10000_1211492_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 1707,
+    "c": "1211464",
+    "url": "https://www.sick.com/media/pdf/8/58/158/dataSheet_C4C-EA03030A10000_1211464_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1708,
+    "c": "6042673",
+    "busca": true,
+    "retry": true,
+    "url": "https://pzip.ru/downloads/sick/6042673-PBT-CB010AGESE0AMA0Z.pdf?sku=6042673",
+    "tipo_fonte": "ficha de autoria SICK hospedada por terceiro; documento histórico",
+    "paginas": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": 1709,
+    "c": "1106555",
+    "url": "https://www.sick.com/media/pdf/9/09/409/dataSheet_WFE-050060B337_1106555_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1710,
+    "c": "1040779",
+    "url": "https://www.sick.com/media/pdf/1/11/511/dataSheet_IME12-08NPSZC0K_1040779_en.pdf"
+  },
+  {
+    "id": 1711,
+    "c": "1085354",
+    "url": "https://www.sick.com/media/pdf/7/77/377/dataSheet_FLX3-XTDO100_1085354_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1712,
+    "c": "6054712",
+    "url": "https://www.sick.com/media/pdf/7/47/747/dataSheet_UC30-214163_6054712_en.pdf"
+  },
+  {
+    "id": 1713,
+    "c": "1114954",
+    "url": "https://www.sick.com/media/pdf/3/23/923/dataSheet_FTS-I101F14B_1114954_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1714,
+    "c": "6081749",
+    "url": "https://www.sick.com/media/pdf/1/01/301/dataSheet_TCT-2AAGE1506MZ_6081749_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1715,
+    "c": "6054716",
+    "url": "https://www.sick.com/media/pdf/8/48/748/dataSheet_UC30-215163_6054716_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 1716,
+    "c": "1040763",
+    "url": "https://www.sick.com/media/pdf/2/02/502/dataSheet_IME12-04BPSZC0K_1040763_en.pdf"
+  },
+  {
+    "id": 3416,
+    "c": "6025105",
+    "url": "https://www.sick.com/media/pdf/6/06/406/dataSheet_i110-PA223_6025105_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 3417,
+    "c": "1040780",
+    "url": "https://www.sick.com/media/pdf/0/90/490/dataSheet_IME12-08NPSZC0S_1040780_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 3418,
+    "c": "1040764",
+    "url": "https://www.sick.com/media/pdf/1/81/481/dataSheet_IME12-04BPSZC0S_1040764_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 3419,
+    "c": "1071277",
+    "url": "https://www.sick.com/media/pdf/8/58/958/dataSheet_IME18-20NPSZC0S_1071277_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 3420,
+    "c": "1040966",
+    "url": "https://www.sick.com/media/pdf/9/79/579/dataSheet_IME18-08BPSZC0S_1040966_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 3421,
+    "c": "1041014",
+    "busca": true,
+    "url": "https://www.sick.com/media/pdf/6/26/626/dataSheet_IME30-15NPSZC0S_1041014_en.pdf",
+    "retry": true
+  },
+  {
+    "id": 3451,
+    "c": "6043946",
+    "url": "https://www.sick.com/media/pdf/3/53/953/dataSheet_VTE180-2F32447_6043946_en.pdf",
+    "busca": true
+  },
+  {
+    "id": 3610,
+    "c": "6044035",
+    "url": "https://www.sick.com/media/pdf/7/47/047/dataSheet_VSE180-2P32437_6044035_en.pdf"
+  },
+  {
+    "id": 3611,
+    "c": "6044031",
+    "url": "https://www.sick.com/media/pdf/6/46/046/dataSheet_VL180-2P32436_6044031_en.pdf"
+  }
+]

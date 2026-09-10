@@ -1,4 +1,4 @@
-versao_padrao: "1.30.0"
+versao_padrao: "1.35.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -18,6 +18,76 @@ campos_erp:
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
+  revisao_continua_por_referencia_clara:
+    decisao: D-047
+    precedencia: "Decisão de 10/09/2026 substitui a exigência de aprovação de cada lote da D-039 nesta campanha. Autorização literal em revisoes/autorizacao-referencias-claras.json. Não se estende à gravação autônoma de novas entradas/XML."
+    fluxo: "Revisar todos os itens desta linha de cadastro com referência exata e evidência clara; aplicar os confirmados sem pedir nova aprovação a cada 50. Lotes permanecem apenas como controle interno. Ao usuário, trazer somente casos não claros e totais agregados; manter antes/depois e fontes no histórico interno."
+    clareza: "Código/variante/fabricante exatos, fonte verificável e atributos relevantes confirmados. Conflito, referência incompleta, compatibilidade ambígua, material relevante ausente ou mudança concorrente impedem gravação do item. Não considerar que achar um PDF torna todos os campos claros."
+    excecoes: "Reter sem alterar e registrar por ID/código o conflito, lacuna e evidência necessária. Não apresentar item ainda não pesquisado como tecnicamente duvidoso nem declarar catálogo concluído enquanto houver fila não examinada. Não reprocessar retidos sem nova evidência."
+    preservacao: "Somente nome e descrição complementar; manter códigos, grupo, fabricante, fornecedor, unidades, fatores, preço, saldo, fiscal e atividade. Não fundir duplicidades, alterar embalagem/conversão, substituir produto ou intervir na instalação. Backup, comparação concorrente, releitura e eventos por ID obrigatórios."
+    aprendizado: "Incorporar apenas dados efetivamente validados/aplicados sob autorização condicional D-047; registrar essa origem sem alegar aprovação humana individual de cada texto. Modelos de casos retidos não viram exemplos confirmados."
+    dr_confirmados: "SENTRON 5SV: polos totais, In, IΔn, tipo, Un e frequência exatos. Variantes 50Hz não recebem 60Hz por analogia. Não confundir Ui, corrente de curto condicionada e Icn de minidisjuntor; não atribuir proteção integrada de sobrecorrente."
+    fontes_confirmadas: "SITOP PSU4200: separar entrada/saída e fases. Referências 3A/5A/10A monofásicas do lote 011 têm duas faixas 100-120/200-240VCA; a de 20A tem faixa contínua admissível 85-264VCA; trifásica nominal 400-500VCA. Informar potência/corrente nominais e redução térmica documentada, não pico. Não generalizar entre variantes."
+    interfaces_confirmadas: "3RQ3: relé encaixável versus semicondutor não encaixável, 1REV versus 1NA, entrada versus carga, transistor/triac, categoria/corrente/tensão e conexão. Corrente térmica 6A não é AC-15 universal; não substituir pelo sucessor 3RQ4. 3UG5: funções e alimentação/medição da variante, não relé de segurança."
+    conexoes_confirmadas: "Ligação elétrica/mecânica por tamanho e dispositivos exatos; kit reversor com intertravamento distinto de ligação de contatores em série. Atuador RFID plástico 3SE6310-0BC01 não é sensor com OSSD nem recebe cabo por campo genérico."
+    primeira_liberacao: "Lote 011: 28 referências claras liberadas; demais 22 retidas, inclusive 776 por ambiguidade de compatibilidade. Registro exato em liberacao-011-referencias-claras.json; eventos confirmam aplicação. Não aprovar automaticamente todos os 50."
+    complemento_lzs: "ID 800 / LZS:PT5A5L24: conjunto com base, quatro reversíveis e bobina 24VCC; AC-15 4A em 250VCA e DC-13 4A em 24VCC. Não usar corrente térmica 6A como carga universal. Aplicação individual rastreada no lote 012-referencias-claras; não exige preencher cinquenta candidatos. ID 447 retido: não resolver 26mm do resumo versus 26,5mm da tabela sem esclarecer a dimensão."
+  comandos_painel_confirmados_lote_010:
+    decisao: D-046
+    origem: "50 nomes e descrições Siemens aprovados em 10/09/2026 por 'pode alterar', vinculados à assinatura em revisoes/aprovacao-010.json. Modelos completos em revisoes/modelos-propostos-010.md. Aplicação comprovada pelos eventos por ID após releitura."
+    composicao: "Separar cabeçote avulso, conjunto completo, módulo LED/contato, suporte e caixa vazia pela lista de fornecimento da referência exata. Iluminável não significa LED incluído. Número de posições não determina contatos NA/NF."
+    pulsadores: "Família, diâmetro de montagem, cor, geometria, ação momentânea/retentiva, material do atuador versus aro, contatos e LED quando incluídos. Linha metálica não implica atuador metálico. Cogumelo preto de comando não é emergência: 967 tem retenção/liberação por giro, 3566 é momentâneo."
+    emergencia_seletores: "Emergência exige função, travamento/destravamento e composição. 2139 inclui dois blocos 1NF e placa amarela. Seletores: posições, ângulos, retorno/retentivo e montagem; 2137 inclui 1NA+1NF e suporte, sem LED. Cabeçote iluminável sem módulo não recebe tensão de alimentação presumida."
+    led_contatos: "Alimentação e CA/CC/frequência da referência, não Ui/isolação. 1695 é 24VCA/CC; 1689 é 230VCA, sem CC. Contatos: composição, conexão, corrente associada à categoria e tensão. Corrente térmica não é AC-15 universal. Separar IP frontal, módulo e terminais."
+    suportes_caixas: "Três posições não significam três contatos fornecidos; capacidade de seis módulos depende da montagem. Compatibilidade metálica não torna suporte metálico. Caixa: vazia/equipada, postos, montagem, material/cor, dimensões com eixos e entradas. Não presumir prensa-cabos; IP depende da instalação. Pedido mínimo comercial não é multiplicador de estoque."
+    acessorios: "Função real, compatibilidade, material, cor e dimensões. Capas deste lote IP66/IP67, sem extrapolar IP69K. Etiqueta prateada pode ser plástica e sem inscrição; dimensão da etiqueta não é a do suporte. 1690 aceita cinco cadeados, sem presumir fornecimento; 1693 bloqueia cogumelo acionado."
+    seguranca: "RFID: codificação, alcance operacional versus assegurado, OSSD/OUT, limites específicos e atuador incluído/excluído. Não substituir pelo sucessor comercial. Reed: contatos, ímã/avaliação, cabo/material/seção e alcance; limites 100V/250mA/3W simultâneos não permitem 250mA em 100V. Trava: mola/energização, bobina, liberações e contatos separados de atuador/trava; força ISO14119 distinta da genérica (3567: 2000N versus 2600N). PL/SIL não certificam a instalação."
+    ressalvas: "ID 215 permanece PARCIAL: 1NF confirmado no resumo/catálogo, mas tabela auxiliar também informa 1NA. Não acrescentar NA por suposição; conferir placa/diagrama antes de dimensionar. Corrigir 1695 no cadastro não autoriza intervenção elétrica; conferir placa antes de energizar. Aprovação da redação não certifica lacunas."
+    exemplo_cabecote: "CABEÇOTE PULSADOR SIRIUS ACT 22mm AZUL PLANO MOMENTÂNEO ARO METÁLICO ILUMINÁVEL SEM LED E CONTATOS"
+    exemplo_sinaleiro: "SINALEIRO LED COMPLETO SIRIUS ACT 22mm BRANCO PLÁSTICO 24VCA/CC 50/60Hz CONEXÃO POR PARAFUSO"
+    limite: "Desde D-047, casos claros seguem autorização condicional, não aprovação automática de todo o lote. Preservar campos protegidos; retidos exigem esclarecimento."
+  sensores_e_seguranca_confirmados_lote_009:
+    decisao: D-045
+    origem: "50 nomes e descrições SICK aprovados após antes/depois e ressalvas, aplicados e relidos em 10/09/2026. Assinatura em revisoes/aprovacao-009.json; modelos completos em revisoes/modelos-propostos-009.md, agora aprovados."
+    identidade: "Código numérico exige modelo alfanumérico oficial e família no nome. Consultar referência exata com URL, data, páginas e evidência preservada; nunca completar por similaridade. Unidade sem espaço do número."
+    indutivos: "Informar rosca, Sn, PNP/NPN e NA/NF, alimentação, montagem faceada/não faceada, corpo curto/padrão e conexão. Cabo: material e comprimento; Sn versus Sa e efeito do material do alvo no complemento. MTTFd não transforma sensor padrão em dispositivo de segurança."
+    fotoeletricos: "Separar difuso energético, supressão de fundo, retrorreflexivo e barreira emissor/receptor; faixa operacional versus máxima com alvo/refletor, claro/escuro fixo ou selecionável versus saídas complementares, alimentação e conector/pinos da variante. Laser classe 1 não é proteção de pessoas. Garfo: abertura, profundidade, menor objeto e frequência separados; push-pull PNP/NPN não significa duas saídas."
+    cortinas: "Identificar emissor OU receptor, versão Core/outra, altura protegida, resolução, alcance e alimentação. OSSD somente no receptor, quantidade e corrente por saída. Não presumir System Plug incluído ou pinagem fixa dependente de SP1/SP2. SIL/PL do componente não certifica instalação."
+    cabos_conectorizados: "Modelo, M12 macho/fêmea, orientação/pinos, ponta livre, vias×seção, comprimento, PUR/PVC, blindagem e tensão/corrente do conjunto. Limite do cabo isoladamente não substitui o do conjunto; IP condicionado ao acoplamento. Não converter unidade nem tratar como cabo a granel sem conector."
+    seguranca: "Separar chaves completas de atuadores/acessórios, contatos e categorias AC-15/DC-13. Corrente da habilitação pode diferir dos botões auxiliares. Kit de cabo de tração é mecânico. IME2S12-04N4DC0 do lote: SIL2/categoria 2/PLd, não SIL3 por analogia. Flexi: CPU versus expansão, E/S seguras versus saídas de teste, interfaces e compatibilidade por geração."
+    ultrassonicos: "Faixa operacional diferente do alcance limite; uma saída corrente OU tensão conforme carga. UC30 do lote: 9-30VCC em corrente e 15-30VCC em 0-10V, cargas condicionadas à alimentação. Não fixar dimensões variáveis por número de série."
+    nivel_e_fluxo: "Nível contínuo versus pontual, haste versus faixa útil/zonas inativas, rosca, partes molhadas/corpo e sinal/alimentação; não inferir IO-Link da família. Fluxo exige meio/faixa, haste/montagem, saídas alternativas sem somar canais; pressão depende do adaptador e temperatura."
+    temperatura_pressao_encoder: "Pt1000 não significa saída resistiva: TCT do lote tem transmissor 4-20mA dois fios, faixa/classe/rosca/inserção/diâmetro e pressão condicionada à temperatura. Pressão: faixa/sinal da referência; isolação/sobretensão não é alimentação. Encoder: PPR, TTL/HTL configurável versus padrão de fábrica, eixo/diâmetro/conector/orientação; IP do corpo e eixo distintos, sem presumir programação física."
+    ressalvas: "ID 1708 permanece revisão PARCIAL: ficha SICK de 2015 hospedada por terceiro não confirma faixa de alimentação ou ligação de dois fios. ID 438 usa 67mm do catálogo oficial, mas divergência com ficha antiga de 38mm permanece para conferência física antes de substituição. Aprovação da redação não certifica lacunas; histórico preservado e rotulado."
+    exemplo_indutivo: "SENSOR INDUTIVO IME IME12-04BPSZW5K M12 SN 4mm PNP NA 10-30VCC FACEADO CORPO CURTO CABO PVC 5m IP67"
+    exemplo_ultrassonico: "SENSOR ULTRASSÔNICO UC30-214163 FAIXA 350-3400mm 1 SAÍDA 4-20mA/0-10V 9-30VCC (15-30VCC EM 0-10V) M12 5 PINOS IP65/IP67"
+    limite: "Lote 010 recebeu aprovação própria na D-046; seguintes exigem nova aprovação humana. Unidades, conversões, códigos e grupos preservados."
+  automacao_e_interfaces_confirmadas_lote_008:
+    decisao: D-044
+    origem: "50 nomes e descrições aprovados no lote 008 após apresentação das fichas e ressalvas, aplicados e relidos em 09/09/2026. Assinatura vinculada a revisoes/aprovacao-008.json."
+    clps: "Identificar família, geração, CPU, alimentação, canais DI/DO/AI/AO, tipo/corrente de saída e protocolo/portas. Não copiar E/S ou compatibilidade entre S7-1200 e G2. Separar programa, dados e carga; memória compartilhada não é duplicada. LOGO! 8DI com quatro configuráveis como AI continua com oito entradas físicas."
+    digitais: "Distinguir módulo SM de placa SB, entradas sink/source e saídas PNP/MOSFET/relé. Corrente é por canal e condicionada à carga/agrupamento; SB1222 do lote tem 0,1A/200kHz, não 0,5A. Frequência somente da variante exata."
+    analogicos: "Informar AI/AO, canais, faixas, ligação e resolução por modo. AQ4xU/I ST não fornece 16bit em todas as faixas; SM1232 tem 14bit em tensão e 13bit em corrente. AI4xU/I 2-wire não equivale à versão de quatro fios. Não confundir limite de destruição com faixa útil."
+    seguranca: "Identificar F-DI/F-DQ, HF e topologias PP/PM/PPM quando confirmados. Canais físicos não equivalem ao número de funções redundantes. CPU F não torna automaticamente todas as E/S integradas seguras. PL/SIL do módulo não certifica a instalação."
+    comunicacao: "Separar interface de porta, papel mestre/device/coupler, protocolo, conexão e alimentação. Contagem de módulos/controladores não é contagem de portas. Registrar BusAdapter necessário e acessórios explicitamente incluídos; módulo servidor incluído não significa BusAdapter incluído."
+    bases_e_acessorios: "BaseUnit: tipo, conexão, auxiliares e início/continuidade de grupo de potencial. Não confundir base, módulo eletrônico e servidor. Trilhos/conectores exigem material, dimensões/polos e família compatível; largura do módulo não é passo do conector. Cartão: capacidade da tabela exata, não da imagem ilustrativa."
+    pesagem_e_ihm: "Pesagem: módulo versus célula, canais, tecnologia/faixa, alimentação, interfaces e operação integrada/autônoma; não presumir célula incluída. IHM: modelo, tela/tamanho/resolução, protocolos/portas e alimentação; display de texto não é CPU nem touchscreen."
+    versoes_e_grupos: "Firmware/engenharia da ficha atual não comprova versão instalada e não autoriza atualização. ID 3733 é CPU ET200SP 1510SP F-1PN; grupo 55 foi preservado e reclassificação exige avaliação separada. Não trocar referências ou atividade por descontinuação comercial."
+    exemplo_clp: "CLP S7-1200 G2 CPU 1214C DC/DC/DC 14DI/10DO TRANSISTOR 0,5A 24VCC PROFINET 2 PORTAS"
+    exemplo_placa: "PLACA DE SINAL S7-1200 SB1222 4DO MOSFET SINK/SOURCE 24VCC 0,1A 200kHz"
+    limite: "Lote 009 recebeu aprovação própria na D-045; seguintes exigem nova aprovação humana. Preservar ressalvas e não usar propostas futuras como modelos aprovados."
+  aplicacoes_e_variantes_confirmadas_lote_007:
+    decisao: D-043
+    origem: "Lote 007 aprovado após apresentação dos 50 antes/depois e ressalvas, aplicado e relido em 09/09/2026. Assinatura vinculada à aprovação em revisoes/aprovacao-007.json."
+    capacitores: "CWBC: informar categoria AC-6b, potência reativa com tensão e temperatura, polos principais, auxiliares e bobina. Número do modelo não é corrente AC-6b: CWBC32-12-30D23 tem 40A e 25kvar em 380-415VCA a 55°C; CWBC25-12-30D23 tem 28A e 20kvar na mesma condição. Não somar contatos de pré-carga aos auxiliares. Não extrapolar esses valores para outras referências."
+    seguranca: "CWBS não é CWB convencional. Informar contatos mecanicamente ligados/espelhados quando documentados, sem atribuir PL/SIL ou categoria ao circuito completo. Exigir referência exata da variante."
+    disjuntores: "Distinguir proteção para gerador da distribuição: CBW3C-N400GAA3, 3P, térmico 280-400A e magnético 1000-2000A. Icu depende da tensão; não transportar 36kA em 400VCA para 440VCA. MPW18 e MPW40 da mesma faixa de ajuste podem ter Icu/Ics diferentes. MPWi é exclusivamente magnético, não equivalente ao termomagnético."
+    acessorios: "BBS45 informa número de disjuntores e restrição a auxiliares laterais, não quantidade de polos. ECCMP-40B38DC é conexão MPW40/CWB9-38 com bobina CC, não MPW18/CA genérico. Distinguir BFC0/BFC4/BFCA e terminais parafuso/mola. Ui não é tensão de bobina ou Ue."
+    fusiveis: "FNH00-63K-A: aR, 63A, 100kA em 690VCA. FNH00-125U: gL/gG, 125A, 120kA em 500VCA. Não transportar capacidade nem materiais entre famílias."
+    legado: "MSW 16 P3 H código 12258389: identidade, 16A, 3P, painel e manopla confirmados. Tensão histórica 1000VCA, categoria por tensão e cor continuam não confirmadas e preservadas no complemento. Revisão parcial não certifica dimensões ou aplicação. Não copiar características do substituto. Descontinuação comercial não autoriza inativar item nem trocar código."
+    exemplo_gerador: "DISJUNTOR CAIXA MOLDADA PARA GERADOR 3P AJUSTE TÉRMICO 280-400A MAGNÉTICO 1000-2000A ICU 36kA EM 400VCA CBW3C-N400GAA3"
+    exemplo_capacitor: "CONTATOR PARA CAPACITORES 3P AC-6b 25kvar EM 380-415VCA A 55°C AUX 1NA+2NF BOBINA 220VCA 50/60Hz CWBC32-12-30D23"
+    limite: "Lote 008 recebeu aprovação própria na D-044; seguintes exigem nova aprovação. Somente decisões aprovadas são modelos ativos; atributos não confirmados continuam ressalvas."
   protecao_e_conexoes_confirmadas_lote_006:
     decisao: D-042
     origem: "Lote 006 aprovado em 09/09/2026 após apresentação dos 50 antes/depois e ressalvas. Aplicação conferida por ID; assinatura em revisoes/aprovacao-006.json."
@@ -28,7 +98,7 @@ regras_cadastro_assistido:
     lacunas: "Bases 3NH3430-0RC/3NH3330-0RC/3NH3230-0RC/3NH3030-0RC: redação aprovada retira 690VCA não confirmado do nome e preserva origem no complemento. Isso não prova tensão errada nem confirma tensão/polos/conexão. Revisão parcial permanece sinalizada; exigir placa ou fonte histórica antes de dimensionar. Largura de trilho, material e IP ausentes não são inventados."
     exemplo_conexao: "CONTATOR 3P AC-3 41A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz POTÊNCIA PARAFUSO COMANDO MOLA"
     exemplo_acessorio: "ESPELHO FRONTAL PRETO IP66 PARA MANOPLA VT250/VT630"
-    limite: "Lote 007 exige nova aprovação; propostas não são exemplos humanos aprovados. Aprovação da redação não certifica atributos ausentes."
+    limite: "Lote 007 recebeu aprovação própria na D-043; lotes seguintes exigem nova aprovação. Aprovação da redação não certifica atributos ausentes."
   protecao_e_acessorios_confirmados_lote_005:
     decisao: D-041
     origem: "50 itens do lote 005 aprovados em 09/09/2026, aplicados e relidos. Aprovação vinculada ao manifesto em revisoes/aprovacao-005.json. Lotes seguintes não estão autorizados."
@@ -1357,6 +1427,26 @@ termos_ambiguos_pendentes:
     observacao: "D-039 confirma a capacidade das 40 referências 5SL1 do lote 003 pela tabela exata Siemens, páginas 8-9. Demais referências/variantes e conflitos de identidade continuam sujeitos a conferência; não extrapolar a série por semelhança."
 
 historico_decisoes:
+  - id: D-047
+    data: "2026-09-10"
+    tema: "Revisão contínua autorizada para referências claras; retorno somente de exceções"
+    decisao: "Usuário autorizou aplicar todos os casos desta linha com referência clara e trazer apenas os não claros. Substitui aprovação repetida de 50 em 50; mantém autorização limitada a nome/descrição, fontes, conferência, backup e rastreabilidade. Primeira liberação: 28 casos claros do 011, 22 retidos; não usar retidos como modelos confirmados."
+  - id: D-046
+    data: "2026-09-10"
+    tema: "Lote 010 Siemens aprovado"
+    decisao: "Aprovados os 50 nomes e descrições do relatório 010 por 'pode alterar'. Incorporados modelos SIRIUS ACT/3SE: cabeçote versus conjunto, alimentação versus isolação, contatos condicionados e composição de acessórios. Mantida ressalva parcial 215 e limites de segurança. Aplicação registrada somente após releitura em eventos-010-cinquenta-itens.json. Lotes seguintes não autorizados."
+  - id: D-045
+    data: "2026-09-10"
+    tema: "Lote 009 SICK aprovado e aplicado"
+    decisao: "Aplicados e verificados 50 nomes e descrições SICK, incorporando modelos de sensores, segurança e acessórios. Preservadas ressalvas de alimentação/ligação do ID 1708 e dimensão do ID 438, sem alterar grupos ou conversões. Lote 010 não aprovado."
+  - id: D-044
+    data: "2026-09-09"
+    status: aplicado
+    decisao: "Aplicados e verificados 50 nomes e descrições do lote 008. Incorporados modelos de CLPs, cartões, remotas, comunicação, pesagem e IHM, com geração, canais, interfaces e acessórios documentados. Grupo 55 do ID 3733 preservado. Lote 009 não aprovado."
+  - id: D-043
+    data: "2026-09-09"
+    status: aplicado
+    decisao: "Aplicados e verificados os 50 nomes e descrições do lote 007. Incorporadas variantes CWBC/CWBS, proteção de gerador, capacidades por tensão e compatibilidade de acessórios; ressalvas preservadas, inclusive MSW antigo parcialmente documentado. Lote 008 não aprovado."
   - id: D-042
     data: "2026-09-09"
     status: aplicado

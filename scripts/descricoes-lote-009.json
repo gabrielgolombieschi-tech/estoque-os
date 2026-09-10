@@ -1,0 +1,292 @@
+[
+  {
+    "id": 347,
+    "nome": "SENSOR INDUTIVO IME IME12-04BPSZW5K M12 SN 4mm PNP NA 10-30VCC FACEADO CORPO CURTO CABO PVC 5m IP67",
+    "desc": "Série IME, alcance nominal Sn 4mm e alcance assegurado Sa 3,24mm. Montagem faceada; corpo curto em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 2000Hz. Cabo PVC de 5m, 3×0,25mm², sem conector na extremidade. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 1710,
+    "nome": "SENSOR INDUTIVO IME IME12-08NPSZC0K M12 SN 8mm PNP NA 10-30VCC NÃO FACEADO CORPO CURTO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 8mm e alcance assegurado Sa 6,48mm. Montagem não faceada; corpo curto em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 2000Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 1716,
+    "nome": "SENSOR INDUTIVO IME IME12-04BPSZC0K M12 SN 4mm PNP NA 10-30VCC FACEADO CORPO CURTO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 4mm e alcance assegurado Sa 3,24mm. Montagem faceada; corpo curto em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 2000Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 3417,
+    "nome": "SENSOR INDUTIVO IME IME12-08NPSZC0S M12 SN 8mm PNP NA 10-30VCC NÃO FACEADO CORPO PADRÃO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 8mm e alcance assegurado Sa 6,48mm. Montagem não faceada; corpo padrão em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 2000Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 3418,
+    "nome": "SENSOR INDUTIVO IME IME12-04BPSZC0S M12 SN 4mm PNP NA 10-30VCC FACEADO CORPO PADRÃO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 4mm e alcance assegurado Sa 3,24mm. Montagem faceada; corpo padrão em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 2000Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 3419,
+    "nome": "SENSOR INDUTIVO IME IME18-20NPSZC0S M18 SN 20mm PNP NA 10-30VCC NÃO FACEADO CORPO PADRÃO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 20mm e alcance assegurado Sa 16,2mm. Montagem não faceada; corpo padrão em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 200Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 3420,
+    "nome": "SENSOR INDUTIVO IME IME18-08BPSZC0S M18 SN 8mm PNP NA 10-30VCC FACEADO CORPO PADRÃO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 8mm e alcance assegurado Sa 6,48mm. Montagem faceada; corpo padrão em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 1000Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 3421,
+    "nome": "SENSOR INDUTIVO IME IME30-15NPSZC0S M30 SN 15mm PNP NA 10-30VCC NÃO FACEADO CORPO PADRÃO M12 4 PINOS IP67",
+    "desc": "Série IME, alcance nominal Sn 15mm e alcance assegurado Sa 12,15mm. Montagem não faceada; corpo padrão em latão niquelado, face sensora PA66. Alimentação 10-30VCC, saída PNP normalmente aberta, três fios, até 200mA, frequência 500Hz. Conector macho M12 de quatro pinos; cabo não presumido incluído. IP67. Alcance depende do material do alvo; não aplicar Sn nominal indistintamente a todos os metais. Sensor padrão, não dispositivo de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 435,
+    "nome": "SENSOR FOTOELÉTRICO RETRORREFLEXIVO V180 VL180-2P42436 M18 0,05-6m PNP CLARO/ESCURO SELECIONÁVEL 10-30VCC M12 4 PINOS IP67",
+    "desc": "Retrorreflexivo polarizado, alcance 0,05-6m com refletor PL80A; limite máximo 7m não é faixa de trabalho. A ficha lista P250 no fornecimento, não PL80A. Seleção claro/escuro pelo fio L/D; fio aberto = escuro. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 4 pinos. Corpo PBT/PC, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 3611,
+    "nome": "SENSOR FOTOELÉTRICO RETRORREFLEXIVO V180 VL180-2P32436 M18 0,05-6m PNP ESCURO 10-30VCC M12 3 PINOS IP67",
+    "desc": "Retrorreflexivo polarizado, alcance 0,05-6m com PL80A; máximo 7m separado. A ficha lista refletor P250 incluído; não atribuir alcance de PL80A ao P250 sem tabela própria. Saída acionada no escuro. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 3 pinos. Corpo PBT/PC, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 1124,
+    "nome": "SENSOR FOTOELÉTRICO DIFUSO V12 VT12T-2P430 M12 2-300mm PNP CLARO/ESCURO 10-30VCC M12 4 PINOS IP67",
+    "desc": "Difuso energético, LED infravermelho, teach-in por botão/entrada C; 2-300mm de trabalho, máximo 340mm para alvo branco de 90% de remissão. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 4 pinos. Corpo LATÃO NIQUELADO/PA, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 1701,
+    "nome": "SENSOR FOTOELÉTRICO DIFUSO V180 VTE180-2P42482 M18 1-800mm PNP CLARO/ESCURO SELECIONÁVEL 10-30VCC M12 4 PINOS IP67",
+    "desc": "Difuso energético, LED vermelho, ajuste por potenciômetro. Faixa de trabalho 1-800mm para alvo branco de 90% de remissão; máximo 1100mm separado. Fio L/D aberto = escuro. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 4 pinos. Corpo LATÃO NIQUELADO/PC, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 1703,
+    "nome": "SENSOR FOTOELÉTRICO SUPRESSÃO DE FUNDO V180 VTB180-2P42412 M18 30-200mm PNP CLARO/ESCURO SELECIONÁVEL 10-30VCC M12 4 PINOS IP67",
+    "desc": "Supressão de fundo, LED vermelho e potenciômetro. Faixa de trabalho 30-200mm para alvo branco de 90% de remissão; 10-350mm é faixa máxima, não substituir a faixa de trabalho. Fio L/D aberto = escuro. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 4 pinos. Corpo LATÃO NIQUELADO/PC, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 3451,
+    "nome": "SENSOR FOTOELÉTRICO DIFUSO V180 VTE180-2F32447 M18 1-350mm PNP CLARO 10-30VCC M12 3 PINOS IP67",
+    "desc": "Difuso energético, LED vermelho, potenciômetro. Faixa de trabalho 1-350mm para alvo branco de 90% de remissão; máximo 500mm separado. Saída acionada no claro, não no escuro. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 3 pinos. Corpo PBT/PC, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 3610,
+    "nome": "SENSOR FOTOELÉTRICO BARREIRA V180 VSE180-2P32437 M18 0-20m PNP ESCURO 10-30VCC M12 3 PINOS IP67",
+    "desc": "Barreira óptica com emissor e receptor separados. LED vermelho; faixa de trabalho 0-20m, máximo 28m separado. Saída do receptor acionada no escuro. Não confundir com sensor difuso ou retrorreflexivo. Alimentação 10-30VCC, saída PNP até 100mA e conexão m12 3 pinos. Corpo PBT/PC, óptica PMMA, IP67. Comprimento do corpo não é alcance de detecção; conferir alinhamento e alvo de referência."
+  },
+  {
+    "id": 442,
+    "nome": "SENSOR FOTOELÉTRICO SUPRESSÃO DE FUNDO W12 WTB12-3P2433 20-350mm PNP COMPLEMENTAR 10-30VCC M12 4 PINOS IP66/IP67",
+    "desc": "LED vermelho, alcance 20-350mm com alvo branco de 90% de remissão. Saídas PNP complementares claro/escuro, até 100mA; alimentação 10-30VCC, conector macho M12 de quatro pinos. Ajuste por duplo teach-in, corpo metálico retangular, frontal PMMA e IP66/IP67. Não substituir por variante NPN nem por sensor difuso energético."
+  },
+  {
+    "id": 1702,
+    "nome": "BARREIRA FOTOELÉTRICA LASER W4 WSE4SL-3P2237 0-50m PNP COMPLEMENTAR 10-30VCC M8 4 PINOS IP66/IP67",
+    "desc": "Conjunto de emissor WS4SL-3D2236 e receptor WE4SL-3P2232, códigos 2064095 e 2064097. Faixa de trabalho 0-50m, limite máximo 60m. Laser vermelho classe 1; não direcionar aos olhos. Receptor com saída PNP complementar claro/escuro até 100mA; alimentação 10-30VCC e conector macho M8 de quatro pinos. Corpo Novodur, frontal PMMA, IP66/IP67. Faixa ambiente normal -10 a +50°C; temperaturas estendidas exigem condições específicas da ficha. Não é barreira de segurança para proteção de pessoas."
+  },
+  {
+    "id": 1709,
+    "nome": "SENSOR FOTOELÉTRICO GARFO WFE WFE-050060B337 ABERTURA 50mm PROFUNDIDADE 60mm PUSH-PULL PNP/NPN 10-30VCC M8 3 PINOS IP67",
+    "desc": "Garfo óptico com abertura 50mm e profundidade 60mm; objeto mínimo detectável 0,5mm. LED vermelho, comutação claro/escuro e ajuste por potenciômetro. Saída push-pull PNP/NPN até 100mA, 5kHz; não são duas saídas independentes. Alimentação 10-30VCC, conector M8 de três pinos. Corpo ABS e armação em aço carbono revestido, IP67."
+  },
+  {
+    "id": 1699,
+    "nome": "CORTINA DE LUZ SEGURANÇA EMISSOR DETEC4 CORE C4C-SA03030A10000 ALTURA 300mm RESOLUÇÃO 30mm ALCANCE 15m 24VCC M12 5 PINOS",
+    "desc": "Unidade emissora deTec4 Core, não par completo. Altura protegida 300mm, resolução 30mm, alcance 15m; sincronização óptica. Par compatível indicado na ficha: código 1211464. Alimentação 24VCC (19,2-28,8VCC), cabo de conexão 150mm terminado em M12 de cinco pinos. Corpo em alumínio extrudado, IP65/IP67. Não atribuir saídas OSSD ao emissor. Tipo 4 IEC61496-1; desempenho de segurança do sistema depende de instalação e validação, não é certificado pelo cadastro."
+  },
+  {
+    "id": 1707,
+    "nome": "CORTINA DE LUZ SEGURANÇA RECEPTOR DETEC4 CORE C4C-EA03030A10000 ALTURA 300mm RESOLUÇÃO 30mm ALCANCE 15m 24VCC M12 5 PINOS 2OSSD",
+    "desc": "Unidade receptora deTec4 Core, não par completo. Altura protegida 300mm, resolução 30mm, alcance 15m; sincronização óptica. Par compatível indicado na ficha: código 1211462. Alimentação 24VCC (19,2-28,8VCC), cabo de conexão 150mm terminado em M12 de cinco pinos. Corpo em alumínio extrudado, IP65/IP67. Duas saídas OSSD PNP, até 300mA por saída; tempo de resposta 10ms. Tipo 4 IEC61496-1; desempenho de segurança do sistema depende de instalação e validação, não é certificado pelo cadastro."
+  },
+  {
+    "id": 1706,
+    "nome": "CORTINA DE LUZ SEGURANÇA EMISSOR DETEC4 CORE C4C-SA04530A10000 ALTURA 450mm RESOLUÇÃO 30mm ALCANCE 15m 24VCC M12 5 PINOS",
+    "desc": "Unidade emissora deTec4 Core, não par completo. Altura protegida 450mm, resolução 30mm, alcance 15m; sincronização óptica. Par compatível indicado na ficha: código 1211493. Alimentação 24VCC (19,2-28,8VCC), cabo de conexão 150mm terminado em M12 de cinco pinos. Corpo em alumínio extrudado, IP65/IP67. Não atribuir saídas OSSD ao emissor. Tipo 4 IEC61496-1; desempenho de segurança do sistema depende de instalação e validação, não é certificado pelo cadastro."
+  },
+  {
+    "id": 1700,
+    "nome": "CORTINA DE LUZ SEGURANÇA RECEPTOR DETEC4 CORE C4C-EA04530A10000 ALTURA 450mm RESOLUÇÃO 30mm ALCANCE 15m 24VCC M12 5 PINOS 2OSSD",
+    "desc": "Unidade receptora deTec4 Core, não par completo. Altura protegida 450mm, resolução 30mm, alcance 15m; sincronização óptica. Par compatível indicado na ficha: código 1211492. Alimentação 24VCC (19,2-28,8VCC), cabo de conexão 150mm terminado em M12 de cinco pinos. Corpo em alumínio extrudado, IP65/IP67. Duas saídas OSSD PNP, até 300mA por saída; tempo de resposta 10ms. Tipo 4 IEC61496-1; desempenho de segurança do sistema depende de instalação e validação, não é certificado pelo cadastro."
+  },
+  {
+    "id": 1704,
+    "nome": "CORTINA DE LUZ SEGURANÇA EMISSOR DETEC4 CORE C4C-SA12030A10000 ALTURA 1200mm RESOLUÇÃO 30mm ALCANCE 15m 24VCC M12 5 PINOS",
+    "desc": "Unidade emissora deTec4 Core, não par completo. Altura protegida 1200mm, resolução 30mm, alcance 15m; sincronização óptica. Par compatível indicado na ficha: código 1211502. Alimentação 24VCC (19,2-28,8VCC), cabo de conexão 150mm terminado em M12 de cinco pinos. Corpo em alumínio extrudado, IP65/IP67. Não atribuir saídas OSSD ao emissor. Tipo 4 IEC61496-1; desempenho de segurança do sistema depende de instalação e validação, não é certificado pelo cadastro."
+  },
+  {
+    "id": 1705,
+    "nome": "CORTINA DE LUZ SEGURANÇA RECEPTOR DETEC4 CORE C4C-EA12030A10000 ALTURA 1200mm RESOLUÇÃO 30mm ALCANCE 15m 24VCC M12 5 PINOS 2OSSD",
+    "desc": "Unidade receptora deTec4 Core, não par completo. Altura protegida 1200mm, resolução 30mm, alcance 15m; sincronização óptica. Par compatível indicado na ficha: código 1211501. Alimentação 24VCC (19,2-28,8VCC), cabo de conexão 150mm terminado em M12 de cinco pinos. Corpo em alumínio extrudado, IP65/IP67. Duas saídas OSSD PNP, até 300mA por saída; tempo de resposta 12ms. Tipo 4 IEC61496-1; desempenho de segurança do sistema depende de instalação e validação, não é certificado pelo cadastro."
+  },
+  {
+    "id": 433,
+    "nome": "CORTINA DE LUZ SEGURANÇA EMISSOR DETEC4 C4P-SA07531A00 ALTURA 750mm RESOLUÇÃO 30mm ALCANCE 30m 24VCC CONEXÃO VIA SYSTEM PLUG",
+    "desc": "Unidade emissora deTec4, não deTec4 Core e não par completo. Altura protegida 750mm, resolução 30mm, alcance 30m. Alimentação 24VCC (19,2-28,8VCC), corpo em alumínio extrudado, IP65/IP67. Conexão depende do System Plug: M12 de cinco ou oito pinos, com ou sem extensão; não fixar pinagem nem presumir plug incluído. Funções SP1/SP2/DCM4/DMM4 dependem dos componentes e da configuração. Não atribuir saídas OSSD ao emissor. Tipo 4 IEC61496-1; instalação completa exige validação de segurança.",
+    "paginas": [
+      2,
+      3
+    ]
+  },
+  {
+    "id": 434,
+    "nome": "CORTINA DE LUZ SEGURANÇA RECEPTOR DETEC4 C4P-EA07531C00 ALTURA 750mm RESOLUÇÃO 30mm ALCANCE 30m 24VCC CONEXÃO VIA SYSTEM PLUG 2OSSD",
+    "desc": "Unidade receptora deTec4, não deTec4 Core e não par completo. Altura protegida 750mm, resolução 30mm, alcance 30m. Alimentação 24VCC (19,2-28,8VCC), corpo em alumínio extrudado, IP65/IP67. Conexão depende do System Plug: M12 de cinco ou oito pinos, com ou sem extensão; não fixar pinagem nem presumir plug incluído. Funções SP1/SP2/DCM4/DMM4 dependem dos componentes e da configuração. Duas saídas OSSD PNP até 500mA por saída; resposta 11ms sem codificação ou 16ms com código 1/2. Tipo 4 IEC61496-1; instalação completa exige validação de segurança.",
+    "paginas": [
+      2,
+      3,
+      4
+    ]
+  },
+  {
+    "id": 423,
+    "nome": "CABO SENSOR/ATUADOR YF2A18-050UA5XLEAX M12 FÊMEA RETO 8 PINOS A-CODED/PONTA LIVRE 5m 8×0,25mm² PUR CONJUNTO 30VCA/CC 2A",
+    "desc": "Conjunto pronto para sensor/atuador, M12 fêmea reto de 8 pinos, codificação A, outra ponta livre; 5m, 8×0,25mm², capa PUR livre de halogênios, sem blindagem. Tensão de referência do conjunto 30VCA ou 30VCC e corrente 2A; não confundir com 300VCA nominais do cabo isolado nem com tensão de ensaio. Indicado na ficha para esteira porta-cabos, óleos/lubrificantes e robôs, respeitando os limites de movimento. IP65/IP66K/IP67 na conexão corretamente acoplada, não na ponta livre. Não converter automaticamente para cabo a granel nem alterar unidade/multiplicador do conjunto."
+  },
+  {
+    "id": 424,
+    "nome": "CABO SENSOR/ATUADOR YF2A15-020UB5XLEAX M12 FÊMEA RETO 5 PINOS A-CODED/PONTA LIVRE 2m 5×0,34mm² PUR CONJUNTO 125VCA/CC 4A",
+    "desc": "Conjunto pronto para sensor/atuador, M12 fêmea reto de 5 pinos, codificação A, outra ponta livre; 2m, 5×0,34mm², capa PUR livre de halogênios, sem blindagem. Tensão de referência do conjunto 125VCA ou 125VCC e corrente 4A; não confundir com 300VCA nominais do cabo isolado nem com tensão de ensaio. Indicado na ficha para esteira porta-cabos, óleos/lubrificantes e robôs, respeitando os limites de movimento. IP65/IP66K/IP67 na conexão corretamente acoplada, não na ponta livre. Não converter automaticamente para cabo a granel nem alterar unidade/multiplicador do conjunto."
+  },
+  {
+    "id": 441,
+    "nome": "CABO SENSOR/ATUADOR YF2A15-100UB5XLEAX M12 FÊMEA RETO 5 PINOS A-CODED/PONTA LIVRE 10m 5×0,34mm² PUR CONJUNTO 125VCA/CC 4A",
+    "desc": "Conjunto pronto para sensor/atuador, M12 fêmea reto de 5 pinos, codificação A, outra ponta livre; 10m, 5×0,34mm², capa PUR livre de halogênios, sem blindagem. Tensão de referência do conjunto 125VCA ou 125VCC e corrente 4A; não confundir com 300VCA nominais do cabo isolado nem com tensão de ensaio. Indicado na ficha para esteira porta-cabos, óleos/lubrificantes e robôs, respeitando os limites de movimento. IP65/IP66K/IP67 na conexão corretamente acoplada, não na ponta livre. Não converter automaticamente para cabo a granel nem alterar unidade/multiplicador do conjunto."
+  },
+  {
+    "id": 440,
+    "nome": "CABO SENSOR/ATUADOR YF2A14-100VB3XLEAX M12 FÊMEA RETO 4 PINOS A-CODED/PONTA LIVRE 10m 4×0,34mm² PVC CONJUNTO 250VCA/CC 4A",
+    "desc": "Conjunto pronto para sensor/atuador, M12 fêmea reto de 4 pinos, codificação A, outra ponta livre; 10m, 4×0,34mm², capa PVC, sem blindagem. Tensão de referência do conjunto 250VCA ou 250VCC e corrente 4A; não confundir com 300VCA nominais do cabo isolado nem com tensão de ensaio. Uso em zonas não contaminadas/químicas conforme compatibilidade; não atribuir aptidão robótica da versão PUR. IP65/IP66K/IP67 na conexão corretamente acoplada, não na ponta livre. Não converter automaticamente para cabo a granel nem alterar unidade/multiplicador do conjunto."
+  },
+  {
+    "id": 348,
+    "nome": "CONTROLADOR DE SEGURANÇA FLEXI COMPACT FLX3-CPUC200 20DI/4DO SEGUROS 8 SAÍDAS TESTE 24VCC MODBUS TCP 1 PORTA RJ45",
+    "desc": "Módulo principal, vinte entradas e quatro saídas de segurança; oito saídas de teste separadas, que também podem comandar elementos não seguros. Alimentação 24VCC (16,8-30VCC), PELV/SELV; limitar externamente corrente de alimentação conforme fabricante. Uma porta RJ45 para Modbus TCP/SLMP e configuração TCP/IP; USB via SmartPlug, software Safety Designer. Ficha lista SmartPlug e dois conectores frontais incluídos. SIL3/Cat4/PLe dependem da arquitetura e uso correto; não certificar circuito completo nem tratar as oito saídas de teste como seguras."
+  },
+  {
+    "id": 1711,
+    "nome": "MÓDULO E/S DE SEGURANÇA FLEXI IO FLX3-XTDO100 8DI/8DO SEGUROS 24VCC CONECTOR FRONTAL 18 TERMINAIS IP20",
+    "desc": "Expansão digital de segurança, oito entradas e oito saídas seguras, não CPU autônoma. Alimentação da eletrônica pelo barramento traseiro; saídas de segurança 24VCC (16,8-30VCC), PELV/SELV, alimentação limitada externamente a 4A conforme ficha. Conector frontal de dezoito terminais incluído, montagem em trilho 35×7,5mm, IP20. Família atual Flexi IO; conferir compatibilidade com controlador/versão, sem presumir intercâmbio. SIL3/Cat4/PLe não certificam a instalação completa."
+  },
+  {
+    "id": 425,
+    "nome": "SENSOR INDUTIVO DE SEGURANÇA IME2S IME2S12-04N4DC0 M12 SN 4mm NÃO FACEADO 2OSSD 24VCC M12 4 PINOS IP67",
+    "desc": "Sensor indutivo sem contato, não codificado, tipo 3 ISO14119. Sn 4mm, distância assegurada de atuação Sao 3,2mm e desligamento Sar 6mm para aço FE360. Duas saídas semicondutoras OSSD automonitoradas, não saída PNP convencional NA. Alimentação 24VCC (19,2-28,8VCC); 28,8V de isolação e 1500V de impulso não são faixas de alimentação. Conector macho M12 de quatro pinos, corpo M12 em latão niquelado, face VISTAL, montagem não faceada e IP67. Ficha SIL2/Cat2/PLd, não SIL3; integração exige validação."
+  },
+  {
+    "id": 428,
+    "nome": "CHAVE SEGURANÇA CABO-TRAÇÃO I110RP I110-RP223 2NF+2NA AC-15 3A/240VCA DC-13 2A/24VCC ENTRADA M20 IP66",
+    "desc": "Chave eletromecânica de tração, dois NF de abertura positiva e dois NA, comutação lenta. Cabo de acionamento até 30m, não incluído automaticamente. Correntes por categoria: AC-15 3A em 240VCA e DC-13 2A em 24VCC; Ui 250V não substitui tensão operacional. Entrada M20, seção de condutor até 1,5mm², corpo em zinco fundido pintado, IP66. Não possui diagnóstico interno de falhas; necessário monitoramento pela lógica de segurança externa."
+  },
+  {
+    "id": 3416,
+    "nome": "CHAVE SEGURANÇA ELETROMECÂNICA I110P I110-PA223 ÊMBOLO COM ROLETE 2NF+2NA AC-15 3A/240VCA DC-13 3A/24VCC ENTRADA M20 IP66",
+    "desc": "Dois NF de abertura positiva e dois NA; mecanismo de comutação lenta, atuação por êmbolo com rolete conforme desenho dimensional. AC-15 3A em 240VCA e DC-13 3A em 24VCC; não copiar 2A da chave de cabo-tração. Entrada M20, seção até 2,5mm², corpo de zinco fundido pintado, IP66. Dispositivo tipo 1 não codificado; falhas devem ser detectadas pela lógica de segurança externa."
+  },
+  {
+    "id": 863,
+    "nome": "DISPOSITIVO DE HABILITAÇÃO E100 E100-B2A22S10A 2NF+2NA BOTÕES +/− CABO PUR 10m PONTA LIVRE IP65",
+    "desc": "Comando manual de habilitação, dois NF de abertura positiva e dois NA, botões mais/menos. Cabo reto PUR de 10m, ponta livre, condutores 8×0,5mm² e 8×0,14mm², diâmetro 9,8mm. Corpo plástico, IP65. A ficha informa DC-13, 2A e 100mA em 24VCC para circuitos distintos, sem detalhar aqui sua distribuição: conferir diagrama antes de dimensionar, não atribuir 2A a todos os contatos. Ui 32V não é alimentação. Requer monitoramento pela lógica de segurança externa."
+  },
+  {
+    "id": 429,
+    "nome": "KIT ACIONAMENTO CABO-TRAÇÃO IE110-P20 CABO 20m 2 GRAMPOS 1 TENSOR 10 OLHAIS E CHAVE ALLEN",
+    "desc": "Kit mecânico para chave de cabo-tração, referência iE110-P20. Ficha lista cabo de 20m, dois grampos, um rolete tensor, dez olhais e uma chave Allen. Não é cabo elétrico, não inclui automaticamente chave de segurança e não recebe classe de tensão elétrica. Material do cabo não especificado nesta ficha."
+  },
+  {
+    "id": 430,
+    "nome": "MÓDULO DE CONEXÃO SP2-2000 DETEC4/DETEM4 M12 MACHO 5 PINOS CABO 200mm 24VCC SEM CONEXÃO DE EXTENSÃO",
+    "desc": "System Plug SP2-2000, compatível com deTec4, deTem4 e deTem4 A/P conforme ficha. Conexão de sistema M12 macho de cinco pinos e cabo de 200mm; sem conexão de extensão, não significa ausência do cabo de sistema. Alimentação 24VCC (19,2-28,8VCC), configuração por DIP switch. Pacote SP2; as funções dependem do equipamento e da configuração, não presumir equivalência ao SP1. Não é cortina completa, gateway ou cabo genérico."
+  },
+  {
+    "id": 431,
+    "nome": "MÓDULO DE CONEXÃO SP1-1000 DETEC4/DETEM4 M12 MACHO 5 PINOS CABO 200mm 24VCC SEM CONEXÃO DE EXTENSÃO",
+    "desc": "System Plug SP1-1000, compatível com deTec4, deTem4 e deTem4 A/P conforme ficha. Conexão de sistema M12 macho de cinco pinos e cabo de 200mm; sem conexão de extensão, não significa ausência do cabo de sistema. Alimentação 24VCC (19,2-28,8VCC), configuração por DIP switch. Pacote SP1 para operação de proteção e calibração automática da largura do campo. Não é cortina completa, gateway ou cabo genérico."
+  },
+  {
+    "id": 436,
+    "nome": "REFLETOR RETANGULAR PL80A 84×84mm ESPESSURA 8,5mm PMMA/ABS FIXAÇÃO POR PARAFUSOS",
+    "desc": "Refletor passivo padrão, PL80A, material PMMA/ABS e fixação por parafusos. Dimensões externas 84×84mm, espessura 8,5mm; não confundir com a área óptica útil nem com alcance. Temperatura ambiente -30 a +65°C, instalação sem tensão mecânica conforme fabricante. O alcance depende do sensor associado; não atribuir tensão de alimentação a este acessório."
+  },
+  {
+    "id": 426,
+    "nome": "ATUADOR RETO TR110 LOCK TR110-XAS PARA CHAVE RFID COM 2 PARAFUSOS DE SEGURANÇA M4",
+    "desc": "Atuador reto para chave TR110 Lock, identificado pelo código exato na tabela 26 do manual oficial. Fornecimento descrito com dois parafusos de segurança M4. Acessório mecânico de atuação, não chave completa: não atribuir saídas OSSD, tensão da chave, força de bloqueio ou material não informados para este atuador.",
+    "paginas": [
+      65
+    ],
+    "referencia": "TR110-XAS"
+  },
+  {
+    "id": 427,
+    "nome": "ATUADOR ANGULAR TR110 LOCK TR110-XABT PARA CHAVE RFID COM 2 PARAFUSOS DE SEGURANÇA M4",
+    "desc": "Atuador angular para chave TR110 Lock, identificado pelo código exato na tabela 26 do manual oficial. Fornecimento descrito com dois parafusos de segurança M4. Acessório mecânico de atuação, não chave completa: não atribuir saídas OSSD, tensão da chave, força de bloqueio ou material não informados para este atuador.",
+    "paginas": [
+      65
+    ],
+    "referencia": "TR110-XABT"
+  },
+  {
+    "id": 437,
+    "nome": "SENSOR DE NÍVEL LFP CUBIC LFP2000-A4NMB HASTE 2000mm G3/4A 4-20mA/0-10V E 2 SAÍDAS DIGITAIS IO-LINK 12-30VCC M12 5 PINOS",
+    "desc": "Sensor para líquidos, medição contínua e por chaveamento. Haste de 2000mm; comprimento da haste não equivale ao alcance útil, pois há zonas inativas. Saídas 1PNP + 1PNP/NPN e uma analógica 4-20mA ou 0-10V, IO-Link; alimentação 12-30VCC. Para 0-10V, alimentação mínima 14VCC e carga >750Ω; na corrente, respeitar carga conforme tensão da ficha. Conector M12 de cinco pinos, processo G3/4A, partes molhadas inox316L/PTFE/FKM, corpo PBT, IP67. Processo -1 a 10bar e -20 a +100°C; não confundir limites de processo com temperatura ambiente. Conferir constante dielétrica, instalação e zonas inativas."
+  },
+  {
+    "id": 438,
+    "nome": "SENSOR DE NÍVEL VIBRATÓRIO LFV200-XASNHTPM LÍQUIDOS PNP HASTE 67mm NPT1/2 9,6-35VCC M12 4 PINOS IP67",
+    "desc": "Sensor de nível pontual para líquidos, não medição contínua. Linha exata do catálogo LFV200: haste 67mm, processo NPT1/2 PN64, PNP, temperatura de processo -40 a +100°C, pressão -1 a 64bar. Corpo inox1.4404/PEI e conexão M12 de quatro pinos, IP67; alimentação PNP 9,6-35VCC. Não presumir IO-Link da família para esta versão. Uma ficha antiga hospedada por terceiro informa 38mm; a proposta usa os 67mm do catálogo oficial, preservando a divergência para conferência física antes de substituição. Dimensão do garfo não deve ser confundida com comprimento total da sonda.",
+    "referencia": "LFV200-XASNHTPM",
+    "paginas": [
+      7,
+      11
+    ],
+    "nao_confirmados": [
+      "equivalencia_dimensional_com_ficha_antiga_38mm"
+    ]
+  },
+  {
+    "id": 439,
+    "nome": "ENCODER INCREMENTAL DFS60 DFS60B-S4PC10000 10000PPR TTL/HTL PROGRAMÁVEL 4,5-32VCC EIXO MACIÇO 10mm M12 8 PINOS RADIAL",
+    "desc": "Encoder incremental de 10000 pulsos por volta, seis canais, TTL/HTL configurável; nível de saída de fábrica TTL, não ambos simultaneamente. Alimentação 4,5-32VCC, conector macho M12 de oito pinos radial, eixo maciço de 10mm com face plana, flange frontal. Corpo alumínio fundido e eixo inox. IP67 no corpo/conector com contraparte acoplada; IP65 no eixo. Não aplicar IP67 ao encoder inteiro nem inferir programação atual da peça. Não é componente de segurança apenas por haver MTTFd na ficha."
+  },
+  {
+    "id": 1712,
+    "nome": "SENSOR ULTRASSÔNICO UC30-214163 FAIXA 350-3400mm 1 SAÍDA 4-20mA/0-10V 9-30VCC (15-30VCC EM 0-10V) M12 5 PINOS IP65/IP67",
+    "desc": "Faixa operacional 350-3400mm; alcance limite 5000mm não é faixa operacional. Uma saída analógica, seleção automática corrente/tensão conforme carga, resolução de saída 12bit. Alimentação 9-30VCC para corrente e 15-30VCC para 0-10V. Corrente 4-20mA: carga até 500Ω, reduzida a 100Ω se alimentação ≤20V; tensão 0-10V: carga ≥100kΩ. Conector macho M12 de cinco pinos, corpo PBT/PET, IP65/IP67. Teach-in e sincronização/multiplexação conforme manual; não confundir frequência ultrassônica com taxa de medição. Dimensões variam com número de série, não fixadas sem verificar a peça."
+  },
+  {
+    "id": 1715,
+    "nome": "SENSOR ULTRASSÔNICO UC30-215163 FAIXA 600-6000mm 1 SAÍDA 4-20mA/0-10V 9-30VCC (15-30VCC EM 0-10V) M12 5 PINOS IP65/IP67",
+    "desc": "Faixa operacional 600-6000mm; alcance limite 8000mm não é faixa operacional. Uma saída analógica, seleção automática corrente/tensão conforme carga, resolução de saída 12bit. Alimentação 9-30VCC para corrente e 15-30VCC para 0-10V. Corrente 4-20mA: carga até 500Ω, reduzida a 100Ω se alimentação ≤20V; tensão 0-10V: carga ≥100kΩ. Conector macho M12 de cinco pinos, corpo PBT/PET, IP65/IP67. Teach-in e sincronização/multiplexação conforme manual; não confundir frequência ultrassônica com taxa de medição. Dimensões variam com número de série, não fixadas sem verificar a peça."
+  },
+  {
+    "id": 1713,
+    "nome": "SENSOR DE FLUXO T-EASIC FTS-I101F14B CALORIMÉTRICO HASTE 100mm 2 PUSH-PULL CONFIGURÁVEIS 4-20mA/IO-LINK 9-30VCC M12 4 PINOS",
+    "desc": "Sensor calorimétrico para líquidos à base de água/óleo e temperatura, haste de 100mm. Faixa padrão de velocidade 3-300cm/s para água/óleos A/B; limite depende do meio. Duas saídas push-pull: Q1 configurável para IO-Link e Q2 alternativamente analógica 4-20mA, pulso ou entrada digital, não todas simultâneas. Alimentação 9-30VCC, M12 de quatro pinos; corpo VISTAL, partes molhadas inox1.4404, IP67 com conector acoplado. Anel de aperto fixo para conexões T SICK, não conexão roscada universal. Pressão permitida depende do T utilizado; acima de 100°C respeitar afastamento mínimo de 25mm entre corpo e adaptador conforme ficha.",
+    "paginas": [
+      2,
+      3,
+      4
+    ]
+  },
+  {
+    "id": 1714,
+    "nome": "SENSOR DE TEMPERATURA TCT-2AAGE1506MZ PT1000 CLASSE A -50 A +150°C 4-20mA 2 FIOS G1/2B HASTE 150×6mm 10-35VCC M12 4 PINOS",
+    "desc": "Elemento Pt1000 classe A IEC60751 com transmissor 4-20mA de dois fios, faixa -50 a +150°C; não é saída resistiva Pt1000 direta. Alimentação 10-35VCC. Haste de inserção 150mm, diâmetro 6mm, processo G1/2B sem vedação fornecida; corpo e partes molhadas inox1.4571. Conector M12 de quatro pinos, IP67 condicionado a contraparte adequada. Pressão máxima 120bar à temperatura ambiente, não válida indiscriminadamente em toda temperatura de processo."
+  },
+  {
+    "id": 1708,
+    "nome": "TRANSMISSOR DE PRESSÃO PBT-CB010AGESE0AMA0Z -1 A 9bar 4-20mA G1/2B INOX316L M12 4 PINOS IP67",
+    "desc": "Revisão PARCIAL baseada em ficha histórica de autoria SICK, datada de 22/03/2015 e hospedada pela PZIP. Faixa composta -1 a 9bar, saída 4-20mA, processo G1/2B EN837 sem vedação, corpo inox316L, conector M12 de quatro pinos e IP67. A ficha mistura opções da família com dados específicos; não transportar 0-5V/0-10V ao nome desta referência. Faixa de alimentação e ligação de dois fios do cadastro anterior ainda exigem confirmação por manual/placa; valores de proteção contra sobretensão e isolação não são alimentação. Sem alteração de código ou certificação de equivalência com substituto.",
+    "referencia": "PBT-CB010AGESE0AMA0Z",
+    "paginas": [
+      1,
+      2,
+      3
+    ],
+    "nao_confirmados": [
+      "faixa_alimentacao",
+      "ligacao_dois_fios_historica"
+    ]
+  }
+]

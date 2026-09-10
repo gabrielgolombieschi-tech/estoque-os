@@ -1,0 +1,10 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "lote": "007-cinquenta-itens",
+  "status": "aprovado",
+  "data": "2026-09-09",
+  "mensagem_usuario": "pode seguir",
+  "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5",
+  "escopo": "Somente os 50 nomes e descrições apresentados no lote 007. Preservar outros campos e as ressalvas técnicas, inclusive a revisão parcial do ID 1884. Aprovação da redação não certifica atributos não confirmados. Lote 008 não aprovado."
+}

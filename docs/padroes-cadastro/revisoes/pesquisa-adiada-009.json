@@ -1,0 +1,18 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-09",
+  "lote": "009-cinquenta-itens",
+  "itens": [
+    {"id":432,"codigo":"2066614","motivo":"Cadastro de suporte para cortina sem identidade técnica suficiente nesta rodada; código também aparece como origem de dois cadastros COPIA com funções diferentes.","acao":"Conferir placa/documento de compra e referência exata antes de propor. Não copiar dados dos cadastros 3293/3294."},
+    {"id":3293,"codigo":"2066614-COPIA","motivo":"Código interno artificial com COPIA, descrição de ferramenta de programação para encoders.","acao":"Confirmar referência real do fabricante. Não remover sufixo, unificar cadastros nem alterar código sem avaliação separada."},
+    {"id":3294,"codigo":"2066614-COPIA-COPIA","motivo":"Código interno artificial com COPIA, descrição de cabo adaptador de programação.","acao":"Confirmar referência real do fabricante e identidade do conjunto; não tratar como produto 2066614 por remoção automática do sufixo."},
+    {"id":3628,"codigo":"CJ1WAD081V1","motivo":"Módulo analógico Omron pendente de pesquisa técnica completa; não incluído no lote Siemens 008 nem nos 50 SICK.","acao":"Retomar com fonte oficial exata. Não declarar etapa CLPs/remotas/cartões 100% concluída."},
+    {"id":3629,"codigo":"CQM1HCPU61","motivo":"CPU Omron pendente de pesquisa técnica completa; não incluída no lote Siemens 008 nem nos 50 SICK.","acao":"Retomar com fonte oficial exata; manter cadastro sem alteração nesta rodada."}
+  ],
+  "ressalvas_dentro_da_proposta": [
+    {"id":1708,"estado":"revisao_parcial_proposta","atributos":["faixa_alimentacao","ligacao_dois_fios_historica"],"acao":"Conferir manual/placa; fonte histórica SICK de 2015 hospedada por terceiro não confirma alimentação. Não usar tensão de proteção/isolação."},
+    {"id":438,"estado":"divergencia_documental_proposta","atributos":["equivalencia_dimensional_com_ficha_antiga_38mm"],"acao":"Proposta usa 67mm da linha exata do catálogo oficial; divergência com ficha antiga de 38mm deve ser conferida fisicamente antes de substituir."}
+  ],
+  "pendencia_anterior": "ID 2461 permanece no arquivo pesquisa-adiada-008.json. Nenhuma destas anotações é aprovação ou aplicação de item."
+}

@@ -1,0 +1,10 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "lote": "009-cinquenta-itens",
+  "status": "aprovado",
+  "data": "2026-09-10",
+  "mensagem_usuario": "pode dar sequencia",
+  "assinatura_lote": "714df3a7c6a7ecd536a4e4be40768b1142f7854d5cd5f7e86f5d1db237d7d87b",
+  "escopo": "Somente os 50 nomes e descrições apresentados no lote 009. Preservar todos os demais campos e as ressalvas documentais dos IDs 1708 e 438. Não certifica atributos não confirmados, não altera unidades/conversões, não autoriza substituições nem lote 010."
+}

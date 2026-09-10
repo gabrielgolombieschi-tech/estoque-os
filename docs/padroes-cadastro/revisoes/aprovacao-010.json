@@ -1,0 +1,10 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "lote": "010-cinquenta-itens",
+  "status": "aprovado",
+  "data": "2026-09-10",
+  "mensagem_usuario": "pode alterar",
+  "assinatura_lote": "6b82344ea80f3e00a8c260b5e4866879cc3850a5aeba56c8b6b32d904d4d2276",
+  "escopo": "Somente os 50 nomes e descrições apresentados no lote 010. Preservar demais campos e ressalva documental do ID 215. Corrigir o cadastro do ID 1695 para 24VCA/CC conforme ficha, sem autorizar intervenção elétrica. Não certifica atributos não confirmados, não altera unidades/conversões, não autoriza substituições nem lotes seguintes."
+}

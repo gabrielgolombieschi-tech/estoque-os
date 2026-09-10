@@ -1,0 +1,18 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "data": "2026-09-10",
+  "lote_relacionado": "011-cinquenta-itens",
+  "fora_do_lote": [
+    {"id":242,"codigo":"8WA1206","motivo":"HTTP 404 na ficha oficial"},
+    {"id":1583,"codigo":"8WA1897","motivo":"HTTP 404 na ficha oficial"},
+    {"id":1585,"codigo":"8WA1896","motivo":"HTTP 404 na ficha oficial"},
+    {"id":1586,"codigo":"8WA1895","motivo":"HTTP 404 na ficha oficial"},
+    {"id":1588,"codigo":"8WA1838","motivo":"HTTP 404 na ficha oficial"}
+  ],
+  "url_consultada_por_codigo": "https://tableeditor.cicservice.siemens.com/teddatasheet/?caller=documentservice&format=PDF&language=en&mlfbs={codigo}",
+  "retomada": "Consultar catálogo histórico ou outro documento da referência exata; indisponibilidade não prova inexistência/descontinuação. Não reaplicar ou completar de similares.",
+  "ressalvas_dentro_da_proposta": [944,1616,1618,957,1619],
+  "possiveis_duplicidades_sem_acao": [[2641,2698],[2642,2699],[2643,2700]],
+  "observacao": "Nenhum desses registros é evento de aprovação. Ver atributos_nao_confirmados por ID no manifesto para demais lacunas. Não fundir duplicidades nem alterar unidade/fator do ID 2535."
+}

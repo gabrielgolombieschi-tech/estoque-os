@@ -1,0 +1,16 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "decisao": "D-047",
+  "data": "2026-09-10",
+  "status": "autorizado_condicionalmente",
+  "mensagem_usuario": "pode fazer para os itens que voce achar referencia clara... faça para todos nessta linha que voce esta fazendo... e traga apenas os que nao estao claros.",
+  "escopo": "Continuidade da revisão de descrições dos componentes de estoque, priorizando itens agrupados, por referência exata e dados claros; não limitar a 50 itens nem pedir aprovação repetida dos claros.",
+  "campos_permitidos": ["nome", "descricao"],
+  "exigir": ["identidade_exata", "fonte_verificavel", "conferencia_tecnica", "sem_divergencia_relevante", "sem_lacuna_relevante", "backup", "controle_concorrencia", "releitura"],
+  "excluir": ["identidade_duvidosa", "divergencia_documental", "atributo_relevante_ausente", "mudanca_concorrente"],
+  "preservar": "Códigos, fabricante, fornecedor, grupo, unidade, conversão, fator, preço, saldo, atividade e fiscal. Não fundir/excluir itens, substituir referências ou executar intervenção elétrica.",
+  "retorno": "Mostrar apenas exceções por ID/código, motivo e evidência necessária; totais agregados permitidos. Não exigir novos 50 antes/depois para aprovação; manter comparação no histórico interno.",
+  "aprendizado": "Registrar modelos efetivamente validados/aplicados sob autorização geral, sem alegar aprovação humana individual de cada descrição. Casos retidos não viram exemplos confirmados.",
+  "limite": "Autorização restrita à revisão cadastral em andamento; não autoriza gravação autônoma de novas entradas/XML, deploy, alterações estruturais ou comerciais. A continuidade é autorizada, não uma afirmação de conclusão do catálogo."
+}

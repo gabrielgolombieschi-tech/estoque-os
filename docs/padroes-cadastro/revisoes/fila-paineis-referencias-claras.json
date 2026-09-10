@@ -1,0 +1,1701 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "gerado_em": "2026-09-10T18:04:58.293Z",
+  "base": "backups/base-revisao/2026-09-10T18-04-42-805Z.json",
+  "grupos": [
+    23,
+    28,
+    35,
+    36,
+    42,
+    45,
+    46,
+    50,
+    54,
+    58,
+    72,
+    73,
+    74,
+    75,
+    93
+  ],
+  "observacao": "Recorte operacional dos grupos do lote 011, todas as marcas, mais exceção histórica 242. Aguardar pesquisa não significa referência duvidosa. Não representa catálogo inteiro.",
+  "contagens": {
+    "aguardando_pesquisa": 100,
+    "aprovado": 31,
+    "aguardando_esclarecimento_tecnico": 36
+  },
+  "itens": [
+    {
+      "id": 103,
+      "codigo": "2900299",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 1 REVERSÍVEL 24VCC PLC-RPT-24DC/21",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "b14ff23b1faaea550f6c19591a24d3f2af0499c438c39a2404c52e5e9696281e",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 104,
+      "codigo": "2866763",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 10A ENTRADA MONOFÁSICA QUINT-PS/1AC/24DC/10",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "a3b41418c86cd74c0f4599a0799f1f13946c1b825a1c936012deefaf4ed77c1f",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 105,
+      "codigo": "2903151",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 20A ENTRADA MONOFÁSICA TRIO-PS-2G/1AC/24DC/20",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "4c6fd118ebe4a25341a181db4171ae7775ce3fabeb2f473babd1088b4dd82891",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 106,
+      "codigo": "2903149",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 10A ENTRADA MONOFÁSICA TRIO-PS-2G/1AC/24DC/10",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "e272a47ecf273683a81c395ddd61a14fedf4752503486ff26b805e05a5793c28",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 110,
+      "codigo": "1234301",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 75W ENTRADA MONOFÁSICA PS-EE-2G/1AC/24DC/75W/SC",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "13015deefaf1548c94a6d141ea3a7e84c0589ca3f4d1c7c2ecedf2b166e8a07b",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 111,
+      "codigo": "1234302",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 120W ENTRADA MONOFÁSICA PS-EE-2G/1AC/24DC/120W/SC",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "e2155e901d3d49b11a9733a6744bc8739ec8453f25a3d27038f897fd919cec36",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 114,
+      "codigo": "3030271",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS FBS 10-6",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "5986ccb4390259350eb3b8853c225b8ffa861a29b26143f17464712a634807b8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 115,
+      "codigo": "3032198",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS COR AZUL FBS 10-6 BU",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "526257dc5bb6e5d501b6f234502cb616c6cf7ee8c940c87787ac775679f231bc",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 119,
+      "codigo": "3033710",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS FBSR 10-5",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "cffd07061ad77febf57de24342b0270fd99b10ea2df438b1971d3fb189f945aa",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 120,
+      "codigo": "3036916",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS COR AZUL FBS 10-5 BU",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "d0d5c2a6c7f633b0d096de116d2cb560cbe0b68dd70f0944f201acfd8a5485c9",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 127,
+      "codigo": "2966676",
+      "nome": "RELÉ DE INTERFACE DE ESTADO SÓLIDO 1NA ENTRADA 24VCC SAÍDA 3-33VCC 3A PLC-OSC-24DC/24DC/2/ACT",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "7d20524d6abc2d6e9d5de5dd6f52005c9387bab32f4cac07ba6f99b5dce320ed",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 128,
+      "codigo": "1089521",
+      "nome": "CONECTOR DE FIBRA ÓPTICA MULTIMODO FOC-C-LCD-MM",
+      "grupo_id": 93,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "253e1cf9bc7557125a1dfef6f41c9017a3ded39de279ff0a484a0b8820e42dcc",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 140,
+      "codigo": "3211634",
+      "nome": "TAMPA FINAL PARA BORNE 2,5MM² D-PTTB 2,5",
+      "grupo_id": 72,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "fc662f9c26b4576092220d4dc6298c44cab9d2dec2cab8b6ec189ac3d1e3929e",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 142,
+      "codigo": "3209536",
+      "nome": "BORNE DE PROTEÇÃO 2,5MM² PT 2,5-PE",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "32a6f2f9189b9f01beb1fea2bd95561649939cd355cad346af3c4dd151410598",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 143,
+      "codigo": "3030417",
+      "nome": "TAMPA FINAL PARA BORNE D-ST 2,5",
+      "grupo_id": 72,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "2d9bf3bb7200a6a2c8f22c8a983f8eebcc7b12a547448b7190b908d3e2c2d8f3",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 226,
+      "codigo": "5SV56460",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV5 4P 63A 300mA TIPO AC 400VCA 50Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "ca747d37e8f7de698bf88c79f9767b914cd52ddbc5f57d7edc75b1e06342cb59",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 227,
+      "codigo": "5SV46120",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV4 2P 25A 300mA TIPO AC 230VCA 50Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "7f80bd9a29b4cf5c3e448d51003014e14afb8e1bdcfb2b621fc560f26e46a09b",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 240,
+      "codigo": "8WH60000AM00",
+      "nome": "Borne plug-in de passagem 35mm²",
+      "grupo_id": 75,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "600858aa05992433e80b43c92f42649d785cd0c0bfb26f9f6342d7622a05dee9",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 242,
+      "codigo": "8WA1206",
+      "nome": "Borne de passagem 70mm²",
+      "grupo_id": 76,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "bcf5f3a810844344983de2cfa269ffcd733233bc6070e7fa4636c58bd5b68f78",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "pesquisa-adiada-011"
+    },
+    {
+      "id": 256,
+      "codigo": "3SE50000AV071AK2",
+      "nome": "ATUADOR RADIAL UNIVERSAL AJUSTÁVEL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO 67mm",
+      "grupo_id": 28,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "3f74789214d404452882af254326e0dc9e8a87d46e3cbe4654b189b4dda685a2",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 346,
+      "codigo": "3SE50000AV07",
+      "nome": "ATUADOR RADIAL PARA CHAVE DE POSIÇÃO DE SEGURANÇA SERVIÇO PESADO",
+      "grupo_id": 28,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "b1075f77ceb07f70662f224583051103a5eea128d702956e3bf5cb2884037a21",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 357,
+      "codigo": "3213138",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 20 POLOS COR AZUL FBS 20-3,5 BU",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "7bd57ed995228463ce15f46d2f475e882ba507b9e4bb45edf633e18df52f03f2",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 358,
+      "codigo": "3213069",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 20 POLOS FBS 20-3,5",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "7a6f3fa0f5f16b564ada97589ecbb4f89caf85c621ef24c836db5583c2194c91",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 365,
+      "codigo": "2900369",
+      "nome": "RELÉ DE INTERFACE DE ESTADO SÓLIDO 1NA ENTRADA 24VCC SAÍDA 24-253VCA 0,75A PLC-OPT-24DC/230AC/1",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "c4b305cd09d00a3c809bc995c6739c1005ba56c40ca0a0b13d4a4f059e633cc1",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 366,
+      "codigo": "1421607",
+      "nome": "CONECTOR RJ45 PARA REDE INDUSTRIAL CUC-IND-C1ZNI-S/R4IE8",
+      "grupo_id": 93,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "b8e23e7eb361f411ce0c68362949d1daa3c5343ac0ecff532a96aedb1e10f5f8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 367,
+      "codigo": "1656725",
+      "nome": "CONECTOR RJ45 PARA REDE INDUSTRIAL VS-08-RJ45-5-Q/IP20",
+      "grupo_id": 93,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "962c8b3ead0d48359af36094987463c740a685d0137e417fe53bc5059520e722",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 369,
+      "codigo": "2903370",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 1 REVERSÍVEL 24VCC RIF-0-RPT-24DC/21",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "9f4735fe08f41e625bab2b17a3b29a6b4902273ab184b283457452d1ed1ea46d",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 372,
+      "codigo": "1421126",
+      "nome": "CONECTOR RJ45 PARA REDE INDUSTRIAL CUC-IND-C1ZNI-S/R4IP8",
+      "grupo_id": 93,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "6f5b982bab98a499d964c9385ff3a0d0e73884eb2736214df23eecfed7885adf",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 373,
+      "codigo": "2966692",
+      "nome": "PENTE DE LIGAÇÃO PARA RELÉ DE INTERFACE FBST 500-PLC BU",
+      "grupo_id": 36,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "f706ec8c0794c4fcebf38b1d675c85d9e1b2b5933b49aec4a926abdbd8bdeb1c",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 374,
+      "codigo": "2966786",
+      "nome": "PENTE DE LIGAÇÃO PARA RELÉ DE INTERFACE FBST 500-PLC RD",
+      "grupo_id": 36,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "bf869953f76cfaee19d539fffcf973783c8d52dc7f67944f75a6475435360644",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 376,
+      "codigo": "3030213",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS FBS 10-5",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "2787e63e8ac4a8b787eb7cfb572338782fa5e4d0a663c2c87b37e99f00bec81a",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 378,
+      "codigo": "3211822",
+      "nome": "BORNE DE PROTEÇÃO 6MM² PT 6-PE",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "89f7aa0a3d401fedbcc85d7b27acb630acf02fe5e7a51dd8bfeb891af250b27e",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 379,
+      "codigo": "3211766",
+      "nome": "BORNE DE PROTEÇÃO 4MM² PT 4-PE",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "e07d4361a7e202dbb38410e07f8cb083a872ac461a1009dcde72324db26d8296",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 381,
+      "codigo": "2907067",
+      "nome": "UPS CC 24VCC 10A COM USB QUINT4-UPS/24DC/24DC/10/USB",
+      "grupo_id": 58,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "0f1d50f69dbe02b9304810f85a3762c189ed843850180fbf8fc94f5f4f7b8ff7",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 383,
+      "codigo": "1274118",
+      "nome": "BATERIA PARA UPS CC 24VCC 7AH UPS-BAT/PB/24DC/7AH",
+      "grupo_id": 58,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "de4d1bdee2f94e39d919682947168209c29741ba02632c5f373f0532bd1eed72",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 388,
+      "codigo": "1394764",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 60W ENTRADA MONOFÁSICA PS-EE-2G/1AC/24DC/60W/SC",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "a29b1711b6fd1fe0d588fc12fcdd2e3118a3ba44275af94b13771469b17546ad",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 389,
+      "codigo": "3030226",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 20 POLOS FBS 20-5",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "54b9df56fa2b1257d23aac418f78b36df9861b7da2e1dd9e31b1fa7c291e5dde",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 390,
+      "codigo": "3036929",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 20 POLOS COR AZUL FBS 20-5 BU",
+      "grupo_id": 73,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "f4b8bfe09c64d699a9bdee32c41fda0c595159f10ecf7237fb97d2ccb232a4e8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 391,
+      "codigo": "2982786",
+      "nome": "RELÉ DE INTERFACE DE ESTADO SÓLIDO 24VCC SAÍDA 24VCC 5A PLC-OSC-24DC/24DC/5/ACT",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "81a1994cb8547d1604e477eb85f9512da77b10d759046c01bcf2820beb5d306b",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 397,
+      "codigo": "3210541",
+      "nome": "BORNE DE PROTEÇÃO 2,5MM² PT 2,5-PE/L/L",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "d1a7334712d54abfdb24b98503b4f2ed8d0d6ac0a6ba022e4134b6492e05b82e",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 401,
+      "codigo": "2903153",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 5A ENTRADA TRIFÁSICA TRIO-PS-2G/3AC/24DC/5",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "08dcebfb33e1a832615a6f502e3eed35af347e7aac47c2f92467e7adb0531db9",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 406,
+      "codigo": "3030420",
+      "nome": "TAMPA FINAL PARA BORNE D-ST 4",
+      "grupo_id": 72,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "3ab899ca4033d3331632fbb969d92e6b30bc1b902daae7b6cae9f9d7d1c95277",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 407,
+      "codigo": "3212044",
+      "nome": "TAMPA FINAL PARA BORNE 6MM² D-PT 6",
+      "grupo_id": 72,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "c7fdfa513a251d8626a95f829b3fd7c1f012b1a449fd70886e202c4b1d45c78a",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 408,
+      "codigo": "3212057",
+      "nome": "TAMPA FINAL PARA BORNE 10MM² D-PT 10",
+      "grupo_id": 72,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "40cae1ccaaee9b28980f00bcca53bd82b2bb772f3cf811a92dc1bc476c341364",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 426,
+      "codigo": "5321176",
+      "nome": "ATUADOR RETO TR110 LOCK TR110-XAS PARA CHAVE RFID COM 2 PARAFUSOS DE SEGURANÇA M4",
+      "grupo_id": 28,
+      "fornecedor_id": 14,
+      "impressao_tecnica": "e745bdace481726b7b8834c3be8bc7a4d4ffc90fe789bc59be76502a33d65427",
+      "status": "aprovado",
+      "origem": "009-cinquenta-itens"
+    },
+    {
+      "id": 427,
+      "codigo": "5334663",
+      "nome": "ATUADOR ANGULAR TR110 LOCK TR110-XABT PARA CHAVE RFID COM 2 PARAFUSOS DE SEGURANÇA M4",
+      "grupo_id": 28,
+      "fornecedor_id": 14,
+      "impressao_tecnica": "9f38497721bfb6f2ecd1e0270325de8f1debca55e88ab74457ec278362477400",
+      "status": "aprovado",
+      "origem": "009-cinquenta-itens"
+    },
+    {
+      "id": 447,
+      "codigo": "LZS:PT17040",
+      "nome": "Placa de identificação para relé de interface",
+      "grupo_id": 36,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "326b8a6ba576a6b0fa0a0ef8b4c61e6a7f7b68d7b29ee2d5b548b4b1234513bb",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 474,
+      "codigo": "3212131",
+      "nome": "BORNE DE PROTEÇÃO 10MM² PT 10-PE",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "1d679bc6ef1727a534e099bd94b8838b0e9a116284f90e7c0e61eefb801d50e2",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 475,
+      "codigo": "3212147",
+      "nome": "BORNE DE PROTEÇÃO 16MM² PT 16 N-PE",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "af1a57d5cf3cf583faf4d07f7f88e283a9009d2bbe37f8197b4762625fd49aa0",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 476,
+      "codigo": "3212060",
+      "nome": "TAMPA FINAL PARA BORNE 16MM² D-PT 16 N",
+      "grupo_id": 72,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "d96a179204eff6fb382b32db191d7c7e606a24731b97783b7d57357b355e8588",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 686,
+      "codigo": "3UG56161CR20",
+      "nome": "RELÉ DE MONITORAMENTO SIRIUS 3UG5 3F 90-690VCA 15-70Hz FALTA/SEQUÊNCIA/ASSIMETRIA/FREQUÊNCIA/SOBRE-SUBTENSÃO 2REV PARAFUSO",
+      "grupo_id": 45,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0ca68154b38e77a9054de0a02619ce78b876e755b0a8beb32b1c4508c8a3db25",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 735,
+      "codigo": "3RA19211DA00",
+      "nome": "CONEXAO 3RV S00S0 C 3RT S00 PARAFUSO",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "be8adbc6bf2303d625f767d4c3c6cd68b501acf76df8f95c22c504f4e791dc7e",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 737,
+      "codigo": "5SV46420",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV4 4P 25A 300mA TIPO AC 400VCA 50Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "7fc4a6bdb7289c284238cc8812c5835d2ad4d95595e46fa5a34b64416255f3a6",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 738,
+      "codigo": "5SV53120MB",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV5 2P 25A 30mA TIPO AC 230VCA 60Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "f0c7c6e761cac0a0d328442d6c35f8a9d66c9e22bfc8e9eaa2e7331b75639d04",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 744,
+      "codigo": "5SV53440MB",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV5 4P 40A 30mA TIPO AC 400VCA 60Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "b12d46c1fb3812afc891f4f788cac8f1044f951da9102513beb721ef449291a0",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 745,
+      "codigo": "5SV53420MB",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV5 4P 25A 30mA TIPO AC 400VCA 60Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "e8c27ba2bd09b5ba5f8ba88995f62957bea016aca5730632d5dc7dc3586b4f7f",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 769,
+      "codigo": "A7B10001339607",
+      "nome": "Relé de monitoramento de fase para falta e sequência de fase 220-440VCA",
+      "grupo_id": 45,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "5903c0fb3346d833d12282a182cec79b22dbaf8c2f4cf255b6620f1f46df1136",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 776,
+      "codigo": "3RA29211BA00",
+      "nome": "CONEXAO 3RV S00S0 C 3RT S0 CC PARAFUSO",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "111a650ae8989ccf50bb54ee59f55bc56859e1d21ecdbadb3c34ad3cdcbaf68a",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 781,
+      "codigo": "3RA29112AA00",
+      "nome": "MÓDULO DE LIGAÇÃO ELÉTRICA/MECÂNICA SIRIUS 3P 3RV2011 A 3RT201 S00 CA/CC CONEXÃO POR MOLA",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0c16086918b4cc8be582f14f2882a8c34efec6bbb0732762abbbc5efdea4f597",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 789,
+      "codigo": "3RA29232AA1",
+      "nome": "KIT DE LIGAÇÃO PARA REVERSÃO SIRIUS 3P S0 COM INTERTRAVAMENTO MECÂNICO CONEXÃO POR PARAFUSO",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "ecad8125c64684702b2692664f8aaa4c7604f12d09d08d74d63a3227e995629b",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 800,
+      "codigo": "LZS:PT5A5L24",
+      "nome": "RELÉ DE INTERFACE SIRIUS LZS COMPLETO ENCAIXÁVEL 4REV BOBINA 24VCC AC-15 4A EM 250VCA DC-13 4A EM 24VCC LED VERMELHO PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "3114507bfaf83f658a8ec537a531bbb0f9c982e66442a471cd2fd4212931d4c5",
+      "status": "aprovado",
+      "origem": "012-referencias-claras"
+    },
+    {
+      "id": 816,
+      "codigo": "5SV43470MB",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV4 4P 80A 30mA TIPO AC 400VCA 60Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "d56e5c6b33e34ccc9e4af96164e5383c23d5052202878aa07c76743ec6025085",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 821,
+      "codigo": "3RQ31182AM00",
+      "nome": "RELÉ DE INTERFACE SIRIUS 3RQ3 ENCAIXÁVEL 1REV ENTRADA 24VCC AC-15 3A EM 250VCA DC-13 1A EM 24VCC CONEXÃO POR MOLA PUSH-IN",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "9dc970333f15553d6ad00365b0ec8090a23fe44ebf11fc003d793dddc5bd64c7",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 824,
+      "codigo": "3RQ39010D",
+      "nome": "PENTE DE CONEXÃO 16 POLOS PARA RELÉS DE INTERFACE",
+      "grupo_id": 36,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "e25e3d48c990a3395f5c7694d10af76d4f428a41c150cb46376e1409e4590fbb",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 895,
+      "codigo": "3212066",
+      "nome": "BORNE DE PROTEÇÃO 35MM² PTPOWER 35-PE",
+      "grupo_id": 74,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "50c313fe42e4df38a93fddec7ae9e8b35a3d7b9c6667c99275a9be4746bf8734",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 922,
+      "codigo": "6EP33323SB000AX0",
+      "nome": "FONTE ESTABILIZADA SITOP PSU4200 SAÍDA 24VCC 3A 72W ENTRADA 1F 100-120/200-240VCA 50/60Hz",
+      "grupo_id": 50,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "941622e7162f1c410cd13a353fe77b341c64dc283d495593224740d2587406c4",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 923,
+      "codigo": "6EP33333SB000AX0",
+      "nome": "FONTE ESTABILIZADA SITOP PSU4200 SAÍDA 24VCC 5A 120W ENTRADA 1F 100-120/200-240VCA 50/60Hz",
+      "grupo_id": 50,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "c0ec4ecbde7bd27250ca5f9daa62051285e1dfefcf838a6b67d7e5c3947a282b",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 924,
+      "codigo": "6EP33343SB000AX0",
+      "nome": "FONTE ESTABILIZADA SITOP PSU4200 SAÍDA 24VCC 10A 240W ENTRADA 1F 100-120/200-240VCA 50/60Hz",
+      "grupo_id": 50,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "89f7a30a774e1b835108d3bdb8ae190b6323f74c15fe57a65f100a8a4e44d9bc",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 925,
+      "codigo": "6EP33363SB000AX0",
+      "nome": "FONTE ESTABILIZADA SITOP PSU4200 SAÍDA 24VCC 20A 480W ENTRADA 1F 120-240VCA 50/60Hz",
+      "grupo_id": 50,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0e222375a72fac3471b364aed38fc962b8331b2decb49f709e13625108432cba",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 926,
+      "codigo": "6EP34343SB000AX0",
+      "nome": "FONTE ESTABILIZADA SITOP PSU4200 SAÍDA 24VCC 10A 240W ENTRADA 3F 400-500VCA 50/60Hz",
+      "grupo_id": 50,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "eddc4a86c02983778545b09cc47957b6cee9b7b123336e42f15dd70b5ec4dfde",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 927,
+      "codigo": "3RA29132AA1",
+      "nome": "KIT DE LIGAÇÃO PARA REVERSÃO SIRIUS 3P S00 COM INTERTRAVAMENTO MECÂNICO CONEXÃO POR PARAFUSO",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "8c7d3421f7c4aa57ee3e44a475641116339a380f0d32c9e03bec3956cf1c6410",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 928,
+      "codigo": "3RA29132AA2",
+      "nome": "KIT DE LIGAÇÃO PARA REVERSÃO SIRIUS 3P S00 COM INTERTRAVAMENTO MECÂNICO CONEXÃO POR MOLA",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "7703ff6898afd37f26cafbb0b0520a23f36f2c23e0a9c4141f6636d803dfbc7b",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 944,
+      "codigo": "8WH60000AF00",
+      "nome": "Borne plug-in de passagem 2 condutores 2,5mm²",
+      "grupo_id": 75,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "8e1363de84b68c47849b3bc042944edbb43b3ca1e6fabe816ec350d0dd7a2366",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 957,
+      "codigo": "3RA19111AA00",
+      "nome": "CONEXAO 3RV S00 C/ 3RT S00 AC/DC (1UNID)",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "c40e77a734c919b1a3b77dd9a1ac50c51b02bddc500a130e7cdd077c1158fb9f",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 973,
+      "codigo": "3RA29261A",
+      "nome": "MÓDULO DE LIGAÇÃO EM SÉRIE SIRIUS 3P PARA 2 CONTATORES 3RT202 S0 CONEXÃO POR PARAFUSO",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0ed6a59345feb8a8d022b8494f0345c58ad4d85ebae2224796b9dee37614f5de",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 977,
+      "codigo": "8WH60000AG00",
+      "nome": "Borne plug-in de passagem 2 condutores 4mm²",
+      "grupo_id": 75,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "bb1d404c2988078418e7c21a9464bf232f868dc0ecad49361a53018459ac95a4",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 978,
+      "codigo": "8WH90031GA00",
+      "nome": "Tampa final para borne 4mm²",
+      "grupo_id": 72,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "212d64a43dd2091d74033d7a9bdf9435f748e627d32aa1fb330d435a175b0e64",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1002,
+      "codigo": "3RA29161A",
+      "nome": "MÓDULO DE LIGAÇÃO EM SÉRIE SIRIUS 3P PARA 2 CONTATORES 3RT201 S00 CONEXÃO POR PARAFUSO",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "a416d3b4a8cdd634f9b1d27b02eff777600065448f6609c4610208657a0dab40",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 1003,
+      "codigo": "3RA29212AA00",
+      "nome": "MÓDULO DE LIGAÇÃO ELÉTRICA/MECÂNICA SIRIUS 3P 3RV2.21 A 3RT2.2 S0 CA/CC CONEXÃO POR MOLA",
+      "grupo_id": 23,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "623420c7061d91c6da2e663a2e6e9ec1421bbae1f4c33f639daf8ba7fa33aa22",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 1088,
+      "codigo": "6SL32550AA004CA1",
+      "nome": "PAINEL DE OPERAÇÃO BOP-2 PARA INVERSOR SINAMICS G120",
+      "grupo_id": 54,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "6fc82e5dd50cd448fdcb2a6dc8dfa309e3ab5641659a5768076e05fc6df960f2",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1100,
+      "codigo": "17540474",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 20A",
+      "grupo_id": 50,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "cb4b4f05a2db96f700c1bfcc1e2459f3a7a0edfe7b5eecb818f631afb88bfef8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1110,
+      "codigo": "13108206",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 5A",
+      "grupo_id": 50,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "99d7ecdbe3a706440e158a7851c15ff8d3e82fd812e7b75960dacca48f426435",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1396,
+      "codigo": "13108203",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 2,2A",
+      "grupo_id": 50,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "937b6f6ea4c4c1f5d4b86e1093e7cbe5ba0ce7f6e4e0e714d49472fee9934239",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1515,
+      "codigo": "VNNSF40",
+      "nome": "ATUADOR PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "5561bfba1540574d3e3c5ba5eca3b84900392cef909b46a0b4070a7e4b24d540",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1580,
+      "codigo": "A7B10000050705",
+      "nome": "Borne de proteção PE 6mm²",
+      "grupo_id": 74,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0b926cfa25ef2436c50f69ac5c9ad040f97b14d997d6b30c93be9ff4b876bf9d",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 1581,
+      "codigo": "A7B10000050703",
+      "nome": "Borne de proteção 2,5mm²",
+      "grupo_id": 74,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "29135f5eefc22a8d5259c2e17538fd3b860a752dbc06d56bf9acf5182e6f68f5",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 1583,
+      "codigo": "8WA1897",
+      "nome": "Pente de ligação para bornes 4 polos 2,5mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "820fdbc2710c3d856aaa6ffc997a66e942609a00b27b7d5a18a091385cd237de",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "pesquisa-adiada-011"
+    },
+    {
+      "id": 1584,
+      "codigo": "A7B10000050721",
+      "nome": "Pente de ligação para bornes 10 polos 2,5mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "d42cb68dc6802c750e4832ebb1070481e68c5d80317406cdd917c4e3d85898ad",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 1585,
+      "codigo": "8WA1896",
+      "nome": "Pente de ligação para bornes 3 polos 2,5mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "b5fac03e5176417018677ef200ab4f83e6650df4bedd85ff39620abbbae29b52",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "pesquisa-adiada-011"
+    },
+    {
+      "id": 1586,
+      "codigo": "8WA1895",
+      "nome": "Pente de ligação para bornes 2 polos 2,5mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0f325c4ad4264419d1db02c19347656dde741c31a83d0720448646daaf796b77",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "pesquisa-adiada-011"
+    },
+    {
+      "id": 1587,
+      "codigo": "A7B10000050722",
+      "nome": "Pente de ligação para bornes 10 polos 4mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "aa43e5209f0346a34a2e4ce086e239a65f162fd24ad216d68384933e2e97d021",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 1588,
+      "codigo": "8WA1838",
+      "nome": "Pente de ligação para bornes 10 polos 2 andares 2,5mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "3b41d7ee0d1f6922ed11b6ac5276ef6c28af993e50a4b745366968d3407d4501",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "pesquisa-adiada-011"
+    },
+    {
+      "id": 1615,
+      "codigo": "8WH90001GA00",
+      "nome": "Tampa final para borne 2,5mm²",
+      "grupo_id": 72,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "ec176e4150f993aa7107873a146e6b7ae0ce0dc93a7eb9105bc6e98e497349aa",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1616,
+      "codigo": "8WH60000CF07",
+      "nome": "Borne plug-in de proteção 2 condutores 2,5mm²",
+      "grupo_id": 74,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "f265358dfcb4d4de4613806b4f66c342301715238ba514cb8db7cbb9f81ef442",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1617,
+      "codigo": "3RQ30521SM30",
+      "nome": "RELÉ DE INTERFACE OPTOACOPLADO SIRIUS 3RQ3 1NA TRANSISTOR ENTRADA 24VCC SAÍDA 10-30VCC 2A PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "669eeeb5f0a3a88903532d3b5fa4d351b46d71e7302834c519bad08c019ae171",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 1618,
+      "codigo": "8WH90206BL10",
+      "nome": "Pente de ligação para bornes 10 polos 2,5mm²",
+      "grupo_id": 73,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "f6166ed4aae3cee65d5a1948a71e0da2bbfb7934ee625d0b9f177753196dba06",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1619,
+      "codigo": "3RQ30551SM30",
+      "nome": "RELÉ DE INTERFACE DE SAÍDA OPTOACOPLADO 1NA TRANSISTOR 24VCC SAÍDA 30VCC 5A CONEXÃO POR PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "f62771b1fe461cff38607e24e7b238b0880e88e96f3471157b3dd6edc918c4d2",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1623,
+      "codigo": "6EP41363AB000AY0",
+      "nome": "UPS CC 24VCC 20A",
+      "grupo_id": 58,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "7efe6de402536792dc484febaa5f85a58a0fa9e6398bc601f943f0ca1ff66563",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 1628,
+      "codigo": "3SE63100BC01",
+      "nome": "ATUADOR RFID SIRIUS 3SE63 PLÁSTICO 91×25×22mm SEM RETENÇÃO MAGNÉTICA IP65/IP67/IP69K",
+      "grupo_id": 28,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "19d37312d23753516f8db98e826193206d95dcadcda3a9a8d02602f5e41c2370",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 1785,
+      "codigo": "G2RV1SG",
+      "nome": "RELÉ DE INTERFACE",
+      "grupo_id": 35,
+      "fornecedor_id": 399,
+      "impressao_tecnica": "3f0460879078c3e1182e97b6896158b33220c81c1c9f2a09f9bc221dec7481fd",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1795,
+      "codigo": "S8VKC48024",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 20A 480W",
+      "grupo_id": 50,
+      "fornecedor_id": 399,
+      "impressao_tecnica": "0af30e5a642b29ad6853fb84bc793de51edca804f74771ada7079068e294cbd2",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1835,
+      "codigo": "VFKEYF21",
+      "nome": "ATUADOR 90° PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "5c7e3b180f2da588b623bca8500007f97a2e66a9861f1dbbdda1de568a4d2119",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1836,
+      "codigo": "VFKEYF22",
+      "nome": "ATUADOR RETO PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "90b2f5295ea1bedf8622c02554886720fa824e14e997dd24807c9adfd8a3f1ef",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1849,
+      "codigo": "VFKEYF2",
+      "nome": "ATUADOR RETO PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "8a5b20d2de78d2e39ec47c0394b9870393257a8dc40ce7cc84ce2f8dc72d0c93",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 1882,
+      "codigo": "12527548",
+      "nome": "ATUADOR PADRÃO METÁLICO PARA CHAVE DE INTERTRAVAMENTO DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "e9da43b3e00b6ba4996339bdf1c59d0730091d0705a753c6deb5fe29fd887769",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2084,
+      "codigo": "2903148",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 5A ENTRADA MONOFÁSICA TRIO-PS-2G/1AC/24DC/5",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "9e957e6575341bf7546575a6d9d7f561020a44e46a580f727b9f239cfb44e529",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2135,
+      "codigo": "5SV56140",
+      "nome": "INTERRUPTOR DIFERENCIAL RESIDUAL SENTRON 5SV5 2P 40A 300mA TIPO AC 230VCA 50Hz INSTANTÂNEO",
+      "grupo_id": 42,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "254913f64b71c61e2f17a4c84670a6e869dc9ebaf996705df69d5192a3fa29ba",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 2180,
+      "codigo": "12330463",
+      "nome": "CABO DE COMUNICAÇÃO 10m PARA IHM DE INVERSOR CFW500",
+      "grupo_id": 54,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "eb525b3319e479249f28f6f932fabcf3d68a422f4b5f7573f3958e608081e3bd",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2181,
+      "codigo": "11833992",
+      "nome": "INTERFACE HOMEM-MÁQUINA PARA INVERSOR CFW500",
+      "grupo_id": 54,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "7b324db85d3176da4e6077d538645f979e28fb2842f5603cc4c3584566f99a75",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2211,
+      "codigo": "15756246",
+      "nome": "MOLDURA PARA IHM DE INVERSOR CFW900",
+      "grupo_id": 54,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "6793781d11510bb05edce87dfe23dd311047558b29d059357ab55a7d0d7fe072",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2213,
+      "codigo": "13108202",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 1,3A",
+      "grupo_id": 50,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "d309e1b06b4d6fa117e51ba187c90afcefb677a52a92ba18ba01517446b8805f",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2278,
+      "codigo": "2966634",
+      "nome": "RELÉ DE INTERFACE DE ESTADO SÓLIDO 1NA ENTRADA 24VCC SAÍDA 3-33VCC 3A PLC-OSC-24DC/24DC/2",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "d1e95401af3a7e2a8690bd75c72507655698ea462368dedc0341bb39b29ea440",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2317,
+      "codigo": "SMB02F",
+      "nome": "ATUADOR PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "2feb5baf70b5074965c9bb601165a9bf1b045e614144d3599d4e5115412ffbbf",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2318,
+      "codigo": "SMA01N",
+      "nome": "ATUADOR PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "590c890627bd60a67b91ed73fa4e7caf33e1fd167e7fe7144053135d8d708f87",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2406,
+      "codigo": "3UG55121BR20",
+      "nome": "RELÉ DE MONITORAMENTO SIRIUS 3UG5 3F 160-690VCA 15-70Hz FALTA/SEQUÊNCIA/ASSIMETRIA 2REV PARAFUSO",
+      "grupo_id": 45,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "dc4ebb5f905084cfd01a2f82341f142470db529af43091ed9e5fd2835737af2e",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 2450,
+      "codigo": "3SE50000AV04",
+      "nome": "ATUADOR RADIAL ESQUERDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "0d660b923b0e7e8002690fc570ad109b5e73c745228ae80ca04538cb6d3be7d9",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 2455,
+      "codigo": "3SE50000AV01",
+      "nome": "ATUADOR PADRÃO EM ZINCO FUNDIDO PARA CHAVE DE POSIÇÃO DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "4e18b482d86d1e0020c03c32eefba5bc386e8405c00075a8ff278900ac985f9b",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 2535,
+      "codigo": "6GK19011BB102AE0",
+      "nome": "Conector RJ45 macho blindado 4 polos para rede industrial",
+      "grupo_id": 93,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "ce12bb20a206dfea2cb866ebe6874a8f59c77e5cc8a38199100a70fb8a47eca4",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 2551,
+      "codigo": "1585287",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 48VCC 480W ENTRADA MONOFÁSICA PS-EE-2G/1AC/48DC/480W/SC",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "22d650e9d222fba760f5f09b10364dc2431b569508f8c42e4c4491cf7426eff4",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2591,
+      "codigo": "60395926",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 2,5MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "8e00fdb9615434fe744cfb6adb09ae161a3ee59da2d5a2ad2a52111b7ce37546",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2592,
+      "codigo": "60245954",
+      "nome": "TAMPA FINAL PARA BORNE 2,5MM²",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "16f3fc30e0e0263274a201b8ceecab99d460132644a71e2ef0a1053e09901dd9",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2595,
+      "codigo": "60357168",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES 10 POLOS 2,5MM²",
+      "grupo_id": 73,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "7c7b45b9986e2135a138009ee85c1e177542af34388c0d24bdf342a0e00d7b39",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2596,
+      "codigo": "60357169",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES COR VERMELHO 10 POLOS 2,5MM²",
+      "grupo_id": 73,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "172146f25e4ec79f314bf62b603cea4dd77f210b5713658754a4b6aa3dd8e966",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2597,
+      "codigo": "60357171",
+      "nome": "PENTE DE LIGAÇÃO PARA BORNES COR AZUL 10 POLOS 2,5MM²",
+      "grupo_id": 73,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "8f5ee2e6365b6487dcb328fb91788ad13776fc22bf18b9a6e89b2024d0ad7010",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2599,
+      "codigo": "20041291",
+      "nome": "TAMPA FINAL PARA BORNE 4MM²",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "1a8e2a0e0a3d4a198711ce797b407ca764e13cad3a383866cf5bd203a31109f0",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2601,
+      "codigo": "60545285",
+      "nome": "TAMPA FINAL PARA BORNE 6MM²",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "3b3ef5e46275169cd94df1d99755332b522e78942574d79d03a96e283d4a981c",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2602,
+      "codigo": "20101291",
+      "nome": "TAMPA FINAL PARA BORNE 10MM²",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "54c24c6ff2312ffcb2036ffab9a46c79173d70d87a465886086a570eed480408",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2603,
+      "codigo": "20161291",
+      "nome": "TAMPA FINAL PARA BORNE 16MM²",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "ed8679465e4cc8c9769c28d4b9bd1babf3c1fd26bae0f25f94c67ccda97e1c46",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2605,
+      "codigo": "60502457",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 35MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "ddbb99b5f76edca6e9eb619ecb5c1cce7370b98a58b70d59a710328af2be87ac",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2607,
+      "codigo": "60407723",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 50MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "1bcddada97a6f92b1ca419277cda1ba2ecea6aae7b501da211a67aa8db5fc6a8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2612,
+      "codigo": "51309398",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 24VCC 2 REVERSÍVEIS 8A 15mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "a8ae0e046a34183e4f63590a751622521230f2dcc90d0429ee6767e395be09e9",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2613,
+      "codigo": "60578955",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 24VCC 4 REVERSÍVEIS 5A 31mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "26c33623aeee7a53e0fc69950d1460643a06da8f5be5be81a2106df5b199d46a",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2614,
+      "codigo": "60578957",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 230VCA 4 REVERSÍVEIS 5A 31mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "12973570c96195c46f49f9c73d3eef3b955e3a7078545ff9ffb59234efc65395",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2641,
+      "codigo": "3ZY1212-1BA00",
+      "nome": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 17,5mm",
+      "grupo_id": 46,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "ae452c679e5988c17a893c10b6d4b9711f9294a05ccb3b85bc4aff761af5a4e6",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 2642,
+      "codigo": "3ZY1212-2DA00",
+      "nome": "CONECTOR DE TERMINAÇÃO PARA RELÉ DE SEGURANÇA 22,5mm",
+      "grupo_id": 46,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "e179efa6c42d5b2ab62cf047a3cda3e50dac61010ee29cca939e58ee49cdc6e4",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 2643,
+      "codigo": "3ZY1212-2BA00",
+      "nome": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 22,5mm",
+      "grupo_id": 46,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "aa4177e0e4c8b0dd8a5610c968fceda736800ca2368717dd53facffe8ff63bba",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "011-retido"
+    },
+    {
+      "id": 2690,
+      "codigo": "857724",
+      "nome": "RELÉ DE INTERFACE DE ESTADO SÓLIDO 24VCC SAÍDA 0-24VCC 3A 6mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "ab9f00ebc6a078300590e2d79a1fd30d78ced8a970de9b62274281d362998f8c",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2698,
+      "codigo": "3ZY12121BA00",
+      "nome": "BASE PARA RELÉ DE SEGURANÇA 17,5mm",
+      "grupo_id": 46,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "2bfb57bb5b264284117fb248cda52db756af08529b5b41801cfb06b55c49f96b",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 2699,
+      "codigo": "3ZY12122DA00",
+      "nome": "BASE DE TERMINAÇÃO PARA RELÉ DE SEGURANÇA 22,5mm",
+      "grupo_id": 46,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "cff2f7d0f581d2b620119d5f69704947f0732d31e26dba3026dae23730a5ecc1",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 2700,
+      "codigo": "3ZY12122BA00",
+      "nome": "BASE PARA RELÉ DE SEGURANÇA 22,5mm",
+      "grupo_id": 46,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "06e6a1be03e6310bca0d4f5e1947c90ff6a3c4edc201503c1fcf5057e44dfcd1",
+      "status": "aguardando_esclarecimento_tecnico",
+      "origem": "complemento-siemens"
+    },
+    {
+      "id": 2718,
+      "codigo": "60339946",
+      "nome": "TAMPA FINAL PARA BORNE",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "b155583622c239a6dc2ea38123848709b0a6521a5260c1971327df62d067f848",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2719,
+      "codigo": "60395511",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 4MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "54451f95db21c60df3eecb1bbc40f02ca8749e1a4407adb5141444df11399972",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2720,
+      "codigo": "60395421",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 6MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "c99f9f46a601e3cbae5c4e9cbf0af0cafc3690b4d4abc37c2d06db8d78c5b242",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2722,
+      "codigo": "60365991",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 10MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "241bf94af2f95399278b1e5ebd13d13da449bda9cae391ab1f649f833f4ee718",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2724,
+      "codigo": "60364959",
+      "nome": "BORNE DE PROTEÇÃO 2 CONDUTORES 10MM²",
+      "grupo_id": 74,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "ec39836841bee14193c4b43fc2904960dbcbc70ac4ad64c58198ca9813090054",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2746,
+      "codigo": "164224",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 5A ENTRADA 100-240VCA",
+      "grupo_id": 50,
+      "fornecedor_id": 529,
+      "impressao_tecnica": "80e40b185b8d5de60207279aa65d147bd45128757537545cca3664f779b69aa1",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2747,
+      "codigo": "164222",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 2,5A ENTRADA 100-240VCA",
+      "grupo_id": 50,
+      "fornecedor_id": 529,
+      "impressao_tecnica": "c2368a0642d935cb938dbab630d59c989f9c6353501db7a04f1e62a9e8236d50",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2748,
+      "codigo": "164284",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 1,2A ENTRADA 100-240VCA",
+      "grupo_id": 50,
+      "fornecedor_id": 529,
+      "impressao_tecnica": "a0c50b5dafa4873a90370f447bbe4646694b9813ab1533a7b208eeaa2b4b5f24",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2750,
+      "codigo": "164225",
+      "nome": "FONTE DE ALIMENTAÇÃO 24VCC 10A ENTRADA 100-240VCA",
+      "grupo_id": 50,
+      "fornecedor_id": 529,
+      "impressao_tecnica": "7f2cce86a0cb59052d2b37e4e8f12636681f64165b697d189d1b80e71c6b42bf",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2831,
+      "codigo": "60313028",
+      "nome": "RELÉ DE INTERFACE DE ESTADO SÓLIDO 24VCC SAÍDA 0-24VCC 3A 6mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "f0899519a4506bddf501a552e6feec7b10e8fde111e5337792b1c105025cafae",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2838,
+      "codigo": "51285597",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 24VCC 1 REVERSÍVEL 6A 6mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "309f15872bb5239d9f89b116746232b5797d6b234352d41993d0ba95ecdfd54f",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2839,
+      "codigo": "60507163",
+      "nome": "PENTE DE LIGAÇÃO 10 VIAS 18A PARA RELÉ DE INTERFACE",
+      "grupo_id": 36,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "d05b5f30c66da0b3e90850d195a7b32214fb1320b1a39295da6e1fbc173e6c39",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2840,
+      "codigo": "60433397",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 115VCA 2 REVERSÍVEIS 8A 15mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "8d5a7f28a0319e0089e7421d21fa02a87a0e219fde5a75a1d6b8d3074a9b0110",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2841,
+      "codigo": "60433398",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 230VCA 2 REVERSÍVEIS 8A 15mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "cdbacc00e0a7b3500f63ad524a695dd73276b44afbbd682c3b40d789bc1847d8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2842,
+      "codigo": "60599730",
+      "nome": "RELÉ DE INTERFACE ELETROMECÂNICO 115VCA 4 REVERSÍVEIS 5A 31mm",
+      "grupo_id": 35,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "d94e79bba7f73a983db761d350033a76a93c764d77366cfb46b61bd49bfb6ef3",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 2889,
+      "codigo": "3RQ30521SM50",
+      "nome": "RELÉ DE INTERFACE OPTOACOPLADO SIRIUS 3RQ3 1NA TRIAC ENTRADA 24VCC SAÍDA 20-264VCA 2A PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "57fb303fa67314085856fd3e83fc58081eb607a37a28ca068446f51888ff0c5e",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 2890,
+      "codigo": "3RQ31181AE00",
+      "nome": "RELÉ DE INTERFACE SIRIUS 3RQ3 ENCAIXÁVEL 1REV ENTRADA 115VCA/CC 50/60Hz AC-15 3A EM 250VCA DC-13 1A EM 24VCC CONEXÃO POR PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "73ca10f8488e0f3737386f7f41302250d1e577e97e0901a20a1713c0b02c37c3",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 2891,
+      "codigo": "3RQ31181AB00",
+      "nome": "RELÉ DE INTERFACE SIRIUS 3RQ3 ENCAIXÁVEL 1REV ENTRADA 24VCA/CC 50/60Hz AC-15 3A EM 250VCA DC-13 1A EM 24VCC CONEXÃO POR PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 3,
+      "impressao_tecnica": "3854a4a60d78393c2cb93b8a1e9d8f4bfce5dc563bd7e87ae50e006b01dc2bb3",
+      "status": "aprovado",
+      "origem": "011-cinquenta-itens"
+    },
+    {
+      "id": 2892,
+      "codigo": "13960219",
+      "nome": "RELÉ DE MONITORAMENTO DE SEQUÊNCIA DE FASE 208-480VCA 50/60Hz 1NA+1NF",
+      "grupo_id": 45,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "ed5eaf3c8c2d5c9e32ecbecb25993e6e47dbfd859544de22cd0d15bb0237a069",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3104,
+      "codigo": "12527551",
+      "nome": "ATUADOR PARA CHAVE DE INTERTRAVAMENTO DE SEGURANÇA SERVIÇO PESADO METÁLICO",
+      "grupo_id": 28,
+      "fornecedor_id": 131,
+      "impressao_tecnica": "e03838c94c649f8079fb8477decf2bbd079f78abd434ec942b13be88d80dbca8",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3401,
+      "codigo": "VF KEYF2",
+      "nome": "ATUADOR RETO PARA CHAVE DE SEGURANÇA",
+      "grupo_id": 28,
+      "fornecedor_id": 346,
+      "impressao_tecnica": "1d214c5691e695767666ca9308ce121d75599b52d68fb891ac5479c58b3c0f17",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3458,
+      "codigo": "60517839",
+      "nome": "TAMPA FINAL PARA BORNE",
+      "grupo_id": 72,
+      "fornecedor_id": 510,
+      "impressao_tecnica": "c69e7bd6b25797dc59e6400a4c2f45008e0576aa0108a00b5f8902347f4102be",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3632,
+      "codigo": "2904601",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 10A ENTRADA MONOFÁSICA QUINT4-PS/1AC/24DC/10",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "ed9468a8521f50f17ffbd9b24b002f0af892e6814ba36d562e3cdb1202de7383",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3634,
+      "codigo": "1159039",
+      "nome": "FONTE DE ALIMENTAÇÃO CHAVEADA 24VCC 20A ENTRADA MONOFÁSICA TRIO3-PS/1AC/24DC/20",
+      "grupo_id": 50,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "4f195f3ee40cca8ddae04fb312d7a353c3a56dbee83d6702399c7c6dc87a5c6b",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3754,
+      "codigo": "2966650",
+      "nome": "RELÉ DE ESTADO SÓLIDO PLC-OSC-120UC/24DC/2 ENTRADA 120VCA/110VCC 1NA SAÍDA 3-33VCC ATÉ 3A CONEXÃO POR PARAFUSO",
+      "grupo_id": 35,
+      "fornecedor_id": 1,
+      "impressao_tecnica": "e3da9ad80582247f2f9f1e4c22af97c35a42f2b3a733882d68231e2f69dc3da7",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3768,
+      "codigo": "664394",
+      "nome": "EMENDA DIN 16 B2 COMBAT",
+      "grupo_id": 73,
+      "fornecedor_id": 250,
+      "impressao_tecnica": "2a4231ae41969ca76152cdae03e919c13b2adc5f12ae555c7a1279dfbe4a5a26",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    },
+    {
+      "id": 3770,
+      "codigo": "661618",
+      "nome": "EMENDA DIN 10 B1 COMBAT",
+      "grupo_id": 73,
+      "fornecedor_id": 250,
+      "impressao_tecnica": "4557cbe78e9566a7d5a88482a813dbcf961a610d760bd6e54e434c60730415c2",
+      "status": "aguardando_pesquisa",
+      "origem": null
+    }
+  ]
+}

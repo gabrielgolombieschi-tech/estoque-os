@@ -1,0 +1,1078 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 636,
+    "codigo": "A9F74210",
+    "nome": "DISJUNTOR MINI ACTI9 IC60N 2P CURVA C 10A ICU 20kA EM 220-240VCA A9F74210",
+    "familia": "MINIDISJUNTORES",
+    "criterio": "MINIDISJUNTORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.744Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.se.com/br/pt/product/A9F74210/disjuntor-acti9-ic60n-2p-10a-curva-c-20ka-em-220-240vca-609472/"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "18a5cec8e17f06a9f72fee0322ad98622eb1198b894b46bdcdd366bab3aaa6cf",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 949,
+    "codigo": "14256868",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 800A ICU 35kA EM 400VCA DWP800L-800-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.745Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/pt/p/14256868"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "15386146d24f218568b0dca392d809301ec3d74aac51c9200db5c58dccb56482",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 970,
+    "codigo": "14256843",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 400A ICU 35kA EM 400VCA DWP400L-400-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.747Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/pt/p/14256843"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "6be0593a7c17d44fe23d6ab5f3aebb6681732370ab8f0a9c766994e1076351a8",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 972,
+    "codigo": "14256839",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 250A ICU 20kA EM 400VCA DWP250L-250-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.748Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/pt/p/14256839"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "ea8d06cf611d746579b4b838f24cf0ca0d453e337b650ce0ce1611888c37d3ce",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 974,
+    "codigo": "14256832",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 100A ICU 20kA EM 400VCA DWP125L-100-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.749Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/pt/p/14256832"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "5de5da3f5b74328cfab7a292cd0210154cdacb57927edb1a6cef28cf6c97e4d4",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1102,
+    "codigo": "12428110",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1,6-2,5A CLASSE 10 ICU 100kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-D025",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.749Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "841dd81529e5fabaf1fc065402443b507ec02847b997b61756a32adfa6f80c3f",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1103,
+    "codigo": "12428117",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 6,3-10A CLASSE 10 ICU 100kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-U010",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.752Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "da220c986d2968870d2e32a7046b6e847e3b13c6ffd34919802573c11059e633",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1104,
+    "codigo": "12428128",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 10-16A CLASSE 10 ICU 50kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-U016",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.754Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "fe412e2baf0a2d6fb8306c835a2b467dafaab9ea5bbb147e438bf77aa9971509",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1105,
+    "codigo": "12428129",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 16-20A CLASSE 10 ICU 50kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-U020",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.754Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "0db249a22f42efab00e832aadae3e29412cb068f4720ed32ced9c7d92c603a48",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1106,
+    "codigo": "12428131",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 25-32A CLASSE 10 ICU 50kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-U032",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.755Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "723f3ecee5f8f8725668dadf7cdad609f6d52a7d8ed17844720b2f33a4739047",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1107,
+    "codigo": "12240801",
+    "nome": "CONTATOR 3P AC-3 32A EM 400VCA AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWB32-11-30C03",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.756Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf",
+      "https://static.weg.net/medias/downloadcenter/he2/hf7/WEG-MPW-brochure-50161040-de.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "5001e8d41125193b46c0e4a4d47c7dcb54b82e39f5a844e2ac4cc5751301bc2d",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1108,
+    "codigo": "12542266",
+    "nome": "CONTATOR 3P AC-3 18A EM 400VCA AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWB18-11-30C03",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.756Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf",
+      "https://static.weg.net/medias/downloadcenter/he2/hf7/WEG-MPW-brochure-50161040-de.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "900bf0df9659cdcd6cfb66444291d4d62b7c8ef8ab05ef2afd51e7eb828028f2",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1114,
+    "codigo": "18840981",
+    "nome": "CHAVE SECCIONADORA 3P AC-23A 40A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW040F-3P00-3R",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.757Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h57/h5f/WEG-MSW-brochure-50161813-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "168b6e7ecfbe298cfacdf0ddad6c50296c7a75c1fb49b74f79df05fdeb309085",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1397,
+    "codigo": "12542197",
+    "nome": "CONTATOR 3P AC-3 9A EM 400VCA AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWB9-11-30C03",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.758Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf",
+      "https://static.weg.net/medias/downloadcenter/he2/hf7/WEG-MPW-brochure-50161040-de.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "4a63a2257670b19756f58222f116cab4a9897ba60ca313febc45ce5d275b8398",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1398,
+    "codigo": "12240635",
+    "nome": "CONTATOR 3P AC-3 25A EM 400VCA AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWB25-11-30C03",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.759Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf",
+      "https://static.weg.net/medias/downloadcenter/he2/hf7/WEG-MPW-brochure-50161040-de.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "dac1ba8bebf946f1b029576fb2f6cc30b837a374e4973daa3f6c3b9c611be803",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1597,
+    "codigo": "14256833",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 125A ICU 20kA EM 400VCA DWP125L-125-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.760Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/en/compare/14256833"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "31ca5b2e84d09c75ccd33776f244d4b97aa99f12f5766a9ec13fc105ac64d683",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1730,
+    "codigo": "18840983",
+    "nome": "CHAVE SECCIONADORA 3P AC-23A 63A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW063F-3P00-3R",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.761Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h57/h5f/WEG-MSW-brochure-50161813-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "6d35c9277ca99b80d158056a53b93604297614fcbb1f313927bd44d29b951534",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1805,
+    "codigo": "12429368",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 1-1,6A CLASSE 10 ICU 100kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-D016",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.761Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "a514ff777b1e9a9f88258ba203bf29af9589be11538a94e5dc918ac58fa4ce21",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1806,
+    "codigo": "12429371",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 4-6,3A CLASSE 10 ICU 100kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-D063",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.762Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "e64afa9c1cbea081ca76b5c7e228254c3b1c9562f6153351205426a7fc5552eb",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1807,
+    "codigo": "13451026",
+    "nome": "BARRAMENTO DE DISTRIBUIÇÃO 63A PARA 5 DISJUNTORES MPW18/MPW40 SEM AUXILIAR LATERAL BBS45-5",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.763Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "comprimento_historico"
+    ],
+    "impressao_tecnica": "457b86b07bd8d4d668f94588e624f51545d951d8616ee62538a0ee47fc5f68da",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1808,
+    "codigo": "13451024",
+    "nome": "BARRAMENTO DE DISTRIBUIÇÃO 63A PARA 3 DISJUNTORES MPW18/MPW40 SEM AUXILIAR LATERAL BBS45-3",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.764Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "comprimento_historico"
+    ],
+    "impressao_tecnica": "1915b2153d93598a678e5002f9e67dedabbe0f791cfb8b7d2be55b9bc82a8c23",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1809,
+    "codigo": "12462674",
+    "nome": "CONECTOR ELÉTRICO/MECÂNICO MPW40 PARA CWB9-38 COM BOBINA CC ECCMP-40B38DC",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.764Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "corrente_tensao_frequencia_historicas_do_conector"
+    ],
+    "impressao_tecnica": "dc150e455b23802d5d7056dbf739593cef508fe9562743e1e4f6a9d7fd641c03",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1878,
+    "codigo": "12775104",
+    "nome": "DISJUNTOR CAIXA MOLDADA 3P 150A ICU 30kA EM 380VCA AGW250N-DX150-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.765Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h34/hef/WEG-disjuntor-em-caixa-moldada-agw-50051732-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "4e743238d3f7d6e2f137d70fc654d40236f617a2dd18fc698abcbc218ceb5c13",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1879,
+    "codigo": "12778353",
+    "nome": "MANOPLA ROTATIVA ACOPLADA AO DISJUNTOR AGW250 COM INTERTRAVAMENTO DE PORTA MRI AGW250",
+    "familia": "ACESSORIOS_CAIXA_MOLDADA",
+    "criterio": "ACESSORIOS_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.766Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h34/hef/WEG-disjuntor-em-caixa-moldada-agw-50051732-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "cor_e_IP_da_manopla"
+    ],
+    "impressao_tecnica": "0f31d1ae8f5d99a1b5b342185dd0f01f92bc011f87e32a1739b002c6a2ed6d80",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1884,
+    "codigo": "12258389",
+    "nome": "CHAVE SECCIONADORA ROTATIVA 3P 16A MONTAGEM EM PAINEL COM MANOPLA MSW 16 P3 H",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.766Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/pt/p/12258389"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_1000VCA_historica",
+      "categoria_e_corrente_por_tensao",
+      "cor_historica_manopla"
+    ],
+    "impressao_tecnica": "ab8c70cda0ad31a66a4c0153ef2aa0225c130f1edb5be2777ecc7c489592b4e2",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1960,
+    "codigo": "18853272",
+    "nome": "CHAVE SECCIONADORA 3P AC-23A 16A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW016F-3P00-3R",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.767Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h57/h5f/WEG-MSW-brochure-50161813-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "8c709869257a48593a67632a6b10dcbab1d1c84f8e4450661419272f5859e5df",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1961,
+    "codigo": "18840896",
+    "nome": "CHAVE SECCIONADORA 3P AC-23A 20A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW020F-3P00-3R",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.768Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h57/h5f/WEG-MSW-brochure-50161813-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "eb085984cc79074e538db1f5ac4b72d54ba224bed5b8f46187c1d48e5618a3c4",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1968,
+    "codigo": "12240668",
+    "nome": "CONTATOR 3P AC-3 38A EM 400VCA AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWB38-11-30C03",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.769Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf",
+      "https://static.weg.net/medias/downloadcenter/he2/hf7/WEG-MPW-brochure-50161040-de.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "a88dc1ea4cdd2812e42726d7a68895f82812dbb8e0d1fcdfe52ec10d29dd69fa",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1969,
+    "codigo": "12123053",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF PARA CWB9-125/CAWB BFB-11",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.770Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_utilizacao_historica"
+    ],
+    "impressao_tecnica": "1ebf010fb706af7cfd81971755a2be75ff2ffd2d841606e17f1d7bdd1be15159",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2174,
+    "codigo": "12450895",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 3P AJUSTE 0,4-0,63A CLASSE 10 PARA CWC07-16/CW07 RW17-1D3-C063",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.771Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hcd/ha1/WEG-thermal-overload-relays-RW-50070227-en.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "7f529201f8acd560e73ea78f3c100587101f7a057e35f9b2e846b26f2266ff6b",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2175,
+    "codigo": "12515189",
+    "nome": "RELÉ TÉRMICO DE SOBRECARGA 2P AJUSTE 0,4-0,63A CLASSE 10 PARA CWC07-16/CW07 RW17-1D2-C063",
+    "familia": "RELES_SOBRECARGA",
+    "criterio": "RELES_SOBRECARGA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.772Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/es/Automatizaci%C3%B3n-Industrial/Controls/Arranque-y-Protecci%C3%B3n-de-Motores/Rel%C3%A9s-de-Sobrecarga/Rel%C3%A9s-de-Sobrecarga-T%C3%A9rmico-RW/RELE-SOBRECARGA-AZ-RW17-1D2-C063-2-polos-0%2C4-0%2C63-A-para-CWC07-16%2C-CW07/p/12515189"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "0c92cf06d9fe7e6439fdd1623560ae193cbdb65f73d434a81ffdfd224111b241",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2215,
+    "codigo": "10409889",
+    "nome": "FUSÍVEL NH00 gL/gG 125A INTERRUPÇÃO 120kA EM 500VCA CORPO CERÂMICO FNH00-125U",
+    "familia": "FUSIVEIS_NH",
+    "criterio": "FUSIVEIS_NH:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.772Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h0a/h63/WEG-fusiveis-ar-e-gl-gg-50009817-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "38cd5ffbe7199393c7026933ca1725486a751ec759f618a33c1abe4285c0cc50",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2224,
+    "codigo": "12429373",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 10-16A CLASSE 10 ICU 10kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-U016",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.773Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "1e3f6736e6615ea41e576d1afb44c4a9be73de70d776d9e982acdf7df5f2fe96",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2225,
+    "codigo": "12429317",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 0,63-1A CLASSE 10 ICU 100kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-U001",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.774Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "d592be4effff418ab6eff81845842e71ff89c0d78ccf5df86cbc8bca68593987",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2227,
+    "codigo": "12499350",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF PARA CWC07-16 3P CONEXÃO POR PARAFUSO BFC0-11",
+    "familia": "ACESSORIOS_CONTATORES",
+    "criterio": "ACESSORIOS_CONTATORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.774Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hed/hd6/WEG-minicontatores-50009832-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "tensao_utilizacao_historica"
+    ],
+    "impressao_tecnica": "89bbcb351226c56f402bc7ae5dc792b435d62a744b373a8d319b9d3453a753ec",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2228,
+    "codigo": "12429372",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 6,3-10A CLASSE 10 ICU 50kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-U010",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.775Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "04a36e418589ee457521ce9fc485264dfedfab49187bb91951ddbdf43f0af94c",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2314,
+    "codigo": "12382551",
+    "nome": "DISJUNTOR MOTOR 3P AJUSTE 32-40A CLASSE 10 ICU 30kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-U040",
+    "familia": "DISJUNTORES_MOTOR",
+    "criterio": "DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.776Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "0f0e98f28db346d55d39fed78e4fd54a493bcdacd69bf5de926c5b29847d6513",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2329,
+    "codigo": "12463886",
+    "nome": "BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF PARA MPW18/MPW40/MPW80 ACBF-11",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.777Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [
+      "categoria_corrente_e_tensao_utilizacao_auxiliar"
+    ],
+    "impressao_tecnica": "40b1cb31ecfc9ea573cca81f460b0946c3c02d97745c4c41ad0247c72ae63af1",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2350,
+    "codigo": "17441416",
+    "nome": "TERMINAL DE ALIMENTAÇÃO TRIFÁSICO 63A UI 690VCA PARA BARRAMENTO MPW18/MPW40 FTBBS",
+    "familia": "ACESSORIOS_DISJUNTORES_MOTOR",
+    "criterio": "ACESSORIOS_DISJUNTORES_MOTOR:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.778Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h1b/h43/WEG-disjuntores-motores-linha-mpw-50009822-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "92a64370c93abcace38a50e06701d176c291a61c4467634c656ec1c7a4a6b8a2",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2352,
+    "codigo": "17792695",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 160A ICU 18kA EM 400VCA CBW3B-B160DFF3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.778Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h2b/hf5/WEG-CBW3-brocure-50157289-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "5818b20b8310202ecd0db426a24e9a4a4eaec02badcaa4d41211d29ec417ff2e",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2359,
+    "codigo": "11884182",
+    "nome": "CHAVE SECCIONADORA PORTA-FUSÍVEL 3P NH00 AC-23B 160A EM 690VCA FSW160-3",
+    "familia": "SECCIONADORAS_FUSIVEIS",
+    "criterio": "SECCIONADORAS_FUSIVEIS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.779Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hb9/h69/WEG-chaves-seccionadoras-50022911-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "cbf604ac8226feb2802889cb34745cde4e1f4842e5d9d6e0e24fb4fa89badabb",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2497,
+    "codigo": "18968852",
+    "nome": "CHAVE SECCIONADORA 3P AC-23A 25A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW025F-3P00-1R",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.780Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h57/h5f/WEG-MSW-brochure-50161813-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "2afbbd301157420185c33e9b90400bc0977501585040a215f0e7dfade79d949a",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2522,
+    "codigo": "17793370",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 630A ICU 36kA EM 400VCA CBW3C-N630DFF3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.780Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h2b/hf5/WEG-CBW3-brocure-50157289-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "0fc1d7c9eb1d05229f2b584663cc2360f1c3d2f023ac6abd2d5c48e9f9a34e3a",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2554,
+    "codigo": "10705764",
+    "nome": "FUSÍVEL ULTRARRÁPIDO NH00 aR 63A INTERRUPÇÃO 100kA EM 690VCA CORPO CERÂMICO FNH00-63K-A",
+    "familia": "FUSIVEIS_NH",
+    "criterio": "FUSIVEIS_NH:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.781Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h0a/h63/WEG-fusiveis-ar-e-gl-gg-50009817-catalogo-portugues-br-dc.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "d8389955db3257014d81bec1b56ad68e19bcd5d22191d9c6f1e3a6e2bf9a2f89",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2861,
+    "codigo": "13522438",
+    "nome": "CONTATOR PARA SEGURANÇA 3P 9A AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWBS9-11-30C03",
+    "familia": "CONTATORES_SEGURANCA",
+    "criterio": "CONTATORES_SEGURANCA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.782Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/en/compare/13522438",
+      "https://static.weg.net/medias/downloadcenter/hf5/h85/WEG-motoren-schalten-und-schutzen-german-market-only-50030773-de.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "d91ab141a31e4314091f6609ccf112c6ca39ef089ba0dc2d020e650e66051a4d",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2924,
+    "codigo": "18968851",
+    "nome": "CHAVE SECCIONADORA 3P AC-23A 10A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW010F-3P00-1R",
+    "familia": "SECCIONADORAS",
+    "criterio": "SECCIONADORAS:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.782Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h57/h5f/WEG-MSW-brochure-50161813-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "079c352a032c2fd041fd563bfe2c98ad6702c18ede4b77826425bbcf11dd69a1",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3213,
+    "codigo": "15514953",
+    "nome": "CONTATOR PARA CAPACITORES 3P AC-6b 25kvar EM 380-415VCA A 55°C AUX 1NA+2NF BOBINA 220VCA 50/60Hz CWBC32-12-30D23",
+    "familia": "CONTATORES_CAPACITORES",
+    "criterio": "CONTATORES_CAPACITORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.783Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hda/hd6/WEG-CWBC-50101202-es.pdf",
+      "https://www.weg.net/catalog/weg/LV/pt_PT/Controls/Contatores/Contatores-para-manobra-de-capacitores/Linha-CWBC/CONTATOR-CWBC32-12-30D23/p/15514953"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "4d166cd6abd9e5794f6742cb944b47e497e1b3dd805b6df2c594af994543b635",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3309,
+    "codigo": "14569189",
+    "nome": "DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 600A ICU 35kA EM 400VCA DWP630L-600-3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.784Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/BR/en/Industrial-Automation/Controls/Circuit-Protection/Circuit-Breakers/Molded-Case/Molded-Case-Circuit-Breakers-DWP/CIRCUIT-BREAKER-DWP630L-600-3/p/14569189"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "c70784574d9c0c71c66dab08b858ce69912aaeb6de9717d5e7daee0349ce1f0e",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3324,
+    "codigo": "17793861",
+    "nome": "DISJUNTOR CAIXA MOLDADA PARA GERADOR 3P AJUSTE TÉRMICO 280-400A MAGNÉTICO 1000-2000A ICU 36kA EM 400VCA CBW3C-N400GAA3",
+    "familia": "DISJUNTORES_CAIXA_MOLDADA",
+    "criterio": "DISJUNTORES_CAIXA_MOLDADA:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.785Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/h2b/hf5/WEG-CBW3-brocure-50157289-pt.pdf"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "855de3a433ea9d93cf438d97533caa6cc5dfbfdf567bd671fb0554ede92f02b4",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3408,
+    "codigo": "15514948",
+    "nome": "CONTATOR PARA CAPACITORES 3P AC-6b 20kvar EM 380-415VCA A 55°C AUX 1NA+2NF BOBINA 220VCA 50/60Hz CWBC25-12-30D23",
+    "familia": "CONTATORES_CAPACITORES",
+    "criterio": "CONTATORES_CAPACITORES:1",
+    "lote": "007-cinquenta-itens",
+    "revisado_em": "2026-09-09T20:28:00.786Z",
+    "responsavel": "Revisão assistida Codex; proposta sujeita à aprovação humana",
+    "status": "aprovado",
+    "fontes": [
+      "https://static.weg.net/medias/downloadcenter/hda/hd6/WEG-CWBC-50101202-es.pdf",
+      "https://www.weg.net/catalog/weg/BR/pt/Automa%C3%A7%C3%A3o-e-Controle-Industrial/Controls/Partida-e-Prote%C3%A7%C3%A3o-de-Motores/Contatores/Manobra-de-Capacitores/Linha-CWBC/CONTATOR-CWBC25-12-30D23-25A-%28AC-6b---T-%3D-55%C2%B0C%29-28A-220V-50-60Hz/p/15514948"
+    ],
+    "pendencias": [],
+    "atributos_nao_confirmados": [],
+    "impressao_tecnica": "a8485fe2738ba9c285d797d1cb044aef5f630f3505eed19b738abe092b4490d7",
+    "backup": "backups/revisao-lotes/007-2026-09-09T20-27-48-619Z.json",
+    "assinatura_lote": "02b4cdf5f69af22c4c61517a9636b1ab6bf86def926dfad85ebb3f8bf9958aa5"
+  }
+]

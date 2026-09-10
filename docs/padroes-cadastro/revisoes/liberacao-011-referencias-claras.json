@@ -1,0 +1,13 @@
+{
+  "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+  "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+  "decisao": "D-047",
+  "lote": "011-cinquenta-itens",
+  "assinatura_lote": "588f94f2467f6f9871276cb46677686cf52c6284dbd131e701b0432552417219",
+  "data": "2026-09-10",
+  "responsavel_conferencia": "Codex, validação técnica sob autorização condicional do usuário; não é aprovação humana individual",
+  "ids_claros": [226,227,686,737,738,744,745,781,789,816,821,922,923,924,925,926,927,928,973,1002,1003,1617,1628,2135,2406,2889,2890,2891],
+  "criterio": "Referência exata Siemens, conteúdo conferido nas páginas técnicas preservadas e sem atributos relevantes não confirmados. Somente nomes/descrições do manifesto congelado.",
+  "exclusoes_adicionais": {"776":"Resumo inclui CA/CC e outros dispositivos, tabela limita bobina CC; confirmar a combinação exata antes de aplicar."},
+  "retidos": [240,256,346,735,776,824,944,957,977,978,1088,1615,1616,1618,1619,1623,2450,2455,2535,2641,2642,2643]
+}
