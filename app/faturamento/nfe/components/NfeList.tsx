@@ -57,7 +57,11 @@ type ParcelaFinanceiraRow = {
   valor_aberto: number | string | null;
 };
 
-type PagamentoStatus = "PAGO" | "A_PAGAR" | "ATRASADO";
+// CANCELADA e um estado proprio, e nao um "a pagar" de valor zero: a nota existiu,
+// aparece no livro de saidas, mas nao cobra nem paga nada. Sem ele, toda cancelada
+// sem titulo financeiro entrava no resumo como "a receber" (o fallback so olhava o
+// valor_total) — a lista de 10/09/2026 somava 6 canceladas no total a receber.
+type PagamentoStatus = "PAGO" | "A_PAGAR" | "ATRASADO" | "CANCELADA";
 type PagamentoFiltro = "TODOS" | "PAGOS" | "A_PAGAR" | "ATRASADOS";
 
 type PagamentoMeta = {
@@ -137,6 +141,7 @@ function isPastDue(vencimentoDate?: string | null): boolean {
 function pagamentoStatusLabel(status: PagamentoStatus): string {
   if (status === "PAGO") return "Pago";
   if (status === "ATRASADO") return "Atrasado";
+  if (status === "CANCELADA") return "Sem cobrança";
   return "A pagar";
 }
 
@@ -147,16 +152,26 @@ function pagamentoStatusBadgeClass(status: PagamentoStatus): string {
   if (status === "ATRASADO") {
     return "border-rose-500/30 bg-rose-500/10 text-rose-300";
   }
+  if (status === "CANCELADA") {
+    return "border-zinc-600/40 bg-zinc-500/10 text-zinc-400";
+  }
   return "border-amber-500/30 bg-amber-500/10 text-amber-200";
 }
 
 function pagamentoRowClass(status: PagamentoStatus): string {
   if (status === "PAGO") return "bg-emerald-950/10 hover:bg-emerald-950/20";
   if (status === "ATRASADO") return "bg-rose-950/10 hover:bg-rose-950/20";
+  if (status === "CANCELADA") return "bg-zinc-900/40 hover:bg-zinc-900/60";
   return "bg-amber-950/10 hover:bg-amber-950/20";
 }
 
+function isCancelada(row: DocumentoFiscalRow): boolean {
+  return String(row.nfe_status ?? "").toUpperCase() === "CANCELADA";
+}
+
 function buildPagamentoFallback(row: DocumentoFiscalRow): PagamentoMeta {
+  // Nota cancelada nao cobra: nem "a receber", nem "atrasado", nem entra no pago.
+  if (isCancelada(row)) return { status: "CANCELADA", pago: 0, aPagar: 0, atrasado: 0 };
   const total = Math.max(0, n(row.valor_total));
   if (total <= PAYMENT_EPSILON) {
     return { status: "PAGO", pago: 0, aPagar: 0, atrasado: 0 };
@@ -169,6 +184,10 @@ function computePagamentoMeta(
   titulos: TituloFinanceiroRow[],
   parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]>
 ): PagamentoMeta {
+  // Antes dos titulos: cancelada nao gera cobranca nem quando sobrou titulo em
+  // aberto do tempo em que a nota valia — quem baixa o titulo e o financeiro,
+  // mas o livro de notas nao pode continuar somando isso como a receber.
+  if (isCancelada(row)) return { status: "CANCELADA", pago: 0, aPagar: 0, atrasado: 0 };
   if (!titulos.length) return buildPagamentoFallback(row);
 
   const totalTitulos = titulos.reduce((sum, titulo) => sum + n(titulo.valor_total), 0);
@@ -702,8 +721,15 @@ export default function NfeList() {
   }, [clientesById, docs, empresasById, fornecedoresById, pagamentoFiltro, pagamentosByDocId, search]);
 
   const resumoFiltro = useMemo(() => {
+    // Cancelada continua na lista (existiu, tem numero e protocolo de cancelamento
+    // na SEFAZ), mas fica fora de todo somatorio: nao e faturamento nem cobranca.
+    let canceladas = 0;
     const totals = filtered.reduce(
       (acc, row) => {
+        if (isCancelada(row)) {
+          canceladas += 1;
+          return acc;
+        }
         const pagamento = pagamentosByDocId[String(row.id)] ?? buildPagamentoFallback(row);
         acc.valor += Math.max(0, n(row.valor_total));
         acc.pago += pagamento.pago;
@@ -717,6 +743,7 @@ export default function NfeList() {
     return {
       label: pagamentoResumoLabel(pagamentoFiltro),
       value: pagamentoResumoValor(pagamentoFiltro, totals),
+      canceladas,
       ...totals,
     };
   }, [filtered, pagamentoFiltro, pagamentosByDocId]);
@@ -805,6 +832,11 @@ export default function NfeList() {
             <div className="mt-1 text-2xl font-semibold tabular-nums text-zinc-100">
               {formatMoneyBR(resumoFiltro.value)}
             </div>
+            {resumoFiltro.canceladas > 0 ? (
+              <div className="mt-1 text-xs text-zinc-500">
+                {resumoFiltro.canceladas} nota(s) cancelada(s) na lista, fora do somatório.
+              </div>
+            ) : null}
           </div>
           <div className="grid gap-2 text-right sm:grid-cols-3 sm:gap-4">
             <div>
