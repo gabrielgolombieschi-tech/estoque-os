@@ -59,10 +59,17 @@ function normalizeEmpresaPapel(papel: string | null | undefined): string {
   return typeof papel === "string" ? papel.trim().toUpperCase() : "";
 }
 
-function isPainelTvEmpresaRole(state: TenantEmpresaState): boolean {
-  const papel =
-    state.empresa?.papel ?? state.empresas.find((e) => e.id === state.empresaId)?.papel ?? null;
-  return normalizeEmpresaPapel(papel) === "PAINEL_TV";
+/**
+ * Papel do usuario na empresa corrente: o da empresa ja resolvida e, se ela ainda
+ * nao veio, o da lista. Recebe os tres campos em vez do state inteiro para quem
+ * chama poder declarar dependencias honestas.
+ */
+function papelNaEmpresa(
+  empresaPapel: string | null | undefined,
+  empresas: TenantEmpresaState["empresas"],
+  empresaId: string | null,
+): string | null {
+  return empresaPapel ?? empresas.find((e) => e.id === empresaId)?.papel ?? null;
 }
 
 function readCached(userId: string, tenantId: string): CachedTenantEmpresa | null {
@@ -146,11 +153,6 @@ async function rpcSetCurrentEmpresa(supabase: ReturnType<typeof getSupabaseBrows
   }
 }
 
-function isDiretorEmpresaRole(state: TenantEmpresaState): boolean {
-  const papel =
-    state.empresa?.papel ?? state.empresas.find((e) => e.id === state.empresaId)?.papel ?? null;
-  return normalizeEmpresaPapel(papel) === "DIRETOR";
-}
 
 type EmpresaMembershipJoinedRow = {
   empresa_id: string | null;
@@ -453,10 +455,11 @@ export function TenantEmpresaProvider(props: {
     error: null,
   });
 
+  // Atualizado no render, nao num efeito: quem le stateRef durante uma chamada
+  // assincrona precisa do valor de agora, nao do render anterior. E o que permite
+  // revalidate() nao depender de `state` e, com isso, ter identidade estavel.
   const stateRef = useRef(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+  stateRef.current = state;
 
   const lastCapsKeysLenRef = useRef<number | null>(null);
   useEffect(() => {
@@ -501,11 +504,20 @@ export function TenantEmpresaProvider(props: {
     empresaId: null,
   });
 
+  // So os campos que `has` de fato le. Antes a dependencia era o objeto `state`
+  // inteiro: `has` trocava de identidade a cada setState do provider e, como ele
+  // entra no value do contexto, arrastava os ~160 consumidores num re-render.
+  const capabilities = state.capabilities;
+  const empresaPapel = state.empresa?.papel ?? null;
+  const empresasLista = state.empresas;
+  const empresaAtualId = state.empresaId;
+
   const has = useCallback(
     (capability: CapabilityKey) => {
-      if (state.capabilities === null) return undefined;
+      if (capabilities === null) return undefined;
+      const papel = normalizeEmpresaPapel(papelNaEmpresa(empresaPapel, empresasLista, empresaAtualId));
 
-      if (isPainelTvEmpresaRole(state)) {
+      if (papel === "PAINEL_TV") {
         if (capability === "os.read" || capability === "os_rpcs.execute") return true;
         if (capability.endsWith(".write") || capability.endsWith(".delete") || capability.endsWith(".config")) {
           return false;
@@ -514,17 +526,17 @@ export function TenantEmpresaProvider(props: {
         if (capability === "admin.manage_users" || capability === "admin.users.manage") return false;
       }
 
-      if (isDiretorEmpresaRole(state)) {
+      if (papel === "DIRETOR") {
         if (capability === "admin.manage_users" || capability === "admin.users.manage") return false;
       }
 
-      if (normalizeEmpresaPapel(state.empresa?.papel) === "TECNICO") {
+      if (normalizeEmpresaPapel(empresaPapel) === "TECNICO") {
         if (capability === "apontamentos.read" || capability === "apontamentos.write") return true;
       }
 
-      return state.capabilities[capability] ?? false;
+      return capabilities[capability] ?? false;
     },
-    [state]
+    [capabilities, empresaPapel, empresasLista, empresaAtualId]
   );
 
   const clear = useCallback(() => {
@@ -587,7 +599,7 @@ export function TenantEmpresaProvider(props: {
         const isStale = () => requestIdRef.current !== requestId;
 
         const { background, reason } = opts;
-        const userId = opts.userId ?? state.sessionUserId;
+        const userId = opts.userId ?? stateRef.current.sessionUserId;
         if (userId === undefined) return;
         if (!userId) {
           clear();
@@ -602,7 +614,7 @@ export function TenantEmpresaProvider(props: {
         }));
 
         try {
-          const cachedTenantId = readLastTenantId(userId) ?? initialTenantId ?? state.tenantId ?? null;
+          const cachedTenantId = readLastTenantId(userId) ?? initialTenantId ?? stateRef.current.tenantId ?? null;
           let ensuredTenantId =
             (await rpcCurrentTenantId(supabase)) ??
             (await ensureCurrentTenant(supabase, cachedTenantId, { authUserId: userId }));
@@ -703,7 +715,13 @@ export function TenantEmpresaProvider(props: {
 
       return trackedRun;
     },
-    [clear, initialTenantId, state.sessionUserId, state.tenantId]
+    // Le sessionUserId/tenantId de stateRef, nao de `state`, para nao trocar de
+    // identidade a cada revalidacao. Enquanto dependia deles, o efeito de boot
+    // (que tem revalidate nas deps) se desmontava e remontava a cada escrita que
+    // ele mesmo fazia — refazendo getSession, as consultas de empresas e a
+    // assinatura de onAuthStateChange 2 a 3 vezes por montagem, e 6 ou mais em
+    // dev com o StrictMode.
+    [clear, initialTenantId]
   );
 
   const reload = useCallback(
@@ -983,7 +1001,13 @@ export function TenantEmpresaProvider(props: {
       const session = data.session;
       const userId = session?.user?.id ?? null;
       const email = session?.user?.email ?? null;
-      setState((prev) => ({ ...prev, sessionUserId: userId, email }));
+      // Sem bail-out, um valor identico ainda cria objeto novo e re-renderiza a
+      // arvore inteira (o value do contexto carrega `state`).
+      setState((prev) => (
+        prev.sessionUserId === userId && prev.email === email
+          ? prev
+          : { ...prev, sessionUserId: userId, email }
+      ));
 
       if (!userId) {
         setState((prev) => ({ ...prev, loading: false, refreshing: false }));
@@ -1064,7 +1088,12 @@ export function TenantEmpresaProvider(props: {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, [clear, hydrateFromCache, revalidate]);
+    // Roda uma vez por montagem, de proposito. As tres funcoes que o corpo usa
+    // (clear, hydrateFromCache, revalidate) tem identidade estavel agora, entao
+    // listar as deps seria equivalente — mas deixar [] documenta a intencao: boot
+    // e assinatura de auth acontecem na montagem, nao a cada mudanca de contexto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // SWR on window events
   useEffect(() => {
