@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyBR } from "@/lib/decimal";
+import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { resolverIbsCbsTransicao2026 } from "@/supabase/functions/_shared/fiscal/ibs-cbs-transicao-2026";
 
@@ -511,6 +512,11 @@ type TransportadorPadraoCliente = {
   modalidade_frete: string;
 };
 
+// Contexto de entrega de uma nota autorizada: e-mails do cadastro, o que ja foi
+// enviado e o texto em edicao. `ctx` nulo = ainda carregando ou sem contexto.
+type EntregaCtx = ContatoNfe & { eventos?: Array<{ tipo: string; status: string; destinatarios: string[] | null }> };
+type EntregaNota = { ctx: EntregaCtx | null; emails: string; enviadoPara: string[] | null; enviando: boolean };
+
 function formOperacao(
   draft: Draft,
   memoria?: MemoriaOperacao | null,
@@ -777,6 +783,10 @@ export default function OvNfeDraftsPanel({
   const [destinoTipo, setDestinoTipo] = useState<"" | "SC" | "FORA">("");
   const [ufCliente, setUfCliente] = useState<string | null>(null);
   const [padraoTransportador, setPadraoTransportador] = useState<TransportadorPadraoCliente | null>(null);
+  // Entrega ao cliente (XML + DANFE pela Focus), por documento fiscal — a OV pode ter
+  // mais de uma nota real. Mesmo caminho da tela da OS: fn_nfe_ciclo_contexto para os
+  // e-mails do cadastro, nfe-ciclo {acao EMAIL} para enviar.
+  const [entregas, setEntregas] = useState<Record<string, EntregaNota>>({});
   const [destinoUf, setDestinoUf] = useState("");
   const [resolucaoPerfis, setResolucaoPerfis] = useState<ResolucaoPerfis | null>(null);
   const [resolvendoDestino, setResolvendoDestino] = useState(false);
@@ -946,6 +956,63 @@ export default function OvNfeDraftsPanel({
     const timer = window.setInterval(() => void carregar(), 5000);
     return () => window.clearInterval(timer);
   }, [carregar, drafts]);
+
+  // Contexto de entrega das notas reais autorizadas: busca uma vez por documento,
+  // quando a nota aparece. So producao — homologacao nao se manda para cliente.
+  useEffect(() => {
+    const pendentes = drafts
+      .map((draft) => draft.emissao)
+      .filter((emissao) => emissao
+        && emissao.ambiente === "PRODUCAO"
+        && emissao.status === "AUTORIZADA"
+        && !entregas[emissao.documento_fiscal_id]);
+    if (pendentes.length === 0) return;
+    let ativo = true;
+    for (const emissao of pendentes) {
+      const documentoId = emissao!.documento_fiscal_id;
+      void supabase.schema("f").rpc("fn_nfe_ciclo_contexto", { p_documento_fiscal_id: documentoId })
+        .then(({ data }) => {
+          if (!ativo) return;
+          const ctx = (data ?? null) as EntregaCtx | null;
+          const enviado = ctx?.eventos?.find((ev) => ev.tipo === "EMAIL" && !/ERRO|REJEIT|FALH/i.test(ev.status))?.destinatarios ?? null;
+          setEntregas((atual) => atual[documentoId] ? atual : {
+            ...atual,
+            [documentoId]: { ctx, emails: emailPadraoCliente(ctx), enviadoPara: enviado, enviando: false },
+          });
+        });
+    }
+    return () => { ativo = false; };
+  }, [drafts, entregas, supabase]);
+
+  async function enviarEntrega(draft: Draft) {
+    const emissao = draft.emissao;
+    if (!emissao) return;
+    const documentoId = emissao.documento_fiscal_id;
+    const entrega = entregas[documentoId];
+    const destinatarios = separarEmails(entrega?.emails ?? "");
+    if (!destinatarios.length) { avisar(draft.id, "Informe ao menos um e-mail para a entrega.", true); return; }
+    const rotuloNota = `${emissao.serie ?? ""}/${emissao.numero ?? ""}`;
+    if (!window.confirm(
+      `Enviar XML e DANFE da NF-e ${rotuloNota} para:\n\n${destinatarios.join("\n")}\n\nConfirme somente após revisar os dois arquivos.`,
+    )) return;
+    setEntregas((atual) => ({ ...atual, [documentoId]: { ...atual[documentoId], enviando: true } }));
+    avisar(draft.id, "");
+    try {
+      const { data, error } = await supabase.functions.invoke("nfe-ciclo", {
+        body: { acao: "EMAIL", emails: destinatarios, documento_fiscal_id: documentoId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(String(data.error));
+      setEntregas((atual) => ({
+        ...atual,
+        [documentoId]: { ...atual[documentoId], enviando: false, enviadoPara: destinatarios },
+      }));
+      avisar(draft.id, `XML e DANFE da NF-e ${rotuloNota} enviados para ${destinatarios.join(", ")}.`);
+    } catch (cause) {
+      setEntregas((atual) => ({ ...atual, [documentoId]: { ...atual[documentoId], enviando: false } }));
+      avisar(draft.id, await erroFunction(cause), true);
+    }
+  }
 
   function abrirConferencia(draft: Draft, ambiente: "HOMOLOGACAO" | "PRODUCAO" = "HOMOLOGACAO") {
     setAmbienteConferencia(ambiente);
@@ -1360,6 +1427,9 @@ export default function OvNfeDraftsPanel({
         const autorizada = draft.emissao?.status === "AUTORIZADA";
         const processando = draft.emissao?.status === "ENVIANDO" || draft.emissao?.status === "PROCESSANDO";
         const homologacaoAutorizada = autorizada && draft.emissao?.ambiente === "HOMOLOGACAO";
+        // Nota real autorizada: e a unica que se entrega ao cliente.
+        const producaoAutorizada = autorizada && draft.emissao?.ambiente === "PRODUCAO";
+        const entrega = draft.emissao ? entregas[draft.emissao.documento_fiscal_id] : undefined;
         const podeDescartar = podeEmitir && (
           !draft.emissao
           || (
@@ -1552,6 +1622,46 @@ export default function OvNfeDraftsPanel({
                             : "Confirmar descarte"}
                       </button>
                     </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {producaoAutorizada ? (
+                <div className="space-y-2 rounded-lg border border-emerald-900/60 bg-emerald-950/10 p-3">
+                  <div className="text-sm font-medium text-emerald-200">Entregar ao cliente</div>
+                  <p className="text-xs text-zinc-400">A Focus envia XML e DANFE anexados. Confirme depois de revisar os dois arquivos acima.</p>
+                  <input
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500"
+                    value={entrega?.emails ?? ""}
+                    onChange={(event) => setEntregas((atual) => ({
+                      ...atual,
+                      [draft.emissao!.documento_fiscal_id]: { ...atual[draft.emissao!.documento_fiscal_id], emails: event.target.value },
+                    }))}
+                    placeholder="E-mails separados por vírgula"
+                  />
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                    <span>Cadastro do cliente:</span>
+                    {emailsDoCadastro(entrega?.ctx).map((contato) => contato.proprio ? (
+                      <span key={contato.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro fiscal.">{contato.rotulo}: {contato.email} · é da própria empresa</span>
+                    ) : (
+                      <button key={contato.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEntregas((atual) => ({
+                        ...atual,
+                        [draft.emissao!.documento_fiscal_id]: { ...atual[draft.emissao!.documento_fiscal_id], emails: contato.email },
+                      }))}>{contato.rotulo}: {contato.email}</button>
+                    ))}
+                    {entrega?.ctx && emailsDoCadastro(entrega.ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
+                  </div>
+                  {entrega?.enviadoPara ? <div className="text-xs text-emerald-300">Já enviado para {entrega.enviadoPara.join(", ")}. Enviar de novo repete o e-mail.</div> : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void enviarEntrega(draft)}
+                      disabled={Boolean(entrega?.enviando) || busyId === draft.id || !(entrega?.emails ?? "").trim() || !draft.emissao?.xml_path || !draft.emissao?.danfe_path}
+                      className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40"
+                    >
+                      {entrega?.enviando ? "Enviando..." : "Revisado: enviar XML + DANFE"}
+                    </button>
+                    {!draft.emissao?.xml_path || !draft.emissao?.danfe_path ? <span className="text-xs text-zinc-500">Aguardando XML e DANFE arquivados.</span> : null}
                   </div>
                 </div>
               ) : null}
