@@ -110,22 +110,49 @@ for (const cenario of cenarios) {
   }
 }
 
-// "Valor aproximado dos tributos" (Lei 12.741/2012), so na revenda: mesma frase e
+// "Valor aproximado dos tributos" (Lei 12.741/2012), em toda venda: mesma frase e
 // mesma conta (ICMS + IPI da nota) do emissor antigo, pedido do Gabriel em 10/09/2026
 // — conferido contra 20 notas reais dele (ver comentario em nfe-payload.ts). Reusa o
-// cenario A (IPI por fora), so trocando a natureza e o CFOP do item para revenda.
-{
+// cenario A (IPI por fora), so trocando natureza e CFOP.
+//
+// O que nao e venda nao leva a frase: numa remessa para industrializacao nao ha preco
+// cobrado do comprador de que esses tributos sejam parte.
+function infCplDaNatureza(naturezaOperacao, cfop) {
   const ctx = contexto(9000.00);
-  ctx.solicitacao.operacao_snapshot.natureza_operacao = "VENDA_MERCADORIA_TERCEIROS";
-  ctx.itens[0].solicitacao_item.cfop = "5102";
-  ctx.itens[0].documento_item.cfop = "5102";
-  const payload = montarPayloadNfe(ctx);
-  const infCpl = String(payload.informacoes_adicionais_contribuinte ?? "");
-  const esperadoTexto = "Valor aproximado dos tributos: 2556,68.";
-  const bate = infCpl.startsWith(esperadoTexto);
+  ctx.solicitacao.operacao_snapshot.natureza_operacao = naturezaOperacao;
+  ctx.itens[0].solicitacao_item.cfop = cfop;
+  ctx.itens[0].documento_item.cfop = cfop;
+  return String(montarPayloadNfe(ctx).informacoes_adicionais_contribuinte ?? "");
+}
+
+const casosInfCpl = [
+  { nome: "C · Revenda (5102)", natureza: "VENDA_MERCADORIA_TERCEIROS", cfop: "5102" },
+  { nome: "D · Industrializacao interna (5101)", natureza: "VENDA_INDUSTRIALIZACAO_INTERNA", cfop: "5101" },
+  { nome: "E · Industrializacao interestadual (6101)", natureza: "VENDA_INDUSTRIALIZACAO_INTERESTADUAL", cfop: "6101" },
+];
+const FRASE_TRIBUTOS = "Valor aproximado dos tributos: 2556,68.";
+for (const caso of casosInfCpl) {
+  const infCpl = infCplDaNatureza(caso.natureza, caso.cfop);
+  const bate = infCpl.startsWith(FRASE_TRIBUTOS);
   if (!bate) falhas += 1;
-  console.log(`\nC · Revenda (5102) — texto no infCpl`);
-  console.log(`  ${bate ? "ok   " : "FALHA"} ${"infCpl".padEnd(12)} ${JSON.stringify(infCpl.slice(0, 60))}${bate ? "" : `  (esperado iniciar com ${JSON.stringify(esperadoTexto)})`}`);
+  console.log(`\n${caso.nome} — texto no infCpl`);
+  console.log(`  ${bate ? "ok   " : "FALHA"} ${"infCpl".padEnd(12)} ${JSON.stringify(infCpl.slice(0, 60))}${bate ? "" : `  (esperado iniciar com ${JSON.stringify(FRASE_TRIBUTOS)})`}`);
+}
+
+// A frase e so das vendas. Isso ainda nao da para observar pelo infCpl: as tres
+// naturezas acima sao as unicas com cClassTrib mapeado para 2026, e qualquer outra
+// para antes, no IBS/CBS. O caso negativo fica registrado aqui — quando uma remessa
+// passar a ser emissivel, e este ponto que tem de ser reconferido.
+{
+  let barrou = false;
+  try {
+    infCplDaNatureza("REMESSA_INDUSTRIALIZACAO_ENCOMENDA", "5901");
+  } catch (erro) {
+    barrou = /sem cClassTrib mapeado/.test(String(erro.message));
+  }
+  if (!barrou) falhas += 1;
+  console.log("\nF · Remessa p/ industrializacao ainda nao e emissivel");
+  console.log(`  ${barrou ? "ok   " : "FALHA"} ${"barrada".padEnd(12)} no IBS/CBS, antes do infCpl${barrou ? "" : " (esperado bloqueio por cClassTrib nao mapeado)"}`);
 }
 
 console.log(falhas === 0 ? "\nTributos da NF-e: todos os cenarios passaram." : `\nTributos da NF-e: ${falhas} divergencia(s).`);

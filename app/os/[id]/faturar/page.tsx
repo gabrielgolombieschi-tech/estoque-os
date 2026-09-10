@@ -37,6 +37,13 @@ type Os = {
 type Cliente = {
   id: number; nome: string; razao_social: string | null; documento: string | null; inscricao_estadual: string | null;
   indicador_ie: string | null; cidade: string | null; uf: string | null; codigo_ibge_municipio: string | null;
+  // Transportadora que este cliente costuma usar, gravada na ultima nota dele
+  // (public.clientes.transportador_padrao_*). O painel da OV ja sugeria; aqui a
+  // pessoa redigitava tudo a cada OS.
+  transportador_padrao_nome: string | null; transportador_padrao_documento: string | null;
+  transportador_padrao_ie: string | null; transportador_padrao_endereco: string | null;
+  transportador_padrao_municipio: string | null; transportador_padrao_uf: string | null;
+  transportador_padrao_modalidade_frete: number | null;
 };
 type Saldo = { valor_pedido: number | string; valor_faturado: number | string; valor_reservado: number | string; saldo: number | string; usa_relatorio_hh: boolean };
 // cst_ipi/aliquota_ipi vem do cadastro fiscal do item (f.fn_faturamento_buscar_itens):
@@ -220,7 +227,19 @@ export default function FaturarOsPage() {
   const perfisPendentes = perfisDaDestinacao.filter((p) => !perfisVigentes.includes(p));
   const perfisBloqueados = perfisDoCfop.filter((p) => !perfisDaDestinacao.includes(p));
   const retornoFaturar = `/os/${osId}/faturar`;
-  const linkPerfil = (codigo?: string) => `/faturamento/perfis?${codigo ? `perfil=${encodeURIComponent(codigo)}&` : ""}retorno=${encodeURIComponent(retornoFaturar)}`;
+  // A liberacao de producao e por solicitacao: f.fn_nfe_producao_pronta so abre o portao
+  // quando o perfil aponta para ESTA solicitacao e para o documento dela em homologacao.
+  // Sem levar o id daqui, a tela de perfis abria com o campo "solicitacao homologada"
+  // vazio e o operador tinha de achar o UUID na mao — quando errava, liberava para outra
+  // solicitacao e a producao continuava barrada sem dizer por que.
+  const linkPerfil = (codigo?: string) => {
+    const partes = [
+      ...(codigo ? [`perfil=${encodeURIComponent(codigo)}`] : []),
+      ...(solicitacao?.id ? [`solicitacao=${encodeURIComponent(solicitacao.id)}`] : []),
+      `retorno=${encodeURIComponent(retornoFaturar)}`,
+    ];
+    return `/faturamento/perfis?${partes.join("&")}`;
+  };
   const motivoPendente = (p: Perfil) => !p.revisao_fiscal_em ? "sem revisão fiscal salva" : p.vigencia_inicio && p.vigencia_inicio > hoje ? `vigência a partir de ${p.vigencia_inicio}` : "vigência encerrada";
   const osInterna = useMemo(() => /segau/i.test(cliente?.razao_social ?? cliente?.nome ?? "") && /el[eé]trica/i.test(cliente?.razao_social ?? cliente?.nome ?? ""), [cliente]);
   const osCancelada = String(os?.status_fluxo ?? os?.status ?? "").toLowerCase() === "cancelada";
@@ -247,9 +266,11 @@ export default function FaturarOsPage() {
       const impostos = osRow.usa_relatorio_hh ? num(payload.total_hh) * 0.15 : osRow.tipo_pedido === "material" ? orcado * 0.27 : orcado * 0.15;
       setCustoReal({ materiais, despesas, maoObra, impostos, total: materiais + despesas + maoObra + impostos });
 
+      let clienteRow: Cliente | null = null;
       if (osRow.cliente_id) {
-        const { data: cli } = await supabase.from("clientes").select("id,nome,razao_social,documento,inscricao_estadual,indicador_ie,cidade,uf,codigo_ibge_municipio").eq("id", osRow.cliente_id).maybeSingle();
-        setCliente((cli as Cliente | null) ?? null);
+        const { data: cli } = await supabase.from("clientes").select("id,nome,razao_social,documento,inscricao_estadual,indicador_ie,cidade,uf,codigo_ibge_municipio,transportador_padrao_nome,transportador_padrao_documento,transportador_padrao_ie,transportador_padrao_endereco,transportador_padrao_municipio,transportador_padrao_uf,transportador_padrao_modalidade_frete").eq("id", osRow.cliente_id).maybeSingle();
+        clienteRow = (cli as Cliente | null) ?? null;
+        setCliente(clienteRow);
       }
       const { data: saldoData, error: erroSaldo } = await supabase.schema("f").rpc("fn_os_saldo_a_faturar", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osId });
       if (erroSaldo) throw erroSaldo;
@@ -322,7 +343,7 @@ export default function FaturarOsPage() {
         if (Array.isArray(ativa.pagamento_parcelas) && ativa.pagamento_parcelas.length > 0) {
           setParcelas(ativa.pagamento_parcelas.map((p) => ({ dias: String(p.dias ?? ""), valor: decimal(p.valor) })));
         }
-        if (ativa.observacao && !/^Emissao da OS|^Composicao parcial/i.test(ativa.observacao)) setObservacao(ativa.observacao);
+        if (ativa.observacao && !/^Emissao da OS|^Composi[cç][aã]o (parcial|livre)/i.test(ativa.observacao)) setObservacao(ativa.observacao);
         if (ativa.pedido_cliente) setPedidoCliente(ativa.pedido_cliente);
         const { data: its } = await supabase.schema("f").from("solicitacao_item").select("ordem,descricao,quantidade,valor_unitario,cfop,aliquota_icms,aliquota_ipi,cst_ipi,aliquota_pis,aliquota_cofins,ncm,origem_mercadoria,tributacao_fonte").eq("solicitacao_id", ativa.id).order("ordem");
         setItensConferidos((its as ItemConferido[] | null) ?? []);
@@ -331,6 +352,23 @@ export default function FaturarOsPage() {
         setEmissao(null);
         setItensConferidos([]);
         setConferida(false);
+        // Rascunho novo: a transportadora do cliente entra como sugestao, igual ao
+        // painel da OV. Sugerir nao e confirmar — os campos seguem editaveis e a
+        // conferencia continua sendo de quem fatura.
+        const padraoNome = String(clienteRow?.transportador_padrao_nome ?? "").trim();
+        if (padraoNome) {
+          setTransportador({
+            nome: padraoNome,
+            documento: String(clienteRow?.transportador_padrao_documento ?? ""),
+            inscricao_estadual: String(clienteRow?.transportador_padrao_ie ?? ""),
+            endereco: String(clienteRow?.transportador_padrao_endereco ?? ""),
+            municipio: String(clienteRow?.transportador_padrao_municipio ?? ""),
+            uf: String(clienteRow?.transportador_padrao_uf ?? ""),
+          });
+          if (clienteRow?.transportador_padrao_modalidade_frete != null) {
+            setModalidadeFrete(String(clienteRow.transportador_padrao_modalidade_frete));
+          }
+        }
         setLinhas((atuais) => atuais.length > 0 ? atuais : [{
           chave: 1, produto: null, busca: "", resultados: [], buscou: null,
           descricao: osRow.descricao_servico ?? `OS ${osRow.numero_os ?? osRow.id}`,
@@ -905,7 +943,16 @@ export default function FaturarOsPage() {
             {autorizada && notaAtual ? <div className="mt-2 flex flex-wrap items-center gap-2"><span>NF-e {notaAtual.serie}/{notaAtual.numero} · chave <code className="text-xs">{notaAtual.chave_acesso}</code></span><button type="button" className={botao} onClick={() => void abrirArquivo(notaAtual, "DANFE")}>DANFE</button><button type="button" className={botao} onClick={() => void abrirArquivo(notaAtual, "XML")}>XML</button><Link className={botao} href={`/faturamento/nfe/${notaAtual.documento_fiscal_id}`}>Ciclo de vida</Link>
               {emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NF-e real (produção)</button> : null}
             </div> : null}
-            {autorizada && emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta && !producaoPronta.pronta ? <div className="mt-1 text-xs text-zinc-500">Produção: {producaoPronta.motivo}</div> : null}
+            {autorizada && emissao.ambiente === "HOMOLOGACAO" && !notaProducao && producaoPronta && !producaoPronta.pronta ? (
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                <span>Produção: {producaoPronta.motivo}</span>
+                {/* O motivo dizia o que falta e parava ali. Como a liberacao e por
+                    solicitacao, o link ja leva o perfil e esta solicitacao prontos. */}
+                {perfisVigentes.map((p) => (
+                  <Link key={p.id} href={linkPerfil(p.codigo)} className="rounded-md border border-emerald-800 px-2 py-1 text-emerald-100 hover:bg-emerald-950/60">Liberar {p.codigo} para esta nota</Link>
+                ))}
+              </div>
+            ) : null}
             {notaProducao ? <div className="mt-2 flex flex-wrap items-center gap-2 text-sm"><span className="font-medium text-emerald-300">NF-e REAL · {notaProducao.emissao_status}</span>{notaProducao.serie && notaProducao.numero ? <span>NF-e {notaProducao.serie}/{notaProducao.numero}</span> : null}{notaProducao.chave_acesso ? <code className="text-xs">{notaProducao.chave_acesso}</code> : null}<Link className={botao} href={`/faturamento/nfe/${notaProducao.documento_fiscal_id}`}>Ciclo de vida (cancelar, carta de correção)</Link></div> : null}
             {autorizada && emissao.ambiente === "HOMOLOGACAO" ? <div className="mt-2 text-xs text-zinc-400">Homologação não gera título a receber nem consome o saldo definitivo; o saldo fica reservado até o abandono. A nota real gera o contas a receber.</div> : null}
           </div>

@@ -596,22 +596,30 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // A observacao da solicitacao ficava so no banco e nunca chegava ao infCpl
   // (auditoria da NF-e 2/8). Vai por ultimo, com espacos normalizados, e o
   // conjunto respeita o limite de 5.000 caracteres do campo.
-  // O texto automatico da composicao ("Composicao parcial da OV ...") e
-  // controle interno e saiu na NF-e 2/1; so observacao escrita por pessoa
-  // vai para o cliente.
+  // O texto automatico da composicao e controle interno e saiu na NF-e 2/1; so
+  // observacao escrita por pessoa vai para o cliente. Sao duas variantes, as duas
+  // geradas pelo sistema: "Composicao parcial da OV/OS ..." e "Composicao livre da
+  // OS ..." (20260901152000_faturamento_os_linhas_livres.sql). A segunda escapou do
+  // filtro e foi parar no infCpl da homologacao 2/36 da OS 287.
   const observacaoBruta = text(solicitacao.observacao)?.replace(/\s+/g, " ") ?? null;
-  const observacaoSolicitacao = observacaoBruta && !/^Composi[cç][aã]o parcial da (OV|OS)\b/i.test(observacaoBruta)
+  const observacaoSolicitacao = observacaoBruta && !/^Composi[cç][aã]o (parcial|livre) da (OV|OS)\b/i.test(observacaoBruta)
     ? observacaoBruta
     : null;
-  // "Valor aproximado dos tributos" (Lei 12.741/2012), so na revenda (5102) e no
-  // inicio do infCpl — mesma conta (ICMS + IPI da nota) do emissor antigo, pedido do
-  // Gabriel em 10/09/2026; o emissor antigo escrevia tudo em caixa alta
-  // ("VALOR APROXIMADO DOS TRIBUTOS: ..."), mas isso destoava dos outros fragmentos
-  // do infCpl (destinacao, pedido), que sao frase normal — aqui vai no mesmo padrao
-  // deles. Na industrializacao (5101/6101) o infCpl ja abre com a base legal da
-  // aliquota/destinacao; fica de fora por ora.
+  // "Valor aproximado dos tributos" (Lei 12.741/2012), na primeira posicao do infCpl —
+  // mesma conta (ICMS + IPI da nota) do emissor antigo, conferida contra 20 notas
+  // legadas. Escrito em frase normal, nao na caixa alta do emissor antigo, para nao
+  // destoar dos outros fragmentos (destinacao, pedido) — decisao do Gabriel em
+  // 10/09/2026.
+  //
+  // Vale para toda VENDA, nao so a revenda (Gabriel, 10/09/2026): o direito do
+  // comprador a informacao, no art. 1o da Lei 12.741/2012, nao distingue mercadoria
+  // revendida de mercadoria industrializada aqui dentro.
+  //
+  // Fica de fora o que nao e venda — remessa e retorno de industrializacao, devolucao
+  // de compra, estorno, outras saidas. Ali nao ha preco cobrado do comprador de que
+  // esses tributos sejam parte, e a frase afirmaria uma coisa que a operacao nao tem.
   const valorAproximadoTributos = round(icmsTotal + valorIpi);
-  const textoTributosAproximados = natureza.codigo === "VENDA_MERCADORIA_TERCEIROS"
+  const textoTributosAproximados = natureza.codigo.startsWith("VENDA_")
     ? `Valor aproximado dos tributos: ${valorAproximadoTributos.toFixed(2).replace(".", ",")}.`
     : null;
   const informacoesComplementares = [
