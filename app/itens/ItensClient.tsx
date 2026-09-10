@@ -10,6 +10,7 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { Can } from "@/components/auth/Can";
 import { requireAny } from "@/lib/auth/capabilities";
 import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
+import { normalizarConversaoCadastro, ORIGENS_MERCADORIA } from "@/lib/itens/cadastroNormalizacao";
 import CadastroItemAgenteModal from "./CadastroItemAgenteModal";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
@@ -224,18 +225,6 @@ type FiscalForm = {
   credita_pis: boolean;
   credita_cofins: boolean;
 };
-
-const ORIGENS_MERCADORIA = [
-  { value: "0", label: "0 - Nacional" },
-  { value: "1", label: "1 - Estrangeira, importação direta" },
-  { value: "2", label: "2 - Estrangeira, adquirida no mercado interno" },
-  { value: "3", label: "3 - Nacional, conteúdo de importação superior a 40% e até 70%" },
-  { value: "4", label: "4 - Nacional, conforme processos produtivos básicos" },
-  { value: "5", label: "5 - Nacional, conteúdo de importação até 40%" },
-  { value: "6", label: "6 - Estrangeira, importação direta, sem similar nacional" },
-  { value: "7", label: "7 - Estrangeira, mercado interno, sem similar nacional" },
-  { value: "8", label: "8 - Nacional, conteúdo de importação superior a 70%" },
-] as const;
 
 function money(n: number | null | undefined) {
   const v = Number(n ?? 0);
@@ -490,9 +479,26 @@ export default function ItensClient({
   const [form, setForm] = useState<ItemForm>(emptyFormForContext);
   const [fiscalForm, setFiscalForm] = useState<FiscalForm>(emptyFiscalForm());
   const [initialFiscalSnapshot, setInitialFiscalSnapshot] = useState(() => serializeFiscalForm(emptyFiscalForm()));
+  // O que a TIPI diz do NCM digitado. Sem isto dava para salvar o NCM 9032.89.29 com
+  // CST 51 e nenhuma aliquota, e o erro so aparecia na emissao — foi o que segurou a
+  // OS 319. A TIPI e a fonte; aqui ela fica visivel na hora de cadastrar.
+  const [tipiDoNcm, setTipiDoNcm] = useState<{ ncm: string; aliquota: number; descricao: string | null } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingAudit, setEditingAudit] = useState<ItemAudit | null>(null);
   const initialAutoOpenDone = useRef(false);
+
+  // Consulta a TIPI a cada NCM completo digitado no formulario fiscal.
+  useEffect(() => {
+    const ncm = fiscalForm.ncm.replace(/\D/g, "");
+    if (ncm.length !== 8) { setTipiDoNcm(null); return; }
+    let ativo = true;
+    void supabase.schema("f").from("tipi_ncm").select("ncm,aliquota,descricao").eq("ncm", ncm).maybeSingle()
+      .then(({ data }) => {
+        if (!ativo) return;
+        setTipiDoNcm(data ? { ncm: String(data.ncm), aliquota: Number(data.aliquota), descricao: data.descricao ?? null } : null);
+      });
+    return () => { ativo = false; };
+  }, [fiscalForm.ncm, supabase]);
 
   useEffect(() => {
     if (!isFinalidadeLocked) return;
@@ -1106,14 +1112,10 @@ export default function ItensClient({
     const controlaEstoque = isProduto ? form.controla_estoque : false;
     const finalidadeParaSalvar = lockedFinalidade || form.finalidade.trim();
     const unidadeEstoque = upper(form.unidade_medida || "UN").trim();
-    const unidadeCompra = upper(form.unidade_compra).trim() || null;
-    const fatorConversaoEstoque = parseDecimalBR(form.fator_conversao_estoque);
-    if (!Number.isFinite(fatorConversaoEstoque) || fatorConversaoEstoque <= 0) {
-      return setErr("O multiplicador para estoque deve ser maior que zero.");
-    }
-    if (unidadeCompra === unidadeEstoque) {
-      return setErr("A unidade de compra deve ficar em branco quando for igual à unidade de estoque.");
-    }
+    const conversao = normalizarConversaoCadastro(unidadeEstoque, form.unidade_compra, parseDecimalBR(form.fator_conversao_estoque));
+    if (conversao.erro) return setErr(conversao.erro);
+    const unidadeCompra = conversao.unidade_compra;
+    const fatorConversaoEstoque = conversao.fator_conversao_estoque ?? 1;
 
     setBusy(true);
 
@@ -2178,9 +2180,32 @@ export default function ItensClient({
                       <div className="text-xs text-zinc-400">CST IPI do produto</div>
                       <input className="w-full px-3 py-2" value={fiscalForm.cst_ipi} onChange={(e) => setFiscalForm((s) => ({ ...s, cst_ipi: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="Ex: 53" />
                     </div>
-                    <div className="rounded border border-sky-900/70 bg-sky-950/20 px-3 py-2 text-xs text-sky-200">
-                      cEnq não pertence ao produto. Ele é definido no grupo IPI do perfil da operação fiscal.
-                    </div>
+                    {/* Só os CST 00, 49, 50 e 99 destacam IPI. Se a TIPI tributa o NCM e o
+                        produto está num CST que não destaca, a nota sai sem IPI e o erro só
+                        aparece na emissão — foi assim que a OS 319 travou. */}
+                    {tipiDoNcm && tipiDoNcm.aliquota > 0
+                      && !["00", "49", "50", "99"].includes(fiscalForm.cst_ipi.trim()) ? (
+                      <div className="rounded border border-amber-800/70 bg-amber-950/25 px-3 py-2 text-xs text-amber-100">
+                        <div><strong>A TIPI tributa o NCM {tipiDoNcm.ncm} em {String(tipiDoNcm.aliquota).replace(".", ",")}%</strong>{tipiDoNcm.descricao ? ` · ${tipiDoNcm.descricao}` : ""}.</div>
+                        <div className="mt-1">Com o CST {fiscalForm.cst_ipi.trim() || "vazio"} a nota sairia sem IPI e a emissão será recusada.</div>
+                        <button
+                          type="button"
+                          className="mt-2 rounded border border-amber-700 px-2 py-1 hover:bg-amber-900/40"
+                          onClick={() => setFiscalForm((s) => ({ ...s, cst_ipi: "50", aliq_ipi: tipiDoNcm.aliquota }))}
+                        >
+                          Aplicar CST 50 e {String(tipiDoNcm.aliquota).replace(".", ",")}%
+                        </button>
+                      </div>
+                    ) : tipiDoNcm ? (
+                      <div className="rounded border border-emerald-900/70 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-200">
+                        TIPI: NCM {tipiDoNcm.ncm} a {String(tipiDoNcm.aliquota).replace(".", ",")}%{tipiDoNcm.descricao ? ` · ${tipiDoNcm.descricao}` : ""}.
+                        <div className="mt-1">cEnq não pertence ao produto — vem do grupo IPI do perfil da operação.</div>
+                      </div>
+                    ) : (
+                      <div className="rounded border border-sky-900/70 bg-sky-950/20 px-3 py-2 text-xs text-sky-200">
+                        cEnq não pertence ao produto. Ele é definido no grupo IPI do perfil da operação fiscal.
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <div className="text-xs text-zinc-400">Número da FCI</div>
                       <input className="w-full px-3 py-2" value={fiscalForm.numero_fci} onChange={(e) => setFiscalForm((s) => ({ ...s, numero_fci: e.target.value.trim() }))} placeholder="Quando aplicável" />
