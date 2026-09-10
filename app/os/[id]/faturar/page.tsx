@@ -41,7 +41,18 @@ type Cliente = {
 type Saldo = { valor_pedido: number | string; valor_faturado: number | string; valor_reservado: number | string; saldo: number | string; usa_relatorio_hh: boolean };
 // cst_ipi/aliquota_ipi vem do cadastro fiscal do item (f.fn_faturamento_buscar_itens):
 // e o que deixa a composicao ja somar o IPI, antes de conferir.
-type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null; cst_ipi?: string | null; aliquota_ipi?: number | string | null };
+type Produto = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null; cst_ipi?: string | null; aliquota_ipi?: number | string | null; peso_liquido?: number | string | null; peso_bruto?: number | string | null };
+// Grupo vol (X26) da NF-e. Espécie, marca e numeração são opcionais; peso, não.
+type Volume = { quantidade: string; especie: string; marca: string; numeracao: string; peso_liquido: string; peso_bruto: string };
+type Transportador = { nome: string; documento: string; inscricao_estadual: string; endereco: string; municipio: string; uf: string };
+const MODALIDADES_FRETE: Array<[string, string]> = [
+  ["9", "9 · Sem frete"],
+  ["0", "0 · Por conta do emitente (CIF)"],
+  ["1", "1 · Por conta do destinatário (FOB)"],
+  ["2", "2 · Por conta de terceiros"],
+  ["3", "3 · Transporte próprio, por conta do remetente"],
+  ["4", "4 · Transporte próprio, por conta do destinatário"],
+];
 type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; buscou: string | null; descricao: string; quantidade: string; valor_unitario: string };
 type Parcela = { dias: string; valor: string };
 type Perfil = {
@@ -150,6 +161,8 @@ export default function FaturarOsPage() {
   const [destinacao, setDestinacao] = useState("");
   const [presenca, setPresenca] = useState("9");
   const [modalidadeFrete, setModalidadeFrete] = useState("9");
+  const [transportador, setTransportador] = useState<Transportador>({ nome: "", documento: "", inscricao_estadual: "", endereco: "", municipio: "", uf: "" });
+  const [volumes, setVolumes] = useState<Volume[]>([]);
   const [pagamentoForma, setPagamentoForma] = useState("15");
   const [pagamentoIndicador, setPagamentoIndicador] = useState("1");
   const [pagamentoDescricao, setPagamentoDescricao] = useState("");
@@ -382,6 +395,28 @@ export default function FaturarOsPage() {
       destinacao_mercadoria: destinacao,
       presenca_comprador: Number(presenca),
       modalidade_frete: Number(modalidadeFrete),
+      // O builder só respeita a modalidade quando há transportador; sem ele a nota sai
+      // como 9. Volumes com peso são exigidos por ele sempre que a modalidade não for 9.
+      ...(modalidadeFrete !== "9" && transportador.nome.trim() ? {
+        transportador: {
+          nome: transportador.nome.trim(),
+          documento: transportador.documento.replace(/\D/g, "") || null,
+          inscricao_estadual: transportador.inscricao_estadual.trim() || null,
+          endereco: transportador.endereco.trim() || null,
+          municipio: transportador.municipio.trim() || null,
+          uf: transportador.uf.trim().toUpperCase() || null,
+        },
+      } : {}),
+      ...(modalidadeFrete !== "9" ? {
+        volumes: volumes.map((v) => ({
+          quantidade: paraNumero(v.quantidade),
+          especie: v.especie.trim() || null,
+          marca: v.marca.trim() || null,
+          numeracao: v.numeracao.trim() || null,
+          peso_liquido: paraNumero(v.peso_liquido),
+          peso_bruto: paraNumero(v.peso_bruto),
+        })),
+      } : {}),
       valor_frete: 0, valor_seguro: 0, valor_outras_despesas: 0,
       pagamento_forma: pagamentoForma,
       pagamento_indicador: Number(pagamentoIndicador),
@@ -516,24 +551,48 @@ export default function FaturarOsPage() {
   // mostrava um ICMS menor que o do XML e assustava quem conferia a nota.
   const consumidorFinal = destinacao === "USO_CONSUMO" || destinacao === "ATIVO_IMOBILIZADO";
   const impostosPrevia = useMemo(() => {
-    const base = (i: ItemConferido) => num(i.quantidade) * num(i.valor_unitario);
-    const ipiDoItem = (i: ItemConferido) => base(i) * num(i.aliquota_ipi) / 100;
-    const icmsDoItem = (i: ItemConferido) => (base(i) + (consumidorFinal ? ipiDoItem(i) : 0)) * num(i.aliquota_icms) / 100;
+    // Arredonda em centavos a cada etapa, item a item, como o builder faz em
+    // supabase/functions/_shared/nfe-payload.ts. Somar sem arredondar deixava a previa
+    // um centavo longe do XML — e um centavo basta para a contabilidade parar a nota.
+    const cent = (v: number) => Math.round(v * 100) / 100;
+    const base = (i: ItemConferido) => cent(num(i.quantidade) * num(i.valor_unitario));
+    const ipiDoItem = (i: ItemConferido) => cent(base(i) * num(i.aliquota_ipi) / 100);
+    const icmsDoItem = (i: ItemConferido) => cent((base(i) + (consumidorFinal ? ipiDoItem(i) : 0)) * num(i.aliquota_icms) / 100);
     // PIS/COFINS sobre a mercadoria menos o ICMS destacado (STF, Tema 69), igual ao
     // builder da NF-e em supabase/functions/_shared/nfe-payload.ts.
-    const basePisCofins = (i: ItemConferido) => Math.max(base(i) - icmsDoItem(i), 0);
-    const icms = itensConferidos.reduce((s, i) => s + icmsDoItem(i), 0);
-    const ipi = itensConferidos.reduce((s, i) => s + ipiDoItem(i), 0);
-    const pis = itensConferidos.reduce((s, i) => s + basePisCofins(i) * num(i.aliquota_pis) / 100, 0);
-    const cofins = itensConferidos.reduce((s, i) => s + basePisCofins(i) * num(i.aliquota_cofins) / 100, 0);
-    const ibs = totalConferido * 0.001;
-    const cbs = totalConferido * 0.009;
-    return { icms, ipi, pis, cofins, ibs, cbs, totalNota: totalConferido + ipi };
+    const basePisCofins = (i: ItemConferido) => cent(Math.max(base(i) - icmsDoItem(i), 0));
+    const pisDoItem = (i: ItemConferido) => cent(basePisCofins(i) * num(i.aliquota_pis) / 100);
+    const cofinsDoItem = (i: ItemConferido) => cent(basePisCofins(i) * num(i.aliquota_cofins) / 100);
+    // Base do IBS/CBS: valor da operacao menos ICMS, ISS, PIS e COFINS (LC 214/2025,
+    // art. 12, §1º e §2º, II e V), como o builder passou a calcular em 09/09. Enquanto
+    // aqui era a mercadoria cheia, a previa prometia IBS 18,17 e CBS 163,50 numa nota
+    // que saiu com 14,51 e 130,57 (NF-e 2/37, homologacao da OS 319).
+    const baseIbsCbs = (i: ItemConferido) => cent(Math.max(basePisCofins(i) - pisDoItem(i) - cofinsDoItem(i), 0));
+    const somar = (calculo: (i: ItemConferido) => number) => cent(itensConferidos.reduce((s, i) => s + calculo(i), 0));
+    const ipi = somar(ipiDoItem);
+    return {
+      icms: somar(icmsDoItem),
+      ipi,
+      pis: somar(pisDoItem),
+      cofins: somar(cofinsDoItem),
+      ibs: somar((i) => cent(baseIbsCbs(i) * 0.001)),
+      cbs: somar((i) => cent(baseIbsCbs(i) * 0.009)),
+      totalNota: cent(totalConferido + ipi),
+    };
   }, [itensConferidos, totalConferido, consumidorFinal]);
   // O saldo da OS conta o IPI (migration 20260909120000), entao a comparacao daqui
   // tambem: antes de conferir so temos a mercadoria, depois vale o total da nota. E
   // a reserva que a propria solicitacao ja fez volta para a base, senao a nota
   // conferida pareceria estourar o saldo que ela mesma segurou.
+  // Peso do cadastro dos produtos vinculados, somado pela quantidade da linha. Item sem
+  // peso entra como zero e o campo fica em branco para quem estiver montando a nota.
+  const pesoSugerido = useMemo(() => linhas.reduce((acc, l) => {
+    const qtd = paraNumero(l.quantidade) ?? 0;
+    return {
+      liquido: acc.liquido + qtd * (Number(l.produto?.peso_liquido ?? 0) || 0),
+      bruto: acc.bruto + qtd * (Number(l.produto?.peso_bruto ?? l.produto?.peso_liquido ?? 0) || 0),
+    };
+  }, { liquido: 0, bruto: 0 }), [linhas]);
   const totalNotaPrevisto = conferida ? impostosPrevia.totalNota : totalLinhas + ipiLinhas;
   const ipiPrevisto = conferida ? impostosPrevia.ipi : ipiLinhas;
   const mercadoriaPrevista = conferida ? totalConferido : totalLinhas;
@@ -753,8 +812,51 @@ export default function FaturarOsPage() {
           </div>
           <label className={label}>Destinação declarada pelo cliente (decide a alíquota interna)<select className={field} value={destinacao} onChange={(e) => setDestinacao(e.target.value)} disabled={Boolean(emissao && emissao.status !== "RASCUNHO")}><option value="">Confirme...</option>{DESTINACOES.map(([c, r, a]) => <option key={c} value={c}>{r} · {a}%</option>)}</select></label>
           <label className={label}>Presença do comprador<select className={field} value={presenca} onChange={(e) => setPresenca(e.target.value)}><option value="1">1 · Presencial</option><option value="2">2 · Internet</option><option value="3">3 · Teleatendimento</option><option value="5">5 · Fora do estabelecimento</option><option value="9">9 · Outros</option></select></label>
-          <label className={label}>Modalidade do frete<select className={field} value={modalidadeFrete} onChange={(e) => setModalidadeFrete(e.target.value)}><option value="9">9 · Sem frete</option></select><span className="text-xs text-zinc-500">Frete com transportadora e volumes: pela conferência da OV por enquanto.</span></label>
+          <label className={label}>Modalidade do frete<select className={field} value={modalidadeFrete} onChange={(e) => {
+            const proxima = e.target.value;
+            setModalidadeFrete(proxima);
+            // Ao abrir o transporte, já sugere um volume com o peso somado do cadastro
+            // dos produtos das linhas. Peso ausente no cadastro fica em branco para
+            // digitar — nesta fase nada é obrigatório no produto.
+            if (proxima !== "9" && volumes.length === 0) setVolumes([{ quantidade: "1", especie: "", marca: "", numeracao: "", peso_liquido: decimal(pesoSugerido.liquido || ""), peso_bruto: decimal(pesoSugerido.bruto || "") }]);
+          }}>{MODALIDADES_FRETE.map(([codigo, rotulo]) => <option key={codigo} value={codigo}>{rotulo}</option>)}</select><span className="text-xs text-zinc-500">Fora do 9, a nota exige transportador e ao menos um volume com peso.</span></label>
         </div>
+
+        {modalidadeFrete !== "9" ? (
+          <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-900/30 p-3">
+            <div className="text-sm font-medium">Transporte</div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className={label}>Transportador<input className={field} value={transportador.nome} onChange={(e) => setTransportador((t) => ({ ...t, nome: e.target.value }))} maxLength={60} /></label>
+              <label className={label}>CNPJ/CPF<input className={field} value={transportador.documento} onChange={(e) => setTransportador((t) => ({ ...t, documento: e.target.value }))} inputMode="numeric" /></label>
+              <label className={label}>Inscrição estadual<input className={field} value={transportador.inscricao_estadual} onChange={(e) => setTransportador((t) => ({ ...t, inscricao_estadual: e.target.value }))} /></label>
+              <label className={label}>Endereço<input className={field} value={transportador.endereco} onChange={(e) => setTransportador((t) => ({ ...t, endereco: e.target.value }))} maxLength={60} /></label>
+              <label className={label}>Município<input className={field} value={transportador.municipio} onChange={(e) => setTransportador((t) => ({ ...t, municipio: e.target.value }))} maxLength={60} /></label>
+              <label className={label}>UF<input className={field} value={transportador.uf} onChange={(e) => setTransportador((t) => ({ ...t, uf: e.target.value.toUpperCase().slice(0, 2) }))} maxLength={2} /></label>
+            </div>
+            {!transportador.nome.trim() ? <div className="text-xs text-amber-300">Sem transportador a nota sai como &quot;9 · sem frete&quot;, qualquer que seja a modalidade escolhida.</div> : null}
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm">Volumes <span className="text-xs text-zinc-500">(grupo vol da NF-e; espécie, marca e numeração são opcionais)</span></div>
+              <button type="button" className={botao} onClick={() => setVolumes((v) => [...v, { quantidade: "1", especie: "", marca: "", numeracao: "", peso_liquido: "", peso_bruto: "" }])}>Adicionar volume</button>
+            </div>
+            {pesoSugerido.liquido > 0 || pesoSugerido.bruto > 0 ? (
+              <div className="text-xs text-zinc-400">Cadastro dos produtos desta nota soma {formatMoneyBR(pesoSugerido.liquido)} kg líquidos e {formatMoneyBR(pesoSugerido.bruto)} kg brutos.</div>
+            ) : (
+              <div className="text-xs text-amber-300">Nenhum produto desta nota tem peso cadastrado; informe o peso do volume à mão ou preencha em <Link className="underline" href="/itens">Cadastros &rsaquo; Itens</Link>.</div>
+            )}
+            {volumes.length === 0 ? <div className="text-sm text-zinc-500">Nenhum volume. A emissão exige ao menos um.</div> : volumes.map((v, i) => (
+              <div key={i} className="grid gap-2 md:grid-cols-[70px_1fr_1fr_1fr_1fr_1fr_auto] md:items-end">
+                <div className="text-xs text-zinc-500 md:pb-2">{String(i + 1).padStart(3, "0")}</div>
+                <label className={label}>Quantidade<input className={field} inputMode="numeric" value={v.quantidade} onChange={(e) => setVolumes((a) => a.map((x, j) => j === i ? { ...x, quantidade: e.target.value } : x))} /></label>
+                <label className={label}>Espécie<input className={field} value={v.especie} onChange={(e) => setVolumes((a) => a.map((x, j) => j === i ? { ...x, especie: e.target.value } : x))} placeholder="caixa, pallet..." /></label>
+                <label className={label}>Marca<input className={field} value={v.marca} onChange={(e) => setVolumes((a) => a.map((x, j) => j === i ? { ...x, marca: e.target.value } : x))} /></label>
+                <label className={label}>Peso líquido (kg)<input className={field} inputMode="decimal" value={v.peso_liquido} onChange={(e) => setVolumes((a) => a.map((x, j) => j === i ? { ...x, peso_liquido: e.target.value } : x))} /></label>
+                <label className={label}>Peso bruto (kg)<input className={field} inputMode="decimal" value={v.peso_bruto} onChange={(e) => setVolumes((a) => a.map((x, j) => j === i ? { ...x, peso_bruto: e.target.value } : x))} /></label>
+                <button type="button" className={botao} onClick={() => setVolumes((a) => a.filter((_, j) => j !== i))}>Remover</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {/* 4 · Pagamento e entrega */}

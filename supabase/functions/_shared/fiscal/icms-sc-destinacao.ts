@@ -50,6 +50,12 @@ export type DestinacaoMercadoria = keyof typeof DESTINACOES_MERCADORIA;
  * Base legal da aliquota interna aplicada. Nao e beneficio fiscal — e aliquota,
  * e por isso nao leva cBenef. Vai nas informacoes complementares porque o
  * cliente confere o destaque contra a utilizacao que informou na OC.
+ *
+ * Os 12% NAO alcancam mercadoria destinada a uso, consumo ou ativo imobilizado do
+ * destinatario: Lei 10.297/96, art. 19, §3º, II, confirmado na Consulta SEF/SC 057/20
+ * (contabilidade, 09/09/2026). Por isso USO_CONSUMO e ATIVO_IMOBILIZADO ficam nos 17%
+ * em DESTINACOES_MERCADORIA, e os perfis de 12% nao listam essas duas destinacoes —
+ * a regra esta nas duas camadas de proposito.
  */
 const BASE_LEGAL_ALIQUOTA_INTERNA: Array<{ aliquota: number; texto: string }> = [
   {

@@ -1360,7 +1360,9 @@ select jsonb_build_object(
     'valor_unitario_comercial', 100,
     'valor_bruto', 200,
     'valor_desconto', 0,
-    'valor_total_item', 200,
+    -- vItem = mercadoria + IPI, como o builder passou a montar em 10/09/2026 para o
+    -- vNFTot fechar com a soma dos itens (NT 2025.002-RTC, rejeicao 1094): 200 + 10.
+    'valor_total_item', 210,
     'icms_situacao_tributaria', '00',
     'icms_base_calculo', 200,
     'icms_aliquota', 17,

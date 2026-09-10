@@ -43,6 +43,14 @@ type Props = {
 
 const EPSILON = 0.0000001;
 
+// Venda compoe a nota; componente sai do estoque e nao entra nela. Linha antiga fica
+// nula ate alguem classificar — e e essa a decisao que o pop-up pede.
+type Finalidade = "venda" | "componente";
+const FINALIDADES: Array<[Finalidade, string, string]> = [
+  ["venda", "Venda", "Entra na nota e consome o saldo a faturar."],
+  ["componente", "Componente", "Sai do estoque e fica fora da nota."],
+];
+
 function numero(value: unknown) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -121,6 +129,8 @@ function FaturamentoOvPanel({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
+  const [classificando, setClassificando] = useState(false);
+  const [classificacoes, setClassificacoes] = useState<Record<number, Finalidade>>({});
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -203,6 +213,48 @@ function FaturamentoOvPanel({
     [itensSelecionados]
   );
   const diferencaOv = totalSolicitacao - numero(valorVenda);
+
+  function abrirClassificacao() {
+    setError(null);
+    setOk(null);
+    // Venda e o palpite, nao a decisao: linha em OV quase sempre e o que se vende, e
+    // quem estiver classificando troca para componente com um clique quando nao for.
+    setClassificacoes(Object.fromEntries(legado.map((item) => [item.os_item_id, "venda" as Finalidade])));
+    setClassificando(true);
+  }
+
+  async function salvarClassificacao() {
+    setError(null);
+    setOk(null);
+    const escolhas = legado.map((item) => ({
+      os_item_id: item.os_item_id,
+      finalidade: classificacoes[item.os_item_id] ?? "venda",
+    }));
+    if (escolhas.length === 0) {
+      setClassificando(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error: rpcError } = await supabase.rpc("set_os_itens_finalidade", {
+        p_os_id: osId,
+        p_classificacoes: escolhas,
+        p_empresa_id: empresaId,
+      });
+      if (rpcError) throw rpcError;
+      const vendas = escolhas.filter((escolha) => escolha.finalidade === "venda").length;
+      const componentes = escolhas.length - vendas;
+      setOk(
+        `${numero(data)} linha(s) classificada(s): ${vendas} como venda, ${componentes} como componente.`
+      );
+      setClassificando(false);
+      await carregar();
+    } catch (cause) {
+      setError(mensagemErro(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function confirmar() {
     setError(null);
@@ -328,10 +380,75 @@ function FaturamentoOvPanel({
 
       {legado.length > 0 ? (
         <div className="rounded-lg border border-amber-900/70 bg-amber-950/20 p-3">
-          <div className="text-sm font-medium text-amber-300">{legado.length} linha(s) sem finalidade</div>
-          <p className="mt-1 text-xs text-amber-200/80">Classifique como venda ou componente antes de incluir no faturamento.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-amber-300">{legado.length} linha(s) sem finalidade</div>
+              <p className="mt-1 text-xs text-amber-200/80">Classifique como venda ou componente antes de incluir no faturamento.</p>
+            </div>
+            {podeCompor ? (
+              <button
+                type="button"
+                onClick={abrirClassificacao}
+                disabled={loading || saving}
+                className="rounded-md border border-amber-700 bg-amber-950/40 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-900/40 disabled:opacity-50"
+              >
+                Classificar linhas
+              </button>
+            ) : null}
+          </div>
           <div className="mt-2 space-y-1 text-sm text-zinc-300">
             {legado.map((item) => <div key={item.os_item_id}>#{item.os_item_id} · {item.descricao} · {quantidadeBR(numero(item.quantidade_total))} {item.unidade}</div>)}
+          </div>
+        </div>
+      ) : null}
+
+      {classificando ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div role="dialog" aria-modal="true" aria-label={`Classificar linhas de ${tipo} ${codigo}`} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl">
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-zinc-800 bg-zinc-950 p-4">
+              <div>
+                <h2 className="text-lg font-semibold">Classificar linhas de {tipo} {codigo}</h2>
+                <p className="text-sm text-zinc-400">O que entra na nota e o que só sai do estoque. Nada é faturado agora.</p>
+              </div>
+              <button type="button" onClick={() => setClassificando(false)} disabled={saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900">Fechar</button>
+            </div>
+            <div className="space-y-3 p-4">
+              {error ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
+              {legado.map((item) => (
+                <div key={item.os_item_id} className="rounded-lg border border-zinc-800 p-3">
+                  <div className="font-medium">{item.descricao}</div>
+                  <div className="mt-1 text-xs text-zinc-500">Linha #{item.os_item_id} · {quantidadeBR(numero(item.quantidade_total))} {item.unidade}</div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    {FINALIDADES.map(([valor, rotulo, explicacao]) => {
+                      const marcada = (classificacoes[item.os_item_id] ?? "venda") === valor;
+                      return (
+                        <label key={valor} className={`flex cursor-pointer gap-3 rounded-md border p-3 text-sm ${marcada ? "border-sky-600 bg-sky-950/30" : "border-zinc-800 hover:bg-zinc-900"}`}>
+                          <input
+                            type="radio"
+                            name={`finalidade-${item.os_item_id}`}
+                            value={valor}
+                            checked={marcada}
+                            onChange={() => { setError(null); setClassificacoes((current) => ({ ...current, [item.os_item_id]: valor })); }}
+                            className="mt-1"
+                          />
+                          <span>
+                            <span className="font-medium text-zinc-100">{rotulo}</span>
+                            <span className="mt-0.5 block text-xs text-zinc-400">{explicacao}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <p className="text-xs text-zinc-500">A classificação vale para a linha inteira e pode ser refeita enquanto não houver solicitação de faturamento em aberto para ela.</p>
+            </div>
+            <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-zinc-800 bg-zinc-950 p-4">
+              <button type="button" onClick={() => setClassificando(false)} disabled={saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900">Cancelar</button>
+              <button type="button" onClick={() => void salvarClassificacao()} disabled={saving} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">
+                {saving ? "Salvando..." : "Salvar classificação"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

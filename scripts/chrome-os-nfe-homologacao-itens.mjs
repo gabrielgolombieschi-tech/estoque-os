@@ -7,9 +7,11 @@
  *
  *   node scripts/chrome-os-nfe-homologacao-itens.mjs --os 281 --produto FAB-OS282-01 \
  *     --itens itens.json --destinacao ATIVO_IMOBILIZADO [--dias 30] [--obs "texto"] \
- *     [--abandonar "motivo"] [--so-conferir]
+ *     [--pagamento 18] [--abandonar "motivo"] [--so-conferir]
  *
  * --itens: JSON [{ descricao, quantidade, valor_unitario }], valores em pt-BR ("1.234,56").
+ * --pagamento: codigo tPag da tela (15 boleto, 17 PIX, 18 transferencia...). Sem ele,
+ *   fica o padrao da tela — usar quando a nota refeita precisa repetir a forma da original.
  * --abandonar: antes de compor, abandona a homologacao autorizada que estiver segurando
  *   o saldo da OS (a tela pede motivo, de 15 a 255 caracteres).
  */
@@ -32,6 +34,7 @@ const itensPath = arg("itens");
 const destinacao = arg("destinacao", "ATIVO_IMOBILIZADO");
 const dias = arg("dias", "30");
 const obs = arg("obs", "");
+const pagamento = arg("pagamento");
 const abandonar = arg("abandonar");
 if (!osId || !produto || !itensPath) { console.error("--os, --produto e --itens sao obrigatorios"); process.exit(1); }
 const itens = JSON.parse(fs.readFileSync(itensPath, "utf8"));
@@ -118,6 +121,7 @@ for (let i = 0; i < itens.length; i += 1) {
 await foto("linhas");
 
 await pagina.getByLabel(/Destinação declarada/).selectOption(destinacao);
+if (pagamento) await pagina.getByLabel(/Forma de pagamento/).selectOption(pagamento);
 const campoDias = pagina.getByLabel("Dias").first();
 if ((await campoDias.count()) > 0) await campoDias.fill(dias);
 if (obs) await pagina.getByLabel(/Observação livre/).fill(obs);

@@ -280,6 +280,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   let valorDesconto = 0;
   let valorIpi = 0;
   let baseIbsCbsTotal = 0;
+  let vItemTotal = 0;
   let ibsUfTotal = 0;
   let ibsMunTotal = 0;
   let cbsTotal = 0;
@@ -370,10 +371,28 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       throw new Error(`Solicitação incompleta: item ${codigo}, redução da base de ICMS inválida.`);
     }
     const ipiValor = aliquotaIpi === null ? 0 : round(base * aliquotaIpi / 100);
-    // Consumidor final (indFinal = 1, uso/consumo ou ativo): o IPI integra a base
-    // do ICMS (LC 87/96 art. 13 §2 a contrario; RICMS/SC art. 22 §1). NF-e 3766
-    // real: 69.232,80 + IPI 6.750,20 = base 75.983,00 x 17% = 12.917,11. Para
-    // revenda/industrializacao (indFinal = 0) o IPI fica fora da base.
+    // Rede final da trava da TIPI: a conferencia ja recusa NCM tributado saindo sem IPI
+    // (f.fn_os_nfe_conferir_homologacao), e aqui a nota nao passa nem que a solicitacao
+    // tenha sido montada por outro caminho. A aliquota da TIPI vem no item, resolvida
+    // pela conferencia a partir de f.tipi_ncm; sem ela, nada a checar.
+    const aliquotaTipi = num(item.ipi_tipi_aliquota);
+    if (
+      aliquotaTipi !== null && aliquotaTipi > 0 && ipiValor === 0
+      && ["5101", "6101"].includes(cfop)
+    ) {
+      throw new Error(
+        `Solicitação incompleta: item ${codigo}, NCM ${ncm} é tributado a `
+        + `${aliquotaTipi.toFixed(2).replace(".", ",")}% na TIPI e a nota sairia sem IPI `
+        + `(CST ${cstIpi}). Corrija o cadastro fiscal do produto.`,
+      );
+    }
+    // O IPI so fica FORA da base do ICMS quando a operacao e entre contribuintes e o
+    // produto se destina a industrializacao ou comercializacao (CF art. 155, §2º, XI,
+    // reproduzido na LC 87/96, art. 13, §2º). Destinacao a uso e consumo ou a ativo
+    // imobilizado nao e nenhuma das duas: ali o IPI integra a base.
+    //
+    // Por isso a regra sai da destinacao declarada, via indFinal, e nao de precedente
+    // empirico — a ancora anterior era a NF-e 3766 (contabilidade, 09/09/2026).
     const ipiNaBaseIcms = num(operacao.consumidor_final) === 1 ? ipiValor : 0;
     const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
     const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
@@ -383,13 +402,34 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // base ia como o proprio valor da mercadoria — apontado pela contabilidade em
     // 09/09/2026 sobre as NF-e 2/5 a 2/8. Operacao sem ICMS destacado (isenta, nao
     // tributada, ST) mantem a base cheia, porque nao ha o que excluir.
+    //
+    // O IPI nao entra nesta conta nem para somar nem para subtrair: ele fica fora da
+    // receita bruta por forca da Lei 12.973/2014, art. 12, §4º.
     const basePisCofins = round(Math.max(base - (icmsValor ?? 0), 0));
     const pisValor = aliquotaPis === null ? null : round(basePisCofins * aliquotaPis / 100);
     const cofinsValor = aliquotaCofins === null ? null : round(basePisCofins * aliquotaCofins / 100);
     const aliquotaIbsUf = regraIbsCbs.pIBSUF;
     const aliquotaIbsMun = regraIbsCbs.pIBSMun;
     const aliquotaCbs = regraIbsCbs.pCBS;
-    const calculoIbsCbs = calcularIbsCbsTransicao2026(base, regraIbsCbs);
+    // Base do IBS/CBS. O valor da operacao compreende os tributos incidentes
+    // (LC 214/2025, art. 12, §1º) e dele saem: o IPI, pelo art. 12, §2º, II; e o ICMS
+    // (CF art. 155, II), o ISS (CF art. 156, III) e o PIS/COFINS (CF art. 195, I "b" e
+    // IV), pelo art. 12, §2º, V.
+    //
+    // REGRA GERAL: so se subtrai o tributo que esta DENTRO da base de partida. Aqui a
+    // partida e `base` = vProd - vDesc, que nunca conteve o IPI — ele e somado por fora
+    // no vNF. Subtrair o IPI daqui tirava 877,50 que nao estavam la (erro corrigido em
+    // 09/09/2026, sobre a NF-e 2/33). Partindo do valor da operacao daria no mesmo:
+    // 9.877,50 - 877,50 - 1.679,18 - 120,79 - 556,38 = 9.000,00 - 1.679,18 - 120,79 - 556,38.
+    //
+    // ISS entra como zero porque nota de produto nao o destaca; o termo fica explicito
+    // para o dia em que houver documento misto.
+    const issValor = 0;
+    const baseIbsCbs = round(Math.max(
+      base - (icmsValor ?? 0) - issValor - (pisValor ?? 0) - (cofinsValor ?? 0),
+      0,
+    ));
+    const calculoIbsCbs = calcularIbsCbsTransicao2026(baseIbsCbs, regraIbsCbs);
     const ibsUfValor = calculoIbsCbs.vIBSUF;
     const ibsMunValor = calculoIbsCbs.vIBSMun;
     const ibsValor = round(ibsUfValor + ibsMunValor);
@@ -397,7 +437,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
-    baseIbsCbsTotal = round(baseIbsCbsTotal + base);
+    baseIbsCbsTotal = round(baseIbsCbsTotal + baseIbsCbs);
+    // vNFTot da NT 2025.002-RTC v1.30 (pag. 47): soma dos vItem, e vItem NAO leva
+    // vIBSUF, vIBSMun, vIBS, vCBS nem vIS em 2025 e 2026 — era exatamente o que estava
+    // aqui antes. Dos componentes da formula, este emissor so produz vProd, vDesc e
+    // vIPI; ST, desoneracao, monofasico, II e servico nao existem neste fluxo e por
+    // isso nao entram na conta. Validacao da SEFAZ: rejeicao 1094.
+    vItemTotal = round(vItemTotal + base + ipiValor);
     ibsUfTotal = round(ibsUfTotal + ibsUfValor);
     ibsMunTotal = round(ibsMunTotal + ibsMunValor);
     cbsTotal = round(cbsTotal + cbsValor);
@@ -476,7 +522,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ...(aliquotaCofins !== null ? { cofins_base_calculo: basePisCofins, cofins_aliquota_porcentual: aliquotaCofins, cofins_valor: cofinsValor } : {}),
       ibs_cbs_situacao_tributaria: cstIbsCbs,
       ibs_cbs_classificacao_tributaria: cclassTrib,
-      ibs_cbs_base_calculo: base,
+      ibs_cbs_base_calculo: baseIbsCbs,
       ibs_uf_aliquota: aliquotaIbsUf,
       ibs_uf_valor: ibsUfValor,
       ibs_mun_aliquota: aliquotaIbsMun,
@@ -484,7 +530,11 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ibs_valor_total: ibsValor,
       cbs_aliquota: aliquotaCbs,
       cbs_valor: cbsValor,
-      valor_total_item: base,
+      // vItem: a mesma conta do vNFTot, item a item. Sai daqui a soma que a rejeicao
+      // 1094 confere contra o total — por isso o IPI entra tambem aqui. Enquanto so o
+      // total levava o IPI, a NF-e 2/35 (homologacao, OS 287) saiu com vNFTot 21.303,95
+      // contra 19.411,34 de soma dos vItem, os 1.892,61 de IPI de diferenca.
+      valor_total_item: round(base + ipiValor),
       ...(text(solicitacao.pedido_cliente) ? { pedido_compra: text(solicitacao.pedido_cliente)?.slice(0, 15) } : {}),
     };
   });
@@ -717,7 +767,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ibs_mun_valor_total: ibsMunTotal,
     ibs_valor_total: round(ibsUfTotal + ibsMunTotal),
     cbs_valor_total: cbsTotal,
-    ibs_cbs_is_valor_total: round(ibsUfTotal + ibsMunTotal + cbsTotal),
+    ibs_cbs_is_valor_total: vItemTotal,
     formas_pagamento: [{
       forma_pagamento: formaPagamento,
       valor_pagamento: valorTotal,
