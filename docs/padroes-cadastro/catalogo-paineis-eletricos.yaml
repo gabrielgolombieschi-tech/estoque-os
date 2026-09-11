@@ -1,4 +1,4 @@
-versao_padrao: "1.36.0"
+versao_padrao: "1.39.0"
 fonte_de_verdade: true
 familia_material:
   codigo: PAINEIS_ELETRICOS_E_COMPONENTES
@@ -18,6 +18,20 @@ campos_erp:
     regra: "Não presumir modelo. Série/modelo só permanece no nome quando representar compatibilidade técnica indispensável, houver aprovação humana ou o código de origem for exclusivamente numérico e a referência alfanumérica oficial for necessária para identificar o produto."
 
 regras_cadastro_assistido:
+  campanha_integral_e_componentes_mecanicos:
+    decisao: D-051
+    autorizacao: "Usuário pediu tentar ajustar 100% agora, corrigir o que tiver informações acessíveis e deixar os casos não claros em arquivo para revisão no dia seguinte. Abrange triagem da base inteira, não apenas itens já agrupados. Não autoriza inventar atributos, decidir conflitos, mesclar ou renomear novos duplicados."
+    cobertura: "Manter estados separados por ID: aprovado anteriormente e preservado; revisão técnica confirmada; melhoria parcial de redação/grupo; dúvida para revisão humana; fila ainda não pesquisada; serviço/despesa fora do escopo físico; reserva administrativa. Nunca somar limpeza de espaços ou grupo preenchido a revisões técnicas concluídas. Triagem de 100% não é pesquisa técnica de 100%."
+    fontes: "Cruzar cadastro com NF vinculada e catálogo oficial pela referência exata. NF é evidência de origem, não verdade automática: se disser salva-dedo de polia e o cadastro disser disjuntor, reter o item inteiro. Código WEG 14810513 versus CP420/RELÉ e Rittal 1280000 versus altura 800mm são conflitos, não autorização para escolher um lado."
+    fixadores: "Expandir PARAF como PARAFUSO, SX/SEXT como SEXTAVADO ou SEXTAVADA, CAB. CILIND. como CABEÇA CILÍNDRICA, S/CAB. como SEM CABEÇA, PONTA CONC como PONTA CÔNCAVA, RI/RP como ROSCA INTEIRA/PARCIAL em contexto de fixadores e ZB como ACABAMENTO ZINCADO BRANCO. Manter DIN, classe, rosca e dimensões da origem. Não presumir passo, aço, classe de resistência ou significado de números entre parênteses; 8.8 não é medida decimal nem 8,8A. Porca de fuso trapezoidal não é automaticamente fixador comum."
+    ferramentas: "MACHO MAQ significa MACHO DE MÁQUINA. Preservar material HSS/HSSE, norma, referência e passo informados. Em broca, não trocar ordem de comprimento total/útil sem conferir as colunas da fonte. Siglas de revestimento ou geometria sem confirmação permanecem pendentes."
+    mancais: "Distinguir rolamento, caixa avulsa e conjunto completo. Conferir UC + P/F/FL/T no catálogo da marca. Quando confirmados, registrar apoio/flange oval/flange quadrada/tensor, furos de fixação, diâmetro do eixo e material da caixa. Quantidade de peças no conjunto não vira multiplicador. Não extrapolar dimensões, folga ou material de vedação entre marcas/sufixos."
+    paineis: "Registrar largura x altura x profundidade na ordem documentada, material, portas, IP e cor quando confirmados. IP do gabinete padrão não certifica painel após furos ou adaptações. Composição longa vai no complemento sem apagar peças da origem. Não concluir que ZN descreve o material de toda a caixa."
+    classificacao: "Nesta campanha integral, além de nome/descrição, permitir grupos existentes no mesmo tenant/empresa quando a função for inequívoca. Preencher grupos ausentes de fixadores, arruelas e ferramentas; não forçar peças específicas ou acessórios de segurança. Grupo já preenchido só muda em correção individual documentada, como barra roscada classificada em cabos ou mancal completo classificado em rolamentos."
+    preservacao: "Manter códigos, fabricante, fornecedor, unidades, fatores, preços, estoque, fiscal e atividade. Backup integral pré-escrita, comparação concorrente, lista fechada de campos, diário de aplicação e releitura remota. Manifesto e impressão técnica impedem repetir trabalho; propostas sem aplicação não viram aprendizado confirmado."
+    entrega: "Arquivo de revisão humana com ID/código, nome atual, origem e dúvida específica; fila ainda não pesquisada em seção/arquivo separado, sem alegar que depende do usuário. Manter antes/depois de toda alteração e cobertura da fotografia completa. Novos itens ou mudanças posteriores reabrem somente o ID afetado."
+    resultado_rodada: "502 itens alterados e relidos em 10/09/2026: 16 revisões técnicas confirmadas por referência e 486 melhorias parciais; 490 aprovações anteriores preservadas. 25 casos para revisão humana e 3.017 na fila de pesquisa (inclui os parciais). Não representa 100% de revisão técnica. 3.650 registros de fiscal_itens intactos e 3.149 demais itens intactos."
+    exemplos_aplicados: "CWB18-11-30D02: contator 3P AC-3 18A em 400VCA, 1NA+1NF, bobina 24VCA 50/60Hz e parafuso; não VCC. UCP210 BRM: mancal completo de apoio, dois furos, eixo 50mm, caixa ferro fundido. UC210 + FL210 BRM: mancal completo flange oval, dois furos, eixo 50mm, caixa ferro fundido. AX1045000 Rittal: aço carbono, 400x500x210mm (LXAXP), uma porta, IP66, RAL7035, placa de montagem. São referências verificadas sob autorização condicional, não aprovação humana individual desses textos."
   reavaliacao_e_duplicados:
     decisao: D-048
     precedencia: "Refina a D-047 após solicitação do usuário: revisar novamente as exceções, comparar duplicados pelos dados completos e trazer dificuldades no próprio chat. Não restringir pesquisa à ficha individual quando o catálogo oficial identifica a referência."
@@ -26,7 +40,8 @@ regras_cadastro_assistido:
     fontes: "8WA com ficha 404 devem ser buscados em catálogo histórico. Catálogo LV10 2021 confirma 8WA1895/1896/1897 para dois/três/quatro bornes 2,5mm² e 8WA1838 para nível inferior de bornes duplos de 4mm²; não copiar seção antiga sem conferir."
     duplicados: "Mesma referência técnica após retirar separadores visuais exige comparação no mesmo tenant/empresa, fabricante, variante, unidade e fator. Comparar itens e fiscal_itens: NCM, origem, CST, enquadramento e alíquotas, além de descrição e histórico. Zero preenchido é diferente de nulo; quantidade de campos não prova correção fiscal. Referência igual de fabricante diferente não é automaticamente duplicado."
     preferencia: "Selecionar USAR para o cadastro mais completo e RESERVA para os demais quando a equivalência estiver confirmada; empate, conflito fiscal ou unidade incompatível exige decisão. Nesta rodada, 2698/2699/2700 têm NCM e quatro alíquotas, ausentes em 2641/2642/2643. A escolha não certifica tributação nem preenche CST/origem faltantes."
-    marcacao: "Não há campo próprio USAR/RESERVA identificado. Local da marcação (nome ou observações) solicitado ao usuário; não tratar opção preselecionada como resposta. Até confirmar, guardar a comparação e a escolha proposta sem declarar marcação aplicada. Não excluir, mesclar, inativar, mover saldo ou reatribuir documentos."
+    marcacao: "D-049: usuário aprovou preservar nome e código dos principais 2698/2699/2700 e substituir SOMENTE nome e codigo_interno dos duplicados 2641/2642/2643 por RESERVA-2641/RESERVA-2642/RESERVA-2643. Usar identificador único, nunca repetir um código genérico RESERVA ou USAR no fornecedor. Guardar referência e nome originais, vínculo com principal, backup e releitura verificada. Não aplicar esta exceção a outros IDs sem confirmação; não excluir, mesclar, inativar, mover saldo ou reatribuir documentos. A marcação não bloqueia tecnicamente o uso do item nem certifica revisão técnica/fiscal."
+    pendencias_apos_marcacao: "D-049: demais itens permanecem pendentes por solicitação explícita. Inclui 2535 (6GK19011BB102AE0), preço cadastrado R$92,99, unidade UN e fator 1 na consulta de 10/09/2026. Não inferir fator 50 pela embalagem do fabricante sem confirmar a unidade comercial do ERP. Preço é evidência histórica, não regra fixa."
     rastreabilidade: "Reavaliação 013 registra cada uma das 36 exceções: 23 redações claras para aplicação, sete dúvidas técnicas/comerciais e três pares aguardando local da marcação. Não reescrever os manifestos históricos nem chamar lacunas omitidas de atributos confirmados."
   revisao_continua_por_referencia_clara:
     decisao: D-047
@@ -225,6 +240,10 @@ regras_cadastro_assistido:
   fiscal:
     origem_padrao: 0
     origem_descricao: "Nacional"
+    origem_editavel: "D-050: origem 0 é apenas o valor inicial da sugestão, não um bloqueio. Usuário com permissão fiscal pode escolher 0–8; preservar a escolha ao editar outros campos e ao confirmar na API. Não inferir origem pelo fabricante nem alterar permissões."
+  conversao_confirmacao:
+    decisao: D-050
+    regra: "Unidades de compra e estoque iguais (desconsiderando caixa e espaços externos), com fator 1: limpar unidade_compra automaticamente e salvar fator 1, sem mudar quantidade/preço. Fator diferente de 1 ou inválido com unidade preenchida: pedir correção explícita; não apagar conversão ambígua. Unidade distinta: preservar multiplicador e conversão de quantidade/custo. Aplicar na tela assistida, API e edição manual."
 
 tipos_tecnicos_aceitos:
   - codigo: ACESSORIO_DISJUNTOR_CAIXA_MOLDADA
@@ -1437,6 +1456,19 @@ termos_ambiguos_pendentes:
     observacao: "D-039 confirma a capacidade das 40 referências 5SL1 do lote 003 pela tabela exata Siemens, páginas 8-9. Demais referências/variantes e conflitos de identidade continuam sujeitos a conferência; não extrapolar a série por semelhança."
 
 historico_decisoes:
+  - id: D-051
+    data: "2026-09-10"
+    status: aplicado_parcial
+    origem: "Solicitação de tentativa integral com correção dos claros e arquivo dos não claros para amanhã"
+    decisao: "Fotografia de 3.651 itens triada; 502 alterações aplicadas e relidas, sendo 16 revisões técnicas e 486 melhorias parciais. 25 dúvidas humanas em arquivo e 3.017 registros na fila de pesquisa, sem declarar revisão técnica de 100%. Backup e manifesto D-051 preservam antes/depois; fiscal, códigos e conversões intactos."
+  - id: D-050
+    data: "2026-09-10"
+    tema: "Origem fiscal editável e unidade redundante normalizada na confirmação"
+    decisao: "Relato de Larissa: select estava desabilitado e origem zerada novamente na atualização de estado e sanitização do servidor. Origem nacional passa a ser apenas padrão inicial; confirmação preserva escolha autorizada. Unidade de compra igual à de estoque com fator 1 é removida automaticamente, sem bloquear salvamento; multiplicadores ambíguos continuam exigindo correção. Nenhuma mudança cadastral em lote, tributária automática, de permissão ou de estrutura do banco."
+  - id: D-049
+    data: "2026-09-10"
+    tema: "Marcação dos três duplicados como reserva e pausa dos demais pendentes"
+    decisao: "Aprovada no chat a substituição de nome e código dos IDs 2641/2642/2643 por RESERVA-[ID]; manter os principais 2698/2699/2700 intactos. A execução só é considerada concluída com marcacao-reservas-049.json aplicado_verificado. Sete dúvidas técnicas/comerciais ficam pendentes, inclusive a conversão do conector 2535. Tratamento administrativo de duplicidade é separado da contagem de descrições tecnicamente aprovadas. Preservar manifestos históricos D-048 e anteriores."
   - id: D-048
     data: "2026-09-10"
     tema: "Reavaliação das exceções e preferência entre cadastros duplicados"

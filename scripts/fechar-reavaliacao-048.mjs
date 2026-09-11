@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {diretorio,validarEscopo,impressaoTecnica} from './lib/controle-revisoes.mjs';
 const ler=f=>JSON.parse(fs.readFileSync(`${diretorio}/${f}`,'utf8'));
+assert.ok(!fs.existsSync(`${diretorio}/marcacao-reservas-049.json`),'D-049 já registrada; não reabrir marcações históricas D-048. Use fechar-reservas-049.mjs.');
 const m=ler('reavaliacao-048.json'),eventos=ler('eventos-013-reavaliacao-pendencias.json');validarEscopo(m);eventos.forEach(validarEscopo);assert.equal(eventos.length,23);
 const caminhoAntigo=`${diretorio}/excecoes-047-historico.json`;if(!fs.existsSync(caminhoAntigo))fs.writeFileSync(caminhoAntigo,JSON.stringify(ler('excecoes-referencias-claras.json'),null,2),{flag:'wx'});
 const historico=JSON.parse(fs.readFileSync(caminhoAntigo,'utf8'));assert.equal(historico.itens.length,36);

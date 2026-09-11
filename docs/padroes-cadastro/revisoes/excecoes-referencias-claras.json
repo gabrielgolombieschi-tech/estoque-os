@@ -1,35 +1,13 @@
 {
   "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
   "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
-  "decisao": "D-048",
-  "gerado_em": "2026-09-10T19:15:54.812Z",
+  "decisao": "D-049",
+  "gerado_em": "2026-09-10T19:57:53.672Z",
   "total_excecoes": 7,
   "aplicados_nesta_rodada": 23,
   "pendencia_marcacao": {
-    "total_ids": 6,
-    "pares": [
-      {
-        "usar": 2698,
-        "reserva": 2641,
-        "codigo": "3ZY12121BA00",
-        "motivo": "NCM e quatro alíquotas preenchidos no principal, ausentes no duplicado; descrição melhor no duplicado não supera a completude fiscal. Não é certificação tributária; CST/origem ainda ausentes.",
-        "status": "aguardando_local_da_marcacao"
-      },
-      {
-        "usar": 2699,
-        "reserva": 2642,
-        "codigo": "3ZY12122DA00",
-        "motivo": "NCM e quatro alíquotas preenchidos no principal, ausentes no duplicado; descrição melhor no duplicado não supera a completude fiscal. Não é certificação tributária; CST/origem ainda ausentes.",
-        "status": "aguardando_local_da_marcacao"
-      },
-      {
-        "usar": 2700,
-        "reserva": 2643,
-        "codigo": "3ZY12122BA00",
-        "motivo": "NCM e quatro alíquotas preenchidos no principal, ausentes no duplicado; descrição melhor no duplicado não supera a completude fiscal. Não é certificação tributária; CST/origem ainda ausentes.",
-        "status": "aguardando_local_da_marcacao"
-      }
-    ]
+    "total_ids": 0,
+    "pares": []
   },
   "itens": [
     {
@@ -185,5 +163,12 @@
       "reavaliado_em": "2026-09-10",
       "verificacao_adicional": "Pesquisados código exato e notas de entrada do mesmo tenant/empresa; não obtida associação primária conclusiva com a referência técnica. As ocorrências do ID 769 nas notas dizem apenas ITEM 769."
     }
-  ]
+  ],
+  "marcacao_concluida": {
+    "total_reservas": 3,
+    "principais_preservados": 3,
+    "registro": "marcacao-reservas-049.json",
+    "aplicado_em": "2026-09-10T19:56:11.659Z"
+  },
+  "orientacao_atual": "Demais itens pendentes por solicitação do usuário; não retomar automaticamente nem alterar conversão do ID 2535."
 }

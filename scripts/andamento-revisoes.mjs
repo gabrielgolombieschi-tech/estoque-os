@@ -15,6 +15,17 @@ if (excecoesClaras) validarEscopo(excecoesClaras);
 const arquivoReavaliacao = `${diretorio}/reavaliacao-048.json`;
 const reavaliacao = fs.existsSync(arquivoReavaliacao) ? JSON.parse(fs.readFileSync(arquivoReavaliacao,"utf8")) : null;
 if (reavaliacao) validarEscopo(reavaliacao);
+const arquivoReservas = `${diretorio}/marcacao-reservas-049.json`;
+const reservas = fs.existsSync(arquivoReservas) ? JSON.parse(fs.readFileSync(arquivoReservas,"utf8")) : null;
+if (reservas) { validarEscopo(reservas); if (reservas.status !== "aplicado_verificado") throw new Error("Marcação D-049 não verificada"); }
+const reservaDe = id => reservas?.pares.find(p=>p.reserva===id);
+const arquivoCampanha051 = `${diretorio}/campanha-051-controle.json`;
+const campanha051 = fs.existsSync(arquivoCampanha051) ? JSON.parse(fs.readFileSync(arquivoCampanha051,"utf8")) : null;
+if (campanha051) validarEscopo(campanha051);
+const etapa051 = item => {
+  const r = campanha051?.itens.find(r=>r.id===item.id);
+  return !r ? "fora_da_fotografia" : r.impressao_atual===impressaoTecnica(item) ? r.situacao : "reavaliar_apos_mudanca";
+};
 const env = Object.fromEntries(fs.readFileSync(".env.local", "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.trim().startsWith("#")).map((l) => {
   const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^(["'])(.*)\1$/, "$2")];
 }));
@@ -26,8 +37,8 @@ for (let inicio = 0; ; inicio += 1000) {
   itens.push(...data);
   if (data.length < 1000) break;
 }
-const registros = itens.map((i) => ({ id: i.id, codigo: i.codigo_interno, nome: i.nome, ativo: i.ativo, tipo: i.tipo, finalidade: i.finalidade, status: situacaoRevisao(i, eventos, legado.itens, informado.itens) }));
-const contagens = Object.fromEntries(["aprovado", "pendente", "reavaliar", "historico_recuperado", "historico_informado", "nao_revisado"].map((s) => [s, registros.filter((i) => i.status === s).length]));
+const registros = itens.map((i) => ({ id: i.id, codigo: i.codigo_interno, nome: i.nome, ativo: i.ativo, tipo: i.tipo, finalidade: i.finalidade, campanha_051: etapa051(i), status: reservaDe(i.id) ? (reservaDe(i.id).impressao_tecnica===impressaoTecnica(i)?"reserva":"reavaliar") : situacaoRevisao(i, eventos, legado.itens, informado.itens) }));
+const contagens = Object.fromEntries(["aprovado", "pendente", "reserva", "reavaliar", "historico_recuperado", "historico_informado", "nao_revisado"].map((s) => [s, registros.filter((i) => i.status === s).length]));
 // Fila de aprovação é uma dimensão separada: não soma propostas aos aprovados.
 const propostas = fs.readdirSync(diretorio).filter((n) => /^lote-.*\.json$/.test(n)).flatMap((n) => {
   const lote = JSON.parse(fs.readFileSync(`${diretorio}/${n}`, "utf8"));
@@ -37,7 +48,7 @@ const propostas = fs.readdirSync(diretorio).filter((n) => /^lote-.*\.json$/.test
   const arquivoLiberacao = `${diretorio}/liberacao-${numero}-referencias-claras.json`;
   const liberacao = fs.existsSync(arquivoLiberacao) ? JSON.parse(fs.readFileSync(arquivoLiberacao,"utf8")) : null;
   if (liberacao) validarEscopo(liberacao);
-  return lote.itens.filter((i) => !eventos.some((e) => (e.lote === lote.lote || e.lote === "013-reavaliacao-pendencias") && e.item_id === i.id && e.status === "aprovado")).map((i) => {
+  return lote.itens.filter((i) => !reservaDe(i.id) && !eventos.some((e) => (e.lote === lote.lote || e.lote === "013-reavaliacao-pendencias") && e.item_id === i.id && e.status === "aprovado")).map((i) => {
     const atual = itens.find((a) => a.id === i.id);
     return { id: i.id, codigo: i.antes.codigo_interno, lote: lote.lote, antes: i.antes.nome, depois_proposto: i.nome,
       status: atual && impressaoTecnica(atual) === i.impressao_antes && atual.ativo === i.antes.ativo ? reavaliacao?.pares.some(p=>p.usar===i.id||p.reserva===i.id) ? "aguardando_local_da_marcacao" : liberacao?.retidos.includes(i.id) ? "aguardando_esclarecimento_tecnico" : "aguardando_aprovacao" : "proposta_desatualizada" };
@@ -52,8 +63,13 @@ const lotesAplicados = [...new Set(eventos.map((e) => e.lote))].map((lote) => {
 });
 const resultado = { consultado_em: new Date().toISOString(), tenant_id: tenantId, empresa_id: empresaId,
   total: registros.length, ativos: registros.filter((i) => i.ativo).length,
+  campanha_integral_051: campanha051 ? { fotografia: campanha051.total_fotografia, alterados_verificados: campanha051.aplicados,
+    contagens_atuais: Object.fromEntries([...new Set(registros.map(r=>r.campanha_051))].map(s=>[s,registros.filter(r=>r.campanha_051===s).length])),
+    observacao: "Dimensão separada: melhoria parcial/triagem não é aprovação técnica. Usar impressão por ID para não repetir a mesma normalização. A fila inclui itens ainda sem pesquisa dedicada, não apenas dúvidas humanas.",
+    controle: "campanha-051-controle.json", revisao_humana: "itens-para-revisar-amanha.md", fila_pesquisa: "fila-pesquisa-campanha-051.md" } : null,
   materias_primas: registros.filter((i) => i.finalidade === "materia_prima").length,
-  contagens, avaliados_minimo_sem_duplicidade: registros.filter((i) => !["nao_revisado", "historico_informado"].includes(i.status)).length,
+  contagens, avaliados_minimo_sem_duplicidade: registros.filter((i) => !["nao_revisado", "historico_informado", "reserva"].includes(i.status)).length,
+  duplicados_tratados: { reservas: registros.filter(i=>i.status==="reserva").length, principais_preservados: reservas?.pares.map(p=>p.usar)??[], registro: reservas?"marcacao-reservas-049.json":null, observacao:"Tratamento administrativo separado das descrições aprovadas; propostas antigas dos reservas foram substituídas pela marcação, não aplicadas." },
   excecoes_referencias_claras: { total: excecoesClaras?.itens.length ?? 0, marcacao_pendente_ids: excecoesClaras?.pendencia_marcacao?.total_ids ?? 0, relatorio: "excecoes-referencias-claras.md", observacao: "Dimensão separada; não somar a aprovados nem duplicar retidos das propostas 011. D-048 separa dúvidas técnicas/comerciais de pares aguardando local da marcação. Não classifica fila ainda não pesquisada como dúvida técnica." },
   campanha_agrupados: { total: campanhaAtual.length, aprovados: campanhaAtual.filter((i) => i.status === "aprovado").length, restantes: campanhaAtual.filter((i) => i.status !== "aprovado").length, registros: campanhaAtual },
   lotes_aplicados: lotesAplicados,
@@ -64,13 +80,18 @@ const resultado = { consultado_em: new Date().toISOString(), tenant_id: tenantId
 console.log(JSON.stringify({ ...resultado, campanha_agrupados: { ...resultado.campanha_agrupados, registros: undefined }, propostas_nao_aplicadas: { ...resultado.propostas_nao_aplicadas, registros: undefined }, registros: undefined }, null, 2));
 if (process.argv.includes("--save")) {
   fs.writeFileSync(`${diretorio}/andamento.json`, JSON.stringify(resultado, null, 2));
-  const recentes = registros.filter((i) => eventos.some((e) => e.item_id === i.id));
+  const recentes = registros.filter((i) => reservaDe(i.id) || eventos.some((e) => e.item_id === i.id));
   const linhas = recentes.map((i) => `| ${i.id} | ${i.codigo} | ${i.status} | ${i.nome.replace(/\|/g, "/")} |`);
   fs.writeFileSync(`${diretorio}/andamento.md`, [
     "# Andamento da revisão de cadastros", "", `Consulta: ${resultado.consultado_em}. Tenant: ${tenantId}; empresa: ${empresaId}.`, "",
     `Base: ${resultado.total} itens; ${resultado.ativos} ativos; ${resultado.materias_primas} matérias-primas.`, "",
+    ...(campanha051 ? ["## Campanha integral D-051", "", `${campanha051.aplicados} itens alterados e verificados na fotografia de ${campanha051.total_fotografia}. As melhorias parciais não são somadas aos aprovados abaixo.`, "",
+      ...Object.entries(resultado.campanha_integral_051.contagens_atuais).map(([s,n])=>`- ${s}: ${n}.`), "",
+      "[Itens para revisar amanhã](itens-para-revisar-amanha.md) · [Antes/depois](alteracoes-campanha-051.md) · [Fila de pesquisa pendente](fila-pesquisa-campanha-051.md).", "",
+      "O status técnico histórico e a etapa desta campanha são dimensões separadas. Um item com melhoria parcial pode continuar tecnicamente não revisado. Ver `campanha_051` por ID no JSON antes de repetir trabalho.", ""] : []),
     "| Situação | Itens únicos |", "| --- | ---: |", ...Object.entries(contagens).map(([s, n]) => `| ${s} | ${n} |`), "",
     `Mínimo com evidência individualizada de avaliação: ${resultado.avaliados_minimo_sem_duplicidade}. Não equivale a cadastros tecnicamente completos.`, "",
+    `${resultado.duplicados_tratados.reservas} reservas administrativas (D-049), separadas das aprovações técnicas. Principais preservados: ${resultado.duplicados_tratados.principais_preservados.join(", ") || "—"}. Propostas antigas dos reservas substituídas pela marcação, não aplicadas.`, "",
     `Incluindo alterações anteriores informadas pelo usuário: ${resultado.historico_documentado_ou_informado_sem_duplicidade} IDs únicos. Histórico informado é separado de aprovação técnica e não aumenta a contagem documental.`, "",
     `Campanha dos itens agrupados: ${resultado.campanha_agrupados.aprovados}/${resultado.campanha_agrupados.total} aprovados; ${resultado.campanha_agrupados.restantes} ainda a tratar ou pendentes. Lista original fixa em campanha-itens-agrupados.json.`, "",
     "## Lotes verificados", "", ...lotesAplicados.map((l) => `- ${l.lote}: ${l.avaliados} avaliados, ${l.aprovados} aprovados, ${l.pendentes} pendentes no fechamento do lote.`), "",

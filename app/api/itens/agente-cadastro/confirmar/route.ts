@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAuthSupabase, jsonError, resolveTenantEmpresa } from "@/app/api/compras/_lib";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { normalizarConversaoCadastro, origemFiscalConfirmada } from "@/lib/itens/cadastroNormalizacao";
 import {
   asRecord,
   eCodigoComProdutoNaDescricao,
@@ -375,14 +376,17 @@ export async function POST(req: NextRequest) {
     const codigo = normalizarCodigo(body.codigo);
     const quantidade = normalizarQuantidade(body.quantidade_referencia ?? body.quantidade);
     const sugestao = asRecord(body.sugestao);
+    const fiscalRaw = asRecord(body.fiscal_sugerido);
     // A pessoa usuária pode ajustar o preço sugerido pela pesquisa ou informar um
     // preço que já conhece; o servidor apenas exige um valor positivo e plausível.
     const precoConfirmado = numero(body.preco_unitario_confirmado ?? body.preco_unitario, 0.01, 999999999);
     const unidadeEstoque = normalizarUnidade(sugestao?.unidade_medida);
     const unidadeCompraRaw = texto(sugestao?.unidade_compra, 10);
-    const unidadeCompra = unidadeCompraRaw ? normalizarUnidade(unidadeCompraRaw) : null;
+    const unidadeCompraInformada = unidadeCompraRaw ? normalizarUnidade(unidadeCompraRaw) : null;
     const fatorConversaoInformado = numero(sugestao?.fator_conversao_estoque, 0.000001, 999999999);
-    const fatorConversaoEstoque = unidadeCompra ? fatorConversaoInformado : 1;
+    const conversao = normalizarConversaoCadastro(unidadeEstoque, unidadeCompraInformada, fatorConversaoInformado);
+    const unidadeCompra = conversao.unidade_compra;
+    const fatorConversaoEstoque = conversao.fator_conversao_estoque;
     // Peso de referência (kg) de uma unidade cadastrada; só faz sentido para itens em KG.
     const pesoReferenciaKg = numero(body.peso_referencia_kg, 0.001, 999999);
     if (!fornecedorId) return jsonError(400, "Selecione um fornecedor cadastrado.");
@@ -390,11 +394,9 @@ export async function POST(req: NextRequest) {
     if (quantidade === null) return jsonError(400, "Informe uma quantidade válida (0 ou mais).");
     if (!sugestao) return jsonError(400, "A proposta do agente é obrigatória para confirmar o cadastro.");
     if (precoConfirmado === null) return jsonError(422, "Informe um preço unitário válido maior que zero antes de confirmar.");
-    if (unidadeCompra && fatorConversaoEstoque === null) {
-      return jsonError(422, "Informe um multiplicador maior que zero para converter a unidade de compra em unidade de estoque.");
-    }
-    if (unidadeCompra === unidadeEstoque) {
-      return jsonError(422, "A unidade de compra deve ficar em branco quando for igual à unidade de estoque.");
+    if (conversao.erro) return jsonError(422, conversao.erro);
+    if (fiscalRaw && origemFiscalConfirmada(fiscalRaw.origem) === null) {
+      return jsonError(422, "Selecione uma origem válida entre 0 e 8.");
     }
 
     const fatorAplicado = fatorConversaoEstoque ?? 1;
@@ -468,7 +470,6 @@ export async function POST(req: NextRequest) {
       usuario,
     });
     const similarRaw = asRecord(body.similar_interno);
-    const fiscalRaw = asRecord(body.fiscal_sugerido);
     const similarIdSolicitado = inteiro(similarRaw?.id) ?? inteiro(fiscalRaw?.referencia_item_id);
     const similar = await carregarSimilarComercial({
       supabase: auth.supabase,

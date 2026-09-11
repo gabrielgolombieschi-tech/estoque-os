@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { normalizarNomeCadastro } from "@/lib/itens/normalizacaoNome";
+import { origemFiscalConfirmada } from "@/lib/itens/cadastroNormalizacao";
 import { pendenciasDescricaoTecnica, REGRAS_SENSORES_SEGURANCA } from "@/lib/itens/qualidadeDescricao";
 
 export type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros";
@@ -1000,9 +1001,8 @@ export function sanitizarFiscal(value: unknown): FiscalValores | null {
   const fiscal: FiscalValores = {
     ncm: onlyDigits(raw.ncm, 12),
     cest: onlyDigits(raw.cest, 12),
-    // Todo cadastro assistido parte da origem 0 - Nacional; a regra e aplicada
-    // no servidor mesmo se uma referencia interna trouxer outra origem.
-    origem: 0,
+    // O padrão inicial não pode sobrescrever uma escolha humana na confirmação.
+    origem: origemFiscalConfirmada(raw.origem),
     cfop_padrao: onlyDigits(raw.cfop_padrao, 10),
     cst_icms: optionalCode(raw.cst_icms, 5),
     cst_pis: optionalCode(raw.cst_pis, 5),
@@ -1020,9 +1020,9 @@ export function sanitizarFiscal(value: unknown): FiscalValores | null {
   if (!fiscal.cst_pis) fiscal.credita_pis = false;
   if (!fiscal.cst_cofins) fiscal.credita_cofins = false;
   const hasValue = Object.entries(fiscal).some(([key, candidate]) =>
-    ["origem", "credita_icms", "ipi_entra_no_custo", "credita_pis", "credita_cofins"].includes(key)
+    ["credita_icms", "ipi_entra_no_custo", "credita_pis", "credita_cofins"].includes(key)
       ? false
-      : candidate !== null
+      : key === "origem" ? raw.origem != null && candidate !== null : candidate !== null
   );
   return hasValue ? fiscal : null;
 }
@@ -1033,6 +1033,8 @@ export function fiscalComReferencia(value: unknown, referenciaItemId: number | n
   if (!fiscal) return null;
   return {
     ...fiscal,
+    // Sugestão começa nacional; confirmação pode escolher outra origem.
+    origem: 0,
     referencia_item_id: referenciaItemId,
     justificativa: `Dados fiscais sugeridos a partir do item interno ${referenciaItemId}; validar antes da confirmação.`,
   };

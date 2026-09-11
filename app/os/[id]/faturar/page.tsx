@@ -528,6 +528,15 @@ export default function FaturarOsPage() {
       const st = statusData as ProducaoStatus | null;
       const resumo = st?.resumo_confirmacao;
       if (!st?.pronta || !st.preflight_confirmacao_pronto || !resumo?.contexto_hash) throw new Error(st?.motivo ?? "A confirmação de produção não pôde ser montada a partir do snapshot homologado.");
+      // Sem OC a nota e valida, mas o cliente costuma recusar o recebimento e a
+      // cobranca trava — foi o que derrubou a NF-e 2/13 em 11/09/2026. Pergunta
+      // antes da confirmacao da emissao real, para dar chance de desistir; nao
+      // bloqueia, porque venda sem pedido formal existe.
+      if (!(solicitacao.pedido_cliente ?? pedidoCliente ?? "").trim() && !window.confirm(
+        "Esta nota vai sair SEM PEDIDO DE COMPRA do cliente.\n\n"
+        + "A NF-e é válida assim, mas o cliente costuma recusar o recebimento sem a OC e a cobrança fica travada.\n\n"
+        + "Deseja continuar mesmo sem o pedido de compra?",
+      )) return;
       if (!window.confirm(`EMITIR NF-e REAL (produção) para a OS ${os?.numero_os ?? os?.id}?\n\nDestinatário: ${resumo.nome_destinatario ?? "?"} (${resumo.documento_destinatario_mascarado ?? "?"})\nTotal da nota: ${R$(num(resumo.valor_total))}\n\nGera documento fiscal válido e título a receber.`)) return;
       const { data, error } = await supabase.functions.invoke("nfe-emitir-producao", { body: { acao: "EMITIR", solicitacao_id: solicitacao.id, confirmacao_contexto_hash: resumo.contexto_hash } });
       if (error) throw error;

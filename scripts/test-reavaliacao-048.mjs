@@ -14,5 +14,5 @@ assert.match(m.itens.find(i=>i.id===240).depois.nome,/35mm².*125A.*1000V.*16mm/
 assert.match(m.itens.find(i=>i.id===1588).depois.nome,/INFERIOR.*4mm²/);
 assert.deepEqual(m.pares.map(p=>[p.usar,p.reserva]),[[2698,2641],[2699,2642],[2700,2643]]);
 assert.ok(m.pares.every(p=>p.status==='aguardando_local_da_marcacao'));
-assert.equal(yaml.load(fs.readFileSync('docs/padroes-cadastro/catalogo-paineis-eletricos.yaml','utf8')).versao_padrao,'1.36.0');
+assert.ok(yaml.load(fs.readFileSync('docs/padroes-cadastro/catalogo-paineis-eletricos.yaml','utf8')).historico_decisoes.some(d=>d.id==='D-048'));
 console.log('OK D-048: 36 avaliados, 23 redações, sete pendências e três pares; escopo, hash, fontes, CAS, idempotência e campos protegidos. Sem conexão ao banco.');

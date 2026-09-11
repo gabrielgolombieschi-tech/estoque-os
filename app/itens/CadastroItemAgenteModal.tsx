@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { normalizarConversaoCadastro, ORIGENS_MERCADORIA, origemFiscalConfirmada } from "@/lib/itens/cadastroNormalizacao";
 
 /** Dados mínimos já carregados pela tela de itens. */
 export type CadastroItemAgenteFornecedor = {
@@ -240,9 +241,7 @@ function decodeFiscal(value: unknown): CadastroItemAgenteFiscal | null {
   return {
     ncm: text(value.ncm),
     cest: text(value.cest),
-    // O fluxo de cadastro de itens trabalha, por padrão, com origem nacional.
-    // Não deixe uma referência interna sobrescrever essa convenção sem revisão fiscal.
-    origem: 0,
+    origem: origemFiscalConfirmada(value.origem),
     cfop_padrao: text(value.cfop_padrao),
     cst_icms: text(value.cst_icms),
     cst_pis: text(value.cst_pis),
@@ -430,7 +429,7 @@ function normalizarCodigo(value: string) {
   return upcase(value).replace(/[\s\p{Cf}\-\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]+/gu, "");
 }
 
-function fiscalNacional(value: CadastroItemAgenteFiscal | null): CadastroItemAgenteFiscal {
+function fiscalInicial(value: CadastroItemAgenteFiscal | null): CadastroItemAgenteFiscal {
   return {
     ncm: null,
     cest: null,
@@ -449,7 +448,7 @@ function fiscalNacional(value: CadastroItemAgenteFiscal | null): CadastroItemAge
     referencia_item_id: null,
     justificativa: null,
     ...(value ?? {}),
-    origem: 0,
+    origem: value?.origem ?? 0,
   };
 }
 
@@ -526,9 +525,8 @@ export default function CadastroItemAgenteModal({
 
   function atualizarFiscal(updater: (current: CadastroItemAgenteFiscal) => CadastroItemAgenteFiscal) {
     setRascunho((current) => {
-      if (!current) return current;
-      const fiscalBase = fiscalNacional(current.fiscal);
-      return { ...current, fiscal: { ...updater(fiscalBase), origem: 0 } };
+      if (!current || !current.podeEditarFiscal) return current;
+      return { ...current, fiscal: updater(fiscalInicial(current.fiscal)) };
     });
   }
 
@@ -592,7 +590,7 @@ export default function CadastroItemAgenteModal({
         cotacaoToken: resultado.cotacao_token,
         sugestao: sugestaoNormalizada,
         similarInterno: resultado.similar_interno,
-        fiscal: fiscalNacional(resultado.fiscal_sugerido),
+        fiscal: fiscalInicial(resultado.fiscal_sugerido),
         podeEditarFiscal: resultado.pode_editar_fiscal,
         fontes: resultado.fontes,
       });
@@ -626,8 +624,9 @@ export default function CadastroItemAgenteModal({
       setErro("Informe um preço unitário válido maior que zero antes de confirmar.");
       return;
     }
-    if (sugestao.unidade_compra && (!sugestao.fator_conversao_estoque || sugestao.fator_conversao_estoque <= 0)) {
-      setErro("Informe um multiplicador maior que zero para converter a unidade de compra em unidade de estoque.");
+    const conversao = normalizarConversaoCadastro(sugestao.unidade_medida, sugestao.unidade_compra, sugestao.fator_conversao_estoque);
+    if (conversao.erro) {
+      setErro(conversao.erro);
       return;
     }
 
@@ -637,8 +636,8 @@ export default function CadastroItemAgenteModal({
       descricao_padronizada: sugestao.descricao_padronizada.trim(),
       fabricante: sugestao.fabricante?.trim() || null,
       unidade_medida: sugestao.unidade_medida.trim() || "UN",
-      unidade_compra: sugestao.unidade_compra?.trim() || null,
-      fator_conversao_estoque: sugestao.unidade_compra ? sugestao.fator_conversao_estoque : 1,
+      unidade_compra: conversao.unidade_compra,
+      fator_conversao_estoque: conversao.fator_conversao_estoque,
       finalidade: "materia_prima",
       novo_grupo: aceitarNovoGrupo ? sugestao.novo_grupo : null,
     };
@@ -651,7 +650,7 @@ export default function CadastroItemAgenteModal({
       cotacao_token: rascunho.cotacaoToken,
       model: rascunho.model,
       sugestao: sugestaoConfirmada,
-      fiscal_sugerido: rascunho.fiscal,
+      fiscal_sugerido: rascunho.podeEditarFiscal ? rascunho.fiscal : null,
       fontes: rascunho.fontes,
       similar_interno: rascunho.similarInterno,
     };
@@ -961,8 +960,8 @@ export default function CadastroItemAgenteModal({
                 </label>
                 <label>
                   <span className={FIELD_LABEL_CLASS}>Origem</span>
-                  <select className={INPUT_CLASS} value="0" disabled>
-                    <option value="0">0 — Nacional</option>
+                  <select className={INPUT_CLASS} value={fiscal?.origem ?? 0} disabled={!rascunho.podeEditarFiscal} onChange={(event) => atualizarFiscal((current) => ({ ...current, origem: origemFiscalConfirmada(event.target.value) }))}>
+                    {ORIGENS_MERCADORIA.map((origem) => <option key={origem.value} value={origem.value}>{origem.label}</option>)}
                   </select>
                 </label>
                 <label>

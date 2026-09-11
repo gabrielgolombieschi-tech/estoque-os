@@ -1,21 +1,40 @@
 # Andamento da revisão de cadastros
 
-Consulta: 2026-09-10T19:17:34.234Z. Tenant: 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa: f0e74f49-a127-46b4-901b-f7b37e43c690.
+Consulta: 2026-09-10T22:15:05.617Z. Tenant: 3ced7cfa-efbb-4f0f-addc-2028f60d1ca7; empresa: f0e74f49-a127-46b4-901b-f7b37e43c690.
 
 Base: 3651 itens; 3594 ativos; 3153 matérias-primas.
 
+## Campanha integral D-051
+
+502 itens alterados e verificados na fotografia de 3651. As melhorias parciais não são somadas aos aprovados abaixo.
+
+- fora_escopo_material: 56.
+- reserva_administrativa_preservada: 47.
+- fila_pesquisa: 2531.
+- melhoria_parcial: 486.
+- aprovado_anterior_preservado: 490.
+- revisao_humana: 25.
+- revisao_tecnica_confirmada: 16.
+
+[Itens para revisar amanhã](itens-para-revisar-amanha.md) · [Antes/depois](alteracoes-campanha-051.md) · [Fila de pesquisa pendente](fila-pesquisa-campanha-051.md).
+
+O status técnico histórico e a etapa desta campanha são dimensões separadas. Um item com melhoria parcial pode continuar tecnicamente não revisado. Ver `campanha_051` por ID no JSON antes de repetir trabalho.
+
 | Situação | Itens únicos |
 | --- | ---: |
-| aprovado | 490 |
+| aprovado | 506 |
 | pendente | 2 |
+| reserva | 3 |
 | reavaliar | 0 |
 | historico_recuperado | 243 |
-| historico_informado | 502 |
-| nao_revisado | 2414 |
+| historico_informado | 494 |
+| nao_revisado | 2403 |
 
-Mínimo com evidência individualizada de avaliação: 735. Não equivale a cadastros tecnicamente completos.
+Mínimo com evidência individualizada de avaliação: 751. Não equivale a cadastros tecnicamente completos.
 
-Incluindo alterações anteriores informadas pelo usuário: 1237 IDs únicos. Histórico informado é separado de aprovação técnica e não aumenta a contagem documental.
+3 reservas administrativas (D-049), separadas das aprovações técnicas. Principais preservados: 2698, 2699, 2700. Propostas antigas dos reservas substituídas pela marcação, não aplicadas.
+
+Incluindo alterações anteriores informadas pelo usuário: 1248 IDs únicos. Histórico informado é separado de aprovação técnica e não aumenta a contagem documental.
 
 Campanha dos itens agrupados: 70/104 aprovados; 34 ainda a tratar ou pendentes. Lista original fixa em campanha-itens-agrupados.json.
 
@@ -34,12 +53,13 @@ Campanha dos itens agrupados: 70/104 aprovados; 34 ainda a tratar ou pendentes. 
 - 011-cinquenta-itens: 28 avaliados, 28 aprovados, 0 pendentes no fechamento do lote.
 - 012-referencias-claras: 1 avaliados, 1 aprovados, 0 pendentes no fechamento do lote.
 - 013-reavaliacao-pendencias: 23 avaliados, 23 aprovados, 0 pendentes no fechamento do lote.
+- 014-campanha-integral-051: 16 avaliados, 16 aprovados, 0 pendentes no fechamento do lote.
 
 ## Propostas não aplicadas
 
 0 itens aguardam aprovação; 2 aguardam esclarecimento técnico; 0 propostas ficaram desatualizadas. D-047 permite aplicar referências claras sem aprovar novos lotes de 50; não permite resolver lacunas por suposição. São filas separadas, não revisões concluídas.
 
-7 exceções técnicas/comerciais; 6 IDs em pares aguardam local da marcação. 3 desses IDs têm proposta histórica 011 ainda não aplicada. [Detalhes internos](excecoes-referencias-claras.md); apresentar dificuldades no próprio chat. Fila ainda não pesquisada separada em fila-paineis-referencias-claras.json.
+7 exceções técnicas/comerciais; 0 IDs em pares aguardam local da marcação. 0 desses IDs têm proposta histórica 011 ainda não aplicada. [Detalhes internos](excecoes-referencias-claras.md); apresentar dificuldades no próprio chat. Fila ainda não pesquisada separada em fila-paineis-referencias-claras.json.
 
 [Antes/depois — lote 011-cinquenta-itens](lote-011-cinquenta-itens.md).
 
@@ -349,6 +369,8 @@ A campanha original de 104 alertas é um recorte de triagem, não o universo com
 | 1115 | 10076389 | aprovado | DISJUNTOR MINI 1P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4 |
 | 1117 | 3RT20231AN20 | aprovado | CONTATOR 3P AC-3 9A EM 400VCA 1NA+1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO |
 | 1118 | 3RT20181BB42 | aprovado | CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 24VCC CONEXÃO POR PARAFUSO |
+| 1122 | 1045000 | aprovado | ARMÁRIO COMPACTO AX 1045000 AÇO CARBONO 400X500X210mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM |
+| 1123 | 1050000 | aprovado | ARMÁRIO COMPACTO AX 1050000 AÇO CARBONO 500X500X210mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM |
 | 1124 | 6026216 | aprovado | SENSOR FOTOELÉTRICO DIFUSO V12 VT12T-2P430 M12 2-300mm PNP CLARO/ESCURO 10-30VCC M12 4 PINOS IP67 |
 | 1125 | 3RV29175AA00 | aprovado | PLUGUE DE POTÊNCIA 3P 16A 500VCA CONEXÃO POR MOLA PARA INFEED S00 |
 | 1129 | 3RT20281AK60 | aprovado | CONTATOR 3P AC-3 38A EM 400VCA 1NA+1NF BOBINA 110VCA 50Hz / 120VCA 60Hz CONEXÃO POR PARAFUSO |
@@ -359,6 +381,7 @@ A campanha original de 104 alertas é um recorte de triagem, não o universo com
 | 1399 | 3RH29111FA04 | aprovado | BLOCO DE CONTATO AUXILIAR FRONTAL 4NF AC-15 6A EM 230VCA CONEXÃO POR PARAFUSO PARA 3RT2.1/3RH2 |
 | 1400 | 3SU19000DG700AA0 | aprovado | CAPA PROTETORA SIRIUS ACT SILICONE TRANSPARENTE PARA BOTÃO DUPLO PLANO IP66/IP67 |
 | 1401 | 3SU11020AB601BA0 | aprovado | BOTÃO PULSADOR COMPLETO SIRIUS ACT 22mm BRANCO PLANO MOMENTÂNEO PLÁSTICO 1NA LED 24VCA/CC CONEXÃO POR PARAFUSO |
+| 1480 | 494196 | aprovado | MANCAL COMPLETO TENSOR EIXO 25mm CAIXA FERRO FUNDIDO UCT205 |
 | 1539 | 3RT20182AF02 | aprovado | CONTATOR 3P AC-3 16A EM 400VCA 1NF BOBINA 110VCA 50/60Hz CONEXÃO POR MOLA |
 | 1540 | 3RT20152AF02 | pendente | CONTATOR AC-3 7A 1NF 110V 50/60Hz |
 | 1542 | 3RV29277AA00 | aprovado | BASE PARA CONTATOR S00/S0 SISTEMA 3RA2 PARTIDA DIRETA/REVERSORA |
@@ -463,6 +486,7 @@ A campanha original de 104 alertas é um recorte de triagem, não o universo com
 | 2225 | 12429317 | aprovado | DISJUNTOR MOTOR 3P AJUSTE 0,63-1A CLASSE 10 ICU 100kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-U001 |
 | 2227 | 12499350 | aprovado | BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF PARA CWC07-16 3P CONEXÃO POR PARAFUSO BFC0-11 |
 | 2228 | 12429372 | aprovado | DISJUNTOR MOTOR 3P AJUSTE 6,3-10A CLASSE 10 ICU 50kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW18-3-U010 |
+| 2229 | 1058000 | aprovado | ARMÁRIO COMPACTO AX 1058000 AÇO CARBONO 600X800X250mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM |
 | 2302 | 3RH29112HA22 | aprovado | BLOCO DE CONTATO AUXILIAR FRONTAL 2NA+2NF AC-15 6A EM 230VCA CONEXÃO POR MOLA PARA 3RT2/3RH2 |
 | 2314 | 12382551 | aprovado | DISJUNTOR MOTOR 3P AJUSTE 32-40A CLASSE 10 ICU 30kA EM 380-415VCA CONEXÃO POR PARAFUSO MPW40-3-U040 |
 | 2329 | 12463886 | aprovado | BLOCO DE CONTATO AUXILIAR FRONTAL 1NA+1NF PARA MPW18/MPW40/MPW80 ACBF-11 |
@@ -481,12 +505,17 @@ A campanha original de 104 alertas é um recorte de triagem, não o universo com
 | 2455 | 3SE50000AV01 | aprovado | ATUADOR MECÂNICO SIEMENS SIRIUS 3SE5 PADRÃO ZINCO FUNDIDO COMPRIMENTO 75,6mm |
 | 2460 | 3RV23314WC10 | aprovado | DISJUNTOR MAGNÉTICO PARA PARTIDA 3P 52A ICU 65kA EM 400VCA SEM PROTEÇÃO TÉRMICA CONEXÃO POR PARAFUSO |
 | 2463 | 6AV21240JC010AX0 | aprovado | IHM TP900 COMFORT 9POL TOUCH RESISTIVO TFT 800×480 PROFINET 2 PORTAS E MPI/PROFIBUS DP 24VCC |
+| 2492 | 1076000 | aprovado | ARMÁRIO COMPACTO AX 1076000 AÇO CARBONO 600X760X210mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM |
 | 2497 | 18968852 | aprovado | CHAVE SECCIONADORA 3P AC-23A 25A EM 415VCA MONTAGEM POR TOPO MANOPLA VERMELHA/AMARELA MSW025F-3P00-1R |
 | 2522 | 17793370 | aprovado | DISJUNTOR CAIXA MOLDADA TERMOMAGNÉTICO FIXO 3P 630A ICU 36kA EM 400VCA CBW3C-N630DFF3 |
 | 2554 | 10705764 | aprovado | FUSÍVEL ULTRARRÁPIDO NH00 aR 63A INTERRUPÇÃO 100kA EM 690VCA CORPO CERÂMICO FNH00-63K-A |
+| 2641 | RESERVA-2641 | reserva | RESERVA-2641 |
+| 2642 | RESERVA-2642 | reserva | RESERVA-2642 |
+| 2643 | RESERVA-2643 | reserva | RESERVA-2643 |
 | 2729 | 3RT20171AN22 | aprovado | CONTATOR 3P AC-3 12A EM 400VCA 1NF BOBINA 220VCA 50/60Hz CONEXÃO POR PARAFUSO |
 | 2737 | 6ES72235BL500XB0 | aprovado | MÓDULO DIGITAL S7-1200 G2 SM1223 16DI 24VCC SINK/SOURCE E 16DO TRANSISTOR PNP 0,5A |
 | 2742 | 5SL11166MB | aprovado | DISJUNTOR MINI 1P CURVA B 16A ICN 3kA EM 220/380VCA |
+| 2780 | 1054000 | aprovado | ARMÁRIO COMPACTO AX 1054000 AÇO CARBONO 600X600X250mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM |
 | 2847 | 10076423 | aprovado | DISJUNTOR MINI 2P CURVA C 20A ICN 3kA EM 230/400VCA MDW-C20-2 |
 | 2848 | 10076393 | aprovado | DISJUNTOR MINI 3P CURVA C 4A ICN 1,5kA EM 230/400VCA MDW-C4-3 |
 | 2861 | 13522438 | aprovado | CONTATOR PARA SEGURANÇA 3P 9A AUX 1NA+1NF BOBINA 24VCC CONEXÃO POR PARAFUSO CWBS9-11-30C03 |
@@ -505,6 +534,7 @@ A campanha original de 104 alertas é um recorte de triagem, não o universo com
 | 2981 | 15265514 | aprovado | DISJUNTOR MINI 1P CURVA C 4A ICN 3kA EM 230/400VCA MDWP-C4 |
 | 2991 | 3LD93406B | aprovado | BLOCO DE CONTATO AUXILIAR 1NA+1NF AC-15 3A EM 230VCA MONTAGEM FRONTAL PARA 3LD3 |
 | 2992 | 3LD93410A | aprovado | TAMPA DE PROTEÇÃO DE TERMINAIS 3P PARA CHAVE SECCIONADORA 3LD3 |
+| 3109 | 475470 | aprovado | MANCAL COMPLETO FLANGE QUADRADA 4 FUROS EIXO 25mm CAIXA FERRO FUNDIDO UCF205 |
 | 3129 | 6ES72314HF320XB0 | aprovado | MÓDULO ENTRADAS ANALÓGICAS S7-1200 SM1231 8AI ±10V/±5V/±2,5V/0-20mA/4-20mA 12BIT+SINAL |
 | 3184 | 3SU19000AF810AA0 | aprovado | PLACA DE IDENTIFICAÇÃO SIRIUS ACT 22×22mm PLÁSTICA PRATEADA SEM INSCRIÇÃO PARA COLAR NA CAIXA |
 | 3208 | 6ES72121AG500XB0 | aprovado | CLP S7-1200 G2 CPU 1212C DC/DC/DC 8DI/6DO TRANSISTOR 0,5A 24VCC PROFINET 2 PORTAS |
@@ -547,7 +577,16 @@ A campanha original de 104 alertas é um recorte de triagem, não o universo com
 | 3567 | 3SE53120SG11 | aprovado | CHAVE DE SEGURANÇA SIRIUS 3SE5 TRAVA POR MOLA BOBINA 24VCC 2000N ISO14119 ATUADOR 2NF+1NA/TRAVA 2NF+1NA SEM ATUADOR |
 | 3610 | 6044035 | aprovado | SENSOR FOTOELÉTRICO BARREIRA V180 VSE180-2P32437 M18 0-20m PNP ESCURO 10-30VCC M12 3 PINOS IP67 |
 | 3611 | 6044031 | aprovado | SENSOR FOTOELÉTRICO RETRORREFLEXIVO V180 VL180-2P32436 M18 0,05-6m PNP ESCURO 10-30VCC M12 3 PINOS IP67 |
+| 3674 | 462078 | aprovado | MANCAL COMPLETO DE APOIO 2 FUROS EIXO 30mm CAIXA FERRO FUNDIDO UCP206 |
+| 3717 | 450360 | aprovado | MANCAL COMPLETO FLANGE OVAL 2 FUROS EIXO 50mm CAIXA FERRO FUNDIDO UC210 + FL210 |
+| 3719 | 350178 | aprovado | MANCAL COMPLETO FLANGE QUADRADA 4 FUROS EIXO 45mm CAIXA FERRO FUNDIDO UC209 + F209 |
+| 3720 | 218429 | aprovado | MANCAL COMPLETO FLANGE QUADRADA 4 FUROS EIXO 25mm CAIXA FERRO FUNDIDO UC205 + F205 |
+| 3721 | 198318 | aprovado | MANCAL COMPLETO DE APOIO 2 FUROS EIXO 30mm CAIXA FERRO FUNDIDO UC206 + P206 |
 | 3733 | 6ES75101SJ010AB0 | aprovado | CLP DE SEGURANÇA ET200SP CPU 1510SP F-1PN 24VCC PROGRAMA 150KB DADOS 750KB PROFINET IRT 3 PORTAS |
+| 3814 | 475465 | aprovado | MANCAL COMPLETO DE APOIO 2 FUROS EIXO 50mm CAIXA FERRO FUNDIDO UCP210 |
+| 3815 | 455969 | aprovado | MANCAL COMPLETO FLANGE OVAL 2 FUROS EIXO 50mm CAIXA FERRO FUNDIDO UC210 + FL210 |
+| 3816 | 780256 | aprovado | ROLAMENTO RÍGIDO DE ESFERAS 608-2RSH 8X22X7mm |
+| 3817 | 20559 | aprovado | CONTATOR 3P AC-3 18A EM 400VCA 1NA+1NF BOBINA 24VCA 50/60Hz CONEXÃO POR PARAFUSO CWB18-11-30D02 |
 
 ## Rastreabilidade e retomada
 

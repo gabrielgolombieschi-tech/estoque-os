@@ -10,6 +10,7 @@ import { resolverIbsCbsTransicao2026 } from "@/supabase/functions/_shared/fiscal
 
 type Solicitacao = {
   id: string;
+  pedido_cliente: string | null;
   cliente_id: number;
   status: "RASCUNHO" | "PREVIA" | "APROVADA" | "EMITIDA" | "CANCELADA";
   natureza_operacao: string;
@@ -828,7 +829,7 @@ export default function OvNfeDraftsPanel({
       const memoriaResult = await supabase
         .schema("f")
         .from("solicitacao_faturamento")
-        .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
+        .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
         .in("id", ids)
@@ -846,7 +847,7 @@ export default function OvNfeDraftsPanel({
         supabase
           .schema("f")
           .from("solicitacao_faturamento")
-          .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
+          .select("id,cliente_id,status,natureza_operacao,finalidade_emissao,consumidor_final,presenca_comprador,modalidade_frete,valor_frete,valor_seguro,valor_outras_despesas,destinacao_mercadoria,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,transportador_dados,volumes_dados,snapshot_cadastro_em,destino_uf_confirmada,created_at")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
           .in("id", ids)
@@ -1133,6 +1134,22 @@ export default function OvNfeDraftsPanel({
       const documento = [resumo.tipo_documento_destinatario, resumo.documento_destinatario_mascarado]
         .filter(Boolean)
         .join(" ");
+      // Sem OC a nota sai valida, mas o cliente costuma recusar no recebimento e a
+      // cobranca trava — foi o que derrubou a NF-e 2/13 (11/09/2026), cancelada
+      // horas depois so por isso. Nao bloqueia: pergunta antes, porque venda sem
+      // pedido formal existe. O aviso vem primeiro para a pessoa poder desistir sem
+      // passar pela confirmacao da emissao real.
+      if (!String(draft.pedido_cliente ?? "").trim()) {
+        const seguirSemOc = window.confirm(
+          "Esta nota vai sair SEM PEDIDO DE COMPRA do cliente.\n\n"
+          + "A NF-e é válida assim, mas o cliente costuma recusar o recebimento sem a OC e a cobrança fica travada.\n\n"
+          + "Deseja continuar mesmo sem o pedido de compra?",
+        );
+        if (!seguirSemOc) {
+          setBusyId(null);
+          return;
+        }
+      }
       const confirmou = window.confirm(
         `CONFIRMAÇÃO DE EMISSÃO FISCAL REAL\n\nAmbiente: PRODUÇÃO\nDestinatário do snapshot homologado: ${resumo.nome_destinatario || "não informado"}\n${documento ? `${documento}\n` : ""}Total: R$ ${formatMoneyBR(numero(resumo.valor_total))}\n\nA NF-e será transmitida com validade fiscal. Deseja continuar?`,
       );

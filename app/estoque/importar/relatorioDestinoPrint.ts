@@ -1,5 +1,6 @@
 export type RelatorioDestinoItem = {
   numero_item_xml?: number | null;
+  item_id?: number | string | null;
   codigo?: string | null;
   descricao?: string | null;
   unidade?: string | null;
@@ -62,6 +63,7 @@ function buildRelatorioDestinoHtml(relatorios: RelatorioDestinoImportacao[]): st
           return `
             <tr>
               <td class="num">${escapeHtml(item.numero_item_xml ?? idx + 1)}</td>
+              <td class="num">${escapeHtml(item.item_id ?? "-")}</td>
               <td>${escapeHtml(item.codigo ?? "-")}</td>
               <td>${escapeHtml(item.descricao ?? "-")}</td>
               <td class="center">${escapeHtml(item.unidade ?? "-")}</td>
@@ -85,6 +87,7 @@ function buildRelatorioDestinoHtml(relatorios: RelatorioDestinoImportacao[]): st
             <thead>
               <tr>
                 <th>Item</th>
+                <th class="num">ID</th>
                 <th>Codigo</th>
                 <th>Descricao</th>
                 <th>Un</th>
@@ -94,7 +97,7 @@ function buildRelatorioDestinoHtml(relatorios: RelatorioDestinoImportacao[]): st
               </tr>
             </thead>
             <tbody>
-              ${rows || `<tr><td colspan="7" class="empty">Sem itens para direcionamento.</td></tr>`}
+              ${rows || `<tr><td colspan="8" class="empty">Sem itens para direcionamento.</td></tr>`}
             </tbody>
           </table>
         </section>`;

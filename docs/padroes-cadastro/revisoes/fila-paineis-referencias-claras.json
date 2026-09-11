@@ -1,7 +1,7 @@
 {
   "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
   "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
-  "gerado_em": "2026-09-10T19:15:54.881Z",
+  "gerado_em": "2026-09-10T19:57:53.676Z",
   "base": "backups/base-revisao/2026-09-10T19-14-31-733Z.json",
   "grupos": [
     23,
@@ -25,7 +25,8 @@
     "aguardando_pesquisa": 100,
     "aprovado": 54,
     "aguardando_esclarecimento_tecnico": 7,
-    "aguardando_local_da_marcacao": 6
+    "reserva": 3,
+    "principal_selecionado": 3
   },
   "itens": [
     {
@@ -1360,33 +1361,48 @@
     },
     {
       "id": 2641,
-      "codigo": "3ZY1212-1BA00",
-      "nome": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 17,5mm",
+      "codigo": "RESERVA-2641",
+      "nome": "RESERVA-2641",
       "grupo_id": 46,
       "fornecedor_id": 3,
-      "impressao_tecnica": "ae452c679e5988c17a893c10b6d4b9711f9294a05ccb3b85bc4aff761af5a4e6",
-      "status": "aguardando_local_da_marcacao",
-      "origem": "D-048"
+      "impressao_tecnica": "9f3fc6d71b1226f4861c9f78af5bed9f134c8858b00629361bb41eea959caa4f",
+      "status": "reserva",
+      "origem": "D-049",
+      "vinculo_duplicidade": {
+        "usar": 2698,
+        "reserva": 2641
+      },
+      "observacao": "Tratamento administrativo concluído; não equivale a aprovação técnica da descrição."
     },
     {
       "id": 2642,
-      "codigo": "3ZY1212-2DA00",
-      "nome": "CONECTOR DE TERMINAÇÃO PARA RELÉ DE SEGURANÇA 22,5mm",
+      "codigo": "RESERVA-2642",
+      "nome": "RESERVA-2642",
       "grupo_id": 46,
       "fornecedor_id": 3,
-      "impressao_tecnica": "e179efa6c42d5b2ab62cf047a3cda3e50dac61010ee29cca939e58ee49cdc6e4",
-      "status": "aguardando_local_da_marcacao",
-      "origem": "D-048"
+      "impressao_tecnica": "83f286a26dc09120004ff3b9ae3d95dfc84bc41e5ddad43a9c023935b38266bb",
+      "status": "reserva",
+      "origem": "D-049",
+      "vinculo_duplicidade": {
+        "usar": 2699,
+        "reserva": 2642
+      },
+      "observacao": "Tratamento administrativo concluído; não equivale a aprovação técnica da descrição."
     },
     {
       "id": 2643,
-      "codigo": "3ZY1212-2BA00",
-      "nome": "CONECTOR DE DISPOSITIVOS PARA RELÉ DE SEGURANÇA 22,5mm",
+      "codigo": "RESERVA-2643",
+      "nome": "RESERVA-2643",
       "grupo_id": 46,
       "fornecedor_id": 3,
-      "impressao_tecnica": "aa4177e0e4c8b0dd8a5610c968fceda736800ca2368717dd53facffe8ff63bba",
-      "status": "aguardando_local_da_marcacao",
-      "origem": "D-048"
+      "impressao_tecnica": "865f0a034b3576a7bfb1952bf1dc16131aa7a117557700b485b4498e2ec2b61c",
+      "status": "reserva",
+      "origem": "D-049",
+      "vinculo_duplicidade": {
+        "usar": 2700,
+        "reserva": 2643
+      },
+      "observacao": "Tratamento administrativo concluído; não equivale a aprovação técnica da descrição."
     },
     {
       "id": 2690,
@@ -1405,8 +1421,13 @@
       "grupo_id": 46,
       "fornecedor_id": 3,
       "impressao_tecnica": "2bfb57bb5b264284117fb248cda52db756af08529b5b41801cfb06b55c49f96b",
-      "status": "aguardando_local_da_marcacao",
-      "origem": "D-048"
+      "status": "principal_selecionado",
+      "origem": "D-049",
+      "vinculo_duplicidade": {
+        "usar": 2698,
+        "reserva": 2641
+      },
+      "observacao": "Tratamento administrativo concluído; não equivale a aprovação técnica da descrição."
     },
     {
       "id": 2699,
@@ -1415,8 +1436,13 @@
       "grupo_id": 46,
       "fornecedor_id": 3,
       "impressao_tecnica": "cff2f7d0f581d2b620119d5f69704947f0732d31e26dba3026dae23730a5ecc1",
-      "status": "aguardando_local_da_marcacao",
-      "origem": "D-048"
+      "status": "principal_selecionado",
+      "origem": "D-049",
+      "vinculo_duplicidade": {
+        "usar": 2699,
+        "reserva": 2642
+      },
+      "observacao": "Tratamento administrativo concluído; não equivale a aprovação técnica da descrição."
     },
     {
       "id": 2700,
@@ -1425,8 +1451,13 @@
       "grupo_id": 46,
       "fornecedor_id": 3,
       "impressao_tecnica": "06e6a1be03e6310bca0d4f5e1947c90ff6a3c4edc201503c1fcf5057e44dfcd1",
-      "status": "aguardando_local_da_marcacao",
-      "origem": "D-048"
+      "status": "principal_selecionado",
+      "origem": "D-049",
+      "vinculo_duplicidade": {
+        "usar": 2700,
+        "reserva": 2643
+      },
+      "observacao": "Tratamento administrativo concluído; não equivale a aprovação técnica da descrição."
     },
     {
       "id": 2718,
@@ -1698,5 +1729,6 @@
       "status": "aguardando_pesquisa",
       "origem": null
     }
-  ]
+  ],
+  "atualizacao_parcial": "marcacao-reservas-049.json; demais registros mantêm a base anterior."
 }

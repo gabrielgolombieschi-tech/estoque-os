@@ -327,6 +327,7 @@ async function buildRelatorioDestinoImportacao(opts: {
     const pedidoCodigo = itemId > 0 ? pedidoCodeLabel(pedidoCodesByItemId.get(itemId)) : null;
     const baseItem = {
       numero_item_xml: idx + 1,
+      item_id: item.item_id,
       codigo,
       descricao,
       unidade,

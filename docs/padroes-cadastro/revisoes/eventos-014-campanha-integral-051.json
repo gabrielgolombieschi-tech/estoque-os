@@ -1,0 +1,391 @@
+[
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1122,
+    "codigo": "1045000",
+    "nome": "ARMÁRIO COMPACTO AX 1045000 AÇO CARBONO 400X500X210mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM",
+    "familia": "GABINETES_CATALOGO",
+    "criterio": "GABINETES_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.rittal.com/ca-en/products/PG20231215SCH101/PG20231512SCH301/PRO70743?variantId=1045000"
+    ],
+    "notas_origem_ids": [
+      1630,
+      1632
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c8efd1c64703ee61600bb2d42c85f925f4343be9ab96e27328c324b646cbc864",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1123,
+    "codigo": "1050000",
+    "nome": "ARMÁRIO COMPACTO AX 1050000 AÇO CARBONO 500X500X210mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM",
+    "familia": "GABINETES_CATALOGO",
+    "criterio": "GABINETES_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.rittal.com/ca-en/products/PG20231215SCH101/PG20231512SCH301/PRO70743?variantId=1050000"
+    ],
+    "notas_origem_ids": [
+      1631
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "abad5e395fbb612b163b45e307e5ff23a819a8f945e119310bd00cb49432fd25",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 1480,
+    "codigo": "494196",
+    "nome": "MANCAL COMPLETO TENSOR EIXO 25mm CAIXA FERRO FUNDIDO UCT205",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=86"
+    ],
+    "notas_origem_ids": [
+      2187,
+      4266,
+      4641,
+      4859,
+      4860
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "eed97ad291edf48b03449c0838ac1b3b48c23df084116528c941f178358188d5",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2229,
+    "codigo": "1058000",
+    "nome": "ARMÁRIO COMPACTO AX 1058000 AÇO CARBONO 600X800X250mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM",
+    "familia": "GABINETES_CATALOGO",
+    "criterio": "GABINETES_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.rittal.com/ca-en/products/PG20231215SCH101/PG20231512SCH301/PRO70743?variantId=1058000"
+    ],
+    "notas_origem_ids": [
+      3111,
+      3917
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "73c34cdc35e6b451970cd03cb3eb8d0e7bd666a23d9fbea00ae937546da4e249",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2492,
+    "codigo": "1076000",
+    "nome": "ARMÁRIO COMPACTO AX 1076000 AÇO CARBONO 600X760X210mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM",
+    "familia": "GABINETES_CATALOGO",
+    "criterio": "GABINETES_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.rittal.com/ca-en/products/PG20231215SCH101/PG20231512SCH301/PRO70743?variantId=1076000"
+    ],
+    "notas_origem_ids": [],
+    "pendencias": [],
+    "impressao_tecnica": "79f80513229d3efea448fa75a4d5664fece1576630e6cf3ee86ff89c4836906e",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 2780,
+    "codigo": "1054000",
+    "nome": "ARMÁRIO COMPACTO AX 1054000 AÇO CARBONO 600X600X250mm (LXAXP) 1 PORTA IP66 RAL7035 COM PLACA DE MONTAGEM",
+    "familia": "GABINETES_CATALOGO",
+    "criterio": "GABINETES_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.rittal.com/ca-en/products/PG20231215SCH101/PG20231512SCH301/PRO70743?variantId=1054000"
+    ],
+    "notas_origem_ids": [
+      3918
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e1dd5ce6ee64d255ca89fdb1d3a709101e21c893db7971a57ef8db6346c0893a",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3109,
+    "codigo": "475470",
+    "nome": "MANCAL COMPLETO FLANGE QUADRADA 4 FUROS EIXO 25mm CAIXA FERRO FUNDIDO UCF205",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=45"
+    ],
+    "notas_origem_ids": [
+      4861
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "786728f747c8594dcdacb44e95b98b7318eaa1fa59b5862647f4a75e43fc70ed",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3674,
+    "codigo": "462078",
+    "nome": "MANCAL COMPLETO DE APOIO 2 FUROS EIXO 30mm CAIXA FERRO FUNDIDO UCP206",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=23"
+    ],
+    "notas_origem_ids": [
+      6169
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "cc04bc27bfc194c28a3b03588df447f1404bd6d184972f64cb58f48ed58de9fb",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3717,
+    "codigo": "450360",
+    "nome": "MANCAL COMPLETO FLANGE OVAL 2 FUROS EIXO 50mm CAIXA FERRO FUNDIDO UC210 + FL210",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=70"
+    ],
+    "notas_origem_ids": [
+      6242
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "1e04f41d10497feddf2ad252d5704b34760215e92d8e0e1fdda0c6247bc54b2b",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3719,
+    "codigo": "350178",
+    "nome": "MANCAL COMPLETO FLANGE QUADRADA 4 FUROS EIXO 45mm CAIXA FERRO FUNDIDO UC209 + F209",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=45"
+    ],
+    "notas_origem_ids": [
+      6241
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "3a4905bd63b86e2af94c9f975a6fedc6c10431d48eb3aaddf2725c0971422077",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3720,
+    "codigo": "218429",
+    "nome": "MANCAL COMPLETO FLANGE QUADRADA 4 FUROS EIXO 25mm CAIXA FERRO FUNDIDO UC205 + F205",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=45"
+    ],
+    "notas_origem_ids": [
+      6240
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "e8ed558cfadeb62d090b8a5141df0e444d9b84983cc89090dac58a270e51b4f5",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3721,
+    "codigo": "198318",
+    "nome": "MANCAL COMPLETO DE APOIO 2 FUROS EIXO 30mm CAIXA FERRO FUNDIDO UC206 + P206",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=23"
+    ],
+    "notas_origem_ids": [
+      6243
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "2d4440d7020378cfab6cce60f60f3166458395f6882003b98f064c6eb6117d2c",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3814,
+    "codigo": "475465",
+    "nome": "MANCAL COMPLETO DE APOIO 2 FUROS EIXO 50mm CAIXA FERRO FUNDIDO UCP210",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=23"
+    ],
+    "notas_origem_ids": [
+      6430
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "c69c8b304175e5080e87c3c5935c4001df764298d88cebd25d5b7ca5f4124eda",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3815,
+    "codigo": "455969",
+    "nome": "MANCAL COMPLETO FLANGE OVAL 2 FUROS EIXO 50mm CAIXA FERRO FUNDIDO UC210 + FL210",
+    "familia": "MANCAIS_CATALOGO",
+    "criterio": "MANCAIS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://brm.com.br/wp-content/uploads/2025/06/Catalogo-BRM-Outubro-2023_compressed.pdf#page=70"
+    ],
+    "notas_origem_ids": [
+      6431
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "b6d4f97bf780d755f25c8779613c1dd8a145ac4fb986bf52916fcb3d9b1b4caf",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3816,
+    "codigo": "780256",
+    "nome": "ROLAMENTO RÍGIDO DE ESFERAS 608-2RSH 8X22X7mm",
+    "familia": "ROLAMENTOS_CATALOGO",
+    "criterio": "ROLAMENTOS_CATALOGO:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.emarketplace.in.skf.com/industrial/bearings?search=608-RSH"
+    ],
+    "notas_origem_ids": [
+      6432
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "ba8f9f4a07a936c332fb028cc927b9845c19aab409dd0155440c6731560c636a",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  },
+  {
+    "tenant_id": "3ced7cfa-efbb-4f0f-addc-2028f60d1ca7",
+    "empresa_id": "f0e74f49-a127-46b4-901b-f7b37e43c690",
+    "item_id": 3817,
+    "codigo": "20559",
+    "nome": "CONTATOR 3P AC-3 18A EM 400VCA 1NA+1NF BOBINA 24VCA 50/60Hz CONEXÃO POR PARAFUSO CWB18-11-30D02",
+    "familia": "CONTATORES",
+    "criterio": "CONTATORES:1",
+    "lote": "014-campanha-integral-051",
+    "revisado_em": "2026-09-10T22:10:33.053Z",
+    "responsavel": "Codex: D-051, continuidade autorizada por referência clara",
+    "status": "aprovado",
+    "origem_aprovacao": "autorizacao_condicional_D-051",
+    "fontes": [
+      "https://www.weg.net/catalog/weg/US/en/Controls/Contactors/Power-contactors/CWB---Contactors/CONTACTOR-CWB18-11-30D02/p/12660806",
+      "https://static.weg.net/medias/downloadcenter/hb6/h0a/WEG-contatores-CWB-50042424-pt.pdf"
+    ],
+    "notas_origem_ids": [
+      6456
+    ],
+    "pendencias": [],
+    "impressao_tecnica": "5da086e48292669d8ff9e87c3f4d0cc8a81cea7b6bea1a51f79b97f4be60c2f6",
+    "backup": "backups/campanha-051/aplicacao-2026-09-10T22-09-58-423Z.json",
+    "assinatura_lote": "8744a9b2cff1cfc4451024c084fd473ba0eb91eeae14cc844b27a8726cb9c716"
+  }
+]
