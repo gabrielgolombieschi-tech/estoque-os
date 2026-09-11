@@ -193,8 +193,10 @@ assert.equal(nota3766.items[0].icms_base_calculo, 75983);
 assert.equal(nota3766.items[0].icms_valor, 12917.11);
 assert.equal(nota3766.items[0].ipi_base_calculo, 69232.8);
 assert.equal(nota3766.valor_total, 75983);
+// Revenda so carrega IPI quando a equiparacao a industrial esta declarada; o que este
+// caso guarda e a base do ICMS, que segue sem o IPI porque a destinacao e revenda.
 const revendaComIpi = montarPayloadNfe(contexto({
-  itens: [linha({ quantidade: 1, valor_unitario: 1000, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+  itens: [linha({ quantidade: 1, valor_unitario: 1000, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999", origem_mercadoria: 1, equiparado_industrial: true })],
 }));
 assert.equal(revendaComIpi.items[0].ipi_valor, 97.5);
 assert.equal(revendaComIpi.items[0].icms_base_calculo, 1000, "revenda: IPI fora da base do ICMS");
@@ -206,6 +208,9 @@ assert.equal(revendaComIpi.items[0].icms_valor, 120);
 // manter o proprio parque nao e industrializar nem revender, entao o IPI entra na base.
 // Lendo por indFinal a OS 319 sairia com R$ 1.657,50 de ICMS a menos a cada R$ 100 mil
 // (contabilidade, 10/09/2026).
+// A aliquota acompanha a destinacao pelo mesmo fato: 12% quando a mercadoria segue em
+// operacao tributada, 17% quando para no adquirente. Passar a aliquota "errada" aqui
+// faria a nota abortar — e e essa a trava que a NF-e 2/14 nao tinha.
 const porDestinacao = (destinacao) => montarPayloadNfe(contexto({
   solicitacao: solicitacao({
     operacao_snapshot: {
@@ -215,13 +220,18 @@ const porDestinacao = (destinacao) => montarPayloadNfe(contexto({
       consumidor_final: 0,
     },
   }),
-  itens: [linha({ cfop: "5101", ncm: "90328989", quantidade: 1, valor_unitario: 1000, aliquota_icms: 12, cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+  itens: [linha({
+    cfop: "5101", ncm: "90328989", quantidade: 1, valor_unitario: 1000,
+    aliquota_icms: destinacao === "MANUTENCAO" ? 17 : 12,
+    cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999",
+  })],
 })).items[0];
 
 const manutencao = porDestinacao("MANUTENCAO");
 assert.equal(manutencao.ipi_valor, 97.5);
 assert.equal(manutencao.icms_base_calculo, 1097.5, "manutencao: IPI dentro da base do ICMS");
-assert.equal(manutencao.icms_valor, 131.7);
+assert.equal(manutencao.icms_aliquota, 17, "manutencao: para no adquirente, entao 17%");
+assert.equal(manutencao.icms_valor, 186.58);
 
 const insumo = porDestinacao("INSUMO");
 assert.equal(insumo.icms_base_calculo, 1000, "insumo: IPI fora da base do ICMS");
@@ -253,6 +263,109 @@ const ipiDaFixture5102 = montarPayloadNfe(contexto({
 }));
 assert.equal(ipiDaFixture5102.items[0].ipi_situacao_tributaria, "53");
 assert.equal(ipiDaFixture5102.items[0].ipi_codigo_enquadramento_legal, "999");
+
+// NF-e 2/50 (11/09/2026): soft-starter WEG revendido, NCM 9032.89.11 tributado a 9,75%
+// na TIPI, origem nacional, CFOP 5102. Saiu com IPI destacado (470,05) e ainda somou o
+// IPI a base do ICMS. Revenda nao destaca IPI: quem deve e o industrial e quem a ele se
+// equipara (RIPI art. 9o). A TIPI diz quanto o FABRICANTE paga naquele NCM, nao que o
+// revendedor deva o imposto.
+const softStarter = (destino, extra) => contexto({
+  solicitacao: solicitacao({
+    operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: destino, consumidor_final: 0 },
+  }),
+  itens: [linha({
+    cfop: "5102", ncm: "90328911", quantidade: 1, valor_unitario: 4821, origem_mercadoria: 0,
+    aliquota_icms: destino === "REVENDA" ? 12 : 17, cbenef: null,
+    cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999", ...extra,
+  })],
+});
+assert.throws(
+  () => montarPayloadNfe(softStarter("REVENDA")),
+  /revenda em CFOP 5102 não destaca IPI/,
+  "revenda com CST 50 e sem equiparacao tem de abortar",
+);
+
+// Sem IPI a nota sai limpa. Sao os numeros que a 2/50 deveria ter tido.
+const semIpi = montarPayloadNfe(softStarter("REVENDA", { cst_ipi: "53", aliquota_ipi: null }));
+assert.equal(semIpi.items[0].ipi_situacao_tributaria, "53");
+assert.equal(semIpi.items[0].ipi_valor, undefined, "sem vIPI no item");
+assert.equal(semIpi.items[0].icms_base_calculo, 4821, "vBC do ICMS = vProd, sem IPI");
+assert.equal(semIpi.items[0].icms_valor, 578.52);
+assert.equal(semIpi.items[0].valor_total_item, 4821);
+assert.equal(semIpi.valor_total, 4821, "vNF sem IPI");
+
+// A mesma nota com destinacao manutencao: a mercadoria para no adquirente, entao os
+// 12% do art. 19, III, "n" nao valem (§ 3º, "a") e a aliquota e 17%. Sem IPI, a base
+// segue sendo o vProd.
+const softStarterManutencao = montarPayloadNfe(softStarter("MANUTENCAO", { cst_ipi: "53", aliquota_ipi: null })).items[0];
+assert.equal(softStarterManutencao.icms_aliquota, 17);
+assert.equal(softStarterManutencao.icms_base_calculo, 4821);
+assert.equal(softStarterManutencao.icms_valor, 819.57);
+
+// Os dois efeitos da destinacao andam juntos: 12% com IPI dentro da base e a
+// contradicao que produziu a NF-e 2/14, e agora aborta.
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    solicitacao: solicitacao({
+      operacao_snapshot: { ...solicitacao().operacao_snapshot, natureza_operacao: "VENDA_INDUSTRIALIZACAO_INTERNA", destinacao_mercadoria: "MANUTENCAO", consumidor_final: 0 },
+    }),
+    itens: [linha({ cfop: "5101", ncm: "90328989", quantidade: 1, valor_unitario: 16553.07, aliquota_icms: 12, cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+  })),
+  /os 12% valem porque a mercadoria segue em operação tributada/,
+  "12% com IPI dentro da base tem de abortar",
+);
+
+// Chave de seguranca importada por nos: origem 1, equiparada, revenda em 5102 COM IPI —
+// a equiparacao autoriza o destaque e nao muda o CFOP (Consulta SP 22712/2020). Como a
+// destinacao e revenda, o IPI fica FORA da base do ICMS.
+const chaveImportada = montarPayloadNfe(contexto({
+  itens: [linha({
+    cfop: "5102", ncm: "85365090", quantidade: 1, valor_unitario: 239.7, origem_mercadoria: 1,
+    equiparado_industrial: true, aliquota_icms: 12, cst_ipi: "50", aliquota_ipi: 9.75,
+    ipi_codigo_enquadramento_legal: "999",
+  })],
+})).items[0];
+assert.equal(chaveImportada.cfop, "5102", "equiparacao nao muda o CFOP");
+assert.equal(chaveImportada.ipi_situacao_tributaria, "50");
+assert.equal(chaveImportada.ipi_valor, 23.37);
+assert.equal(chaveImportada.icms_base_calculo, 239.7, "revenda: IPI fora da base");
+assert.equal(chaveImportada.icms_valor, 28.76);
+
+// Os 12% e o IPI fora da base dependem de DUAS condicoes: destinatario contribuinte
+// (a alinea "n" e "mercadorias destinadas a contribuinte"; a CF fala em operacao
+// "entre contribuintes") E mercadoria que segue em operacao tributada. Quem nao tem
+// IE nunca alcanca os 12%, declare a destinacao que declarar — nao ha operacao
+// subsequente para tributar.
+const revendaParaNaoContribuinte = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({
+    destinatario_snapshot: {
+      ...solicitacao().destinatario_snapshot,
+      indicador_ie: "9",
+      inscricao_estadual: null,
+    },
+    operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: "REVENDA", consumidor_final: 1 },
+  }),
+  itens: [linha({
+    cfop: "5102", ncm: "85365090", quantidade: 1, valor_unitario: 1000, origem_mercadoria: 1,
+    equiparado_industrial: true, aliquota_icms: 17, cst_ipi: "50", aliquota_ipi: 9.75,
+    ipi_codigo_enquadramento_legal: "999",
+  })],
+})).items[0];
+assert.equal(revendaParaNaoContribuinte.icms_aliquota, 17, "sem IE: 17% mesmo declarando revenda");
+assert.equal(revendaParaNaoContribuinte.icms_base_calculo, 1097.5, "sem IE: IPI dentro da base");
+assert.equal(revendaParaNaoContribuinte.icms_valor, 186.58);
+
+// Origem e equiparacao tem de concordar nos dois sentidos.
+assert.throws(
+  () => montarPayloadNfe(contexto({ itens: [linha({ origem_mercadoria: 1, cst_ipi: "53" })] })),
+  /origem 1 .* sem a marca de equiparado a industrial/,
+  "origem 1 sem a flag tem de abortar",
+);
+assert.throws(
+  () => montarPayloadNfe(contexto({ itens: [linha({ origem_mercadoria: 2, equiparado_industrial: true, cst_ipi: "53" })] })),
+  /equiparado a industrial mas com origem 2/,
+  "flag com origem 2 tem de abortar",
+);
 
 const dataSaoPaulo = dataHoraNfeSaoPaulo(new Date("2026-09-02T21:56:09.000Z"));
 assert.equal(dataSaoPaulo, "2026-09-02T18:56:09-03:00");
@@ -660,4 +773,4 @@ assert.throws(
 );
 assert.doesNotThrow(() => validarAcaoCicloPorAmbiente("EMAIL", "PRODUCAO"));
 
-console.log("81 cenarios locais do pipeline NF-e passaram.");
+console.log("107 cenarios locais do pipeline NF-e passaram.");

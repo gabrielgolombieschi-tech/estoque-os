@@ -18,52 +18,76 @@
  */
 
 /**
- * `ipiForaDaBaseIcms` diz se esta destinacao satisfaz a segunda condicao do
- * art. 155, § 2º, XI da Constituicao: o IPI so fica fora da base do ICMS quando a
- * operacao e entre contribuintes E o produto se destina a industrializacao ou a
- * comercializacao (as tres condicoes sao cumulativas).
+ * `seguePara` e o unico fato que a destinacao declara, e dele saem os DOIS efeitos
+ * fiscais — que por isso nao podem divergir:
  *
- * Ser contribuinte nao basta. Manutencao e o caso que mostra a diferenca: o
- * comprador e contribuinte, mas usa a mercadoria para manter o proprio parque —
- * nao industrializa nem revende. Ali o IPI integra a base. Consignacao fica fora
- * porque a mercadoria segue para revenda pelo consignatario.
+ *   OPERACAO_SUBSEQUENTE (revenda, insumo, consignacao)
+ *     · ICMS 12%  — Lei SC 10.297/96, art. 19, III, "n": mercadoria destinada a
+ *                   contribuinte do imposto.
+ *     · IPI FORA da base do ICMS — CF art. 155, § 2º, XI: operacao entre
+ *                   contribuintes E produto destinado a industrializacao ou
+ *                   comercializacao (condicoes cumulativas).
+ *
+ *   CONSUMO_DO_ADQUIRENTE (manutencao, uso e consumo, ativo imobilizado)
+ *     · ICMS 17%  — o § 3º, "a" do mesmo art. 19 afasta a alinea "n" quando a
+ *                   mercadoria se destina a uso, consumo ou ativo imobilizado.
+ *     · IPI DENTRO da base — falha a segunda condicao do art. 155: manter o
+ *                   proprio parque nao e industrializar nem revender.
+ *
+ * Sao a mesma pergunta ("a mercadoria segue em operacao tributada, ou para no
+ * adquirente?") respondida uma vez so. Ate 11/09/2026 estavam em dois campos
+ * independentes, e a manutencao saiu com 12% e IPI na base ao mesmo tempo — as
+ * duas metades de regras opostas. Foi a NF-e 2/14, com R$ 908,35 de ICMS a menos.
  */
 export const DESTINACOES_MERCADORIA = {
-  REVENDA: {
-    rotulo: "revenda",
-    contribuinte: true,
-    ipiForaDaBaseIcms: true,
-  },
-  INSUMO: {
-    rotulo: "insumo de produção",
-    contribuinte: true,
-    ipiForaDaBaseIcms: true,
-  },
-  MANUTENCAO: {
-    rotulo: "manutenção",
-    contribuinte: true,
-    ipiForaDaBaseIcms: false,
-  },
-  CONSIGNADO: {
-    rotulo: "mercadoria em consignação",
-    contribuinte: true,
-    ipiForaDaBaseIcms: true,
-  },
-  USO_CONSUMO: {
-    rotulo: "uso e consumo do adquirente",
-    contribuinte: false,
-    ipiForaDaBaseIcms: false,
-  },
-  ATIVO_IMOBILIZADO: {
-    rotulo: "ativo imobilizado do adquirente",
-    contribuinte: false,
-    ipiForaDaBaseIcms: false,
-  },
+  REVENDA: { rotulo: "revenda", seguePara: "OPERACAO_SUBSEQUENTE" },
+  INSUMO: { rotulo: "insumo de produção", seguePara: "OPERACAO_SUBSEQUENTE" },
+  CONSIGNADO: { rotulo: "mercadoria em consignação", seguePara: "OPERACAO_SUBSEQUENTE" },
+  MANUTENCAO: { rotulo: "manutenção", seguePara: "CONSUMO_DO_ADQUIRENTE" },
+  USO_CONSUMO: { rotulo: "uso e consumo do adquirente", seguePara: "CONSUMO_DO_ADQUIRENTE" },
+  ATIVO_IMOBILIZADO: { rotulo: "ativo imobilizado do adquirente", seguePara: "CONSUMO_DO_ADQUIRENTE" },
 } as const;
 
-/** O IPI integra a base do ICMS nesta destinacao? */
-export function ipiIntegraBaseIcms(destinacao: DestinacaoMercadoria) {
-  return !DESTINACOES_MERCADORIA[destinacao].ipiForaDaBaseIcms;
+/** A mercadoria segue em operacao tributada depois desta venda? */
+function segueParaOperacaoSubsequente(destinacao: DestinacaoMercadoria) {
+  return DESTINACOES_MERCADORIA[destinacao].seguePara === "OPERACAO_SUBSEQUENTE";
+}
+
+/**
+ * Os dois efeitos juntos. Sao DUAS condicoes cumulativas, nao uma:
+ *
+ *   1. o destinatario e contribuinte do imposto — a alinea "n" e literalmente
+ *      "mercadorias destinadas a contribuinte", e o art. 155, § 2º, XI da CF fala
+ *      em operacao "entre contribuintes";
+ *   2. a mercadoria segue em operacao tributada (revenda, insumo, consignacao).
+ *
+ * Faltando qualquer uma, a venda e de consumo final para o ICMS: 17% e o IPI dentro
+ * da base. Quem nao e contribuinte nunca alcanca os 12%, seja qual for a destinacao
+ * que declare — ele nao tem operacao subsequente para tributar.
+ */
+export function efeitosDaDestinacao(
+  destinacao: DestinacaoMercadoria,
+  destinatarioContribuinte: boolean,
+) {
+  const subsequente = destinatarioContribuinte && segueParaOperacaoSubsequente(destinacao);
+  return {
+    aliquotaInterna: subsequente ? 12 : 17,
+    ipiNaBaseIcms: !subsequente,
+    rotulo: DESTINACOES_MERCADORIA[destinacao].rotulo,
+  };
+}
+
+/** O IPI integra a base do ICMS nesta operacao? */
+export function ipiIntegraBaseIcms(
+  destinacao: DestinacaoMercadoria,
+  destinatarioContribuinte: boolean,
+) {
+  return efeitosDaDestinacao(destinacao, destinatarioContribuinte).ipiNaBaseIcms;
+}
+
+/** indIEDest 1 e contribuinte do ICMS; 2 (isento) e 9 (nao contribuinte) nao sao. */
+export function ehDestinatarioContribuinte(indicadorIe: string | null | undefined) {
+  return String(indicadorIe ?? "").trim() === "1";
 }
 
 export type DestinacaoMercadoria = keyof typeof DESTINACOES_MERCADORIA;
@@ -92,9 +116,46 @@ const BASE_LEGAL_ALIQUOTA_INTERNA: Array<{ aliquota: number; texto: string }> = 
   },
 ];
 
-/** Alíquota interna que a destinação exige em SC. */
-export function aliquotaInternaEsperada(destinacao: DestinacaoMercadoria) {
-  return DESTINACOES_MERCADORIA[destinacao].contribuinte ? 12 : 17;
+/** Alíquota interna que a destinação exige em SC. Sai do mesmo fato que o IPI na base. */
+export function aliquotaInternaEsperada(
+  destinacao: DestinacaoMercadoria,
+  destinatarioContribuinte: boolean,
+) {
+  return efeitosDaDestinacao(destinacao, destinatarioContribuinte).aliquotaInterna;
+}
+
+/**
+ * Os dois efeitos da destinacao andam juntos ou a nota esta errada. Guarda contra
+ * o par que a NF-e 2/14 produziu — 12% (que so existe porque a mercadoria segue em
+ * operacao tributada) com o IPI dentro da base (que so existe porque ela NAO segue).
+ *
+ * A checagem e sobre a carga efetiva, nao a aliquota nominal: CST 20 a 17% com base
+ * reduzida ate 12% e um dos caminhos legitimos dos 12%.
+ */
+export function conflitoIpiNaBaseComAliquota(
+  destinacao: DestinacaoMercadoria,
+  cargaEfetivaIcms: number | null,
+  ipiEntrouNaBase: boolean,
+  interestadual: boolean,
+  temIpi: boolean,
+  destinatarioContribuinte: boolean,
+): string | null {
+  // Sem IPI nao ha o que estar dentro ou fora da base: a maquina do Convenio 52/91,
+  // por exemplo, sai a 17% com CST 53 e nenhum IPI, e isso nao e contradicao.
+  if (!temIpi) return null;
+  if (interestadual || cargaEfetivaIcms === null) return null;
+  const { ipiNaBaseIcms } = efeitosDaDestinacao(destinacao, destinatarioContribuinte);
+  if (cargaEfetivaIcms === 12 && ipiEntrouNaBase) {
+    return "os 12% valem porque a mercadoria segue em operação tributada (Lei 10.297/96, "
+      + 'art. 19, III, "n"), e nessa mesma condição o IPI fica fora da base do ICMS '
+      + "(CF art. 155, § 2º, XI). A nota está com os dois ao mesmo tempo";
+  }
+  if (cargaEfetivaIcms === 17 && ipiNaBaseIcms && !ipiEntrouNaBase) {
+    return `destinação ${rotuloDestinacao(destinacao)} está nos 17% porque a mercadoria `
+      + "para no adquirente (art. 19, § 3º, \"a\"), e nessa condição o IPI integra a base "
+      + "do ICMS — a nota deixou o IPI de fora";
+  }
+  return null;
 }
 
 /**
@@ -110,10 +171,11 @@ export function conflitoDestinacaoAliquota(
   destinacao: DestinacaoMercadoria,
   aliquotaIcms: number | null,
   interestadual: boolean,
+  destinatarioContribuinte: boolean,
 ): string | null {
   if (interestadual || aliquotaIcms === null) return null;
   if (aliquotaIcms !== 12 && aliquotaIcms !== 17) return null;
-  const esperada = aliquotaInternaEsperada(destinacao);
+  const esperada = aliquotaInternaEsperada(destinacao, destinatarioContribuinte);
   if (aliquotaIcms === esperada) return null;
   return `destinação ${rotuloDestinacao(destinacao)} exige alíquota interna de `
     + `${esperada}%, e a nota está com ${aliquotaIcms}%`;

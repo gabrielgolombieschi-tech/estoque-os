@@ -122,21 +122,32 @@ function infCplDaNatureza(naturezaOperacao, cfop) {
   ctx.solicitacao.operacao_snapshot.natureza_operacao = naturezaOperacao;
   ctx.itens[0].solicitacao_item.cfop = cfop;
   ctx.itens[0].documento_item.cfop = cfop;
+  // A fixture e de um painel fabricado (CST 50, 9,75%). Na revenda isso nao existe:
+  // so o industrial e quem a ele se equipara destacam IPI (RIPI art. 9o), entao o
+  // item vira CST 53 sem aliquota — e o "valor aproximado" cai para so o ICMS.
+  if (["5102", "6102"].includes(cfop)) {
+    ctx.itens[0].solicitacao_item.cst_ipi = "53";
+    ctx.itens[0].solicitacao_item.aliquota_ipi = null;
+    ctx.itens[0].solicitacao_item.ipi_tipi_aliquota = null;
+  }
   return String(montarPayloadNfe(ctx).informacoes_adicionais_contribuinte ?? "");
 }
 
 const casosInfCpl = [
-  { nome: "C · Revenda (5102)", natureza: "VENDA_MERCADORIA_TERCEIROS", cfop: "5102" },
+  { nome: "C · Revenda (5102)", natureza: "VENDA_MERCADORIA_TERCEIROS", cfop: "5102", frase: null },
   { nome: "D · Industrializacao interna (5101)", natureza: "VENDA_INDUSTRIALIZACAO_INTERNA", cfop: "5101" },
   { nome: "E · Industrializacao interestadual (6101)", natureza: "VENDA_INDUSTRIALIZACAO_INTERESTADUAL", cfop: "6101" },
 ];
 const FRASE_TRIBUTOS = "Valor aproximado dos tributos: 2556,68.";
+// Sem IPI a revenda so soma o ICMS: 9.000,00 x 17% = 1.530,00.
+const FRASE_TRIBUTOS_REVENDA = "Valor aproximado dos tributos: 1530,00.";
 for (const caso of casosInfCpl) {
   const infCpl = infCplDaNatureza(caso.natureza, caso.cfop);
-  const bate = infCpl.startsWith(FRASE_TRIBUTOS);
+  const esperada = caso.frase === null ? FRASE_TRIBUTOS_REVENDA : FRASE_TRIBUTOS;
+  const bate = infCpl.startsWith(esperada);
   if (!bate) falhas += 1;
   console.log(`\n${caso.nome} — texto no infCpl`);
-  console.log(`  ${bate ? "ok   " : "FALHA"} ${"infCpl".padEnd(12)} ${JSON.stringify(infCpl.slice(0, 60))}${bate ? "" : `  (esperado iniciar com ${JSON.stringify(FRASE_TRIBUTOS)})`}`);
+  console.log(`  ${bate ? "ok   " : "FALHA"} ${"infCpl".padEnd(12)} ${JSON.stringify(infCpl.slice(0, 60))}${bate ? "" : `  (esperado iniciar com ${JSON.stringify(esperada)})`}`);
 }
 
 // A frase e so das vendas. Isso ainda nao da para observar pelo infCpl: as tres

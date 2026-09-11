@@ -1,6 +1,8 @@
 import { tributacaoProvisoria } from "./tributacao-provisoria.ts";
 import {
   conflitoDestinacaoAliquota,
+  conflitoIpiNaBaseComAliquota,
+  ehDestinatarioContribuinte,
   ehDestinacaoValida,
   REDUCAO_AUTOMACAO_SC,
   REDUCAO_MAQUINAS_CONVENIO_52_91,
@@ -258,6 +260,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const ufDestinatario = requiredText(destinatario.uf, "UF do destinatário").toUpperCase();
   const interestadual = ufEmitente !== ufDestinatario;
   const indicadorIe = requiredText(destinatario.indicador_ie, "indicador de IE do destinatário");
+  // Os 12% e o IPI fora da base exigem destinatario contribuinte, nao so a destinacao.
+  const destinatarioContribuinte = ehDestinatarioContribuinte(indicadorIe);
   if (!["1", "2", "9"].includes(indicadorIe)) {
     throw new Error("Solicitação incompleta: indicador de IE do destinatário deve ser 1, 2 ou 9.");
   }
@@ -365,6 +369,55 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     if (impostoTributado(cstIpi, ["50", "99"]) && aliquotaIpi === null) {
       throw new Error(`Solicitação incompleta: item ${codigo}, alíquota de IPI.`);
     }
+    // Revenda nao destaca IPI. Quem deve IPI e o industrial e quem a ele se equipara
+    // (RIPI, Decreto 7.212/2010, art. 9o) — nao quem apenas revende produto de
+    // terceiros. Estar a mercadoria tributada na TIPI diz quanto o FABRICANTE paga,
+    // nao que o revendedor deva o imposto; foi essa confusao que pos 9,75% na NF-e
+    // 2/50 (soft-starter WEG, NCM 9032.89.11, origem nacional) e ainda somou o IPI
+    // a base do ICMS, inflando o ICMS em R$ 56,41.
+    //
+    // A excecao e a equiparacao: importacao direta ou por conta e ordem (art. 9o, I
+    // e IX). Ela e declarada item a item no cadastro fiscal, nunca deduzida do NCM
+    // ou da origem — origem 1 e indicio, nao prova, e a importacao por conta e ordem
+    // pode aparecer com origem 2.
+    //
+    // Aborta em vez de zerar calado: IPI indevido numa revenda e erro de cadastro, e
+    // corrigi-lo por baixo do pano deixaria f.solicitacao_item guardando CST 50 e a
+    // tela de conferencia mostrando um imposto que a nota nao tem.
+    const ehRevenda = ["5102", "6102"].includes(cfop);
+    const equiparadoIndustrial = item.equiparado_industrial === true;
+    // A equiparacao acompanha a origem, e as duas tem de concordar. Origem 1 e
+    // importacao direta OU por conta e ordem — nos dois casos o CNPJ da Segau consta
+    // como adquirente na DI/DUIMP, entao ela e a importadora e se equipara a
+    // industrial (RIPI art. 9o, I e IX). Comprar de distribuidor e o que converte a
+    // origem 1 da nota de entrada em origem 2 na saida, e ai nao ha equiparacao.
+    //
+    // A equiparacao NAO muda o CFOP: quem revende sem industrializar sai em
+    // 5102/6102 ainda que destaque IPI (Resposta a Consulta SP 22712/2020). O 5101 e
+    // so da fabricacao propria. Por isso a autorizacao do destaque e a flag, nunca
+    // o CFOP.
+    if (origem === 1 && !equiparadoIndustrial) {
+      throw new Error(
+        `Emissão bloqueada: item ${codigo}, origem 1 (importação direta ou por conta e ordem) `
+        + "sem a marca de equiparado a industrial no cadastro fiscal. Se a Segau importou, "
+        + "marque a equiparação; se comprou de distribuidor, a origem na saída é 2.",
+      );
+    }
+    if (origem !== 1 && equiparadoIndustrial) {
+      throw new Error(
+        `Emissão bloqueada: item ${codigo}, marcado como equiparado a industrial mas com `
+        + `origem ${origem}. A equiparação vem de ter importado, e importação é origem 1.`,
+      );
+    }
+    if (ehRevenda && !equiparadoIndustrial && (impostoTributado(cstIpi, ["00", "49", "50", "99"]) || (aliquotaIpi ?? 0) > 0)) {
+      throw new Error(
+        `Emissão bloqueada: item ${codigo}, revenda em CFOP ${cfop} não destaca IPI. `
+        + `O cadastro fiscal traz CST ${cstIpi}${aliquotaIpi ? ` e alíquota de ${aliquotaIpi.toFixed(2).replace(".", ",")}%` : ""}, `
+        + "mas só o industrial e quem a ele se equipara devem o imposto (RIPI, art. 9º). "
+        + "Use CST 53 sem alíquota, ou marque o item como equiparado a industrial "
+        + "(importação direta ou por conta e ordem) no cadastro fiscal.",
+      );
+    }
     if (impostoTributado(cstPis, ["01", "02"]) && aliquotaPis === null) {
       throw new Error(`Solicitação incompleta: item ${codigo}, alíquota de PIS.`);
     }
@@ -418,7 +471,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // proprio parque nao e industrializar nem revender, entao o IPI integra a base.
     // Lendo por indFinal a nota saia com ICMS a menos — na OS 319, R$ 1.657,50 a cada
     // R$ 100 mil (contabilidade, 10/09/2026).
-    const ipiNaBaseIcms = ipiIntegraBaseIcms(destinacao) ? ipiValor : 0;
+    const ipiNaBaseIcms = ipiIntegraBaseIcms(destinacao, destinatarioContribuinte) ? ipiValor : 0;
     const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
     const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
     // O ICMS destacado sai da base de PIS/COFINS (STF, RE 574.706/PR, Tema 69, com
@@ -493,6 +546,20 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ? null
       : round(aliquotaIcms * (1 - reducao / 100));
     if (cargaEfetivaIcms !== null) aliquotasIcms.add(cargaEfetivaIcms);
+    // Os dois efeitos da destinacao tem de andar juntos. Item a item, porque a
+    // aliquota e a base sao do item — o conflito de destinacao x aliquota, mais
+    // abaixo, olha a nota inteira e nao pegaria um item destoante.
+    const conflitoIpiBase = conflitoIpiNaBaseComAliquota(
+      destinacao,
+      cargaEfetivaIcms,
+      ipiNaBaseIcms > 0,
+      interestadual,
+      ipiValor > 0,
+      destinatarioContribuinte,
+    );
+    if (conflitoIpiBase) {
+      throw new Error(`Emissão bloqueada: item ${codigo}, ${conflitoIpiBase}.`);
+    }
     if (temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
       usaBeneficioReducaoSc = true;
       if (!text(item.cbenef)) {
@@ -592,7 +659,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // de 17%. Só confiro destinação contra alíquota fora desse caso.
   const conflito = usaBeneficioReducaoSc || usaBeneficioMaquinas5291
     ? null
-    : conflitoDestinacaoAliquota(destinacao, aliquotaUnica, interestadual);
+    : conflitoDestinacaoAliquota(destinacao, aliquotaUnica, interestadual, destinatarioContribuinte);
   if (conflito) {
     throw new Error(`Solicitação incompleta: ${conflito}. Reveja a destinação ou o perfil fiscal.`);
   }
