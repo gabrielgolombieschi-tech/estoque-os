@@ -152,8 +152,11 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [ocupado, setOcupado] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [justificativaCancel, setJustificativaCancel] = useState("");
-  // "Nova NFS-e parcial": ignora a nota autorizada mais recente e abre uma composicao nova.
-  const [novaNota, setNovaNota] = useState(false);
+  // "Nova NFS-e parcial": ignora as notas autorizadas que ja existiam no clique e abre uma composicao nova. Era um
+  // booleano que nunca desligava: a propria parcial nova, ao ser autorizada, tambem era ignorada e a tela voltava
+  // para um formulario vazio "acima do saldo" (NFS-e 14 da OS 139, 11/09/2026).
+  const [ignorarAutorizadas, setIgnorarAutorizadas] = useState<string[]>([]);
+  const autorizadasConhecidasRef = useRef<string[]>([]);
 
   const fixture = useMemo(() => fixtures.find((f) => f.item_servico === perfil?.item_servico) ?? null, [fixtures, perfil]);
   const perfilBloqueado = perfil?.faixa_automacao === "BLOQUEADO";
@@ -199,13 +202,15 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         if (cands.length > 0) {
           const { data: ems } = await supabase.schema("f").from("documento_fiscal_emissao").select("solicitacao_id,documento_fiscal_id,status,ambiente,chave_nfse,nfse_numero,codigo_verificacao,dps_serie,dps_numero,mensagem,codigo_status,danfe_path,xml_path,valor_liquido,autorizado_em").in("solicitacao_id", cands.map((c) => c.id)).order("created_at", { ascending: false });
           const emissoes = (ems as Emissao[] | null) ?? [];
+          const autorizadas = cands.filter((c) => emissoes.some((e) => e.solicitacao_id === c.id && e.status === "AUTORIZADA"));
+          autorizadasConhecidasRef.current = autorizadas.map((c) => c.id);
           for (const c of cands) {
             const em = emissoes.find((e) => e.solicitacao_id === c.id) ?? null;
             if (!em || !["AUTORIZADA", "CANCELADA"].includes(em.status)) { ativa = c; emissaoAtiva = em; break; }
           }
-          if (!ativa && !novaNota) {
-            // Ultima autorizada em homologacao (para cancelar/substituir a partir daqui).
-            const aut = cands.find((c) => emissoes.some((e) => e.solicitacao_id === c.id && e.status === "AUTORIZADA"));
+          if (!ativa) {
+            // Ultima autorizada (para cancelar/substituir/emitir em producao a partir daqui), fora as ignoradas.
+            const aut = autorizadas.find((c) => !ignorarAutorizadas.includes(c.id));
             if (aut) { ativa = aut; emissaoAtiva = emissoes.find((e) => e.solicitacao_id === aut.id) ?? null; }
           }
         }
@@ -261,7 +266,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setCandidatas(saldos.filter((c) => c.saldo > 0));
       }
     } catch (cause) { setErro(textoErro(cause)); } finally { setCarregando(false); }
-  }, [empresaId, novaNota, os, osId, saldo, supabase, tenantId]);
+  }, [empresaId, ignorarAutorizadas, os, osId, saldo, supabase, tenantId]);
 
   useEffect(() => { void carregar(); }, [carregar, versao]);
   useEffect(() => { if (!solicitacao && !municipio && municipioPadrao) setMunicipio(municipioPadrao); }, [municipioPadrao, municipio, solicitacao]);
@@ -647,7 +652,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <Link className={botao} href={`/faturamento/nfse/${emissao.documento_fiscal_id}`}>Detalhe</Link>
                   <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
                   {producao ? <button type="button" className={botao} disabled={ocupado} onClick={() => void enviarEmail()}>Enviar por e-mail</button> : null}
-                  {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); setMaterialDeducao(""); setMaterialSugerido(false); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
+                  {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setIgnorarAutorizadas(autorizadasConhecidasRef.current); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); setMaterialDeducao(""); setMaterialSugerido(false); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
                   {!producao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NFS-e real (produção)</button> : null}
                 </div>
                 {!producao && producaoPronta && !producaoPronta.pronta ? (

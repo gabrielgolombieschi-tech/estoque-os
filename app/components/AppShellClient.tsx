@@ -347,7 +347,18 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                 Home
               </Link>
 
-              <nav className="relative flex flex-nowrap items-center gap-2 md:gap-4 text-sm text-zinc-200 whitespace-nowrap">
+              {/* Clique num item do menu fecha o menu: com o mouse parado em cima dele, o menu ficava aberto sobre a
+                  pagina nova e cobria a busca (achado em 11/09/2026 navegando pela tela). */}
+              <nav
+                className="relative flex flex-nowrap items-center gap-2 md:gap-4 text-sm text-zinc-200 whitespace-nowrap"
+                onClick={(event) => {
+                  if (!(event.target as HTMLElement).closest("a")) return;
+                  if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+                  menuAtualRef.current = null;
+                  abertoPeloMouseRef.current = null;
+                  setOpenMenu(null);
+                }}
+              >
                 {canAccessOs && (
                   <div className="relative" onMouseEnter={() => openWithHover("os")} onMouseLeave={scheduleClose}>
                     <button
