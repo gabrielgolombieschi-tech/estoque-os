@@ -18,6 +18,31 @@ export function origemFiscalConfirmada(value: unknown): number | null {
   return Number.isInteger(origem) && origem >= 0 && origem <= 8 ? origem : null;
 }
 
+/**
+ * Converte a origem que o FORNECEDOR declarou na nota dele para a origem que NOS
+ * declaramos ao vender.
+ *
+ * A origem e sempre do ponto de vista de quem emite: o fornecedor dizendo "1 -
+ * importacao direta" esta dizendo que ELE importou. Para nos, que compramos dele
+ * aqui dentro, a mesma mercadoria e "2 - estrangeira, adquirida no mercado
+ * interno". So esse par muda de dono (e o 6/7, que e o mesmo caso na lista CAMEX);
+ * as demais origens sao caracteristica da mercadoria e atravessam iguais.
+ *
+ * Copiar o 1 do fornecedor fazia a nossa nota afirmar uma importacao que nao houve
+ * — e como e da origem que sai a equiparacao a industrial, o erro virava IPI
+ * cobrado indevidamente na revenda (NF-e 2/50, 11/09/2026).
+ *
+ * Nao serve para importacao propria: ali nao ha nota de fornecedor, a entrada e por
+ * DI, e a origem 1 e declarada a mao junto com a equiparacao.
+ */
+export function origemSaidaDeOrigemEntrada(origemEntrada: unknown): number | null {
+  const origem = origemFiscalConfirmada(origemEntrada);
+  if (origem === null) return null;
+  if (origem === 1) return 2;
+  if (origem === 6) return 7;
+  return origem;
+}
+
 export function normalizarConversaoCadastro(estoque: string, compra: string | null, fator: number | null) {
   const unidadeEstoque = estoque.trim().toUpperCase() || "UN";
   const unidadeCompra = compra?.trim().toUpperCase() || null;
