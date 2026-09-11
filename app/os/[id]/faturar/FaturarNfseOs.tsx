@@ -37,6 +37,9 @@ type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean 
 // Local da obra (grupo obra da DPS, E0370): CNO ou endereco. Gravado pela conferencia em obra_dados.
 type LocalObra = { codigo_obra: string; cep: string; logradouro: string; numero: string; complemento: string; bairro: string };
 const OBRA_VAZIA: LocalObra = { codigo_obra: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "" };
+// Teto da deducao de material (f.fn_os_nfse_material_disponivel): produtos lancados nas OS, fora os de venda,
+// menos o ja deduzido em NFS-e dessas OS.
+type MaterialReal = { material_aplicado: number | string; deduzido_em_notas: number | string; reservado_em_solicitacoes: number | string; material_deduzido: number | string; material_disponivel: number | string };
 type OsLinha = { chave: number; os_id: number; os_numero: string; descricao: string; valor: string; saldo: number };
 type OsCandidata = { id: number; numero_os: string | null; descricao_servico: string | null; saldo: number };
 type Parcela = { dias: string; valor: string };
@@ -127,6 +130,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   // Material incorporado a obra (07.02): sai da base do ISS e do INSS (LC 116/2003 art. 7 §2 I).
   const [materialDeducao, setMaterialDeducao] = useState("");
   const [obra, setObra] = useState<LocalObra>(OBRA_VAZIA);
+  const [materialReal, setMaterialReal] = useState<MaterialReal | null>(null);
+  const [materialSugerido, setMaterialSugerido] = useState(false);
   const [justificativa, setJustificativa] = useState("");
   const [pagamentoForma, setPagamentoForma] = useState("15");
   const [pagamentoIndicador, setPagamentoIndicador] = useState("1");
@@ -251,6 +256,25 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
 
   useEffect(() => { void carregar(); }, [carregar, versao]);
   useEffect(() => { if (!solicitacao && !municipio && municipioPadrao) setMunicipio(municipioPadrao); }, [municipioPadrao, municipio, solicitacao]);
+  // Material real da obra das OS da nota (fora a propria solicitacao, que esta sendo conferida).
+  const osIdsLinhas = useMemo(() => Array.from(new Set(linhas.map((l) => l.os_id))).sort((a, b) => a - b), [linhas]);
+  const chaveOsLinhas = osIdsLinhas.join(",");
+  useEffect(() => {
+    if (!tenantId || !empresaId || !perfil?.permite_deducao_material || !chaveOsLinhas) { setMaterialReal(null); return; }
+    let ativo = true;
+    void supabase.schema("f").rpc("fn_os_nfse_material_disponivel", {
+      p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_ids: chaveOsLinhas.split(",").map(Number), p_excluir_solicitacao: solicitacao?.id ?? null,
+    }).then(({ data }) => { if (ativo) setMaterialReal((data as MaterialReal | null) ?? null); });
+    return () => { ativo = false; };
+  }, [chaveOsLinhas, empresaId, perfil?.permite_deducao_material, solicitacao?.id, supabase, tenantId, versao]);
+  // Composicao nova: a deducao ja vem com o material real disponivel, uma vez (quem apagar o campo decide).
+  // Disponivel igual ou maior que o servico nao e sugerido: a deducao precisa ser menor que o valor da nota.
+  useEffect(() => {
+    if (solicitacao || materialSugerido || !materialReal || materialDeducao.trim()) return;
+    const disponivel = num(materialReal.material_disponivel);
+    if (disponivel > 0 && disponivel < totalLinhas) setMaterialDeducao(decimal(disponivel.toFixed(2)));
+    setMaterialSugerido(true);
+  }, [materialDeducao, materialReal, materialSugerido, solicitacao, totalLinhas]);
   // Sugestao do local da obra: o endereco do tomador, como nas NFS-e reais da WEG Tintas. So preenche o que esta vazio.
   useEffect(() => {
     if (!exigeObra || !clienteNfse) return;
@@ -343,6 +367,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       const { error } = await supabase.schema("f").rpc(tentada ? "fn_nfse_abandonar_homologacao" : "fn_solicitacao_nfe_cancelar_rascunho", { p_solicitacao_id: solicitacao.id, p_motivo: motivo });
       if (error) throw error;
       setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]);
+      setMaterialDeducao(""); setMaterialSugerido(false);
       await carregar(); await onAtualizar();
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
   }
@@ -488,6 +513,13 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         {perfil?.permite_deducao_material ? (
           <label className={label}>Material fornecido e incorporado à obra (R$), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)
             <input className={field} inputMode="decimal" value={materialDeducao} disabled={!editavel} onChange={(e) => setMaterialDeducao(e.target.value)} placeholder="0,00" />
+            {materialReal ? (
+              <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                Material real da obra {R$(num(materialReal.material_aplicado))} (produtos lançados na OS, fora os de venda) · já deduzido em NFS-e desta OS {R$(num(materialReal.material_deduzido))} · <strong>disponível {R$(num(materialReal.material_disponivel))}</strong>
+                {editavel && num(materialReal.material_disponivel) > 0 && paraNumero(materialDeducao) !== num(materialReal.material_disponivel) ? <button type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-900" onClick={() => setMaterialDeducao(decimal(num(materialReal.material_disponivel).toFixed(2)))}>Usar {R$(num(materialReal.material_disponivel))}</button> : null}
+                {editavel && (paraNumero(materialDeducao) ?? 0) > num(materialReal.material_disponivel) + 0.005 ? <span className="text-amber-300">acima do material real: a conferência bloqueia</span> : null}
+              </span>
+            ) : null}
             <span className="text-xs text-zinc-500">Só material que está dentro do valor desta NFS-e e saiu do estoque por NF-e de simples remessa para obra (CFOP 5.949/6.949, sem ICMS/IPI). Material vendido por NF-e de venda não entra aqui. O contrato precisa prever o fornecimento. IRRF e CRF, quando houver, seguem sobre o valor integral.</span>
           </label>
         ) : null}
@@ -579,10 +611,16 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <Link className={botao} href={`/faturamento/nfse/${emissao.documento_fiscal_id}`}>Detalhe</Link>
                   <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
                   {producao ? <button type="button" className={botao} disabled={ocupado} onClick={() => void enviarEmail()}>Enviar por e-mail</button> : null}
-                  {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
+                  {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); setMaterialDeducao(""); setMaterialSugerido(false); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
                   {!producao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NFS-e real (produção)</button> : null}
                 </div>
-                {!producao && producaoPronta && !producaoPronta.pronta ? <div className="text-xs text-zinc-500">Produção: {producaoPronta.motivo}</div> : null}
+                {!producao && producaoPronta && !producaoPronta.pronta ? (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                    <span>Produção: {producaoPronta.motivo}</span>
+                    {/* A liberacao e por solicitacao: o link leva o perfil e esta homologacao, como na NF-e. */}
+                    {perfil && solicitacao ? <Link href={`/faturamento/perfis?perfil=${encodeURIComponent(perfil.codigo)}&solicitacao=${encodeURIComponent(solicitacao.id)}&retorno=${encodeURIComponent(`/os/${osId}/faturar`)}`} className="rounded-md border border-emerald-800 px-2 py-1 text-emerald-100 hover:bg-emerald-950/60">Liberar {perfil.codigo} para esta nota</Link> : null}
+                  </div>
+                ) : null}
                 {podeCancelar ? (
                   <div className="flex flex-wrap items-end gap-2">
                     <label className={`${label} flex-1`}>Justificativa do cancelamento (15 a 255)<input className={field} value={justificativaCancel} onChange={(e) => setJustificativaCancel(e.target.value)} maxLength={255} /></label>

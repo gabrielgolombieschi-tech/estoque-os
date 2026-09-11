@@ -457,8 +457,19 @@ begin
   v_r := f.fn_perfil_operacao_nfse_revisar('15400000-0000-4000-8000-000000000106',
     '{"codigo_tributacao_nacional":"070201","codigo_nbs":"101024100","descricao_servico_padrao":"EXECUCAO DE INSTALACAO ELETRICA EM OBRA","local_prestacao_regra":"CLIENTE","incidencia_iss_regra":"LOCAL_PRESTACAO","tributacao_iss":1,"aliquota_iss":3,"iss_retido_regra":"SEMPRE","retencao_pcc_regra":"NUNCA","retencao_irrf_regra":"NUNCA","retencao_inss_regra":"SEMPRE","aliquota_inss":11,"permite_deducao_material":true,"cst_pis":"01","cst_cofins":"01","aliquota_pis":1.65,"aliquota_cofins":7.6,"cst_ibs_cbs":"000","cclass_trib":"000001","ibs_uf_aliquota":0.1,"ibs_mun_aliquota":0,"cbs_aliquota":0.9,"codigo_indicador_operacao":"020201"}'::jsonb,
     'Perfil 07.02 de teste conforme respostas do contador de 06/09/2026');
+  -- Material real da obra: R$ 1.200,00 de produto aplicado na OS. O item de venda (R$ 500,00) sai por NF-e e nao conta.
+  insert into public.itens (id, codigo_interno, nome, tipo, tenant_id, empresa_id, finalidade)
+  values (915490, 'MAT-OBRA-1', 'CABO PARA OBRA', 'produto', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'materia_prima');
+  insert into public.os_itens (os_id, item_id, quantidade, valor_unitario, valor_total, tenant_id, empresa_id, finalidade, baixa_estoque)
+  values (915406, 915490, 10, 120, 1200, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'componente', false),
+         (915406, 915490, 5, 100, 500, '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 'venda', false);
   v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
     '15400000-0000-4000-8000-000000000106', jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'AMPLIACAO DA REDE ELETRICA DO GALPAO 2', 'valor_servico', 3500)));
+  -- Deducao acima do material real (1.500 > 1.200) bloqueia: vale o que foi aplicado na obra, nao um percentual.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1500,"obra":{"cep":"88200-000","logradouro":"RUA DA OBRA","numero":"100","bairro":"CENTRO"}}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'valor_deducao_material' and p->>'mensagem' like '%material real da obra%R$ 1.200,00%') then
+    raise exception 'Deducao acima do material real nao bloqueou: %', v_r;
+  end if;
   -- Obra em municipio sem aliquota cadastrada (Joinville nao esta na tabela do teste) bloqueia: nada de chute.
   v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"municipio_prestacao_ibge":"4209102"}'::jsonb);
   if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'aliquota_iss' and p->>'mensagem' like '%4209102%') then
@@ -489,6 +500,11 @@ begin
      or v_serv->'obra' is distinct from v_sf.obra_dados then
     raise exception 'Local da obra gravado errado: % / %', v_sf.obra_dados, v_serv->'obra';
   end if;
+  -- Com os 1.000 reservados nesta solicitacao, sobram 200 de material para as proximas NFS-e da OS.
+  v_r := f.fn_os_nfse_material_disponivel('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', array[915406], null);
+  if (v_r->>'material_aplicado')::numeric <> 1200 or (v_r->>'reservado_em_solicitacoes')::numeric <> 1000 or (v_r->>'material_disponivel')::numeric <> 200 then
+    raise exception 'Material disponivel errado: %', v_r;
+  end if;
   -- Tijucas sem marcacao: o municipio parametriza nos dois ambientes, a aliquota nao vai na DPS (E0617).
   if v_serv->'aliquota_iss_na_dps' is distinct from '{"HOMOLOGACAO": false, "PRODUCAO": false}'::jsonb then
     raise exception 'Situacao do municipio na DPS errada: %', v_serv->'aliquota_iss_na_dps';
@@ -496,7 +512,7 @@ begin
   if v_sf.valor_deducao_material <> 1000 or (v_serv->>'valor_deducoes')::numeric <> 1000 or (v_serv->>'base_iss')::numeric <> 2500
      or (v_serv->>'valor_iss')::numeric <> 75 or v_sf.iss_retido is not true or v_serv->>'municipio_incidencia_iss' <> '4218004'
      or (v_serv->>'valor_inss')::numeric <> 275 or (v_serv->>'valor_liquido')::numeric <> 3150 or v_serv->>'codigo_indicador_operacao' <> '020201'
-     or v_serv->>'descricao_servico' not like '%MATERIAL APLICADO: R$ 1.000,00 (deduzido da base do ISS e do INSS, LC 116/2003, art. 7º, § 2º, I)%' then
+     or v_serv->>'descricao_servico' not like '%MATERIAL APLICADO: R$ 1.000,00 (28,57% do serviço), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)%' then
     raise exception 'Deducao de material errada: % / %', row_to_json(v_sf), v_serv;
   end if;
   -- A deducao vai para a emissao no preparo.
