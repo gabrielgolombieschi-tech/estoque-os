@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyBR } from "@/lib/decimal";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
+import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { resolverIbsCbsTransicao2026 } from "@/supabase/functions/_shared/fiscal/ibs-cbs-transicao-2026";
 
@@ -1796,14 +1797,41 @@ export default function OvNfeDraftsPanel({
                                     <h4 className="text-sm font-medium text-zinc-200">Parcelas (duplicatas da NF-e)</h4>
                                     <p className="text-xs text-zinc-500">Dias contados da data de emissão. Na parcela única, deixe o valor vazio para usar o total da nota. As mesmas parcelas geram o contas a receber.</p>
                                   </div>
-                                  <button type="button" className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-900" onClick={() => setOperacao({ ...operacao, pagamento_parcelas: [...operacao.pagamento_parcelas, { dias: "", valor: "" }] })}>Adicionar parcela</button>
+                                  <button
+                                    type="button"
+                                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-900"
+                                    onClick={() => {
+                                      const proximas = [...operacao.pagamento_parcelas, { dias: "", valor: "" }];
+                                      const rateio = ratearParcelas(totalConferencia, proximas.length);
+                                      setOperacao({
+                                        ...operacao,
+                                        pagamento_parcelas: proximas.map((p, i) => ({ ...p, valor: rateio[i] ?? "" })),
+                                      });
+                                    }}
+                                  >
+                                    Adicionar parcela
+                                  </button>
                                 </div>
                                 {operacao.pagamento_parcelas.map((parcela, indice) => (
                                   <div key={indice} className="grid gap-2 md:grid-cols-[auto_1fr_1fr_auto] md:items-end">
                                     <div className="text-xs text-zinc-500 md:pb-2">{String(indice + 1).padStart(3, "0")}</div>
                                     <label className={label}>Dias após a emissão<input aria-label={`Dias da parcela ${indice + 1}`} className={field} inputMode="numeric" value={parcela.dias} onChange={(event) => setOperacao({ ...operacao, pagamento_parcelas: operacao.pagamento_parcelas.map((p, i) => i === indice ? { ...p, dias: event.target.value } : p) })} placeholder="15" /></label>
                                     <label className={label}>Valor (R$)<input aria-label={`Valor da parcela ${indice + 1}`} className={field} inputMode="decimal" value={parcela.valor} onChange={(event) => setOperacao({ ...operacao, pagamento_parcelas: operacao.pagamento_parcelas.map((p, i) => i === indice ? { ...p, valor: event.target.value } : p) })} placeholder={operacao.pagamento_parcelas.length === 1 ? "vazio = total da nota" : "obrigatório"} /></label>
-                                    <button type="button" disabled={operacao.pagamento_parcelas.length === 1} className="rounded-md border border-zinc-700 px-3 py-2 text-xs hover:bg-zinc-900 disabled:opacity-40" onClick={() => setOperacao({ ...operacao, pagamento_parcelas: operacao.pagamento_parcelas.filter((_, i) => i !== indice) })}>Remover</button>
+                                    <button
+                                      type="button"
+                                      disabled={operacao.pagamento_parcelas.length === 1}
+                                      className="rounded-md border border-zinc-700 px-3 py-2 text-xs hover:bg-zinc-900 disabled:opacity-40"
+                                      onClick={() => {
+                                        const proximas = operacao.pagamento_parcelas.filter((_, i) => i !== indice);
+                                        const rateio = ratearParcelas(totalConferencia, proximas.length);
+                                        setOperacao({
+                                          ...operacao,
+                                          pagamento_parcelas: proximas.map((p, i) => ({ ...p, valor: rateio[i] ?? "" })),
+                                        });
+                                      }}
+                                    >
+                                      Remover
+                                    </button>
                                   </div>
                                 ))}
                               </div>

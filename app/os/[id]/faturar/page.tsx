@@ -1,5 +1,6 @@
 "use client";
 
+import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -907,8 +908,8 @@ export default function FaturarOsPage() {
         </div>
         {pagamentoIndicador === "1" ? (
           <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-900/30 p-3">
-            <div className="flex items-center justify-between"><div className="text-sm">Parcelas (duplicatas da NF-e e parcelas do contas a receber) · dias após a emissão</div><button type="button" className={botao} onClick={() => setParcelas((p) => [...p, { dias: "", valor: "" }])}>Adicionar parcela</button></div>
-            {parcelas.map((p, i) => <div key={i} className="grid gap-2 md:grid-cols-[auto_1fr_1fr_auto] md:items-end"><div className="text-xs text-zinc-500 md:pb-2">{String(i + 1).padStart(3, "0")}</div><label className={label}>Dias<input className={field} inputMode="numeric" value={p.dias} onChange={(e) => setParcelas((a) => a.map((x, j) => j === i ? { ...x, dias: e.target.value } : x))} /></label><label className={label}>Valor (R$)<input className={field} inputMode="decimal" value={p.valor} onChange={(e) => setParcelas((a) => a.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))} placeholder={parcelas.length === 1 ? "vazio = total" : "obrigatório"} /></label><button type="button" className={botao} disabled={parcelas.length === 1} onClick={() => setParcelas((a) => a.filter((_, j) => j !== i))}>Remover</button></div>)}
+            <div className="flex items-center justify-between"><div className="text-sm">Parcelas (duplicatas da NF-e e parcelas do contas a receber) · dias após a emissão</div><button type="button" className={botao} onClick={() => setParcelas((p) => { const proximas = [...p, { dias: "", valor: "" }]; const rateio = ratearParcelas(totalNotaPrevisto, proximas.length); return proximas.map((x, j) => ({ ...x, valor: rateio[j] ?? "" })); })}>Adicionar parcela</button></div>
+            {parcelas.map((p, i) => <div key={i} className="grid gap-2 md:grid-cols-[auto_1fr_1fr_auto] md:items-end"><div className="text-xs text-zinc-500 md:pb-2">{String(i + 1).padStart(3, "0")}</div><label className={label}>Dias<input className={field} inputMode="numeric" value={p.dias} onChange={(e) => setParcelas((a) => a.map((x, j) => j === i ? { ...x, dias: e.target.value } : x))} /></label><label className={label}>Valor (R$)<input className={field} inputMode="decimal" value={p.valor} onChange={(e) => setParcelas((a) => a.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))} placeholder={parcelas.length === 1 ? "vazio = total" : "obrigatório"} /></label><button type="button" className={botao} disabled={parcelas.length === 1} onClick={() => setParcelas((a) => { const proximas = a.filter((_, j) => j !== i); const rateio = ratearParcelas(totalNotaPrevisto, proximas.length); return proximas.map((x, j) => ({ ...x, valor: rateio[j] ?? "" })); })}>Remover</button></div>)}
           </div>
         ) : null}
         <label className={label}>Observação livre (soma às informações complementares montadas: pedido, OS e destinação)<textarea className={`${field} min-h-16`} value={observacao} onChange={(e) => setObservacao(e.target.value)} maxLength={1000} /></label>
