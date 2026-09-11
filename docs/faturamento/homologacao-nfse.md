@@ -167,9 +167,10 @@ Segunda parcela do pedido 4518572701 (R$ 175.000,00; a primeira, R$ 87.500,00, �
 | 2/20 | E0370: grupo de informações de obra obrigatório no 07.02.01 | "Local da obra" na conferência (CNO ou endereço; sugere o do tomador, como as NFS-e reais da WEG Tintas), gravado em `solicitacao_faturamento.obra_dados` e enviado como `cep_obra`/`logradouro_obra`/`numero_obra`/`complemento_obra`/`bairro_obra` ou `codigo_obra` (migration `20260911200000`) |
 | 2/21 | E0316: NBS 101024100 inexistente na tabela do ambiente nacional | Perfil re-revisado com NBS 1.0102.69.00 (`scripts/nfse-perfil-revisar.mjs`), o das NFS-e 07.02 reais autorizadas para a WEG Tintas (12 a 15 e 47) |
 | 2/22 | E0619: alíquota obrigatória, município de incidência não está ATIVO | Guaramirim está inativo só na homologação: em produção as NFS-e 12 e 47 saíram sem `pAliq`. `f.nfse_aliquota_iss.informar_na_dps_homologacao/_producao`; o montador manda `percentual_aliquota_relativa_municipio` só no ambiente marcado, e a comparação produção × homologação aceita essa diferença (migration `20260911210000`) |
-| 2/23 | **autorizada** (NFS-e 11 de homologação), chave 42091022213671448000189000000000001126094192496270 | — |
+| 2/23 | autorizada (NFS-e 11 de homologação, material de 50%); **cancelada** no mesmo dia para refazer com o material real | — |
+| 2/24 | **autorizada** (NFS-e 12 de homologação), chave 42091022213671448000189000000000001226090401083976 | material real da obra: R$ 565,28 (0,76%) |
 
-Valores autorizados: bruto 74.038,36 · material 37.019,18 · ISS 2% 740,38 retido · INSS 11% 4.072,11 · líquido 69.225,87 em 28 dias · obra RODOVIA BR 280, 6918, KM 50 BLOCO A, CAIXA D AGUA, CEP 89272-554. Após a homologação, a OS 139 fica com R$ 13.461,64 de saldo (Documentações).
+Valores da NFS-e 12: bruto 74.038,36 · material 565,28 (0,76% do serviço) · ISS 2% 1.469,46 retido · INSS 11% 8.082,04 · líquido 64.486,86 em 28 dias · obra RODOVIA BR 280, 6918, KM 50 BLOCO A, CAIXA D AGUA, CEP 89272-554. A NFS-e 11 tinha 50% de material (37.019,18; líquido 69.225,87). Após a homologação, a OS 139 fica com R$ 13.461,64 de saldo (Documentações).
 
 Antes da produção, com o contador: NBS 1.0102.69.00 no lugar do 1.0102.41.00 respondido em 06/09; alíquota de 2% em Guaramirim pela lei municipal; material de 50% com a remessa que o comprova. A produção exige ainda liberar o perfil 07.02 para esta homologação (link "Liberar SEG-NFSE-0702 para esta nota" na tela da OS).
 
