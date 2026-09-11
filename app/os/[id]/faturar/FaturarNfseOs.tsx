@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { formatMoneyBR } from "@/lib/decimal";
+import { codigoTributacaoExigeObra } from "@/supabase/functions/_shared/fiscal/nfse-obra";
 
 /**
  * Faturar OS: NFS-e Padrao Nacional (Focus) em HOMOLOGACAO.
@@ -32,11 +33,14 @@ export type PerfilServico = {
   permite_deducao_material?: boolean | null;
 };
 type Fixture = { item_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; descricao_servico_padrao: string; local_prestacao_regra: string; aliquota_iss: number | string | null; iss_retido_regra: string; retencao_pcc_regra: string; retencao_irrf_regra: string; retencao_inss_regra: string; aliquota_pcc: number | string | null; aliquota_irrf: number | string | null; aliquota_inss: number | string | null; pendencia_contador: string | null; fonte: string | null };
-type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; email_nfse: string | null; inscricao_municipal: string | null; codigo_ibge_municipio: string | null };
+type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; email_nfse: string | null; inscricao_municipal: string | null; codigo_ibge_municipio: string | null; cep: string | null; logradouro: string | null; numero_endereco: string | null; complemento: string | null; bairro: string | null };
+// Local da obra (grupo obra da DPS, E0370): CNO ou endereco. Gravado pela conferencia em obra_dados.
+type LocalObra = { codigo_obra: string; cep: string; logradouro: string; numero: string; complemento: string; bairro: string };
+const OBRA_VAZIA: LocalObra = { codigo_obra: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "" };
 type OsLinha = { chave: number; os_id: number; os_numero: string; descricao: string; valor: string; saldo: number };
 type OsCandidata = { id: number; numero_os: string | null; descricao_servico: string | null; saldo: number };
 type Parcela = { dias: string; valor: string };
-type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; operacao_snapshot: { servico?: Record<string, unknown> } | null; substitui_documento_fiscal_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
+type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; obra_dados: Partial<Record<keyof LocalObra, string | null>> | null; operacao_snapshot: { servico?: Record<string, unknown>; tributacao_fonte?: string | null } | null; substitui_documento_fiscal_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_nfse: string | null; nfse_numero: string | null; codigo_verificacao: string | null; dps_serie: number | null; dps_numero: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null; valor_liquido: number | string | null; autorizado_em: string | null };
 type Pendencia = { entidade?: string; campo?: string; mensagem?: string; rota?: string };
 type Previa = {
@@ -44,6 +48,7 @@ type Previa = {
   municipio_incidencia_iss?: string | null; tributacao_fonte?: string | null; item_servico?: string | null;
   valor_deducoes?: number | null; base_iss?: number | null; base_inss?: number | null;
   ibs_cbs?: { base: number; ibs_uf: number; ibs_mun: number; cbs: number; total: number } | null;
+  obra?: Partial<Record<keyof LocalObra, string | null>> | null;
   tributos_aprox?: { federal_pct: number | null; municipal_pct: number | null; federal: number; municipal: number } | null;
   campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
 };
@@ -121,6 +126,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [consertoIsolado, setConsertoIsolado] = useState<boolean>(props.os?.conserto_isolado === true);
   // Material incorporado a obra (07.02): sai da base do ISS e do INSS (LC 116/2003 art. 7 §2 I).
   const [materialDeducao, setMaterialDeducao] = useState("");
+  const [obra, setObra] = useState<LocalObra>(OBRA_VAZIA);
   const [justificativa, setJustificativa] = useState("");
   const [pagamentoForma, setPagamentoForma] = useState("15");
   const [pagamentoIndicador, setPagamentoIndicador] = useState("1");
@@ -153,6 +159,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     inss: (perfilRevisado ? perfil?.retencao_inss_regra : fixture?.retencao_inss_regra) ?? "POR_TOMADOR",
     local: (perfilRevisado ? perfil?.local_prestacao_regra : fixture?.local_prestacao_regra) ?? null,
   }), [fixture, perfil, perfilRevisado]);
+  // Codigo de obra (070201 e os da lista do E0370) exige o local da obra na DPS.
+  const codigoTribNac = perfilRevisado ? perfil?.codigo_tributacao_nacional : fixture?.codigo_tributacao_nacional;
+  const exigeObra = codigoTributacaoExigeObra(codigoTribNac);
   const camposConferir = perfil?.campos_conferir ?? [];
   const totalLinhas = useMemo(() => linhas.reduce((s, l) => s + (paraNumero(l.valor) ?? 0), 0), [linhas]);
   const municipioPadrao = regras.local ? (regras.local === "SEDE" ? props.empresaIbge ?? "" : cliente?.codigo_ibge_municipio ?? "") : "";
@@ -163,7 +172,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     try {
       const [{ data: fx }, { data: cli }, { data: ef }] = await Promise.all([
         supabase.schema("f").from("tributacao_provisoria_nfse_homologacao").select("item_servico,codigo_tributacao_nacional,codigo_nbs,descricao_servico_padrao,local_prestacao_regra,aliquota_iss,iss_retido_regra,retencao_pcc_regra,retencao_irrf_regra,retencao_inss_regra,aliquota_pcc,aliquota_irrf,aliquota_inss,pendencia_contador,fonte").eq("ativo", true),
-        os.cliente_id ? supabase.from("clientes").select("id,iss_retido,retem_pcc,retem_irrf,retem_inss,email_nfse,inscricao_municipal,codigo_ibge_municipio").eq("id", os.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
+        os.cliente_id ? supabase.from("clientes").select("id,iss_retido,retem_pcc,retem_irrf,retem_inss,email_nfse,inscricao_municipal,codigo_ibge_municipio,cep,logradouro,numero_endereco,complemento,bairro").eq("id", os.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
         supabase.schema("f").rpc("fn_nfse_contexto_empresa", { p_empresa_id: empresaId }),
       ]);
       setFixtures((fx as Fixture[] | null) ?? []);
@@ -178,7 +187,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       let ativa: Solicitacao | null = null;
       let emissaoAtiva: Emissao | null = null;
       if (ids.length > 0) {
-        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,operacao_snapshot,substitui_documento_fiscal_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
+        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,obra_dados,operacao_snapshot,substitui_documento_fiscal_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
         const cands = (sols as Solicitacao[] | null) ?? [];
         if (cands.length > 0) {
           const { data: ems } = await supabase.schema("f").from("documento_fiscal_emissao").select("solicitacao_id,documento_fiscal_id,status,ambiente,chave_nfse,nfse_numero,codigo_verificacao,dps_serie,dps_numero,mensagem,codigo_status,danfe_path,xml_path,valor_liquido,autorizado_em").in("solicitacao_id", cands.map((c) => c.id)).order("created_at", { ascending: false });
@@ -202,6 +211,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setIssRetido(tri(ativa.iss_retido)); setPcc(tri(ativa.retem_pcc)); setIrrf(tri(ativa.retem_irrf)); setInss(tri(ativa.retem_inss));
         setJustificativa(ativa.retencao_justificativa ?? "");
         setMaterialDeducao(ativa.valor_deducao_material != null && num(ativa.valor_deducao_material) > 0 ? decimal(ativa.valor_deducao_material) : "");
+        const obraGravada = ativa.obra_dados ?? {};
+        setObra({ codigo_obra: obraGravada.codigo_obra ?? "", cep: obraGravada.cep ?? "", logradouro: obraGravada.logradouro ?? "", numero: obraGravada.numero ?? "", complemento: obraGravada.complemento ?? "", bairro: obraGravada.bairro ?? "" });
         if (ativa.pagamento_forma) setPagamentoForma(ativa.pagamento_forma);
         if (ativa.pagamento_indicador != null) setPagamentoIndicador(String(ativa.pagamento_indicador));
         setPagamentoDescricao(ativa.pagamento_descricao ?? "");
@@ -212,7 +223,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         const serv = ativa.operacao_snapshot?.servico as Previa | undefined;
         // As parcelas ficam no bloco pagamento do snapshot; a previa recarregada precisa delas.
         const parcelasSnapshot = Array.isArray(ativa.pagamento_parcelas) ? ativa.pagamento_parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias ?? 0), valor: p.valor == null ? null : num(p.valor) })) : null;
-        setPrevia(serv && serv.valor_bruto != null ? { ...serv, parcelas: serv.parcelas ?? parcelasSnapshot } : null);
+        // A fonte da tributacao fica no topo do snapshot, fora do servico: sem ela a previa recarregada dizia "fixture" em perfil revisado.
+        setPrevia(serv && serv.valor_bruto != null ? { ...serv, parcelas: serv.parcelas ?? parcelasSnapshot, tributacao_fonte: serv.tributacao_fonte ?? ativa.operacao_snapshot?.tributacao_fonte ?? null } : null);
         const { data: its } = await supabase.schema("f").from("solicitacao_item").select("origem_id,descricao_servico,valor_servico,ordem").eq("solicitacao_id", ativa.id).order("ordem");
         const rows = (its as Array<{ origem_id: string; descricao_servico: string | null; valor_servico: number | string | null; ordem: number }> | null) ?? [];
         setLinhas(rows.map((r, i) => ({ chave: i + 1, os_id: Number(r.origem_id), os_numero: r.origem_id === String(osId) ? (os.numero_os ?? String(os.id)) : r.origem_id, descricao: r.descricao_servico ?? "", valor: decimal(num(r.valor_servico).toFixed(2)), saldo: 0 })));
@@ -239,6 +251,14 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
 
   useEffect(() => { void carregar(); }, [carregar, versao]);
   useEffect(() => { if (!solicitacao && !municipio && municipioPadrao) setMunicipio(municipioPadrao); }, [municipioPadrao, municipio, solicitacao]);
+  // Sugestao do local da obra: o endereco do tomador, como nas NFS-e reais da WEG Tintas. So preenche o que esta vazio.
+  useEffect(() => {
+    if (!exigeObra || !clienteNfse) return;
+    setObra((atual) => Object.values(atual).some((v) => v.trim()) ? atual : {
+      codigo_obra: "", cep: clienteNfse.cep ?? "", logradouro: clienteNfse.logradouro ?? "", numero: clienteNfse.numero_endereco ?? "",
+      complemento: (clienteNfse.complemento ?? "").replace(/\s+/g, " ").trim(), bairro: clienteNfse.bairro ?? "",
+    });
+  }, [clienteNfse, exigeObra]);
   useEffect(() => {
     if (!emissao || !["ENVIANDO", "PROCESSANDO"].includes(emissao.status)) return;
     const timer = window.setInterval(() => void carregar(), 5000);
@@ -253,6 +273,10 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       iss_retido: deTri(issRetido), retem_pcc: deTri(pcc), retem_irrf: deTri(irrf), retem_inss: deTri(inss),
       conserto_isolado: consertoIsolado,
       valor_deducao_material: perfil?.permite_deducao_material ? (paraNumero(materialDeducao) ?? 0) : 0,
+      obra: exigeObra ? {
+        codigo_obra: obra.codigo_obra.trim() || null, cep: obra.cep.replace(/\D/g, ""), logradouro: obra.logradouro.trim(),
+        numero: obra.numero.trim(), complemento: obra.complemento.trim() || null, bairro: obra.bairro.trim(),
+      } : null,
       retencao_justificativa: justificativa.trim() || null,
       pagamento_forma: pagamentoForma, pagamento_indicador: Number(pagamentoIndicador), pagamento_descricao: pagamentoDescricao || null,
       pagamento_parcelas: pagamentoIndicador === "1" ? parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias.trim()), valor: p.valor.trim() ? paraNumero(p.valor) : null })) : null,
@@ -467,6 +491,19 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             <span className="text-xs text-zinc-500">Só material que está dentro do valor desta NFS-e e saiu do estoque por NF-e de simples remessa para obra (CFOP 5.949/6.949, sem ICMS/IPI). Material vendido por NF-e de venda não entra aqui. O contrato precisa prever o fornecimento. IRRF e CRF, quando houver, seguem sobre o valor integral.</span>
           </label>
         ) : null}
+        {exigeObra ? (
+          <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-900/30 p-3">
+            <div className="text-sm">Local da obra <span className="text-xs text-zinc-400">— obrigatório no código {codigoTribNac} (grupo obra da DPS; sem ele o ambiente nacional recusa com E0370). Sugerido: endereço do tomador. Com CNO, o endereço não vai.</span></div>
+            <div className="grid gap-3 md:grid-cols-6">
+              <label className={label}>CNO da obra (opcional)<input className={field} value={obra.codigo_obra} disabled={!editavel} maxLength={30} onChange={(e) => setObra((o) => ({ ...o, codigo_obra: e.target.value }))} /></label>
+              <label className={label}>CEP da obra<input className={field} inputMode="numeric" value={obra.cep} disabled={!editavel} onChange={(e) => setObra((o) => ({ ...o, cep: e.target.value.replace(/\D/g, "").slice(0, 8) }))} /></label>
+              <label className={`${label} md:col-span-2`}>Logradouro da obra<input className={field} value={obra.logradouro} disabled={!editavel} maxLength={255} onChange={(e) => setObra((o) => ({ ...o, logradouro: e.target.value }))} /></label>
+              <label className={label}>Número da obra<input className={field} value={obra.numero} disabled={!editavel} maxLength={60} onChange={(e) => setObra((o) => ({ ...o, numero: e.target.value }))} /></label>
+              <label className={label}>Bairro da obra<input className={field} value={obra.bairro} disabled={!editavel} maxLength={60} onChange={(e) => setObra((o) => ({ ...o, bairro: e.target.value }))} /></label>
+              <label className={`${label} md:col-span-3`}>Complemento da obra<input className={field} value={obra.complemento} disabled={!editavel} maxLength={156} onChange={(e) => setObra((o) => ({ ...o, complemento: e.target.value }))} /></label>
+            </div>
+          </div>
+        ) : null}
         {perfil?.excecao_conserto_isolado || perfil?.item_servico === "14.01" ? (
           <label className="flex items-start gap-2 text-sm text-zinc-200">
             <input type="checkbox" className="mt-1" checked={consertoIsolado} disabled={!editavel} onChange={(e) => setConsertoIsolado(e.target.checked)} />
@@ -512,6 +549,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             </div>
             {previa.parcelas && previa.parcelas.length > 0 ? <div className="text-xs text-zinc-400">Parcelas do líquido: {previa.parcelas.map((p) => `${p.numero} · ${p.dias} dias · ${p.valor != null ? R$(num(p.valor)) : R$(num(previa.valor_liquido))}`).join(" | ")}</div> : <div className="text-xs text-zinc-400">Pagamento à vista.</div>}
             <div className="text-xs text-zinc-400">cTribNac {previa.codigo_tributacao_nacional}{previa.codigo_nbs ? ` · NBS ${previa.codigo_nbs}` : ""} · prestação em {previa.municipio_prestacao_ibge}{previa.municipio_incidencia_iss ? ` · ISS incide em ${previa.municipio_incidencia_iss}` : ""} · competência {previa.data_competencia}</div>
+            {previa.obra ? <div className="text-xs text-zinc-400">Obra: {previa.obra.codigo_obra ? `CNO ${previa.obra.codigo_obra}` : `${previa.obra.logradouro ?? ""}, ${previa.obra.numero ?? ""}${previa.obra.complemento ? ` · ${previa.obra.complemento}` : ""} · ${previa.obra.bairro ?? ""} · CEP ${previa.obra.cep ?? ""}`}</div> : null}
             {num(previa.valor_deducoes) > 0 ? <div className="text-xs text-zinc-400">Material deduzido {R$(num(previa.valor_deducoes))} · base do ISS e do INSS {R$(num(previa.base_iss))} (LC 116/2003, art. 7º, § 2º, I)</div> : null}
             {previa.ibs_cbs ? <div className="text-xs text-zinc-400">IBS/CBS (base = serviço − ISS {R$(num(previa.ibs_cbs.base))}): IBS UF {R$(num(previa.ibs_cbs.ibs_uf))} · IBS mun {R$(num(previa.ibs_cbs.ibs_mun))} · CBS {R$(num(previa.ibs_cbs.cbs))} · total {R$(num(previa.ibs_cbs.total))} (informativo em 2026; calculado pelo ambiente nacional)</div> : null}
             {previa.tributos_aprox ? <div className="text-xs text-zinc-400">Tributos aproximados (Lei 12.741, tabela por subitem): federal {decimal(previa.tributos_aprox.federal_pct) || "?"}% {R$(num(previa.tributos_aprox.federal))} · municipal {decimal(previa.tributos_aprox.municipal_pct) || "?"}% {R$(num(previa.tributos_aprox.municipal))}</div> : null}
@@ -538,7 +576,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" className={botao} disabled={!emissao.danfe_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "DANFE")}>DANFSe</button>
                   <button type="button" className={botao} disabled={!emissao.xml_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "XML")}>XML</button>
-                  <Link className={botao} href={`/faturamento/nfe/${emissao.documento_fiscal_id}`}>Detalhe</Link>
+                  <Link className={botao} href={`/faturamento/nfse/${emissao.documento_fiscal_id}`}>Detalhe</Link>
                   <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
                   {producao ? <button type="button" className={botao} disabled={ocupado} onClick={() => void enviarEmail()}>Enviar por e-mail</button> : null}
                   {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setNovaNota(true); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}

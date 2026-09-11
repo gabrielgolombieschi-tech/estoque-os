@@ -1,4 +1,5 @@
 import { dataHoraNfeSaoPaulo } from "./nfe-payload.ts";
+import { codigoTributacaoExigeObra } from "./fiscal/nfse-obra.ts";
 
 /**
  * Payload da NFS-e Padrao Nacional (Focus, POST /v2/nfsen) a partir do
@@ -98,6 +99,35 @@ export function calcularIbsCbsNfse(params: { valorServico: number; valorIss: num
   return { base, ibsUf, ibsMun, cbs, total: round(ibsUf + ibsMun + cbs) };
 }
 
+/**
+ * Grupo obra da DPS a partir do local gravado na conferencia (servico.obra). O CNO, quando
+ * existe, identifica a obra sozinho; senao vai o endereco — como nas NFS-e reais da WEG Tintas,
+ * que levam o da fabrica de Guaramirim. Campos da Focus: codigo_obra; cep_obra (inteiro),
+ * logradouro_obra, numero_obra, complemento_obra, bairro_obra.
+ */
+export function grupoObraNfse(servico: Record<string, unknown>, codigoTribNac: string): JsonObject {
+  if (!codigoTributacaoExigeObra(codigoTribNac)) return {};
+  const obra = (servico.obra && typeof servico.obra === "object" && !Array.isArray(servico.obra)) ? servico.obra as JsonObject : null;
+  const falta = `NFS-e incompleta: local da obra (conferencia) — obrigatorio no codigo de tributacao ${codigoTribNac} (E0370).`;
+  if (!obra) throw new Error(falta);
+  const cno = text(obra.codigo_obra);
+  if (cno) return { codigo_obra: cno.slice(0, 30) };
+  const cep = digits(obra.cep);
+  const logradouro = text(obra.logradouro);
+  const numero = text(obra.numero);
+  const bairro = text(obra.bairro);
+  if (cep.length !== 8 || !logradouro || !numero || !bairro) throw new Error(falta);
+  const grupo: JsonObject = {
+    cep_obra: Number(cep),
+    logradouro_obra: logradouro.slice(0, 255),
+    numero_obra: numero.slice(0, 60),
+    bairro_obra: bairro.slice(0, 60),
+  };
+  const complemento = text(obra.complemento);
+  if (complemento) grupo.complemento_obra = complemento.slice(0, 156);
+  return grupo;
+}
+
 // tpRetPisCofins: 0 nada retido; 3 PIS/COFINS/CSLL retidos.
 export function tipoRetencaoPisCofins(retemPcc: boolean) {
   return retemPcc ? 3 : 0;
@@ -195,6 +225,7 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
 
     codigo_municipio_prestacao: municipioPrestacao,
     codigo_tributacao_nacional_iss: codigoTribNac,
+    ...grupoObraNfse(servico, codigoTribNac),
     descricao_servico: descricao,
     codigo_interno_contribuinte: codigoInterno,
     valor_servico: valorServico,
@@ -249,6 +280,14 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
   const telefoneTomador = digits(tomador.telefone);
   if (telefoneTomador.length >= 6) payload.telefone_tomador = telefoneTomador;
 
+  // Aliquota do ISS (pAliq) so onde o municipio de incidencia nao esta ATIVO no ambiente da emissao
+  // (E0619); onde esta, o ambiente parametriza e recusa a informada (E0617). A situacao vem de
+  // f.nfse_aliquota_iss pela conferencia. Guaramirim: inativo na homologacao, ativo na producao.
+  const aliquotaNaDps = servico.aliquota_iss_na_dps && typeof servico.aliquota_iss_na_dps === "object" && !Array.isArray(servico.aliquota_iss_na_dps)
+    ? (servico.aliquota_iss_na_dps as JsonObject)[ambiente] === true
+    : false;
+  if (aliquotaNaDps) payload.percentual_aliquota_relativa_municipio = round(requiredNumber(servico.aliquota_iss, "aliquota_iss", "f.nfse_aliquota_iss"));
+
   const codigoTribMun = text(servico.codigo_tributacao_municipal);
   if (codigoTribMun) payload.codigo_tributacao_municipal_iss = codigoTribMun;
   const nbs = digits(servico.codigo_nbs);
@@ -285,14 +324,17 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
 
 /**
  * Producao so sai igual a homologacao autorizada. Diferencas aceitas: data de
- * emissao, numero da DPS, nome do tomador (homologacao usa o texto da SEFAZ)
- * e informacoes complementares (que carregam o aviso de homologacao).
+ * emissao, numero da DPS, nome do tomador (homologacao usa o texto da SEFAZ),
+ * informacoes complementares (que carregam o aviso de homologacao) e a
+ * presenca da aliquota do ISS, que depende da situacao do municipio em cada
+ * ambiente (Guaramirim: inativo na homologacao, ativo na producao).
  */
 export function validarPayloadNfseProducaoContraHomologacao(payloadHomologacao: unknown, payloadProducao: unknown) {
   const limpar = (value: unknown, label: string) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`Emissao em producao bloqueada: ${label} nao e um objeto JSON.`);
     const copia = { ...(value as JsonObject) };
     delete copia.data_emissao; delete copia.numero_dps; delete copia.razao_social_tomador; delete copia.informacoes_complementares;
+    delete copia.percentual_aliquota_relativa_municipio;
     return JSON.stringify(Object.fromEntries(Object.entries(copia).sort(([a], [b]) => a.localeCompare(b))));
   };
   const hom = limpar(payloadHomologacao, "payload de homologacao");

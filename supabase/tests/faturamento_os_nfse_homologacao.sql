@@ -469,11 +469,30 @@ begin
   if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'valor_deducao_material') then
     raise exception 'Material igual ao servico nao bloqueou: %', v_r;
   end if;
-  -- 3.500 de servico com 1.000 de material: ISS 3% sobre 2.500 = 75 (retido, obra em Tijucas); INSS 11% sobre 2.500 = 275; liquido 3.150.
+  -- Sem o local da obra, o 070201 bloqueia antes de gastar DPS (E0370 do ambiente nacional, OS 139, 11/09/2026).
   v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1000}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'obra' and p->>'mensagem' like '%E0370%') then
+    raise exception 'Obra sem local nao bloqueou: %', v_r;
+  end if;
+  -- Endereco incompleto (sem bairro) tambem bloqueia.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1000,"obra":{"cep":"88200-000","logradouro":"RUA DA OBRA","numero":"100"}}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'obra') then
+    raise exception 'Obra com endereco incompleto nao bloqueou: %', v_r;
+  end if;
+  -- 3.500 de servico com 1.000 de material: ISS 3% sobre 2.500 = 75 (retido, obra em Tijucas); INSS 11% sobre 2.500 = 275; liquido 3.150.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1000,"obra":{"cep":"88200-000","logradouro":"RUA DA OBRA","numero":"100","complemento":"","bairro":"CENTRO"}}'::jsonb);
   if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia da obra devolveu pendencias: %', v_r; end if;
   select * into v_sf from f.solicitacao_faturamento where id = v_sol;
   v_serv := v_sf.operacao_snapshot->'servico';
+  -- O local vai para a solicitacao e para o snapshot, com o CEP so em digitos e sem complemento vazio.
+  if v_sf.obra_dados is distinct from '{"cep":"88200000","logradouro":"RUA DA OBRA","numero":"100","complemento":null,"bairro":"CENTRO"}'::jsonb
+     or v_serv->'obra' is distinct from v_sf.obra_dados then
+    raise exception 'Local da obra gravado errado: % / %', v_sf.obra_dados, v_serv->'obra';
+  end if;
+  -- Tijucas sem marcacao: o municipio parametriza nos dois ambientes, a aliquota nao vai na DPS (E0617).
+  if v_serv->'aliquota_iss_na_dps' is distinct from '{"HOMOLOGACAO": false, "PRODUCAO": false}'::jsonb then
+    raise exception 'Situacao do municipio na DPS errada: %', v_serv->'aliquota_iss_na_dps';
+  end if;
   if v_sf.valor_deducao_material <> 1000 or (v_serv->>'valor_deducoes')::numeric <> 1000 or (v_serv->>'base_iss')::numeric <> 2500
      or (v_serv->>'valor_iss')::numeric <> 75 or v_sf.iss_retido is not true or v_serv->>'municipio_incidencia_iss' <> '4218004'
      or (v_serv->>'valor_inss')::numeric <> 275 or (v_serv->>'valor_liquido')::numeric <> 3150 or v_serv->>'codigo_indicador_operacao' <> '020201'

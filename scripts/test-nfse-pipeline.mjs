@@ -204,8 +204,10 @@ cenario("cIndOp: perfil revisado sem cIndOp nao emite; fixture usa o provisorio 
   assert.equal(p.valor_total_tributos_estaduais, 0);
 });
 
+const LOCAL_OBRA_WEG = { cep: "89272554", logradouro: "RODOVIA BR 280", numero: "6918", complemento: "KM 50 BLOCO A", bairro: "CAIXA D AGUA - URBANO" };
+
 cenario("obra (07.02): material deduzido vai como valor_deducao_servico; sem material o campo nao vai", () => {
-  const obra = montarPayloadNfse(contexto({ servico: { item_servico: "07.02", codigo_tributacao_nacional: "070201", codigo_nbs: "101024100", valor_bruto: 3500, valor_deducoes: 1000, valor_iss: 75, iss_retido: true, retem_inss: true, valor_inss: 275, valor_liquido: 3150, codigo_indicador_operacao: "020201", tributacao_fonte: "PERFIL" } }), agora);
+  const obra = montarPayloadNfse(contexto({ servico: { item_servico: "07.02", codigo_tributacao_nacional: "070201", codigo_nbs: "101024100", valor_bruto: 3500, valor_deducoes: 1000, valor_iss: 75, iss_retido: true, retem_inss: true, valor_inss: 275, valor_liquido: 3150, codigo_indicador_operacao: "020201", tributacao_fonte: "PERFIL", obra: LOCAL_OBRA_WEG } }), agora);
   assert.equal(obra.valor_servico, 3500);
   assert.equal(obra.valor_deducao_servico, 1000);
   assert.equal(obra.valor_cp, 275);
@@ -213,6 +215,40 @@ cenario("obra (07.02): material deduzido vai como valor_deducao_servico; sem mat
   assert.equal(obra.codigo_indicador_operacao, "020201");
   assert.equal("valor_deducao_servico" in montarPayloadNfse(contexto(), agora), false);
   assert.throws(() => montarPayloadNfse(contexto({ servico: { valor_bruto: 1000, valor_deducoes: 1000 } }), agora), /menor que valor_servico/);
+});
+
+cenario("obra (070201): grupo obra da DPS pelo endereco, CNO no lugar do endereco, e trava sem local (E0370)", () => {
+  const servicoObra = { item_servico: "07.02", codigo_tributacao_nacional: "070201", codigo_nbs: "101024100", codigo_indicador_operacao: "020201", tributacao_fonte: "PERFIL" };
+  // Endereco, como nas NFS-e reais da WEG Tintas (fabrica de Guaramirim).
+  const porEndereco = montarPayloadNfse(contexto({ servico: { ...servicoObra, obra: LOCAL_OBRA_WEG } }), agora);
+  assert.equal(porEndereco.cep_obra, 89272554, "cep_obra e inteiro na Focus");
+  assert.equal(porEndereco.logradouro_obra, "RODOVIA BR 280");
+  assert.equal(porEndereco.numero_obra, "6918");
+  assert.equal(porEndereco.complemento_obra, "KM 50 BLOCO A");
+  assert.equal(porEndereco.bairro_obra, "CAIXA D AGUA - URBANO");
+  assert.equal(porEndereco.codigo_obra, undefined);
+  // Complemento vazio nao vai.
+  assert.equal("complemento_obra" in montarPayloadNfse(contexto({ servico: { ...servicoObra, obra: { ...LOCAL_OBRA_WEG, complemento: null } } }), agora), false);
+  // CNO identifica a obra sozinho.
+  const porCno = montarPayloadNfse(contexto({ servico: { ...servicoObra, obra: { codigo_obra: "900123456789" } } }), agora);
+  assert.equal(porCno.codigo_obra, "900123456789");
+  assert.equal(porCno.cep_obra, undefined);
+  // Sem local, ou com endereco incompleto, nao sai (a DPS 2/20 da OS 139 voltou com E0370).
+  assert.throws(() => montarPayloadNfse(contexto({ servico: servicoObra }), agora), /local da obra .*070201 \(E0370\)/);
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { ...servicoObra, obra: { ...LOCAL_OBRA_WEG, bairro: " " } } }), agora), /local da obra/);
+  // Aliquota na DPS so no ambiente em que o municipio nao esta ativo (Guaramirim: E0619 na homologacao,
+  // DPS 2/22; na producao as NFS-e 12 e 47 sairam sem pAliq). A comparacao producao x homologacao aceita.
+  const guaramirim = { ...servicoObra, obra: LOCAL_OBRA_WEG, aliquota_iss: 2, aliquota_iss_na_dps: { HOMOLOGACAO: true, PRODUCAO: false } };
+  const homGuaramirim = montarPayloadNfse(contexto({ servico: guaramirim }), agora);
+  const prodGuaramirim = montarPayloadNfse(contexto({ servico: guaramirim, emissao: { ambiente: "PRODUCAO", dps_numero: 3 } }), agora);
+  assert.equal(homGuaramirim.percentual_aliquota_relativa_municipio, 2);
+  assert.equal("percentual_aliquota_relativa_municipio" in prodGuaramirim, false);
+  validarPayloadNfseProducaoContraHomologacao(homGuaramirim, prodGuaramirim);
+  assert.equal("percentual_aliquota_relativa_municipio" in porEndereco, false, "sem marcacao, o municipio parametriza (E0617)");
+  // Codigo que nao e de obra nao leva o grupo, mesmo com local no snapshot.
+  const semObra = montarPayloadNfse(contexto({ servico: { obra: LOCAL_OBRA_WEG } }), agora);
+  assert.equal(semObra.cep_obra, undefined);
+  assert.equal(semObra.codigo_obra, undefined);
 });
 
 cenario("producao so sai igual a homologacao (menos data, DPS, nome do tomador e informacoes)", () => {

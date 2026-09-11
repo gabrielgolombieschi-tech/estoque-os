@@ -73,11 +73,14 @@ const valores = {
   },
   // 07.02 (07.02.01): obra eletrica/civil; ISS no municipio da obra, retido pelo tomador (SFS 2%, LC municipal;
   // a aliquota por municipio vem de f.nfse_aliquota_iss e obra em municipio sem linha bloqueia); INSS 11%
-  // (art. 111 da IN 2.110/2022; material discriminado abate a base); sem IRRF/CRF; NBS 1.0102.41.00;
-  // cIndOp 020201 (bem imovel). Sai de BLOQUEADO em 06/09/2026 (terceira rodada do contador).
+  // (art. 111 da IN 2.110/2022; material discriminado abate a base); sem IRRF/CRF; cIndOp 020201 (bem imovel).
+  // Sai de BLOQUEADO em 06/09/2026 (terceira rodada do contador).
+  // NBS: o 1.0102.41.00 do contador nao existe na tabela do ambiente nacional (E0316, DPS 2/21 da OS 139,
+  // 11/09/2026). Vale o 1.0102.69.00 das NFS-e 07.02 reais autorizadas para a WEG Tintas (12 a 15 de 03/08 e
+  // 47 de 04/09/2026); confirmar com o contador antes da producao.
   "SEG-NFSE-0702": {
     ...comum,
-    codigo_tributacao_nacional: "070201", codigo_nbs: "101024100", descricao_servico_padrao: "EXECUCAO DE INSTALACAO ELETRICA EM OBRA",
+    codigo_tributacao_nacional: "070201", codigo_nbs: "101026900", descricao_servico_padrao: "EXECUCAO DE INSTALACAO ELETRICA EM OBRA",
     local_prestacao_regra: "CLIENTE", incidencia_iss_regra: "LOCAL_PRESTACAO", aliquota_iss: 2.0,
     iss_retido_regra: "SEMPRE", retencao_pcc_regra: "NUNCA", retencao_irrf_regra: "NUNCA", retencao_inss_regra: "SEMPRE", aliquota_inss: 11,
     permite_deducao_material: true,
