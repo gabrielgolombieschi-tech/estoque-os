@@ -517,7 +517,7 @@ begin
   if v_sf.valor_deducao_material <> 1000 or (v_serv->>'valor_deducoes')::numeric <> 1000 or (v_serv->>'base_iss')::numeric <> 2500
      or (v_serv->>'valor_iss')::numeric <> 75 or v_sf.iss_retido is not true or v_serv->>'municipio_incidencia_iss' <> '4218004'
      or (v_serv->>'valor_inss')::numeric <> 275 or (v_serv->>'valor_liquido')::numeric <> 3150 or v_serv->>'codigo_indicador_operacao' <> '020201'
-     or v_serv->>'descricao_servico' not like '%MATERIAL APLICADO: R$ 1.000,00 (28,57% do serviço), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)%' then
+     or v_serv->>'descricao_servico' not like '%MATERIAL APLICADO: R$ 1.000,00 (28,57% de Material), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)%' then
     raise exception 'Deducao de material errada: % / %', row_to_json(v_sf), v_serv;
   end if;
   -- A deducao vai para a emissao no preparo.
