@@ -1,4 +1,5 @@
 import { applyTenantEmpresa } from "@/lib/db/scopes";
+import { n } from "@/lib/comercial/utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getOrcamentoStatusFilterValues } from "@/lib/comercial/status";
@@ -581,6 +582,28 @@ export async function reabrirOrcamento(
   await updateOrcamento(supabase, { ...params, patch: { status: "ANDAMENTO" } });
 }
 
+// A listagem resumida não traz a OC. Ler ao abrir o fechamento evita perder um
+// pedido já salvo, inclusive quando ele foi informado diretamente na OS/OV.
+export async function getPedidoCompraOrcamento(
+  supabase: SupabaseClient,
+  params: { tenantId: string; empresaId: string; id: string }
+): Promise<string | null> {
+  const { data, error } = await supabase.schema("m").from("orcamento")
+    .select("pedido_compra_cliente,os_id").eq("id", params.id).is("deleted_at", null)
+    .eq("tenant_id", params.tenantId).eq("empresa_id", params.empresaId)
+    .single<{ pedido_compra_cliente: string | null; os_id: number | null }>();
+  if (error) throw error;
+  if (data.os_id) {
+    const { data: documento, error: documentoError } = await supabase.from("ordens_servico")
+      .select("pedido_compra").eq("id", data.os_id)
+      .eq("tenant_id", params.tenantId).eq("empresa_id", params.empresaId)
+      .maybeSingle<{ pedido_compra: string | null }>();
+    if (documentoError) throw documentoError;
+    if (documento?.pedido_compra?.trim()) return documento.pedido_compra.trim();
+  }
+  return trimToNull(data.pedido_compra_cliente);
+}
+
 export async function atualizarStatusOrcamento(
   supabase: SupabaseClient,
   params: {
@@ -590,6 +613,7 @@ export async function atualizarStatusOrcamento(
     status: OrcamentoStatusCanonical;
     followup: string;
     valorFechado?: number | null;
+    pedidoCompraCliente?: string | null;
     abrirOs?: boolean;
     importarItensOs?: boolean;
     responsavelAprovacaoId?: string | null;
@@ -603,11 +627,14 @@ export async function atualizarStatusOrcamento(
   descontoValor: number;
   itensImportados: boolean;
 }> {
-  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_atualizar_status_com_responsavel", {
+  const { data, error } = await supabase.schema("m").rpc("fn_orcamento_atualizar_status_com_pedido", {
+    p_tenant_id: params.tenantId,
+    p_empresa_id: params.empresaId,
     p_orcamento_id: params.id,
     p_status: params.status,
     p_followup: params.followup,
     p_valor_fechado: params.status === "FECHADO" ? params.valorFechado ?? null : null,
+    p_pedido_compra_cliente: params.status === "FECHADO" ? trimToNull(params.pedidoCompraCliente) : null,
     p_abrir_os: params.abrirOs ?? false,
     p_importar_itens_os: params.importarItensOs ?? false,
     p_responsavel_aprovacao_id: params.responsavelAprovacaoId ?? null,
@@ -894,7 +921,7 @@ export type OrcamentoGrupoCliente = {
  */
 export async function listOrcamentosAgrupadoCliente(
   supabase: SupabaseClient,
-  filters: { tenantId: string; empresaId: string; q?: string; status?: OrcamentoStatus | "TODOS" }
+  filters: { tenantId: string; empresaId: string; q?: string; status?: OrcamentoStatus | "TODOS"; from?: string; to?: string }
 ): Promise<OrcamentoGrupoCliente[]> {
   const status = filters.status ?? "TODOS";
   const statusValues = status === "TODOS" ? null : getOrcamentoStatusFilterValues(status);
@@ -905,7 +932,27 @@ export async function listOrcamentosAgrupadoCliente(
     p_busca: trimToNull(filters.q),
   });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []) as OrcamentoGrupoCliente[];
+  const grupos = (Array.isArray(data) ? data : []) as OrcamentoGrupoCliente[];
+  if (!filters.from && !filters.to) return grupos;
+
+  // A RPC agregada ainda não recebe datas. Recalcular com as linhas completas
+  // de cada cliente mantém os totais do período, sem somar apenas uma página.
+  const filtrados: OrcamentoGrupoCliente[] = [];
+  for (let index = 0; index < grupos.length; index += 4) {
+    const lote = await Promise.all(grupos.slice(index, index + 4).map(async (grupo) => {
+      const linhas = await listOrcamentosDoCliente(supabase, { ...filters, clienteId: grupo.cliente_id });
+      return {
+        ...grupo,
+        quantidade_orcamentos: linhas.length,
+        quantidade_itens: linhas.reduce((total, linha) => total + n(linha.itens), 0),
+        valor_total: linhas.reduce((total, linha) => total + n(linha.total_liquido), 0),
+        ultima_emissao: linhas[0]?.emissao_date ?? null,
+        vendedores: [...new Set(linhas.map((linha) => linha.vendedor_nome).filter((nome): nome is string => Boolean(nome)))],
+      };
+    }));
+    filtrados.push(...lote.filter((grupo) => grupo.quantidade_orcamentos > 0));
+  }
+  return filtrados;
 }
 
 /** Orcamentos de um cliente, carregados quando o cartao dele e aberto. */
@@ -917,8 +964,10 @@ export async function listOrcamentosDoCliente(
     clienteId: number | null;
     q?: string;
     status?: OrcamentoStatus | "TODOS";
+    from?: string;
+    to?: string;
   }
-): Promise<OrcamentoListaRow[]> {
+): Promise<Array<OrcamentoListaRow & { itens?: number }>> {
   const status = filters.status ?? "TODOS";
   const statusValues = status === "TODOS" ? null : getOrcamentoStatusFilterValues(status);
   const { data, error } = await supabase.schema("m").rpc("fn_orcamento_do_cliente", {
@@ -929,5 +978,9 @@ export async function listOrcamentosDoCliente(
     p_busca: trimToNull(filters.q),
   });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []) as OrcamentoListaRow[];
+  const linhas = (Array.isArray(data) ? data : []) as Array<OrcamentoListaRow & { itens?: number }>;
+  return linhas.filter((linha) =>
+    (!filters.from || linha.emissao_date >= filters.from) &&
+    (!filters.to || linha.emissao_date <= filters.to)
+  );
 }

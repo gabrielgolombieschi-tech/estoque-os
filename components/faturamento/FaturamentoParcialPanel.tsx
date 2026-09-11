@@ -510,80 +510,22 @@ type SaldoOs = {
   usa_relatorio_hh: boolean;
 };
 
-type ProdutoBusca = {
-  id: number;
-  codigo: string | null;
-  nome: string;
-  unidade: string | null;
-  valor_unitario: number | string;
-};
-
-type LinhaOs = {
-  chave: number;
-  descricao: string;
-  quantidade: string;
-  unidade: string;
-  valorUnitario: string;
-  itemId: number | null;
-  produto: string | null;
-  busca: string;
-  buscando: boolean;
-  resultados: ProdutoBusca[];
-};
-
-function parseNumeroBR(value: string) {
-  const trimmed = value.trim();
-  const normalized = trimmed.includes(",")
-    ? trimmed.replace(/\./g, "").replace(",", ".")
-    : trimmed;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : Number.NaN;
-}
-
-function valorInput(value: unknown) {
-  return numero(value).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function novaLinhaOs(chave: number, descricao = ""): LinhaOs {
-  return {
-    chave,
-    descricao,
-    quantidade: "1",
-    unidade: "UN",
-    valorUnitario: "0,00",
-    itemId: null,
-    produto: null,
-    busca: "",
-    buscando: false,
-    resultados: [],
-  };
-}
-
+// Painel da OS: saldo a faturar e notas da OS. A nota (NF-e ou NFS-e) sai pela tela de faturar a OS
+// (/os/<id>/faturar). Ate 11/09/2026 este painel tinha um segundo botao "Faturar" que abria uma composicao
+// de linhas livres e criava uma solicitacao FATURAMENTO_OS em rascunho, sem emitir nada — nenhuma foi criada,
+// e quem clicava achava que estava faturando. Os dois "Faturar" da pagina da OS levam agora ao mesmo lugar.
 function FaturamentoOsPanel({
   tenantId,
   empresaId,
   osId,
   codigo,
-  descricaoSugestao,
   podeCompor,
 }: Props) {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const sugestao = useMemo(
-    () => descricaoSugestao?.trim() || `Faturamento da OS ${codigo}`,
-    [codigo, descricaoSugestao]
-  );
   const [saldo, setSaldo] = useState<SaldoOs | null>(null);
   const [notas, setNotas] = useState<NotaOs[]>([]);
-  const [linhas, setLinhas] = useState<LinhaOs[]>(() => [novaLinhaOs(1, sugestao)]);
-  const [proximaChave, setProximaChave] = useState(2);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId || !Number.isInteger(osId) || osId <= 0) return;
@@ -618,142 +560,27 @@ function FaturamentoOsPanel({
     void carregar();
   }, [carregar]);
 
-  useEffect(() => {
-    setLinhas([novaLinhaOs(1, sugestao)]);
-    setProximaChave(2);
-  }, [osId, sugestao]);
-
-  const totalSolicitacao = useMemo(
-    () => linhas.reduce((total, linha) => {
-      const quantidade = parseNumeroBR(linha.quantidade);
-      const valor = parseNumeroBR(linha.valorUnitario);
-      return total + (Number.isFinite(quantidade) && Number.isFinite(valor) ? quantidade * valor : 0);
-    }, 0),
-    [linhas]
-  );
-
   const valorPedido = numero(saldo?.valor_pedido);
   const temTeto = valorPedido > EPSILON;
-  const ultrapassaSaldo = temTeto && totalSolicitacao > numero(saldo?.saldo) + 0.009;
-
-  function atualizarLinha(chave: number, patch: Partial<LinhaOs>) {
-    setError(null);
-    setLinhas((current) => current.map((linha) => linha.chave === chave ? { ...linha, ...patch } : linha));
-  }
-
-  function adicionarLinha() {
-    setLinhas((current) => [...current, novaLinhaOs(proximaChave)]);
-    setProximaChave((current) => current + 1);
-  }
-
-  function removerLinha(chave: number) {
-    setLinhas((current) => current.length === 1
-      ? [novaLinhaOs(current[0].chave, sugestao)]
-      : current.filter((linha) => linha.chave !== chave));
-  }
-
-  async function buscarProduto(chave: number) {
-    const linha = linhas.find((item) => item.chave === chave);
-    const termo = linha?.busca.trim() ?? "";
-    if (termo.length < 2) {
-      setError("Digite ao menos 2 caracteres para buscar um produto.");
-      return;
-    }
-    atualizarLinha(chave, { buscando: true, resultados: [] });
-    try {
-      const { data, error: rpcError } = await supabase.schema("f").rpc("fn_faturamento_buscar_itens", {
-        p_tenant_id: tenantId,
-        p_empresa_id: empresaId,
-        p_termo: termo,
-        p_limite: 20,
-      });
-      if (rpcError) throw rpcError;
-      atualizarLinha(chave, { buscando: false, resultados: (data ?? []) as ProdutoBusca[] });
-    } catch (cause) {
-      atualizarLinha(chave, { buscando: false });
-      setError(mensagemErro(cause));
-    }
-  }
-
-  function selecionarProduto(chave: number, produto: ProdutoBusca) {
-    atualizarLinha(chave, {
-      itemId: produto.id,
-      produto: `${produto.codigo || produto.id} · ${produto.nome}`,
-      descricao: produto.nome,
-      unidade: produto.unidade || "UN",
-      valorUnitario: valorInput(produto.valor_unitario),
-      busca: "",
-      resultados: [],
-    });
-  }
-
-  async function confirmar() {
-    setError(null);
-    setOk(null);
-    const payload = linhas.map((linha) => ({
-      descricao: linha.descricao.trim(),
-      quantidade: parseNumeroBR(linha.quantidade),
-      unidade: linha.unidade.trim().toUpperCase(),
-      valor_unitario: parseNumeroBR(linha.valorUnitario),
-      item_id: linha.itemId,
-    }));
-    const invalida = payload.findIndex((linha) =>
-      !linha.descricao
-      || !Number.isFinite(linha.quantidade)
-      || linha.quantidade <= 0
-      || !linha.unidade
-      || !Number.isFinite(linha.valor_unitario)
-      || linha.valor_unitario < 0
-    );
-    if (invalida >= 0) {
-      setError(`Revise descrição, quantidade, unidade e valor da linha ${invalida + 1}.`);
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { data, error: rpcError } = await supabase
-        .schema("f")
-        .rpc("fn_solicitacao_faturamento_criar_os_livre", {
-          p_tenant_id: tenantId,
-          p_empresa_id: empresaId,
-          p_os_id: osId,
-          p_linhas: payload,
-          p_natureza_operacao: "FATURAMENTO_OS",
-        });
-      if (rpcError) throw rpcError;
-      const solicitacaoId = String(data ?? "");
-      setOk(`Solicitação ${solicitacaoId.slice(0, 8)} criada em rascunho. Nenhuma nota foi emitida.`);
-      setOpen(false);
-      setLinhas([novaLinhaOs(1, sugestao)]);
-      setProximaChave(2);
-      await carregar();
-    } catch (cause) {
-      setError(mensagemErro(cause));
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <section className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-zinc-100">Faturamento da OS por valor</h2>
+          <h2 className="font-semibold text-zinc-100">Faturamento da OS</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            OS {codigo}: componha as linhas que devem aparecer na nota. Os materiais consumidos na OS não são copiados.
+            OS {codigo}: saldo a faturar e notas desta OS. A NF-e ou a NFS-e sai pela tela Faturar.
           </p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => void carregar()} disabled={loading || saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 disabled:opacity-50">Atualizar saldo</button>
+          <button type="button" onClick={() => void carregar()} disabled={loading} className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-900 disabled:opacity-50">Atualizar saldo</button>
           {podeCompor ? (
-            <button type="button" onClick={() => { setError(null); setOk(null); setOpen(true); }} disabled={loading || saving} className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">Faturar</button>
+            <Link href={`/os/${osId}/faturar`} className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500">Faturar</Link>
           ) : null}
         </div>
       </div>
 
-      {error && !open ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
-      {ok ? <div className="rounded-md border border-emerald-900 bg-emerald-950/30 p-3 text-sm text-emerald-300">{ok}</div> : null}
+      {error ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
 
       {loading ? <div className="py-4 text-sm text-zinc-500">Calculando valores...</div> : saldo ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -785,48 +612,10 @@ function FaturamentoOsPanel({
 
       {!loading && !temTeto ? (
         <div className="rounded-md border border-amber-900/70 bg-amber-950/20 p-3 text-sm text-amber-200">
-          Esta OS não tem orçamento/HH com valor. O sistema permite compor o faturamento, mas não consegue avisar sobre excesso.
+          Esta OS não tem orçamento/HH com valor. O sistema permite faturar, mas não consegue avisar sobre excesso.
         </div>
       ) : null}
 
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div role="dialog" aria-modal="true" aria-label={`Faturar OS ${codigo}`} className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-800 bg-zinc-950 p-4">
-              <div><h2 className="text-lg font-semibold">Compor faturamento da OS {codigo}</h2><p className="text-sm text-zinc-400">As descrições são livres e editáveis. A confirmação cria somente um rascunho.</p></div>
-              <button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900">Fechar</button>
-            </div>
-            <div className="space-y-4 p-4">
-              {error ? <div role="alert" className="rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-300">{error}</div> : null}
-              {linhas.map((linha, index) => (
-                <div key={linha.chave} className="space-y-3 rounded-lg border border-zinc-800 p-3">
-                  <div className="flex items-center justify-between gap-3"><div className="font-medium text-zinc-200">Linha {index + 1}</div><button type="button" onClick={() => removerLinha(linha.chave)} disabled={saving} className="text-xs text-red-300 hover:text-red-200">Remover</button></div>
-                  <div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input value={linha.busca} onChange={(event) => atualizarLinha(linha.chave, { busca: event.target.value })} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void buscarProduto(linha.chave); } }} placeholder="Buscar produto do cadastro (opcional)" className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm" />
-                      <button type="button" onClick={() => void buscarProduto(linha.chave)} disabled={linha.buscando || saving} className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900 disabled:opacity-50">{linha.buscando ? "Buscando..." : "Buscar produto"}</button>
-                    </div>
-                    {linha.produto ? <div className="mt-2 flex items-center justify-between rounded-md bg-zinc-900 px-3 py-2 text-xs text-zinc-300"><span>Vinculado: {linha.produto}</span><button type="button" onClick={() => atualizarLinha(linha.chave, { itemId: null, produto: null })} className="text-zinc-400 hover:text-zinc-200">Desvincular</button></div> : null}
-                    {linha.resultados.length > 0 ? <div className="mt-2 max-h-44 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900">{linha.resultados.map((produto) => <button key={produto.id} type="button" onClick={() => selecionarProduto(linha.chave, produto)} className="block w-full border-b border-zinc-800 px-3 py-2 text-left text-sm last:border-0 hover:bg-zinc-800"><span className="text-zinc-400">{produto.codigo || produto.id}</span> · {produto.nome}</button>)}</div> : null}
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-[minmax(260px,1fr)_120px_110px_150px]">
-                    <label className="text-xs text-zinc-500">Descrição na nota<input value={linha.descricao} onChange={(event) => atualizarLinha(linha.chave, { descricao: event.target.value })} className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" /></label>
-                    <label className="text-xs text-zinc-500">Quantidade<input value={linha.quantidade} onChange={(event) => atualizarLinha(linha.chave, { quantidade: event.target.value })} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
-                    <label className="text-xs text-zinc-500">Unidade<input value={linha.unidade} onChange={(event) => atualizarLinha(linha.chave, { unidade: event.target.value })} className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm uppercase text-zinc-100" /></label>
-                    <label className="text-xs text-zinc-500">Valor unitário<input value={linha.valorUnitario} onChange={(event) => atualizarLinha(linha.chave, { valorUnitario: event.target.value })} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
-                  </div>
-                </div>
-              ))}
-              <button type="button" onClick={adicionarLinha} disabled={saving} className="rounded-md border border-dashed border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">+ Adicionar linha</button>
-              {ultrapassaSaldo ? <div className="rounded-md border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">A composição ultrapassa o saldo da OS em R$ {formatMoneyBR(totalSolicitacao - numero(saldo?.saldo))}. É permitido continuar; confira aditivo ou medição a maior.</div> : null}
-            </div>
-            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950 p-4">
-              <div><div className="text-xs uppercase text-zinc-500">Total da solicitação</div><div className="text-xl font-semibold tabular-nums">R$ {formatMoneyBR(totalSolicitacao)}</div></div>
-              <div className="flex gap-2"><button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900">Cancelar</button><button type="button" onClick={() => void confirmar()} disabled={saving} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">{saving ? "Salvando..." : "Criar solicitação"}</button></div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

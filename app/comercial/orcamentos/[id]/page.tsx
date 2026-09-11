@@ -26,6 +26,7 @@ import {
   getItemByCodigo,
   getItemById,
   getOrcamento,
+  getPedidoCompraOrcamento,
   getOrcamentoConfig,
   getUsuarioIdByAuthUserId,
   listCondicoesPagamentoAtivas,
@@ -506,7 +507,7 @@ export default function OrcamentoPage() {
         error: string | null;
       }
   >({ open: false });
-  const [statusDialog, setStatusDialog] = useState<{ open: false } | { open: true; status: OrcamentoStatusCanonical }>({
+  const [statusDialog, setStatusDialog] = useState<{ open: false } | { open: true; status: OrcamentoStatusCanonical; pedidoCompraCliente: string | null }>({
     open: false,
   });
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
@@ -1695,12 +1696,23 @@ export default function OrcamentoPage() {
   );
 
   const openStatusDialog = useCallback(
-    (nextStatus: OrcamentoStatusCanonical) => {
+    async (nextStatus: OrcamentoStatusCanonical) => {
       if (!orc?.id) return;
-      if (!canWrite || busy) return;
-      setStatusDialog({ open: true, status: nextStatus });
+      if (!canWrite || busy || !supabase || !tenantId || !empresaId) return;
+      setBusy(true);
+      setErr(null);
+      try {
+        const pedidoCompraCliente = nextStatus === "FECHADO"
+          ? await getPedidoCompraOrcamento(supabase, { tenantId, empresaId, id: orc.id })
+          : null;
+        setStatusDialog({ open: true, status: nextStatus, pedidoCompraCliente });
+      } catch (error: unknown) {
+        setErr(mapOrcamentoError(toSupabaseErrorLike(error), "Erro ao carregar os dados do fechamento."));
+      } finally {
+        setBusy(false);
+      }
     },
-    [busy, canWrite, orc?.id]
+    [busy, canWrite, orc?.id, supabase, tenantId, empresaId]
   );
 
   const closeStatusDialog = useCallback(() => {
@@ -1739,6 +1751,7 @@ export default function OrcamentoPage() {
           status: payload.status,
           followup: payload.followup,
           valorFechado: payload.valorFechado,
+          pedidoCompraCliente: payload.pedidoCompraCliente,
           abrirOs: payload.abrirOs,
           importarItensOs: payload.importarItensOs,
           responsavelAprovacaoId: payload.responsavelAprovacaoId,
@@ -3555,6 +3568,7 @@ export default function OrcamentoPage() {
           loading={busy}
           initialFollowup={orc?.observacoes}
           initialValorFechado={orc?.valor_fechado}
+          initialPedidoCompraCliente={statusDialog.pedidoCompraCliente}
           valorOrcado={orc?.total_liquido}
           canOpenOs={canOpenOs}
           suggestedTipoDocumento={suggestedTipoDocumento}

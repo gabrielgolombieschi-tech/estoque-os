@@ -25,6 +25,7 @@ export type OrcamentoListaRow = {
   valor_fechado: number | string | null;
   desconto_fechamento_valor: number | string | null;
   desconto_fechamento_percent: number | string | null;
+  pedido_compra_cliente?: string | null;
   observacoes: string | null;
   os_id: number | null;
   os_itens_importados_at: string | null;

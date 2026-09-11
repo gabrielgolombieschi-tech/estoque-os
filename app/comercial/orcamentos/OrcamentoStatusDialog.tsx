@@ -51,6 +51,7 @@ export type OrcamentoStatusDialogPayload = {
   status: OrcamentoStatusCanonical;
   followup: string;
   valorFechado: number | null;
+  pedidoCompraCliente: string | null;
   abrirOs: boolean;
   importarItensOs: boolean;
   responsavelAprovacaoId: string | null;
@@ -64,6 +65,7 @@ export type OrcamentoStatusDialogProps = {
   loading?: boolean;
   initialFollowup?: string | null;
   initialValorFechado?: number | string | null;
+  initialPedidoCompraCliente?: string | null;
   valorOrcado?: number | string | null;
   canOpenOs?: boolean;
   suggestedTipoDocumento?: "OS" | "OV";
@@ -156,6 +158,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     loading = false,
     initialFollowup = "",
     initialValorFechado = null,
+    initialPedidoCompraCliente = null,
     valorOrcado = null,
     canOpenOs = false,
     suggestedTipoDocumento = "OS",
@@ -171,6 +174,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     getInitialValorFechadoText({ status, initialValorFechado, valorOrcado })
   );
   const [lostReason, setLostReason] = useState(() => initialLostReason.selected);
+  const [pedidoCompraCliente, setPedidoCompraCliente] = useState(() => initialPedidoCompraCliente ?? "");
   const [lostReasonOtherText, setLostReasonOtherText] = useState(() => initialLostReason.freeText);
   const [abrirOs, setAbrirOs] = useState(false);
   const [importarItensOs, setImportarItensOs] = useState(false);
@@ -272,6 +276,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
       status,
       followup: trimmed,
       valorFechado: valorFechadoNumero,
+      pedidoCompraCliente: status === "FECHADO" ? pedidoCompraCliente.trim() || null : null,
       abrirOs: status === "FECHADO" ? abrirOs : false,
       importarItensOs: status === "FECHADO" ? abrirOs && importarItensOs : false,
       responsavelAprovacaoId:
@@ -385,29 +390,51 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
 
             {status === "FECHADO" ? (
               <>
-                <label className="block text-xs text-zinc-400">
-                  Valor fechado
-                  <input
-                    value={valorFechado}
-                    onChange={(e) => {
-                      setValorFechado(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    onBlur={() => {
-                      const parsed = parseMoneyBR(valorFechado);
-                      if (Number.isFinite(parsed)) setValorFechado(formatMoneyBR(parsed));
-                    }}
-                    placeholder="Ex.: 12.500,00"
-                    inputMode="decimal"
-                    disabled={loading}
-                    className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
-                  />
-                </label>
-                {valorOrcadoNumero !== null ? (
-                  <div className="text-xs text-zinc-500">
-                    Valor orcado atual: R$ {formatMoneyBR(valorOrcadoNumero)}
+                {/* Lado a lado: sao os dois campos que se preenche ao fechar, e um
+                    embaixo do outro empurrava o resto do dialogo para fora da tela.
+                    Cada legenda fica dentro da sua coluna para nao trocar de dono. */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs text-zinc-400">
+                      Valor fechado
+                      <input
+                        value={valorFechado}
+                        onChange={(e) => {
+                          setValorFechado(e.target.value);
+                          if (error) setError(null);
+                        }}
+                        onBlur={() => {
+                          const parsed = parseMoneyBR(valorFechado);
+                          if (Number.isFinite(parsed)) setValorFechado(formatMoneyBR(parsed));
+                        }}
+                        placeholder="Ex.: 12.500,00"
+                        inputMode="decimal"
+                        disabled={loading}
+                        className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm disabled:opacity-60"
+                      />
+                    </label>
+                    {valorOrcadoNumero !== null ? (
+                      <div className="mt-1 text-xs text-zinc-500">
+                        Valor orcado atual: R$ {formatMoneyBR(valorOrcadoNumero)}
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                  <label className="block text-xs text-zinc-400">
+                    Pedido de compra do cliente
+                    <input
+                      type="text"
+                      value={pedidoCompraCliente}
+                      onChange={(e) => setPedidoCompraCliente(e.target.value)}
+                      placeholder="Ex.: PC-2026/00123"
+                      maxLength={120}
+                      disabled={loading}
+                      className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 disabled:opacity-60"
+                    />
+                    <span className="mt-1 block text-zinc-500">
+                      Opcional. Fica salvo no orçamento e acompanha a OS/OV gerada.
+                    </span>
+                  </label>
+                </div>
                 {canOpenOs ? (
                   <div className="space-y-3 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
                     <label className="flex items-center gap-2 text-sm text-zinc-200">

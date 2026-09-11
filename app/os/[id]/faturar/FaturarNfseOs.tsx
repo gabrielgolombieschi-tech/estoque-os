@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { formatMoneyBR } from "@/lib/decimal";
 import { codigoTributacaoExigeObra } from "@/supabase/functions/_shared/fiscal/nfse-obra";
@@ -62,7 +62,7 @@ export type FaturarNfseOsProps = {
   cliente: { id: number; uf: string | null; codigo_ibge_municipio: string | null } | null;
   saldo: number; empresaIbge: string | null;
   perfil: PerfilServico | null; perfis: PerfilServico[];
-  custoReal: number | null; motivoBloqueioOs: string | null; versao: number;
+  custoReal: number | null; faturadoOs: number; motivoBloqueioOs: string | null; versao: number;
   onAtualizar: () => Promise<void> | void;
   abrirArquivo: (documentoFiscalId: string, arquivo: "XML" | "DANFE") => Promise<void>;
 };
@@ -109,7 +109,7 @@ function regraTexto(regra: string, valorCliente: boolean | null) {
 }
 
 export default function FaturarNfseOs(props: FaturarNfseOsProps) {
-  const { tenantId, empresaId, osId, os, cliente, saldo, perfil, custoReal, motivoBloqueioOs, versao, onAtualizar, abrirArquivo } = props;
+  const { tenantId, empresaId, osId, os, cliente, saldo, perfil, custoReal, faturadoOs, motivoBloqueioOs, versao, onAtualizar, abrirArquivo } = props;
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [clienteNfse, setClienteNfse] = useState<ClienteNfse | null>(null);
@@ -132,6 +132,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [obra, setObra] = useState<LocalObra>(OBRA_VAZIA);
   const [materialReal, setMaterialReal] = useState<MaterialReal | null>(null);
   const [materialSugerido, setMaterialSugerido] = useState(false);
+  // Solicitacao cujos dados gravados ja estao no formulario (ver carregar).
+  const formDaSolicitacaoRef = useRef<string | null>(null);
   const [justificativa, setJustificativa] = useState("");
   const [pagamentoForma, setPagamentoForma] = useState("15");
   const [pagamentoIndicador, setPagamentoIndicador] = useState("1");
@@ -210,7 +212,12 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       }
       setSolicitacao(ativa);
       setEmissao(emissaoAtiva);
-      if (ativa) {
+      // O formulario so recebe os dados gravados na primeira carga de cada solicitacao. Os recarregamentos
+      // seguintes (retorno da emissao, versao da pagina) apagavam o que a pessoa acabara de corrigir depois de uma
+      // rejeicao — a DPS 2/27 da OS 139 saiu de novo com o CEP errado por isso (11/09/2026).
+      const primeiraCarga = Boolean(ativa) && formDaSolicitacaoRef.current !== ativa?.id;
+      formDaSolicitacaoRef.current = ativa?.id ?? null;
+      if (ativa && primeiraCarga) {
         if (ativa.municipio_prestacao_ibge) setMunicipio(ativa.municipio_prestacao_ibge);
         if (ativa.data_competencia) setCompetencia(ativa.data_competencia);
         setIssRetido(tri(ativa.iss_retido)); setPcc(tri(ativa.retem_pcc)); setIrrf(tri(ativa.retem_irrf)); setInss(tri(ativa.retem_inss));
@@ -225,14 +232,16 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setPedidoCliente(ativa.pedido_cliente ?? "");
         setPedidoItem(ativa.pedido_item ?? "");
         if (ativa.observacao && !/^NFS-e de servico da OS|^Substituicao da NFS-e/i.test(ativa.observacao)) setObservacao(ativa.observacao);
+        const { data: its } = await supabase.schema("f").from("solicitacao_item").select("origem_id,descricao_servico,valor_servico,ordem").eq("solicitacao_id", ativa.id).order("ordem");
+        const rows = (its as Array<{ origem_id: string; descricao_servico: string | null; valor_servico: number | string | null; ordem: number }> | null) ?? [];
+        setLinhas(rows.map((r, i) => ({ chave: i + 1, os_id: Number(r.origem_id), os_numero: r.origem_id === String(osId) ? (os.numero_os ?? String(os.id)) : r.origem_id, descricao: r.descricao_servico ?? "", valor: decimal(num(r.valor_servico).toFixed(2)), saldo: 0 })));
+      }
+      if (ativa) {
         const serv = ativa.operacao_snapshot?.servico as Previa | undefined;
         // As parcelas ficam no bloco pagamento do snapshot; a previa recarregada precisa delas.
         const parcelasSnapshot = Array.isArray(ativa.pagamento_parcelas) ? ativa.pagamento_parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias ?? 0), valor: p.valor == null ? null : num(p.valor) })) : null;
         // A fonte da tributacao fica no topo do snapshot, fora do servico: sem ela a previa recarregada dizia "fixture" em perfil revisado.
         setPrevia(serv && serv.valor_bruto != null ? { ...serv, parcelas: serv.parcelas ?? parcelasSnapshot, tributacao_fonte: serv.tributacao_fonte ?? ativa.operacao_snapshot?.tributacao_fonte ?? null } : null);
-        const { data: its } = await supabase.schema("f").from("solicitacao_item").select("origem_id,descricao_servico,valor_servico,ordem").eq("solicitacao_id", ativa.id).order("ordem");
-        const rows = (its as Array<{ origem_id: string; descricao_servico: string | null; valor_servico: number | string | null; ordem: number }> | null) ?? [];
-        setLinhas(rows.map((r, i) => ({ chave: i + 1, os_id: Number(r.origem_id), os_numero: r.origem_id === String(osId) ? (os.numero_os ?? String(os.id)) : r.origem_id, descricao: r.descricao_servico ?? "", valor: decimal(num(r.valor_servico).toFixed(2)), saldo: 0 })));
       } else {
         setPrevia(null);
         setLinhas((atuais) => atuais.length > 0 ? atuais : [{ chave: 1, os_id: os.id, os_numero: os.numero_os ?? String(os.id), descricao: os.descricao_servico ?? `OS ${os.numero_os ?? os.id}`, valor: decimal(Math.max(saldo, 0).toFixed(2)), saldo }]);
@@ -294,7 +303,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       perfil_operacao_id: perfil?.id ?? null,
       municipio_prestacao_ibge: municipio.trim() || null,
       data_competencia: competencia || null,
-      iss_retido: deTri(issRetido), retem_pcc: deTri(pcc), retem_irrf: deTri(irrf), retem_inss: deTri(inss),
+      // Regra fixa do perfil (SEMPRE/NUNCA) decide sozinha; override so onde a retencao e por tomador.
+      iss_retido: regras.iss === "POR_TOMADOR" ? deTri(issRetido) : null, retem_pcc: regras.pcc === "POR_TOMADOR" ? deTri(pcc) : null,
+      retem_irrf: regras.irrf === "POR_TOMADOR" ? deTri(irrf) : null, retem_inss: regras.inss === "POR_TOMADOR" ? deTri(inss) : null,
       conserto_isolado: consertoIsolado,
       valor_deducao_material: perfil?.permite_deducao_material ? (paraNumero(materialDeducao) ?? 0) : 0,
       obra: exigeObra ? {
@@ -309,11 +320,11 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     };
   }
 
-  async function conferir() {
+  async function conferir(novaSolicitacao = false) {
     if (!tenantId || !empresaId || !os || !perfil) return;
     setOcupado(true); setErro(null); setAviso(null); setBloqueios([]); setAvisos([]);
     try {
-      let solId = solicitacao?.id ?? null;
+      let solId = novaSolicitacao ? null : solicitacao?.id ?? null;
       if (!solId) {
         const invalida = linhas.findIndex((l) => !l.descricao.trim() || (paraNumero(l.valor) ?? 0) <= 0);
         if (invalida >= 0) throw new Error(`Linha ${invalida + 1}: descrição e valor precisam estar preenchidos.`);
@@ -370,6 +381,20 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       setMaterialDeducao(""); setMaterialSugerido(false);
       await carregar(); await onAtualizar();
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
+  }
+
+  // DPS rejeitada: a conferencia daquela solicitacao fica congelada. Abandona (auditado, o saldo ja voltou) e confere
+  // de novo numa solicitacao nova com o que esta na tela — linhas, obra, material, pagamento, observacao.
+  async function refazerRejeitada() {
+    if (!solicitacao || !emissao) return;
+    setOcupado(true); setErro(null); setAviso(null);
+    const motivo = `DPS ${emissao.dps_serie}/${emissao.dps_numero} ${emissao.status === "ERRO" ? "com erro" : "rejeitada"}${emissao.mensagem ? ` (${emissao.mensagem})` : ""}; corrigida e conferida de novo pela tela`.slice(0, 255);
+    try {
+      const { error } = await supabase.schema("f").rpc("fn_nfse_abandonar_homologacao", { p_solicitacao_id: solicitacao.id, p_motivo: motivo });
+      if (error) throw error;
+      setSolicitacao(null); setEmissao(null); setPrevia(null);
+    } catch (cause) { setErro(textoErro(cause)); setOcupado(false); return; }
+    await conferir(true);
   }
 
   async function emitirProducao() {
@@ -434,9 +459,14 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const emProcessamento = emissao ? ["ENVIANDO", "PROCESSANDO"].includes(emissao.status) : false;
   const editavel = !solicitacao || !emissao || ["RASCUNHO", "REJEITADA", "ERRO"].includes(emissao.status);
   const conferida = Boolean(previa) && Boolean(solicitacao);
-  const margem = custoReal !== null ? (conferida ? num(previa?.valor_bruto) : totalLinhas) - custoReal : null;
   const bloqueioLocal = !perfil ? "Escolha o perfil de serviço." : perfilBloqueado ? `Perfil ${perfil.item_servico} bloqueado: ${perfil.justificativa_faixa ?? "aguarda o contador."}` : !fixture ? `Sem fixture provisória para o item ${perfil.item_servico}.` : null;
   const producao = emissao?.ambiente === "PRODUCAO";
+  // Margem da OS, nao da parcela (mesma regra da NF-e na pagina): ja faturado + esta nota - custo real da OS.
+  // A nota real ja autorizada esta no faturado e nao soma de novo.
+  const margem = custoReal !== null ? faturadoOs + (producao && autorizada ? 0 : (conferida ? num(previa?.valor_bruto) : totalLinhas)) - custoReal : null;
+  // Rejeicao congela a conferencia (a DPS esta queimada). O caminho e abandonar e conferir de novo numa
+  // solicitacao nova, com o que esta na tela — sem obrigar a pessoa a redigitar tudo.
+  const rejeitada = Boolean(emissao && ["REJEITADA", "ERRO"].includes(emissao.status));
   const podeCancelar = autorizada && (!producao || prazoRegra === "MES_EMISSAO" || prazoCancelamento !== null);
   const textoPrazo = prazoRegra === "MES_EMISSAO"
     ? "Prazo: até o último dia do mês de emissão (Joinville, Decreto 30.798/2018); depois, só substituição."
@@ -470,15 +500,15 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         {linhas.map((linha, index) => (
           <div key={linha.chave} className="grid gap-2 rounded-lg border border-zinc-800 p-3 md:grid-cols-[110px_1fr_160px_auto]">
             <div className={label}>OS<div className="py-2 text-sm text-zinc-100">{linha.os_numero}</div>{linha.saldo > 0 && !solicitacao ? <div className="text-xs text-zinc-500">saldo {R$(linha.saldo)}</div> : null}</div>
-            <label className={label}>Descrição do serviço<input className={field} value={linha.descricao} disabled={Boolean(solicitacao)} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, descricao: e.target.value } : l))} /></label>
-            <label className={label}>Valor (R$)<input className={field} inputMode="decimal" value={linha.valor} disabled={Boolean(solicitacao)} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, valor: e.target.value } : l))} /></label>
+            <label className={label}>Descrição do serviço<input className={field} value={linha.descricao} disabled={Boolean(solicitacao) && !rejeitada} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, descricao: e.target.value } : l))} /></label>
+            <label className={label}>Valor (R$)<input className={field} inputMode="decimal" value={linha.valor} disabled={Boolean(solicitacao) && !rejeitada} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, valor: e.target.value } : l))} /></label>
             <div className="md:pt-5">{!solicitacao && linhas.length > 1 ? <button type="button" className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setLinhas((a) => a.filter((l) => l.chave !== linha.chave))}>Remover</button> : <span className="text-xs text-zinc-600">linha {index + 1}</span>}</div>
           </div>
         ))}
         <div className="grid gap-2 rounded-lg border border-zinc-800 p-3 text-sm md:grid-cols-3">
           <div>Total das linhas <strong>{R$(conferida ? num(previa?.valor_bruto) : totalLinhas)}</strong>{!solicitacao && totalLinhas > linhas.reduce((s, l) => s + l.saldo, 0) + 0.005 ? <span className="ml-2 text-red-300">acima do saldo</span> : null}</div>
           <div>Custo real da OS <strong>{custoReal !== null ? R$(custoReal) : "—"}</strong></div>
-          <div>Margem <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
+          <div>Margem da OS <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{faturadoOs > 0.005 ? <span className="text-xs text-zinc-500"> (já faturado {R$(faturadoOs)} + esta nota − custo real)</span> : null}{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
         </div>
       </section>
 
@@ -506,7 +536,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
              ["PIS/COFINS/CSLL retidos (4,65%)", pcc, setPcc, regras.pcc, clienteNfse?.retem_pcc ?? null],
              ["IRRF retido (1,5%)", irrf, setIrrf, regras.irrf, clienteNfse?.retem_irrf ?? null],
              ["INSS retido (11%)", inss, setInss, regras.inss, clienteNfse?.retem_inss ?? null]] as Array<[string, string, (v: string) => void, string, boolean | null]>).map(([titulo, valor, setter, regra, valorCliente]) => (
-            <label key={titulo} className={label}>{titulo}<select className={field} value={valor} disabled={!editavel || regra !== "POR_TOMADOR"} onChange={(e) => setter(e.target.value)}>
+            <label key={titulo} className={label}>{titulo}<select className={field} value={regra === "POR_TOMADOR" ? valor : ""} disabled={!editavel || regra !== "POR_TOMADOR"} onChange={(e) => setter(e.target.value)}>
               <option value="">{regraTexto(regra, valorCliente)}</option><option value="sim">Sim, retém (nesta nota)</option><option value="nao">Não retém (nesta nota)</option></select></label>
           ))}
         </div>
@@ -527,7 +557,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
           <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-900/30 p-3">
             <div className="text-sm">Local da obra <span className="text-xs text-zinc-400">— obrigatório no código {codigoTribNac} (grupo obra da DPS; sem ele o ambiente nacional recusa com E0370). Sugerido: endereço do tomador. Com CNO, o endereço não vai.</span></div>
             <div className="grid gap-3 md:grid-cols-6">
-              <label className={label}>CNO da obra (opcional)<input className={field} value={obra.codigo_obra} disabled={!editavel} maxLength={30} onChange={(e) => setObra((o) => ({ ...o, codigo_obra: e.target.value }))} /></label>
+              <label className={label}>CNO da obra (opcional)<input className={field} value={obra.codigo_obra} disabled={!editavel} maxLength={16} placeholder="00.000.00000/00" onChange={(e) => setObra((o) => ({ ...o, codigo_obra: e.target.value }))} />{obra.codigo_obra.trim() && obra.codigo_obra.replace(/\D/g, "").length !== 12 ? <span className="text-xs text-amber-300">O CNO tem 12 dígitos.</span> : null}</label>
               <label className={label}>CEP da obra<input className={field} inputMode="numeric" value={obra.cep} disabled={!editavel} onChange={(e) => setObra((o) => ({ ...o, cep: e.target.value.replace(/\D/g, "").slice(0, 8) }))} /></label>
               <label className={`${label} md:col-span-2`}>Logradouro da obra<input className={field} value={obra.logradouro} disabled={!editavel} maxLength={255} onChange={(e) => setObra((o) => ({ ...o, logradouro: e.target.value }))} /></label>
               <label className={label}>Número da obra<input className={field} value={obra.numero} disabled={!editavel} maxLength={60} onChange={(e) => setObra((o) => ({ ...o, numero: e.target.value }))} /></label>
@@ -542,7 +572,12 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             <span>Conserto isolado (IN SRF 459/2004, art. 1º, §2º, II): manutenção em caráter isolado, mero conserto de bem defeituoso. Marca a OS e dispensa a CRF de 4,65% nesta nota. <span className="text-xs text-zinc-400">Sem a marca, a CRF do 14.01 entra por padrão.</span></span>
           </label>
         ) : null}
-        {(deTri(issRetido) !== null && deTri(issRetido) !== (clienteNfse?.iss_retido ?? null)) || (deTri(pcc) !== null && deTri(pcc) !== (clienteNfse?.retem_pcc ?? null)) || (deTri(irrf) !== null && deTri(irrf) !== (clienteNfse?.retem_irrf ?? null)) || (deTri(inss) !== null && deTri(inss) !== (clienteNfse?.retem_inss ?? null)) ? (
+        {/* So pede justificativa quando a retencao depende do cadastro (POR_TOMADOR) e a nota diverge dele. Com regra
+            fixa do perfil (SEMPRE/NUNCA) o campo aparecia a toa depois de recarregar a conferencia. */}
+        {(regras.iss === "POR_TOMADOR" && deTri(issRetido) !== null && deTri(issRetido) !== (clienteNfse?.iss_retido ?? null))
+          || (regras.pcc === "POR_TOMADOR" && deTri(pcc) !== null && deTri(pcc) !== (clienteNfse?.retem_pcc ?? null))
+          || (regras.irrf === "POR_TOMADOR" && deTri(irrf) !== null && deTri(irrf) !== (clienteNfse?.retem_irrf ?? null))
+          || (regras.inss === "POR_TOMADOR" && deTri(inss) !== null && deTri(inss) !== (clienteNfse?.retem_inss ?? null)) ? (
           <label className={label}>Justificativa da retenção diferente do cadastro (obrigatória, vai para a observação da nota)<input className={field} value={justificativa} disabled={!editavel} onChange={(e) => setJustificativa(e.target.value)} maxLength={255} /></label>
         ) : null}
       </section>
@@ -592,7 +627,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
           </div>
         ) : <div className="text-sm text-zinc-400">Salve a conferência para ver bruto, retenções, líquido e a discriminação.</div>}
         <div className="flex flex-wrap items-center gap-2">
-          {editavel ? <button type="button" className={botao} disabled={ocupado || Boolean(motivoBloqueioOs) || Boolean(bloqueioLocal)} onClick={() => void conferir()}>{solicitacao ? "Reconferir" : "Salvar rascunho e conferir"}</button> : null}
+          {editavel && rejeitada ? <button type="button" className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-40" disabled={ocupado || Boolean(motivoBloqueioOs) || Boolean(bloqueioLocal)} onClick={() => void refazerRejeitada()}>Corrigir e conferir de novo</button> : null}
+          {editavel && !rejeitada ? <button type="button" className={botao} disabled={ocupado || Boolean(motivoBloqueioOs) || Boolean(bloqueioLocal)} onClick={() => void conferir()}>{solicitacao ? "Reconferir" : "Salvar rascunho e conferir"}</button> : null}
           {solicitacao && conferida && editavel ? <button type="button" className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={ocupado || bloqueios.length > 0 || Boolean(motivoBloqueioOs) || Boolean(bloqueioLocal)} onClick={() => void emitir()}>{emissao ? "Tentar emitir novamente (nova DPS)" : "Emitir NFS-e em homologação"}</button> : null}
           {solicitacao && (editavel || (autorizada && !producao)) ? <button type="button" className={botao} disabled={ocupado} onClick={() => void descartar()}>{autorizada ? "Abandonar homologação e liberar saldo" : "Descartar rascunho"}</button> : null}
         </div>
@@ -601,7 +637,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
           <div className="rounded-md border border-zinc-800 p-3 text-sm">
             <div>Status: <strong>{emProcessamento ? "Em processamento" : autorizada ? (producao ? "AUTORIZADA · NFS-e REAL" : "Autorizada em homologação") : emissao.status}</strong> · {producao ? "PRODUÇÃO" : "homologação"} · DPS {emissao.dps_serie}/{emissao.dps_numero}{emissao.mensagem ? <span className="text-zinc-400"> · {emissao.codigo_status ? `${emissao.codigo_status} · ` : ""}{emissao.mensagem}</span> : null}</div>
             {emProcessamento ? <div className="text-xs text-zinc-400">Saldo reservado. A tela atualiza sozinha quando o ambiente nacional responder.</div> : null}
-            {["REJEITADA", "ERRO"].includes(emissao.status) ? <div className="text-xs text-amber-300">DPS {emissao.dps_serie}/{emissao.dps_numero} queimada; o saldo já voltou. &ldquo;Tentar emitir novamente&rdquo; leva um número novo de DPS.</div> : null}
+            {rejeitada ? <div className="text-xs text-amber-300">DPS {emissao.dps_serie}/{emissao.dps_numero} queimada; o saldo já voltou. Corrija acima o que o ambiente nacional apontou e clique em &ldquo;Corrigir e conferir de novo&rdquo; — o que está na tela é aproveitado. &ldquo;Tentar emitir novamente&rdquo; reenvia a mesma conferência com número novo e só resolve erro passageiro.</div> : null}
             {autorizada ? (
               <div className="mt-2 space-y-2">
                 <div className="flex flex-wrap items-center gap-2"><span>NFS-e nº <strong>{emissao.nfse_numero}</strong> · código de verificação {emissao.codigo_verificacao ?? "—"}</span><code className="text-xs">{emissao.chave_nfse}</code></div>

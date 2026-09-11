@@ -652,11 +652,15 @@ export default function FaturarOsPage() {
   const bloqueiosNota = useMemo(() => (conferida && acimaDoSaldo
     ? [...bloqueios, { texto: `Total da nota ${R$(totalNotaPrevisto)} acima do saldo da OS ${R$(saldoParaComposicao)}; com o IPI a nota passa do pedido.` }]
     : bloqueios), [bloqueios, conferida, acimaDoSaldo, totalNotaPrevisto, saldoParaComposicao]);
-  const margem = custoReal ? (conferida ? totalConferido : totalLinhas) - custoReal.total : null;
   const autorizada = emissao?.status === "AUTORIZADA";
   const emProcessamento = emissao ? ["ENVIANDO", "PROCESSANDO"].includes(emissao.status) : false;
   const notaAtual = notas.find((n) => n.solicitacao_id === solicitacao?.id) ?? null;
   const notaProducao = notas.find((n) => n.solicitacao_id === solicitacao?.id && n.ambiente === "PRODUCAO") ?? null;
+  // Margem da OS, nao da parcela: o custo real e o da OS inteira, entao entra o que ja foi faturado. Comparar so
+  // esta nota com o custo todo mostrava prejuizo em todo faturamento parcial (OS 139: -23.099,07 numa OS que fecha
+  // positiva). Depois da producao a nota ja esta no faturado e nao soma de novo.
+  const faturadoOs = num(saldo?.valor_faturado);
+  const margem = custoReal ? faturadoOs + (notaProducao?.emissao_status === "AUTORIZADA" ? 0 : (conferida ? totalConferido : totalLinhas)) - custoReal.total : null;
   const [producaoPronta, setProducaoPronta] = useState<ProducaoStatus | null>(null);
   useEffect(() => {
     if (!solicitacao || !autorizada || emissao?.ambiente !== "HOMOLOGACAO" || notaProducao) { setProducaoPronta(null); return; }
@@ -777,7 +781,7 @@ export default function FaturarOsPage() {
           cliente={clienteNfse}
           saldo={saldoDisponivel} empresaIbge={empresaIbge}
           perfil={perfilServico} perfis={perfisServico}
-          custoReal={custoReal?.total ?? null} motivoBloqueioOs={motivoBloqueioOs} versao={versao}
+          custoReal={custoReal?.total ?? null} faturadoOs={faturadoOs} motivoBloqueioOs={motivoBloqueioOs} versao={versao}
           onAtualizar={carregar} abrirArquivo={abrirArquivoDoc}
         />
       ) : (<>
@@ -828,7 +832,7 @@ export default function FaturarOsPage() {
         <div className="grid gap-2 rounded-lg border border-zinc-800 p-3 text-sm md:grid-cols-3">
           <div>Total da nota <strong>{R$(totalNotaPrevisto)}</strong>{ipiPrevisto > 0.005 ? <span className="text-xs text-zinc-500"> (mercadoria {R$(mercadoriaPrevista)} + IPI {R$(ipiPrevisto)})</span> : null} × saldo {R$(saldoParaComposicao)}{acimaDoSaldo ? <span className="ml-2 text-red-300">acima do saldo</span> : null}</div>
           <div>Custo real da OS <strong>{custoReal ? R$(custoReal.total) : "—"}</strong>{custoReal ? <span className="text-xs text-zinc-500"> (material {R$(custoReal.materiais)} · mão de obra {R$(custoReal.maoObra)} · despesas {R$(custoReal.despesas)} · impostos {R$(custoReal.impostos)})</span> : null}</div>
-          <div>Margem <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
+          <div>Margem da OS <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{faturadoOs > 0.005 ? <span className="text-xs text-zinc-500"> (já faturado {R$(faturadoOs)} + esta nota − custo real)</span> : null}{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
         </div>
       </section>
 
@@ -1011,8 +1015,8 @@ export default function FaturarOsPage() {
       <section className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <h2 className="font-semibold">Notas desta OS</h2>
         {notas.length === 0 ? <div className="text-sm text-zinc-500">Nenhuma nota emitida ou vinculada.</div> : (
-          <table className="w-full text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="text-left">Nota</th><th className="text-left">Modelo</th><th className="text-left">Ambiente</th><th className="text-left">Status</th><th className="text-right">Valor</th><th className="text-left">Arquivos</th></tr></thead>
-            <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td>{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td>{n.modelo === "NFSE" ? "NFS-e" : "NF-e"}</td><td>{n.ambiente}</td><td>{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : n.nfe_status === "SUBSTITUIDA" ? " · substituída" : ""}</td><td className="text-right">{R$(num(n.valor_total))}</td><td className="space-x-2">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>{n.modelo === "NFSE" ? "DANFSe" : "DANFE"}</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/${n.modelo === "NFSE" ? "nfse" : "nfe"}/${n.documento_fiscal_id}`}>detalhe</Link>{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
+          <table className="w-full text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="px-2 py-1 text-left">Nota</th><th className="px-2 py-1 text-left">Modelo</th><th className="px-2 py-1 text-left">Ambiente</th><th className="px-2 py-1 text-left">Status</th><th className="px-2 py-1 text-right">Valor</th><th className="px-2 py-1 text-left">Arquivos</th></tr></thead>
+            <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td className="px-2 py-1">{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td className="px-2 py-1">{n.modelo === "NFSE" ? "NFS-e" : "NF-e"}</td><td className="px-2 py-1">{n.ambiente}</td><td className="px-2 py-1">{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : n.nfe_status === "SUBSTITUIDA" ? " · substituída" : ""}</td><td className="px-2 py-1 text-right whitespace-nowrap">{R$(num(n.valor_total))}</td><td className="space-x-2 px-2 py-1">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>{n.modelo === "NFSE" ? "DANFSe" : "DANFE"}</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/${n.modelo === "NFSE" ? "nfse" : "nfe"}/${n.documento_fiscal_id}`}>detalhe</Link>{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
         )}
       </section>
 

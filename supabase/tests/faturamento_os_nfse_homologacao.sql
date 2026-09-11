@@ -490,6 +490,11 @@ begin
   if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'obra') then
     raise exception 'Obra com endereco incompleto nao bloqueou: %', v_r;
   end if;
+  -- CNO fora do formato bloqueia (o ambiente nacional aceitou "123" na NFS-e 13 de homologacao).
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1000,"obra":{"codigo_obra":"123"}}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'obra' and p->>'mensagem' like '%12 digitos%') then
+    raise exception 'CNO invalido nao bloqueou: %', v_r;
+  end if;
   -- 3.500 de servico com 1.000 de material: ISS 3% sobre 2.500 = 75 (retido, obra em Tijucas); INSS 11% sobre 2.500 = 275; liquido 3.150.
   v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"valor_deducao_material":1000,"obra":{"cep":"88200-000","logradouro":"RUA DA OBRA","numero":"100","complemento":"","bairro":"CENTRO"}}'::jsonb);
   if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia da obra devolveu pendencias: %', v_r; end if;

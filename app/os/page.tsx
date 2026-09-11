@@ -114,6 +114,15 @@ const statusColor: Record<string, string> = {
   cancelada: "var(--carteira-red)",
 };
 
+function consumoColor(consumido: number, valorPedido: number): string {
+  if (!Number.isFinite(consumido) || !Number.isFinite(valorPedido)) return "var(--carteira-muted)";
+  const consumoCentavos = Math.round(consumido * 100);
+  const pedidoCentavos = Math.max(0, Math.round(valorPedido * 100));
+  if (consumoCentavos > pedidoCentavos) return "var(--carteira-red)";
+  if (consumoCentavos * 100 > pedidoCentavos * 85) return "var(--carteira-amber)";
+  return "var(--carteira-green)";
+}
+
 function csvCell(value: unknown) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
@@ -1602,7 +1611,9 @@ export default function OsListPage() {
                       R$ {formatMoney(hideValorPedido ? grupo.totalConsumido : grupo.totalPedido)}
                     </span>
                     <span className="carteira-muted mt-0.5 block text-[10.5px]">
-                      {hideValorPedido ? "Consumido" : `Consumido R$ ${formatMoney(grupo.totalConsumido)}`}
+                      <span style={{ color: hideValorPedido ? undefined : consumoColor(grupo.totalConsumido, grupo.totalPedido) }}>
+                        {hideValorPedido ? "Consumido" : `Consumido R$ ${formatMoney(grupo.totalConsumido)}`}
+                      </span>
                       <span className={grupo.totalFaturado > 0 ? "carteira-green" : "carteira-faint"}>
                         {` · Faturado ${Math.round(percentualFaturado)}%`}
                       </span>
@@ -1617,6 +1628,7 @@ export default function OsListPage() {
                         const statusExibicao = normalizeOsStatusFluxo(row.status_fluxo, row.status);
                         const responsavel = responsavelDaOs(row);
                         const pedido = pedidoDaOs(row);
+                        const consumido = custoPorOs[row.id] ?? 0;
                         const faturado = faturadoPorOs[row.id] ?? 0;
                         const percentualFaturadoOs = pedido > 0
                           ? Math.max(0, Math.min(100, (faturado / pedido) * 100))
@@ -1652,12 +1664,13 @@ export default function OsListPage() {
                             </span>
                             <span className="text-right">
                               <span className="carteira-text block font-mono text-[12.5px] font-semibold tabular-nums">
-                                R$ {formatMoney(hideValorPedido ? (custoPorOs[row.id] ?? 0) : pedidoDaOs(row))}
+                                R$ {formatMoney(hideValorPedido ? consumido : pedido)}
                               </span>
                               <span className="carteira-muted mt-0.5 block text-[9.5px]">
-                                {hideValorPedido
-                                  ? `consumido · Faturado ${Math.round(percentualFaturadoOs)}%`
-                                  : `consumido R$ ${formatMoney(custoPorOs[row.id] ?? 0)} · Faturado ${Math.round(percentualFaturadoOs)}%`}
+                                <span style={{ color: hideValorPedido ? undefined : consumoColor(consumido, pedido) }}>
+                                  {hideValorPedido ? "consumido" : `consumido R$ ${formatMoney(consumido)}`}
+                                </span>
+                                {` · Faturado ${Math.round(percentualFaturadoOs)}%`}
                               </span>
                             </span>
                           </button>
@@ -1755,7 +1768,10 @@ export default function OsListPage() {
                   <div className="carteira-muted mt-1 pl-3.5 text-[10.5px]">{responsavelDaOs(r)}</div>
                 </td>
 
-                <td className="carteira-muted px-4 py-3 text-right align-middle font-mono text-xs tabular-nums">
+                <td
+                  className="carteira-muted px-4 py-3 text-right align-middle font-mono text-xs tabular-nums"
+                  style={{ color: hideValorPedido ? undefined : consumoColor(custo, pedido) }}
+                >
                   R$ {formatMoney(custo)}
                 </td>
                 {!hideValorPedido && (
