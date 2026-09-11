@@ -775,7 +775,7 @@ function FaturamentoOsPanel({
                   <td className="px-3 py-2 text-zinc-400">{nota.ambiente}</td>
                   <td className="px-3 py-2">{nota.emissao_status}{nota.nfe_status === "EMITIDA" ? " · emitida" : nota.nfe_status === "CANCELADA" ? " · cancelada" : nota.ambiente === "HOMOLOGACAO" && nota.solicitacao_status === "CANCELADA" ? " · homologação abandonada" : ""}</td>
                   <td className="px-3 py-2 text-right tabular-nums">R$ {formatMoneyBR(numero(nota.valor_total))}</td>
-                  <td className="px-3 py-2 text-right"><Link className="text-sky-300 underline" href={`/faturamento/nfe/${nota.documento_fiscal_id}`}>{nota.danfe_path ? (nota.modelo === "NFSE" ? "DANFSe e detalhe" : "DANFE e detalhe") : "detalhe"}</Link></td>
+                  <td className="px-3 py-2 text-right"><Link className="text-sky-300 underline" href={`/faturamento/${nota.modelo === "NFSE" ? "nfse" : "nfe"}/${nota.documento_fiscal_id}`}>{nota.danfe_path ? (nota.modelo === "NFSE" ? "DANFSe e detalhe" : "DANFE e detalhe") : "detalhe"}</Link></td>
                 </tr>
               ))}
             </tbody>

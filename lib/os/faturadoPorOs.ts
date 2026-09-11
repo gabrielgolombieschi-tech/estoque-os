@@ -6,6 +6,8 @@ const FETCH_BATCH_SIZE = 1000;
 export type DocumentoFaturadoRow = {
   os_id_import: number | null;
   valor_total: number | string | null;
+  valor_servicos: number | string | null;
+  valor_produtos: number | string | null;
   modelo: string | null;
   nfe_status: string | null;
   nfse_status: string | null;
@@ -31,11 +33,24 @@ export function shouldIncludeFaturamentoDocumento(row: DocumentoFaturadoRow): bo
 }
 
 /**
+ * Quanto o documento consome do pedido da OS. Espelho de `f.fn_documento_valor_faturado`:
+ * NFS-e pelo bruto do servico, porque o `valor_total` dela e o liquido e as retencoes sao
+ * imposto, nao desconto (OS 139, 11/09/2026); NF-e pelo vNF, que ja traz o IPI.
+ */
+export function valorFaturadoDocumento(row: DocumentoFaturadoRow): number {
+  const modelo = String(row.modelo ?? "").trim().toUpperCase();
+  const valor = modelo === "NFSE"
+    ? n(row.valor_servicos) || n(row.valor_total)
+    : row.valor_total != null ? n(row.valor_total) : n(row.valor_produtos);
+  return round2(Math.max(valor, 0));
+}
+
+/**
  * Soma o valor faturado (documento_fiscal SAIDA emitido) por OS.
  * Sem `osIds`, pagina o tenant/empresa inteiro. Com `osIds`, escopa a busca a esse conjunto
  * (mais barato quando o chamador ja sabe quais OS quer, ex.: uma listagem paginada).
  *
- * Regra alinhada com `f.fn_os_saldo_a_faturar` (migration 20260905170000): conta apenas
+ * Regra alinhada com `f.fn_os_saldo_a_faturar` (migrations 20260905170000 e 20260911160000): conta apenas
  * documento EMITIDA (producao) ou importado sem status NF-e. Documento que so passou pela
  * homologacao fica RASCUNHO e nao entra aqui nem no saldo. A reserva por solicitacao aberta
  * e a decisao "OS Faturada" (documento emitido E saldo zero) ficam em
@@ -56,7 +71,7 @@ export async function fetchFaturadoByOs(params: {
       params.supabase
         .schema("f")
         .from("documento_fiscal")
-        .select("os_id_import,valor_total,modelo,nfe_status,nfse_status")
+        .select("os_id_import,valor_total,valor_servicos,valor_produtos,modelo,nfe_status,nfse_status")
         .eq("operacao", "SAIDA")
         .not("os_id_import", "is", null)
         .is("deleted_at", null)
@@ -71,7 +86,7 @@ export async function fetchFaturadoByOs(params: {
       if (!shouldIncludeFaturamentoDocumento(row)) continue;
       const osId = Number(row.os_id_import);
       if (!Number.isFinite(osId) || osId <= 0) continue;
-      out[osId] = round2((out[osId] ?? 0) + n(row.valor_total));
+      out[osId] = round2((out[osId] ?? 0) + valorFaturadoDocumento(row));
     }
 
     return out;
@@ -83,7 +98,7 @@ export async function fetchFaturadoByOs(params: {
       params.supabase
         .schema("f")
         .from("documento_fiscal")
-        .select("os_id_import,valor_total,modelo,nfe_status,nfse_status")
+        .select("os_id_import,valor_total,valor_servicos,valor_produtos,modelo,nfe_status,nfse_status")
         .eq("operacao", "SAIDA")
         .not("os_id_import", "is", null)
         .is("deleted_at", null)
@@ -100,7 +115,7 @@ export async function fetchFaturadoByOs(params: {
       if (!shouldIncludeFaturamentoDocumento(row)) continue;
       const osId = Number(row.os_id_import);
       if (!Number.isFinite(osId) || osId <= 0) continue;
-      out[osId] = round2((out[osId] ?? 0) + n(row.valor_total));
+      out[osId] = round2((out[osId] ?? 0) + valorFaturadoDocumento(row));
     }
 
     if (rows.length < FETCH_BATCH_SIZE) break;
