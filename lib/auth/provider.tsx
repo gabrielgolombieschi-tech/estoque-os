@@ -1080,7 +1080,10 @@ export function TenantEmpresaProvider(props: {
         const userId = session?.user?.id ?? null;
         const email = session?.user?.email ?? null;
         setState((prev) => ({ ...prev, sessionUserId: userId, email }));
-        if (userId) void revalidate({ background: true, reason: `auth:${event}` });
+        // O userId vai explicito: revalidate le stateRef, que so e atualizado no proximo render. No login a
+        // partir do zero o stateRef ainda tinha sessionUserId nulo, o revalidate caia no clear() e apagava a
+        // sessao recem-criada — tela preta ate um F5 (achado em 11/09/2026 simulando o login pela tela).
+        if (userId) void revalidate({ background: true, reason: `auth:${event}`, userId });
       }
     });
 
