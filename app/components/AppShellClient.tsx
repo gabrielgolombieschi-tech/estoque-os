@@ -151,22 +151,41 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   >(null);
   const navRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Menu que o mouse acabou de abrir. Passar o mouse abre e o clique alternava: quem passava o mouse em "OS" e
+  // clicava via o menu abrir e sumir (achado em 11/09/2026 simulando a navegacao pela tela). Agora o primeiro
+  // clique num menu aberto pelo mouse o mantem aberto; o segundo fecha. No toque, sem mouse, segue alternando.
+  const abertoPeloMouseRef = useRef<string | null>(null);
+  // Espelho sincrono do menu aberto: entre o mouseenter e o click o React nem sempre renderiza, entao o clique
+  // nao pode decidir pelo `openMenu` da renderizacao anterior.
+  const menuAtualRef = useRef<typeof openMenu>(null);
 
   const toggleMenu = (
     key: "os" | "estoque" | "imobilizado" | "financeiro" | "compras" | "comercial" | "faturamento" | "cadastro" | "admin" | null
-  ) =>
-    setOpenMenu((prev) => (prev === key ? null : key));
+  ) => {
+    const atual = menuAtualRef.current;
+    const manterAberto = key !== null && atual === key && abertoPeloMouseRef.current === key;
+    abertoPeloMouseRef.current = null;
+    const proximo = manterAberto ? atual : atual === key ? null : key;
+    menuAtualRef.current = proximo;
+    setOpenMenu(proximo);
+  };
 
   const openWithHover = (
     key: "os" | "estoque" | "imobilizado" | "financeiro" | "compras" | "comercial" | "faturamento" | "cadastro" | "admin"
   ) => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    if (menuAtualRef.current !== key) abertoPeloMouseRef.current = key;
+    menuAtualRef.current = key;
     setOpenMenu(key);
   };
 
   const scheduleClose = () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = setTimeout(() => setOpenMenu(null), 150);
+    closeTimerRef.current = setTimeout(() => {
+      menuAtualRef.current = null;
+      abertoPeloMouseRef.current = null;
+      setOpenMenu(null);
+    }, 150);
   };
 
   const has = te.has;
