@@ -60,6 +60,28 @@ export default function PainelTvPage() {
             description="Acompanhe frentes elétrico e mecânico."
             href="/execucao"
           />
+          <BigCard
+            title="Colaboradores"
+            description="Horas da semana, do mês e tarefas pendentes."
+            href="/painel-tv/colaboradores"
+          />
+        </div>
+
+        {/* Atalhos de area: a mesma tela filtrada, para a TV de cada frente. */}
+        <div className="mt-4 flex items-center gap-4 text-sm text-zinc-400">
+          <span className="text-zinc-500">Colaboradores por área:</span>
+          <Link
+            href="/painel-tv/colaboradores?area=mecanica"
+            className="rounded border border-zinc-800 px-3 py-1.5 hover:border-zinc-600 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          >
+            Mecânica
+          </Link>
+          <Link
+            href="/painel-tv/colaboradores?area=eletrica"
+            className="rounded border border-zinc-800 px-3 py-1.5 hover:border-zinc-600 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          >
+            Elétrica
+          </Link>
         </div>
 
         <div className="mt-10 text-sm text-zinc-500">

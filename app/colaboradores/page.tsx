@@ -14,6 +14,7 @@ type RowView = {
   id: string;
   nome: string;
   cargo: string | null;
+  area: string | null;
   ativo: boolean;
   criado_em: string;
 
@@ -25,6 +26,21 @@ type RowView = {
   user_id: string | null;
   email: string | null;
 };
+
+// PIN do tablet compartilhado (migration 20260911250000). O banco so devolve
+// quando o PIN foi definido e por quem; o PIN em si nunca sai do servidor.
+type PinInfo = { definido_em: string; definido_por_nome: string | null };
+type RetornoPin = { sucesso: boolean; erros?: { tipo: string; mensagem: string }[] };
+
+function dataBr(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("pt-BR").format(d);
+}
+
+function gerarPinAleatorio() {
+  return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+}
 
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error) return err.message;
@@ -102,6 +118,9 @@ export default function ColaboradoresPage() {
 
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
+  // Area da TV: so mecanica e eletrica. Vazio quando a pessoa nao entra em
+  // nenhum dos dois paineis (seguranca, programacao, administrativo).
+  const [area, setArea] = useState("");
   const [ativo, setAtivo] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -112,6 +131,27 @@ export default function ColaboradoresPage() {
 
   // controle p/ evitar duplicar taxa ao editar sem mudanca
   const [valorHoraOriginal, setValorHoraOriginal] = useState<number | null>(null);
+
+  // PIN do tablet: mapa colaborador -> quando/por quem foi definido. Fica nulo
+  // quando o perfil nao administra PINs (so Admin, Diretor e Coordenacao).
+  const [pins, setPins] = useState<Map<string, PinInfo> | null>(null);
+  const [pinNovo, setPinNovo] = useState("");
+  const [pinSalvando, setPinSalvando] = useState(false);
+  const [pinMsg, setPinMsg] = useState<{ tone: "ok" | "erro"; texto: string } | null>(null);
+
+  const carregarPins = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("web_tablet_pins_listar");
+    if (error) {
+      setPins(null);
+      return;
+    }
+    const mapa = new Map<string, PinInfo>();
+    for (const linha of (data ?? []) as { colaborador_id: string; definido_em: string; definido_por_nome: string | null }[]) {
+      mapa.set(linha.colaborador_id, { definido_em: linha.definido_em, definido_por_nome: linha.definido_por_nome });
+    }
+    setPins(mapa);
+  }, [supabase]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -128,7 +168,9 @@ export default function ColaboradoresPage() {
         .from("vw_colaboradores_taxa_atual")
         .select("*")
         .order("nome", { ascending: true }),
-        supabase.from("colaboradores").select("id,user_id,email"),
+        // A view de taxa nao tem a coluna area; ela vem junto do vinculo, que ja e lido
+        // da propria tabela.
+        supabase.from("colaboradores").select("id,user_id,email,area"),
       ]);
 
       if (error) throw error;
@@ -139,13 +181,14 @@ export default function ColaboradoresPage() {
           {
             user_id: String((vinculo as { user_id?: string | null }).user_id ?? "").trim() || null,
             email: String((vinculo as { email?: string | null }).email ?? "").trim() || null,
+            area: (vinculo as { area?: string | null }).area ?? null,
           },
         ])
       );
       setRows(
         (data ?? []).map((row) => ({
-          ...(row as Omit<RowView, "user_id" | "email">),
-          ...(vinculos.get(row.id) ?? { user_id: null, email: null }),
+          ...(row as Omit<RowView, "user_id" | "email" | "area">),
+          ...(vinculos.get(row.id) ?? { user_id: null, email: null, area: null }),
         })) as RowView[]
       );
 
@@ -156,12 +199,53 @@ export default function ColaboradoresPage() {
         .order("nome", { ascending: true });
       setCargosOpts((cargosData ?? []) as { id: number; nome: string }[]);
 
+      await carregarPins();
     } catch (e: unknown) {
       setErrorMsg(getErrorMessage(e, "Falha ao carregar colaboradores."));
     } finally {
       setLoading(false);
     }
-  }, [supabase, tenantId]);
+  }, [carregarPins, supabase, tenantId]);
+
+  async function definirPin(colaboradorId: string, pin: string) {
+    if (!/^\d{4}$/.test(pin)) {
+      setPinMsg({ tone: "erro", texto: "O PIN precisa ter exatamente 4 números." });
+      return;
+    }
+    setPinSalvando(true);
+    setPinMsg(null);
+    try {
+      const { data, error } = await supabase.rpc("web_tablet_pin_definir", { p_colaborador_id: colaboradorId, p_pin: pin });
+      if (error) throw error;
+      const retorno = (data ?? {}) as RetornoPin;
+      if (!retorno.sucesso) throw new Error(retorno.erros?.[0]?.mensagem ?? "Não foi possível definir o PIN.");
+      setPinNovo("");
+      setPinMsg({ tone: "ok", texto: `PIN ${pin} definido. Entregue ao colaborador pessoalmente; ele não é mostrado de novo.` });
+      await carregarPins();
+    } catch (e: unknown) {
+      setPinMsg({ tone: "erro", texto: getErrorMessage(e, "Não foi possível definir o PIN.") });
+    } finally {
+      setPinSalvando(false);
+    }
+  }
+
+  async function removerPin(colaboradorId: string) {
+    if (!confirm("Remover o PIN? O colaborador deixa de conseguir apontar pelo tablet até receber um PIN novo.")) return;
+    setPinSalvando(true);
+    setPinMsg(null);
+    try {
+      const { data, error } = await supabase.rpc("web_tablet_pin_remover", { p_colaborador_id: colaboradorId });
+      if (error) throw error;
+      const retorno = (data ?? {}) as RetornoPin;
+      if (!retorno.sucesso) throw new Error(retorno.erros?.[0]?.mensagem ?? "Não foi possível remover o PIN.");
+      setPinMsg({ tone: "ok", texto: "PIN removido." });
+      await carregarPins();
+    } catch (e: unknown) {
+      setPinMsg({ tone: "erro", texto: getErrorMessage(e, "Não foi possível remover o PIN.") });
+    } finally {
+      setPinSalvando(false);
+    }
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -227,6 +311,7 @@ export default function ColaboradoresPage() {
     setEditId(null);
     setNome("");
     setCargo("");
+    setArea("");
     setAtivo(true);
     selecionarUsuario(null);
 
@@ -234,14 +319,19 @@ export default function ColaboradoresPage() {
     setVigenciaInicio(todayISO());
 
     setValorHoraOriginal(null);
+    setPinNovo("");
+    setPinMsg(null);
 
     setModalOpen(true);
   }
 
   function abrirEditar(r: RowView) {
+    setPinNovo("");
+    setPinMsg(null);
     setEditId(r.id);
     setNome(upper(r.nome));
     setCargo(r.cargo ?? "");
+    setArea(r.area ?? "");
     setAtivo(!!r.ativo);
     setUserId(r.user_id);
     setEmail(r.email ?? usuariosSistema.find((usuario) => usuario.auth_user_id === r.user_id)?.email ?? "");
@@ -357,6 +447,8 @@ export default function ColaboradoresPage() {
             tenant_id: tenantId, 
             nome: upperTrim(nome), 
             cargo: upperOrNull(cargo), 
+            area: area || null,
+
             ativo,
             user_id: userId,
             email: email.trim() || null,
@@ -384,6 +476,8 @@ export default function ColaboradoresPage() {
           .update({ 
             nome: upperTrim(nome), 
             cargo: upperOrNull(cargo), 
+            area: area || null,
+
             ativo,
             user_id: userId,
             email: email.trim() || null,
@@ -485,6 +579,9 @@ export default function ColaboradoresPage() {
                 Cargo
               </th>
               <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
+                Área
+              </th>
+              <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Valor/hora (vigente)
               </th>
               <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
@@ -493,6 +590,11 @@ export default function ColaboradoresPage() {
               <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Usuário do sistema
               </th>
+              {pins ? (
+                <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
+                  PIN do tablet
+                </th>
+              ) : null}
               <th className="px-3 py-2 border-b border-zinc-800 text-zinc-300">
                 Ações
               </th>
@@ -509,6 +611,9 @@ export default function ColaboradoresPage() {
                 </td>
                 <td className="px-3 py-2 text-zinc-300">
                   {r.cargo ?? "-"}
+                </td>
+                <td className="px-3 py-2 text-zinc-300">
+                  {r.area === "mecanica" ? "Mecânica" : r.area === "eletrica" ? "Elétrica" : "-"}
                 </td>
                 <td className="px-3 py-2 text-zinc-300">
                   {r.valor_hora != null ? `R$ ${Number(r.valor_hora).toFixed(2)}` : "-"}
@@ -534,6 +639,15 @@ export default function ColaboradoresPage() {
                     return "-";
                   })()}
                 </td>
+                {pins ? (
+                  <td className="px-3 py-2 text-zinc-300">
+                    {pins.get(r.id) ? (
+                      <span className="text-emerald-300">Definido {dataBr(pins.get(r.id)?.definido_em)}</span>
+                    ) : (
+                      <span className="text-zinc-500">Sem PIN</span>
+                    )}
+                  </td>
+                ) : null}
                 <td className="px-3 py-2 space-x-2">
                   <button
                     onClick={() => abrirEditar(r)}
@@ -554,7 +668,7 @@ export default function ColaboradoresPage() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td className="px-3 py-4 text-zinc-400 text-center" colSpan={7}>
+                <td className="px-3 py-4 text-zinc-400 text-center" colSpan={pins ? 8 : 7}>
                   Nenhum colaborador cadastrado.
                 </td>
               </tr>
@@ -603,6 +717,24 @@ export default function ColaboradoresPage() {
               </div>
 
               <div className="space-y-1">
+                <label className="text-sm text-zinc-300">Área</label>
+                <select
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100"
+                  aria-label="Área do colaborador"
+                >
+                  <option value="">Nenhuma</option>
+                  <option value="mecanica">Mecânica</option>
+                  <option value="eletrica">Elétrica</option>
+                </select>
+                <small className="text-zinc-500 block">
+                  Define em qual painel de TV do chão de fábrica a pessoa aparece. Quem não é de
+                  mecânica nem de elétrica fica sem área.
+                </small>
+              </div>
+
+              <div className="space-y-1">
                 <label className="text-sm text-zinc-300">Vínculo com usuário do sistema</label>
                 <select
                   value={userId ?? ""}
@@ -635,6 +767,68 @@ export default function ColaboradoresPage() {
                 {userId && email ? <small className="text-zinc-400 block">E-mail do usuário vinculado: {email}</small> : null}
                 <small className="text-zinc-500 block">O vínculo é opcional e pode ser alterado depois.</small>
               </div>
+
+              {editId && pins ? (
+                <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm text-zinc-300">PIN do tablet de apontamento</label>
+                    {pins.get(editId) ? (
+                      <span className="text-xs text-emerald-300">
+                        Definido em {dataBr(pins.get(editId)?.definido_em)}
+                        {pins.get(editId)?.definido_por_nome ? ` por ${pins.get(editId)?.definido_por_nome}` : ""}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-500">Sem PIN: não aponta pelo tablet</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={pinNovo}
+                      onChange={(e) => setPinNovo(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      inputMode="numeric"
+                      placeholder="4 números"
+                      aria-label="Novo PIN do tablet"
+                      className="w-32 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-zinc-100 tracking-[0.3em] text-center"
+                      disabled={pinSalvando || !ativo}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPinNovo(gerarPinAleatorio())}
+                      disabled={pinSalvando || !ativo}
+                      className="px-3 py-2 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-sm disabled:opacity-50"
+                    >
+                      Sortear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void definirPin(editId, pinNovo)}
+                      disabled={pinSalvando || !ativo || pinNovo.length !== 4}
+                      className="px-3 py-2 rounded bg-sky-600 hover:bg-sky-700 text-white text-sm disabled:opacity-50"
+                    >
+                      {pinSalvando ? "Salvando..." : pins.get(editId) ? "Redefinir PIN" : "Definir PIN"}
+                    </button>
+                    {pins.get(editId) ? (
+                      <button
+                        type="button"
+                        onClick={() => void removerPin(editId)}
+                        disabled={pinSalvando}
+                        className="px-3 py-2 rounded border border-red-800 text-red-300 hover:bg-red-950/40 text-sm disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                  </div>
+                  {pinMsg ? (
+                    <small className={`block ${pinMsg.tone === "ok" ? "text-emerald-300" : "text-red-300"}`}>{pinMsg.texto}</small>
+                  ) : (
+                    <small className="text-zinc-500 block">
+                      {ativo
+                        ? "O PIN identifica o colaborador sozinho no tablet, então precisa ser único na empresa. Ele é gravado só como hash e vale na hora."
+                        : "Ative o colaborador para definir o PIN."}
+                    </small>
+                  )}
+                </div>
+              ) : null}
 
               <div className="space-y-1">
                 <label className="text-sm text-zinc-300">
