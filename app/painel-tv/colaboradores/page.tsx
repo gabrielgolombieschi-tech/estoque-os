@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type Ref,
 } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
@@ -52,7 +53,6 @@ const ALTURA_LINHA_TAREFA_PX = 104;
 const LINHAS_TAREFA_PADRAO = 6;
 
 const MAX_OS_NO_CARTAO = 3;
-const MAX_TAREFAS_NO_CARTAO = 2;
 
 /* -------------------------------------------------------------------------- */
 /* Cores (zinc, como as outras TVs)                                            */
@@ -214,7 +214,12 @@ type ResumoColaborador = {
   // "Férias · 3 dias", "Folga · 4h".
   ausenciaDaSemana: string | null;
   faltasEmDiaUtil: number;
+  // Pendentes na ordem em que o cartao mostra: com data primeiro, porque sao as
+  // que cobram dia, e as sem data no fim.
   tarefasPendentes: TarefaLinha[];
+  // Fechadas nesta semana, para o cartao mostrar o que a pessoa ja entregou. O
+  // banco passou a devolver a semana inteira na 20260913130000.
+  tarefasConcluidas: TarefaLinha[];
   tarefasComData: TarefaLinha[];
   tarefasSemData: number;
 };
@@ -731,12 +736,21 @@ function PainelColaboradores() {
             (diasDoColaborador.get(dia.data)?.horas ?? 0) <= 0 &&
             ausenciaDoColaborador.get(dia.data)?.medida !== "dias"
         ).length,
-        tarefasPendentes: listaTarefas,
+        tarefasPendentes: [
+          ...listaTarefas.filter((tarefa) => tarefa.data !== null),
+          ...listaTarefas.filter((tarefa) => tarefa.data === null),
+        ],
+        tarefasConcluidas: tarefas.filter(
+          (tarefa) =>
+            tarefa.colaborador_id === colaborador.id &&
+            tarefa.categoria === "os" &&
+            tarefa.participante_concluida_em !== null
+        ),
         tarefasComData: listaTarefas.filter((tarefa) => tarefa.data !== null),
         tarefasSemData: listaTarefas.filter((tarefa) => tarefa.data === null).length,
       } satisfies ResumoColaborador;
     });
-  }, [colaboradores, horasSemana, horasMes, tarefasPendentes, dias, hoje, ausencias]);
+  }, [colaboradores, horasSemana, horasMes, tarefasPendentes, tarefas, dias, hoje, ausencias]);
 
   // Escala das barras do layout B: a maior hora de um dia, entre todos.
   const maiorHoraDoDia = useMemo(() => {
@@ -1120,11 +1134,79 @@ function LayoutCartoes({
   );
 }
 
+// A lista de tarefas do cartao rola sozinha quando estoura a altura. Sem isso,
+// o que passa da borda simplesmente nunca aparece na televisao — e ninguem esta
+// ali para rolar com o dedo. A ida e a volta cabem no tempo que o quadro fica no
+// ar, com uma pausa em cada ponta para dar tempo de ler.
+function ListaQueRola({ ms, children }: { ms: number; children: ReactNode }) {
+  const caixaRef = useRef<HTMLDivElement | null>(null);
+  const conteudoRef = useRef<HTMLDivElement | null>(null);
+  const [deslocamento, setDeslocamento] = useState(0);
+  const [duracaoMs, setDuracaoMs] = useState(0);
+
+  useEffect(() => {
+    const caixa = caixaRef.current;
+    const conteudo = conteudoRef.current;
+    if (!caixa || !conteudo) return;
+
+    const medir = () => {
+      const sobra = conteudo.scrollHeight - caixa.clientHeight;
+      if (sobra <= 2) {
+        setDeslocamento(0);
+        setDuracaoMs(0);
+        return;
+      }
+      // Um quinto do tempo parado em cima, um quinto parado embaixo, e o resto
+      // descendo. Rolar o tempo todo deixa o texto ilegivel de longe.
+      const pausa = Math.max(1200, ms * 0.2);
+      setDuracaoMs(Math.max(1500, ms - pausa * 2));
+      setDeslocamento(sobra);
+    };
+
+    medir();
+    const observador = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(medir);
+    observador?.observe(conteudo);
+    observador?.observe(caixa);
+    return () => observador?.disconnect();
+  }, [ms]);
+
+  // O passeio comeca depois da pausa inicial. Enquanto ela corre, o topo fica
+  // parado e legivel.
+  const [andando, setAndando] = useState(false);
+  useEffect(() => {
+    if (deslocamento <= 0) return;
+    const pausa = Math.max(1200, ms * 0.2);
+    const t = window.setTimeout(() => setAndando(true), pausa);
+    return () => {
+      window.clearTimeout(t);
+      setAndando(false);
+    };
+  }, [deslocamento, ms]);
+
+  // Derivado, e nao guardado: se a lista voltar a caber, ela para sozinha sem
+  // precisar de um setState no corpo do efeito.
+  const emMovimento = andando && deslocamento > 0;
+
+  return (
+    <div ref={caixaRef} className="min-h-0 flex-1 overflow-hidden">
+      <div
+        ref={conteudoRef}
+        style={{
+          transform: `translateY(-${emMovimento ? deslocamento : 0}px)`,
+          transition: emMovimento ? `transform ${duracaoMs}ms linear` : "none",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function CartaoColaborador({ resumo }: { resumo: ResumoColaborador }) {
   const cor = corDoColaborador(resumo.id);
   const osVisiveis = resumo.osSemana.slice(0, MAX_OS_NO_CARTAO);
   const osRestantes = resumo.osSemana.length - osVisiveis.length;
-  const tarefasVisiveis = resumo.tarefasComData.slice(0, MAX_TAREFAS_NO_CARTAO);
+  const temAlgumaTarefa = resumo.tarefasPendentes.length > 0 || resumo.tarefasConcluidas.length > 0;
 
   return (
     <article
@@ -1208,33 +1290,46 @@ function CartaoColaborador({ resumo }: { resumo: ResumoColaborador }) {
 
       <div className="my-5 h-px shrink-0" style={{ background: DIVISORIA }} />
 
-      {resumo.tarefasPendentes.length === 0 ? (
+      {!temAlgumaTarefa ? (
         <div className="text-2xl" style={{ color: TEXTO_2 }}>
           Sem tarefa pendente
         </div>
       ) : (
         <>
-          <div className="text-2xl" style={{ color: TEXTO_2 }}>
-            Tarefas pendentes · {resumo.tarefasPendentes.length}
+          <div className="text-2xl shrink-0" style={{ color: TEXTO_2 }}>
+            {resumo.tarefasPendentes.length > 0
+              ? `Tarefas pendentes · ${resumo.tarefasPendentes.length}`
+              : "Sem tarefa pendente"}
           </div>
-          <ul className="mt-2 space-y-1">
-            {tarefasVisiveis.map((tarefa) => (
-              <li
-                key={tarefa.id}
-                className="text-2xl leading-snug"
-                style={{ color: tarefa.atrasada ? VERMELHO : TEXTO }}
-              >
-                {prefixoDaTarefa(tarefa)} · <span className="tabular-nums">OS {tarefa.numero_os}</span>{" "}
-                {descricaoDaTarefa(tarefa)}
-                {tarefa.atrasada ? " (atrasada)" : ""}
-              </li>
-            ))}
-            {resumo.tarefasSemData > 0 && (
-              <li className="text-2xl" style={{ color: TEXTO_3 }}>
-                Sem data · {resumo.tarefasSemData}
-              </li>
-            )}
-          </ul>
+          <ListaQueRola ms={MS_CARTOES}>
+            <ul className="mt-2 space-y-1">
+              {resumo.tarefasPendentes.map((tarefa) => (
+                <li
+                  key={`p-${tarefa.id}-${tarefa.colaborador_id}`}
+                  className="text-2xl leading-snug"
+                  style={{ color: tarefa.atrasada ? VERMELHO : TEXTO }}
+                >
+                  {/* Tarefa sem data nao ganha rotulo: o que interessa e o
+                      servico, e "Sem data" so gastava linha. */}
+                  {tarefa.data !== null ? `${prefixoDaTarefa(tarefa)} · ` : ""}
+                  <span className="tabular-nums">OS {tarefa.numero_os}</span>{" "}
+                  {descricaoDaTarefa(tarefa)}
+                  {tarefa.atrasada ? " (atrasada)" : ""}
+                </li>
+              ))}
+              {resumo.tarefasConcluidas.map((tarefa) => (
+                <li
+                  key={`c-${tarefa.id}-${tarefa.colaborador_id}`}
+                  className="text-2xl leading-snug"
+                  style={{ color: TEXTO_2 }}
+                >
+                  <span style={{ color: VERDE }}>✓</span>{" "}
+                  <span className="tabular-nums">OS {tarefa.numero_os}</span>{" "}
+                  {descricaoDaTarefa(tarefa)}
+                </li>
+              ))}
+            </ul>
+          </ListaQueRola>
         </>
       )}
     </article>

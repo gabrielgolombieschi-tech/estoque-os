@@ -210,7 +210,8 @@ insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, 
   ('1c000000-0000-4000-8000-00000000b009', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939002, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', 'Detalhar o projeto do painel', 'pendente');
 insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, medida, descricao, situacao, concluida_em) values
   ('1c000000-0000-4000-8000-00000000b004', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', public.fn_tablet_data_hoje() - 1, 1, 'dias', 'Trocar rolamento (fechada hoje)', 'concluida', now()),
-  ('1c000000-0000-4000-8000-00000000b005', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', public.fn_tablet_data_hoje() - 2, 1, 'dias', 'Fechada anteontem', 'concluida', now() - interval '2 days');
+  ('1c000000-0000-4000-8000-00000000b005', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::date - 1, 1, 'dias', 'Fechada na semana passada', 'concluida', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz - interval '9 hours'),
+  ('1c000000-0000-4000-8000-00000000b010', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::date, 1, 'dias', 'Fechada na segunda desta semana', 'concluida', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz + interval '15 hours');
 insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, medida, descricao, situacao, cancelada_em, cancelamento_motivo) values
   ('1c000000-0000-4000-8000-00000000b006', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'sem_data', null, 1, 'dias', 'Cancelada', 'cancelada', now(), 'nao vai mais');
 
@@ -243,13 +244,16 @@ insert into public.tarefas_participantes (tarefa_id, colaborador_id) values
   ('1c000000-0000-4000-8000-00000000b105', '1c000000-0000-4000-8000-000000000105'),
   ('1c000000-0000-4000-8000-00000000b009', '1c000000-0000-4000-8000-000000000108'),
   ('1c000000-0000-4000-8000-00000000b106', '1c000000-0000-4000-8000-000000000108');
--- A conclusao e por pessoa: b004 fechou hoje (aparece), b005 fechou anteontem (nao)
+-- A conclusao e por pessoa. A janela do painel e a SEMANA: b004 fechou hoje e
+-- b010 fechou na segunda, e as duas aparecem; b005 fechou no domingo anterior,
+-- fora da semana, e fica de fora.
 -- e, na tarefa de tres, MURILO ja fechou a parte dele hoje enquanto a tarefa
 -- inteira continua pendente.
 insert into public.tarefas_participantes (tarefa_id, colaborador_id, concluida_em) values
   ('1c000000-0000-4000-8000-00000000b002', '1c000000-0000-4000-8000-000000000106', now()),
   ('1c000000-0000-4000-8000-00000000b004', '1c000000-0000-4000-8000-000000000101', now()),
-  ('1c000000-0000-4000-8000-00000000b005', '1c000000-0000-4000-8000-000000000103', now() - interval '2 days');
+  ('1c000000-0000-4000-8000-00000000b005', '1c000000-0000-4000-8000-000000000103', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz - interval '9 hours'),
+  ('1c000000-0000-4000-8000-00000000b010', '1c000000-0000-4000-8000-000000000101', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz + interval '15 hours');
 
 -- Reserva e uma linha por pessoa e por dia. So as que o teste confere, para nao
 -- bater no indice unico de colaborador/dia.
@@ -522,9 +526,10 @@ declare
   v_pos_hoje integer;
 begin
   -- Trabalho: b001 (MARCOS atrasada), b002 (tres pessoas hoje), b003 (ELIAS sem
-  -- data), b004 (MARCOS fechada hoje) e b009 (ENEIDA hoje) = 7 linhas.
+  -- data), b004 (MARCOS fechada hoje), b010 (MARCOS fechada na segunda desta
+  -- semana) e b009 (ENEIDA hoje) = 8 linhas.
   select count(*) into v_linhas from public.tv_colaboradores_tarefas(null) where categoria = 'os';
-  if v_linhas <> 7 then raise exception 'linhas de tarefa de OS no painel: % (esperado 7)', v_linhas; end if;
+  if v_linhas <> 8 then raise exception 'linhas de tarefa de OS no painel: % (esperado 8)', v_linhas; end if;
 
   -- Uma tarefa de tres participantes gera tres linhas, e cada uma diz que sao tres.
   select count(*), array_agg(colaborador_nome order by colaborador_nome)
@@ -552,15 +557,20 @@ begin
     raise exception 'tarefa de tres com um participante fechado nao devia estar concluida';
   end if;
 
-  -- A concluida hoje aparece, com o rastro da pessoa; a de anteontem nao.
+  -- A janela das concluidas e a SEMANA, nao o dia: o cartao fala de "horas na
+  -- semana", entao o que foi fechado nela conta junto. Quem fechou na segunda
+  -- aparecia como se nao tivesse feito nada ate esta mudanca.
   if (select count(*) from public.tv_colaboradores_tarefas(null) where id = v_fechada_hoje and situacao = 'concluida') <> 1 then
     raise exception 'tarefa concluida hoje devia aparecer no painel';
   end if;
   if (select participante_concluida_em from public.tv_colaboradores_tarefas(null) where id = v_fechada_hoje) is null then
     raise exception 'a linha da concluida hoje devia trazer a conclusao do participante';
   end if;
+  if (select count(*) from public.tv_colaboradores_tarefas(null) where id = '1c000000-0000-4000-8000-00000000b010' and situacao = 'concluida') <> 1 then
+    raise exception 'tarefa fechada na segunda desta semana devia aparecer no painel';
+  end if;
   if exists (select 1 from public.tv_colaboradores_tarefas(null) where id = '1c000000-0000-4000-8000-00000000b005') then
-    raise exception 'tarefa concluida em outro dia apareceu no painel';
+    raise exception 'tarefa fechada na semana passada apareceu no painel';
   end if;
 
   -- Cancelada, de colaborador inativo e de outra empresa ficam fora.
@@ -605,9 +615,10 @@ begin
     raise exception 'a atrasada devia ser a primeira linha da mecanica';
   end if;
 
-  -- Filtro de area: na mecanica so MARCOS e MURILO.
+  -- Filtro de area: na mecanica so MARCOS e MURILO. Subiu de 5 para 6 com a
+  -- b010, que o MARCOS fechou na segunda desta semana.
   select count(*) into v_linhas from public.tv_colaboradores_tarefas('mecanica');
-  if v_linhas <> 5 then raise exception 'linhas da mecanica: % (esperado 5)', v_linhas; end if;
+  if v_linhas <> 6 then raise exception 'linhas da mecanica: % (esperado 6)', v_linhas; end if;
   if exists (select 1 from public.tv_colaboradores_tarefas('mecanica') where colaborador_nome in ('ELETRICO ELIAS', 'SEM AREA SONIA', 'ENGENHEIRA ENEIDA')) then
     raise exception 'filtro de area nas tarefas deixou passar outra area';
   end if;
@@ -654,8 +665,8 @@ begin
   if (select count(*) from public.tv_colaboradores_tarefas(null) where categoria <> 'os') <> 4 then
     raise exception 'linhas de ausencia no painel: %', (select count(*) from public.tv_colaboradores_tarefas(null) where categoria <> 'os');
   end if;
-  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 11 then
-    raise exception 'total de linhas do painel: % (esperado 11)', (select count(*) from public.tv_colaboradores_tarefas(null));
+  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 12 then
+    raise exception 'total de linhas do painel: % (esperado 12)', (select count(*) from public.tv_colaboradores_tarefas(null));
   end if;
 end $tarefas$;
 
@@ -933,7 +944,7 @@ begin
   ctx := public.tv_periodos();
   if ctx->>'papel' <> p_papel then raise exception 'papel de % no painel: %', p_papel, ctx; end if;
   if (select count(*) from public.tv_colaboradores(null)) <> 6 then raise exception '% nao leu a lista de colaboradores', p_papel; end if;
-  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 11 then raise exception '% nao leu as tarefas', p_papel; end if;
+  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 12 then raise exception '% nao leu as tarefas', p_papel; end if;
   if (select coalesce(sum(horas), 0) from public.tv_horas_periodo(v_hoje - 7, v_hoje, null)) <> 24 then raise exception '% nao leu as horas', p_papel; end if;
   if (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, null)) <> 5 then raise exception '% nao leu as ausencias', p_papel; end if;
   -- A gestao tambem chega na area nova sem trocar de conta.
