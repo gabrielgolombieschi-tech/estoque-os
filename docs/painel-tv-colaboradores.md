@@ -208,3 +208,23 @@ atalho por área. Área nova passa por todos eles.
   painel mostra as pendentes e, à parte, o que foi concluído hoje.
 - As tabelas de tarefas seguem com RLS ligada e sem policy. O painel lê por função
   `SECURITY DEFINER`, como todo o resto.
+
+## O cartão do colaborador, por dentro
+
+O cartão do layout A mostra as horas da semana e do mês, a meta já com o desconto
+de ausência, as OS em que a pessoa lançou hora, e então a lista de tarefas. Essa
+lista segue três regras:
+
+- **As pendentes vêm todas**, com data primeiro e as sem data no fim. A tarefa sem
+  data não ganha rótulo: o que interessa é o serviço, e escrever "Sem data" só
+  gastava linha. Antes o cartão listava no máximo duas com data e resumia o resto
+  num contador, então uma tarefa sem data existia sem dizer o que era.
+- **As concluídas na semana aparecem com um ✓ verde**, em texto mais apagado. A
+  janela é a semana corrente, contada da segunda-feira — a mesma de
+  `horas_previstas`, para o cartão inteiro falar do mesmo período. Antes só entrava
+  o que tinha sido fechado no próprio dia, e quem fechou três tarefas na segunda
+  aparecia na quinta como se não tivesse feito nada (`20260913130000`).
+- **A lista rola sozinha quando não cabe.** Fica parada um quinto do tempo no topo,
+  desce até o fim no tempo restante e para lá até o quadro trocar. Sem isso, o que
+  passasse da borda simplesmente nunca apareceria — ninguém está na frente da TV
+  para rolar com o dedo.
