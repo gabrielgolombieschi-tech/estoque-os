@@ -221,7 +221,7 @@ begin
   -- Agendada -> sem data: libera o dia.
   r := public.app_tarefas_reagendar(t1, null);
   if not (r->>'sucesso')::boolean or r->'tarefa'->>'tipo' <> 'sem_data' or r->'tarefa'->>'data' is not null or (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'T1 nao virou sem data: %', r; end if;
-  if r->'tarefa'->>'reserva_liberacao_motivo' <> 'passou_para_sem_data' then raise exception 'motivo da liberacao: %', r; end if;
+  if r->'tarefa'->>'reserva_liberacao_motivo' <> 'a tarefa passou para sem data' then raise exception 'motivo da liberacao: %', r; end if;
   if (select ocupado from public.app_tarefas_colaboradores(hoje + 2) where id = '1b000000-0000-4000-8000-000000000101') then raise exception 'sem data nao liberou o dia'; end if;
 
   -- Sem data -> agendada exige dia livre.
@@ -274,7 +274,7 @@ begin
   if r->'tarefa'->>'cancelamento_motivo' <> 'Cliente adiou' or r->'tarefa'->>'cancelada_por_nome' <> 'Diretor' then raise exception 'rastro do cancelamento: %', r; end if;
   r := public.app_tarefas_detalhe(t6);
   if jsonb_array_length(r->'reservas') <> 1 or (r->'reservas'->0->>'ativa')::boolean then raise exception 'cancelar apagou a reserva: %', r->'reservas'; end if;
-  if r->'reservas'->0->>'liberacao_motivo' <> 'cancelada' then raise exception 'motivo da liberacao no cancelamento: %', r->'reservas'; end if;
+  if r->'reservas'->0->>'liberacao_motivo' <> 'a tarefa foi cancelada' then raise exception 'motivo da liberacao no cancelamento: %', r->'reservas'; end if;
   r := public.app_tarefas_cancelar(t6, 'de novo');
   if not (r->>'sucesso')::boolean or not (r->>'repetido')::boolean then raise exception 'cancelar de novo devia ser repetido: %', r; end if;
   if (select count(*) from public.app_tarefas_listar('historico') where id = t6) <> 1 then raise exception 'cancelada fora do historico'; end if;
@@ -976,7 +976,7 @@ begin
   r := public.app_tarefas_detalhe(t_dias);
   if jsonb_array_length(r->'participantes') <> 2 then raise exception 'T_DIAS devia voltar a 2 participantes: %', r->'participantes'; end if;
   if (select count(*) from jsonb_array_elements(r->'reservas') as e where e->>'colaborador_id' = v_pedro::text and (e->>'ativa')::boolean) <> 0 then raise exception 'sair nao liberou os dias de PEDRO: %', r->'reservas'; end if;
-  if (select count(*) from jsonb_array_elements(r->'reservas') as e where e->>'colaborador_id' = v_pedro::text and e->>'liberacao_motivo' = 'saiu_da_tarefa') <> 2 then raise exception 'motivo da liberacao de quem saiu: %', r->'reservas'; end if;
+  if (select count(*) from jsonb_array_elements(r->'reservas') as e where e->>'colaborador_id' = v_pedro::text and e->>'liberacao_motivo' = 'a pessoa saiu da tarefa') <> 2 then raise exception 'motivo da liberacao de quem saiu: %', r->'reservas'; end if;
   if (select count(*) from public.app_tarefas_colaboradores(v_inicio) where id = v_pedro and ocupado) <> 0 then raise exception 'PEDRO continuou reservado depois de sair'; end if;
 
   -- Quem nao participa nao sai; inativa nao entra.
@@ -1603,5 +1603,71 @@ begin
 end $agenda_horas$;
 
 select pg_temp.sistema();
+
+-- 16. Ausência não é cobrança, e o histórico fala português. --------------------------------
+-- Duas coisas que só apareceram olhando a tela: o tablet chamava a folga de
+-- "ATRASADA", porque app_tablet_tarefas tem a própria conta de atraso e ficou de
+-- fora da Parte 6; e o histórico de reservas mostrava a marca de sistema crua
+-- ("· saiu_da_tarefa") no lugar de uma frase.
+
+do $tablet_e_motivo$
+declare
+  v_tenant uuid := '1b000000-0000-4000-8000-000000000020';
+  v_empresa uuid := '1b000000-0000-4000-8000-000000000020';
+  v_bruno uuid := '1b000000-0000-4000-8000-000000000102';
+  v_hoje date := public.fn_tablet_data_hoje();
+  v_tarefa uuid := gen_random_uuid();
+  v_sessao record;
+  v_itens jsonb;
+  v_atrasada boolean;
+  v_texto text;
+begin
+  select t.tenant_id, t.empresa_id into v_tenant, v_empresa
+  from public.tarefas as t limit 1;
+
+  -- Folga em horas de anteontem: já terminou, e ninguém conclui folga.
+  insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, descricao, categoria, dias, medida, horas, criado_por_user_id)
+  values (v_tarefa, v_tenant, v_empresa, null, 'agendada', v_hoje - 2, 'Folga de quatro horas ja passada', 'folga', 1, 'horas', 4, null);
+  insert into public.tarefas_participantes (tarefa_id, colaborador_id)
+  values (v_tarefa, v_bruno);
+
+  -- Pela leitura geral, ausência passada não fica atrasada (Parte 6).
+  select linha.atrasada into v_atrasada
+  from public.fn_tarefas_linhas(v_tenant, v_empresa, null, true, null) as linha
+  where linha.id = v_tarefa;
+  if coalesce(v_atrasada, false) then
+    raise exception 'fn_tarefas_linhas marcou ausencia passada como atrasada';
+  end if;
+
+  -- E pelo tablet também. Aqui é a leitura que a pessoa vê na fábrica.
+  select s.* into v_sessao
+  from public.tablet_sessoes as s
+  where s.colaborador_id = v_bruno and s.encerrada_em is null
+  order by s.criado_em desc
+  limit 1;
+
+  if v_sessao.id is not null then
+    v_itens := public.app_tablet_tarefas(v_sessao.token);
+    if exists (
+      select 1 from jsonb_array_elements(coalesce(v_itens->'agendadas', '[]'::jsonb)) as item
+      where (item->>'id')::uuid = v_tarefa and coalesce((item->>'atrasada')::boolean, false)
+    ) then
+      raise exception 'o tablet marcou a folga como atrasada';
+    end if;
+  end if;
+
+  -- A tradução do motivo de liberação: marca de sistema vira frase, o que a
+  -- pessoa escreveu passa inteiro.
+  v_texto := public.fn_tarefas_motivo_texto('saiu_da_tarefa');
+  if v_texto = 'saiu_da_tarefa' or v_texto like '%\_%' then
+    raise exception 'saiu_da_tarefa continua chegando cru: %', v_texto;
+  end if;
+  if public.fn_tarefas_motivo_texto('Terminou antes') <> 'Terminou antes' then
+    raise exception 'o motivo escrito por uma pessoa foi alterado';
+  end if;
+
+  delete from public.tarefas_participantes where tarefa_id = v_tarefa;
+  delete from public.tarefas where id = v_tarefa;
+end $tablet_e_motivo$;
 
 rollback;

@@ -74,6 +74,13 @@ nem as outras reservas. Não adianta reservar metade de uma tarefa de dois dias.
 | **Concluir** | **não libera**: o dia foi usado |
 | Liberar reserva | ação explícita da gestão, só em tarefa concluída, com motivo |
 
+`tarefas_reservas.liberacao_motivo` guarda duas coisas na mesma coluna: o motivo que
+uma pessoa digitou ("Terminou antes") e a marca de sistema que as RPCs escrevem
+quando liberam por conta própria (`reagendada`, `saiu_da_tarefa`, …). Quem traduz é
+o banco, na leitura: `fn_tarefas_motivo_texto` vira a marca em frase e deixa passar
+inteiro o que a pessoa escreveu. Antes disso o histórico mostrava "· saiu_da_tarefa"
+para quem estava olhando a tela.
+
 Mensagem de conflito: "NOME já está reservado(a) em dd/mm/aaaa." O detalhe (o que
 ocupa o dia) só vem quando quem pediu pode ver aquela tarefa, e diz a categoria: em
 ausência não há OS para mostrar.
