@@ -382,6 +382,7 @@ function formatarHoras(horas: number): string {
 function rotuloArea(area: string | null): string {
   if (area === "mecanica") return "Mecânica";
   if (area === "eletrica") return "Elétrica";
+  if (area === "engenharia") return "Engenharia";
   if (!area) return "Todas as áreas";
   return area;
 }
@@ -453,8 +454,9 @@ function PainelColaboradores() {
   const { tenantId, empresaId } = useTenantEmpresa();
   const searchParams = useSearchParams();
 
-  // A area vai crua para o banco: quem valida "mecanica"/"eletrica" e a funcao
-  // fn_tv_area, e a mensagem dela e a que a tela mostra.
+  // A area vai crua para o banco: quem valida "mecanica", "eletrica" e
+  // "engenharia" e a funcao fn_tv_area, e a mensagem dela e a que a tela mostra.
+  // A validacao fica num lugar so de proposito — a tela nao repete a lista.
   const areaParam = useMemo(() => {
     const bruto = searchParams.get("area");
     const limpo = typeof bruto === "string" ? bruto.trim().toLowerCase() : "";

@@ -82,6 +82,12 @@ export default function PainelTvPage() {
           >
             Elétrica
           </Link>
+          <Link
+            href="/painel-tv/colaboradores?area=engenharia"
+            className="rounded border border-zinc-800 px-3 py-1.5 hover:border-zinc-600 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+          >
+            Engenharia
+          </Link>
         </div>
 
         <div className="mt-10 text-sm text-zinc-500">

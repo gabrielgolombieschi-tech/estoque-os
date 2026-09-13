@@ -2,16 +2,17 @@
 
 Migrations: `supabase/migrations/20260912160000_tv_colaboradores_area.sql` (as funções
 `tv_*` e a coluna `area`), `20260912190000_tv_jornada_e_area_por_cargo.sql` (a jornada
-e a área pelo cargo) e `20260912220000_tarefas_participantes_dias_e_ausencias.sql`
-(`tv_ausencias_periodo`, e a tarefa por participante).
+e a área pelo cargo), `20260912220000_tarefas_participantes_dias_e_ausencias.sql`
+(`tv_ausencias_periodo`, e a tarefa por participante) e
+`20260913100000_tv_area_engenharia.sql` (a terceira área).
 Teste: `supabase/tests/tv_colaboradores.sql` (roda em transação e faz rollback).
-Tela: `/painel-tv/colaboradores?area=mecanica|eletrica`.
+Tela: `/painel-tv/colaboradores?area=mecanica|eletrica|engenharia`.
 
 ## O que mostra
 
-Por colaborador ativo de uma frente de trabalho, as horas apontadas na semana e no
-mês e as tarefas pendentes. A tela gira sozinha entre três layouts (as maquetes
-estão em `docs/tv-maquetes/`):
+Por colaborador ativo de uma área, as horas apontadas na semana e no mês e as
+tarefas pendentes. A tela gira sozinha entre três layouts (as maquetes estão em
+`docs/tv-maquetes/`):
 
 | Layout | O que é | Tempo |
 | --- | --- | --- |
@@ -64,6 +65,14 @@ A tela chama `tv_periodos()`, `tv_colaboradores(area)`,
 `tv_colaboradores_tarefas(area)`, `tv_horas_periodo(inicio_semana, hoje, area)`,
 `tv_horas_periodo(inicio_mes, hoje, area)` e
 `tv_ausencias_periodo(inicio_semana, fim_semana, area)`.
+
+O `p_area` das quatro que recebem área passa por `public.fn_tv_area`, que corta
+espaço, baixa a caixa e aceita `mecanica`, `eletrica`, `engenharia` ou vazio —
+vazio é "todas". Qualquer outra coisa vira `Área inválida: X. Use mecanica,
+eletrica, engenharia ou nenhuma.` A tela manda o `?area=` da URL cru, de
+propósito: a validação é uma só, no banco, e é essa mensagem que aparece na
+televisão. `fn_tv_area` não tem grant para `authenticated`; só as funções
+`SECURITY DEFINER` a chamam.
 
 **Ausência não é tarefa na televisão.** `tv_colaboradores_tarefas` devolve folga e
 férias porque elas moram na mesma tabela, mas a tela filtra `categoria = 'os'` nas
@@ -131,13 +140,59 @@ policy, como as demais; só as funções `SECURITY DEFINER` leem — nem
 
 ## Área do colaborador
 
-`public.colaboradores.area` aceita `mecanica`, `eletrica` ou vazio, e agora tem campo
-próprio no cadastro de colaboradores, ao lado do cargo. A migration
-`20260912190000` preencheu a coluna a partir do cargo que já existia: quem tem MEC no
-cargo virou mecânica, quem tem ELE virou elétrica, e segurança e programação ficaram
-sem área. Cargo com as duas marcas, ou com nenhuma, fica sem área de propósito, porque
-é melhor a pessoa não aparecer em TV nenhuma do que aparecer na errada. O preenchimento
-nunca sobrescreve área já definida à mão.
+`public.colaboradores.area` aceita `mecanica`, `eletrica`, `engenharia` ou vazio, e
+tem campo próprio no cadastro de colaboradores, ao lado do cargo. A área não descreve
+o que a pessoa faz: ela diz **em qual televisão a pessoa aparece**.
+
+| Área | Quem é |
+| --- | --- |
+| `mecanica` | frente de chão de fábrica |
+| `eletrica` | frente de chão de fábrica |
+| `engenharia` | a turma do escritório que trabalha em OS: coordenação, projeto, programação e segurança |
+
+Engenharia não é chão de fábrica, mas aponta hora e tem tarefa de OS igual às outras
+duas, e por isso ganhou TV própria em vez de um painel novo: a tela é a mesma, só
+filtrada (`/painel-tv/colaboradores?area=engenharia`), e os três layouts serviram sem
+mudança.
+
+Sem `?area` na URL a tela mostra **todos** os ativos da empresa, inclusive quem está
+sem área. As TVs penduradas usam os atalhos por área do lançador `/painel-tv`.
+
+### De onde veio a área de cada um
+
+A migration `20260912190000` preencheu a coluna a partir do cargo que já existia: quem
+tem MEC no cargo virou mecânica, quem tem ELE virou elétrica, e segurança e programação
+ficaram sem área. Cargo com as duas marcas, ou com nenhuma, fica sem área de propósito,
+porque é melhor a pessoa não aparecer em nenhuma TV de área do que aparecer na errada.
+O preenchimento nunca sobrescreve área já definida à mão, e não há gatilho: mudar o
+cargo depois não mexe na área.
+
+A `20260913100000` abriu a engenharia e montou a turma **por nome**, não por cargo,
+porque o cargo não distingue — "COORDENADOR MECANICO" e "PROJETISTA MEC" têm a mesma
+marca MEC do soldador.
+
+**DOUGLAS WIEMENS e MATHEUS CAMILO saíram da mecânica.** Um é coordenador, o outro é
+projetista; estavam na mecânica só por causa do MEC no cargo. A TV da mecânica passou a
+mostrar duas pessoas a menos, e isso é o esperado: quem a frente de fábrica precisa ver
+é quem está na fábrica. Quem procurar por eles acha na TV da engenharia.
+
+### A lista de áreas vive em três lugares
+
+Os três precisam concordar, senão existe área que um aceita e o outro recusa:
+
+| Onde | Decide |
+| --- | --- |
+| `chk_colaboradores_area`, em `public.colaboradores` | o que o cadastro consegue gravar |
+| `public.fn_tv_area` | o que a televisão consegue ler |
+| `ROTULO_AREA`, no topo de `app/colaboradores/page.tsx` | como a área aparece escrita na lista de colaboradores |
+
+Os dois primeiros o banco confere no deploy: as asserções da `20260913100000` exigem
+que `fn_tv_area` aceite `engenharia` e que `chk_colaboradores_area` também aceite —
+se uma tivesse ficado para trás, a migration não subiria. O terceiro é revisão, e não
+é o único pedaço de tela: o seletor de Área do mesmo arquivo tem as opções escritas à
+mão, o cabeçalho da TV tem a própria cópia dos rótulos (`rotuloArea`, em
+`app/painel-tv/colaboradores/page.tsx`) e o lançador `app/painel-tv/page.tsx` tem um
+atalho por área. Área nova passa por todos eles.
 
 ## Regras que a tela herda
 

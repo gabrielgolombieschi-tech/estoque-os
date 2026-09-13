@@ -99,6 +99,15 @@ function sameMoney(a: number | null, b: number | null) {
   return Math.abs(a - b) < 0.0001;
 }
 
+// Áreas do painel de TV. Mesma lista da restrição chk_colaboradores_area e de
+// fn_tv_area: as três precisam concordar, senão existe área que a tela aceita e o
+// banco recusa.
+const ROTULO_AREA: Record<string, string> = {
+  mecanica: "Mecânica",
+  eletrica: "Elétrica",
+  engenharia: "Engenharia",
+};
+
 export default function ColaboradoresPage() {
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null as unknown as ReturnType<typeof supabaseBrowser>;
@@ -118,8 +127,9 @@ export default function ColaboradoresPage() {
 
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
-  // Area da TV: so mecanica e eletrica. Vazio quando a pessoa nao entra em
-  // nenhum dos dois paineis (seguranca, programacao, administrativo).
+  // Area da TV: mecanica e eletrica sao as frentes de chao de fabrica, e
+  // engenharia e a turma do escritorio que trabalha em OS (coordenacao, projeto,
+  // programacao, seguranca). Vazio quando a pessoa nao entra em painel nenhum.
   const [area, setArea] = useState("");
   const [ativo, setAtivo] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -613,7 +623,7 @@ export default function ColaboradoresPage() {
                   {r.cargo ?? "-"}
                 </td>
                 <td className="px-3 py-2 text-zinc-300">
-                  {r.area === "mecanica" ? "Mecânica" : r.area === "eletrica" ? "Elétrica" : "-"}
+                  {ROTULO_AREA[r.area ?? ""] ?? "-"}
                 </td>
                 <td className="px-3 py-2 text-zinc-300">
                   {r.valor_hora != null ? `R$ ${Number(r.valor_hora).toFixed(2)}` : "-"}
@@ -727,10 +737,13 @@ export default function ColaboradoresPage() {
                   <option value="">Nenhuma</option>
                   <option value="mecanica">Mecânica</option>
                   <option value="eletrica">Elétrica</option>
+                  <option value="engenharia">Engenharia</option>
                 </select>
                 <small className="text-zinc-500 block">
-                  Define em qual painel de TV do chão de fábrica a pessoa aparece. Quem não é de
-                  mecânica nem de elétrica fica sem área.
+                  Define em qual painel de TV a pessoa aparece. Mecânica e Elétrica são as frentes
+                  de chão de fábrica; Engenharia é a turma de escritório que trabalha em OS
+                  (coordenação, projeto, programação e segurança). Deixe Nenhuma só para quem não
+                  entra em painel algum: quem fica sem área não aparece em TV nenhuma.
                 </small>
               </div>
 

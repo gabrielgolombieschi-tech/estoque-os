@@ -4,12 +4,13 @@
 -- por fora das funcoes, filtro de area, semana/jornada, tarefas por participante,
 -- horas sem hora recusada e ausencia que desconta da semana.
 --
--- Cobre as tres migrations que formam a tela:
+-- Cobre as quatro migrations que formam a tela:
 --   20260912160000  fn_tv_contexto, fn_tv_area, tv_periodos, tv_colaboradores,
 --                   tv_colaboradores_tarefas, tv_horas_periodo, colaboradores.area
 --   20260912190000  jornada_padrao e horas_previstas / horas_previstas_ate_hoje
 --   20260912220000  tarefas_participantes (tarefas.colaborador_id nao existe mais)
 --                   e tv_ausencias_periodo
+--   20260913100000  a terceira area, engenharia, na coluna e em fn_tv_area
 --
 -- Contas do fixture (tenant 1c00...0010, empresa A 1c00...0020, empresa B 1c00...0021):
 --   ...0001  tv@tvtest.test           PAINEL_TV     -> a televisao
@@ -22,7 +23,8 @@
 -- Colaboradores da empresa A: MECANICO MARCOS (mecanica, horas e tarefas),
 --   ELETRICO ELIAS (eletrica), SEM AREA SONIA (area nula), MECANICA MARIA
 --   (mecanica, sem hora e sem tarefa: o cartao vazio), MECANICO MURILO (mecanica,
---   so o terceiro participante da tarefa de hoje) e INATIVO IVO (mecanica, inativo).
+--   so o terceiro participante da tarefa de hoje), ENGENHEIRA ENEIDA (engenharia,
+--   com hora, tarefa e ausencia) e INATIVO IVO (mecanica, inativo).
 --   Empresa B: OUTRA EMPRESA OSVALDO (mecanica) -- nada dele pode vazar para a TV.
 --
 -- O teste nao escolhe data fixa nem depende do dia da semana em que roda: as
@@ -81,6 +83,9 @@ insert into public.colaboradores (id, nome, cargo, ativo, area, tenant_id, empre
   ('1c000000-0000-4000-8000-000000000104', 'INATIVO IVO', 'MECANICO', false, 'mecanica', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null),
   ('1c000000-0000-4000-8000-000000000105', 'MECANICA MARIA', 'MECANICO', true, 'mecanica', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null),
   ('1c000000-0000-4000-8000-000000000106', 'MECANICO MURILO', 'MECANICO', true, 'mecanica', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null),
+  -- O cargo da ENEIDA tem "MEC" de proposito: e o caso que fez nascer a engenharia
+  -- na 20260913100000. Quem decide a area e o campo Area do cadastro, nao o cargo.
+  ('1c000000-0000-4000-8000-000000000108', 'ENGENHEIRA ENEIDA', 'PROJETISTA MEC', true, 'engenharia', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null),
   ('1c000000-0000-4000-8000-000000000107', 'OUTRA EMPRESA OSVALDO', 'MECANICO', true, 'mecanica', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021', null);
 insert into public.colaborador_taxas (colaborador_id, valor_hora, vigencia_inicio, tenant_id, empresa_id)
 select c.id, 70, '2020-01-01', c.tenant_id, c.empresa_id from public.colaboradores c where c.tenant_id = '1c000000-0000-4000-8000-000000000010';
@@ -165,9 +170,10 @@ insert into public.feriados (data, descricao, abrangencia)
 select d, 'Feriado plantado pelo teste do painel', 'MUNICIPAL' from datas where nome = 'semana_feriado';
 
 -- Horas de hoje: MARCOS tem 4h + 2h aprovadas na TV-1 (uma linha de 6h), 3h
--- pendentes na TV-2 e 5h recusadas; ELIAS tem 2h aprovadas. MARCOS tem ainda 8h
--- aprovadas ontem, que e outra linha porque o dia e outro. A recusada nao soma em
--- lugar nenhum. IVO (inativo) e OSVALDO (empresa B) nao podem aparecer.
+-- pendentes na TV-2 e 5h recusadas; ELIAS tem 2h aprovadas; ENEIDA tem 5h
+-- aprovadas. MARCOS tem ainda 8h aprovadas ontem, que e outra linha porque o dia e
+-- outro. A recusada nao soma em lugar nenhum. IVO (inativo) e OSVALDO (empresa B)
+-- nao podem aparecer.
 insert into public.apontamentos_horas (id, os_id, colaborador_id, data, horas, tipo_hora_id, descricao, tenant_id, empresa_id)
 values
   ('1c000000-0000-4000-8000-00000000a001', 939001, '1c000000-0000-4000-8000-000000000101', public.fn_tablet_data_hoje(), 4, '1c000000-0000-4000-8000-000000000301', 'aprovada 4h', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020'),
@@ -177,7 +183,8 @@ values
   ('1c000000-0000-4000-8000-00000000a005', 939001, '1c000000-0000-4000-8000-000000000101', public.fn_tablet_data_hoje() - 1, 8, '1c000000-0000-4000-8000-000000000301', 'aprovada ontem', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020'),
   ('1c000000-0000-4000-8000-00000000a006', 939001, '1c000000-0000-4000-8000-000000000102', public.fn_tablet_data_hoje(), 2, '1c000000-0000-4000-8000-000000000301', 'eletrica', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020'),
   ('1c000000-0000-4000-8000-00000000a007', 939001, '1c000000-0000-4000-8000-000000000104', public.fn_tablet_data_hoje(), 6, '1c000000-0000-4000-8000-000000000301', 'hora de colaborador inativo', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020'),
-  ('1c000000-0000-4000-8000-00000000a008', 939003, '1c000000-0000-4000-8000-000000000107', public.fn_tablet_data_hoje(), 7, '1c000000-0000-4000-8000-000000000301', 'hora da empresa B', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021');
+  ('1c000000-0000-4000-8000-00000000a008', 939003, '1c000000-0000-4000-8000-000000000107', public.fn_tablet_data_hoje(), 7, '1c000000-0000-4000-8000-000000000301', 'hora da empresa B', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021'),
+  ('1c000000-0000-4000-8000-00000000a009', 939002, '1c000000-0000-4000-8000-000000000108', public.fn_tablet_data_hoje(), 5, '1c000000-0000-4000-8000-000000000301', 'engenharia', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020');
 
 -- O gatilho de preparacao forca 'pendente' no insert; a tela e que esta em teste
 -- aqui, entao os tres estados ficam fixados na mao (um update que nao toca em
@@ -185,7 +192,8 @@ values
 update public.apontamentos_horas set status_aprovacao = 'aprovado'
 where id in ('1c000000-0000-4000-8000-00000000a001', '1c000000-0000-4000-8000-00000000a002',
              '1c000000-0000-4000-8000-00000000a005', '1c000000-0000-4000-8000-00000000a006',
-             '1c000000-0000-4000-8000-00000000a007', '1c000000-0000-4000-8000-00000000a008');
+             '1c000000-0000-4000-8000-00000000a007', '1c000000-0000-4000-8000-00000000a008',
+             '1c000000-0000-4000-8000-00000000a009');
 update public.apontamentos_horas set status_aprovacao = 'pendente'
 where id = '1c000000-0000-4000-8000-00000000a003';
 update public.apontamentos_horas set status_aprovacao = 'rejeitado', motivo_devolucao = 'fora do combinado'
@@ -198,7 +206,8 @@ insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, 
   ('1c000000-0000-4000-8000-00000000b002', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939002, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', 'Montar o painel em tres', 'pendente'),
   ('1c000000-0000-4000-8000-00000000b003', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939002, 'sem_data', null, 1, 'dias', 'Revisar o quadro quando der', 'pendente'),
   ('1c000000-0000-4000-8000-00000000b007', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', 'Tarefa de colaborador inativo', 'pendente'),
-  ('1c000000-0000-4000-8000-00000000b008', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021', 939003, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', 'Tarefa da empresa B', 'pendente');
+  ('1c000000-0000-4000-8000-00000000b008', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021', 939003, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', 'Tarefa da empresa B', 'pendente'),
+  ('1c000000-0000-4000-8000-00000000b009', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939002, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', 'Detalhar o projeto do painel', 'pendente');
 insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, medida, descricao, situacao, concluida_em) values
   ('1c000000-0000-4000-8000-00000000b004', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', public.fn_tablet_data_hoje() - 1, 1, 'dias', 'Trocar rolamento (fechada hoje)', 'concluida', now()),
   ('1c000000-0000-4000-8000-00000000b005', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', public.fn_tablet_data_hoje() - 2, 1, 'dias', 'Fechada anteontem', 'concluida', now() - interval '2 days');
@@ -210,7 +219,10 @@ insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, 
   ('1c000000-0000-4000-8000-00000000b101', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null, 'agendada', public.fn_tablet_data_hoje() + 1, 2, 'dias', null, 'ferias', 'Ferias do Marcos, dois dias', 'pendente'),
   ('1c000000-0000-4000-8000-00000000b102', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null, 'agendada', public.fn_tablet_data_hoje(), 1, 'horas', 4, 'folga', 'Folga de quatro horas', 'pendente'),
   ('1c000000-0000-4000-8000-00000000b103', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', null, 'outro', 'Consulta medica', 'pendente'),
-  ('1c000000-0000-4000-8000-00000000b104', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021', null, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', null, 'folga', 'Folga na empresa B', 'pendente');
+  ('1c000000-0000-4000-8000-00000000b104', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000021', null, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', null, 'folga', 'Folga na empresa B', 'pendente'),
+  -- A folga da ENEIDA e amanha de proposito: assim ela nao mexe nas contas de
+  -- "hoje" nem no recorte que vai so ate hoje, e ainda serve ao filtro de area.
+  ('1c000000-0000-4000-8000-00000000b106', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null, 'agendada', public.fn_tablet_data_hoje() + 1, 1, 'dias', null, 'folga', 'Folga da Eneida', 'pendente');
 insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, medida, horas, categoria, descricao, situacao, cancelada_em, cancelamento_motivo) values
   ('1c000000-0000-4000-8000-00000000b105', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', null, 'agendada', public.fn_tablet_data_hoje(), 1, 'dias', null, 'folga', 'Folga cancelada da Maria', 'cancelada', now(), 'trabalhou');
 
@@ -228,7 +240,9 @@ insert into public.tarefas_participantes (tarefa_id, colaborador_id) values
   ('1c000000-0000-4000-8000-00000000b102', '1c000000-0000-4000-8000-000000000102'),
   ('1c000000-0000-4000-8000-00000000b103', '1c000000-0000-4000-8000-000000000103'),
   ('1c000000-0000-4000-8000-00000000b104', '1c000000-0000-4000-8000-000000000107'),
-  ('1c000000-0000-4000-8000-00000000b105', '1c000000-0000-4000-8000-000000000105');
+  ('1c000000-0000-4000-8000-00000000b105', '1c000000-0000-4000-8000-000000000105'),
+  ('1c000000-0000-4000-8000-00000000b009', '1c000000-0000-4000-8000-000000000108'),
+  ('1c000000-0000-4000-8000-00000000b106', '1c000000-0000-4000-8000-000000000108');
 -- A conclusao e por pessoa: b004 fechou hoje (aparece), b005 fechou anteontem (nao)
 -- e, na tarefa de tres, MURILO ja fechou a parte dele hoje enquanto a tarefa
 -- inteira continua pendente.
@@ -246,7 +260,8 @@ insert into public.tarefas_reservas (tenant_id, empresa_id, tarefa_id, colaborad
   ('1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', '1c000000-0000-4000-8000-00000000b002', '1c000000-0000-4000-8000-000000000102', public.fn_tablet_data_hoje()),
   ('1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', '1c000000-0000-4000-8000-00000000b002', '1c000000-0000-4000-8000-000000000106', public.fn_tablet_data_hoje()),
   ('1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', '1c000000-0000-4000-8000-00000000b101', '1c000000-0000-4000-8000-000000000101', public.fn_tablet_data_hoje() + 1),
-  ('1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', '1c000000-0000-4000-8000-00000000b101', '1c000000-0000-4000-8000-000000000101', public.fn_tablet_data_hoje() + 2);
+  ('1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', '1c000000-0000-4000-8000-00000000b101', '1c000000-0000-4000-8000-000000000101', public.fn_tablet_data_hoje() + 2),
+  ('1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', '1c000000-0000-4000-8000-00000000b009', '1c000000-0000-4000-8000-000000000108', public.fn_tablet_data_hoje());
 
 create or replace function pg_temp.como(p_sub text) returns void language plpgsql as $$
 begin
@@ -391,10 +406,14 @@ do $colaboradores$
 declare
   v_nomes text[];
 begin
-  -- Sem filtro: os cinco ativos da empresa A. O inativo e o da empresa B ficam fora.
+  -- Sem filtro: os seis ativos da empresa A, as tres areas juntas na mesma lista.
+  -- O inativo e o da empresa B ficam fora.
   select array_agg(nome order by nome) into v_nomes from public.tv_colaboradores(null);
-  if v_nomes <> array['ELETRICO ELIAS', 'MECANICA MARIA', 'MECANICO MARCOS', 'MECANICO MURILO', 'SEM AREA SONIA'] then
+  if v_nomes <> array['ELETRICO ELIAS', 'ENGENHEIRA ENEIDA', 'MECANICA MARIA', 'MECANICO MARCOS', 'MECANICO MURILO', 'SEM AREA SONIA'] then
     raise exception 'lista de colaboradores sem filtro: %', v_nomes;
+  end if;
+  if (select count(distinct area) from public.tv_colaboradores(null) where area is not null) <> 3 then
+    raise exception 'sem filtro a lista devia trazer as tres areas: %', (select array_agg(distinct area) from public.tv_colaboradores(null));
   end if;
 
   -- Mecanica: inclusive MECANICA MARIA, que nao tem hora nem tarefa nenhuma.
@@ -409,9 +428,25 @@ begin
   select array_agg(nome order by nome) into v_nomes from public.tv_colaboradores('eletrica');
   if v_nomes <> array['ELETRICO ELIAS'] then raise exception 'lista da eletrica: %', v_nomes; end if;
 
-  -- Quem esta sem area nao aparece em nenhuma das duas areas.
+  -- Engenharia: a turma do escritorio tem a tela so dela.
+  select array_agg(nome order by nome) into v_nomes from public.tv_colaboradores('engenharia');
+  if v_nomes <> array['ENGENHEIRA ENEIDA'] then raise exception 'lista da engenharia: %', v_nomes; end if;
+  if (select area from public.tv_colaboradores('engenharia') where nome = 'ENGENHEIRA ENEIDA') <> 'engenharia' then
+    raise exception 'a linha da engenharia nao veio com a area engenharia';
+  end if;
+
+  -- Quem e da engenharia nao aparece nas duas frentes de fabrica: e por isso que a
+  -- terceira area existe, para o chao de fabrica nao ver coordenacao e projeto na
+  -- TV dele.
+  if exists (select 1 from public.tv_colaboradores('mecanica') where nome = 'ENGENHEIRA ENEIDA')
+     or exists (select 1 from public.tv_colaboradores('eletrica') where nome = 'ENGENHEIRA ENEIDA') then
+    raise exception 'colaborador da engenharia apareceu na mecanica ou na eletrica';
+  end if;
+
+  -- Quem esta sem area nao aparece em nenhuma das tres areas.
   if exists (select 1 from public.tv_colaboradores('mecanica') where nome = 'SEM AREA SONIA')
-     or exists (select 1 from public.tv_colaboradores('eletrica') where nome = 'SEM AREA SONIA') then
+     or exists (select 1 from public.tv_colaboradores('eletrica') where nome = 'SEM AREA SONIA')
+     or exists (select 1 from public.tv_colaboradores('engenharia') where nome = 'SEM AREA SONIA') then
     raise exception 'colaborador sem area apareceu numa area';
   end if;
 
@@ -432,12 +467,19 @@ begin
     raise exception 'colaborador de outra empresa apareceu na lista';
   end if;
 
-  -- Area invalida e recusada por fn_tv_area, em todas as funcoes que a recebem.
+  -- Abrir uma area a mais nao pode virar "aceita qualquer coisa": um valor
+  -- inventado continua recusado por fn_tv_area, em todas as funcoes que a recebem.
   begin
     perform public.tv_colaboradores('hidraulica');
     raise exception 'tv_colaboradores aceitou area invalida';
   exception when others then
     if sqlerrm not like 'Área inválida:%' then raise; end if;
+    -- Essa frase e o que a tela mostra para quem digitou a area na URL. Se ela nao
+    -- citar a engenharia, quem abre ?area=engenharia e recebe um erro qualquer
+    -- conclui que a area nao existe.
+    if sqlerrm not like '%mecanica%' or sqlerrm not like '%eletrica%' or sqlerrm not like '%engenharia%' then
+      raise exception 'a mensagem de area invalida devia citar as tres areas: %', sqlerrm;
+    end if;
   end;
   begin
     perform public.tv_colaboradores_tarefas('hidraulica');
@@ -446,13 +488,13 @@ begin
     if sqlerrm not like 'Área inválida:%' then raise; end if;
   end;
   begin
-    perform public.tv_horas_periodo((now() at time zone 'America/Sao_Paulo')::date, (now() at time zone 'America/Sao_Paulo')::date, 'pintura');
+    perform public.tv_horas_periodo((now() at time zone 'America/Sao_Paulo')::date, (now() at time zone 'America/Sao_Paulo')::date, 'hidraulica');
     raise exception 'tv_horas_periodo aceitou area invalida';
   exception when others then
     if sqlerrm not like 'Área inválida:%' then raise; end if;
   end;
   begin
-    perform public.tv_ausencias_periodo((now() at time zone 'America/Sao_Paulo')::date, (now() at time zone 'America/Sao_Paulo')::date, 'pintura');
+    perform public.tv_ausencias_periodo((now() at time zone 'America/Sao_Paulo')::date, (now() at time zone 'America/Sao_Paulo')::date, 'hidraulica');
     raise exception 'tv_ausencias_periodo aceitou area invalida';
   exception when others then
     if sqlerrm not like 'Área inválida:%' then raise; end if;
@@ -461,6 +503,9 @@ begin
   -- Espaco e caixa nao mudam o significado da area.
   if (select count(*) from public.tv_colaboradores('  MECANICA  ')) <> 3 then
     raise exception 'area com espaco e maiuscula devia valer';
+  end if;
+  if (select count(*) from public.tv_colaboradores('  ENGENHARIA  ')) <> 1 then
+    raise exception 'engenharia com espaco e maiuscula devia valer';
   end if;
 end $colaboradores$;
 
@@ -477,9 +522,9 @@ declare
   v_pos_hoje integer;
 begin
   -- Trabalho: b001 (MARCOS atrasada), b002 (tres pessoas hoje), b003 (ELIAS sem
-  -- data) e b004 (MARCOS fechada hoje) = 6 linhas.
+  -- data), b004 (MARCOS fechada hoje) e b009 (ENEIDA hoje) = 7 linhas.
   select count(*) into v_linhas from public.tv_colaboradores_tarefas(null) where categoria = 'os';
-  if v_linhas <> 6 then raise exception 'linhas de tarefa de OS no painel: % (esperado 6)', v_linhas; end if;
+  if v_linhas <> 7 then raise exception 'linhas de tarefa de OS no painel: % (esperado 7)', v_linhas; end if;
 
   -- Uma tarefa de tres participantes gera tres linhas, e cada uma diz que sao tres.
   select count(*), array_agg(colaborador_nome order by colaborador_nome)
@@ -537,8 +582,9 @@ begin
   if (select id from public.tv_colaboradores_tarefas(null) where coalesce(atrasada, false)) <> v_atrasada then
     raise exception 'a atrasada do painel nao e b001';
   end if;
-  -- Hoje: as tres linhas de b002, mais a folga de horas e a ausencia de um dia.
-  if (select count(*) from public.tv_colaboradores_tarefas(null) where coalesce(hoje, false)) <> 5 then
+  -- Hoje: as tres linhas de b002 e a b009 da ENEIDA, mais a folga de horas e a
+  -- ausencia de um dia.
+  if (select count(*) from public.tv_colaboradores_tarefas(null) where coalesce(hoje, false)) <> 6 then
     raise exception 'linhas marcadas como de hoje: %', (select count(*) from public.tv_colaboradores_tarefas(null) where coalesce(hoje, false));
   end if;
   if (select count(*) from public.tv_colaboradores_tarefas(null) where data is null) <> 1 then
@@ -562,11 +608,23 @@ begin
   -- Filtro de area: na mecanica so MARCOS e MURILO.
   select count(*) into v_linhas from public.tv_colaboradores_tarefas('mecanica');
   if v_linhas <> 5 then raise exception 'linhas da mecanica: % (esperado 5)', v_linhas; end if;
-  if exists (select 1 from public.tv_colaboradores_tarefas('mecanica') where colaborador_nome in ('ELETRICO ELIAS', 'SEM AREA SONIA')) then
+  if exists (select 1 from public.tv_colaboradores_tarefas('mecanica') where colaborador_nome in ('ELETRICO ELIAS', 'SEM AREA SONIA', 'ENGENHEIRA ENEIDA')) then
     raise exception 'filtro de area nas tarefas deixou passar outra area';
   end if;
   if (select count(*) from public.tv_colaboradores_tarefas('eletrica')) <> 3 then
     raise exception 'linhas da eletrica: % (esperado 3)', (select count(*) from public.tv_colaboradores_tarefas('eletrica'));
+  end if;
+  if exists (select 1 from public.tv_colaboradores_tarefas('eletrica') where colaborador_nome = 'ENGENHEIRA ENEIDA') then
+    raise exception 'tarefa da engenharia apareceu na eletrica';
+  end if;
+
+  -- Engenharia: a tarefa de OS de hoje e a folga de amanha, as duas da ENEIDA.
+  select count(*), array_agg(distinct colaborador_nome) into v_linhas, v_nomes
+  from public.tv_colaboradores_tarefas('engenharia');
+  if v_linhas <> 2 then raise exception 'linhas da engenharia: % (esperado 2)', v_linhas; end if;
+  if v_nomes <> array['ENGENHEIRA ENEIDA'] then raise exception 'quem apareceu na engenharia: %', v_nomes; end if;
+  if (select count(*) from public.tv_colaboradores_tarefas('engenharia') where id = '1c000000-0000-4000-8000-00000000b009' and coalesce(hoje, false)) <> 1 then
+    raise exception 'a tarefa de hoje da engenharia nao veio marcada como de hoje';
   end if;
 
   -- Reserva do dia vem por pessoa; tarefa sem data nao reserva nada.
@@ -592,12 +650,12 @@ begin
   end if;
 
   -- Ausencia pendente tambem sai por aqui (a tela usa a lista como "tarefas
-  -- pendentes"): tres linhas, uma por pessoa ausente.
-  if (select count(*) from public.tv_colaboradores_tarefas(null) where categoria <> 'os') <> 3 then
+  -- pendentes"): quatro linhas, uma por pessoa ausente.
+  if (select count(*) from public.tv_colaboradores_tarefas(null) where categoria <> 'os') <> 4 then
     raise exception 'linhas de ausencia no painel: %', (select count(*) from public.tv_colaboradores_tarefas(null) where categoria <> 'os');
   end if;
-  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 9 then
-    raise exception 'total de linhas do painel: % (esperado 9)', (select count(*) from public.tv_colaboradores_tarefas(null));
+  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 11 then
+    raise exception 'total de linhas do painel: % (esperado 11)', (select count(*) from public.tv_colaboradores_tarefas(null));
   end if;
 end $tarefas$;
 
@@ -642,6 +700,19 @@ begin
   select coalesce(sum(horas), 0) into v_total from public.tv_horas_periodo(v_hoje - 7, v_hoje, 'mecanica');
   if v_total <> 17 then raise exception 'horas da mecanica: % (esperado 17)', v_total; end if;
 
+  -- Engenharia: as 5h da ENEIDA, e so as dela. A hora dela nao pode somar junto
+  -- com a mecanica, que e de onde o cargo dela viria.
+  select count(*), coalesce(sum(horas), 0) into v_linhas, v_total
+  from public.tv_horas_periodo(v_hoje - 7, v_hoje, 'engenharia');
+  if v_linhas <> 1 or v_total <> 5 then raise exception 'horas da engenharia: % linha(s), %h (esperado 1 linha e 5h)', v_linhas, v_total; end if;
+  if (select colaborador_nome from public.tv_horas_periodo(v_hoje - 7, v_hoje, 'engenharia')) <> 'ENGENHEIRA ENEIDA' then
+    raise exception 'a hora da engenharia nao e da ENEIDA';
+  end if;
+  if exists (select 1 from public.tv_horas_periodo(v_hoje - 7, v_hoje, 'mecanica') where colaborador_nome = 'ENGENHEIRA ENEIDA')
+     or exists (select 1 from public.tv_horas_periodo(v_hoje - 7, v_hoje, 'eletrica') where colaborador_nome = 'ENGENHEIRA ENEIDA') then
+    raise exception 'hora da engenharia apareceu na mecanica ou na eletrica';
+  end if;
+
   -- Hora de colaborador inativo e de outra empresa nao soma.
   if exists (select 1 from public.tv_horas_periodo(v_hoje - 7, v_hoje, null) where colaborador_nome = 'INATIVO IVO') then
     raise exception 'hora de colaborador inativo apareceu no painel';
@@ -650,7 +721,7 @@ begin
     raise exception 'hora de outra empresa apareceu no painel';
   end if;
   select coalesce(sum(horas), 0) into v_total from public.tv_horas_periodo(v_hoje - 7, v_hoje, null);
-  if v_total <> 19 then raise exception 'total de horas do painel: % (esperado 19)', v_total; end if;
+  if v_total <> 24 then raise exception 'total de horas do painel: % (esperado 24)', v_total; end if;
 
   -- Recorte do periodo: so hoje deixa as 8h de ontem de fora.
   select coalesce(sum(horas), 0) into v_total
@@ -680,10 +751,10 @@ declare
   v_linhas integer;
   v_datas date[];
 begin
-  -- Ferias de dois dias do MARCOS (duas linhas), folga de 4h do ELIAS e a
-  -- ausencia de um dia da SONIA.
+  -- Ferias de dois dias do MARCOS (duas linhas), folga de 4h do ELIAS, a ausencia
+  -- de um dia da SONIA e a folga de amanha da ENEIDA.
   select count(*) into v_linhas from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, null);
-  if v_linhas <> 4 then raise exception 'linhas de ausencia: % (esperado 4)', v_linhas; end if;
+  if v_linhas <> 5 then raise exception 'linhas de ausencia: % (esperado 5)', v_linhas; end if;
 
   -- Uma linha por dia de ausencia e por pessoa.
   select array_agg(data order by data) into v_datas
@@ -722,6 +793,14 @@ begin
   if (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, 'eletrica')) <> 1 then
     raise exception 'ausencias da eletrica: % (esperado 1)', (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, 'eletrica'));
   end if;
+  select count(*) into v_linhas from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, 'engenharia');
+  if v_linhas <> 1 then raise exception 'ausencias da engenharia: % (esperado 1)', v_linhas; end if;
+  if exists (select 1 from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, 'engenharia') where colaborador_nome <> 'ENGENHEIRA ENEIDA') then
+    raise exception 'ausencia de outra area apareceu na engenharia';
+  end if;
+  if exists (select 1 from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, 'mecanica') where colaborador_nome = 'ENGENHEIRA ENEIDA') then
+    raise exception 'ausencia da engenharia apareceu na mecanica';
+  end if;
 
   -- Outra empresa nao vaza, e ausencia cancelada nao conta.
   if exists (select 1 from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, null) where colaborador_nome = 'OUTRA EMPRESA OSVALDO') then
@@ -731,7 +810,7 @@ begin
     raise exception 'ausencia cancelada apareceu no painel';
   end if;
 
-  -- Recorte do periodo: as ferias sao depois de hoje.
+  -- Recorte do periodo: as ferias do MARCOS e a folga da ENEIDA sao depois de hoje.
   if (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje, null)) <> 2 then
     raise exception 'ausencias ate hoje: % (esperado 2)', (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje, null));
   end if;
@@ -853,10 +932,12 @@ declare
 begin
   ctx := public.tv_periodos();
   if ctx->>'papel' <> p_papel then raise exception 'papel de % no painel: %', p_papel, ctx; end if;
-  if (select count(*) from public.tv_colaboradores(null)) <> 5 then raise exception '% nao leu a lista de colaboradores', p_papel; end if;
-  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 9 then raise exception '% nao leu as tarefas', p_papel; end if;
-  if (select coalesce(sum(horas), 0) from public.tv_horas_periodo(v_hoje - 7, v_hoje, null)) <> 19 then raise exception '% nao leu as horas', p_papel; end if;
-  if (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, null)) <> 4 then raise exception '% nao leu as ausencias', p_papel; end if;
+  if (select count(*) from public.tv_colaboradores(null)) <> 6 then raise exception '% nao leu a lista de colaboradores', p_papel; end if;
+  if (select count(*) from public.tv_colaboradores_tarefas(null)) <> 11 then raise exception '% nao leu as tarefas', p_papel; end if;
+  if (select coalesce(sum(horas), 0) from public.tv_horas_periodo(v_hoje - 7, v_hoje, null)) <> 24 then raise exception '% nao leu as horas', p_papel; end if;
+  if (select count(*) from public.tv_ausencias_periodo(v_hoje - 7, v_hoje + 7, null)) <> 5 then raise exception '% nao leu as ausencias', p_papel; end if;
+  -- A gestao tambem chega na area nova sem trocar de conta.
+  if (select count(*) from public.tv_colaboradores('engenharia')) <> 1 then raise exception '% nao leu a lista da engenharia', p_papel; end if;
 end $$;
 
 select pg_temp.como('1c000000-0000-4000-8000-000000000003');
@@ -878,8 +959,11 @@ reset role;
 select pg_temp.sistema();
 
 -- =====================================================================================
--- 9. A coluna area aceita so os dois valores, ou nada. --------------------------------
+-- 9. A coluna area aceita so as tres areas, ou nada. ----------------------------------
 -- =====================================================================================
+-- O check da coluna e fn_tv_area tem de andar juntos: se um dos dois ficar para
+-- tras, existe area que o cadastro aceita e a TV recusa (ou o contrario), e o campo
+-- Area do cadastro passa a gravar gente numa tela que nunca abre.
 do $coluna$
 begin
   begin
@@ -887,11 +971,17 @@ begin
     raise exception 'check da coluna area aceitou valor invalido';
   exception when check_violation then null;
   end;
+  -- Nulo continua valendo: sem area, MARCOS sai das tres frentes de trabalho.
   update public.colaboradores set area = null where id = '1c000000-0000-4000-8000-000000000101';
   if (select area from public.colaboradores where id = '1c000000-0000-4000-8000-000000000101') is not null then
     raise exception 'area nao aceitou nulo';
   end if;
-  -- Sem area, MARCOS sai das duas frentes de trabalho.
+  -- A terceira area passa pelo check igual as outras duas.
+  update public.colaboradores set area = 'engenharia' where id = '1c000000-0000-4000-8000-000000000101';
+  if (select area from public.colaboradores where id = '1c000000-0000-4000-8000-000000000101') <> 'engenharia' then
+    raise exception 'a coluna area nao guardou engenharia';
+  end if;
+  -- Devolve o MARCOS para a mecanica, que e como o fixture o descreve.
   update public.colaboradores set area = 'mecanica' where id = '1c000000-0000-4000-8000-000000000101';
 end $coluna$;
 
