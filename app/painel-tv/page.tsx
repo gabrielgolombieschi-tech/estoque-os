@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
+import { getSupabaseBrowser } from "@/lib/auth/supabase";
 
 function normalizeRole(role: string | null | undefined) {
   return typeof role === "string" ? role.trim().toUpperCase() : "";
@@ -12,6 +13,22 @@ function normalizeRole(role: string | null | undefined) {
 export default function PainelTvPage() {
   const te = useTenantEmpresa();
   const router = useRouter();
+  const [saindo, setSaindo] = useState(false);
+
+  // As telas de TV escondem o cabecalho do sistema, que e onde mora o "Sair".
+  // Sem isto, quem entra numa televisao com a conta errada — ou precisa trocar
+  // de empresa — fica sem saida pela tela, e so limpando o navegador.
+  async function sair() {
+    setSaindo(true);
+    try {
+      await getSupabaseBrowser().auth.signOut();
+    } catch {
+      // Se a rede falhar, ainda assim tiramos a pessoa da tela: a sessao expira
+      // sozinha e o login recomeca do zero.
+    } finally {
+      router.replace("/login");
+    }
+  }
 
   const empresaRole = useMemo(() => normalizeRole(te.empresa?.papel), [te.empresa?.papel]);
   const isPainelTv = empresaRole === "PAINEL_TV";
@@ -26,7 +43,7 @@ export default function PainelTvPage() {
   return (
     <div className="min-h-[calc(100vh-0px)] bg-zinc-950 text-zinc-100">
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex items-end justify-between gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="space-y-2">
             <div className="text-xs tracking-[0.18em] text-zinc-400 uppercase">
               Painel TV
@@ -39,14 +56,24 @@ export default function PainelTvPage() {
             </p>
           </div>
 
-          {te.empresa && (
-            <div className="hidden md:block text-right">
-              <div className="text-xs text-zinc-400">Empresa</div>
-              <div className="text-lg font-medium text-zinc-100">
-                {te.empresa.nome_fantasia ?? te.empresa.razao_social ?? "Empresa"}
+          <div className="flex items-center gap-5 shrink-0">
+            {te.empresa && (
+              <div className="hidden md:block text-right">
+                <div className="text-xs text-zinc-400">Empresa</div>
+                <div className="text-lg font-medium text-zinc-100">
+                  {te.empresa.nome_fantasia ?? te.empresa.razao_social ?? "Empresa"}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              onClick={() => void sair()}
+              disabled={saindo}
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:opacity-50"
+            >
+              {saindo ? "Saindo..." : "Sair"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -67,8 +94,10 @@ export default function PainelTvPage() {
           />
         </div>
 
-        {/* Atalhos de area: a mesma tela filtrada, para a TV de cada frente. */}
-        <div className="mt-4 flex items-center gap-4 text-sm text-zinc-400">
+        {/* Atalhos de area: a mesma tela filtrada, para a TV de cada frente.
+            A linha precisa quebrar: com a terceira area ela passava da largura
+            num celular e empurrava a pagina inteira para o lado. */}
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
           <span className="text-zinc-500">Colaboradores por área:</span>
           <Link
             href="/painel-tv/colaboradores?area=mecanica"
