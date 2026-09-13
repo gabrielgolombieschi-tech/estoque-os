@@ -11,11 +11,19 @@ Teste SQL: `supabase/tests/tablet_apontamento_pin.sql`.
 
 ## Como funciona
 
-- **Conta do tablet**: uma conta do sistema só para o aparelho (ex.: `segau@segau.com.br`),
-  com perfil **Apontador** na empresa e **sem** colaborador vinculado. Ela só autoriza o
-  tablet; `can()` nega tudo para Apontador, então a conta não abre nenhum outro módulo.
-  É o mesmo aplicativo de sempre: quando essa conta entra, o app abre direto na tela do
-  PIN, sem abas.
+- **Conta do tablet**: uma conta do sistema só para o aparelho, com perfil **Apontador**
+  ou **Painel de TV** na empresa e **sem** colaborador vinculado. É o mesmo aplicativo de
+  sempre: quando essa conta entra, o app abre direto na tela do PIN, sem abas.
+
+  Os dois perfis valem desde 13/09/2026 (`20260913120000`), por decisão do Gabriel: o
+  painel de TV roda no navegador e o tablet no aplicativo, e ele quis os dois no mesmo
+  login. O perfil não é por plataforma, é um por empresa no banco e vale nos dois lugares,
+  então a única forma de juntar era aceitar os dois aqui. **Isso afrouxa uma proteção**:
+  com Apontador, `can()` nega tudo e a senha do tablet não serve para mais nada, o que
+  importa porque o aparelho fica solto na fábrica. Com Painel de TV, quem tiver essa senha
+  abre as telas de televisão num navegador — e o que se vê ali já está pendurado numa TV na
+  parede. Foi com esse argumento que a troca foi aceita. Qualquer outro perfil continua
+  recusado, e a conta continua tendo que ser de aparelho, sem colaborador.
 - **PIN**: quatro dígitos, aceita zero inicial, único por empresa (inativos contam, para
   o PIN não colidir se a pessoa voltar). Guardado só como hash bcrypt em
   `colaboradores_pin`, tabela sem policy. Só colaborador **ativo** é identificado.
@@ -83,7 +91,9 @@ horas." O caminho para OS encerrada é o do sistema web (Apontamentos), que acei
 ## Como configurar
 
 1. **Conta do tablet**: Admin › Usuários (ou "Novo usuário" no app). Perfil **Apontador**
-   nesta empresa, sem vincular a colaborador. Ex.: `segau@segau.com.br`.
+   nesta empresa, sem vincular a colaborador. Se a mesma conta também vai tocar as
+   televisões, use **Painel de TV** no lugar de Apontador: os dois são aceitos, e aí é um
+   login só para as duas coisas. A tela de autorização lista os dois perfis.
 2. **Autorizar**: sistema web, Cadastros › **Tablets de apontamento** (Admin ou Diretor).
    Escolha a conta, dê um nome ("Tablet da produção") e o tempo de inatividade.
 3. **Tablet**: instale o app e entre com a conta do tablet. Ele abre na tela do PIN.

@@ -213,13 +213,19 @@ export default function TabletsPage() {
 
       <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300 space-y-1">
         <p>
-          O tablet compartilhado usa uma conta do sistema só para o aparelho, com o perfil <strong>Apontador</strong> e sem
-          vínculo com colaborador. Quem lança as horas é o colaborador que digita o PIN.
+          O tablet compartilhado usa uma conta do sistema só para o aparelho, com o perfil <strong>Apontador</strong> ou
+          <strong> Painel de TV</strong>, e sem vínculo com colaborador. Quem lança as horas é o colaborador que digita o PIN.
         </p>
         <p className="text-zinc-400">
           Passos: criar a conta (Admin › Usuários, perfil Apontador nesta empresa), autorizar aqui, entrar no aplicativo com ela e
           definir os PINs: no aplicativo, em Perfil › Configurações › PINs do tablet, o próprio colaborador digita o PIN dele; ou
           aqui no web, em <Link href="/colaboradores" className="underline">Colaboradores</Link>. Só Admin e Diretor definem PINs.
+        </p>
+        <p className="text-zinc-400">
+          Use <strong>Apontador</strong> quando a conta for só do tablet: ela não abre nada do sistema, e é a escolha mais segura
+          para um aparelho que fica solto na fábrica. Use <strong>Painel de TV</strong> quando a mesma conta também for tocar as
+          televisões — aí é um login só para as duas coisas, e quem tiver a senha do tablet consegue abrir as telas de TV no
+          navegador.
         </p>
       </div>
 
@@ -310,7 +316,7 @@ export default function TabletsPage() {
                   ))}
                 </select>
                 <small className="text-zinc-500 block">
-                  Aparecem só contas com perfil Apontador nesta empresa e sem colaborador vinculado.
+                  Aparecem só contas com perfil Apontador ou Painel de TV nesta empresa, e sem colaborador vinculado.
                   {contasDisponiveis.length === 0 && !editando ? " Nenhuma disponível: crie a conta em Admin › Usuários." : ""}
                 </small>
               </div>
