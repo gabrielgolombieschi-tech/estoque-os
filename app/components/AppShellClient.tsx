@@ -40,6 +40,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/os/analitico" ||
     pathname === "/apontamentos" ||
     pathname === "/apontamentos/resumo-mensal" ||
+    pathname === "/tarefas" ||
     pathname === "/compras/pedidos" ||
     pathname === "/estoque/pedidos" ||
     pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
@@ -84,7 +85,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/estoque/importar/imprimir" ||
     pathname?.startsWith("/compras/pedidos/") && pathname?.endsWith("/imprimir") ||
     pathname?.startsWith("/comercial/orcamentos/") && pathname?.endsWith("/imprimir") ||
-    pathname === "/painel-tv" ||
+    // Prefixo, e nao igualdade: as telas de quiosque sob /painel-tv/ tambem
+    // ocupam a tela inteira. Sem isto, a gestao (que abre esses paineis para
+    // conferir) veria a tela de TV embaixo do cabecalho do ERP e passando da
+    // janela, porque ela e dimensionada em 100dvh menos a margem do conteudo.
+    pathname?.startsWith("/painel-tv") ||
     pathname?.startsWith("/projetos") ||
     pathname?.startsWith("/execucao");
 
@@ -232,6 +237,17 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canAccessColaboradores =
     can("admin.manage_users") || can("financeiro.read") || canAccessCadastrosFullByEmpresaPapel;
   const canAccessApontamentos = can("apontamentos.read") || can("apontamentos.write");
+  // Tarefas: quem decide o que cada um ve e o banco (app_tarefas_*) — a gestao ve
+  // tudo e o colaborador comum ve so as proprias e as conclui. O colaborador comum
+  // nao recebe os.read nem apontamentos.*: o papel de empresa TECNICO nao acrescenta
+  // capacidade nenhuma em get_full_permissions e o papel de tenant dele cai no role
+  // 'estoque' do role_permissions, que so tem estoque/itens/movimentacoes. Amarrar o
+  // link a essas capacidades deixaria a regra "ve as proprias tarefas e conclui"
+  // acessivel so por URL. Mesma regra do aplicativo (podePapelVerTarefas): so o
+  // painel de TV fica de fora. APONTADOR nao pode entrar nesta lista — e o papel
+  // de gente de chao de fabrica, que tem tarefa; a conta do tablet tambem e
+  // APONTADOR e, se entrar no web, o proprio banco a recusa em fn_tarefas_contexto.
+  const canAccessTarefas = empresaRole !== "PAINEL_TV";
   const canAccessClientesCad =
     can("admin.manage_users") || can("financeiro.read") || can("cad_clientes.write") || canAccessCadastrosByEmpresaPapel;
   const isFinanceiroEmpresaRole = empresaRole === "FINANCEIRO";
@@ -415,9 +431,23 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             Resumo de horas
                           </Link>
                         )}
+                        {canAccessTarefas && (
+                          <Link href="/tarefas" className="block px-3 py-2 hover:bg-zinc-900">
+                            Tarefas
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Sem o dropdown de OS (colaborador comum, que nao tem os.read nem
+                    os.write) o link de Tarefas ficaria escondido; aqui ele vira item
+                    proprio do menu, uma entrada so em cada caso. */}
+                {canAccessTarefas && !canAccessOs && (
+                  <Link href="/tarefas" className="px-3 py-1 rounded-md hover:bg-zinc-900">
+                    Tarefas
+                  </Link>
                 )}
 
                 {canSeeEstoqueMenu && (
@@ -864,6 +894,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             </Link>
                             <Link href="/cadastros/cargos" className="block px-5 py-2 hover:bg-zinc-900 text-sm">
                               Cargos
+                            </Link>
+                            <Link href="/cadastros/tablets" className="block px-5 py-2 hover:bg-zinc-900 text-sm">
+                              Tablets de apontamento
                             </Link>
                             <div className="border-t border-zinc-800 my-2"></div>
                           </>
