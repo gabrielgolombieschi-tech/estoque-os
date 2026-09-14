@@ -228,3 +228,22 @@ lista segue três regras:
   desce até o fim no tempo restante e para lá até o quadro trocar. Sem isso, o que
   passasse da borda simplesmente nunca apareceria — ninguém está na frente da TV
   para rolar com o dedo.
+
+## Hora interna na televisão
+
+Desde `20260914100000` a hora pode ir para uma **atividade interna** (comercial,
+treinamento, manutenção da fábrica, administrativo, exames, integração) em vez de uma
+OS — ver `docs/horas-internas.md`. Para a televisão ela é hora trabalhada como qualquer
+outra:
+
+- **conta na semana e no mês**, e por isso conta na meta. Foi exatamente o primeiro
+  questionamento que a TV produziu: quem passou a segunda em reunião comercial aparecia
+  como quem faltou, porque não tinha onde pendurar essa hora;
+- **no cartão** aparece com o nome da atividade onde apareceria a OS: "Comercial 3h",
+  "Treinamento 2h", ao lado das linhas "OS 145 · MALWEE 34h". Sem cliente, porque na
+  televisão o que importa é para onde o tempo foi, não para quem;
+- **na grade da semana** a barra do dia soma as duas.
+
+`tv_horas_periodo` devolve `atividade_id` e `atividade_nome` no fim, com `os_id`,
+`numero_os` e `cliente_nome` nulos nessas linhas. A tela agrupa por uma chave que é a OS
+ou a atividade, porque `os_id` nulo colapsaria toda hora interna numa entrada só.

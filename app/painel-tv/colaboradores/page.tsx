@@ -148,9 +148,14 @@ type AusenciaLinha = {
 type HoraLinha = {
   colaborador_id: string;
   colaborador_nome: string;
-  os_id: number;
-  numero_os: string;
-  cliente_nome: string;
+  // OS ou atividade interna, nunca as duas: hora de comercial, treinamento,
+  // manutencao da fabrica etc. vem com os_id nulo e a atividade preenchida. Ela
+  // conta na semana e no mes do mesmo jeito — e hora trabalhada.
+  os_id: number | null;
+  numero_os: string | null;
+  cliente_nome: string | null;
+  atividade_id: string | null;
+  atividade_nome: string | null;
   data: string;
   horas: number | string | null;
   status_aprovacao: string | null;
@@ -179,10 +184,15 @@ type TarefaLinha = {
   participantes: number;
 };
 
+// Uma linha do cartao: "OS 145 · MALWEE 34h" ou "Comercial 6h". A chave e o que
+// agrupa, porque os_id e nulo na hora interna e o Map nao pode misturar tudo
+// numa entrada so.
 type OsDaSemana = {
-  osId: number;
-  numeroOs: string;
-  clienteNome: string;
+  chave: string;
+  osId: number | null;
+  numeroOs: string | null;
+  clienteNome: string | null;
+  atividadeNome: string | null;
   horas: number;
   pendente: boolean;
 };
@@ -624,7 +634,7 @@ function PainelColaboradores() {
   const resumos = useMemo<ResumoColaborador[]>(() => {
     const totalSemana = new Map<string, number>();
     const totalMes = new Map<string, number>();
-    const porOs = new Map<string, Map<number, OsDaSemana>>();
+    const porOs = new Map<string, Map<string, OsDaSemana>>();
     const porDia = new Map<string, Map<string, DiaDoColaborador>>();
 
     for (const linha of horasSemana) {
@@ -634,12 +644,15 @@ function PainelColaboradores() {
 
       totalSemana.set(linha.colaborador_id, (totalSemana.get(linha.colaborador_id) ?? 0) + horas);
 
-      const osDoColaborador = porOs.get(linha.colaborador_id) ?? new Map<number, OsDaSemana>();
-      const os = osDoColaborador.get(linha.os_id);
-      osDoColaborador.set(linha.os_id, {
+      const osDoColaborador = porOs.get(linha.colaborador_id) ?? new Map<string, OsDaSemana>();
+      const chave = linha.os_id !== null ? `os:${linha.os_id}` : `atividade:${linha.atividade_id ?? "?"}`;
+      const os = osDoColaborador.get(chave);
+      osDoColaborador.set(chave, {
+        chave,
         osId: linha.os_id,
         numeroOs: linha.numero_os,
         clienteNome: linha.cliente_nome,
+        atividadeNome: linha.atividade_nome,
         horas: (os?.horas ?? 0) + horas,
         pendente: (os?.pendente ?? false) || pendente,
       });
@@ -698,7 +711,11 @@ function PainelColaboradores() {
       const listaTarefas = tarefasDoColaborador.get(colaborador.id) ?? [];
       const osSemana = Array.from(porOs.get(colaborador.id)?.values() ?? []).sort((a, b) => {
         if (b.horas !== a.horas) return b.horas - a.horas;
-        return a.numeroOs.localeCompare(b.numeroOs, "pt-BR", { numeric: true });
+        return (a.numeroOs ?? a.atividadeNome ?? "").localeCompare(
+          b.numeroOs ?? b.atividadeNome ?? "",
+          "pt-BR",
+          { numeric: true }
+        );
       });
 
       const ausenciaDoColaborador =
@@ -1262,10 +1279,19 @@ function CartaoColaborador({ resumo }: { resumo: ResumoColaborador }) {
       ) : (
         <ul className="space-y-2">
           {osVisiveis.map((os) => (
-            <li key={os.osId} className="flex items-baseline gap-4">
+            <li key={os.chave} className="flex items-baseline gap-4">
               <span className="min-w-0 flex-1 truncate text-2xl" style={{ color: TEXTO }}>
-                <span className="tabular-nums font-semibold">OS {os.numeroOs}</span>
-                <span style={{ color: TEXTO_2 }}> · {os.clienteNome}</span>
+                {os.osId !== null ? (
+                  <>
+                    <span className="tabular-nums font-semibold">OS {os.numeroOs}</span>
+                    <span style={{ color: TEXTO_2 }}> · {os.clienteNome}</span>
+                  </>
+                ) : (
+                  // Hora interna: o nome da atividade no lugar da OS. Sem
+                  // cliente, porque na televisao o que importa e para onde o
+                  // tempo foi, nao para quem.
+                  <span className="font-semibold">{os.atividadeNome ?? "Atividade interna"}</span>
+                )}
               </span>
               <span
                 className="shrink-0 text-2xl font-semibold tabular-nums"
@@ -1282,7 +1308,7 @@ function CartaoColaborador({ resumo }: { resumo: ResumoColaborador }) {
           ))}
           {osRestantes > 0 && (
             <li className="text-xl" style={{ color: TEXTO_3 }}>
-              +{osRestantes} OS
+              +{osRestantes} mais
             </li>
           )}
         </ul>

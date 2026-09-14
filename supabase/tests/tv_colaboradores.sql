@@ -211,7 +211,7 @@ insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, 
 insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, medida, descricao, situacao, concluida_em) values
   ('1c000000-0000-4000-8000-00000000b004', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', public.fn_tablet_data_hoje() - 1, 1, 'dias', 'Trocar rolamento (fechada hoje)', 'concluida', now()),
   ('1c000000-0000-4000-8000-00000000b005', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::date - 1, 1, 'dias', 'Fechada na semana passada', 'concluida', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz - interval '9 hours'),
-  ('1c000000-0000-4000-8000-00000000b010', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::date, 1, 'dias', 'Fechada na segunda desta semana', 'concluida', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz + interval '15 hours');
+  ('1c000000-0000-4000-8000-00000000b010', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'agendada', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::date - 7, 1, 'dias', 'Fechada na segunda desta semana', 'concluida', (date_trunc('week', public.fn_tablet_data_hoje()::timestamp))::timestamptz + interval '15 hours');
 insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, dias, medida, descricao, situacao, cancelada_em, cancelamento_motivo) values
   ('1c000000-0000-4000-8000-00000000b006', '1c000000-0000-4000-8000-000000000010', '1c000000-0000-4000-8000-000000000020', 939001, 'sem_data', null, 1, 'dias', 'Cancelada', 'cancelada', now(), 'nao vai mais');
 
@@ -245,8 +245,11 @@ insert into public.tarefas_participantes (tarefa_id, colaborador_id) values
   ('1c000000-0000-4000-8000-00000000b009', '1c000000-0000-4000-8000-000000000108'),
   ('1c000000-0000-4000-8000-00000000b106', '1c000000-0000-4000-8000-000000000108');
 -- A conclusao e por pessoa. A janela do painel e a SEMANA: b004 fechou hoje e
--- b010 fechou na segunda, e as duas aparecem; b005 fechou no domingo anterior,
--- fora da semana, e fica de fora.
+-- b010 fechou na segunda desta semana (a DATA dela e da semana passada de
+-- proposito: se fosse a segunda, na propria segunda ela contaria como 'de hoje'
+-- e o teste mudaria de resultado conforme o dia em que roda). b005 fechou no
+-- domingo anterior, fora da semana, e fica de fora.
+
 -- e, na tarefa de tres, MURILO ja fechou a parte dele hoje enquanto a tarefa
 -- inteira continua pendente.
 insert into public.tarefas_participantes (tarefa_id, colaborador_id, concluida_em) values
