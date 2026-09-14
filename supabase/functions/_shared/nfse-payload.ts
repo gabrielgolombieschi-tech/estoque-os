@@ -1,5 +1,6 @@
 import { dataHoraNfeSaoPaulo } from "./nfe-payload.ts";
 import { codigoTributacaoExigeObra } from "./fiscal/nfse-obra.ts";
+import { pendenciaCompetenciaNfse } from "./fiscal/nfse-competencia.ts";
 
 /**
  * Payload da NFS-e Padrao Nacional (Focus, POST /v2/nfsen) a partir do
@@ -181,6 +182,11 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
   const cstIbsCbs = requiredText(servico.cst_ibs_cbs, "ibs_cbs_situacao_tributaria", "fixture");
   const cclassTrib = requiredText(servico.cclass_trib, "ibs_cbs_classificacao_tributaria", "fixture");
   const competencia = requiredText(servico.data_competencia, "data_competencia", "conferencia").slice(0, 10);
+  // Competencia no mes da emissao (pedido da WEG Tintas, 09/2026). A producao repete a competencia da
+  // homologacao, entao uma homologacao de um mes nao pode sair em producao no mes seguinte.
+  const dataEmissao = dataHoraNfeSaoPaulo(agora);
+  const pendenciaCompetencia = pendenciaCompetenciaNfse(competencia, dataEmissao.slice(0, 10));
+  if (pendenciaCompetencia) throw new Error(`NFS-e bloqueada: ${pendenciaCompetencia}`);
 
   const osNumeros = Array.isArray(servico.os_numeros) ? servico.os_numeros.map((n) => String(n)) : [];
   // cIntContrib: padrao [a-zA-Z0-9]{1,20} (rejeicao real do ambiente nacional em 05/09/2026 com "OS 327").
@@ -198,7 +204,7 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     : requiredText(tomador.nome, "razao_social_tomador", "cadastro fiscal do cliente");
 
   const payload: JsonObject = {
-    data_emissao: dataHoraNfeSaoPaulo(agora),
+    data_emissao: dataEmissao,
     serie_dps: serieDps,
     numero_dps: numeroDps,
     data_competencia: competencia,

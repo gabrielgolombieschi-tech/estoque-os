@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { arredondarMeioPar, calcularIbsCbsNfse, montarPayloadNfse, tipoRetencaoPisCofins, validarPayloadNfseProducaoContraHomologacao, valorLiquidoNfse } from "../supabase/functions/_shared/nfse-payload.ts";
 import { chaveNfseDe, normalizarFocusNfse } from "../supabase/functions/_shared/nfse-retorno.ts";
+import { hojeSaoPaulo, pendenciaCompetenciaNfse } from "../supabase/functions/_shared/fiscal/nfse-competencia.ts";
 
 // Cenarios locais do pipeline de NFS-e Nacional (sem chamar a Focus).
 // Executar: node scripts/test-nfse-pipeline.mjs
@@ -199,7 +200,8 @@ cenario("cIndOp: perfil revisado sem cIndOp nao emite; fixture usa o provisorio 
   assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: null } }), agora), /codigo_indicador_operacao \(perfil de servico sem cIndOp/);
   assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: "050103" } }), agora).codigo_indicador_operacao, "050103");
   assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", item_servico: "07.02" } }), agora).codigo_indicador_operacao, "020201", "07.02 e servico sobre bem imovel (contador 06/09/2026)");
-  assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO" } }), new Date("2026-10-01T12:00:00-03:00")), /obrigatorio desde 2026-10-01/);
+  // Competencia de outubro para a regra de competencia no mes da emissao nao falar antes do cIndOp.
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", data_competencia: "2026-10-01" } }), new Date("2026-10-01T12:00:00-03:00")), /obrigatorio desde 2026-10-01/);
   const p = montarPayloadNfse(contexto({ servico: { tributos_aprox_federal_pct: 13.45, tributos_aprox_municipal_pct: 4.69, tributos_aprox_estadual_pct: 0 } }), agora);
   assert.equal(p.valor_total_tributos_estaduais, 0);
 });
@@ -258,6 +260,24 @@ cenario("producao so sai igual a homologacao (menos data, DPS, nome do tomador e
   const divergente = montarPayloadNfse(contexto({ emissao: { ambiente: "PRODUCAO", dps_numero: 1 }, servico: { valor_bruto: 999 } }), agora);
   assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, divergente), /diverge da homologacao autorizada no campo valor_servico/);
   assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, hom), /tomador real nao foi informado/);
+});
+
+cenario("competencia no mes da emissao (WEG Tintas, 09/2026), no fuso de Sao Paulo", () => {
+  // Dia em Sao Paulo, nao em UTC: 21h de 14/09 ainda e 14/09; 23h30 de 30/09 ainda e setembro.
+  assert.equal(hojeSaoPaulo(new Date("2026-09-14T21:00:00-03:00")), "2026-09-14");
+  assert.equal(hojeSaoPaulo(new Date("2026-10-01T02:30:00Z")), "2026-09-30");
+  assert.equal(pendenciaCompetenciaNfse("2026-09-01", "2026-09-30"), null);
+  assert.match(pendenciaCompetenciaNfse("2026-07-29", "2026-08-03"), /fora do mes da emissao \(08\/2026\): use uma data de 01\/08\/2026 a 03\/08\/2026/);
+  assert.match(pendenciaCompetenciaNfse("2026-09-15", "2026-09-14"), /depois da data de emissao/);
+  assert.equal(pendenciaCompetenciaNfse("", "2026-09-14"), "Data de competencia invalida.");
+  // O montador barra competencia de outro mes; 23h30 de 30/09 em Sao Paulo passa com competencia de setembro.
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { data_competencia: "2026-08-31" } }), new Date("2026-09-01T03:30:00Z")), /NFS-e bloqueada: Competencia 31\/08\/2026 fora do mes da emissao/);
+  assert.equal(montarPayloadNfse(contexto({ servico: { data_competencia: "2026-09-30" } }), new Date("2026-10-01T02:30:00Z")).data_competencia, "2026-09-30");
+  // Homologacao em 30/09 e producao em 01/10 com o mesmo snapshot: a producao nao sai.
+  const snapshotSetembro = { servico: { data_competencia: "2026-09-30" } };
+  montarPayloadNfse(contexto(snapshotSetembro), new Date("2026-09-30T15:00:00-03:00"));
+  assert.throws(() => montarPayloadNfse(contexto({ ...snapshotSetembro, emissao: { ambiente: "PRODUCAO", dps_numero: 1 } }), new Date("2026-10-01T09:00:00-03:00")), /fora do mes da emissao/);
+  assert.throws(() => montarPayloadNfse(contexto({ servico: { data_competencia: "2026-09-06" } }), agora), /depois da data de emissao/);
 });
 
 cenario("normalizacao do retorno: processando, autorizado (chave da url), erro, cancelado, webhook duplicado", () => {

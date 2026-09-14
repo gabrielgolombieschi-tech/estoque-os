@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { formatMoneyBR } from "@/lib/decimal";
 import { codigoTributacaoExigeObra } from "@/supabase/functions/_shared/fiscal/nfse-obra";
+import { hojeSaoPaulo, pendenciaCompetenciaNfse } from "@/supabase/functions/_shared/fiscal/nfse-competencia";
 
 /**
  * Faturar OS: NFS-e Padrao Nacional (Focus) em HOMOLOGACAO.
@@ -39,11 +40,34 @@ type LocalObra = { codigo_obra: string; cep: string; logradouro: string; numero:
 const OBRA_VAZIA: LocalObra = { codigo_obra: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "" };
 // Teto da deducao de material (f.fn_os_nfse_material_disponivel): produtos lancados nas OS, fora os de venda,
 // menos o ja deduzido em NFS-e dessas OS.
-type MaterialReal = { material_aplicado: number | string; deduzido_em_notas: number | string; reservado_em_solicitacoes: number | string; material_deduzido: number | string; material_disponivel: number | string };
+type MaterialReal = { material_aplicado: number | string; deduzido_em_notas: number | string; reservado_em_solicitacoes: number | string; material_deduzido: number | string; material_disponivel: number | string; documento_refeito_id?: string | null; deducao_refeita?: number | string | null; teto_deducao?: number | string | null };
+// NFS-e emitida por outro sistema e refeita por esta tela (f.fn_nfse_importada_dados_refazer). WEG Tintas, 14/09/2026:
+// as NFS-e 70000/12 a 15 sairam com competencia de outro mes e sem os percentuais de servico e material.
+export type RefazerNfse = {
+  documento_fiscal_id: string; serie: string | null; numero: string | null; emissao_date: string | null; competencia_xml: string | null;
+  os_id: number; os_numero: string; cliente_id: number | null; codigo_tributacao_nacional: string | null; municipio_prestacao_ibge: string | null;
+  valor_servico: number | string; valor_liquido: number | string; valor_deducao: number | string; valor_inss: number | string | null;
+  obra: Partial<Record<keyof LocalObra, string>> | null; discriminacao_original: string | null; descricao: string | null;
+  pedido: string | null; pedido_item: string | null; dias: number[] | null; texto_proibido: string | null;
+  titulo: { id: string; status: string; valor_total: number | string; valor_aberto: number | string; com_recebimento: boolean } | null;
+  refazer_em_andamento: { solicitacao_id: string; status: string } | null;
+};
+type NotaRefeita = { id: string; serie: string | null; numero: string | null; valor_servicos: number | string | null; valor_total: number | string | null; emissao_date: string | null; nfse_status: string | null };
+// Espelho de f.fn_nfse_texto_proibido: "MAO DE OBRA" define cessao de mao de obra. A tela barra antes de criar a
+// solicitacao, porque depois de salva a linha nao se edita.
+function textoProibidoNfse(texto: string) {
+  const t = texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+  return /M[AÃ]O[ -]+DE[ -]+OBRA/.test(t) ? "MÃO DE OBRA" : null;
+}
+function dataBR(iso: string | null | undefined) {
+  const s = String(iso ?? "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "—";
+}
+const MOTIVO_REFAZER_PADRAO = "Refeita a pedido do tomador: competencia no mes da emissao e percentuais de servico e de material na descricao";
 type OsLinha = { chave: number; os_id: number; os_numero: string; descricao: string; valor: string; saldo: number };
 type OsCandidata = { id: number; numero_os: string | null; descricao_servico: string | null; saldo: number };
 type Parcela = { dias: string; valor: string };
-type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; obra_dados: Partial<Record<keyof LocalObra, string | null>> | null; operacao_snapshot: { servico?: Record<string, unknown>; tributacao_fonte?: string | null } | null; substitui_documento_fiscal_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
+type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; obra_dados: Partial<Record<keyof LocalObra, string | null>> | null; operacao_snapshot: { servico?: Record<string, unknown>; tributacao_fonte?: string | null } | null; substitui_documento_fiscal_id: string | null; substitui_solicitacao_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_nfse: string | null; nfse_numero: string | null; codigo_verificacao: string | null; dps_serie: number | null; dps_numero: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null; valor_liquido: number | string | null; autorizado_em: string | null };
 type Pendencia = { entidade?: string; campo?: string; mensagem?: string; rota?: string };
 type Previa = {
@@ -65,6 +89,9 @@ export type FaturarNfseOsProps = {
   custoReal: number | null; faturadoOs: number; motivoBloqueioOs: string | null; versao: number;
   onAtualizar: () => Promise<void> | void;
   abrirArquivo: (documentoFiscalId: string, arquivo: "XML" | "DANFE") => Promise<void>;
+  // Refazer NFS-e importada: a pagina le a nota (?refazer=<documento>) e o componente abre a composicao preenchida.
+  refazer?: RefazerNfse | null;
+  onRefazer?: (documentoFiscalId: string | null) => void;
 };
 
 function num(value: unknown) {
@@ -109,7 +136,8 @@ function regraTexto(regra: string, valorCliente: boolean | null) {
 }
 
 export default function FaturarNfseOs(props: FaturarNfseOsProps) {
-  const { tenantId, empresaId, osId, os, cliente, saldo, perfil, custoReal, faturadoOs, motivoBloqueioOs, versao, onAtualizar, abrirArquivo } = props;
+  const { tenantId, empresaId, osId, os, cliente, saldo, perfil, custoReal, faturadoOs, motivoBloqueioOs, versao, onAtualizar, abrirArquivo, onRefazer } = props;
+  const refazer = props.refazer ?? null;
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [clienteNfse, setClienteNfse] = useState<ClienteNfse | null>(null);
@@ -120,7 +148,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [linhas, setLinhas] = useState<OsLinha[]>([]);
   const [proximaChave, setProximaChave] = useState(2);
   const [municipio, setMunicipio] = useState("");
-  const [competencia, setCompetencia] = useState(new Date().toISOString().slice(0, 10));
+  // Hoje em Sao Paulo: toISOString() dava o dia seguinte depois das 21h e, no ultimo dia do mes, o mes seguinte.
+  const [competencia, setCompetencia] = useState(() => hojeSaoPaulo());
   const [issRetido, setIssRetido] = useState("");
   const [pcc, setPcc] = useState("");
   const [irrf, setIrrf] = useState("");
@@ -157,6 +186,20 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   // para um formulario vazio "acima do saldo" (NFS-e 14 da OS 139, 11/09/2026).
   const [ignorarAutorizadas, setIgnorarAutorizadas] = useState<string[]>([]);
   const autorizadasConhecidasRef = useRef<string[]>([]);
+  // Refazer nota importada: motivo gravado na solicitacao, nota antiga para o aviso e preenchimento feito uma vez.
+  const [motivoRefazer, setMotivoRefazer] = useState(MOTIVO_REFAZER_PADRAO);
+  const [notaRefeita, setNotaRefeita] = useState<NotaRefeita | null>(null);
+  const prefillRefazerRef = useRef<string | null>(null);
+  // Refazer em curso depois de abandonar uma DPS rejeitada e antes de a solicitacao nova existir: sem isso, uma falha
+  // entre o abandono e a criacao (fora do ?refazer) deixava a tela sem a marca e a proxima conferencia criava uma
+  // NFS-e comum com os dados da nota refeita.
+  const [refazPendente, setRefazPendente] = useState<{ documento_fiscal_id: string; motivo: string } | null>(null);
+  // O modo refazer vem da URL (antes de salvar) ou da propria solicitacao (depois de salvar, inclusive na volta da
+  // tela de perfis, cujo retorno nao aceita query). Substituicao comum tem substitui_solicitacao_id; a importada nao.
+  const refazDocId = refazer?.documento_fiscal_id
+    ?? (solicitacao?.substitui_documento_fiscal_id && !solicitacao.substitui_solicitacao_id ? solicitacao.substitui_documento_fiscal_id : null)
+    ?? (solicitacao ? null : refazPendente?.documento_fiscal_id ?? null);
+  const refazImportada = Boolean(refazDocId);
 
   const fixture = useMemo(() => fixtures.find((f) => f.item_servico === perfil?.item_servico) ?? null, [fixtures, perfil]);
   const perfilBloqueado = perfil?.faixa_automacao === "BLOQUEADO";
@@ -197,8 +240,10 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       let ativa: Solicitacao | null = null;
       let emissaoAtiva: Emissao | null = null;
       if (ids.length > 0) {
-        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,obra_dados,operacao_snapshot,substitui_documento_fiscal_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
-        const cands = (sols as Solicitacao[] | null) ?? [];
+        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,obra_dados,operacao_snapshot,substitui_documento_fiscal_id,substitui_solicitacao_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
+        // Refazendo uma nota importada: so vale a solicitacao que refaz essa nota. Sem o filtro, outra NFS-e da OS
+        // (rascunho ou autorizada) aparecia no lugar da composicao preenchida.
+        const cands = ((sols as Solicitacao[] | null) ?? []).filter((c) => !refazer || c.substitui_documento_fiscal_id === refazer.documento_fiscal_id);
         if (cands.length > 0) {
           const { data: ems } = await supabase.schema("f").from("documento_fiscal_emissao").select("solicitacao_id,documento_fiscal_id,status,ambiente,chave_nfse,nfse_numero,codigo_verificacao,dps_serie,dps_numero,mensagem,codigo_status,danfe_path,xml_path,valor_liquido,autorizado_em").in("solicitacao_id", cands.map((c) => c.id)).order("created_at", { ascending: false });
           const emissoes = (ems as Emissao[] | null) ?? [];
@@ -217,6 +262,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       }
       setSolicitacao(ativa);
       setEmissao(emissaoAtiva);
+      if (ativa) setRefazPendente(null);
       // O formulario so recebe os dados gravados na primeira carga de cada solicitacao. Os recarregamentos
       // seguintes (retorno da emissao, versao da pagina) apagavam o que a pessoa acabara de corrigir depois de uma
       // rejeicao — a DPS 2/27 da OS 139 saiu de novo com o CEP errado por isso (11/09/2026).
@@ -241,12 +287,34 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         const rows = (its as Array<{ origem_id: string; descricao_servico: string | null; valor_servico: number | string | null; ordem: number }> | null) ?? [];
         setLinhas(rows.map((r, i) => ({ chave: i + 1, os_id: Number(r.origem_id), os_numero: r.origem_id === String(osId) ? (os.numero_os ?? String(os.id)) : r.origem_id, descricao: r.descricao_servico ?? "", valor: decimal(num(r.valor_servico).toFixed(2)), saldo: 0 })));
       }
+      if (ativa?.substituicao_motivo && !ativa.substitui_solicitacao_id) setMotivoRefazer(ativa.substituicao_motivo);
       if (ativa) {
         const serv = ativa.operacao_snapshot?.servico as Previa | undefined;
         // As parcelas ficam no bloco pagamento do snapshot; a previa recarregada precisa delas.
         const parcelasSnapshot = Array.isArray(ativa.pagamento_parcelas) ? ativa.pagamento_parcelas.map((p, i) => ({ numero: String(i + 1).padStart(3, "0"), dias: Number(p.dias ?? 0), valor: p.valor == null ? null : num(p.valor) })) : null;
         // A fonte da tributacao fica no topo do snapshot, fora do servico: sem ela a previa recarregada dizia "fixture" em perfil revisado.
         setPrevia(serv && serv.valor_bruto != null ? { ...serv, parcelas: serv.parcelas ?? parcelasSnapshot, tributacao_fonte: serv.tributacao_fonte ?? ativa.operacao_snapshot?.tributacao_fonte ?? null } : null);
+      } else if (refazer) {
+        setPrevia(null);
+        // Composicao da nota refeita, preenchida uma vez com a nota antiga: mesma OS, texto sem PEDIDO/VENCIMENTO
+        // (a discriminacao do ERP monta), mesmo bruto, mesma deducao de material (decisao do Gabriel, 14/09/2026),
+        // pedido, prazo, obra e local da prestacao. Competencia de hoje em Sao Paulo; retencoes pelo perfil e cadastro.
+        if (prefillRefazerRef.current !== refazer.documento_fiscal_id) {
+          prefillRefazerRef.current = refazer.documento_fiscal_id;
+          const valorServico = num(refazer.valor_servico);
+          setLinhas([{ chave: 1, os_id: refazer.os_id, os_numero: refazer.os_numero, descricao: refazer.descricao ?? "", valor: decimal(valorServico.toFixed(2)), saldo: Math.max(saldo, 0) + valorServico }]);
+          const deducao = num(refazer.valor_deducao);
+          setMaterialDeducao(deducao > 0 ? decimal(deducao.toFixed(2)) : "");
+          setMaterialSugerido(true);
+          setPedidoCliente(refazer.pedido ?? os.pedido_compra ?? "");
+          setPedidoItem(refazer.pedido_item ?? "");
+          if (refazer.dias && refazer.dias.length > 0) { setPagamentoIndicador("1"); setParcelas(refazer.dias.map((d) => ({ dias: String(d), valor: "" }))); }
+          if (refazer.obra) setObra({ codigo_obra: refazer.obra.codigo_obra ?? "", cep: refazer.obra.cep ?? "", logradouro: refazer.obra.logradouro ?? "", numero: refazer.obra.numero ?? "", complemento: refazer.obra.complemento ?? "", bairro: refazer.obra.bairro ?? "" });
+          if (refazer.municipio_prestacao_ibge) setMunicipio(refazer.municipio_prestacao_ibge);
+          setCompetencia(hojeSaoPaulo());
+          setIssRetido(""); setPcc(""); setIrrf(""); setInss(""); setJustificativa(""); setObservacao("");
+          setMotivoRefazer(MOTIVO_REFAZER_PADRAO);
+        }
       } else {
         setPrevia(null);
         setLinhas((atuais) => atuais.length > 0 ? atuais : [{ chave: 1, os_id: os.id, os_numero: os.numero_os ?? String(os.id), descricao: os.descricao_servico ?? `OS ${os.numero_os ?? os.id}`, valor: decimal(Math.max(saldo, 0).toFixed(2)), saldo }]);
@@ -255,7 +323,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       setCarregando(false);
 
       // Outras OS do mesmo tomador (fase 3: uma linha por OS, cada uma reserva a propria). Carrega por ultimo, em paralelo.
-      if (os.cliente_id && !ativa) {
+      // Nao no refazer: a nota refeita e da mesma OS da antiga.
+      if (os.cliente_id && !ativa && !refazer) {
         const { data: outras } = await supabase.from("ordens_servico").select("id,numero_os,descricao_servico,status_fluxo").eq("cliente_id", os.cliente_id).eq("tipo_documento", "OS").neq("id", os.id).order("id", { ascending: false }).limit(30);
         const abertas = ((outras as Array<{ id: number; numero_os: string | null; descricao_servico: string | null; status_fluxo: string | null }> | null) ?? []).filter((o) => !["cancelada", "faturada"].includes(String(o.status_fluxo ?? "").toLowerCase())).slice(0, 12);
         const saldos = await Promise.all(abertas.map(async (o) => {
@@ -266,7 +335,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setCandidatas(saldos.filter((c) => c.saldo > 0));
       }
     } catch (cause) { setErro(textoErro(cause)); } finally { setCarregando(false); }
-  }, [empresaId, ignorarAutorizadas, os, osId, saldo, supabase, tenantId]);
+  }, [empresaId, ignorarAutorizadas, os, osId, refazer, saldo, supabase, tenantId]);
 
   useEffect(() => { void carregar(); }, [carregar, versao]);
   useEffect(() => { if (!solicitacao && !municipio && municipioPadrao) setMunicipio(municipioPadrao); }, [municipioPadrao, municipio, solicitacao]);
@@ -281,6 +350,15 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     }).then(({ data }) => { if (ativo) setMaterialReal((data as MaterialReal | null) ?? null); });
     return () => { ativo = false; };
   }, [chaveOsLinhas, empresaId, perfil?.permite_deducao_material, solicitacao?.id, supabase, tenantId, versao]);
+  // Nota que esta sendo refeita, para o aviso fixo (numero, bruto, liquido, status). Depois da producao ela
+  // passa a SUBSTITUIDA e a leitura do refazer recusa; por isso le o documento direto.
+  useEffect(() => {
+    if (!refazDocId) { setNotaRefeita(null); return; }
+    let ativo = true;
+    void supabase.schema("f").from("documento_fiscal").select("id,serie,numero,valor_servicos,valor_total,emissao_date,nfse_status").eq("id", refazDocId).maybeSingle()
+      .then(({ data }) => { if (ativo) setNotaRefeita((data as NotaRefeita | null) ?? null); });
+    return () => { ativo = false; };
+  }, [refazDocId, supabase, versao]);
   // Composicao nova: a deducao ja vem com o material real disponivel, uma vez (quem apagar o campo decide).
   // Disponivel igual ou maior que o servico nao e sugerido: a deducao precisa ser menor que o valor da nota.
   useEffect(() => {
@@ -325,20 +403,41 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     };
   }
 
-  async function conferir(novaSolicitacao = false) {
+  // refazDe: a solicitacao nova refaz a nota importada (marca substitui_documento_fiscal_id). O padrao vem do modo
+  // da tela; a correcao depois de rejeicao passa o valor guardado antes de abandonar a solicitacao antiga.
+  // Linhas prontas para criar a solicitacao. Depois de salva a linha nao se edita: o texto proibido precisa sair
+  // antes (NF 70000/12 tinha "MÃO DE OBRA").
+  function pendenciaLinhas() {
+    const invalida = linhas.findIndex((l) => !l.descricao.trim() || (paraNumero(l.valor) ?? 0) <= 0);
+    if (invalida >= 0) return `Linha ${invalida + 1}: descrição e valor precisam estar preenchidos.`;
+    const proibida = linhas.findIndex((l) => textoProibidoNfse(l.descricao));
+    if (proibida >= 0) return `Linha ${proibida + 1}: a expressão "${textoProibidoNfse(linhas[proibida].descricao)}" é proibida na descrição (define cessão de mão de obra). Descreva o resultado entregue antes de salvar; depois de salva, a linha não se edita.`;
+    return null;
+  }
+
+  async function conferir(novaSolicitacao = false, refazDe: { documento_fiscal_id: string; motivo: string } | null = refazDocId ? { documento_fiscal_id: refazDocId, motivo: refazPendente?.motivo ?? motivoRefazer } : null) {
     if (!tenantId || !empresaId || !os || !perfil) return;
     setOcupado(true); setErro(null); setAviso(null); setBloqueios([]); setAvisos([]);
     try {
       let solId = novaSolicitacao ? null : solicitacao?.id ?? null;
       if (!solId) {
-        const invalida = linhas.findIndex((l) => !l.descricao.trim() || (paraNumero(l.valor) ?? 0) <= 0);
-        if (invalida >= 0) throw new Error(`Linha ${invalida + 1}: descrição e valor precisam estar preenchidos.`);
-        const { data, error } = await supabase.schema("f").rpc("fn_solicitacao_faturamento_criar_os_servico", {
-          p_tenant_id: tenantId, p_empresa_id: empresaId, p_perfil_operacao_id: perfil.id,
-          p_linhas: linhas.map((l) => ({ os_id: l.os_id, descricao_servico: l.descricao.trim(), valor_servico: paraNumero(l.valor) })),
-        });
-        if (error) throw error;
-        solId = String(data);
+        const pendencia = pendenciaLinhas();
+        if (pendencia) throw new Error(pendencia);
+        const linhasPayload = linhas.map((l) => ({ os_id: l.os_id, descricao_servico: l.descricao.trim(), valor_servico: paraNumero(l.valor) }));
+        if (refazDe) {
+          if (refazDe.motivo.trim().length < 15 || refazDe.motivo.trim().length > 255) throw new Error("Motivo de refazer a nota: 15 a 255 caracteres.");
+          const { data, error } = await supabase.schema("f").rpc("fn_nfse_refazer_importada_criar", {
+            p_documento_fiscal_id: refazDe.documento_fiscal_id, p_perfil_operacao_id: perfil.id, p_linhas: linhasPayload, p_motivo: refazDe.motivo.trim(),
+          });
+          if (error) throw error;
+          solId = String(data);
+        } else {
+          const { data, error } = await supabase.schema("f").rpc("fn_solicitacao_faturamento_criar_os_servico", {
+            p_tenant_id: tenantId, p_empresa_id: empresaId, p_perfil_operacao_id: perfil.id, p_linhas: linhasPayload,
+          });
+          if (error) throw error;
+          solId = String(data);
+        }
       }
       const { data: r, error: erroConferir } = await supabase.schema("f").rpc("fn_os_nfse_conferir_homologacao", { p_solicitacao_id: solId, p_operacao: operacaoPayload() });
       if (erroConferir) throw erroConferir;
@@ -384,6 +483,15 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       if (error) throw error;
       setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]);
       setMaterialDeducao(""); setMaterialSugerido(false);
+      if (refazDocId) {
+        // Refazer: volta para a composicao preenchida da mesma nota, e nao para uma NFS-e comum da OS.
+        prefillRefazerRef.current = null;
+        setRefazPendente(null);
+        onRefazer?.(refazDocId);
+        if (refazer) await carregar();
+        await onAtualizar();
+        return;
+      }
       await carregar(); await onAtualizar();
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
   }
@@ -394,17 +502,27 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     if (!solicitacao || !emissao) return;
     setOcupado(true); setErro(null); setAviso(null);
     const motivo = `DPS ${emissao.dps_serie}/${emissao.dps_numero} ${emissao.status === "ERRO" ? "com erro" : "rejeitada"}${emissao.mensagem ? ` (${emissao.mensagem})` : ""}; corrigida e conferida de novo pela tela`.slice(0, 255);
+    // Linha invalida barra antes de abandonar: abandonar e depois falhar deixava a DPS rejeitada sem sucessora.
+    const pendencia = pendenciaLinhas();
+    if (pendencia) { setErro(pendencia); setBloqueios([{ mensagem: pendencia }]); setOcupado(false); return; }
+    // Guardado antes de abandonar: a solicitacao nova continua refazendo a mesma nota importada, mesmo se a
+    // criacao falhar depois do abandono.
+    const refazDe = refazDocId ? { documento_fiscal_id: refazDocId, motivo: solicitacao.substituicao_motivo ?? motivoRefazer } : null;
     try {
       const { error } = await supabase.schema("f").rpc("fn_nfse_abandonar_homologacao", { p_solicitacao_id: solicitacao.id, p_motivo: motivo });
       if (error) throw error;
+      if (refazDe) { setRefazPendente(refazDe); setMotivoRefazer(refazDe.motivo); }
       setSolicitacao(null); setEmissao(null); setPrevia(null);
     } catch (cause) { setErro(textoErro(cause)); setOcupado(false); return; }
-    await conferir(true);
+    await conferir(true, refazDe);
   }
 
   async function emitirProducao() {
     if (!solicitacao || !emissao) return;
-    if (!window.confirm(`EMITIR NFS-e REAL (produção) para a OS ${os?.numero_os ?? os?.id}?\n\nBruto ${R$(num(previa?.valor_bruto))} · líquido ${R$(num(previa?.valor_liquido))}. Gera documento fiscal válido e título a receber.`)) return;
+    const textoRefazer = refazImportada && notaRefeita
+      ? `\n\nEsta nota refaz a NFS-e ${notaRefeita.serie}/${notaRefeita.numero} (emitida por outro sistema, bruto ${R$(num(notaRefeita.valor_servicos))}). Com a autorização, a ${notaRefeita.serie}/${notaRefeita.numero} passa a SUBSTITUÍDA no sistema e o título a receber dela é cancelado. O cancelamento dela na prefeitura continua com vocês.`
+      : "";
+    if (!window.confirm(`EMITIR NFS-e REAL (produção) para a OS ${os?.numero_os ?? os?.id}?\n\nBruto ${R$(num(previa?.valor_bruto))} · líquido ${R$(num(previa?.valor_liquido))} · competência ${dataBR(previa?.data_competencia)}. Gera documento fiscal válido e título a receber.${textoRefazer}`)) return;
     setOcupado(true); setErro(null); setAviso(null);
     try {
       const { data, error } = await supabase.functions.invoke("nfse-emitir", { body: { solicitacao_id: solicitacao.id, ambiente: "PRODUCAO" } });
@@ -468,7 +586,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const producao = emissao?.ambiente === "PRODUCAO";
   // Margem da OS, nao da parcela (mesma regra da NF-e na pagina): ja faturado + esta nota - custo real da OS.
   // A nota real ja autorizada esta no faturado e nao soma de novo.
-  const margem = custoReal !== null ? faturadoOs + (producao && autorizada ? 0 : (conferida ? num(previa?.valor_bruto) : totalLinhas)) - custoReal : null;
+  // Refazendo uma importada ainda EMITIDA: ela esta no faturado e sai quando a nota nova for real; nao soma as duas.
+  const faturadoSemRefeita = faturadoOs - (refazImportada && notaRefeita?.nfse_status === "EMITIDA" ? num(notaRefeita.valor_servicos) : 0);
+  const margem = custoReal !== null ? (producao && autorizada ? faturadoOs : faturadoSemRefeita + (conferida ? num(previa?.valor_bruto) : totalLinhas)) - custoReal : null;
   // Rejeicao congela a conferencia (a DPS esta queimada). O caminho e abandonar e conferir de novo numa
   // solicitacao nova, com o que esta na tela — sem obrigar a pessoa a redigitar tudo.
   const rejeitada = Boolean(emissao && ["REJEITADA", "ERRO"].includes(emissao.status));
@@ -476,15 +596,28 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const textoPrazo = prazoRegra === "MES_EMISSAO"
     ? "Prazo: até o último dia do mês de emissão (Joinville, Decreto 30.798/2018); depois, só substituição."
     : prazoCancelamento === null ? null : `Prazo: ${prazoCancelamento} h após a autorização.`;
-  const [producaoPronta, setProducaoPronta] = useState<{ pronta: boolean; motivo?: string } | null>(null);
+  const [producaoPronta, setProducaoPronta] = useState<{ pronta: boolean; motivo?: string; campo?: string } | null>(null);
   useEffect(() => {
     if (!solicitacao || !autorizada || producao) { setProducaoPronta(null); return; }
     let ativo = true;
     void supabase.schema("f").rpc("fn_nfse_producao_pronta", { p_solicitacao_id: solicitacao.id }).then(({ data }) => {
-      if (ativo) setProducaoPronta((data as { pronta: boolean; motivo?: string } | null) ?? null);
+      if (ativo) setProducaoPronta((data as { pronta: boolean; motivo?: string; campo?: string } | null) ?? null);
     });
     return () => { ativo = false; };
   }, [autorizada, producao, solicitacao, supabase, versao]);
+  // Competencia fora do mes de hoje (Sao Paulo) ou depois de hoje: a conferencia e a emissao recusam. Avisa no campo.
+  const pendenciaCompetencia = editavel ? pendenciaCompetenciaNfse(competencia, hojeSaoPaulo()) : null;
+  // Liberar o perfil nao resolve o que so se corrige refazendo a homologacao (competencia de outro mes, nota refeita
+  // que ja nao esta emitida).
+  const producaoSoRefazendo = producaoPronta?.campo === "data_competencia" || producaoPronta?.campo === "substitui_documento_fiscal_id";
+  const materialOriginal = refazer ? num(refazer.valor_deducao) : num(materialReal?.deducao_refeita);
+  // Teto da deducao: salvo, o banco ja devolve (a nota refeita fora do ja deduzido). Antes de salvar, a nota refeita
+  // ainda conta no ja deduzido; tira ela da conta aqui para mostrar o mesmo teto que a conferencia vai usar.
+  const tetoMaterial = !materialReal ? 0
+    : solicitacao ? num(materialReal.teto_deducao ?? materialReal.material_disponivel)
+    : refazImportada ? Math.max(Math.max(num(materialReal.material_aplicado) - Math.max(num(materialReal.deduzido_em_notas) - materialOriginal, 0) - num(materialReal.reservado_em_solicitacoes), 0), materialOriginal)
+    : num(materialReal.material_disponivel);
+  const notaRefeitaRotulo = notaRefeita ? `${notaRefeita.serie ?? ""}/${notaRefeita.numero ?? ""}` : refazer ? `${refazer.serie ?? ""}/${refazer.numero ?? ""}` : "";
 
   return (
     <>
@@ -492,10 +625,31 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       {aviso ? <div role="status" className="rounded-md border border-sky-900 bg-sky-950/30 p-3 text-sm text-sky-200">{aviso}</div> : null}
       {carregando ? <div className="text-sm text-zinc-500">Carregando dados da NFS-e...</div> : null}
 
+      {refazImportada ? (
+        <section className="space-y-2 rounded-xl border border-amber-800/70 bg-amber-950/20 p-4 text-sm text-amber-100">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h2 className="font-semibold">Refazendo a NFS-e {notaRefeitaRotulo}{notaRefeita?.nfse_status && notaRefeita.nfse_status !== "EMITIDA" ? ` · ${notaRefeita.nfse_status === "SUBSTITUIDA" ? "já substituída" : notaRefeita.nfse_status.toLowerCase()}` : ""}</h2>
+            {!solicitacao && onRefazer ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setRefazPendente(null); onRefazer(null); }}>Cancelar refazer</button> : null}
+          </div>
+          <div>
+            Emitida por outro sistema em {dataBR(notaRefeita?.emissao_date ?? refazer?.emissao_date)}{refazer?.competencia_xml ? `, competência ${dataBR(refazer.competencia_xml)}` : ""} · bruto {R$(num(notaRefeita?.valor_servicos ?? refazer?.valor_servico))} · líquido {R$(num(notaRefeita?.valor_total ?? refazer?.valor_liquido))}{materialOriginal > 0 ? ` · material deduzido ${R$(materialOriginal)}` : ""}.
+          </div>
+          <div className="text-xs text-amber-200/90">A nota nova sai com competência no mês da emissão e com os percentuais de serviço e de material na descrição. A homologação não mexe na nota antiga. Na produção, a {notaRefeitaRotulo} passa a SUBSTITUÍDA no sistema e o título a receber dela é cancelado; o cancelamento dela na prefeitura continua com vocês.</div>
+          {refazer?.titulo?.com_recebimento ? <div className="text-xs text-red-300">O título da {notaRefeitaRotulo} já tem recebimento: ele não será cancelado automaticamente. Trate o recebimento no financeiro.</div> : null}
+          {refazer?.texto_proibido && !solicitacao ? <div className="text-xs text-red-300">O texto da nota antiga tem &ldquo;{refazer.texto_proibido === "MAO DE OBRA" ? "MÃO DE OBRA" : refazer.texto_proibido}&rdquo;, que é proibido. Troque a descrição da linha antes de salvar.</div> : null}
+          <label className={label}>Motivo de refazer (fica registrado na solicitação, 15 a 255)
+            <input className={field} value={motivoRefazer} disabled={Boolean(solicitacao)} maxLength={255} onChange={(e) => setMotivoRefazer(e.target.value)} />
+          </label>
+          {refazer?.discriminacao_original ? (
+            <details className="text-xs text-zinc-300"><summary className="cursor-pointer text-amber-200">Texto da nota antiga</summary><pre className="mt-1 whitespace-pre-wrap font-sans">{refazer.discriminacao_original}</pre></details>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* 2 · Linhas de serviço */}
       <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <div className="flex items-center justify-between"><h2 className="font-semibold">Linhas da NFS-e (uma OS por linha)</h2>
-          {!solicitacao && candidatas.length > 0 ? (
+          {!solicitacao && !refazImportada && candidatas.length > 0 ? (
             <select className={`${field} w-auto`} value="" onChange={(e) => { const c = candidatas.find((x) => String(x.id) === e.target.value); if (!c) return; setLinhas((a) => [...a, { chave: proximaChave, os_id: c.id, os_numero: c.numero_os ?? String(c.id), descricao: c.descricao_servico ?? `OS ${c.numero_os ?? c.id}`, valor: decimal(c.saldo.toFixed(2)), saldo: c.saldo }]); setProximaChave((k) => k + 1); }}>
               <option value="">Adicionar OS do mesmo tomador…</option>
               {candidatas.filter((c) => !linhas.some((l) => l.os_id === c.id)).map((c) => <option key={c.id} value={c.id}>OS {c.numero_os ?? c.id} · {c.descricao_servico} · saldo {R$(c.saldo)}</option>)}
@@ -504,8 +658,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         </div>
         {linhas.map((linha, index) => (
           <div key={linha.chave} className="grid gap-2 rounded-lg border border-zinc-800 p-3 md:grid-cols-[110px_1fr_160px_auto]">
-            <div className={label}>OS<div className="py-2 text-sm text-zinc-100">{linha.os_numero}</div>{linha.saldo > 0 && !solicitacao ? <div className="text-xs text-zinc-500">saldo {R$(linha.saldo)}</div> : null}</div>
-            <label className={label}>Descrição do serviço<input className={field} value={linha.descricao} disabled={Boolean(solicitacao) && !rejeitada} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, descricao: e.target.value } : l))} /></label>
+            <div className={label}>OS<div className="py-2 text-sm text-zinc-100">{linha.os_numero}</div>{linha.saldo > 0 && !solicitacao ? <div className="text-xs text-zinc-500">saldo {R$(linha.saldo)}{refazImportada ? ` (conta a ${notaRefeitaRotulo} que está sendo refeita)` : ""}</div> : null}</div>
+            <label className={label}>Descrição do serviço<input className={field} value={linha.descricao} disabled={Boolean(solicitacao) && !rejeitada} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, descricao: e.target.value } : l))} />{(!solicitacao || rejeitada) && textoProibidoNfse(linha.descricao) ? <span className="text-xs text-red-300">&ldquo;{textoProibidoNfse(linha.descricao)}&rdquo; é proibido na descrição (define cessão de mão de obra). Descreva o resultado entregue.</span> : null}</label>
             <label className={label}>Valor (R$)<input className={field} inputMode="decimal" value={linha.valor} disabled={Boolean(solicitacao) && !rejeitada} onChange={(e) => setLinhas((a) => a.map((l) => l.chave === linha.chave ? { ...l, valor: e.target.value } : l))} /></label>
             <div className="md:pt-5">{!solicitacao && linhas.length > 1 ? <button type="button" className="text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setLinhas((a) => a.filter((l) => l.chave !== linha.chave))}>Remover</button> : <span className="text-xs text-zinc-600">linha {index + 1}</span>}</div>
           </div>
@@ -513,7 +667,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         <div className="grid gap-2 rounded-lg border border-zinc-800 p-3 text-sm md:grid-cols-3">
           <div>Total das linhas <strong>{R$(conferida ? num(previa?.valor_bruto) : totalLinhas)}</strong>{!solicitacao && totalLinhas > linhas.reduce((s, l) => s + l.saldo, 0) + 0.005 ? <span className="ml-2 text-red-300">acima do saldo</span> : null}</div>
           <div>Custo real da OS <strong>{custoReal !== null ? R$(custoReal) : "—"}</strong></div>
-          <div>Margem da OS <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{faturadoOs > 0.005 ? <span className="text-xs text-zinc-500"> (já faturado {R$(faturadoOs)} + esta nota − custo real)</span> : null}{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
+          <div>Margem da OS <strong className={margem !== null && margem < 0 ? "text-red-300" : "text-emerald-300"}>{margem !== null ? R$(margem) : "—"}</strong>{faturadoOs > 0.005 ? <span className="text-xs text-zinc-500"> (já faturado {R$(faturadoOs)}{faturadoSemRefeita < faturadoOs - 0.005 && !(producao && autorizada) ? ` − a ${notaRefeitaRotulo} refeita` : ""} + esta nota − custo real)</span> : null}{margem !== null && margem < 0 ? <span className="ml-2 text-xs text-amber-300">abaixo do custo; a decisão é do gestor</span> : null}</div>
         </div>
       </section>
 
@@ -533,7 +687,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         ) : <div className="text-sm text-amber-300">Escolha o perfil de serviço no cabeçalho.</div>}
         <div className="grid gap-3 md:grid-cols-3">
           <label className={label}>Município de prestação (IBGE, 7 dígitos)<input className={field} value={municipio} disabled={!editavel} onChange={(e) => setMunicipio(e.target.value.replace(/\D/g, "").slice(0, 7))} placeholder={municipioPadrao || "regra do perfil"} /><span className="text-xs text-zinc-500">{regras.local === "SEDE" ? "Regra do perfil: sede da empresa" : "Regra do perfil: município do tomador"}. Editável.</span></label>
-          <label className={label}>Competência<input type="date" className={field} value={competencia} disabled={!editavel} onChange={(e) => setCompetencia(e.target.value)} /></label>
+          <label className={label}>Competência<input type="date" className={field} value={competencia} disabled={!editavel} onChange={(e) => setCompetencia(e.target.value)} />{pendenciaCompetencia ? <span className="text-xs text-red-300">{pendenciaCompetencia}</span> : <span className="text-xs text-zinc-500">No mês da emissão. O tomador recolhe o ISS e o INSS retidos por ela.</span>}</label>
           <div className={label}>Tomador<div className="py-2 text-sm text-zinc-100">IM {clienteNfse?.inscricao_municipal ?? <span className="text-amber-300">vazia</span>} · e-mail NFS-e {clienteNfse?.email_nfse ?? <span className="text-amber-300">vazio</span>}</div>{cliente ? <Link className="text-xs text-sky-300 underline" href={`/clientes/cadastro-fiscal?cliente_id=${cliente.id}`}>Cadastro fiscal do cliente</Link> : null}</div>
         </div>
         <div className="grid gap-3 md:grid-cols-4">
@@ -548,7 +702,14 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         {perfil?.permite_deducao_material ? (
           <label className={label}>Material fornecido e incorporado à obra (R$), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)
             <input className={field} inputMode="decimal" value={materialDeducao} disabled={!editavel} onChange={(e) => setMaterialDeducao(e.target.value)} placeholder="0,00" />
-            {materialReal ? (
+            {materialReal && refazImportada ? (
+              // Refazer: vale a deducao da nota antiga (decisao do Gabriel, 14/09/2026), mesmo acima do material lancado na OS.
+              <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                A NFS-e {notaRefeitaRotulo} deduziu {R$(materialOriginal)} · material lançado na OS {R$(num(materialReal.material_aplicado))} · <strong>teto nesta nota {R$(tetoMaterial)}</strong>
+                {editavel && materialOriginal > 0 && paraNumero(materialDeducao) !== materialOriginal ? <button type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-900" onClick={() => setMaterialDeducao(decimal(materialOriginal.toFixed(2)))}>Usar o da nota antiga ({R$(materialOriginal)})</button> : null}
+                {editavel && (paraNumero(materialDeducao) ?? 0) > tetoMaterial + 0.005 ? <span className="text-amber-300">acima do teto: a conferência bloqueia</span> : null}
+              </span>
+            ) : materialReal ? (
               <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                 Material real da obra {R$(num(materialReal.material_aplicado))} (produtos lançados na OS, fora os de venda) · já deduzido em NFS-e desta OS {R$(num(materialReal.material_deduzido))} · <strong>disponível {R$(num(materialReal.material_disponivel))}</strong>
                 {editavel && num(materialReal.material_disponivel) > 0 && paraNumero(materialDeducao) !== num(materialReal.material_disponivel) ? <button type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-900" onClick={() => setMaterialDeducao(decimal(num(materialReal.material_disponivel).toFixed(2)))}>Usar {R$(num(materialReal.material_disponivel))}</button> : null}
@@ -650,16 +811,18 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
                   <button type="button" className={botao} disabled={!emissao.danfe_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "DANFE")}>DANFSe</button>
                   <button type="button" className={botao} disabled={!emissao.xml_path} onClick={() => void abrirArquivo(emissao.documento_fiscal_id, "XML")}>XML</button>
                   <Link className={botao} href={`/faturamento/nfse/${emissao.documento_fiscal_id}`}>Detalhe</Link>
-                  <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button>
+                  {/* Homologacao de nota refeita nao se substitui: a substituta apontaria para o documento de teste, perderia
+                      a marca de refazer e reservaria o saldo escondida. O caminho e abandonar, que volta para a composicao. */}
+                  {producao || !refazImportada ? <button type="button" className={botao} disabled={ocupado} onClick={() => void substituir()}>Substituir</button> : null}
                   {producao ? <button type="button" className={botao} disabled={ocupado} onClick={() => void enviarEmail()}>Enviar por e-mail</button> : null}
-                  {!producao && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setIgnorarAutorizadas(autorizadasConhecidasRef.current); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); setMaterialDeducao(""); setMaterialSugerido(false); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
+                  {!producao && !refazImportada && saldo > 0.005 ? <button type="button" className={botao} disabled={ocupado} onClick={() => { setIgnorarAutorizadas(autorizadasConhecidasRef.current); setSolicitacao(null); setEmissao(null); setPrevia(null); setLinhas([]); setBloqueios([]); setAvisos([]); setMaterialDeducao(""); setMaterialSugerido(false); }}>Nova NFS-e parcial (saldo {R$(saldo)})</button> : null}
                   {!producao && producaoPronta?.pronta ? <button type="button" className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40" disabled={ocupado} onClick={() => void emitirProducao()}>Emitir NFS-e real (produção)</button> : null}
                 </div>
                 {!producao && producaoPronta && !producaoPronta.pronta ? (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                    <span>Produção: {producaoPronta.motivo}</span>
+                    <span>Produção: {producaoPronta.motivo}{producaoSoRefazendo ? " Abandone esta homologação e homologue de novo." : ""}</span>
                     {/* A liberacao e por solicitacao: o link leva o perfil e esta homologacao, como na NF-e. */}
-                    {perfil && solicitacao ? <Link href={`/faturamento/perfis?perfil=${encodeURIComponent(perfil.codigo)}&solicitacao=${encodeURIComponent(solicitacao.id)}&retorno=${encodeURIComponent(`/os/${osId}/faturar`)}`} className="rounded-md border border-emerald-800 px-2 py-1 text-emerald-100 hover:bg-emerald-950/60">Liberar {perfil.codigo} para esta nota</Link> : null}
+                    {perfil && solicitacao && !producaoSoRefazendo ? <Link href={`/faturamento/perfis?perfil=${encodeURIComponent(perfil.codigo)}&solicitacao=${encodeURIComponent(solicitacao.id)}&retorno=${encodeURIComponent(`/os/${osId}/faturar`)}`} className="rounded-md border border-emerald-800 px-2 py-1 text-emerald-100 hover:bg-emerald-950/60">Liberar {perfil.codigo} para esta nota</Link> : null}
                   </div>
                 ) : null}
                 {podeCancelar ? (
@@ -674,7 +837,9 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             ) : null}
           </div>
         ) : null}
-        {solicitacao?.substitui_documento_fiscal_id ? <div className="text-xs text-amber-300">Esta nota substitui outra NFS-e (código {solicitacao.substituicao_codigo}: {solicitacao.substituicao_motivo}). A antiga passa a SUBSTITUÍDA quando esta for autorizada.</div> : null}
+        {!producao && producaoPronta && !producaoPronta.pronta && !producaoSoRefazendo && refazImportada ? <div className="text-xs text-zinc-500">A liberação do perfil vale para uma homologação por vez: emita a produção desta nota antes de liberar a próxima.</div> : null}
+        {solicitacao?.substitui_documento_fiscal_id && !refazImportada ? <div className="text-xs text-amber-300">Esta nota substitui outra NFS-e (código {solicitacao.substituicao_codigo}: {solicitacao.substituicao_motivo}). A antiga passa a SUBSTITUÍDA quando esta for autorizada.</div> : null}
+        {solicitacao && refazImportada ? <div className="text-xs text-amber-300">Esta nota refaz a NFS-e {notaRefeitaRotulo} ({solicitacao.substituicao_motivo}). {producao && autorizada ? `A ${notaRefeitaRotulo} ficou SUBSTITUÍDA no sistema; falta cancelá-la na prefeitura.` : `Só a nota real (produção) marca a ${notaRefeitaRotulo} como SUBSTITUÍDA e cancela o título dela.`}</div> : null}
       </section>
     </>
   );

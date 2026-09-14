@@ -26,7 +26,7 @@ Os quatro perfis (14.06, 14.01, 17.09, 07.02) têm valores gravados por revisão
 ## O que mais mudou
 
 - **ISS por incidência × subitem** (`f.nfse_aliquota_iss`): 14.01/14.06/17.09 incidem na sede (LC 116 art. 3 caput); 07.02 no município da obra (art. 3 III; São Francisco do Sul 3%, Joinville 5%). A prévia mostra "ISS incide em <IBGE>". Base de retenção = valor integral. IM do tomador segue opcional.
-- **Competência** aceita mês anterior; recusa data futura.
+- **Competência** no mês da emissão, pelo dia de São Paulo; recusa data futura e mês anterior (14/09/2026: o tomador recolhe o ISS e o INSS retidos pela competência, e a WEG Tintas recusou notas com competência de julho emitidas em agosto). A conferência, o preparo, a prontidão de produção e a Edge Function barram; a produção repete a competência homologada, então homologação de um mês não sai em produção no outro.
 - **Dispensa ≤ R$ 10,00** para IRRF, CRF e INSS, com aviso; o cadastro do tomador não é tocado.
 - **Tomador optante do Simples** (`clientes.optante_simples`): CRF não se aplica (aviso); nulo gera aviso pedindo o regime. Campo novo no cadastro fiscal do cliente.
 - **Template de discriminação por tomador** (`clientes.nfse_discriminacao_template`), segmentos separados por `|`, segmento com campo vazio some. Padrão: `{RESULTADO}. PEDIDO DE COMPRA: {PEDIDO}{ITEM}. VENCIMENTO: {VENCIMENTO} DDL. OS {OS}. "{FRASE_LEGAL}". {OBSERVACAO}`. Várias parcelas viram `14/28 DDL`; à vista some o segmento. Sem datas por padrão (token `{DATAS}` disponível).

@@ -139,7 +139,7 @@ begin
   select * into v_sf from f.solicitacao_faturamento where id = (select sol_a from ctx);
   v_serv := v_sf.operacao_snapshot->'servico';
   if v_sf.iss_retido is not true or v_sf.retem_pcc is not true or v_sf.retem_irrf is not true or v_sf.retem_inss is not false
-     or v_sf.municipio_prestacao_ibge <> '4209102' or v_sf.data_competencia <> current_date or v_sf.snapshot_cadastro_em is null
+     or v_sf.municipio_prestacao_ibge <> '4209102' or v_sf.data_competencia <> f.fn_data_hoje_sao_paulo() or v_sf.snapshot_cadastro_em is null
      or v_sf.destino_uf_confirmada <> 'SC' or v_sf.pedido_cliente <> '136785' then
     raise exception 'Cabecalho A incompleto: %', row_to_json(v_sf);
   end if;
@@ -301,18 +301,28 @@ begin
   end if;
 
   -- Dispensa de retencao <= R$ 10,00: 17.09 de R$ 500 -> IRRF 7,50 dispensado; CRF 23,25 e ISS 25,00 ficam.
-  -- Competencia do mes anterior e aceita; no futuro nao.
+  -- Competencia no mes da emissao (WEG Tintas, 09/2026): no futuro nao; do mes anterior tambem nao (o tomador
+  -- recolhe o ISS e o INSS retidos pela competencia); o primeiro dia do mes corrente, em Sao Paulo, sim.
   v_sol := f.fn_solicitacao_faturamento_criar_os_servico('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
     '15400000-0000-4000-8000-000000000102', jsonb_build_array(jsonb_build_object('os_id', 915400, 'descricao_servico', 'LAUDO SIMPLES', 'valor_servico', 500)));
-  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', (current_date + 1)::text));
-  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'data_competencia') then
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', (f.fn_data_hoje_sao_paulo() + 1)::text));
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'data_competencia' and p->>'mensagem' like '%depois da data de emissao%') then
     raise exception 'Competencia futura nao bloqueou: %', v_r;
   end if;
-  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', (date_trunc('month', current_date) - interval '1 month')::date::text));
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', (date_trunc('month', f.fn_data_hoje_sao_paulo()) - interval '1 day')::date::text));
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'data_competencia' and p->>'mensagem' like '%fora do mes da emissao%multa e juros%') then
+    raise exception 'Competencia do mes anterior nao bloqueou: %', v_r;
+  end if;
+  if f.fn_nfse_competencia_pendencia(date '2026-07-29', date '2026-08-03') not like 'Competencia 29/07/2026 fora do mes da emissao (08/2026): use uma data de 01/08/2026 a 03/08/2026.%'
+     or f.fn_nfse_competencia_pendencia(date '2026-08-01', date '2026-08-03') is not null
+     or f.fn_nfse_competencia_pendencia(null, date '2026-08-03') is null then
+    raise exception 'fn_nfse_competencia_pendencia errada: %', f.fn_nfse_competencia_pendencia(date '2026-07-29', date '2026-08-03');
+  end if;
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, jsonb_build_object('pagamento_forma', '15', 'pagamento_indicador', 1, 'data_competencia', date_trunc('month', f.fn_data_hoje_sao_paulo())::date::text));
   if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Dispensa/competencia devolveu pendencias: %', v_r; end if;
   select * into v_sf from f.solicitacao_faturamento where id = v_sol;
   v_serv := v_sf.operacao_snapshot->'servico';
-  if v_sf.data_competencia <> (date_trunc('month', current_date) - interval '1 month')::date then raise exception 'Competencia do mes anterior nao gravada: %', v_sf.data_competencia; end if;
+  if v_sf.data_competencia <> date_trunc('month', f.fn_data_hoje_sao_paulo())::date then raise exception 'Competencia do primeiro dia do mes nao gravada: %', v_sf.data_competencia; end if;
   if v_sf.retem_irrf is not false or (v_serv->>'valor_irrf')::numeric <> 0 or v_sf.retem_pcc is not true or (v_serv->>'valor_pcc')::numeric <> 23.25
      or (v_serv->>'valor_iss')::numeric <> 25 or (v_serv->>'valor_liquido')::numeric <> 451.75
      or not exists (select 1 from jsonb_array_elements(v_r->'avisos') a where a->>'campo' = 'retem_irrf' and a->>'mensagem' like '%10,00%') then
@@ -517,7 +527,7 @@ begin
   if v_sf.valor_deducao_material <> 1000 or (v_serv->>'valor_deducoes')::numeric <> 1000 or (v_serv->>'base_iss')::numeric <> 2500
      or (v_serv->>'valor_iss')::numeric <> 75 or v_sf.iss_retido is not true or v_serv->>'municipio_incidencia_iss' <> '4218004'
      or (v_serv->>'valor_inss')::numeric <> 275 or (v_serv->>'valor_liquido')::numeric <> 3150 or v_serv->>'codigo_indicador_operacao' <> '020201'
-     or v_serv->>'descricao_servico' not like '%MATERIAL APLICADO: R$ 1.000,00 (28,57% de Material), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)%' then
+     or v_serv->>'descricao_servico' not like '%SERVIÇO: R$ 2.500,00 (71,43% de Serviço). MATERIAL APLICADO: R$ 1.000,00 (28,57% de Material), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)%' then
     raise exception 'Deducao de material errada: % / %', row_to_json(v_sf), v_serv;
   end if;
   -- A deducao vai para a emissao no preparo.
@@ -555,7 +565,7 @@ begin
   select * into v_doc from f.documento_fiscal where id = v_1.documento_fiscal_id;
   if v_doc.modelo <> 'NFSE' or v_doc.natureza <> 'SERVICO' or v_doc.nfse_status <> 'RASCUNHO' or v_doc.origem <> 'EMITIDO'
      or v_doc.valor_servicos <> 6000 or v_doc.valor_total <> 5331 or v_doc.os_id_import <> 915400 or v_doc.nfse_municipio_codigo <> '4209102'
-     or v_doc.competencia_date <> date_trunc('month', current_date)::date then
+     or v_doc.competencia_date <> date_trunc('month', f.fn_data_hoje_sao_paulo())::date or v_doc.emissao_date <> f.fn_data_hoje_sao_paulo() then
     raise exception 'Documento NFS-e preparado errado: %', row_to_json(v_doc);
   end if;
   select * into v_e from f.documento_fiscal_emissao where documento_fiscal_id = v_1.documento_fiscal_id;
@@ -817,5 +827,223 @@ $rls$;
 
 -- Obra com deducao de material (funcao temporaria definida no bloco de regras), como o financeiro.
 select pg_temp.cenario_obra();
+
+-- ---------------------------------------------------------------------------
+-- Refazer NFS-e IMPORTADA (WEG Tintas, 14/09/2026): as NFS-e 70000/12 a 15, emitidas por outro sistema, sairam com
+-- competencia de outro mes e sem os percentuais de servico e material. A nota refeita repete a deducao da antiga
+-- (acima do material lancado na OS), a antiga sai da conta do saldo e do material, a homologacao nao mexe nela e so a
+-- producao a marca SUBSTITUIDA e cancela o titulo dela.
+-- ---------------------------------------------------------------------------
+reset role;
+create temp table ctx_ref (doc uuid, sol1 uuid, sol2 uuid, doc1 uuid, doc2 uuid);
+insert into ctx_ref (doc) values ('15400000-0000-4000-8000-000000000301');
+grant select, update on ctx_ref to authenticated;
+do $importada$
+begin
+  insert into f.documento_fiscal (id, tenant_id, empresa_id, modelo, operacao, origem, natureza, cliente_id, serie, numero, chave_acesso,
+    valor_servicos, valor_total, emissao_date, competencia_date, nfse_status, servico_discriminacao, nfse_municipio_codigo, os_id_import)
+  values ('15400000-0000-4000-8000-000000000301', '15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002',
+    'NFSE', 'SAIDA', 'IMPORTADO', 'SERVICO', 915401, '70000', '12', 'NFSE:33333333000191:70000:12',
+    3500, 3220, date '2026-08-03', date '2026-08-01', 'EMITIDA',
+    E'SERVIÇO DE MÃO DE OBRA ELETRICA E MONTAGEM (parte 4)\nPEDIDO DE COMPRA: 1306700.\nVENCIMENTO: 28 DDL', '4218004', 915406);
+  insert into f.documento_fiscal_xml (tenant_id, documento_fiscal_id, chave_acesso, xml_raw)
+  values ('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000301', 'NFSE:33333333000191:70000:12',
+    '<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe Id="NFS' || repeat('7', 50) || '"><DPS><infDPS><dCompet>2026-07-29</dCompet>'
+    || '<serv><locPrest><cLocPrestacao>4218004</cLocPrestacao></locPrest><cServ><cTribNac>070201</cTribNac></cServ>'
+    || '<obra><end><CEP>88200000</CEP><xLgr>RUA DA OBRA</xLgr><nro>100</nro><xBairro>CENTRO</xBairro></end></obra></serv>'
+    || '<valores><vServPrest><vServ>3500.00</vServ></vServPrest><vDedRed><vDR>1500.00</vDR></vDedRed><trib><tribFed><vRetCP>220.00</vRetCP></tribFed></trib></valores>'
+    || '</infDPS></DPS></infNFSe></NFSe>');
+  if not exists (select 1 from f.titulo where documento_fiscal_id = '15400000-0000-4000-8000-000000000301' and tipo = 'AR' and status = 'PENDENTE' and deleted_at is null) then
+    raise exception 'Nota importada sem titulo a receber PENDENTE.';
+  end if;
+end;
+$importada$;
+
+select set_config('request.jwt.claim.sub', '15400000-0000-4000-8000-000000000010', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"15400000-0000-4000-8000-000000000010","role":"authenticated"}', true);
+set local role authenticated;
+do $refazer_homologacao$
+declare v_doc uuid := (select doc from ctx_ref); v_d jsonb; v_r jsonb; v_sol uuid; v_sf f.solicitacao_faturamento%rowtype; v_serv jsonb; v_s record; v_p record;
+begin
+  -- Antes: a importada ocupa o saldo inteiro da OS 915406 (3.500) e 1.500 de deducao.
+  select * into v_s from f.fn_os_saldo_a_faturar('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 915406);
+  if v_s.valor_faturado <> 3500 or v_s.saldo <> 0 then raise exception 'Saldo com a importada: %', row_to_json(v_s); end if;
+
+  -- Leitura: texto sem PEDIDO/VENCIMENTO, pedido, prazo, obra, deducao e cTribNac do XML; nada gravado.
+  v_d := f.fn_nfse_importada_dados_refazer(v_doc);
+  if v_d->>'descricao' <> 'SERVIÇO DE MÃO DE OBRA ELETRICA E MONTAGEM (parte 4)' or v_d->>'pedido' <> '1306700' or v_d->'dias' <> '[28]'::jsonb
+     or (v_d->>'valor_deducao')::numeric <> 1500 or (v_d->>'valor_servico')::numeric <> 3500 or v_d->>'codigo_tributacao_nacional' <> '070201'
+     or v_d->>'competencia_xml' <> '2026-07-29' or v_d->>'municipio_prestacao_ibge' <> '4218004' or v_d->'obra'->>'cep' <> '88200000'
+     or v_d->'obra'->>'bairro' <> 'CENTRO' or v_d->>'texto_proibido' <> 'MAO DE OBRA' or (v_d->>'os_id')::int <> 915406
+     or v_d->'titulo'->>'status' <> 'PENDENTE' or (v_d->'titulo'->>'com_recebimento')::boolean or v_d->'refazer_em_andamento' <> 'null'::jsonb then
+    raise exception 'Leitura da importada errada: %', v_d;
+  end if;
+  -- Nota do ERP nao se refaz por aqui (usa Substituir).
+  begin
+    perform f.fn_nfse_importada_dados_refazer((select doc_sub from ctx));
+    raise exception 'Nota emitida pelo ERP foi aceita no refazer de importada.';
+  exception when sqlstate '22023' then
+    if sqlerrm not like '%Substituir%' then raise exception 'Erro inesperado: %', sqlerrm; end if;
+  end;
+
+  -- Texto proibido barra antes de criar a solicitacao (depois de salva a linha nao se edita); OS de outra nota tambem.
+  begin
+    perform f.fn_nfse_refazer_importada_criar(v_doc, '15400000-0000-4000-8000-000000000106',
+      jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', v_d->>'descricao', 'valor_servico', 3500)), 'Refeita a pedido do tomador no teste');
+    raise exception 'Refazer com MAO DE OBRA foi aceito.';
+  exception when sqlstate '22023' then
+    if sqlerrm not like '%MAO DE OBRA%' then raise exception 'Erro inesperado: %', sqlerrm; end if;
+  end;
+  begin
+    perform f.fn_nfse_refazer_importada_criar(v_doc, '15400000-0000-4000-8000-000000000106',
+      jsonb_build_array(jsonb_build_object('os_id', 915402, 'descricao_servico', 'MONTAGEM ELETRICA (parte 4)', 'valor_servico', 3500)), 'Refeita a pedido do tomador no teste');
+    raise exception 'Refazer em outra OS foi aceito.';
+  exception when sqlstate '22023' then null;
+  end;
+  if exists (select 1 from f.solicitacao_faturamento where substitui_documento_fiscal_id = v_doc) then raise exception 'Recusa do refazer deixou solicitacao criada.'; end if;
+
+  v_sol := f.fn_nfse_refazer_importada_criar(v_doc, '15400000-0000-4000-8000-000000000106',
+    jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'MONTAGEM ELETRICA E MOVIMENTACAO DE MAQUINA (parte 4)', 'valor_servico', 3500)),
+    'Refeita a pedido do tomador: competencia no mes da emissao e percentuais na descricao');
+  update ctx_ref set sol1 = v_sol;
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol;
+  if v_sf.substitui_documento_fiscal_id <> v_doc or v_sf.substitui_solicitacao_id is not null or v_sf.substituicao_codigo is not null
+     or v_sf.substituicao_motivo not like 'Refeita a pedido%' or v_sf.observacao like 'Refeita%' then
+    raise exception 'Solicitacao do refazer marcada errado: %', row_to_json(v_sf);
+  end if;
+  begin
+    perform f.fn_nfse_refazer_importada_criar(v_doc, '15400000-0000-4000-8000-000000000106',
+      jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'MONTAGEM ELETRICA (parte 4)', 'valor_servico', 3500)), 'Segundo refazer concorrente da mesma nota');
+    raise exception 'Segundo refazer da mesma nota foi aceito.';
+  exception when sqlstate '55000' then null;
+  end;
+  if (f.fn_nfse_importada_dados_refazer(v_doc)->'refazer_em_andamento'->>'solicitacao_id')::uuid is distinct from v_sol then
+    raise exception 'Leitura nao mostrou o refazer em andamento.';
+  end if;
+
+  -- Material: a importada sai do ja deduzido e a deducao dela vira o teto (1.500 > 1.200 lancados na OS).
+  v_r := f.fn_os_nfse_material_disponivel('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', array[915406], v_sol);
+  if (v_r->>'material_aplicado')::numeric <> 1200 or (v_r->>'deduzido_em_notas')::numeric <> 0 or (v_r->>'deducao_refeita')::numeric <> 1500
+     or (v_r->>'teto_deducao')::numeric <> 1500 or (v_r->>'documento_refeito_id')::uuid <> v_doc then
+    raise exception 'Material do refazer errado: %', v_r;
+  end if;
+  v_r := f.fn_os_nfse_material_disponivel('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', array[915406], null);
+  if (v_r->>'deduzido_em_notas')::numeric <> 1500 or (v_r->>'material_disponivel')::numeric <> 0 then
+    raise exception 'Deducao da importada (vDR do XML) fora do ja deduzido: %', v_r;
+  end if;
+
+  -- Acima da deducao da antiga ainda bloqueia.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"pedido_cliente":"1306700","valor_deducao_material":1600,"obra":{"cep":"88200000","logradouro":"RUA DA OBRA","numero":"100","bairro":"CENTRO"}}'::jsonb);
+  if (v_r->>'ok')::boolean or not exists (select 1 from jsonb_array_elements(v_r->'pendencias') p where p->>'campo' = 'valor_deducao_material' and p->>'mensagem' like '%1.500,00%') then
+    raise exception 'Deducao acima da nota antiga nao bloqueou: %', v_r;
+  end if;
+  -- Mesma deducao e mesmo bruto da antiga passam, com saldo zerado pela propria importada; competencia de hoje em SP.
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"pedido_cliente":"1306700","valor_deducao_material":1500,"obra":{"cep":"88200000","logradouro":"RUA DA OBRA","numero":"100","bairro":"CENTRO"}}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Conferencia do refazer devolveu pendencias: %', v_r; end if;
+  select * into v_sf from f.solicitacao_faturamento where id = v_sol;
+  v_serv := v_sf.operacao_snapshot->'servico';
+  if v_sf.data_competencia <> f.fn_data_hoje_sao_paulo() or (v_serv->>'valor_deducoes')::numeric <> 1500 or (v_serv->>'base_iss')::numeric <> 2000
+     or v_serv->>'descricao_servico' not like '%SERVIÇO: R$ 2.000,00 (57,14% de Serviço). MATERIAL APLICADO: R$ 1.500,00 (42,86% de Material)%' then
+    raise exception 'Conferencia do refazer errada: % / %', row_to_json(v_sf), v_serv;
+  end if;
+  -- A importada ainda esta faturada: sem desconto, a nota nova ficaria "acima do saldo".
+  select * into v_s from f.fn_os_saldo_a_faturar('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 915406);
+  if v_s.valor_faturado <> 3500 then raise exception 'Conferencia mexeu no faturado da importada: %', row_to_json(v_s); end if;
+
+  select * into v_p from f.fn_nfse_preparar_documento_solicitacao(v_sol);
+  update ctx_ref set doc1 = v_p.documento_fiscal_id;
+end;
+$refazer_homologacao$;
+
+reset role;
+select set_config('request.jwt.claim.role', 'service_role', true);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select f.fn_nfe_registrar_envio((select doc1 from ctx_ref), jsonb_build_object('serie_dps', 2, 'numero_dps', (select dps_numero from f.documento_fiscal_emissao where documento_fiscal_id = (select doc1 from ctx_ref))), '{"status":"processando_autorizacao"}'::jsonb, 'PROCESSANDO');
+select f.fn_nfse_aplicar_retorno((select referencia_externa from f.documento_fiscal_emissao where documento_fiscal_id = (select doc1 from ctx_ref)),
+  '{"status":"autorizado","numero":"201"}'::jsonb, 'AUTORIZADA', repeat('8', 50), '201', 'REF201', null, null, null, 'teste/ref1.xml', 'teste/ref1.pdf', '<NFSe><nNFSe>201</nNFSe></NFSe>', 'CALLBACK');
+do $refazer_homologado$
+declare v_r jsonb; v_sol uuid := (select sol1 from ctx_ref); v_snapshot jsonb;
+begin
+  -- Homologacao nao aposenta a importada.
+  if (select nfse_status from f.documento_fiscal where id = (select doc from ctx_ref)) <> 'EMITIDA'
+     or (select status from f.titulo where documento_fiscal_id = (select doc from ctx_ref) and tipo = 'AR' and deleted_at is null) <> 'PENDENTE'
+     or exists (select 1 from f.documento_fiscal_evento where documento_fiscal_id = (select doc from ctx_ref) and tipo = 'SUBSTITUICAO') then
+    raise exception 'Homologacao mexeu na nota importada.';
+  end if;
+  -- Producao repete a homologacao: competencia de outro mes no snapshot barra antes da liberacao do perfil.
+  select operacao_snapshot into v_snapshot from f.solicitacao_faturamento where id = v_sol;
+  update f.solicitacao_faturamento
+     set operacao_snapshot = jsonb_set(operacao_snapshot, '{servico,data_competencia}', to_jsonb((date_trunc('month', f.fn_data_hoje_sao_paulo()) - interval '1 day')::date::text))
+   where id = v_sol;
+  v_r := f.fn_nfse_producao_pronta(v_sol);
+  if coalesce((v_r->>'pronta')::boolean, true) or v_r->>'campo' <> 'data_competencia' or v_r->>'motivo' not like 'Producao bloqueada: %fora do mes da emissao%' then
+    raise exception 'Producao com competencia de outro mes nao barrou: %', v_r;
+  end if;
+  update f.solicitacao_faturamento set operacao_snapshot = v_snapshot where id = v_sol;
+  v_r := f.fn_nfse_producao_pronta(v_sol);
+  if v_r->>'campo' = 'data_competencia' then raise exception 'Competencia do mes barrou a producao: %', v_r; end if;
+end;
+$refazer_homologado$;
+
+-- Abandona a homologacao (volta a poder refazer) e refaz de novo; esta vai para a producao.
+select set_config('request.jwt.claim.sub', '15400000-0000-4000-8000-000000000010', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claims', '{"sub":"15400000-0000-4000-8000-000000000010","role":"authenticated"}', true);
+set local role authenticated;
+do $refazer_segunda$
+declare v_doc uuid := (select doc from ctx_ref); v_sol uuid; v_r jsonb; v_p record;
+begin
+  perform f.fn_nfse_abandonar_homologacao((select sol1 from ctx_ref), 'Homologacao do refazer concluida no teste');
+  if f.fn_nfse_importada_dados_refazer(v_doc)->'refazer_em_andamento' <> 'null'::jsonb then raise exception 'Abandono nao liberou o refazer.'; end if;
+  v_sol := f.fn_nfse_refazer_importada_criar(v_doc, '15400000-0000-4000-8000-000000000106',
+    jsonb_build_array(jsonb_build_object('os_id', 915406, 'descricao_servico', 'MONTAGEM ELETRICA E MOVIMENTACAO DE MAQUINA (parte 4)', 'valor_servico', 3500)),
+    'Refeita a pedido do tomador: competencia no mes da emissao e percentuais na descricao');
+  update ctx_ref set sol2 = v_sol;
+  v_r := f.fn_os_nfse_conferir_homologacao(v_sol, '{"pagamento_forma":"15","pagamento_indicador":1,"pagamento_parcelas":[{"dias":28}],"pedido_cliente":"1306700","valor_deducao_material":1500,"obra":{"cep":"88200000","logradouro":"RUA DA OBRA","numero":"100","bairro":"CENTRO"}}'::jsonb);
+  if coalesce((v_r->>'ok')::boolean, false) is not true then raise exception 'Segunda conferencia do refazer devolveu pendencias: %', v_r; end if;
+  select * into v_p from f.fn_nfse_preparar_documento_solicitacao(v_sol);
+  update ctx_ref set doc2 = v_p.documento_fiscal_id;
+end;
+$refazer_segunda$;
+
+-- Producao simulada: a emissao preparada passa a PRODUCAO e recebe o retorno autorizado. A trava de perfil liberado
+-- (coberta nos testes de liberacao) sai so dentro desta transacao, que termina em rollback.
+reset role;
+select set_config('request.jwt.claim.role', 'service_role', true);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+alter table f.documento_fiscal_emissao disable trigger trg_bloquear_nfe_producao_sem_perfil_liberado;
+update f.documento_fiscal_emissao set ambiente = 'PRODUCAO' where documento_fiscal_id = (select doc2 from ctx_ref);
+alter table f.documento_fiscal_emissao enable trigger trg_bloquear_nfe_producao_sem_perfil_liberado;
+select f.fn_nfe_registrar_envio((select doc2 from ctx_ref), jsonb_build_object('serie_dps', 2, 'numero_dps', (select dps_numero from f.documento_fiscal_emissao where documento_fiscal_id = (select doc2 from ctx_ref))), '{"status":"processando_autorizacao"}'::jsonb, 'PROCESSANDO');
+select f.fn_nfse_aplicar_retorno((select referencia_externa from f.documento_fiscal_emissao where documento_fiscal_id = (select doc2 from ctx_ref)),
+  '{"status":"autorizado","numero":"55"}'::jsonb, 'AUTORIZADA', repeat('9', 50), '55', 'REF55', null, null, null, 'teste/ref2.xml', 'teste/ref2.pdf', '<NFSe><nNFSe>55</nNFSe></NFSe>', 'CALLBACK');
+do $refazer_producao$
+declare v_doc uuid := (select doc from ctx_ref); v_s record; v_r jsonb; v_t f.titulo%rowtype;
+begin
+  if (select nfse_status from f.documento_fiscal where id = (select doc2 from ctx_ref)) <> 'EMITIDA' then raise exception 'Nota refeita nao ficou EMITIDA.'; end if;
+  if (select nfse_status from f.documento_fiscal where id = v_doc) <> 'SUBSTITUIDA' then raise exception 'Importada nao ficou SUBSTITUIDA.'; end if;
+  select * into v_t from f.titulo where documento_fiscal_id = v_doc and tipo = 'AR' and deleted_at is null;
+  if v_t.id is not null and (v_t.status <> 'CANCELADO' or v_t.valor_aberto <> 0) then raise exception 'Titulo da importada nao foi cancelado: %', row_to_json(v_t); end if;
+  if not exists (select 1 from f.titulo where documento_fiscal_id = (select doc2 from ctx_ref) and tipo = 'AR' and status <> 'CANCELADO' and deleted_at is null) then
+    raise exception 'Nota refeita sem titulo a receber.';
+  end if;
+  if (select count(*) from f.documento_fiscal_evento where tipo = 'SUBSTITUICAO' and chave_nova = repeat('9', 50) and chave_substituida = repeat('7', 50)
+        and resposta->>'cancelamento_na_prefeitura' = 'PENDENTE') <> 2 then
+    raise exception 'Eventos de substituicao da importada ausentes.';
+  end if;
+  -- Faturado, material e saldo contam so a nota nova.
+  select * into v_s from f.fn_os_saldo_a_faturar('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', 915406);
+  if v_s.valor_faturado <> 3500 or v_s.saldo <> 0 then raise exception 'Saldo apos refazer em producao: %', row_to_json(v_s); end if;
+  v_r := f.fn_os_nfse_material_disponivel('15400000-0000-4000-8000-000000000001', '15400000-0000-4000-8000-000000000002', array[915406], null);
+  if (v_r->>'deduzido_em_notas')::numeric <> 1500 then raise exception 'Material deduzido em dobro apos refazer: %', v_r; end if;
+  -- A leitura recusa refazer de novo a nota ja substituida.
+  begin
+    perform f.fn_nfse_importada_dados_refazer(v_doc);
+    raise exception 'Importada substituida foi aceita para refazer.';
+  exception when sqlstate '55000' then null;
+  end;
+end;
+$refazer_producao$;
 
 rollback;

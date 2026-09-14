@@ -2,13 +2,13 @@
 
 import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { formatMoneyBR } from "@/lib/decimal";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
-import FaturarNfseOs, { type PerfilServico } from "./FaturarNfseOs";
+import FaturarNfseOs, { type PerfilServico, type RefazerNfse } from "./FaturarNfseOs";
 
 const R$ = (value: number) => `R$ ${formatMoneyBR(value)}`;
 
@@ -137,6 +137,10 @@ async function erroFunction(cause: unknown) {
 export default function FaturarOsPage() {
   const params = useParams<{ id: string }>();
   const osId = Number(params?.id);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // ?refazer=<documento_fiscal_id>: refazer uma NFS-e importada (emitida por outro sistema) desta OS.
+  const refazerId = searchParams?.get("refazer") || null;
   const supabase = useMemo(() => supabaseBrowser(), []);
   const te = useTenantEmpresa();
   const tenantId = te.tenantId ?? null;
@@ -185,6 +189,11 @@ export default function FaturarOsPage() {
   const [versao, setVersao] = useState(0);
   const [temRascunhoNfse, setTemRascunhoNfse] = useState(false);
   const [empresaIbge, setEmpresaIbge] = useState<string | null>(null);
+  const [refazer, setRefazer] = useState<RefazerNfse | null>(null);
+  const [refazerErro, setRefazerErro] = useState<string | null>(null);
+  const [refazerLeitura, setRefazerLeitura] = useState(0);
+  // Solicitacoes que refazem notas importadas desta OS, por documento refeito (rotulo na lista de notas).
+  const [refazimentos, setRefazimentos] = useState<Record<string, { solicitacao_id: string; status: string }>>({});
   const modelo = operacaoSel.startsWith("NFSE:") ? "NFSE" : "NFE";
   const perfisServico = useMemo<PerfilServico[]>(() => perfis.filter((p) => p.modelo === "NFSE").map((p) => ({
     id: p.id, codigo: p.codigo, nome: p.nome, item_servico: p.item_servico, faixa_automacao: p.faixa_automacao, habilitado_producao: p.habilitado_producao, justificativa_faixa: p.justificativa_faixa, vigencia_inicio: p.vigencia_inicio, vigencia_fim: p.vigencia_fim,
@@ -245,7 +254,11 @@ export default function FaturarOsPage() {
   const osInterna = useMemo(() => /segau/i.test(cliente?.razao_social ?? cliente?.nome ?? "") && /el[eé]trica/i.test(cliente?.razao_social ?? cliente?.nome ?? ""), [cliente]);
   const osCancelada = String(os?.status_fluxo ?? os?.status ?? "").toLowerCase() === "cancelada";
   const osFaturada = String(os?.status_fluxo ?? "").toLowerCase() === "faturada";
-  const motivoBloqueioOs = !podeFaturar ? "Seu papel não fatura OS." : osCancelada ? "OS cancelada." : osInterna ? "OS interna (cliente Elétrica Segau) não emite NF-e por este fluxo." : osFaturada ? "OS já faturada." : saldo && saldoDisponivel <= 0 && !solicitacao && !temRascunhoNfse ? "Saldo a faturar zerado." : null;
+  // Refazer nota importada: a nota antiga ja consumiu o saldo (e pode ter marcado a OS como faturada). A conferencia
+  // desconta a nota refeita do saldo; aqui a tela nao pode travar antes dela. So enquanto a antiga esta EMITIDA:
+  // depois da producao ela fica SUBSTITUIDA e as travas de OS faturada e saldo zerado voltam.
+  const refazendoImportada = Object.keys(refazimentos).some((doc) => notas.some((n) => n.documento_fiscal_id === doc && n.nfe_status === "EMITIDA"));
+  const motivoBloqueioOs = !podeFaturar ? "Seu papel não fatura OS." : osCancelada ? "OS cancelada." : osInterna ? "OS interna (cliente Elétrica Segau) não emite NF-e por este fluxo." : refazerId || refazendoImportada ? null : osFaturada ? "OS já faturada." : saldo && saldoDisponivel <= 0 && !solicitacao && !temRascunhoNfse ? "Saldo a faturar zerado." : null;
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId || !Number.isInteger(osId) || osId <= 0) return;
@@ -278,7 +291,15 @@ export default function FaturarOsPage() {
       const saldoRow = (Array.isArray(saldoData) ? saldoData[0] : saldoData) as Saldo | null;
       setSaldo(saldoRow);
       const { data: notasData } = await supabase.schema("f").rpc("fn_os_notas", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_os_id: osId });
-      setNotas((notasData as Nota[] | null) ?? []);
+      const notasRows = (notasData as Nota[] | null) ?? [];
+      setNotas(notasRows);
+      const importadas = notasRows.filter((n) => n.modelo === "NFSE" && n.emissao_status === "IMPORTADA").map((n) => n.documento_fiscal_id);
+      if (importadas.length > 0) {
+        const { data: refs } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,substitui_documento_fiscal_id").in("substitui_documento_fiscal_id", importadas).neq("status", "CANCELADA");
+        setRefazimentos(Object.fromEntries(((refs as Array<{ id: string; status: string; substitui_documento_fiscal_id: string }> | null) ?? []).map((r) => [r.substitui_documento_fiscal_id, { solicitacao_id: r.id, status: r.status }])));
+      } else {
+        setRefazimentos({});
+      }
       const { data: perfisData } = await supabase.schema("f").from("perfil_operacao").select("id,codigo,nome,modelo,item_servico,cfop_interno,cfop_externo,faixa_automacao,habilitado_producao,vigencia_inicio,vigencia_fim,justificativa_faixa,natureza_operacao,revisao_fiscal_em,codigo_tributacao_nacional,codigo_nbs,aliquota_iss,local_prestacao_regra,incidencia_iss_regra,iss_retido_regra,retencao_pcc_regra,retencao_irrf_regra,retencao_inss_regra,codigo_indicador_operacao,excecao_conserto_isolado,campos_conferir,permite_deducao_material,destinacoes_mercadoria,aliquota_icms").or("cfop_interno.eq.5101,cfop_externo.eq.6101,modelo.eq.NFSE").order("codigo");
       setPerfis((perfisData as Perfil[] | null) ?? []);
       const { data: ctxEmpresa } = await supabase.schema("f").rpc("fn_nfse_contexto_empresa", { p_empresa_id: empresaId });
@@ -385,6 +406,39 @@ export default function FaturarOsPage() {
   }, [empresaId, osId, supabase, tenantId]);
 
   useEffect(() => { void carregar(); }, [carregar]);
+
+  // Refazer NFS-e importada: le a nota antiga (texto limpo, pedido, prazo, obra, deducao, cTribNac). Nada e gravado aqui.
+  useEffect(() => {
+    if (!refazerId || !tenantId || !empresaId) { setRefazer(null); setRefazerErro(null); return; }
+    let ativo = true;
+    setRefazerErro(null);
+    void supabase.schema("f").rpc("fn_nfse_importada_dados_refazer", { p_documento_fiscal_id: refazerId }).then(({ data, error }) => {
+      if (!ativo) return;
+      if (error) { setRefazer(null); setRefazerErro(error.message); return; }
+      const dados = data as RefazerNfse | null;
+      if (!dados || Number(dados.os_id) !== osId) { setRefazer(null); setRefazerErro("Esta nota não é da OS aberta."); return; }
+      setRefazer({ ...dados, os_id: Number(dados.os_id) });
+    });
+    return () => { ativo = false; };
+  }, [empresaId, osId, refazerId, refazerLeitura, supabase, tenantId]);
+  // O perfil de servico da nota refeita sai do cTribNac da nota antiga: perfil revisado, vigente e nao bloqueado.
+  useEffect(() => {
+    // Com rascunho de NF-e aberto o seletor fica travado nele: nao troca para o servico.
+    if (!refazer || perfisServico.length === 0 || solicitacao) return;
+    const hojeSp = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    const vigente = (p: PerfilServico) => p.faixa_automacao !== "BLOQUEADO" && (!p.vigencia_inicio || p.vigencia_inicio <= hojeSp) && (!p.vigencia_fim || p.vigencia_fim >= hojeSp);
+    const codigo = refazer.codigo_tributacao_nacional ?? "";
+    const item = codigo.length === 6 ? `${codigo.slice(0, 2)}.${codigo.slice(2, 4)}` : "";
+    const escolhido = perfisServico.find((p) => vigente(p) && p.revisao_fiscal_em && p.codigo_tributacao_nacional === codigo)
+      ?? perfisServico.find((p) => vigente(p) && item && p.item_servico === item);
+    if (escolhido) setOperacaoSel(`NFSE:${escolhido.id}`);
+    else setRefazerErro(`Nenhum perfil de serviço vigente para o código de tributação ${codigo || "da nota"}. Revise os perfis em Faturamento › Perfis.`);
+  }, [perfisServico, refazer, solicitacao]);
+  const abrirRefazer = useCallback((documentoFiscalId: string | null) => {
+    if (documentoFiscalId && documentoFiscalId === refazerId) { setRefazerLeitura((v) => v + 1); return; }
+    router.replace(documentoFiscalId ? `/os/${osId}/faturar?refazer=${encodeURIComponent(documentoFiscalId)}` : `/os/${osId}/faturar`, { scroll: false });
+    window.setTimeout(() => document.getElementById("faturar-composicao")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }, [osId, refazerId, router]);
 
   // Realtime: a emissao muda de estado sem recarregar a pagina.
   useEffect(() => {
@@ -736,6 +790,28 @@ export default function FaturarOsPage() {
     } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
   }
 
+  // NFS-e emitida por outro sistema (sem emissao pelo ERP): "refazer esta nota" abre a composicao preenchida com ela.
+  // A nota que refaz outra ganha o rotulo "refaz 70000/12"; a antiga, depois da producao, "cancelar na prefeitura".
+  function acoesRefazer(n: Nota) {
+    const rotulo = (id: string) => { const d = notas.find((x) => x.documento_fiscal_id === id); return d ? `${d.serie ?? ""}/${d.numero ?? ""}` : "nota importada"; };
+    if (n.modelo === "NFSE" && n.emissao_status === "IMPORTADA") {
+      if (n.nfe_status === "SUBSTITUIDA") return <span className="text-amber-300">refeita; cancelar na prefeitura</span>;
+      if (n.nfe_status !== "EMITIDA") return null;
+      const andamento = refazimentos[n.documento_fiscal_id];
+      if (andamento) {
+        return refazerId === n.documento_fiscal_id
+          ? <span className="text-amber-300">refazendo (acima)</span>
+          : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => abrirRefazer(n.documento_fiscal_id)}>refazendo · abrir</button>;
+      }
+      const motivo = !podeFaturar ? "Seu papel não fatura OS." : solicitacao ? "Descarte o rascunho de NF-e aberto antes." : null;
+      return refazerId === n.documento_fiscal_id
+        ? <span className="text-amber-300">refazendo (acima)</span>
+        : <button type="button" className="text-amber-300 underline disabled:no-underline disabled:opacity-50" disabled={ocupado || Boolean(motivo)} title={motivo ?? "Abre a composição da NFS-e preenchida com esta nota, para homologar e emitir de novo"} onClick={() => abrirRefazer(n.documento_fiscal_id)}>refazer esta nota</button>;
+    }
+    const refeita = n.solicitacao_id ? Object.entries(refazimentos).find(([, r]) => r.solicitacao_id === n.solicitacao_id)?.[0] : undefined;
+    return refeita ? <span className="text-zinc-400">refaz {rotulo(refeita)}{n.ambiente === "HOMOLOGACAO" ? " (teste)" : ""}</span> : null;
+  }
+
   if (!Number.isInteger(osId) || osId <= 0) return <div className="p-6 text-sm text-red-300">OS inválida.</div>;
 
   return (
@@ -761,7 +837,7 @@ export default function FaturarOsPage() {
         <div><div className="text-xs uppercase text-zinc-500">Saldo a faturar</div><div className="text-lg font-semibold">{R$(saldoDisponivel)}</div><div className="text-xs text-zinc-400">Orçado/HH {R$(num(saldo?.valor_pedido))} · faturado {R$(num(saldo?.valor_faturado))} · reservado {R$(num(saldo?.valor_reservado))}</div></div>
         <div>
           <label className={label}>Operação (perfil da nota)
-            <select className={field} value={operacaoSel} disabled={Boolean(solicitacao)} onChange={(e) => setOperacaoSel(e.target.value)}>
+            <select className={field} value={operacaoSel} disabled={Boolean(solicitacao) || Boolean(refazer)} onChange={(e) => setOperacaoSel(e.target.value)}>
               <optgroup label="NF-e · produto fabricado (industrialização)">
                 <option value="NFE">{ambito === "INTERNA" ? "Dentro de SC" : `Fora de SC (${cliente?.uf ?? "?"})`} · CFOP {cfop} · {perfisVigentes[0]?.codigo ?? "fixture de homologação"}</option>
               </optgroup>
@@ -774,8 +850,17 @@ export default function FaturarOsPage() {
         </div>
       </section>
 
-      {modelo === "NFSE" ? (
+      <div id="faturar-composicao" className="scroll-mt-4" />
+      {refazerId && refazerErro ? (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-red-900 bg-red-950/30 p-3 text-sm text-red-200">Não dá para refazer esta nota: {refazerErro}<button type="button" className={botao} onClick={() => abrirRefazer(null)}>Voltar para a composição da OS</button></div>
+      ) : null}
+      {refazerId && refazer && solicitacao ? (
+        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-amber-900/70 bg-amber-950/20 p-3 text-sm text-amber-200">Há um rascunho de NF-e aberto nesta OS. Descarte-o antes de refazer a NFS-e.<button type="button" className={botao} onClick={() => { setOperacaoSel("NFE"); abrirRefazer(null); }}>Voltar para o rascunho de NF-e</button></div>
+      ) : null}
+      {refazerId && !refazer && !refazerErro ? <div className="text-sm text-zinc-500">Lendo a nota a refazer...</div> : null}
+      {refazerId && (!refazer || refazerErro || solicitacao || modelo !== "NFSE") ? null : modelo === "NFSE" ? (
         <FaturarNfseOs
+          key={refazer ? `refazer:${refazer.documento_fiscal_id}` : "os"}
           tenantId={tenantId} empresaId={empresaId} osId={osId}
           os={osNfse}
           cliente={clienteNfse}
@@ -783,6 +868,7 @@ export default function FaturarOsPage() {
           perfil={perfilServico} perfis={perfisServico}
           custoReal={custoReal?.total ?? null} faturadoOs={faturadoOs} motivoBloqueioOs={motivoBloqueioOs} versao={versao}
           onAtualizar={carregar} abrirArquivo={abrirArquivoDoc}
+          refazer={refazer} onRefazer={abrirRefazer}
         />
       ) : (<>
 
@@ -1016,7 +1102,7 @@ export default function FaturarOsPage() {
         <h2 className="font-semibold">Notas desta OS</h2>
         {notas.length === 0 ? <div className="text-sm text-zinc-500">Nenhuma nota emitida ou vinculada.</div> : (
           <table className="w-full text-sm"><thead className="text-xs uppercase text-zinc-500"><tr><th className="px-2 py-1 text-left">Nota</th><th className="px-2 py-1 text-left">Modelo</th><th className="px-2 py-1 text-left">Ambiente</th><th className="px-2 py-1 text-left">Status</th><th className="px-2 py-1 text-right">Valor</th><th className="px-2 py-1 text-left">Arquivos</th></tr></thead>
-            <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td className="px-2 py-1">{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td className="px-2 py-1">{n.modelo === "NFSE" ? "NFS-e" : "NF-e"}</td><td className="px-2 py-1">{n.ambiente}</td><td className="px-2 py-1">{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : n.nfe_status === "SUBSTITUIDA" ? " · substituída" : ""}</td><td className="px-2 py-1 text-right whitespace-nowrap">{R$(num(n.valor_total))}</td><td className="space-x-2 px-2 py-1">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>{n.modelo === "NFSE" ? "DANFSe" : "DANFE"}</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/${n.modelo === "NFSE" ? "nfse" : "nfe"}/${n.documento_fiscal_id}`}>detalhe</Link>{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
+            <tbody>{notas.map((n) => <tr key={n.documento_fiscal_id} className="border-t border-zinc-800"><td className="px-2 py-1">{n.serie && n.numero ? `${n.serie}/${n.numero}` : n.referencia_externa}</td><td className="px-2 py-1">{n.modelo === "NFSE" ? "NFS-e" : "NF-e"}</td><td className="px-2 py-1">{n.ambiente}</td><td className="px-2 py-1">{n.emissao_status}{n.nfe_status === "EMITIDA" ? " · documento emitido" : n.nfe_status === "SUBSTITUIDA" ? " · substituída" : ""}</td><td className="px-2 py-1 text-right whitespace-nowrap">{R$(num(n.valor_total))}</td><td className="space-x-2 px-2 py-1">{n.danfe_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "DANFE")}>{n.modelo === "NFSE" ? "DANFSe" : "DANFE"}</button> : null}{n.xml_path ? <button type="button" className="text-sky-300 underline" onClick={() => void abrirArquivo(n, "XML")}>XML</button> : null}<Link className="text-sky-300 underline" href={`/faturamento/${n.modelo === "NFSE" ? "nfse" : "nfe"}/${n.documento_fiscal_id}`}>detalhe</Link>{acoesRefazer(n)}{n.ambiente === "HOMOLOGACAO" && n.emissao_status === "AUTORIZADA" && n.nfe_status !== "EMITIDA" && !notas.some((p) => p.ambiente === "PRODUCAO" && p.solicitacao_id && p.solicitacao_id === n.solicitacao_id) ? (n.solicitacao_status === "CANCELADA" ? <span className="text-zinc-500">homologação abandonada (saldo devolvido)</span> : <button type="button" className="text-amber-300 underline" disabled={ocupado} onClick={() => void abandonarNota(n)}>abandonar homologação</button>) : null}</td></tr>)}</tbody></table>
         )}
       </section>
 

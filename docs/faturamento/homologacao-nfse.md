@@ -123,7 +123,7 @@ O responsável liberou a NFS-e Nacional em produção no painel da Focus e pediu
 - **DPS e NFS-e são sequências independentes** (já eram no ERP) e **homologação e produção têm contadores próprios**: `proximo_numero_dps` (homologação, em 19) e `proximo_numero_dps_producao` (produção, em 2). Série 2 nos dois; o emissor antigo usa 70000/44.
 - **cIndOp e totais aproximados por perfil**: `codigo_indicador_operacao` (050103 no 14.06) e `tributos_aprox_federal_pct` 13,45% / `tributos_aprox_municipal_pct` 4,69%.
 - **IM do tomador de Joinville** deixou de bloquear: vira aviso (nunca enviada nas nove notas reais).
-- **Competência** aceita mês anterior (a nota 27 real tem competência 29/07 e emissão 12/08).
+- **Competência** aceita mês anterior (a nota 27 real tem competência 29/07 e emissão 12/08). *Revogado em 14/09/2026:* a WEG Tintas recusou as NFS-e 70000/12 a 15 por competência 29/07 com emissão 03/08; a competência agora precisa estar no mês da emissão, em São Paulo (migration `20260914135000`).
 - **Pedido de compra** pode ser limpo na nota (a OS 319 tem "EDUARDO - SEM PEDIDO" no campo).
 - Novos RPCs `f.fn_perfil_operacao_nfse_revisar` e `f.fn_perfil_operacao_nfse_liberar_producao` (mesma disciplina da NF-e: revisão auditada → homologação com o perfil → liberação amarrada àquela homologação); `f.fn_nfse_emissao_claimar` e `f.fn_nfse_preparar_documento_solicitacao(solicitação, ambiente)` para os dois ambientes; `nfse-callback` aceita o token de produção (`FOCUS_NFE_WEBHOOK_TOKEN_PRODUCAO`), webhook de produção registrado (id `xR2Vd8AR`).
 - Prazo de cancelamento provisório de **24 h** gravado em `c.empresa_fiscal` para permitir o cancelamento da nota de teste (pergunta 18 continua aberta).
@@ -180,3 +180,32 @@ Antes da produção, com o contador: NBS 1.0102.69.00 no lugar do 1.0102.41.00 r
 **Simulação de uma pessoa (11/09/2026, à noite).** Login → menu OS → OSs → busca 139 → OS → Faturar → "Nova NFS-e parcial" com dado errado → rejeição → correção → reemissão → abandono. Custou as DPS 2/25 a 2/29 de homologação (NFS-e 13 e 14 autorizadas e abandonadas; saldo de volta a R$ 13.461,64). O que travou e foi corrigido: login do zero deixava a tela preta até um F5 (`provider.tsx`, revalidate sem o userId); menu do topo fechava ao clicar no título depois de passar o mouse, e ficava aberto sobre a página nova cobrindo a busca; a OS tinha dois "Faturar" e o do painel abria uma composição que só criava rascunho FATURAMENTO_OS sem emitir nada (removido, os dois levam à tela de faturar); margem mostrava −23.099,07 num faturamento parcial (agora é margem da OS: já faturado + esta nota − custo real); "Justificativa da retenção" aparecia à toa com regra fixa do perfil; depois de uma rejeição "Reconferir" dava erro e só "Descartar" funcionava (agora "Corrigir e conferir de novo" aproveita o que está na tela); o recarregamento apagava a correção recém-digitada (a DPS 2/27 saiu de novo com o CEP errado por isso); CNO "123" foi aceito pelo ambiente nacional (agora 12 dígitos, migration `20260911230000`); a parcial nova, ao ser autorizada, voltava para um formulário vazio "acima do saldo". Continua só por migration/script, sem tela: alíquota de ISS por município e NBS do perfil.
 
 **Material real da obra (migration `20260911220000`).** Os 50% repetiram a divisão da 1843; somadas, as duas parcelas deduzem R$ 80.769,18, e a OS 139 tem R$ 44.315,28 de produtos lançados. Decisão do Gabriel: esta nota segue assim, e as próximas deduzem o real. `f.fn_os_nfse_material_disponivel` calcula o disponível: produtos lançados nas OS da nota (fora os de finalidade venda) menos o já deduzido em NFS-e dessas OS (emitidas e reservadas). A conferência bloqueia acima dele, e a tela mostra a conta e sugere o disponível. A discriminação passa a trazer o valor e o percentual: "MATERIAL APLICADO: R$ 37.019,18 (50% do serviço), deduzido da base do ISS e do INSS (…)".
+
+---
+
+# NFS-e 70000/12 a 15 da WEG Tintas refeitas pelo ERP (14/09/2026)
+
+A WEG Tintas recusou as NFS-e 12, 13, 14 e 15 (série 70000), emitidas por outro sistema em 03/08/2026, por dois motivos. A competência era 29/07, fora do mês da emissão, e o tomador recolhe o ISS e o INSS retidos pela competência. A descrição também não trazia os percentuais de serviço e de material da redução da base do INSS. As notas antigas serão canceladas na prefeitura. Decisões do Gabriel: manter a dedução de material das originais; a 12 passa a "MONTAGEM MECÂNICA E MOVIMENTAÇÃO DE MÁQUINA (parte 4)", porque a original tinha "MÃO DE OBRA"; a NFS-e 54 fica como está.
+
+**O que mudou (migration `20260914135000`, Edge Function `nfse-emitir`).**
+- Competência no mês da emissão, pelo dia de São Paulo: conferência, preparo, prontidão de produção e montagem do payload barram. A produção repete a competência homologada, então homologação de um mês não sai em produção no outro.
+- Discriminação: "SERVIÇO: R$ X (Y% de Serviço). MATERIAL APLICADO: R$ Z (W% de Material), deduzido da base do ISS e do INSS (LC 116/2003, art. 7º, § 2º, I)". Os dois percentuais somam 100.
+- "Refazer esta nota" na linha da NFS-e importada em "Notas desta OS". Abre a composição preenchida com a nota antiga: mesma OS e bruto, texto sem as linhas de pedido e vencimento, pedido, prazo, obra e local da prestação lidos do XML, dedução do `vDR`, competência de hoje. A solicitação nasce marcada (`substitui_documento_fiscal_id`) e a marca sobrevive a rejeição, abandono e volta da tela de perfis.
+- A conferência desconta a nota refeita do saldo (pelo bruto) e aceita, como teto do material, a dedução dela.
+- A nota nova sai como nota comum, sem `chSubstda`. Só o retorno autorizado em **produção** marca a antiga como SUBSTITUÍDA, cancela o título dela e grava os eventos com `cancelamento_na_prefeitura = PENDENTE`. Título com recebimento não é cancelado: vira incidente.
+- A dedução de NFS-e importadas passa a contar no material já deduzido da OS (antes contava zero).
+
+**Homologação pela tela (porta local contra o banco online), como uma pessoa: menu OS → OSs → busca → OS → Faturar → Notas desta OS → refazer esta nota → conferir → emitir.**
+
+| Antiga | OS | Homologação | DPS | Bruto | Material | Serviço / Material | INSS | Líquido |
+|---|---|---|---|---|---|---|---|---|
+| 70000/12 | 131 | NFS-e 16 | 2/31 | 29.700,00 | 13.000,00 | 56,23% / 43,77% | 1.837,00 | 27.529,00 |
+| 70000/13 | 135 | NFS-e 17 | 2/32 | 52.250,00 | 24.500,00 | 53,11% / 46,89% | 3.052,50 | 48.642,50 |
+| 70000/14 | 143 | NFS-e 18 | 2/33 | 73.686,75 | 34.200,00 | 53,59% / 46,41% | 4.343,54 | 68.553,47 |
+| 70000/15 | 132 | NFS-e 19 | 2/34 | 13.717,50 | 6.000,00 | 56,26% / 43,74% | 848,93 | 12.714,22 |
+
+Nos quatro XMLs autorizados, `dCompet` é 2026-09-14, igual à data de emissão; ISS 2% retido em Guaramirim; obra BR-280, sn, Caixa D'Água, CEP 89272-554, como nas originais. INSS e líquido iguais aos das notas antigas. As antigas continuam EMITIDA com título PENDENTE até a produção.
+
+Travas encontradas no caminho e corrigidas antes de emitir: a revisão adversarial achou que "Corrigir e conferir de novo" com linha inválida perdia a marca de refazer, que "Substituir" na homologação da nota refeita criava uma substituta escondida e que as travas de OS faturada e saldo zerado ficavam desligadas para sempre. Na tela: margem somava a nota antiga e a nova, o aviso de "MÃO DE OBRA" continuava depois de salvo e o saldo da linha não dizia que incluía a nota antiga.
+
+**Produção (a fazer, no mesmo mês).** A liberação do perfil vale para uma homologação por vez: liberar o SEG-NFSE-0702 para a NFS-e 16 (link "Liberar SEG-NFSE-0702 para esta nota" na OS 131), emitir a real, e só então liberar a 17, e assim por diante. Homologação de setembro não sai em produção em outubro. Depois de cada nota real: enviar o PDF para weg-nservico@weg.net e cancelar a antiga na prefeitura.
