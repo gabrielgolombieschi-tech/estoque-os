@@ -9,6 +9,7 @@ import { getFeriadosJoinville } from "@/lib/datas/feriadosJoinville";
 import { normalizeOsStatusFluxo, type OsStatusExibicao } from "@/lib/os/statusFluxo";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import "./horas-internas.css";
 
 type Colaborador = { id: string; nome: string; ativo: boolean; cargo?: string | null; user_id?: string | null };
 type TipoHora = { id: string; codigo: string; descricao: string; fator: number; ativo: boolean };
@@ -22,9 +23,29 @@ type OSRow = {
   status_fluxo: string | null;
 };
 
+// Onde a hora vai: numa OS ou numa atividade interna (docs/horas-internas.md).
+type Destino = "os" | "atividade";
+
+type AtividadeInterna = { id: string; codigo: string; nome: string; pede_cliente: boolean; ordem: number };
+type ClienteOpcao = { id: number; nome: string };
+
+type RetornoHorasInternas = {
+  sucesso?: boolean;
+  gravados?: number;
+  avisos?: Array<{ tipo: string; mensagem: string }>;
+  erros?: Array<{ tipo: string; mensagem: string }>;
+  apontamento_ids?: string[];
+  atividade_nome?: string;
+};
+
 type ApontamentoRow = {
   id: string;
-  os_id: number;
+  // Uma hora tem OS ou atividade, nunca as duas: numa hora interna os_id vem nulo.
+  os_id: number | null;
+  atividade_id: string | null;
+  atividade_nome: string | null;
+  cliente_id: number | null;
+  orcamento_descricao: string | null;
   numero_os: string | null;
   cliente_nome: string | null;
   descricao_servico: string | null;
@@ -56,6 +77,10 @@ type DuplicateWarning = {
   colaborador_nome: string;
   horas: number;
   tipo_codigo: string | null;
+  // Só na hora interna: no Comercial a chave de duplicidade inclui cliente e orçamento.
+  cliente_id: number | null;
+  cliente_nome: string | null;
+  orcamento_descricao: string | null;
 };
 
 type Suggestion = {
@@ -83,12 +108,21 @@ function podeEditarApontamento(row: ApontamentoRow, papelEmpresa: string, meuCol
   return Boolean(meuColaboradorId) && row.colaborador_id === meuColaboradorId;
 }
 
-function podeExcluirApontamento(row: ApontamentoRow, meuColaboradorId: string | null) {
-  return !row.gerado_por_hh
-    && row.status.toLowerCase() !== "fechado"
-    && row.status_aprovacao !== "aprovado"
+function podeExcluirApontamento(row: ApontamentoRow, papelEmpresa: string, meuColaboradorId: string | null) {
+  if (row.gerado_por_hh || row.status.toLowerCase() === "fechado") return false;
+  // Hora interna nasce aprovada, então a regra "só o próprio, antes da aprovação"
+  // deixaria um lançamento errado sem saída pela tela. Vale a regra do banco para
+  // hora aprovada (fn_usuario_pode_alterar_apontamento): a gestão tira.
+  if (row.atividade_id) return PAPEIS_GESTAO_HORAS.has(papelEmpresa);
+  return row.status_aprovacao !== "aprovado"
     && Boolean(meuColaboradorId)
     && row.colaborador_id === meuColaboradorId;
+}
+
+// O nome do lugar onde a hora foi, para títulos e confirmações.
+function rotuloDestino(row: ApontamentoRow) {
+  if (row.atividade_id) return row.atividade_nome || "Atividade interna";
+  return `OS ${row.numero_os || row.os_id}`;
 }
 
 const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -225,7 +259,6 @@ function DateInputBR({ value, onChange, disabled, ariaLabel }: { value: string; 
 
   useEffect(() => {
     // Mantém a máscara sincronizada quando a data muda pelo calendário nativo.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setText(dateBR(value));
   }, [value]);
 
@@ -276,6 +309,7 @@ export default function ApontamentosPage() {
   const [dateFrom, setDateFrom] = useState(initialFrom);
   const [dateTo, setDateTo] = useState(initialTo);
   const [filterOs, setFilterOs] = useState(searchParams.get("os") || "");
+  const [filterAtividade, setFilterAtividade] = useState(searchParams.get("atividade") || "");
   const [filterColab, setFilterColab] = useState(searchParams.get("colaborador") || "");
   const [filterType, setFilterType] = useState(searchParams.get("tipo") || "");
   const [filterSearch, setFilterSearch] = useState(searchParams.get("busca") || "");
@@ -293,6 +327,13 @@ export default function ApontamentosPage() {
   const [osResults, setOsResults] = useState<OSRow[]>([]);
   const [osSearching, setOsSearching] = useState(false);
   const [selectedOs, setSelectedOs] = useState<OSRow | null>(null);
+  const [destino, setDestino] = useState<Destino>("os");
+  const [atividades, setAtividades] = useState<AtividadeInterna[]>([]);
+  const [atividadeId, setAtividadeId] = useState("");
+  const [clientes, setClientes] = useState<ClienteOpcao[]>([]);
+  const [clienteQuery, setClienteQuery] = useState("");
+  const [clienteSelecionado, setClienteSelecionado] = useState<ClienteOpcao | null>(null);
+  const [orcamento, setOrcamento] = useState("");
   const [colabQuery, setColabQuery] = useState("");
   const [selectedColabs, setSelectedColabs] = useState<string[]>([]);
   const [date, setDate] = useState(todayISO());
@@ -313,6 +354,9 @@ export default function ApontamentosPage() {
   const [deleteTarget, setDeleteTarget] = useState<ApontamentoRow | null>(null);
   const osSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const osInputRef = useRef<HTMLInputElement | null>(null);
+  const atividadeSelectRef = useRef<HTMLSelectElement | null>(null);
+  const clienteInputRef = useRef<HTMLInputElement | null>(null);
+  const orcamentoInputRef = useRef<HTMLInputElement | null>(null);
   const collaboratorInputRef = useRef<HTMLInputElement | null>(null);
   const hoursInputRef = useRef<HTMLInputElement | null>(null);
   const typeSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -339,6 +383,16 @@ export default function ApontamentosPage() {
   const selectedType = typeMap.get(typeId) ?? null;
   const selectedStatus = osStatus(selectedOs);
   const typeIsSpecial = (selectedType?.codigo ?? suggestion.codigo).toUpperCase() !== "NORMAL";
+  const emAtividade = destino === "atividade";
+  const atividadeSelecionada = useMemo(() => atividades.find((item) => item.id === atividadeId) ?? null, [atividadeId, atividades]);
+  const pedeCliente = emAtividade && Boolean(atividadeSelecionada?.pede_cliente);
+  const clienteDigitado = clienteQuery.trim();
+
+  const clientesSugeridos = useMemo(() => {
+    const term = clienteDigitado.toLocaleLowerCase("pt-BR");
+    if (!term || clienteSelecionado) return [];
+    return clientes.filter((item) => item.nome.toLocaleLowerCase("pt-BR").includes(term)).slice(0, 8);
+  }, [clienteDigitado, clienteSelecionado, clientes]);
 
   const filteredCollaborators = useMemo(() => {
     const term = colabQuery.trim().toLocaleLowerCase("pt-BR");
@@ -350,7 +404,7 @@ export default function ApontamentosPage() {
 
   const loadCombos = useCallback(async () => {
     await ensureContext();
-    const [collaboratorResult, typeResult, osResult] = await Promise.all([
+    const [collaboratorResult, typeResult, osResult, atividadeResult, clienteResult] = await Promise.all([
       applyTenantEmpresa(
         supabase.from("colaboradores").select("id,nome,ativo,cargo,user_id").eq("ativo", true).order("nome"),
         tenant,
@@ -367,13 +421,20 @@ export default function ApontamentosPage() {
         tenant,
         empresa
       ),
+      supabase.rpc("app_atividades_internas", { p_para_tablet: false }),
+      applyTenantEmpresa(supabase.from("clientes").select("id,nome").eq("ativo", true).order("nome").limit(500), tenant, empresa),
     ]);
     if (collaboratorResult.error) throw collaboratorResult.error;
     if (typeResult.error) throw typeResult.error;
     if (osResult.error) throw osResult.error;
+    if (atividadeResult.error) throw atividadeResult.error;
     setColaboradores((collaboratorResult.data ?? []) as Colaborador[]);
     setTiposHoras((typeResult.data ?? []) as TipoHora[]);
     setFilterOsOptions((osResult.data ?? []) as OSRow[]);
+    setAtividades((atividadeResult.data ?? []) as AtividadeInterna[]);
+    // As sugestões de cliente são conveniência: alguns papéis não leem o cadastro
+    // (RLS), e nesse caso a pessoa digita o nome, que é o que a hora comercial aceita.
+    setClientes(clienteResult.error ? [] : ((clienteResult.data ?? []) as ClienteOpcao[]).map((item) => ({ id: Number(item.id), nome: String(item.nome ?? "") })));
   }, [empresa, ensureContext, supabase, tenant]);
 
   const loadEntries = useCallback(async () => {
@@ -385,6 +446,7 @@ export default function ApontamentosPage() {
         p_data_inicio: dateFrom,
         p_data_fim: dateTo,
         p_os_id: filterOs ? Number(filterOs) : null,
+        p_atividade_id: filterAtividade || null,
         p_colaborador_id: filterColab || null,
         p_tipo_hora_id: filterType || null,
         p_busca: filterSearch.trim() || null,
@@ -398,7 +460,7 @@ export default function ApontamentosPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, empresa, ensureContext, filterColab, filterOs, filterSearch, filterType, supabase, tenant]);
+  }, [dateFrom, dateTo, empresa, ensureContext, filterAtividade, filterColab, filterOs, filterSearch, filterType, supabase, tenant]);
 
   useEffect(() => {
     if (!tenant || !empresa) return;
@@ -426,17 +488,17 @@ export default function ApontamentosPage() {
     next.set("de", dateFrom);
     next.set("ate", dateTo);
     if (filterOs) next.set("os", filterOs);
+    if (filterAtividade) next.set("atividade", filterAtividade);
     if (filterColab) next.set("colaborador", filterColab);
     if (filterType) next.set("tipo", filterType);
     if (filterSearch.trim()) next.set("busca", filterSearch.trim());
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-  }, [dateFrom, dateTo, filterColab, filterOs, filterSearch, filterType, pathname, router]);
+  }, [dateFrom, dateTo, filterAtividade, filterColab, filterOs, filterSearch, filterType, pathname, router]);
 
   useEffect(() => {
     if (!tiposHoras.length || typeTouched) return;
     const suggested = typeByCode.get(suggestion.codigo);
     // O tipo sugerido acompanha a data até o usuário escolher manualmente.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (suggested) setTypeId(suggested.id);
   }, [suggestion.codigo, typeByCode, typeTouched, tiposHoras.length]);
 
@@ -459,9 +521,12 @@ export default function ApontamentosPage() {
     return () => { active = false; };
   }, [date, empresa, ensureContext, supabase, tenant]);
 
+  // A duplicidade é conferida no mesmo lugar em que a hora vai entrar: a OS ou a atividade.
+  const duplicidadeOsId = emAtividade ? null : selectedOs?.id ?? null;
+  const duplicidadeAtividadeId = emAtividade ? atividadeId || null : null;
+
   useEffect(() => {
-    if (!selectedOs || !selectedColabs.length || !date || !tenant || !empresa) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    if ((duplicidadeOsId == null && !duplicidadeAtividadeId) || !selectedColabs.length || !date || !tenant || !empresa) {
       setDuplicates([]);
       return;
     }
@@ -469,11 +534,9 @@ export default function ApontamentosPage() {
     void (async () => {
       try {
         await ensureContext();
+        const base = supabase.from("apontamentos_horas").select("id,colaborador_id,horas,tipo_hora_id,cliente_id,cliente_nome,orcamento_descricao");
         const result = await applyTenantEmpresa(
-          supabase
-            .from("apontamentos_horas")
-            .select("id,colaborador_id,horas,tipo_hora_id")
-            .eq("os_id", selectedOs.id)
+          (duplicidadeAtividadeId ? base.eq("atividade_id", duplicidadeAtividadeId) : base.eq("os_id", duplicidadeOsId as number))
             .eq("data", date)
             .in("colaborador_id", selectedColabs),
           tenant,
@@ -487,13 +550,30 @@ export default function ApontamentosPage() {
           colaborador_nome: collaboratorMap.get(String(item.colaborador_id))?.nome ?? "Colaborador",
           horas: Number(item.horas ?? 0),
           tipo_codigo: typeMap.get(String(item.tipo_hora_id ?? ""))?.codigo ?? null,
+          cliente_id: item.cliente_id == null ? null : Number(item.cliente_id),
+          cliente_nome: item.cliente_nome ?? null,
+          orcamento_descricao: item.orcamento_descricao ?? null,
         })));
       } catch {
         if (active) setDuplicates([]);
       }
     })();
     return () => { active = false; };
-  }, [collaboratorMap, date, empresa, ensureContext, selectedColabs, selectedOs, supabase, tenant, typeMap]);
+  }, [collaboratorMap, date, duplicidadeAtividadeId, duplicidadeOsId, empresa, ensureContext, selectedColabs, supabase, tenant, typeMap]);
+
+  // Na atividade que pede cliente, dois orçamentos no mesmo dia são duas coisas: o aviso
+  // segue a mesma chave do banco (app_lancar_horas_internas), que só recusa o mesmo
+  // cliente (do cadastro ou digitado, sem diferença de maiúsculas) e o mesmo orçamento.
+  const avisosDuplicidade = useMemo(() => {
+    if (!emAtividade || !pedeCliente) return duplicates;
+    const nomeDigitado = clienteSelecionado ? "" : clienteDigitado.toLocaleLowerCase("pt-BR");
+    const orcamentoAtual = orcamento.trim().toLocaleLowerCase("pt-BR");
+    return duplicates.filter((item) =>
+      item.cliente_id === (clienteSelecionado?.id ?? null)
+      && (item.cliente_nome ?? "").trim().toLocaleLowerCase("pt-BR") === nomeDigitado
+      && (item.orcamento_descricao ?? "").trim().toLocaleLowerCase("pt-BR") === orcamentoAtual
+    );
+  }, [clienteDigitado, clienteSelecionado, duplicates, emAtividade, orcamento, pedeCliente]);
 
   const searchOs = useCallback((term: string) => {
     const clean = term.trim().replace(/[,%()]/g, " ").trim();
@@ -525,6 +605,25 @@ export default function ApontamentosPage() {
     setMessage(null);
   }
 
+  function trocarDestino(novo: Destino) {
+    if (novo === destino) return;
+    setDestino(novo);
+    setMessage(null);
+    setValidationAttempted(false);
+  }
+
+  function escolherCliente(item: ClienteOpcao) {
+    setClienteSelecionado(item);
+    setClienteQuery(item.nome);
+    requestAnimationFrame(() => orcamentoInputRef.current?.focus());
+  }
+
+  function digitarCliente(value: string) {
+    // Digitar de novo desfaz a escolha do cadastro: o que vale é o que está no campo.
+    setClienteQuery(value);
+    setClienteSelecionado(null);
+  }
+
   function addCollaborator(id: string) {
     setSelectedColabs((current) => current.includes(id) ? current : [...current, id]);
     setColabQuery("");
@@ -544,16 +643,24 @@ export default function ApontamentosPage() {
   );
 
   const missingReason = useMemo(() => {
-    if (!selectedOs) return "Selecione a OS";
-    if (!isAllowedOs(selectedStatus)) return selectedStatus === "cancelada" ? "OS cancelada" : "A OS não está disponível";
+    if (emAtividade) {
+      if (!atividadeSelecionada) return "Escolha a atividade";
+      if (pedeCliente && !clienteSelecionado && !clienteDigitado) return "Informe o cliente";
+      if (pedeCliente && !orcamento.trim()) return "Informe o orçamento";
+    } else {
+      if (!selectedOs) return "Selecione a OS";
+      if (!isAllowedOs(selectedStatus)) return selectedStatus === "cancelada" ? "OS cancelada" : "A OS não está disponível";
+    }
     if (!selectedColabs.length) return "Selecione ao menos um colaborador";
     if (!date) return "Informe a data";
     if (dateValidation.fechada) return dateValidation.motivo || "Competência fechada";
     if (hours == null || hours <= 0 || hours > 24) return "Informe horas entre 0 e 24";
-    if (!typeId) return "Selecione o tipo de hora";
-    if (!description.trim()) return "Falta a descrição";
+    // Na hora interna o servidor classifica pela data, e a descrição é opcional: o nome
+    // da atividade (e, no comercial, o cliente e o orçamento) já dizem o que foi.
+    if (!emAtividade && !typeId) return "Selecione o tipo de hora";
+    if (!emAtividade && !description.trim()) return "Falta a descrição";
     return null;
-  }, [date, dateValidation, description, hours, selectedColabs.length, selectedOs, selectedStatus, typeId]);
+  }, [atividadeSelecionada, clienteDigitado, clienteSelecionado, date, dateValidation, description, emAtividade, hours, orcamento, pedeCliente, selectedColabs.length, selectedOs, selectedStatus, typeId]);
 
   async function autoEnableGestao(osId: number, collaboratorId: string) {
     try {
@@ -609,27 +716,31 @@ export default function ApontamentosPage() {
     if (saving || submitLock.current) return;
     if (!missingReason) {
       setValidationAttempted(false);
-      void saveEntry();
+      void (emAtividade ? saveInternalEntry() : saveEntry());
       return;
     }
 
     setValidationAttempted(true);
     const text = missingReason === "Falta a descrição"
       ? "Informe a descrição do trabalho realizado antes de salvar."
-      : `${missingReason}. Revise o campo indicado antes de salvar.`;
+      : missingReason === "Informe o orçamento"
+        ? `${atividadeSelecionada?.nome ?? "A atividade"} pede qual orçamento: descreva em poucas palavras.`
+        : missingReason === "Informe o cliente"
+          ? `${atividadeSelecionada?.nome ?? "A atividade"} pede o cliente: escolha um do cadastro ou digite o nome.`
+          : `${missingReason}. Revise o campo indicado antes de salvar.`;
     setMessage({ tone: "error", text });
 
-    const target = missingReason === "Selecione a OS"
-      ? osInputRef.current
-      : missingReason === "Selecione ao menos um colaborador"
-        ? collaboratorInputRef.current
-        : missingReason === "Informe horas entre 0 e 24"
-          ? hoursInputRef.current
-          : missingReason === "Selecione o tipo de hora"
-            ? typeSelectRef.current
-            : missingReason === "Falta a descrição"
-              ? descriptionInputRef.current
-              : null;
+    const focoPorMotivo: Record<string, HTMLElement | null> = {
+      "Selecione a OS": osInputRef.current,
+      "Escolha a atividade": atividadeSelectRef.current,
+      "Informe o cliente": clienteInputRef.current,
+      "Informe o orçamento": orcamentoInputRef.current,
+      "Selecione ao menos um colaborador": collaboratorInputRef.current,
+      "Informe horas entre 0 e 24": hoursInputRef.current,
+      "Selecione o tipo de hora": typeSelectRef.current,
+      "Falta a descrição": descriptionInputRef.current,
+    };
+    const target = focoPorMotivo[missingReason] ?? null;
 
     requestAnimationFrame(() => {
       target?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -690,6 +801,69 @@ export default function ApontamentosPage() {
     }
   }
 
+  async function saveInternalEntry() {
+    if (submitLock.current || missingReason || !atividadeSelecionada || hours == null) return;
+    if (hours > 12 && !window.confirm(`O lançamento é de ${formatHours(hours)} h por colaborador. Confirma esse total?`)) return;
+
+    submitLock.current = true;
+    setSaving(true);
+    setMessage(null);
+    try {
+      await ensureContext();
+      const lancamentos = selectedColabs.map((colaboradorId) => ({ colaborador_id: colaboradorId, horas: Number(hours.toFixed(2)) }));
+      const lancar = async (confirmarAvisos: boolean) => {
+        const { data, error } = await supabase.rpc("app_lancar_horas_internas", {
+          p_atividade_id: atividadeSelecionada.id,
+          p_data: date,
+          p_lancamentos: lancamentos,
+          p_descricao: description.trim() || null,
+          // Cliente do cadastro vai pelo id; nome digitado vai como texto, sem cadastro.
+          p_cliente_id: pedeCliente ? clienteSelecionado?.id ?? null : null,
+          p_cliente_nome: pedeCliente && !clienteSelecionado ? clienteDigitado : null,
+          p_orcamento_descricao: pedeCliente ? orcamento.trim() : null,
+          p_confirmar_avisos: confirmarAvisos,
+        });
+        if (error) throw error;
+        return (data ?? {}) as RetornoHorasInternas;
+      };
+
+      let retorno = await lancar(false);
+      const avisos = retorno.avisos ?? [];
+      if (!retorno.sucesso && !(retorno.erros ?? []).length && avisos.length) {
+        // O banco segura o lote até a pessoa confirmar (retroativo, jornada acima de 9h).
+        const texto = avisos.map((aviso) => aviso.mensagem).join("\n");
+        if (!window.confirm(`${texto}\n\nDeseja salvar mesmo assim?`)) {
+          setMessage({ tone: "info", text: "Nada foi salvo. Revise o lançamento e tente de novo." });
+          return;
+        }
+        retorno = await lancar(true);
+      }
+      if (!retorno.sucesso) {
+        throw new Error((retorno.erros ?? []).map((erro) => erro.mensagem).join(" ") || "Não foi possível salvar a hora interna.");
+      }
+
+      setNewIds(new Set(retorno.apontamento_ids ?? []));
+      const count = retorno.gravados ?? lancamentos.length;
+      setSelectedColabs([]);
+      setColabQuery("");
+      setHoursText("");
+      setDescription("");
+      setClienteQuery("");
+      setClienteSelecionado(null);
+      setOrcamento("");
+      setValidationAttempted(false);
+      setDuplicates([]);
+      setMessage({ tone: "ok", text: `${count} lançamento${count === 1 ? "" : "s"} salvo${count === 1 ? "" : "s"} em ${retorno.atividade_nome ?? atividadeSelecionada.nome}. A atividade e a data foram mantidas para o próximo lançamento.` });
+      await loadEntries();
+      requestAnimationFrame(() => collaboratorInputRef.current?.focus());
+    } catch (error) {
+      setMessage({ tone: "error", text: getErrorMessage(error, "Erro ao salvar a hora interna.") });
+    } finally {
+      submitLock.current = false;
+      setSaving(false);
+    }
+  }
+
   function openEdit(row: ApontamentoRow) {
     if (row.gerado_por_hh) {
       setMessage({ tone: "info", text: "Este lançamento é gerado pelo módulo HH e deve ser alterado na OS de origem." });
@@ -709,7 +883,8 @@ export default function ApontamentosPage() {
       setMessage({ tone: "error", text: "Informe horas entre 0 e 24." });
       return;
     }
-    if (!editDescription.trim()) {
+    // Na hora interna a descrição é opcional, como no lançamento: a atividade já diz o que foi.
+    if (!editing.atividade_id && !editDescription.trim()) {
       setMessage({ tone: "error", text: "Informe a descrição do trabalho realizado." });
       return;
     }
@@ -785,10 +960,11 @@ export default function ApontamentosPage() {
         <div>
           <nav className="ah-breadcrumb" aria-label="Navegação estrutural"><span>Apontamentos</span><b>›</b><strong>Lançar horas</strong></nav>
           <h1>Apontamento de horas</h1>
-          <p>Registre as horas trabalhadas por OS e colaborador com conferência antes de salvar.</p>
+          <p>Registre as horas trabalhadas por OS ou atividade interna e por colaborador, com conferência antes de salvar.</p>
         </div>
         <div className="ah-header-actions">
           <button type="button" className="ah-button" onClick={() => setMessage({ tone: "info", text: "A importação por planilha será disponibilizada em uma etapa dedicada, com validação e prévia antes da gravação." })}>Importar planilha</button>
+          <Link href="/apontamentos/horas-internas" className="ah-button">Horas internas</Link>
           <Link href="/apontamentos/resumo-mensal" className="ah-button ah-button-primary">Resumo do mês</Link>
         </div>
       </header>
@@ -803,29 +979,74 @@ export default function ApontamentosPage() {
             <small>As horas são lançadas separadamente para cada colaborador.</small>
           </div>
 
-          <div className="ah-field ah-os-field">
-            <label htmlFor="ah-os-search">Ordem de serviço</label>
-            <div className="ah-autocomplete">
-              <input ref={osInputRef} id="ah-os-search" value={osQuery} onChange={(event) => handleOsQuery(event.target.value)} placeholder="Número, cliente ou trecho da descrição" autoComplete="off" />
-              {osSearching && <span className="ah-input-status">Buscando…</span>}
-              {!osSearching && osQuery.trim() && !selectedOs && osResults.length === 0 && <div className="ah-not-found">Nenhuma OS encontrada para “{osQuery}”.</div>}
-              {osResults.length > 0 && !selectedOs && (
-                <div className="ah-options" role="listbox">
-                  {osResults.map((item) => (
-                    <button type="button" key={item.id} onClick={() => chooseOs(item)} role="option" aria-selected="false">
-                      <b>OS {item.numero_os || item.id}</b><span>{item.cliente_nome || "Cliente não informado"}</span><small>{item.descricao_servico || "Sem descrição"} · {statusLabel(osStatus(item))}</small>
-                    </button>
-                  ))}
-                </div>
-              )}
+          <div className="ah-field ah-destino-field">
+            <label id="ah-destino-label">Onde a hora foi</label>
+            <div className="ah-destino" role="radiogroup" aria-labelledby="ah-destino-label">
+              <button type="button" role="radio" aria-checked={!emAtividade} className={emAtividade ? "" : "is-active"} onClick={() => trocarDestino("os")}>Trabalho em OS</button>
+              <button type="button" role="radio" aria-checked={emAtividade} className={emAtividade ? "is-active" : ""} onClick={() => trocarDestino("atividade")}>Atividade interna</button>
             </div>
+            <small>{emAtividade ? "Comercial, treinamento, manutenção da fábrica, exames… Conta como hora trabalhada, nasce aprovada e não vira custo de OS." : "A hora entra no custo da OS e vai para a aprovação do responsável."}</small>
           </div>
 
-          {selectedOs && (
+          {!emAtividade && (
+            <div className="ah-field ah-os-field">
+              <label htmlFor="ah-os-search">Ordem de serviço</label>
+              <div className="ah-autocomplete">
+                <input ref={osInputRef} id="ah-os-search" value={osQuery} onChange={(event) => handleOsQuery(event.target.value)} placeholder="Número, cliente ou trecho da descrição" autoComplete="off" />
+                {osSearching && <span className="ah-input-status">Buscando…</span>}
+                {!osSearching && osQuery.trim() && !selectedOs && osResults.length === 0 && <div className="ah-not-found">Nenhuma OS encontrada para “{osQuery}”.</div>}
+                {osResults.length > 0 && !selectedOs && (
+                  <div className="ah-options" role="listbox">
+                    {osResults.map((item) => (
+                      <button type="button" key={item.id} onClick={() => chooseOs(item)} role="option" aria-selected="false">
+                        <b>OS {item.numero_os || item.id}</b><span>{item.cliente_nome || "Cliente não informado"}</span><small>{item.descricao_servico || "Sem descrição"} · {statusLabel(osStatus(item))}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!emAtividade && selectedOs && (
             <div className={`ah-os-confirmation ${isClosedOs(selectedStatus) ? "is-warning" : "is-ok"}`}>
               <span className="ah-confirm-icon">{isClosedOs(selectedStatus) ? "!" : "✓"}</span>
               <div><b>OS {selectedOs.numero_os || selectedOs.id} · {selectedOs.cliente_nome || "Cliente não informado"}</b><p>{selectedOs.descricao_servico || "Sem descrição cadastrada"} · {statusLabel(selectedStatus)}</p></div>
               <button type="button" onClick={() => { setSelectedOs(null); setOsQuery(""); }}>Trocar</button>
+            </div>
+          )}
+
+          {emAtividade && (
+            <div className={`ah-form-grid ah-atividade-grid ${pedeCliente ? "" : "is-simples"}`}>
+              <div className="ah-field">
+                <label htmlFor="ah-atividade">Atividade</label>
+                <select ref={atividadeSelectRef} id="ah-atividade" value={atividadeId} onChange={(event) => { setAtividadeId(event.target.value); setMessage(null); }}>
+                  <option value="">Escolha a atividade…</option>
+                  {atividades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}
+                </select>
+                <small>{atividades.length === 0 ? "Nenhuma atividade ativa. A gestão cadastra em Cadastros › Atividades internas." : pedeCliente ? "Esta atividade pede para qual cliente e qual orçamento foi o tempo." : "Sem OS e sem cliente."}</small>
+              </div>
+              {pedeCliente && (
+                <>
+                  <div className="ah-field">
+                    <label htmlFor="ah-cliente">Cliente</label>
+                    <div className="ah-autocomplete">
+                      <input ref={clienteInputRef} id="ah-cliente" value={clienteQuery} onChange={(event) => digitarCliente(event.target.value)} placeholder="Do cadastro ou o nome, se ainda não existe" autoComplete="off" maxLength={120} />
+                      {clientesSugeridos.length > 0 && (
+                        <div className="ah-options" role="listbox">
+                          {clientesSugeridos.map((item) => <button type="button" key={item.id} onClick={() => escolherCliente(item)} role="option" aria-selected="false"><b>{item.nome}</b><small>Cliente cadastrado</small></button>)}
+                        </div>
+                      )}
+                    </div>
+                    <small>{clienteSelecionado ? "Cliente do cadastro." : clienteDigitado ? "Nome digitado, sem cadastro. Dá para ligar ao cadastro depois." : "Escolha da lista ou digite o nome de quem ainda não é cliente."}</small>
+                  </div>
+                  <div className="ah-field">
+                    <label htmlFor="ah-orcamento">Orçamento</label>
+                    <input ref={orcamentoInputRef} id="ah-orcamento" value={orcamento} onChange={(event) => { setOrcamento(event.target.value); if (event.target.value.trim()) setMessage(null); }} placeholder="Ex.: painel da linha 3" maxLength={160} />
+                    <small>Qual proposta: em poucas palavras, para saber quanto tempo foi para cada uma antes de virar OS.</small>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -856,25 +1077,35 @@ export default function ApontamentosPage() {
               <input ref={hoursInputRef} id="ah-hours" value={hoursText} onChange={(event) => setHoursText(event.target.value)} placeholder="Ex.: 8,5 ou 8h30" inputMode="decimal" />
               <small>{hours != null && hours > 0 ? `${formatHours(hours)} h · ${formatHoursClock(hours)}` : "Aceita decimal ou h:min"}</small>
             </div>
-            <div className={`ah-field ah-type-field ${typeIsSpecial ? "is-special" : ""}`}>
-              <label htmlFor="ah-type">Tipo de hora</label>
-              <select ref={typeSelectRef} id="ah-type" value={typeId} onChange={(event) => { setTypeId(event.target.value); setTypeTouched(true); }}>
-                {tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao} (×{Number(item.fator).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})</option>)}
-              </select>
-              <small>{suggestion.reason}{typeTouched ? " Tipo alterado manualmente." : ""}</small>
-            </div>
+            {emAtividade ? (
+              <div className="ah-field">
+                <label>Tipo de hora</label>
+                <div className="ah-static">Automático pela data</div>
+                <small>Dia útil é normal até 9 h e o resto extra 50%; sábado é extra 50%; domingo e feriado, extra 100%.</small>
+              </div>
+            ) : (
+              <div className={`ah-field ah-type-field ${typeIsSpecial ? "is-special" : ""}`}>
+                <label htmlFor="ah-type">Tipo de hora</label>
+                <select ref={typeSelectRef} id="ah-type" value={typeId} onChange={(event) => { setTypeId(event.target.value); setTypeTouched(true); }}>
+                  {tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao} (×{Number(item.fator).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})</option>)}
+                </select>
+                <small>{suggestion.reason}{typeTouched ? " Tipo alterado manualmente." : ""}</small>
+              </div>
+            )}
           </div>
 
-          {duplicates.length > 0 && (
+          {avisosDuplicidade.length > 0 && (
             <div className="ah-duplicate-warning">
               <b>Possível duplicidade</b>
-              {duplicates.map((item) => <p key={item.id}>{item.colaborador_nome} já tem {formatHours(item.horas)} h lançadas nesta OS em {dateBR(date)}{item.tipo_codigo ? ` (${item.tipo_codigo})` : ""}. <a href={`#apontamento-${item.id}`}>Ver lançamento</a></p>)}
-              <small>O aviso não impede salvar, mas confirme se o trabalho não foi lançado antes.</small>
+              {avisosDuplicidade.map((item) => <p key={item.id}>{item.colaborador_nome} já tem {formatHours(item.horas)} h lançadas {emAtividade ? (pedeCliente ? "nesta atividade, para este cliente e orçamento," : "nesta atividade") : "nesta OS"} em {dateBR(date)}{item.tipo_codigo ? ` (${item.tipo_codigo})` : ""}. <a href={`#apontamento-${item.id}`}>Ver lançamento</a></p>)}
+              <small>{emAtividade
+                ? "No mesmo tipo de hora o sistema não aceita outro lançamento: corrija as horas no lançamento existente."
+                : "O aviso não impede salvar, mas confirme se o trabalho não foi lançado antes."}</small>
             </div>
           )}
 
-          <div className={`ah-field ${validationAttempted && !description.trim() ? "is-invalid" : ""}`}>
-            <label htmlFor="ah-description">Descrição do trabalho</label>
+          <div className={`ah-field ${!emAtividade && validationAttempted && !description.trim() ? "is-invalid" : ""}`}>
+            <label htmlFor="ah-description">{emAtividade ? "Descrição (opcional)" : "Descrição do trabalho"}</label>
             <input
               ref={descriptionInputRef}
               id="ah-description"
@@ -886,24 +1117,26 @@ export default function ApontamentosPage() {
                   setMessage(null);
                 }
               }}
-              placeholder="Ex.: Montagem do painel e passagem de cabos"
-              aria-required="true"
-              aria-invalid={validationAttempted && !description.trim()}
-              aria-describedby={validationAttempted && !description.trim() ? "ah-description-error" : undefined}
+              placeholder={emAtividade ? "Ex.: Curso de NR-10 · Reunião de levantamento" : "Ex.: Montagem do painel e passagem de cabos"}
+              aria-required={!emAtividade}
+              aria-invalid={!emAtividade && validationAttempted && !description.trim()}
+              aria-describedby={!emAtividade && validationAttempted && !description.trim() ? "ah-description-error" : undefined}
               onKeyDown={(event) => {
                 if (event.key !== "Enter") return;
                 event.preventDefault();
                 attemptSaveEntry();
               }}
             />
-            {validationAttempted && !description.trim() && <small id="ah-description-error" className="is-danger" role="alert">Informe a descrição do trabalho realizado.</small>}
+            {!emAtividade && validationAttempted && !description.trim() && <small id="ah-description-error" className="is-danger" role="alert">Informe a descrição do trabalho realizado.</small>}
           </div>
 
           <div className="ah-save-bar">
             <div>
               <span>RESUMO</span>
               <strong>{selectedColabs.length || 0} colaborador{selectedColabs.length === 1 ? "" : "es"} × {formatHours(hours || 0)} h = {formatHours(totalHoursToCreate)} h</strong>
-              <small>{entriesToCreate.length > 1 ? entriesToCreate.map((item) => `${formatHours(item.horas)} h ${item.codigo}`).join(" + ") : selectedType ? `${selectedType.descricao} · ×${Number(selectedType.fator).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Selecione o tipo de hora"}</small>
+              <small>{emAtividade
+                ? `${atividadeSelecionada?.nome ?? "Atividade interna"}${pedeCliente && (clienteSelecionado?.nome || clienteDigitado) ? ` · ${clienteSelecionado?.nome || clienteDigitado}` : ""}${pedeCliente && orcamento.trim() ? ` · ${orcamento.trim()}` : ""} · classificação automática pela data`
+                : entriesToCreate.length > 1 ? entriesToCreate.map((item) => `${formatHours(item.horas)} h ${item.codigo}`).join(" + ") : selectedType ? `${selectedType.descricao} · ×${Number(selectedType.fator).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "Selecione o tipo de hora"}</small>
             </div>
             <div className="ah-save-action"><span className={missingReason ? "is-missing" : ""} aria-live="polite">{missingReason || "Tudo pronto para salvar"}</span><button type="button" className="ah-button ah-button-primary" disabled={saving} onClick={attemptSaveEntry}>{saving ? "Salvando…" : `Salvar${selectedColabs.length > 1 ? ` ${selectedColabs.length} lançamentos` : ""}`}</button></div>
           </div>
@@ -916,11 +1149,13 @@ export default function ApontamentosPage() {
           <button type="button" className="ah-button" onClick={() => void loadEntries()} disabled={loading}>{loading ? "Atualizando…" : "Atualizar"}</button>
         </div>
 
-        <div className="ah-filters">
+        <div className="ah-filters ah-filters-com-atividade">
           <div className="ah-quick-period"><button type="button" onClick={() => { const now = todayISO(); setDateFrom(now); setDateTo(now); }}>Hoje</button><button type="button" onClick={setCurrentMonth}>Este mês</button></div>
           <label><span>De</span><DateInputBR value={dateFrom} onChange={setDateFrom} ariaLabel="Data inicial" /></label>
           <label><span>Até</span><DateInputBR value={dateTo} onChange={setDateTo} ariaLabel="Data final" /></label>
-          <label><span>OS</span><select value={filterOs} onChange={(event) => setFilterOs(event.target.value)}><option value="">Todas</option>{filterOsOptions.map((item) => <option key={item.id} value={item.id}>{item.numero_os || item.id}</option>)}</select></label>
+          {/* Uma hora é de OS ou de atividade: escolher um dos filtros solta o outro, senão a lista viria sempre vazia. */}
+          <label><span>OS</span><select value={filterOs} onChange={(event) => { setFilterOs(event.target.value); if (event.target.value) setFilterAtividade(""); }}><option value="">Todas</option>{filterOsOptions.map((item) => <option key={item.id} value={item.id}>{item.numero_os || item.id}</option>)}</select></label>
+          <label><span>Atividade</span><select value={filterAtividade} onChange={(event) => { setFilterAtividade(event.target.value); if (event.target.value) setFilterOs(""); }} aria-label="Filtrar por atividade interna"><option value="">Todas</option>{atividades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
           <label><span>Colaborador</span><select value={filterColab} onChange={(event) => setFilterColab(event.target.value)}><option value="">Todos</option>{colaboradores.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
           <label><span>Tipo</span><select value={filterType} onChange={(event) => setFilterType(event.target.value)}><option value="">Todos</option>{tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select></label>
           <label className="ah-search-filter"><span>Buscar</span><input value={filterSearchInput} onChange={(event) => setFilterSearchInput(event.target.value)} placeholder="OS, cliente ou descrição" /></label>
@@ -936,12 +1171,19 @@ export default function ApontamentosPage() {
                 <div className="ah-day-header"><strong>{dateLongFormatter.format(localDate(groupDate))}</strong><span>{formatHours(groupTotal)} h · {rows.length} lançamento{rows.length === 1 ? "" : "s"}</span></div>
                 {rows.map((row) => {
                   const podeEditar = canWrite && podeEditarApontamento(row, papelEmpresa, meuColaboradorId);
-                  const podeExcluir = canWrite && podeExcluirApontamento(row, meuColaboradorId);
+                  const podeExcluir = canWrite && podeExcluirApontamento(row, papelEmpresa, meuColaboradorId);
                   return <article id={`apontamento-${row.id}`} className={`ah-entry ${newIds.has(row.id) ? "is-new" : ""}`} key={row.id}>
                     <div className="ah-entry-person"><b>{row.colaborador_nome}</b><small>{row.criado_por_nome ? `Lançado por ${row.criado_por_nome}` : "Autor não identificado"}{row.gerado_por_hh ? " · Origem HH" : ""}</small></div>
                     <div className="ah-entry-hours"><b>{formatHours(row.horas)} h</b><small>{formatHoursClock(row.horas)}</small></div>
                     <div className="ah-entry-type"><span className={(row.tipo_codigo || "NORMAL") === "NORMAL" ? "is-normal" : "is-extra"}>{row.tipo_codigo || "NORMAL"}</span><small>×{Number(row.fator_aplicado || 1).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</small></div>
-                    <div className="ah-entry-work"><b>OS {row.numero_os || row.os_id} · {row.cliente_nome || "Cliente não informado"}</b><small>{row.descricao || row.descricao_servico || "Sem descrição"}</small></div>
+                    {row.atividade_id ? (
+                      <div className="ah-entry-work ah-entry-work-interna">
+                        <b>{row.atividade_nome || "Atividade interna"}{row.cliente_nome ? ` · ${row.cliente_nome}` : ""}</b>
+                        <small>{[row.orcamento_descricao ? `Orçamento: ${row.orcamento_descricao}` : null, row.descricao].filter(Boolean).join(" · ") || "Hora interna, sem OS"}</small>
+                      </div>
+                    ) : (
+                      <div className="ah-entry-work"><b>OS {row.numero_os || row.os_id} · {row.cliente_nome || "Cliente não informado"}</b><small>{row.descricao || row.descricao_servico || "Sem descrição"}</small></div>
+                    )}
                     <div className="ah-entry-status"><span>{row.status_aprovacao === "aprovado" ? "Aprovado" : row.status_aprovacao === "rejeitado" ? "Devolvido" : "Pendente"}</span></div>
                     {canWrite && (row.gerado_por_hh || podeEditar || podeExcluir) && <div className="ah-row-actions">{row.gerado_por_hh ? <Link href={`/os/${row.os_id}`}>Abrir OS</Link> : <>{podeEditar && <button type="button" onClick={() => openEdit(row)}>Editar</button>}{podeExcluir && <button type="button" onClick={() => setDeleteTarget(row)}>Excluir</button>}</>}</div>}
                   </article>
@@ -955,14 +1197,14 @@ export default function ApontamentosPage() {
       {editing && (
         <div className="ah-dialog-backdrop" role="presentation">
           <div className="ah-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-title">
-            <div className="ah-dialog-head"><div><span>EDITAR LANÇAMENTO</span><h2 id="edit-title">{editing.colaborador_nome} · OS {editing.numero_os || editing.os_id}</h2></div><button type="button" onClick={() => setEditing(null)} aria-label="Fechar">×</button></div>
+            <div className="ah-dialog-head"><div><span>EDITAR LANÇAMENTO</span><h2 id="edit-title">{editing.colaborador_nome} · {rotuloDestino(editing)}</h2></div><button type="button" onClick={() => setEditing(null)} aria-label="Fechar">×</button></div>
             <div className="ah-dialog-body">
               <div className="ah-form-grid">
                 <div className="ah-field"><label>Data</label><DateInputBR value={editDate} onChange={setEditDate} ariaLabel="Data do apontamento em edição" /></div>
                 <div className="ah-field"><label htmlFor="edit-hours">Horas</label><input id="edit-hours" value={editHours} onChange={(event) => setEditHours(event.target.value)} /></div>
                 <div className="ah-field"><label htmlFor="edit-type">Tipo</label><select id="edit-type" value={editType} onChange={(event) => setEditType(event.target.value)}>{tiposHoras.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao}</option>)}</select></div>
               </div>
-              <div className="ah-field"><label htmlFor="edit-description">Descrição</label><input id="edit-description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></div>
+              <div className="ah-field"><label htmlFor="edit-description">{editing.atividade_id ? "Descrição (opcional)" : "Descrição"}</label><input id="edit-description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></div>
               {(editing.entrada_1 || editing.saida_1 || editing.entrada_2 || editing.saida_2) && <div className="ah-message is-info">Este registro possui horários de entrada e saída históricos. Esta edição altera o total, a data, o tipo e a descrição; os horários originais são preservados.</div>}
             </div>
             <div className="ah-dialog-actions"><button type="button" className="ah-button" onClick={() => setEditing(null)}>Cancelar</button><button type="button" className="ah-button ah-button-primary" disabled={saving} onClick={() => void saveEdit()}>{saving ? "Salvando…" : "Salvar alterações"}</button></div>
@@ -974,7 +1216,7 @@ export default function ApontamentosPage() {
         <div className="ah-dialog-backdrop" role="presentation">
           <div className="ah-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
             <div className="ah-dialog-head"><div><span>CONFIRMAR EXCLUSÃO</span><h2 id="delete-title">Excluir este apontamento?</h2></div><button type="button" onClick={() => setDeleteTarget(null)} aria-label="Fechar">×</button></div>
-            <div className="ah-dialog-body"><p>Será excluído o lançamento de <b>{formatHours(deleteTarget.horas)} h</b> de <b>{deleteTarget.colaborador_nome}</b>, na OS <b>{deleteTarget.numero_os || deleteTarget.os_id}</b>, em <b>{dateBR(deleteTarget.data)}</b>.</p><small>A exclusão registra usuário, data e conteúdo anterior na auditoria.</small></div>
+            <div className="ah-dialog-body"><p>Será excluído o lançamento de <b>{formatHours(deleteTarget.horas)} h</b> de <b>{deleteTarget.colaborador_nome}</b>, em <b>{rotuloDestino(deleteTarget)}</b>, em <b>{dateBR(deleteTarget.data)}</b>.</p><small>A exclusão registra usuário, data e conteúdo anterior na auditoria.</small></div>
             <div className="ah-dialog-actions"><button type="button" className="ah-button" onClick={() => setDeleteTarget(null)}>Cancelar</button><button type="button" className="ah-button ah-button-primary" disabled={saving} onClick={() => void deleteEntry()}>{saving ? "Excluindo…" : "Confirmar exclusão"}</button></div>
           </div>
         </div>

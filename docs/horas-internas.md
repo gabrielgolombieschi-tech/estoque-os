@@ -1,6 +1,7 @@
 # Horas internas (hora fora de OS)
 
-Estado: **desenho aprovado em 14/09/2026, em implementação.** Decidido com o Gabriel.
+Estado: **implementado em 14/09/2026** (migration `20260914140000_horas_internas.sql`,
+web e aplicativo). Decidido com o Gabriel.
 
 ## O problema
 
@@ -80,11 +81,13 @@ depois, quando ele existir; a hora não fica presa a isso.
 | Lugar | O que muda |
 | --- | --- |
 | Banco | `os_id` vira opcional; entra `atividade_id`, `cliente_id` (opcional), `cliente_nome` (texto livre, opcional) e `orcamento_descricao`; regra "OS ou atividade, uma só"; hora interna nasce `aprovado`; as visões de custo de OS e o relatório HH ignoram hora interna |
-| Cadastro | Cadastros › Atividades internas: código, nome, se pede cliente e orçamento, ativa |
-| Aplicativo | na tela de lançar hora, antes de escolher a OS: **Trabalho em OS** ou **Atividade interna**; em Comercial, os campos de cliente e orçamento |
-| Tablet | no menu do PIN, ao lado de Apontar horas: as atividades internas, sem OS, sem cliente (o tablet não é lugar de digitar nome de cliente) |
-| Web | apontamentos e resumo mensal mostram a atividade no lugar da OS; filtro por atividade; horas internas por atividade e por pessoa no mês |
-| TV | linha da atividade no cartão do colaborador; a grade da semana soma a hora interna como hora trabalhada |
+| Cadastro (web) | Cadastros › Atividades internas: código, nome, se pede cliente e orçamento, ordem, ativa. Só ADMIN, DIRETOR e COORDENACAO. Código em branco sai do nome, sem acento |
+| Web — lançar | Apontamentos: **Trabalho em OS \| Atividade interna** antes de escolher o destino; em Comercial, cliente do cadastro ou nome digitado, e o orçamento. A listagem mostra a atividade, filtra por ela e a busca acha por atividade, cliente e orçamento |
+| Web — relatório | Apontamentos › Horas internas ("Para onde foram as horas"): por atividade, por pessoa e, no Comercial, por cliente e orçamento. Só tempo, nenhum R$ |
+| Web — resumo | OS › Resumo de horas mostra a atividade no extrato e filtra "somente atividades internas" |
+| Aplicativo | atalho **Atividade interna** no Início, para quem aponta hora; tela **Hora interna** com as atividades, a data e as pessoas (coordenação para cima escolhe a equipe, os demais lançam para si); Histórico e Minhas horas mostram a atividade no lugar da OS |
+| Tablet | no menu do PIN, **Atividade interna** ao lado de Apontar horas em OS: só as atividades que não pedem cliente, horas e minutos, resumo do dia |
+| TV | linha da atividade no cartão do colaborador ("Comercial 3h"); a semana e o mês somam a hora interna como hora trabalhada |
 
 ## Decidido por último
 
@@ -92,3 +95,20 @@ depois, quando ele existir; a hora não fica presa a isso.
   da fábrica não faz sentido. O tablet oferece só as atividades que **não** pedem
   cliente. Quem faz comercial lança pelo celular.
 - **Exames e Integração** entram como atividades próprias desde o começo.
+
+## O que o banco garante (achado na revisão contra produção)
+
+- **Hora repetida.** Lançar de novo a mesma atividade, pessoa, data e tipo de hora é
+  recusado com "edite o lançamento existente", como no lote de OS. No Comercial a chave
+  inclui cliente e orçamento: dois orçamentos no mesmo dia são duas coisas. O tablet não
+  barra, igual ao tablet de OS; lá quem segura o reenvio é a chave do lançamento.
+- **Mudar a atividade não prende a hora antiga.** "Inativa" e "pede cliente" valem para a
+  hora que entra na atividade. A hora de março continua editável depois que a gestão
+  desativa a atividade ou passa a pedir cliente.
+- **Aprovação automática sempre.** Seja lançada pela gestão, pelo apontador ou pelo tablet,
+  e depois de qualquer edição, a hora interna fica aprovada, sem aprovador, e o histórico
+  diz "Aprovação automática".
+- **Cancelar e restaurar** funcionam como na hora em OS (o arquivo de cancelamentos aceita
+  hora sem OS). O aviso diz "em Treinamento" e abre o Histórico, nunca "na OS " vazia.
+- **Quem corrige.** Como nasce aprovada, só a coordenação para cima edita ou cancela hora
+  interna; a própria pessoa não. É a regra da hora em OS depois de aprovada.

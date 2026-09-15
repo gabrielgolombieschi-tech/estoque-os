@@ -104,6 +104,14 @@ create trigger trg_empresas_atividades_internas
 after insert on public.empresas
 for each row execute function public.fn_atividades_internas_semear_empresa();
 
+-- A tela Admin › Empresas grava só em c.empresa, que é o cadastro de verdade; a de
+-- cima cobre quem ainda grava na tabela antiga. As duas podem disparar para a mesma
+-- empresa: a semeadura ignora o que já existe.
+drop trigger if exists trg_c_empresa_atividades_internas on c.empresa;
+create trigger trg_c_empresa_atividades_internas
+after insert on c.empresa
+for each row execute function public.fn_atividades_internas_semear_empresa();
+
 -- Leitura para o aplicativo e para a tela de lançar hora. p_para_tablet tira as que
 -- pedem cliente: o tablet da fábrica não é lugar de digitar nome de cliente.
 create or replace function public.app_atividades_internas(p_para_tablet boolean default false)
@@ -185,8 +193,8 @@ as $fn$
 declare
   v_tenant_id uuid := public.current_tenant_id();
   v_empresa_id uuid := public.current_empresa_id();
-  v_codigo text := lower(regexp_replace(btrim(coalesce(p_codigo, '')), '[^a-z0-9_]+', '_', 'g'));
   v_nome text := btrim(coalesce(p_nome, ''));
+  v_codigo text;
   v_id uuid;
 begin
   if auth.uid() is null or v_tenant_id is null or v_empresa_id is null
@@ -199,8 +207,19 @@ begin
   if v_nome = '' then
     raise exception 'Informe o nome da atividade.';
   end if;
-  if v_codigo = '' then
-    v_codigo := lower(regexp_replace(translate(v_nome, 'áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ', 'aaaaeeiooouc' || 'AAAAEEIOOOUC'), '[^a-zA-Z0-9]+', '_', 'g'));
+
+  -- O código sai do que foi digitado ou, em branco, do nome: tira o acento ANTES de
+  -- baixar a caixa (lower() de letra acentuada depende do locale do banco), troca o
+  -- resto por "_" e apara as pontas. "Manutenção da Fábrica" vira manutencao_da_fabrica,
+  -- "Comercial2" vira comercial2 — e não "_omercial2", como seria filtrando antes de baixar.
+  v_codigo := lower(translate(
+    coalesce(nullif(btrim(coalesce(p_codigo, '')), ''), v_nome),
+    'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇáàâãäéèêëíìîïóòôõöúùûüç',
+    'AAAAAEEEEIIIIOOOOOUUUUCaaaaaeeeeiiiiooooouuuuc'
+  ));
+  v_codigo := btrim(left(btrim(regexp_replace(v_codigo, '[^a-z0-9]+', '_', 'g'), '_'), 40), '_');
+  if v_codigo !~ '^[a-z][a-z0-9_]{1,39}$' then
+    raise exception 'O código precisa começar com letra e ter de 2 a 40 letras, números ou "_" (ficou "%").', v_codigo;
   end if;
 
   if p_id is null then
@@ -277,6 +296,7 @@ declare
   v_status_fluxo text;
   v_tem_taxa boolean;
   v_atividade public.atividades_internas;
+  v_atividade_nova boolean;
   v_permitir_os_encerrada boolean := coalesce(current_setting('app.apontamento_permite_os_encerrada', true), '') = 'on';
 begin
   -- ── Hora interna ───────────────────────────────────────────────────────────────
@@ -289,14 +309,25 @@ begin
     if v_atividade.id is null then
       raise exception 'Atividade interna não encontrada nesta empresa.';
     end if;
-    if not v_atividade.ativo then
+
+    -- "Inativa" e "pede cliente" valem para a hora que ENTRA na atividade. A hora
+    -- que já estava nela continua editável depois que a gestão desativa a atividade
+    -- ou passa a pedir cliente: web_atualizar_apontamento_horas regrava a data em
+    -- toda edição, e sem esta separação corrigir a hora de março dependeria da
+    -- configuração de hoje.
+    v_atividade_nova := tg_op = 'INSERT';
+    if not v_atividade_nova then
+      v_atividade_nova := new.atividade_id is distinct from old.atividade_id;
+    end if;
+
+    if v_atividade_nova and not v_atividade.ativo then
       raise exception 'A atividade "%" está inativa e não recebe mais horas.', v_atividade.nome;
     end if;
 
     new.cliente_nome := nullif(btrim(coalesce(new.cliente_nome, '')), '');
     new.orcamento_descricao := nullif(btrim(coalesce(new.orcamento_descricao, '')), '');
 
-    if v_atividade.pede_cliente then
+    if v_atividade_nova and v_atividade.pede_cliente then
       if new.cliente_id is null and new.cliente_nome is null then
         raise exception 'Hora em % pede o cliente: escolha um do cadastro ou digite o nome.', v_atividade.nome;
       end if;
@@ -457,6 +488,7 @@ declare
   v_ids uuid[] := '{}'::uuid[];
   v_id uuid;
   v_vistos uuid[] := '{}'::uuid[];
+  v_duplicados text[] := '{}'::text[];
 begin
   select * into v_atividade
   from public.atividades_internas as at
@@ -527,6 +559,30 @@ begin
       continue;
     end if;
 
+    -- Lançar de novo o que já está lançado: mesma regra do lote de OS
+    -- (app_lancar_apontamentos_lote), que recusa a mesma OS, data e tipo de hora e
+    -- manda editar o existente. Aqui a chave é a atividade — e, no Comercial, também
+    -- o cliente e o orçamento, porque dois orçamentos no mesmo dia são duas coisas.
+    -- O tablet fica de fora, como no tablet de OS: lá quem segura o reenvio é a chave.
+    if p_tablet_sessao_id is null and exists (
+      select 1
+      from public.apontamentos_horas as h
+      where h.tenant_id = p_tenant_id and h.empresa_id = p_empresa_id
+        and h.atividade_id = p_atividade_id
+        and h.colaborador_id = v_colaborador_id
+        and h.data = p_data
+        and not coalesce(h.gerado_por_hh, false)
+        and h.tipo_hora_id in (
+          select (parte ->> 'tipo_hora_id')::uuid
+          from jsonb_array_elements(public.fn_tablet_classificar(p_tenant_id, p_data, v_horas) -> 'partes') as parte
+        )
+        and h.cliente_id is not distinct from p_cliente_id
+        and lower(coalesce(h.cliente_nome, '')) = lower(coalesce(v_cliente_nome, ''))
+        and lower(coalesce(h.orcamento_descricao, '')) = lower(coalesce(v_orcamento, ''))
+    ) then
+      v_duplicados := v_duplicados || v_nome;
+    end if;
+
     if p_data < v_hoje - 7 then
       v_avisos := v_avisos || jsonb_build_array(jsonb_build_object('tipo', 'retroativo',
         'mensagem', format('Este apontamento é retroativo: a data %s tem mais de 7 dias.', to_char(p_data, 'DD/MM/YYYY'))));
@@ -542,6 +598,12 @@ begin
           v_nome, replace((v_total_dia + v_horas)::text, '.', ','), to_char(p_data, 'DD/MM/YYYY'))));
     end if;
   end loop;
+
+  if cardinality(v_duplicados) > 0 then
+    v_erros := v_erros || jsonb_build_array(jsonb_build_object('tipo', 'duplicidade',
+      'mensagem', format('Já existe lançamento em %s nesta data e tipo de hora para: %s. Edite o lançamento existente em vez de criar outro.',
+        v_atividade.nome, array_to_string(v_duplicados, ', '))));
+  end if;
 
   if jsonb_array_length(v_erros) > 0 then
     return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', v_avisos, 'erros', v_erros);
@@ -682,10 +744,11 @@ revoke all on function public.app_lancar_horas_internas(uuid, date, jsonb, text,
 grant execute on function public.app_lancar_horas_internas(uuid, date, jsonb, text, integer, text, text, boolean) to authenticated;
 
 -- Tablet: as atividades que ele oferece e o lançamento pela sessão do PIN.
+-- Não é stable: fn_tablet_validar_sessao trava e atualiza a sessão, e o PostgREST roda
+-- função stable em transação só de leitura ("cannot execute SELECT FOR UPDATE").
 create or replace function public.app_tablet_atividades(p_sessao_token text)
 returns jsonb
 language plpgsql
-stable
 security definer
 set search_path to 'pg_catalog', 'public'
 set row_security to 'off'
@@ -1119,7 +1182,11 @@ begin
     );
   end if;
 
-  perform public.assert_documento_operacional_os(v_apontamento.os_id);
+  -- A trava de OV é de documento: hora interna não tem documento para conferir, e
+  -- com os_id nulo a verificação recusava todo cancelamento.
+  if v_apontamento.os_id is not null then
+    perform public.assert_documento_operacional_os(v_apontamento.os_id);
+  end if;
 
   if coalesce(v_apontamento.gerado_por_hh, false) then
     return jsonb_build_object(
@@ -1302,15 +1369,16 @@ begin
     'hora_cancelada',
     'Apontamento cancelado',
     format(
-      '%s h de %s na OS %s foram canceladas por %s. Motivo: %s',
+      '%s h de %s %s foram canceladas por %s. Motivo: %s',
       v_horas_texto,
       to_char(v_apontamento.data, 'DD/MM/YYYY'),
-      v_numero_os,
+      -- Na hora interna v_numero_os é o nome da atividade: "em Treinamento".
+      case when v_apontamento.os_id is null then 'em ' || v_numero_os else 'na OS ' || v_numero_os end,
       v_cancelado_por_nome,
       v_motivo
     ),
     jsonb_build_object(
-      'url', '/os/' || v_apontamento.os_id::text,
+      'url', coalesce('/os/' || v_apontamento.os_id::text, '/(tabs)/historico'),
       'os_id', v_apontamento.os_id,
       'numero_os', v_numero_os,
       'apontamento_id', v_apontamento.id,
@@ -1422,6 +1490,12 @@ begin
       or os.descricao_servico ilike '%' || v_busca || '%'
       or apontamento.descricao ilike '%' || v_busca || '%'
       or colaborador.nome ilike '%' || v_busca || '%'
+      -- Hora interna: o campo diz "OS, cliente ou descrição", e na hora comercial o
+      -- cliente e o orçamento moram na própria hora.
+      or at.nome ilike '%' || v_busca || '%'
+      or cli.nome ilike '%' || v_busca || '%'
+      or apontamento.cliente_nome ilike '%' || v_busca || '%'
+      or apontamento.orcamento_descricao ilike '%' || v_busca || '%'
     )
   order by apontamento.data desc, apontamento.criado_em desc
   limit least(greatest(coalesce(p_limite, 5000), 1), 5000);
@@ -1493,10 +1567,14 @@ begin
       apontamento.data as data_lancamento,
       os.id as os_id,
       coalesce(nullif(btrim(os.numero_os), ''), os.os_num::text, os.id::text)::text as numero_os,
-      coalesce(nullif(btrim(os.cliente_nome), ''), nullif(btrim(apontamento.cliente_nome), ''),
+      coalesce(nullif(btrim(os.cliente_nome), ''), nullif(btrim(cliente_cadastro.nome), ''),
+               nullif(btrim(apontamento.cliente_nome), ''),
                case when apontamento.atividade_id is null then 'Cliente nao informado' end)::text as cliente_nome,
+      -- Hora interna sem descrição fica sem descrição: o título já é a atividade, e
+      -- "Apontamento de horas" embaixo de "Treinamento" não diz nada.
       coalesce(nullif(btrim(os.descricao_servico), ''), nullif(btrim(apontamento.orcamento_descricao), ''),
-               nullif(btrim(apontamento.descricao), ''), 'Apontamento de horas')::text as descricao,
+               nullif(btrim(apontamento.descricao), ''),
+               case when apontamento.atividade_id is null then 'Apontamento de horas' end)::text as descricao,
       apontamento.horas::numeric as quantidade,
       'h'::text as unidade,
       coalesce(nullif(btrim(apontamento.status_aprovacao), ''), nullif(btrim(apontamento.status), ''), 'pendente')::text as status,
@@ -1516,6 +1594,11 @@ begin
     from public.apontamentos_horas as apontamento
     left join public.atividades_internas as at
       on at.id = apontamento.atividade_id
+    -- Comercial com cliente do cadastro guarda só cliente_id.
+    left join public.clientes as cliente_cadastro
+      on cliente_cadastro.id = apontamento.cliente_id
+     and cliente_cadastro.tenant_id = v_tenant_id
+     and cliente_cadastro.empresa_id = v_empresa_id
     -- Hora interna nao tem OS. O left join deixa a linha viver; o filtro logo
     -- abaixo continua barrando hora de OV, que era o que o inner join fazia.
     left join public.ordens_servico as os
@@ -1652,7 +1735,7 @@ begin
 end;
 $function$;
 revoke all on function public.app_historico_lancamentos(text, date, date, uuid, integer, integer, text) from public, anon;
-grant execute on function public.app_historico_lancamentos(text, date, date, uuid, integer, integer, text) to authenticated;
+grant execute on function public.app_historico_lancamentos(text, date, date, uuid, integer, integer, text) to authenticated, service_role;
 
 -- E. Televisao: a hora interna conta na semana e no mes, e o cartao mostra a
 --    atividade onde mostraria a OS.
@@ -1718,7 +1801,328 @@ begin
 end;
 $function$;
 revoke all on function public.tv_horas_periodo(date, date, text) from public, anon;
-grant execute on function public.tv_horas_periodo(date, date, text) to authenticated;
+grant execute on function public.tv_horas_periodo(date, date, text) to authenticated, service_role;
+
+-- ─────────────────────────────────────────────────────────────────────────────────────
+-- Parte 5: o que a revisão contra produção achou
+--
+-- Varredura de tudo que lê apontamentos_horas e das triggers da tabela, comparando
+-- com as definições de produção em 14/09/2026. Três pontos quebravam ou escondiam a
+-- hora interna; o resto (sala de controle, listagem da OS, aprovação, OV, contrato,
+-- competência, notificação) já aceita os_id nulo ou é por OS de propósito.
+-- ─────────────────────────────────────────────────────────────────────────────────────
+
+-- Cancelar arquiva a linha inteira aqui antes de apagar. Com os_id obrigatório,
+-- cancelar uma hora interna dava erro de coluna nula.
+alter table public.apontamentos_horas_cancelamentos alter column os_id drop not null;
+
+-- Minhas horas, no aplicativo: o ano somava tudo e o mês juntava a OS por inner
+-- join, então o dia de treinamento aparecia no total e sumia do calendário. A hora
+-- interna vem com os_id nulo e o nome da atividade em codigo_os.
+CREATE OR REPLACE FUNCTION public.app_minhas_horas_mes(p_ano integer, p_mes integer)
+ RETURNS TABLE(data date, os_id integer, codigo_os text, horas numeric, tem_rejeitado boolean)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+ SET row_security TO 'off'
+AS $function$
+declare
+  v_auth_uid uuid := auth.uid();
+  v_tenant_id uuid := public.current_tenant_id();
+  v_empresa_id uuid := public.current_empresa_id();
+  v_colaborador_id uuid;
+  v_inicio_mes date;
+begin
+  if v_auth_uid is null
+     or v_tenant_id is null
+     or v_empresa_id is null
+     or not public.has_active_empresa_access(v_tenant_id, v_empresa_id) then
+    raise exception 'Autenticação e contexto de empresa são obrigatórios.';
+  end if;
+
+  if p_ano is null
+     or p_mes is null
+     or p_ano not between 2000 and 2100
+     or p_mes not between 1 and 12 then
+    raise exception 'Período inválido.';
+  end if;
+
+  select colaborador.id
+    into v_colaborador_id
+  from public.colaboradores as colaborador
+  where colaborador.user_id = v_auth_uid
+    and colaborador.tenant_id = v_tenant_id
+    and colaborador.empresa_id = v_empresa_id
+    and colaborador.ativo is true;
+
+  if v_colaborador_id is null then
+    raise exception 'Seu usuário não está vinculado a um colaborador ativo nesta empresa.';
+  end if;
+
+  v_inicio_mes := make_date(p_ano, p_mes, 1);
+
+  return query
+  select
+    apontamento.data,
+    os.id,
+    coalesce(nullif(os.numero_os, ''), os.os_num::text, os.id::text, at.nome)::text as codigo_os,
+    coalesce(sum(apontamento.horas), 0)::numeric as horas,
+    bool_or(apontamento.status_aprovacao = 'rejeitado') as tem_rejeitado
+  from public.apontamentos_horas as apontamento
+  left join public.ordens_servico as os
+    on os.id = apontamento.os_id
+   and os.tenant_id = apontamento.tenant_id
+   and os.empresa_id = apontamento.empresa_id
+  left join public.atividades_internas as at
+    on at.id = apontamento.atividade_id
+   and at.tenant_id = apontamento.tenant_id
+   and at.empresa_id = apontamento.empresa_id
+  where apontamento.tenant_id = v_tenant_id
+    and apontamento.empresa_id = v_empresa_id
+    and apontamento.colaborador_id = v_colaborador_id
+    and apontamento.data >= v_inicio_mes
+    and apontamento.data < (v_inicio_mes + interval '1 month')::date
+    and (os.id is not null or at.id is not null)
+  group by apontamento.data, os.id, os.numero_os, os.os_num, at.id, at.nome
+  order by apontamento.data, codigo_os;
+end;
+$function$;
+
+-- Editar pelo aplicativo: quando a coordenação corrige a hora de alguém, o aviso
+-- dizia "na OS " sem número e apontava para /os/null.
+CREATE OR REPLACE FUNCTION public.app_editar_apontamento(p_apontamento_id uuid, p_horas numeric, p_tipo_hora_id uuid, p_descricao text, p_confirmar_avisos boolean, p_motivo text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'a', 'c'
+ SET row_security TO 'off'
+AS $function$
+declare
+  v_auth_uid uuid := auth.uid();
+  v_tenant_id uuid := public.current_tenant_id();
+  v_empresa_id uuid := public.current_empresa_id();
+  v_os_id integer;
+  v_colaborador_id uuid;
+  v_colaborador_user_id uuid;
+  v_data date;
+  v_gerado_por_hh boolean;
+  v_status text;
+  v_status_aprovacao text;
+  v_horas_antes numeric;
+  v_tipo_hora_antes uuid;
+  v_descricao_antes text;
+  v_tipo_existe boolean;
+  v_descricao text := nullif(btrim(p_descricao), '');
+  v_motivo text := nullif(btrim(p_motivo), '');
+  v_editor_nome text;
+  v_hora_de_terceiro boolean;
+begin
+  if v_auth_uid is null or v_tenant_id is null or v_empresa_id is null
+     or not public.has_active_empresa_access(v_tenant_id, v_empresa_id) then
+    raise exception 'Não foi possível identificar autenticação, tenant e empresa ativos.';
+  end if;
+  if not public.can('apontamentos', 'write', v_tenant_id) then
+    raise exception 'Seu perfil não possui permissão para editar apontamentos.';
+  end if;
+  if p_horas is null or p_horas <= 0 or p_horas > 24 then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'horas', 'mensagem', 'Informe uma quantidade de horas entre 0 e 24.')));
+  end if;
+  if v_descricao is null or char_length(v_descricao) < 10 then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'descricao', 'mensagem', 'Descreva o serviço realizado com pelo menos 10 caracteres.')));
+  end if;
+
+  select apontamento.os_id, apontamento.colaborador_id, apontamento.data, apontamento.gerado_por_hh,
+         apontamento.status::text, apontamento.status_aprovacao,
+         apontamento.horas, apontamento.tipo_hora_id, apontamento.descricao,
+         colaborador.user_id
+    into v_os_id, v_colaborador_id, v_data, v_gerado_por_hh, v_status, v_status_aprovacao,
+         v_horas_antes, v_tipo_hora_antes, v_descricao_antes,
+         v_colaborador_user_id
+  from public.apontamentos_horas as apontamento
+  join public.colaboradores as colaborador
+    on colaborador.id = apontamento.colaborador_id
+   and colaborador.tenant_id = apontamento.tenant_id
+   and colaborador.empresa_id = apontamento.empresa_id
+  where apontamento.id = p_apontamento_id
+    and apontamento.tenant_id = v_tenant_id
+    and apontamento.empresa_id = v_empresa_id;
+
+  if not found then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'apontamento', 'mensagem', 'O apontamento informado não existe ou não pertence à empresa atual.')));
+  end if;
+  if coalesce(v_gerado_por_hh, false) then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'hh', 'mensagem', 'Este apontamento é um espelho de HH e deve ser alterado no módulo HH.')));
+  end if;
+  if lower(coalesce(v_status, '')) = 'fechado' then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'status', 'mensagem', 'Este apontamento está fechado e não pode ser alterado.')));
+  end if;
+  if not public.fn_usuario_pode_alterar_apontamento(v_tenant_id, v_empresa_id, v_auth_uid, p_apontamento_id) then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object(
+        'tipo', 'permissao',
+        'mensagem', case
+          when v_status_aprovacao = 'aprovado' then 'Após a aprovação, somente o responsável da OS, Coordenação, Diretor ou Admin pode alterar.'
+          else 'Antes da aprovação, somente o próprio colaborador, o responsável da OS, Coordenação, Diretor ou Admin pode alterar.'
+        end
+      )));
+  end if;
+
+  v_hora_de_terceiro := v_colaborador_user_id is distinct from v_auth_uid;
+
+  if v_hora_de_terceiro and (v_motivo is null or char_length(v_motivo) < 5) then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'motivo', 'mensagem', 'Para alterar a hora de outro colaborador, informe o motivo com pelo menos 5 caracteres.')));
+  end if;
+  if v_motivo is not null and char_length(v_motivo) > 500 then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'motivo', 'mensagem', 'O motivo da alteração deve ter no máximo 500 caracteres.')));
+  end if;
+
+  select exists (
+    select 1
+    from public.tipos_horas as tipo
+    where tipo.id = p_tipo_hora_id
+      and tipo.tenant_id = v_tenant_id
+      and tipo.ativo
+  ) into v_tipo_existe;
+  if not v_tipo_existe then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'tipo_hora', 'mensagem', 'O tipo de hora informado não existe ou está inativo.')));
+  end if;
+  if exists (
+    select 1
+    from public.apontamentos_horas as apontamento
+    where apontamento.id <> p_apontamento_id
+      and apontamento.tenant_id = v_tenant_id
+      and apontamento.empresa_id = v_empresa_id
+      and apontamento.os_id = v_os_id
+      and apontamento.colaborador_id = v_colaborador_id
+      and apontamento.data = v_data
+      and apontamento.tipo_hora_id = p_tipo_hora_id
+      and not coalesce(apontamento.gerado_por_hh, false)
+  ) and p_tipo_hora_id is distinct from v_tipo_hora_antes then
+    return jsonb_build_object('sucesso', false, 'gravados', 0, 'avisos', '[]'::jsonb,
+      'erros', jsonb_build_array(jsonb_build_object('tipo', 'duplicidade', 'mensagem', 'Já existe outro apontamento para esta OS, colaborador, data e tipo de hora.')));
+  end if;
+
+  update public.apontamentos_horas
+  set horas = p_horas,
+      tipo_hora_id = p_tipo_hora_id,
+      descricao = v_descricao
+  where id = p_apontamento_id
+    and tenant_id = v_tenant_id
+    and empresa_id = v_empresa_id;
+
+  select coalesce(
+           nullif(btrim(usuario.nome), ''),
+           nullif(btrim(usuario.email), ''),
+           'Usuário não identificado'
+         )
+    into v_editor_nome
+  from a.usuario as usuario
+  where usuario.auth_user_id = v_auth_uid
+    and usuario.ativo is true
+    and usuario.deleted_at is null
+  limit 1;
+
+  insert into public.apontamentos_horas_edicoes (
+    apontamento_id, tenant_id, empresa_id, os_id, colaborador_id,
+    editado_por_user_id, editado_por_nome, motivo,
+    horas_antes, horas_depois,
+    tipo_hora_id_antes, tipo_hora_id_depois,
+    descricao_antes, descricao_depois,
+    status_aprovacao_no_momento
+  ) values (
+    p_apontamento_id, v_tenant_id, v_empresa_id, v_os_id, v_colaborador_id,
+    v_auth_uid, coalesce(v_editor_nome, 'Usuário não identificado'), v_motivo,
+    v_horas_antes, p_horas,
+    v_tipo_hora_antes, p_tipo_hora_id,
+    v_descricao_antes, v_descricao,
+    v_status_aprovacao
+  );
+
+  if v_hora_de_terceiro and v_colaborador_user_id is not null then
+    perform public.app_criar_notificacao(
+      v_tenant_id,
+      v_empresa_id,
+      v_colaborador_user_id,
+      'hora_alterada',
+      'Hora alterada',
+      format(
+        '%s alterou a sua hora de %s %s. Motivo: %s',
+        coalesce(v_editor_nome, 'Um responsável'),
+        to_char(v_data, 'DD/MM/YYYY'),
+        -- Hora interna não tem OS: o aviso fala da atividade ("em Comercial").
+        coalesce(
+          (
+            select 'na OS ' || coalesce(nullif(btrim(ordem.numero_os), ''), ordem.os_num::text, ordem.id::text)
+            from public.ordens_servico as ordem
+            where ordem.id = v_os_id
+              and ordem.tenant_id = v_tenant_id
+              and ordem.empresa_id = v_empresa_id
+          ),
+          (
+            select 'em ' || atividade.nome
+            from public.apontamentos_horas as apontamento
+            join public.atividades_internas as atividade
+              on atividade.id = apontamento.atividade_id
+            where apontamento.id = p_apontamento_id
+          ),
+          'no lançamento'
+        ),
+        v_motivo
+      ),
+      jsonb_build_object(
+        'os_id', v_os_id,
+        'apontamento_id', p_apontamento_id,
+        'url', coalesce('/os/' || v_os_id::text, '/(tabs)/historico')
+      ),
+      'hora_alterada'
+    );
+  end if;
+
+  return jsonb_build_object('sucesso', true, 'gravados', 1, 'avisos', '[]'::jsonb, 'erros', '[]'::jsonb);
+end;
+$function$;
+
+-- Hora interna não tem aprovação, e o histórico precisa dizer isso do mesmo jeito para
+-- todas. fn_apontamento_preparar_aprovacao decide pelo papel de quem grava: a gestão vira
+-- "aprovado por Dario" e, numa edição, zera aprovado_automaticamente_em. Esta trigger
+-- roda depois dela (o Postgres dispara as BEFORE em ordem de nome) e deixa toda hora
+-- interna como aprovação automática, no lançamento e em qualquer edição.
+create or replace function public.fn_hora_interna_aprovacao_automatica()
+returns trigger
+language plpgsql
+set search_path to 'pg_catalog', 'public'
+as $fn$
+begin
+  new.status_aprovacao := 'aprovado';
+  new.aprovado_por := null;
+  new.pendente_em := null;
+  new.rejeitado_em := null;
+  new.motivo_devolucao := null;
+  if tg_op = 'INSERT' then
+    new.aprovado_em := coalesce(new.aprovado_em, now());
+    new.aprovado_automaticamente_em := coalesce(new.aprovado_automaticamente_em, new.aprovado_em);
+  else
+    new.aprovado_em := coalesce(old.aprovado_em, new.aprovado_em, now());
+    new.aprovado_automaticamente_em := coalesce(old.aprovado_automaticamente_em, new.aprovado_automaticamente_em, new.aprovado_em);
+  end if;
+  return new;
+end;
+$fn$;
+
+drop trigger if exists trg_hora_interna_aprovacao_automatica on public.apontamentos_horas;
+create trigger trg_hora_interna_aprovacao_automatica
+before insert or update on public.apontamentos_horas
+for each row
+when (new.atividade_id is not null)
+execute function public.fn_hora_interna_aprovacao_automatica();
 
 -- ─────────────────────────────────────────────────────────────────────────────────────
 -- Assercoes: o que nao pode voltar atras
@@ -1735,6 +2139,10 @@ begin
   end if;
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'apontamentos_horas' and column_name = 'os_id' and is_nullable = 'NO') then
     raise exception 'apontamentos_horas.os_id continua obrigatoria';
+  end if;
+  -- Cancelar hora interna arquiva a linha com os_id nulo.
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'apontamentos_horas_cancelamentos' and column_name = 'os_id' and is_nullable = 'NO') then
+    raise exception 'apontamentos_horas_cancelamentos.os_id continua obrigatoria: cancelar hora interna quebra';
   end if;
 
   -- O catalogo nasceu em toda empresa, com as seis.
@@ -1756,13 +2164,20 @@ begin
     'public.app_historico_lancamentos(text, date, date, uuid, integer, integer, text)',
     'public.tv_horas_periodo(date, date, text)',
     'public.fn_usuario_pode_alterar_apontamento(uuid, uuid, uuid, uuid)',
-    'public.app_cancelar_apontamento(uuid, text)'
+    'public.app_cancelar_apontamento(uuid, text)',
+    'public.app_minhas_horas_mes(integer, integer)'
   ] loop
     v_def := pg_get_functiondef(v_nome::regprocedure);
     if v_def ~* '\m(inner\s+)?join\s+public\.ordens_servico\s+as\s+(os|ordem)\M' and v_def !~* '\mleft\s+join\s+public\.ordens_servico\s+as\s+(os|ordem)\M' then
       raise exception '% ainda junta a OS por inner join e esconde a hora interna', v_nome;
     end if;
   end loop;
+
+  -- A aprovação automática da hora interna precisa rodar DEPOIS da que decide pelo
+  -- papel; o Postgres ordena as BEFORE pelo nome.
+  if not ('trg_hora_interna_aprovacao_automatica' > 'trg_apontamento_preparar_aprovacao') then
+    raise exception 'trg_hora_interna_aprovacao_automatica passaria a rodar antes da aprovação por papel';
+  end if;
 
   -- A restricao da tabela e a validacao da trigger precisam concordar sobre o
   -- gatilho disparar tambem quando a atividade muda.

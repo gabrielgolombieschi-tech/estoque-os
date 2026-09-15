@@ -1,0 +1,131 @@
+/* Horas internas (docs/horas-internas.md): o seletor "Trabalho em OS | Atividade
+   interna" na tela de lançar, e a tela "Para onde foram as horas".
+
+   Fica num arquivo próprio, importado pelas duas páginas, e não em
+   styles/carteira-tokens.css: aquele arquivo é compartilhado por muitas telas e
+   editado por outras frentes ao mesmo tempo. Onde precisa vencer uma regra de lá, o
+   seletor ganha uma classe a mais em vez de depender da ordem em que o CSS carrega. */
+
+/* ── Lançar horas: onde a hora foi ─────────────────────────────────────────────── */
+.apontamentos-page .ah-destino-field { margin-bottom: 12px; }
+.apontamentos-page .ah-destino {
+  display: inline-flex;
+  gap: 3px;
+  border: 1px solid var(--carteira-border-2);
+  border-radius: 8px;
+  padding: 3px;
+  background: var(--carteira-surface-2);
+}
+.apontamentos-page .ah-destino button {
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--carteira-text-2);
+  font-size: 10px;
+  font-weight: 650;
+  transition: background 120ms ease, color 120ms ease;
+}
+.apontamentos-page .ah-destino button:hover { color: var(--carteira-text); }
+.apontamentos-page .ah-destino button.is-active {
+  background: var(--carteira-blue-soft);
+  color: var(--carteira-blue);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--carteira-blue) 42%, var(--carteira-border));
+}
+
+.apontamentos-page .ah-form-grid.ah-atividade-grid { grid-template-columns: minmax(200px, 1fr) minmax(220px, 1fr) minmax(220px, 1.2fr); }
+.apontamentos-page .ah-form-grid.ah-atividade-grid.is-simples { grid-template-columns: minmax(220px, 0.6fr); }
+
+.apontamentos-page .ah-static {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  border: 1px dashed var(--carteira-border-2);
+  border-radius: 7px;
+  padding: 0 10px;
+  color: var(--carteira-text-2);
+  font-size: 10.5px;
+}
+
+.apontamentos-page .ah-entry .ah-entry-work-interna b { color: var(--carteira-blue); }
+
+/* O filtro de atividade é uma coluna a mais na barra de filtros. */
+.apontamentos-page .ah-filters.ah-filters-com-atividade {
+  grid-template-columns: auto 120px 120px minmax(90px, .7fr) minmax(120px, .9fr) minmax(160px, 1.2fr) minmax(110px, .8fr) minmax(190px, 1.4fr);
+}
+
+@media (max-width: 1150px) {
+  .apontamentos-page .ah-filters.ah-filters-com-atividade { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 820px) {
+  .apontamentos-page .ah-form-grid.ah-atividade-grid,
+  .apontamentos-page .ah-form-grid.ah-atividade-grid.is-simples { grid-template-columns: 1fr; }
+}
+
+/* A regra de 1150px acima é mais específica que a de 560px de carteira-tokens.css e
+   deixaria quatro colunas no celular: repete aqui as duas colunas. */
+@media (max-width: 560px) {
+  .apontamentos-page .ah-filters.ah-filters-com-atividade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── Para onde foram as horas: tempo por atividade, pessoa, cliente e orçamento ── */
+/* "Lançar horas" é um link no cabeçalho; o estilo de lá só vale para <button>. */
+.horas-internas-page .rh-page-actions a.carteira-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 11px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+@media (max-width: 640px) {
+  .horas-internas-page .rh-page-actions a.carteira-button { flex: 1; }
+}
+
+.horas-internas-page .hi-periodo { display: flex; align-items: center; gap: 6px; color: var(--carteira-text-2); font-size: 10px; }
+.horas-internas-page .hi-periodo input { min-width: 128px; }
+.horas-internas-page .hi-atalhos { display: flex; gap: 4px; }
+.horas-internas-page .hi-atalhos button { min-height: 32px; border: 1px solid var(--carteira-border-2); border-radius: 7px; padding: 0 10px; background: var(--carteira-surface); color: var(--carteira-text-2); font-size: 9.5px; font-weight: 600; }
+.horas-internas-page .hi-atalhos button:hover { border-color: var(--carteira-blue); color: var(--carteira-blue); }
+.horas-internas-page .hi-atividade { overflow: hidden; border: 1px solid var(--carteira-border); border-radius: 10px; background: var(--carteira-surface); }
+.horas-internas-page .hi-atividade + .hi-atividade { margin-top: 10px; }
+.horas-internas-page .hi-linha {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 1.3fr) 118px;
+  align-items: center;
+  gap: 14px;
+  min-height: 38px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--carteira-border);
+}
+.horas-internas-page .hi-atividade-head { min-height: 54px; border-top: 0; background: var(--carteira-surface-2); }
+.horas-internas-page .hi-atividade-head h2 { margin: 0; color: var(--carteira-text); font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.horas-internas-page .hi-atividade-head small { display: block; margin-top: 2px; color: var(--carteira-muted); font-size: 9px; }
+.horas-internas-page .hi-nome { overflow: hidden; color: var(--carteira-text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.horas-internas-page .hi-nome small { display: block; color: var(--carteira-muted); font-size: 8.8px; white-space: normal; }
+.horas-internas-page .hi-linha.is-cliente .hi-nome { font-weight: 650; }
+.horas-internas-page .hi-linha.is-orcamento { min-height: 32px; padding-left: 32px; background: var(--carteira-surface-2); }
+.horas-internas-page .hi-linha.is-orcamento .hi-nome { color: var(--carteira-text-2); font-size: 10.5px; }
+.horas-internas-page .hi-grupo {
+  padding: 7px 14px 3px;
+  border-top: 1px solid var(--carteira-border);
+  color: var(--carteira-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.horas-internas-page .hi-total { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 42px; margin-top: 10px; border: 1px solid var(--carteira-border-2); border-radius: 10px; padding: 8px 14px; background: var(--carteira-surface); }
+.horas-internas-page .hi-total span { color: var(--carteira-text-2); font-size: 10.5px; font-weight: 650; }
+.horas-internas-page .hi-total strong { color: var(--carteira-text); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 820px) {
+  .horas-internas-page .hi-linha { grid-template-columns: 1fr 90px; }
+  .horas-internas-page .hi-linha > .rh-hours-track { display: none; }
+}

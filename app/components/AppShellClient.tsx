@@ -40,6 +40,7 @@ export default function AppShellClient({ children }: { children: React.ReactNode
     pathname === "/os/analitico" ||
     pathname === "/apontamentos" ||
     pathname === "/apontamentos/resumo-mensal" ||
+    pathname === "/apontamentos/horas-internas" ||
     pathname === "/tarefas" ||
     pathname === "/compras/pedidos" ||
     pathname === "/estoque/pedidos" ||
@@ -237,6 +238,9 @@ export default function AppShellClient({ children }: { children: React.ReactNode
   const canAccessColaboradores =
     can("admin.manage_users") || can("financeiro.read") || canAccessCadastrosFullByEmpresaPapel;
   const canAccessApontamentos = can("apontamentos.read") || can("apontamentos.write");
+  // O cadastro de atividades internas e da gestao (web_atividades_internas_listar
+  // recusa os outros papeis); o link segue a mesma regra para nao levar a uma tela vazia.
+  const canAccessAtividadesInternas = ["ADMIN", "DIRETOR", "COORDENACAO"].includes(empresaRole);
   // Tarefas: quem decide o que cada um ve e o banco (app_tarefas_*) — a gestao ve
   // tudo e o colaborador comum ve so as proprias e as conclui. O colaborador comum
   // nao recebe os.read nem apontamentos.*: o papel de empresa TECNICO nao acrescenta
@@ -429,6 +433,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                         {canAccessApontamentos && (
                           <Link href="/apontamentos/resumo-mensal" className="block px-3 py-2 hover:bg-zinc-900">
                             Resumo de horas
+                          </Link>
+                        )}
+                        {canAccessApontamentos && (
+                          <Link href="/apontamentos/horas-internas" className="block px-3 py-2 hover:bg-zinc-900">
+                            Horas internas
                           </Link>
                         )}
                         {canAccessTarefas && (
@@ -898,6 +907,11 @@ export default function AppShellClient({ children }: { children: React.ReactNode
                             <Link href="/cadastros/tablets" className="block px-5 py-2 hover:bg-zinc-900 text-sm">
                               Tablets de apontamento
                             </Link>
+                            {canAccessAtividadesInternas && (
+                              <Link href="/cadastros/atividades-internas" className="block px-5 py-2 hover:bg-zinc-900 text-sm">
+                                Atividades internas
+                              </Link>
+                            )}
                             <div className="border-t border-zinc-800 my-2"></div>
                           </>
                         )}

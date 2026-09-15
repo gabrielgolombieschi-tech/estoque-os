@@ -16,10 +16,14 @@ type Colaborador = {
 
 type ApontamentoRow = {
   data: string;
-  os_id: number;
+  // Uma hora tem OS ou atividade interna, nunca as duas (docs/horas-internas.md).
+  os_id: number | null;
+  atividade_id: string | null;
   colaborador_id: string;
   horas: number | string | null;
 };
+
+type AtividadeInterna = { atividade_id: string; atividade_nome: string };
 
 type OsInfo = {
   id: number;
@@ -29,13 +33,15 @@ type OsInfo = {
   usa_relatorio_hh: boolean;
 };
 
-type TipoOsFilter = "todos" | "os_hh";
+type TipoOsFilter = "todos" | "os_hh" | "internas";
 type ActiveTab = "resumo" | "extrato";
 type SortOrder = "horas" | "nome" | "dias";
 
 type LancamentoDia = {
   data: string;
-  os_id: number;
+  os_id: number | null;
+  atividade_id: string | null;
+  // Na hora interna é o nome da atividade, que ocupa o lugar do número da OS.
   numero_os: string;
   cliente_nome: string;
   descricao_servico: string;
@@ -180,14 +186,32 @@ function downloadCsv(filename: string, lines: Array<Array<string | number>>) {
 function buildTimeline(
   apontamentos: ApontamentoRow[],
   osById: Map<number, OsInfo>,
+  atividadeById: Map<string, string>,
   businessDates: string[]
 ): TimelineDia[] {
   const grouped = new Map<string, LancamentoDia>();
 
   for (const apontamento of apontamentos) {
     const date = String(apontamento.data ?? "").slice(0, 10);
+    if (!date) continue;
+
+    if (apontamento.atividade_id) {
+      const key = `${date}|atividade|${apontamento.atividade_id}`;
+      const current = grouped.get(key);
+      grouped.set(key, {
+        data: date,
+        os_id: null,
+        atividade_id: apontamento.atividade_id,
+        numero_os: atividadeById.get(apontamento.atividade_id) ?? "Atividade interna",
+        cliente_nome: "Atividade interna",
+        descricao_servico: "Hora interna, sem OS e sem custo",
+        total_horas: round2((current?.total_horas ?? 0) + numeric(apontamento.horas)),
+      });
+      continue;
+    }
+
     const osId = Number(apontamento.os_id);
-    if (!date || !Number.isFinite(osId)) continue;
+    if (!Number.isFinite(osId)) continue;
     const os = osById.get(osId);
     if (!os) continue;
     const key = `${date}|${osId}`;
@@ -195,6 +219,7 @@ function buildTimeline(
     grouped.set(key, {
       data: date,
       os_id: osId,
+      atividade_id: null,
       numero_os: os.numero_os || String(osId),
       cliente_nome: os.cliente_nome || "—",
       descricao_servico: os.descricao_servico || "—",
@@ -277,10 +302,14 @@ function ExtratoContent({
               {!day.sem_apontamento && (
                 <div className="rh-day-lines">
                   {day.lancamentos.map((entry) => (
-                    <div key={`${day.data}-${entry.os_id}`} className="rh-day-line">
-                      <Link href={`/os/${entry.os_id}`} onClick={(event) => event.stopPropagation()}>
-                        OS {entry.numero_os}
-                      </Link>
+                    <div key={`${day.data}-${entry.atividade_id ?? entry.os_id}`} className="rh-day-line">
+                      {entry.atividade_id ? (
+                        <span title="Atividade interna">{entry.numero_os}</span>
+                      ) : (
+                        <Link href={`/os/${entry.os_id}`} onClick={(event) => event.stopPropagation()}>
+                          OS {entry.numero_os}
+                        </Link>
+                      )}
                       <span title={entry.cliente_nome}>{entry.cliente_nome}</span>
                       <span title={entry.descricao_servico}>{entry.descricao_servico}</span>
                       <span className="rh-hour-pair">
@@ -327,7 +356,11 @@ export default function ApontamentosResumoMensalPage() {
   const [year, setYear] = useState(Number.isInteger(parsedYear) && parsedYear > 2000 ? parsedYear : today.getFullYear());
   const [month, setMonth] = useState(parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : today.getMonth() + 1);
   const [colaboradorId, setColaboradorId] = useState(searchParams.get("colaborador") ?? "");
-  const [tipo, setTipo] = useState<TipoOsFilter>(searchParams.get("tipo") === "os_hh" ? "os_hh" : "todos");
+  const [tipo, setTipo] = useState<TipoOsFilter>(
+    searchParams.get("tipo") === "os_hh" || searchParams.get("tipo") === "internas"
+      ? (searchParams.get("tipo") as TipoOsFilter)
+      : "todos"
+  );
   const [order, setOrder] = useState<SortOrder>(
     searchParams.get("ordem") === "nome" || searchParams.get("ordem") === "dias"
       ? (searchParams.get("ordem") as SortOrder)
@@ -340,6 +373,7 @@ export default function ApontamentosResumoMensalPage() {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [apontamentos, setApontamentos] = useState<ApontamentoRow[]>([]);
   const [osById, setOsById] = useState<Map<number, OsInfo>>(new Map());
+  const [atividadeById, setAtividadeById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -394,7 +428,7 @@ export default function ApontamentosResumoMensalPage() {
         const response = await applyTenantEmpresa(
           supabase
             .from("apontamentos_horas")
-            .select("data,os_id,colaborador_id,horas")
+            .select("data,os_id,atividade_id,colaborador_id,horas")
             .eq("empresa_id", empresaId)
             .gte("data", start)
             .lte("data", end)
@@ -415,7 +449,19 @@ export default function ApontamentosResumoMensalPage() {
       const collaboratorsResponse = await collaboratorsPromise;
       if (collaboratorsResponse.error) throw collaboratorsResponse.error;
 
-      const uniqueOsIds = Array.from(new Set(allPoints.map((row) => Number(row.os_id)).filter(Number.isFinite)));
+      // A hora interna não tem OS: o nome vem das horas internas do próprio mês, e não
+      // da lista de quem lança, para uma atividade desativada depois de receber hora
+      // continuar aparecendo com o nome dela.
+      const loadedAtividades = new Map<string, string>();
+      if (allPoints.some((row) => row.atividade_id)) {
+        const atividadesResponse = await supabase.rpc("web_horas_internas_resumo", { p_de: start, p_ate: end });
+        if (atividadesResponse.error) throw atividadesResponse.error;
+        for (const item of (atividadesResponse.data ?? []) as AtividadeInterna[]) {
+          loadedAtividades.set(String(item.atividade_id), String(item.atividade_nome ?? ""));
+        }
+      }
+
+      const uniqueOsIds = Array.from(new Set(allPoints.filter((row) => row.os_id != null).map((row) => Number(row.os_id)).filter(Number.isFinite)));
       const loadedOs = new Map<number, OsInfo>();
       for (let index = 0; index < uniqueOsIds.length; index += 200) {
         const ids = uniqueOsIds.slice(index, index + 200);
@@ -444,11 +490,13 @@ export default function ApontamentosResumoMensalPage() {
       setColaboradores((collaboratorsResponse.data ?? []) as Colaborador[]);
       setApontamentos(allPoints);
       setOsById(loadedOs);
+      setAtividadeById(loadedAtividades);
     } catch (loadError) {
       console.error("[Resumo de horas] falha ao carregar", loadError);
       setColaboradores([]);
       setApontamentos([]);
       setOsById(new Map());
+      setAtividadeById(new Map());
       setError(`Erro ao carregar o resumo de horas: ${describeSupabaseError(loadError)}`);
     } finally {
       setLoading(false);
@@ -456,7 +504,6 @@ export default function ApontamentosResumoMensalPage() {
   }, [empresaId, ensureContext, month, supabase, tenantId, year]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
@@ -470,8 +517,9 @@ export default function ApontamentosResumoMensalPage() {
   const fullBusinessDates = useMemo(() => getDiasUteisJoinville(year, month), [month, year]);
 
   const filteredPoints = useMemo(() => {
-    if (tipo === "todos") return apontamentos.filter((row) => osById.has(Number(row.os_id)));
-    return apontamentos.filter((row) => osById.get(Number(row.os_id))?.usa_relatorio_hh);
+    if (tipo === "internas") return apontamentos.filter((row) => Boolean(row.atividade_id));
+    if (tipo === "todos") return apontamentos.filter((row) => Boolean(row.atividade_id) || osById.has(Number(row.os_id)));
+    return apontamentos.filter((row) => row.os_id != null && osById.get(Number(row.os_id))?.usa_relatorio_hh);
   }, [apontamentos, osById, tipo]);
 
   const allResumoRows = useMemo(() => {
@@ -484,7 +532,7 @@ export default function ApontamentosResumoMensalPage() {
     }
 
     return Array.from(pointsByCollaborator.entries()).map(([id, points]) => {
-      const timeline = buildTimeline(points, osById, businessDates);
+      const timeline = buildTimeline(points, osById, atividadeById, businessDates);
       const pointedDates = new Set(points.map((point) => String(point.data).slice(0, 10)));
       const total = round2(points.reduce((sum, point) => sum + numeric(point.horas), 0));
       const pointedDays = pointedDates.size;
@@ -495,11 +543,11 @@ export default function ApontamentosResumoMensalPage() {
         dias_apontados: pointedDays,
         media_dia: pointedDays ? round2(total / pointedDays) : 0,
         dias_sem_apontamento: timeline.filter((day) => day.sem_apontamento).length,
-        os_distintas: new Set(points.map((point) => Number(point.os_id))).size,
+        os_distintas: new Set(points.filter((point) => point.os_id != null).map((point) => Number(point.os_id))).size,
         timeline,
       } satisfies ResumoRow;
     });
-  }, [businessDates, colaboradores, filteredPoints, osById]);
+  }, [atividadeById, businessDates, colaboradores, filteredPoints, osById]);
 
   const visibleRows = useMemo(() => {
     const normalized = normalizeSearch(search);
@@ -522,7 +570,11 @@ export default function ApontamentosResumoMensalPage() {
     [visibleRows]
   );
   const distinctOs = useMemo(
-    () => new Set(filteredPoints.filter((row) => visibleCollaboratorIds.has(row.colaborador_id)).map((row) => row.os_id)).size,
+    () => new Set(filteredPoints.filter((row) => row.os_id != null && visibleCollaboratorIds.has(row.colaborador_id)).map((row) => row.os_id)).size,
+    [filteredPoints, visibleCollaboratorIds]
+  );
+  const internalHours = useMemo(
+    () => round2(filteredPoints.filter((row) => row.atividade_id && visibleCollaboratorIds.has(row.colaborador_id)).reduce((sum, row) => sum + numeric(row.horas), 0)),
     [filteredPoints, visibleCollaboratorIds]
   );
   const selectedRow = useMemo(
@@ -558,7 +610,7 @@ export default function ApontamentosResumoMensalPage() {
   };
 
   const exportCollaborator = (row: ResumoRow) => {
-    const lines: Array<Array<string | number>> = [["Data", "OS", "Cliente", "Serviço", "Horas decimais", "Horas (h:min)"]];
+    const lines: Array<Array<string | number>> = [["Data", "OS ou atividade", "Cliente", "Serviço", "Horas decimais", "Horas (h:min)"]];
     for (const day of row.timeline) {
       if (day.sem_apontamento) {
         lines.push([day.data, "", "", "Sem apontamento", "", ""]);
@@ -609,7 +661,7 @@ export default function ApontamentosResumoMensalPage() {
           <div className="rh-breadcrumb"><span>Apontamentos</span><b>›</b><strong>Resumo de horas</strong></div>
           <h1>Resumo de horas</h1>
           <p>
-            {monthLabel} · {businessDates.length} de {fullBusinessDates.length} dias úteis transcorridos · horas aplicadas em OS
+            {monthLabel} · {businessDates.length} de {fullBusinessDates.length} dias úteis transcorridos · horas em OS e em atividades internas
           </p>
         </div>
         <div className="rh-page-actions">
@@ -640,8 +692,9 @@ export default function ApontamentosResumoMensalPage() {
           {colaboradores.map((collaborator) => <option key={collaborator.id} value={collaborator.id}>{titleCase(collaborator.nome)}</option>)}
         </select>
         <select className="carteira-control rh-filter-pill" value={tipo} onChange={(event) => setTipo(event.target.value as TipoOsFilter)} aria-label="Tipo de OS">
-          <option value="todos">Todos os tipos de OS</option>
+          <option value="todos">OS e atividades internas</option>
           <option value="os_hh">Somente OS HH</option>
+          <option value="internas">Somente atividades internas</option>
         </select>
         <select className="carteira-control rh-filter-pill rh-order-pill" value={order} onChange={(event) => setOrder(event.target.value as SortOrder)} aria-label="Ordenação">
           <option value="horas">Ordenar: horas</option>
@@ -656,7 +709,7 @@ export default function ApontamentosResumoMensalPage() {
         <article>
           <span>Horas apontadas</span>
           <strong>{formatHoras(totalHours)} h</strong>
-          <small>{visibleRows.length} colaborador(es) · média {formatHoras(averageHours)} h</small>
+          <small>{visibleRows.length} colaborador(es) · média {formatHoras(averageHours)} h{internalHours > 0 ? ` · ${formatHoras(internalHours)} h em atividades internas` : ""}</small>
         </article>
         <article>
           <span>Dias úteis oficiais</span>
@@ -671,12 +724,14 @@ export default function ApontamentosResumoMensalPage() {
         <article>
           <span>OS distintas</span>
           <strong>{distinctOs}</strong>
-          <small>Horas aplicadas em OS · cobertura não calculada</small>
+          <small>Só horas em OS · atividades internas não contam aqui</small>
         </article>
       </section>
 
       <div className="rh-scope-note">
-        Este painel confere horas vinculadas a ordens de serviço. Não compara os registros com a jornada contratual, férias ou afastamentos.
+        Este painel confere horas em ordens de serviço e em atividades internas (comercial, treinamento, manutenção da fábrica…).
+        Não compara os registros com a jornada contratual, férias ou afastamentos. Para ver as horas internas por atividade, cliente e
+        orçamento, abra <Link href="/apontamentos/horas-internas" className="underline">Para onde foram as horas</Link>.
       </div>
 
       {activeTab === "resumo" ? (
@@ -748,7 +803,7 @@ export default function ApontamentosResumoMensalPage() {
             <div>
               <span>Folha de apontamentos</span>
               <h2>{titleCase(selectedRow.colaborador_nome)}</h2>
-              <p>{monthLabel} · {tipo === "os_hh" ? "Somente OS HH" : "Todos os tipos de OS"}</p>
+              <p>{monthLabel} · {tipo === "os_hh" ? "Somente OS HH" : tipo === "internas" ? "Somente atividades internas" : "OS e atividades internas"}</p>
             </div>
           </div>
           <ExtratoContent row={selectedRow} fullPage onExport={() => exportCollaborator(selectedRow)} />
