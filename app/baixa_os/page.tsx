@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
+import { textoBusca } from "@/lib/text";
 
 type ItemRow = {
   id: string;
@@ -337,8 +338,10 @@ export default function BaixaOsPage() {
 
     const trimmed = term.trim();
     if (trimmed) {
+      // nome_busca e a coluna gerada sem acento; o codigo e alfanumerico e nao
+      // precisa dela. Assim "armario" acha ARMÁRIO.
       const likeTerm = `%${trimmed}%`;
-      query = query.or(`nome.ilike.${likeTerm},codigo_interno.ilike.${likeTerm}`);
+      query = query.or(`nome_busca.ilike.%${textoBusca(trimmed)}%,codigo_interno.ilike.${likeTerm}`);
     }
 
     const { data, error } = await query;

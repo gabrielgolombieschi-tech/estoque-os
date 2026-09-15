@@ -5,6 +5,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
+import { textoBusca } from "@/lib/text";
 
 type ItemNomeRow = {
   id: number;
@@ -217,8 +218,9 @@ export default function AjusteNomePage() {
       const codigo = String(filtros.codigo ?? "").trim();
       if (codigo) query = query.ilike("codigo_interno", `%${codigo}%`);
 
+      // nome_busca e a coluna gerada sem acento.
       const produto = String(filtros.produto ?? "").trim();
-      if (produto) query = query.ilike("nome", `%${produto}%`);
+      if (produto) query = query.ilike("nome_busca", `%${textoBusca(produto)}%`);
 
       if (filtros.ativos === "ativos") query = query.eq("ativo", true);
 

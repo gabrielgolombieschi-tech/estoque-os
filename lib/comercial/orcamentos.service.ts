@@ -1,5 +1,6 @@
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { n } from "@/lib/comercial/utils";
+import { textoBusca } from "@/lib/text";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getOrcamentoStatusFilterValues } from "@/lib/comercial/status";
@@ -798,11 +799,13 @@ export async function searchItens(
     params.empresaId
   );
 
+  // nome_busca e a coluna gerada sem acento, para "armario" achar ARMÁRIO.
   const maybeId = Number(t);
+  const tBusca = textoBusca(t);
   if (Number.isFinite(maybeId) && maybeId > 0) {
-    query = query.or(`id.eq.${maybeId},nome.ilike.%${t}%`);
+    query = query.or(`id.eq.${maybeId},nome_busca.ilike.%${tBusca}%`);
   } else {
-    query = query.ilike("nome", `%${t}%`);
+    query = query.ilike("nome_busca", `%${tBusca}%`);
   }
 
   const { data, error } = await query.returns<ItemLookupRow[]>();

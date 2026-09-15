@@ -1073,22 +1073,15 @@ export default function OrcamentoPage() {
 
     try {
       if (lookupBuscarConjuntos) {
-        const buildConjuntoQuery = (field: "codigo" | "nome" | null) => {
-          let q = supabase
-            .schema("r")
-            .from("r_orcamento_catalogo_busca")
-            .select("*")
-            .eq("origem", "CONJUNTO");
+        // A RPC ja compara sem acento; o filtro daqui de baixo so aplica os
+        // demais termos digitados, porque o banco recebe apenas o maior deles.
+        const { data: conjuntoData, error: conjuntoError } = await supabase.rpc("search_orcamento_conjuntos", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_term: nomeSeedTerm || null,
+          p_limit: LOOKUP_FETCH_LIMIT,
+        });
 
-          if (field && nomeSeedTerm) q = q.ilike(field, `%${nomeSeedTerm}%`);
-          return q.order("nome", { ascending: true }).limit(LOOKUP_FETCH_LIMIT);
-        };
-
-        const conjuntoResponses = nomeSeedTerm
-          ? await Promise.all([buildConjuntoQuery("codigo"), buildConjuntoQuery("nome")])
-          : [await buildConjuntoQuery(null)];
-
-        const conjuntoError = conjuntoResponses.find((response) => response.error)?.error;
         if (conjuntoError) {
           setLookupErr(conjuntoError.message);
           setLookupConjuntoRows([]);
@@ -1097,20 +1090,17 @@ export default function OrcamentoPage() {
         }
 
         const conjuntoMap = new Map<string, ConjuntoCatalogoRow>();
-        conjuntoResponses.forEach((response) => {
-          const rows = (response.data ?? []) as Array<Record<string, unknown>>;
-          rows.forEach((r) => {
-            const conjuntoId = r.conjunto_id ? String(r.conjunto_id) : "";
-            if (!conjuntoId || conjuntoMap.has(conjuntoId)) return;
-            const codigo = typeof r.codigo === "string" ? r.codigo : r.codigo ? String(r.codigo) : null;
-            const nome = typeof r.nome === "string" ? r.nome : r.nome ? String(r.nome) : null;
-            const preco = Number(r.preco_sugerido);
-            conjuntoMap.set(conjuntoId, {
-              conjunto_id: conjuntoId,
-              codigo,
-              nome,
-              preco_sugerido: Number.isFinite(preco) ? preco : null,
-            });
+        ((conjuntoData ?? []) as Array<Record<string, unknown>>).forEach((r) => {
+          const conjuntoId = r.conjunto_id ? String(r.conjunto_id) : "";
+          if (!conjuntoId || conjuntoMap.has(conjuntoId)) return;
+          const codigo = typeof r.codigo === "string" ? r.codigo : r.codigo ? String(r.codigo) : null;
+          const nome = typeof r.nome === "string" ? r.nome : r.nome ? String(r.nome) : null;
+          const preco = Number(r.preco_sugerido);
+          conjuntoMap.set(conjuntoId, {
+            conjunto_id: conjuntoId,
+            codigo,
+            nome,
+            preco_sugerido: Number.isFinite(preco) ? preco : null,
           });
         });
 
@@ -2007,8 +1997,8 @@ export default function OrcamentoPage() {
         {showLookup && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
           <div className="min-h-full w-full flex items-start justify-center p-4 md:items-center">
-            <div className="w-full max-w-7xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-4 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between gap-3">
+            <div className="w-full max-w-7xl bg-zinc-950 border border-zinc-800 rounded-xl p-5 shadow-xl flex flex-col gap-3 max-h-[90dvh] h-[90dvh] min-h-0 overflow-hidden">
+              <div className="flex shrink-0 items-center justify-between gap-3">
                 <div>
                   <div className="text-lg font-semibold">Localizar {lookupBuscarConjuntos ? "conjunto" : "item"}</div>
                   <div className="text-sm text-zinc-400">
@@ -2030,38 +2020,46 @@ export default function OrcamentoPage() {
                 </button>
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-zinc-200">
-                <input
-                  type="checkbox"
-                  checked={lookupBuscarConjuntos}
-                  onChange={(e) => {
-                    const next = e.target.checked;
-                    setLookupBuscarConjuntos(next);
-                    setLookupErr(null);
-                    setLookupRows([]);
-                    setLookupConjuntoRows([]);
-                    void handleLookupSearch(lookupNome, lookupFornecedor);
-                  }}
-                />
-                Buscar Conjuntos
-              </label>
-
-              {!lookupBuscarConjuntos && (
-                <label className="flex items-center gap-2 text-sm text-zinc-200">
+              {/* Os filtros ficam em duas linhas so: cada linha que sobra aqui
+                  em cima e uma linha a menos da tabela de resultados. */}
+              <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-200">
+                <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={lookupMultiMode}
+                    checked={lookupBuscarConjuntos}
                     onChange={(e) => {
-                      setLookupMultiMode(e.target.checked);
-                      setLookupSelecionados(new Map());
-                      setLookupBulkErr(null);
+                      const next = e.target.checked;
+                      setLookupBuscarConjuntos(next);
+                      setLookupErr(null);
+                      setLookupRows([]);
+                      setLookupConjuntoRows([]);
+                      void handleLookupSearch(lookupNome, lookupFornecedor);
                     }}
                   />
-                  Selecionar varios
+                  Buscar Conjuntos
                 </label>
-              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {!lookupBuscarConjuntos && (
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={lookupMultiMode}
+                      onChange={(e) => {
+                        setLookupMultiMode(e.target.checked);
+                        setLookupSelecionados(new Map());
+                        setLookupBulkErr(null);
+                      }}
+                    />
+                    Selecionar varios
+                  </label>
+                )}
+              </div>
+
+              <div
+                className={`grid shrink-0 grid-cols-1 items-end gap-3 ${
+                  lookupBuscarConjuntos ? "md:grid-cols-[1fr_auto]" : "md:grid-cols-[1fr_1fr_auto]"
+                }`}
+              >
                 <div className="space-y-1">
                   <div className="text-xs text-zinc-400">{lookupBuscarConjuntos ? "Codigo/Nome" : "Nome/Codigo"}</div>
                   <input
@@ -2097,37 +2095,37 @@ export default function OrcamentoPage() {
                     />
                   </div>
                 )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleLookupSearch()}
+                    disabled={lookupBusy}
+                    className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
+                  >
+                    {lookupBusy ? "Buscando..." : "Buscar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Limpa a busca, nao a selecao — para tirar itens
+                      // escolhidos existe o X de cada um na lista abaixo.
+                      setLookupNome("");
+                      setLookupFornecedor("");
+                      setLookupRows([]);
+                      setLookupConjuntoRows([]);
+                      setLookupErr(null);
+                      setLookupBulkErr(null);
+                      void handleLookupSearch("", "");
+                    }}
+                    className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
+                  >
+                    Limpar
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleLookupSearch()}
-                  disabled={lookupBusy}
-                  className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium"
-                >
-                  {lookupBusy ? "Buscando..." : "Buscar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Limpa a busca, nao a selecao — para tirar itens
-                    // escolhidos existe o X de cada um na lista abaixo.
-                    setLookupNome("");
-                    setLookupFornecedor("");
-                    setLookupRows([]);
-                    setLookupConjuntoRows([]);
-                    setLookupErr(null);
-                    setLookupBulkErr(null);
-                    void handleLookupSearch("", "");
-                  }}
-                  className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
-                >
-                  Limpar
-                </button>
-              </div>
-
-              {lookupErr && <div className="text-sm text-red-400">{lookupErr}</div>}
+              {lookupErr && <div className="shrink-0 text-sm text-red-400">{lookupErr}</div>}
 
               <div className="border border-zinc-800 rounded-xl bg-zinc-950 flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
                 {!lookupBuscarConjuntos ? (
@@ -2328,30 +2326,46 @@ export default function OrcamentoPage() {
                   lugar proprio: aqui o item escolhido continua visivel e com a
                   quantidade editavel mesmo depois de sumir do resultado. */}
               {lookupMultiMode && lookupSelecionados.size > 0 && (
-                <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-zinc-200">
-                      {lookupSelecionados.size} item{lookupSelecionados.size === 1 ? "" : "s"} selecionado
-                      {lookupSelecionados.size === 1 ? "" : "s"}
+                // O painel nunca passa de 40% da altura do modal: contagem,
+                // acoes e erro cabem na mesma barra e a lista rola por dentro,
+                // para a tabela de resultados continuar visivel enquanto se
+                // escolhe item por item.
+                <div className="flex max-h-[40%] min-h-0 shrink-0 flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-sm font-medium text-zinc-200">
+                        {lookupSelecionados.size} {lookupSelecionados.size === 1 ? "item selecionado" : "itens selecionados"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLookupSelecionados(new Map());
+                          setLookupBulkErr(null);
+                        }}
+                        className="text-xs text-zinc-400 underline hover:text-zinc-200"
+                      >
+                        Limpar seleção
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLookupSelecionados(new Map());
-                        setLookupBulkErr(null);
-                      }}
-                      className="text-xs text-zinc-400 underline hover:text-zinc-200"
-                    >
-                      Limpar seleção
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {lookupBulkErr && <span className="text-sm text-red-400">{lookupBulkErr}</span>}
+                      <button
+                        type="button"
+                        onClick={() => void handleAddSelecionadosConfirm()}
+                        disabled={lookupBulkBusy}
+                        className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+                      >
+                        {lookupBulkBusy ? "Adicionando..." : `Adicionar ${lookupSelecionados.size} itens`}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="max-h-48 overflow-y-auto divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-zinc-950">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-zinc-950">
                     {Array.from(lookupSelecionados.entries()).map(([itemId, selecionado]) => (
-                      <div key={itemId} className="flex items-center gap-3 px-3 py-2">
+                      <div key={itemId} className="flex items-center gap-3 px-3 py-1.5">
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm text-zinc-200">{selecionado.nome ?? `Item ${itemId}`}</div>
-                          <div className="text-xs text-zinc-500">
+                          <div className="text-[11px] leading-tight text-zinc-500">
                             {itemId}
                             {selecionado.codigo_interno ? ` · ${selecionado.codigo_interno}` : ""}
                           </div>
@@ -2388,18 +2402,6 @@ export default function OrcamentoPage() {
                         </button>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-red-400">{lookupBulkErr}</div>
-                    <button
-                      type="button"
-                      onClick={() => void handleAddSelecionadosConfirm()}
-                      disabled={lookupBulkBusy}
-                      className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
-                    >
-                      {lookupBulkBusy ? "Adicionando..." : `Adicionar ${lookupSelecionados.size} itens`}
-                    </button>
                   </div>
                 </div>
               )}

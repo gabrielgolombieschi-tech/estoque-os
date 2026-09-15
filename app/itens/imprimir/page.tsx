@@ -7,6 +7,7 @@ import { applyTenant } from "@/lib/db/scopes";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny } from "@/lib/auth/capabilities";
+import { textoBusca } from "@/lib/text";
 
 type ItemTipo = "produto" | "servico" | "despesa";
 type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros" | "fabricado";
@@ -139,7 +140,7 @@ export default function ItensImprimirPage() {
             supabase.from("fornecedores").select("id,nome"),
             tenantId
           )
-            .ilike("nome", `%${fornecedorTermRaw}%`)
+            .ilike("nome_busca", `%${textoBusca(fornecedorTermRaw)}%`)
             .order("nome", { ascending: true })
             .limit(2000);
 
@@ -190,14 +191,16 @@ export default function ItensImprimirPage() {
           qb = qb.or(`codigo_interno.ilike.%${cc}%,codigo_barras.ilike.%${cc}%`);
         }
 
+        // nome_busca e a coluna gerada sem acento; codigo interno e de barras
+        // sao alfanumericos e seguem no ilike normal.
         if (produtoNorm && produtoNorm.trim()) {
           const pp = produtoNorm.trim();
-          qb = qb.ilike("nome", `%${pp}%`);
+          qb = qb.ilike("nome_busca", `%${textoBusca(pp)}%`);
         }
 
         if (!codigoNorm && !produtoNorm && qNorm && qNorm.trim()) {
           const qq = qNorm.trim();
-          qb = qb.or(`codigo_interno.ilike.%${qq}%,nome.ilike.%${qq}%`);
+          qb = qb.or(`codigo_interno.ilike.%${qq}%,nome_busca.ilike.%${textoBusca(qq)}%`);
         }
 
         qb = qb.order("nome", { ascending: true });
