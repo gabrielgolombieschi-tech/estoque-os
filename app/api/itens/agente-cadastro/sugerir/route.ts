@@ -7,25 +7,33 @@ import {
   calcularPesquisaPreco,
   catalogoNormalizacao,
   caminhoGrupo,
+  chaveCodigoCatalogo,
   criarTokenCotacaoAssinada,
+  eCodigoComProdutoNaDescricao,
   extrairFontesWeb,
   extrairTextoResposta,
   finalidade,
-  fiscalComReferencia,
+  fiscalDaLinhaDeNota,
+  fiscalDeItemENota,
   grupoParaResposta,
   inteiro,
   normalizarCodigo,
   normalizarQuantidade,
+  notaFiscalReferencia,
+  padraoCodigoEmDescricaoNota,
+  padraoCodigoNotaFiscal,
   parseRespostaJson,
   promptSistemaAgenteCadastro,
   schemaRespostaAgente,
   sanitizarSugestaoModelo,
   selecionarSimilar,
+  similarDoCodigoDaNota,
   texto,
   type FiscalSugerido,
   type FonteWeb,
   type FornecedorRow,
   type GrupoRow,
+  type NotaFiscalReferencia,
   type PesquisaPreco,
   type SimilarInterno,
 } from "../_lib";
@@ -72,6 +80,49 @@ type FiscalDbRow = {
   credita_pis: boolean | null;
   credita_cofins: boolean | null;
 };
+
+type NotaEntradaDbRow = {
+  id: number;
+  numero: string | null;
+  serie: string | null;
+  data_emissao: string | null;
+  emitente_nome: string | null;
+  fornecedor_id: number | null;
+  deleted_at: string | null;
+};
+
+type NotaItemDbRow = {
+  id: number;
+  nf_entrada_id: number | null;
+  item_id: number | null;
+  codigo_fornecedor: string | null;
+  descricao: string | null;
+  ncm: string | null;
+  cfop: string | null;
+  aliq_icms: number | null;
+  aliq_ipi: number | null;
+  aliq_pis: number | null;
+  aliq_cofins: number | null;
+};
+
+const SELECT_ITEM_SIMILAR =
+  "id,codigo_interno,nome,descricao,fornecedor_id,grupo_id,finalidade,motivo_compra_id,preco_unitario,margem_lucro_percentual";
+
+const SELECT_FISCAL_ITEM =
+  "ncm,cest,origem,cfop_padrao,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins";
+
+// Sem "embed": nf_entrada_itens tem duas chaves estrangeiras para nf_entrada
+// (por tenant e por tenant+empresa), e o PostgREST recusa o vínculo ambíguo.
+// A nota vem em uma segunda consulta, pelos ids que a primeira devolver.
+const SELECT_LINHA_NOTA =
+  "id,nf_entrada_id,item_id,codigo_fornecedor,descricao,ncm,cfop,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins";
+
+const SELECT_NOTA = "id,numero,serie,data_emissao,emitente_nome,fornecedor_id,deleted_at";
+
+/** Teto por consulta na nota: o código é seletivo e a rota já espera a IA. */
+const LIMITE_LINHAS_NOTA = 40;
+/** Mesmo teto de candidatos da busca por palavras que já existia. */
+const LIMITE_CANDIDATOS_SIMILAR = 120;
 
 // Marketplace generico e otimo para item de consumo e pessimo para material
 // eletrico industrial: disjuntor Siemens, borne WAGO ou fonte Phoenix quase nao
@@ -388,6 +439,218 @@ async function podeEditarFiscal(supabase: SupabaseClient): Promise<boolean> {
   return !error && Boolean(data);
 }
 
+type ContextoBusca = {
+  supabase: SupabaseClient;
+  tenantId: string;
+  empresaId: string;
+};
+
+/**
+ * Linhas de nota de entrada cujo texto bate com o padrão do código.
+ *
+ * O padrão vem de chaveCodigoCatalogo, então tolera zeros à esquerda e
+ * separadores; a conferência exata continua no JavaScript, porque o SQL aqui
+ * serve só para reduzir as linhas trazidas. Um perfil sem leitura de nota
+ * fiscal simplesmente não recebe linha nenhuma, e a sugestão segue sem isso.
+ */
+async function linhasDeNotaPorPadrao(
+  input: ContextoBusca & { coluna: "codigo_fornecedor" | "descricao"; padrao: string }
+): Promise<NotaItemDbRow[]> {
+  const { data, error } = await input.supabase
+    .from("nf_entrada_itens")
+    .select(SELECT_LINHA_NOTA)
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .regexIMatch(input.coluna, input.padrao)
+    .order("id", { ascending: false })
+    .limit(LIMITE_LINHAS_NOTA);
+  if (error) return [];
+  return (data ?? []) as unknown as NotaItemDbRow[];
+}
+
+/** Notas de entrada ainda válidas, indexadas por id. */
+async function carregarNotas(input: ContextoBusca & { ids: number[] }): Promise<Map<number, NotaEntradaDbRow>> {
+  if (input.ids.length === 0) return new Map();
+  const { data, error } = await input.supabase
+    .from("nf_entrada")
+    .select(SELECT_NOTA)
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .in("id", input.ids)
+    .is("deleted_at", null);
+  if (error) return new Map();
+  const notas = new Map<number, NotaEntradaDbRow>();
+  for (const row of (data ?? []) as unknown as NotaEntradaDbRow[]) notas.set(Number(row.id), row);
+  return notas;
+}
+
+async function itensComFiscalNcm(input: ContextoBusca & { ids: number[] }): Promise<Set<number>> {
+  if (input.ids.length === 0) return new Set();
+  const { data, error } = await input.supabase
+    .from("fiscal_itens")
+    .select("item_id,ncm")
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .in("item_id", input.ids)
+    .not("ncm", "is", null);
+  if (error) return new Set();
+  return new Set((data ?? []).map((row) => Number((row as { item_id: number }).item_id)));
+}
+
+async function itensJaRecebidosPorNota(input: ContextoBusca & { ids: number[] }): Promise<Set<number>> {
+  if (input.ids.length === 0) return new Set();
+  const { data, error } = await input.supabase
+    .from("nf_entrada_itens")
+    .select("item_id")
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .in("item_id", input.ids)
+    .limit(1000);
+  if (error) return new Set();
+  return new Set((data ?? []).map((row) => Number((row as { item_id: number }).item_id)));
+}
+
+/**
+ * Procura o mesmo código do fabricante nas notas de entrada já importadas.
+ *
+ * É a correspondência mais forte do agente: se o código já entrou por nota, o
+ * NCM e os impostos daquela linha são os do produto, e não uma aproximação por
+ * palavras. A descrição da nota é só o segundo caminho, para o emitente que
+ * não preenche o código do produto.
+ */
+async function buscarLinhaDeNotaPorCodigo(
+  input: ContextoBusca & { codigo: string }
+): Promise<{ linha: NotaItemDbRow; nota: NotaFiscalReferencia } | null> {
+  const chave = chaveCodigoCatalogo(input.codigo);
+  const padraoCodigo = padraoCodigoNotaFiscal(chave);
+  if (!padraoCodigo) return null;
+
+  const contexto = { supabase: input.supabase, tenantId: input.tenantId, empresaId: input.empresaId };
+  let candidatas = (await linhasDeNotaPorPadrao({ ...contexto, coluna: "codigo_fornecedor", padrao: padraoCodigo }))
+    .filter((linha) => chaveCodigoCatalogo(linha.codigo_fornecedor) === chave);
+
+  if (candidatas.length === 0) {
+    const padraoDescricao = padraoCodigoEmDescricaoNota(chave);
+    if (padraoDescricao) {
+      candidatas = (await linhasDeNotaPorPadrao({ ...contexto, coluna: "descricao", padrao: padraoDescricao }))
+        .filter((linha) => eCodigoComProdutoNaDescricao(chave, String(linha.descricao ?? "")));
+    }
+  }
+  if (candidatas.length === 0) return null;
+
+  // Nota excluída não vale como referência fiscal.
+  const notas = await carregarNotas({
+    ...contexto,
+    ids: [...new Set(candidatas.map((linha) => inteiro(linha.nf_entrada_id)).filter((id): id is number => id !== null))],
+  });
+  candidatas = candidatas.filter((linha) => notas.has(Number(linha.nf_entrada_id)));
+  if (candidatas.length === 0) return null;
+
+  const idsDeItem = [...new Set(candidatas.map((linha) => inteiro(linha.item_id)).filter((id): id is number => id !== null))];
+  const comFiscal = await itensComFiscalNcm({ ...contexto, ids: idsDeItem });
+  // Preferência pedida: item que já tem fiscal cadastrado e, entre eles, a nota
+  // mais recente. O id desempata porque é sequencial na importação.
+  const peso = (linha: NotaItemDbRow) => (linha.item_id && comFiscal.has(Number(linha.item_id)) ? 2 : linha.item_id ? 1 : 0);
+  const emissao = (linha: NotaItemDbRow) =>
+    Date.parse(String(notas.get(Number(linha.nf_entrada_id))?.data_emissao ?? "")) || 0;
+  const escolhida = [...candidatas].sort(
+    (a, b) => peso(b) - peso(a) || emissao(b) - emissao(a) || Number(b.id) - Number(a.id)
+  )[0];
+
+  const nota = notas.get(Number(escolhida.nf_entrada_id)) ?? null;
+  return {
+    linha: escolhida,
+    nota: notaFiscalReferencia({
+      nfEntradaId: escolhida.nf_entrada_id ?? nota?.id,
+      nfEntradaItemId: escolhida.id,
+      numero: nota?.numero,
+      serie: nota?.serie,
+      dataEmissao: nota?.data_emissao,
+      emitenteNome: nota?.emitente_nome,
+      fornecedorId: nota?.fornecedor_id,
+      codigoFornecedor: escolhida.codigo_fornecedor,
+      descricao: escolhida.descricao,
+      itemId: escolhida.item_id,
+    }),
+  };
+}
+
+async function carregarItemPorId(input: ContextoBusca & { itemId: number }) {
+  const { data, error } = await input.supabase
+    .from("itens")
+    .select(`${SELECT_ITEM_SIMILAR},ativo`)
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .eq("id", input.itemId)
+    .maybeSingle();
+  if (error) return null;
+  return (data ?? null) as unknown as (SimilarDbRow & { ativo: boolean | null }) | null;
+}
+
+async function carregarFiscalDoItem(input: ContextoBusca & { itemId: number }): Promise<FiscalDbRow | null> {
+  const { data, error } = await input.supabase
+    .from("fiscal_itens")
+    .select(SELECT_FISCAL_ITEM)
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .eq("item_id", input.itemId)
+    .maybeSingle();
+  if (error) return null;
+  return (data ?? null) as unknown as FiscalDbRow | null;
+}
+
+/** Busca por palavras da descrição, reforçada pelo que já entrou por nota. */
+async function buscarSimilarPorDescricao(
+  input: ContextoBusca & {
+    fornecedorId: number;
+    codigo: string;
+    descricao: string;
+    fabricante: string | null;
+    grupoId: number | null;
+  }
+): Promise<SimilarInterno | null> {
+  let query = input.supabase
+    .from("itens")
+    .select(SELECT_ITEM_SIMILAR)
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .eq("ativo", true)
+    .neq("codigo_interno", input.codigo)
+    .limit(LIMITE_CANDIDATOS_SIMILAR);
+
+  if (input.grupoId) query = query.eq("grupo_id", input.grupoId);
+  else query = query.eq("fornecedor_id", input.fornecedorId);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const candidatos = (data ?? []) as unknown as SimilarDbRow[];
+  if (candidatos.length === 0) return null;
+
+  const contexto = { supabase: input.supabase, tenantId: input.tenantId, empresaId: input.empresaId };
+  const ids = candidatos.map((row) => Number(row.id));
+  const [itensComNota, itensComNcm] = await Promise.all([
+    itensJaRecebidosPorNota({ ...contexto, ids }),
+    itensComFiscalNcm({ ...contexto, ids }),
+  ]);
+
+  return selecionarSimilar({
+    descricao: input.descricao,
+    grupoId: input.grupoId,
+    fornecedorId: input.fornecedorId,
+    candidatos,
+    fabricante: input.fabricante,
+    itensComNota,
+    itensComNcm,
+  });
+}
+
+/**
+ * Ordem de escolha:
+ * 1. mesmo código do fabricante já recebido por nota de entrada — o fiscal sai
+ *    do item vinculado a essa linha e o que faltar vem da própria nota;
+ * 2. sem código igual, o similar por palavras de sempre, agora preferindo quem
+ *    já entrou por nota e quem já tem NCM.
+ */
 async function buscarSimilarEFiscal(input: {
   supabase: SupabaseClient;
   tenantId: string;
@@ -395,46 +658,57 @@ async function buscarSimilarEFiscal(input: {
   fornecedorId: number;
   codigo: string;
   descricao: string;
+  fabricante: string | null;
   grupoId: number | null;
   podeFiscal: boolean;
 }): Promise<{ similar: SimilarInterno | null; fiscal: FiscalSugerido | null }> {
-  let query = input.supabase
-    .from("itens")
-    .select(
-      "id,codigo_interno,nome,descricao,fornecedor_id,grupo_id,finalidade,motivo_compra_id,preco_unitario,margem_lucro_percentual"
-    )
-    .eq("tenant_id", input.tenantId)
-    .eq("empresa_id", input.empresaId)
-    .eq("ativo", true)
-    .neq("codigo_interno", input.codigo)
-    .limit(120);
+  const contexto = { supabase: input.supabase, tenantId: input.tenantId, empresaId: input.empresaId };
+  const referenciaNota = await buscarLinhaDeNotaPorCodigo({ ...contexto, codigo: input.codigo });
 
-  if (input.grupoId) query = query.eq("grupo_id", input.grupoId);
-  else query = query.eq("fornecedor_id", input.fornecedorId);
+  const itemDaNota =
+    referenciaNota?.linha.item_id != null
+      ? await carregarItemPorId({ ...contexto, itemId: Number(referenciaNota.linha.item_id) })
+      : null;
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  const similar = selecionarSimilar({
-    descricao: input.descricao,
-    grupoId: input.grupoId,
-    fornecedorId: input.fornecedorId,
-    candidatos: (data ?? []) as unknown as SimilarDbRow[],
-  });
-  if (!similar || !input.podeFiscal) return { similar, fiscal: null };
+  // Só um item ativo vira referência comercial; o cadastro fiscal de um item
+  // inativo continua valendo para o mesmo código e é aproveitado mesmo assim.
+  const similar =
+    referenciaNota && itemDaNota && itemDaNota.ativo !== false
+      ? similarDoCodigoDaNota(itemDaNota, referenciaNota.nota)
+      : await buscarSimilarPorDescricao({
+          ...contexto,
+          fornecedorId: input.fornecedorId,
+          codigo: input.codigo,
+          descricao: input.descricao,
+          fabricante: input.fabricante,
+          grupoId: input.grupoId,
+        });
 
-  const { data: fiscalData, error: fiscalError } = await input.supabase
-    .from("fiscal_itens")
-    .select(
-      "ncm,cest,origem,cfop_padrao,cst_icms,cst_pis,cst_cofins,aliq_icms,aliq_ipi,aliq_pis,aliq_cofins,credita_icms,ipi_entra_no_custo,credita_pis,credita_cofins"
-    )
-    .eq("tenant_id", input.tenantId)
-    .eq("empresa_id", input.empresaId)
-    .eq("item_id", similar.id)
-    .maybeSingle();
-  if (fiscalError) return { similar, fiscal: null };
+  if (!input.podeFiscal) return { similar, fiscal: null };
+
+  if (referenciaNota) {
+    const fiscalItem = itemDaNota ? await carregarFiscalDoItem({ ...contexto, itemId: Number(itemDaNota.id) }) : null;
+    return {
+      similar,
+      fiscal: fiscalDeItemENota({
+        fiscalItem,
+        referenciaItemId: itemDaNota ? Number(itemDaNota.id) : null,
+        referenciaItemCodigo: itemDaNota?.codigo_interno ?? null,
+        linhaNota: fiscalDaLinhaDeNota(referenciaNota.linha),
+        nota: referenciaNota.nota,
+      }),
+    };
+  }
+
+  if (!similar) return { similar, fiscal: null };
+  const fiscalItem = await carregarFiscalDoItem({ ...contexto, itemId: similar.id });
   return {
     similar,
-    fiscal: fiscalComReferencia(fiscalData as unknown as FiscalDbRow | null, similar.id),
+    fiscal: fiscalDeItemENota({
+      fiscalItem,
+      referenciaItemId: similar.id,
+      referenciaItemCodigo: similar.codigo_interno || null,
+    }),
   };
 }
 
@@ -668,6 +942,7 @@ export async function POST(req: NextRequest) {
       fornecedorId,
       codigo,
       descricao: proposta.descricao_padronizada,
+      fabricante: proposta.fabricante_sugerido,
       grupoId: proposta.grupo_id,
       podeFiscal,
     });
@@ -680,6 +955,11 @@ export async function POST(req: NextRequest) {
     if (!proposta.grupo_id && !proposta.novo_grupo) dadosPendentes.push("Nenhum grupo adequado foi identificado; selecione ou proponha um grupo antes de confirmar.");
     if (pesquisaPreco.status !== "encontrado") dadosPendentes.push("A referência de preço ainda precisa de validação humana.");
     if (!podeFiscal) dadosPendentes.push("Você não possui permissão para gravar dados fiscais neste cadastro.");
+    // O CFOP da nota é o da operação do emitente; serve de ponto de partida,
+    // mas quem confirma precisa saber que aquele número não veio do cadastro.
+    if (fiscal?.campos_da_nota.includes("cfop_padrao")) {
+      dadosPendentes.push("O CFOP padrão foi copiado da nota de entrada (operação do emitente); confira antes de confirmar.");
+    }
 
     const novoGrupoResposta = proposta.novo_grupo
       ? {

@@ -51,6 +51,20 @@ export type CadastroItemAgentePesquisaPreco = {
   observacao: string | null;
 };
 
+/** Nota fiscal de entrada que já trouxe o mesmo código do fabricante. */
+export type CadastroItemAgenteNotaFiscal = {
+  nf_entrada_id: number | null;
+  nf_entrada_item_id: number | null;
+  numero: string | null;
+  serie: string | null;
+  data_emissao: string | null;
+  emitente_nome: string | null;
+  fornecedor_id: number | null;
+  codigo_fornecedor: string | null;
+  descricao: string | null;
+  item_id: number | null;
+};
+
 export type CadastroItemAgenteFiscal = {
   ncm: string | null;
   cest: string | null;
@@ -69,6 +83,12 @@ export type CadastroItemAgenteFiscal = {
   credita_cofins: boolean;
   referencia_item_id: number | null;
   justificativa: string | null;
+  /** Procedência: item interno, nota fiscal ou item completado pela nota. */
+  origem_dados: string | null;
+  /** Campos preenchidos pela linha da nota, quando houve complemento. */
+  campos_da_nota: string[];
+  nota_fiscal: CadastroItemAgenteNotaFiscal | null;
+  procedencia_resumo: string | null;
 };
 
 export type CadastroItemAgenteSimilarInterno = {
@@ -77,6 +97,9 @@ export type CadastroItemAgenteSimilarInterno = {
   nome: string | null;
   fornecedor: string | null;
   justificativa: string | null;
+  /** "codigo_nota_fiscal" quando o mesmo código já entrou por nota. */
+  origem_correspondencia: string | null;
+  nota_fiscal: CadastroItemAgenteNotaFiscal | null;
 };
 
 export type CadastroItemAgenteSugestao = {
@@ -236,6 +259,25 @@ function decodePesquisaPreco(value: unknown): CadastroItemAgentePesquisaPreco | 
   };
 }
 
+function decodeNotaFiscal(value: unknown): CadastroItemAgenteNotaFiscal | null {
+  if (!isRecord(value)) return null;
+  const numero = text(value.numero);
+  const nfEntradaId = integerOrNull(value.nf_entrada_id);
+  if (!numero && !nfEntradaId) return null;
+  return {
+    nf_entrada_id: nfEntradaId,
+    nf_entrada_item_id: integerOrNull(value.nf_entrada_item_id),
+    numero,
+    serie: text(value.serie),
+    data_emissao: text(value.data_emissao),
+    emitente_nome: text(value.emitente_nome),
+    fornecedor_id: integerOrNull(value.fornecedor_id),
+    codigo_fornecedor: text(value.codigo_fornecedor),
+    descricao: text(value.descricao),
+    item_id: integerOrNull(value.item_id),
+  };
+}
+
 function decodeFiscal(value: unknown): CadastroItemAgenteFiscal | null {
   if (!isRecord(value)) return null;
   return {
@@ -256,6 +298,10 @@ function decodeFiscal(value: unknown): CadastroItemAgenteFiscal | null {
     credita_cofins: bool(value.credita_cofins),
     referencia_item_id: integerOrNull(value.referencia_item_id),
     justificativa: text(value.justificativa),
+    origem_dados: text(value.origem_dados),
+    campos_da_nota: strings(value.campos_da_nota),
+    nota_fiscal: decodeNotaFiscal(value.nota_fiscal),
+    procedencia_resumo: text(value.procedencia_resumo),
   };
 }
 
@@ -312,6 +358,8 @@ function decodeSimilar(value: unknown): CadastroItemAgenteSimilarInterno | null 
     nome,
     fornecedor: text(value.fornecedor, text(value.fornecedor_nome)) ?? (fornecedorId ? `Fornecedor #${fornecedorId}` : null),
     justificativa: text(value.justificativa, text(value.motivo)),
+    origem_correspondencia: text(value.origem_correspondencia),
+    nota_fiscal: decodeNotaFiscal(value.nota_fiscal),
   };
 }
 
@@ -391,6 +439,22 @@ function formatMoney(value: number | null | undefined, currency = "BRL"): string
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: normalizedCurrency }).format(value);
 }
 
+/** A rota devolve a emissão já recortada em AAAA-MM-DD. */
+function formatDate(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
+const ROTULO_CAMPO_FISCAL: Record<string, string> = {
+  ncm: "NCM",
+  cfop_padrao: "CFOP padrão",
+  aliq_icms: "ICMS",
+  aliq_ipi: "IPI",
+  aliq_pis: "PIS",
+  aliq_cofins: "COFINS",
+};
+
 function externalUrl(value: string | null): string | null {
   if (!value) return null;
   try {
@@ -447,6 +511,10 @@ function fiscalInicial(value: CadastroItemAgenteFiscal | null): CadastroItemAgen
     credita_cofins: false,
     referencia_item_id: null,
     justificativa: null,
+    origem_dados: null,
+    campos_da_nota: [],
+    nota_fiscal: null,
+    procedencia_resumo: null,
     ...(value ?? {}),
     origem: value?.origem ?? 0,
   };
@@ -719,6 +787,9 @@ export default function CadastroItemAgenteModal({
 
   const grupoPendente = sugestao && !sugestao.grupo_id && sugestao.novo_grupo ? sugestao.novo_grupo : null;
   const fiscal = rascunho?.fiscal ?? null;
+  // A nota que embasou o fiscal e a que confirmou o similar são a mesma quando
+  // o código já entrou por nota; qualquer uma das duas serve para a procedência.
+  const notaFiscalOrigem = fiscal?.nota_fiscal ?? rascunho?.similarInterno?.nota_fiscal ?? null;
 
   return (
     <div
@@ -949,6 +1020,49 @@ export default function CadastroItemAgenteModal({
                 <h3 className="font-medium text-zinc-100">Dados fiscais</h3>
                 {rascunho.similarInterno?.id && <span className="text-xs text-zinc-500">Referência interna: item #{rascunho.similarInterno.id}</span>}
               </div>
+
+              {(fiscal?.procedencia_resumo || notaFiscalOrigem) && (
+                <div
+                  data-testid="fiscal-procedencia"
+                  className={`mt-3 rounded-md border px-3 py-2 text-xs ${notaFiscalOrigem ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-100" : "border-zinc-700 bg-zinc-900/40 text-zinc-300"}`}
+                >
+                  <p className="font-medium">{fiscal?.procedencia_resumo ?? "Dados fiscais sugeridos a partir do histórico interno."}</p>
+                  {notaFiscalOrigem && (
+                    <ul className="mt-1.5 space-y-0.5 text-[11px] text-emerald-100/85">
+                      <li>
+                        <span className="text-emerald-200/70">Nota de entrada:</span>{" "}
+                        {[
+                          notaFiscalOrigem.numero ? `NF ${notaFiscalOrigem.numero}` : null,
+                          notaFiscalOrigem.serie ? `série ${notaFiscalOrigem.serie}` : null,
+                          formatDate(notaFiscalOrigem.data_emissao) ? `emitida em ${formatDate(notaFiscalOrigem.data_emissao)}` : null,
+                          notaFiscalOrigem.emitente_nome,
+                        ]
+                          .filter(Boolean)
+                          .join(" — ")}
+                      </li>
+                      {(notaFiscalOrigem.codigo_fornecedor || notaFiscalOrigem.descricao) && (
+                        <li>
+                          <span className="text-emerald-200/70">Item na nota:</span>{" "}
+                          {[notaFiscalOrigem.codigo_fornecedor, notaFiscalOrigem.descricao].filter(Boolean).join(" — ")}
+                        </li>
+                      )}
+                      {fiscal?.referencia_item_id && (
+                        <li>
+                          <span className="text-emerald-200/70">Item interno de origem:</span>{" "}
+                          {[rascunho.similarInterno?.codigo, rascunho.similarInterno?.nome].filter(Boolean).join(" — ") || `item #${fiscal.referencia_item_id}`}
+                        </li>
+                      )}
+                      {fiscal && fiscal.campos_da_nota.length > 0 && (
+                        <li>
+                          <span className="text-emerald-200/70">Copiado da nota:</span>{" "}
+                          {fiscal.campos_da_nota.map((campo) => ROTULO_CAMPO_FISCAL[campo] ?? campo).join(", ")}
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
                 <label>
                   <span className={FIELD_LABEL_CLASS}>NCM</span>
@@ -1122,7 +1236,13 @@ export default function CadastroItemAgenteModal({
                 {(sugestao.justificativa || sugestao.dados_pendentes.length > 0 || rascunho.similarInterno) && (
                   <section className="space-y-2 text-xs text-zinc-400">
                     {sugestao.justificativa && <p><span className="font-medium text-zinc-300">Justificativa:</span> {sugestao.justificativa}</p>}
-                    {rascunho.similarInterno && <p><span className="font-medium text-zinc-300">Referência interna:</span> {[rascunho.similarInterno.codigo, rascunho.similarInterno.nome, rascunho.similarInterno.fornecedor].filter(Boolean).join(" — ")}</p>}
+                    {rascunho.similarInterno && (
+                      <p>
+                        <span className="font-medium text-zinc-300">Referência interna:</span>{" "}
+                        {[rascunho.similarInterno.codigo, rascunho.similarInterno.nome, rascunho.similarInterno.fornecedor].filter(Boolean).join(" — ")}
+                        {rascunho.similarInterno.justificativa ? ` (${rascunho.similarInterno.justificativa})` : ""}
+                      </p>
+                    )}
                     {sugestao.dados_pendentes.length > 0 && <p><span className="font-medium text-amber-200">Pendente:</span> {sugestao.dados_pendentes.join("; ")}</p>}
                   </section>
                 )}

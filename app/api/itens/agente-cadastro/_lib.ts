@@ -102,6 +102,34 @@ export type FiscalValores = {
   credita_cofins: boolean;
 };
 
+/**
+ * Procedência da linha de nota fiscal de entrada que embasou a sugestão.
+ *
+ * Campos novos e opcionais no contrato: a tela web e o aplicativo podem
+ * escrever "NCM e impostos copiados da NF 1234 de 10/03/2026 (item ABC)" sem
+ * precisar de outra chamada.
+ */
+export type NotaFiscalReferencia = {
+  nf_entrada_id: number | null;
+  nf_entrada_item_id: number | null;
+  numero: string | null;
+  serie: string | null;
+  /** AAAA-MM-DD, já recortada do timestamp da emissão. */
+  data_emissao: string | null;
+  emitente_nome: string | null;
+  fornecedor_id: number | null;
+  /** Código do produto como o emitente escreveu na nota. */
+  codigo_fornecedor: string | null;
+  descricao: string | null;
+  item_id: number | null;
+};
+
+/** De onde veio cada correspondência interna encontrada pelo agente. */
+export type OrigemCorrespondenciaSimilar = "codigo_nota_fiscal" | "descricao";
+
+/** De onde vieram os valores fiscais sugeridos. */
+export type OrigemDadosFiscais = "item_interno" | "nota_fiscal" | "item_interno_e_nota";
+
 export type SimilarInterno = {
   id: number;
   codigo_interno: string;
@@ -114,11 +142,27 @@ export type SimilarInterno = {
   margem_lucro_percentual: number | null;
   similaridade: number;
   justificativa: string;
+  /** Campo novo: como o item foi encontrado. Sem nota, continua "descricao". */
+  origem_correspondencia: OrigemCorrespondenciaSimilar;
+  /** Campo novo: a nota de entrada que trouxe o mesmo código, quando houver. */
+  nota_fiscal: NotaFiscalReferencia | null;
 };
 
 export type FiscalSugerido = FiscalValores & {
-  referencia_item_id: number;
+  /**
+   * Item interno que embasou os dados. Passa a aceitar null porque a nota
+   * fiscal pode ser a única origem, quando a linha nunca foi vinculada a item.
+   */
+  referencia_item_id: number | null;
   justificativa: string;
+  /** Campo novo: item interno, nota fiscal ou item completado pela nota. */
+  origem_dados: OrigemDadosFiscais;
+  /** Campo novo: quais campos vieram da linha da nota (ex.: ["ncm","aliq_ipi"]). */
+  campos_da_nota: string[];
+  /** Campo novo: a nota de origem, quando algum campo veio dela. */
+  nota_fiscal: NotaFiscalReferencia | null;
+  /** Campo novo: frase pronta de procedência para a tela web e o aplicativo. */
+  procedencia_resumo: string;
 };
 
 type RecordValue = Record<string, unknown>;
@@ -221,6 +265,43 @@ export function normalizarCodigo(value: unknown): string {
 /** Indica se o valor contém ao menos uma letra ou número após a normalização. */
 export function codigoNormalizadoValido(value: unknown): boolean {
   return normalizarCodigo(value).length > 0;
+}
+
+/**
+ * Chave de comparação entre o código digitado e o código que o emitente
+ * escreveu na nota fiscal. Parte de normalizarCodigo e ainda descarta os
+ * separadores técnicos e os zeros à esquerda, porque o mesmo produto aparece
+ * na nota como "000000000012240801" e no cadastro como "12240801", ou como
+ * "UR-2005A-14" e "UR2005A14".
+ */
+export function chaveCodigoCatalogo(value: unknown): string {
+  return normalizarCodigo(value)
+    .replace(/[^A-Z0-9]/g, "")
+    .replace(/^0+(?=.)/, "");
+}
+
+/**
+ * Expressão regular (dialeto do PostgreSQL) que reencontra a chave dentro do
+ * texto cru gravado na nota, tolerando zeros à esquerda e qualquer separador
+ * entre os caracteres. A chave só tem letras e números, então não há
+ * metacaractere para escapar.
+ */
+function padraoRegexChave(chave: string): string {
+  return chave.split("").join("[^[:alnum:]]*");
+}
+
+/** Padrão ancorado, para comparar com o código do produto na nota. */
+export function padraoCodigoNotaFiscal(chave: string): string | null {
+  if (!chave) return null;
+  return `^[^[:alnum:]]*0*${padraoRegexChave(chave)}[^[:alnum:]]*$`;
+}
+
+/**
+ * Padrão livre, para achar o código dentro da descrição da nota. Só vale para
+ * código longo: sequência curta apareceria dentro de qualquer medida.
+ */
+export function padraoCodigoEmDescricaoNota(chave: string): string | null {
+  return chave.length >= 6 ? padraoRegexChave(chave) : null;
 }
 
 function segredoCotacaoAssinada(): string | null {
@@ -952,16 +1033,34 @@ type SimilarRow = {
   margem_lucro_percentual: number | null;
 };
 
+/**
+ * Escolhe o item interno mais parecido pela descrição.
+ *
+ * A regra original — cobertura de palavras, mesmo grupo e mesmo fornecedor —
+ * continua sendo a única que decide se um candidato é aceitável. Os critérios
+ * novos (fabricante em comum, item que já entrou por nota fiscal e item com
+ * NCM cadastrado) só desempatam entre os candidatos que já passariam antes,
+ * para que a mudança nunca aprove um similar que a regra anterior recusava.
+ */
 export function selecionarSimilar(input: {
   descricao: string;
   grupoId: number | null;
   fornecedorId: number;
   candidatos: SimilarRow[];
+  /** Fabricante proposto pelo agente; item de automação repete o nome da família. */
+  fabricante?: string | null;
+  /** Ids de itens que já entraram por nota fiscal de entrada. */
+  itensComNota?: ReadonlySet<number>;
+  /** Ids de itens que já possuem NCM em fiscal_itens. */
+  itensComNcm?: ReadonlySet<number>;
 }): SimilarInterno | null {
   const alvo = tokens(input.descricao);
   if (alvo.length === 0) return null;
+  const tokensFabricante = new Set(tokens(input.fabricante));
 
-  let melhor: { row: SimilarRow; score: number; compartilhados: string[] } | null = null;
+  let melhor:
+    | { row: SimilarRow; base: number; total: number; compartilhados: string[]; reforcos: string[] }
+    | null = null;
   for (const row of input.candidatos) {
     const palavras = new Set(tokens(`${row.nome ?? ""} ${row.descricao ?? ""}`));
     const compartilhados = alvo.filter((token) => palavras.has(token));
@@ -969,12 +1068,24 @@ export function selecionarSimilar(input: {
     const cobertura = compartilhados.length / alvo.length;
     const mesmaFuncao = input.grupoId !== null && Number(row.grupo_id) === input.grupoId;
     const mesmoFornecedor = Number(row.fornecedor_id) === input.fornecedorId;
-    const score = cobertura * 0.7 + (mesmaFuncao ? 0.18 : 0) + (mesmoFornecedor ? 0.12 : 0);
-    if (!melhor || score > melhor.score) melhor = { row, score, compartilhados };
+    const base = cobertura * 0.7 + (mesmaFuncao ? 0.18 : 0) + (mesmoFornecedor ? 0.12 : 0);
+    if (base < 0.42) continue;
+
+    const id = Number(row.id);
+    const mesmoFabricante = [...tokensFabricante].some((token) => palavras.has(token));
+    const entrouPorNota = Boolean(input.itensComNota?.has(id));
+    const temNcm = Boolean(input.itensComNcm?.has(id));
+    const reforcos: string[] = [];
+    if (mesmoFabricante) reforcos.push("mesmo fabricante");
+    if (entrouPorNota) reforcos.push("já entrou por nota fiscal");
+    if (temNcm) reforcos.push("já tem NCM cadastrado");
+    const total = base + (mesmoFabricante ? 0.08 : 0) + (entrouPorNota ? 0.06 : 0) + (temNcm ? 0.06 : 0);
+    if (!melhor || total > melhor.total) melhor = { row, base, total, compartilhados, reforcos };
   }
 
-  if (!melhor || melhor.score < 0.42) return null;
-  const similaridade = Math.round(melhor.score * 100);
+  if (!melhor) return null;
+  const similaridade = Math.round(melhor.base * 100);
+  const reforco = melhor.reforcos.length > 0 ? ` Reforçado por: ${melhor.reforcos.join(", ")}.` : "";
   return {
     id: Number(melhor.row.id),
     codigo_interno: String(melhor.row.codigo_interno ?? ""),
@@ -986,7 +1097,33 @@ export function selecionarSimilar(input: {
     preco_unitario: numero(melhor.row.preco_unitario, 0, 999999999),
     margem_lucro_percentual: numero(melhor.row.margem_lucro_percentual, 0, 100),
     similaridade,
-    justificativa: `Item interno no mesmo contexto, com termos em comum: ${melhor.compartilhados.slice(0, 6).join(", ")}. Similaridade ${similaridade}%.`,
+    justificativa: `Item interno no mesmo contexto, com termos em comum: ${melhor.compartilhados.slice(0, 6).join(", ")}. Similaridade ${similaridade}%.${reforco}`,
+    origem_correspondencia: "descricao",
+    nota_fiscal: null,
+  };
+}
+
+/**
+ * Item interno encontrado pelo código do fabricante em uma nota de entrada.
+ *
+ * É a correspondência mais forte que o agente consegue: o mesmo código já
+ * entrou pela nota, então o NCM e os impostos daquele cadastro são os certos.
+ */
+export function similarDoCodigoDaNota(row: SimilarRow, nota: NotaFiscalReferencia): SimilarInterno {
+  return {
+    id: Number(row.id),
+    codigo_interno: String(row.codigo_interno ?? ""),
+    nome: String(row.nome ?? ""),
+    fornecedor_id: row.fornecedor_id == null ? null : Number(row.fornecedor_id),
+    grupo_id: row.grupo_id == null ? null : Number(row.grupo_id),
+    finalidade: finalidade(row.finalidade),
+    motivo_compra_id: texto(row.motivo_compra_id, 80),
+    preco_unitario: numero(row.preco_unitario, 0, 999999999),
+    margem_lucro_percentual: numero(row.margem_lucro_percentual, 0, 100),
+    similaridade: 100,
+    justificativa: `Mesmo código do fabricante já recebido na ${identificacaoNota(nota)}${nota.codigo_fornecedor ? ` (item ${nota.codigo_fornecedor})` : ""}`.replace(/\.+$/, "") + ".",
+    origem_correspondencia: "codigo_nota_fiscal",
+    nota_fiscal: nota,
   };
 }
 
@@ -1027,17 +1164,168 @@ export function sanitizarFiscal(value: unknown): FiscalValores | null {
   return hasValue ? fiscal : null;
 }
 
-export function fiscalComReferencia(value: unknown, referenciaItemId: number | null): FiscalSugerido | null {
-  if (!referenciaItemId) return null;
-  const fiscal = sanitizarFiscal(value);
-  if (!fiscal) return null;
+/** Campos de fiscal_itens que a linha da nota fiscal de entrada consegue preencher. */
+const CAMPOS_FISCAIS_DA_NOTA = [
+  "ncm",
+  "cfop_padrao",
+  "aliq_icms",
+  "aliq_ipi",
+  "aliq_pis",
+  "aliq_cofins",
+] as const satisfies readonly (keyof FiscalValores)[];
+
+/** Nome de tela de cada campo, para a frase de procedência ficar legível. */
+const ROTULO_CAMPO_FISCAL: Record<string, string> = {
+  ncm: "NCM",
+  cfop_padrao: "CFOP padrão",
+  aliq_icms: "ICMS",
+  aliq_ipi: "IPI",
+  aliq_pis: "PIS",
+  aliq_cofins: "COFINS",
+};
+
+/** Recorta AAAA-MM-DD de um timestamp, sem depender do fuso do servidor. */
+export function dataEmissaoNota(value: unknown): string | null {
+  const bruto = texto(value, 40);
+  if (!bruto) return null;
+  const match = bruto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+
+function dataBrasileira(value: string | null): string | null {
+  if (!value) return null;
+  const [ano, mes, dia] = value.split("-");
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : null;
+}
+
+function identificacaoNota(nota: NotaFiscalReferencia): string {
+  const numero = nota.numero ? `NF ${nota.numero}` : "nota de entrada";
+  const serie = nota.serie ? ` série ${nota.serie}` : "";
+  const data = dataBrasileira(nota.data_emissao);
+  return `${numero}${serie}${data ? ` de ${data}` : ""}${nota.emitente_nome ? `, de ${nota.emitente_nome}` : ""}`;
+}
+
+export function notaFiscalReferencia(input: {
+  nfEntradaId: unknown;
+  nfEntradaItemId: unknown;
+  numero: unknown;
+  serie: unknown;
+  dataEmissao: unknown;
+  emitenteNome: unknown;
+  fornecedorId: unknown;
+  codigoFornecedor: unknown;
+  descricao: unknown;
+  itemId: unknown;
+}): NotaFiscalReferencia {
+  return {
+    nf_entrada_id: inteiro(input.nfEntradaId),
+    nf_entrada_item_id: inteiro(input.nfEntradaItemId),
+    numero: texto(input.numero, 60),
+    serie: texto(input.serie, 20),
+    data_emissao: dataEmissaoNota(input.dataEmissao),
+    emitente_nome: texto(input.emitenteNome, 160),
+    fornecedor_id: inteiro(input.fornecedorId),
+    codigo_fornecedor: texto(input.codigoFornecedor, 60),
+    descricao: texto(input.descricao, 240),
+    item_id: inteiro(input.itemId),
+  };
+}
+
+/**
+ * Traduz a linha da nota de entrada para o formato de fiscal_itens. O CFOP da
+ * nota é o da operação do emitente e vira apenas sugestão de cfop_padrao, que
+ * a pessoa confere na tela antes de confirmar.
+ */
+export function fiscalDaLinhaDeNota(linha: {
+  ncm?: unknown;
+  cfop?: unknown;
+  aliq_icms?: unknown;
+  aliq_ipi?: unknown;
+  aliq_pis?: unknown;
+  aliq_cofins?: unknown;
+}): Record<string, unknown> {
+  return {
+    ncm: linha.ncm,
+    cfop_padrao: linha.cfop,
+    aliq_icms: linha.aliq_icms,
+    aliq_ipi: linha.aliq_ipi,
+    aliq_pis: linha.aliq_pis,
+    aliq_cofins: linha.aliq_cofins,
+  };
+}
+
+/**
+ * Monta a sugestão fiscal a partir do item interno e, quando o mesmo código já
+ * entrou por nota fiscal, completa o que faltar com a linha dessa nota.
+ *
+ * O item interno continua tendo precedência campo a campo: a nota só preenche
+ * o que fiscal_itens não tem. A procedência sai junto, em campos novos, para a
+ * tela web e o aplicativo mostrarem de onde cada valor veio.
+ */
+export function fiscalDeItemENota(input: {
+  fiscalItem: unknown;
+  referenciaItemId: number | null;
+  referenciaItemCodigo?: string | null;
+  linhaNota?: unknown;
+  nota?: NotaFiscalReferencia | null;
+}): FiscalSugerido | null {
+  const doItem = sanitizarFiscal(input.fiscalItem);
+  const daNota = input.nota ? sanitizarFiscal(input.linhaNota) : null;
+  const base: FiscalValores | null = doItem ?? (daNota ? { ...daNota } : null);
+  if (!base) return null;
+
+  const camposDaNota: string[] = [];
+  const fiscal: FiscalValores = { ...base };
+  if (daNota && doItem) {
+    for (const campo of CAMPOS_FISCAIS_DA_NOTA) {
+      if (fiscal[campo] === null && daNota[campo] !== null) {
+        // O cast é necessário porque o campo percorrido é uma união de chaves.
+        (fiscal as Record<string, unknown>)[campo] = daNota[campo];
+        camposDaNota.push(campo);
+      }
+    }
+  } else if (daNota && !doItem) {
+    for (const campo of CAMPOS_FISCAIS_DA_NOTA) {
+      if (daNota[campo] !== null) camposDaNota.push(campo);
+    }
+  }
+
+  const origemDados: OrigemDadosFiscais = !doItem
+    ? "nota_fiscal"
+    : camposDaNota.length > 0
+      ? "item_interno_e_nota"
+      : "item_interno";
+  const notaUsada = camposDaNota.length > 0 ? input.nota ?? null : null;
+  const itemDescrito = input.referenciaItemCodigo ?? (input.referenciaItemId ? `#${input.referenciaItemId}` : null);
+  const itemNaNota = notaUsada?.codigo_fornecedor ? ` (item ${notaUsada.codigo_fornecedor})` : "";
+
+  // Nome de emitente costuma terminar em "Ltda."; sem isso a frase fica com ponto duplo.
+  const encerrar = (frase: string) => `${frase.replace(/\.+$/, "")}.`;
+  const procedencia = encerrar(
+    origemDados === "nota_fiscal" && notaUsada
+      ? `NCM e impostos copiados da ${identificacaoNota(notaUsada)}${itemNaNota}`
+      : origemDados === "item_interno_e_nota" && notaUsada
+        ? `Dados fiscais do item interno ${itemDescrito ?? "de referência"}, completados (${camposDaNota.map((campo) => ROTULO_CAMPO_FISCAL[campo] ?? campo).join(", ")}) pela ${identificacaoNota(notaUsada)}${itemNaNota}`
+        : `Dados fiscais copiados do item interno ${itemDescrito ?? "de referência"}`
+  );
+
   return {
     ...fiscal,
     // Sugestão começa nacional; confirmação pode escolher outra origem.
     origem: 0,
-    referencia_item_id: referenciaItemId,
-    justificativa: `Dados fiscais sugeridos a partir do item interno ${referenciaItemId}; validar antes da confirmação.`,
+    referencia_item_id: input.referenciaItemId,
+    justificativa: `${procedencia} Validar antes da confirmação.`,
+    origem_dados: origemDados,
+    campos_da_nota: camposDaNota,
+    nota_fiscal: notaUsada,
+    procedencia_resumo: procedencia,
   };
+}
+
+/** Compatibilidade: sugestão fiscal vinda somente de um item interno. */
+export function fiscalComReferencia(value: unknown, referenciaItemId: number | null): FiscalSugerido | null {
+  if (!referenciaItemId) return null;
+  return fiscalDeItemENota({ fiscalItem: value, referenciaItemId });
 }
 
 export function uuidOuNulo(value: unknown): string | null {
