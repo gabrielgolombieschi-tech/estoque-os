@@ -124,8 +124,26 @@ export type NotaFiscalReferencia = {
   item_id: number | null;
 };
 
-/** De onde veio cada correspondência interna encontrada pelo agente. */
-export type OrigemCorrespondenciaSimilar = "codigo_nota_fiscal" | "descricao";
+/**
+ * De onde veio cada correspondência interna encontrada pelo agente.
+ *
+ * "codigo_cadastrado" é o próprio item já cadastrado com o mesmo código em
+ * outro fornecedor; "codigo_nota_fiscal" é o código que entrou por nota; e
+ * "descricao" é o item do mesmo tipo achado pelas palavras da descrição.
+ */
+export type OrigemCorrespondenciaSimilar = "codigo_cadastrado" | "codigo_nota_fiscal" | "descricao";
+
+/**
+ * Concordância de NCM entre os itens do mesmo tipo. Quando vários candidatos
+ * bons usam o mesmo NCM, isso é prova — e é o que a pessoa quer copiar.
+ */
+export type ConsensoNcm = {
+  ncm: string;
+  /** Quantos itens do mesmo tipo usam esse NCM. */
+  itens: number;
+  /** Quantos candidatos aprovados tinham algum NCM cadastrado. */
+  candidatos_com_ncm: number;
+};
 
 /** De onde vieram os valores fiscais sugeridos. */
 export type OrigemDadosFiscais = "item_interno" | "nota_fiscal" | "item_interno_e_nota";
@@ -146,6 +164,8 @@ export type SimilarInterno = {
   origem_correspondencia: OrigemCorrespondenciaSimilar;
   /** Campo novo: a nota de entrada que trouxe o mesmo código, quando houver. */
   nota_fiscal: NotaFiscalReferencia | null;
+  /** Campo novo: NCM que os itens do mesmo tipo concordam em usar. */
+  consenso_ncm: ConsensoNcm | null;
 };
 
 export type FiscalSugerido = FiscalValores & {
@@ -163,6 +183,8 @@ export type FiscalSugerido = FiscalValores & {
   nota_fiscal: NotaFiscalReferencia | null;
   /** Campo novo: frase pronta de procedência para a tela web e o aplicativo. */
   procedencia_resumo: string;
+  /** Campo novo: concordância de NCM entre os itens do mesmo tipo, se houver. */
+  consenso_ncm: ConsensoNcm | null;
 };
 
 type RecordValue = Record<string, unknown>;
@@ -1034,15 +1056,20 @@ type SimilarRow = {
 };
 
 /**
- * Escolhe o item interno mais parecido pela descrição.
- *
- * A regra original — cobertura de palavras, mesmo grupo e mesmo fornecedor —
- * continua sendo a única que decide se um candidato é aceitável. Os critérios
- * novos (fabricante em comum, item que já entrou por nota fiscal e item com
- * NCM cadastrado) só desempatam entre os candidatos que já passariam antes,
- * para que a mudança nunca aprove um similar que a regra anterior recusava.
+ * Palavras que valem a pena levar ao SQL para reduzir o catálogo antes de
+ * pontuar. A descrição padronizada do ERP começa pelo tipo do produto
+ * ("CLP ...", "DISJUNTOR MINI ..."), então a ordem de aparição já é a ordem de
+ * importância. Ficam de fora medidas e referências curtas como "2P", "40" e
+ * "1211C", que são específicas demais do item e atrapalham a busca por tipo.
  */
-export function selecionarSimilar(input: {
+export function tokensFortesDescricao(descricao: unknown, max = 3): string[] {
+  const fortes = tokens(descricao).filter(
+    (token) => token.length >= 3 && (token.match(/[A-Z]/g) ?? []).length >= 2
+  );
+  return fortes.slice(0, Math.max(0, max));
+}
+
+type EntradaSelecaoSimilar = {
   descricao: string;
   grupoId: number | null;
   fornecedorId: number;
@@ -1051,16 +1078,45 @@ export function selecionarSimilar(input: {
   fabricante?: string | null;
   /** Ids de itens que já entraram por nota fiscal de entrada. */
   itensComNota?: ReadonlySet<number>;
-  /** Ids de itens que já possuem NCM em fiscal_itens. */
-  itensComNcm?: ReadonlySet<number>;
-}): SimilarInterno | null {
-  const alvo = tokens(input.descricao);
-  if (alvo.length === 0) return null;
-  const tokensFabricante = new Set(tokens(input.fabricante));
+  /** NCM já cadastrado de cada candidato, para reforço e para o consenso. */
+  ncmPorItem?: ReadonlyMap<number, string>;
+};
 
-  let melhor:
-    | { row: SimilarRow; base: number; total: number; compartilhados: string[]; reforcos: string[] }
-    | null = null;
+type CandidatoPontuado = {
+  row: SimilarRow;
+  base: number;
+  total: number;
+  compartilhados: string[];
+  reforcos: string[];
+};
+
+/**
+ * Pontua os candidatos do mesmo tipo de produto.
+ *
+ * A regra original — cobertura de palavras, mesmo grupo e mesmo fornecedor —
+ * continua sendo a única que decide se um candidato é aceitável. Os critérios
+ * novos (fabricante em comum, item que já entrou por nota fiscal, item com NCM
+ * cadastrado e NCM concordante com os demais do mesmo tipo) só desempatam
+ * entre os candidatos que já passariam antes, para que a mudança nunca aprove
+ * um similar que a regra anterior recusava.
+ *
+ * O mesmo fornecedor continua valendo ponto, mas deixou de ser condição: um
+ * CLP Omron novo precisa poder copiar o NCM de um CLP Siemens.
+ */
+function pontuarCandidatos(input: EntradaSelecaoSimilar): {
+  aprovados: CandidatoPontuado[];
+  doMesmoTipo: CandidatoPontuado[];
+  consenso: ConsensoNcm | null;
+} {
+  const alvo = tokens(input.descricao);
+  if (alvo.length === 0) return { aprovados: [], doMesmoTipo: [], consenso: null };
+  const tokensFabricante = new Set(tokens(input.fabricante));
+  // Palavra que nomeia o tipo do produto ("CLP", "DISJUNTOR"): a descrição
+  // padronizada do ERP começa por ela.
+  const familia = tokensFortesDescricao(input.descricao, 1)[0] ?? null;
+
+  const aprovados: CandidatoPontuado[] = [];
+  const doMesmoTipo: CandidatoPontuado[] = [];
   for (const row of input.candidatos) {
     const palavras = new Set(tokens(`${row.nome ?? ""} ${row.descricao ?? ""}`));
     const compartilhados = alvo.filter((token) => palavras.has(token));
@@ -1069,21 +1125,64 @@ export function selecionarSimilar(input: {
     const mesmaFuncao = input.grupoId !== null && Number(row.grupo_id) === input.grupoId;
     const mesmoFornecedor = Number(row.fornecedor_id) === input.fornecedorId;
     const base = cobertura * 0.7 + (mesmaFuncao ? 0.18 : 0) + (mesmoFornecedor ? 0.12 : 0);
-    if (base < 0.42) continue;
 
     const id = Number(row.id);
     const mesmoFabricante = [...tokensFabricante].some((token) => palavras.has(token));
     const entrouPorNota = Boolean(input.itensComNota?.has(id));
-    const temNcm = Boolean(input.itensComNcm?.has(id));
+    const temNcm = Boolean(input.ncmPorItem?.get(id));
     const reforcos: string[] = [];
     if (mesmoFabricante) reforcos.push("mesmo fabricante");
     if (entrouPorNota) reforcos.push("já entrou por nota fiscal");
     if (temNcm) reforcos.push("já tem NCM cadastrado");
     const total = base + (mesmoFabricante ? 0.08 : 0) + (entrouPorNota ? 0.06 : 0) + (temNcm ? 0.06 : 0);
-    if (!melhor || total > melhor.total) melhor = { row, base, total, compartilhados, reforcos };
+    const pontuado = { row, base, total, compartilhados, reforcos };
+
+    // Duas réguas com finalidades diferentes. A antiga (0,42) segue decidindo o
+    // similar comercial, que leva preço e margem para o cadastro novo — errar
+    // ali custa caro. Para o NCM basta ser do mesmo tipo de produto, porque a
+    // prova não é um item só: é a concordância entre vários.
+    if (base >= 0.42) aprovados.push(pontuado);
+    if (mesmaFuncao || (familia !== null && palavras.has(familia))) doMesmoTipo.push(pontuado);
   }
 
-  if (!melhor) return null;
+  // Consenso: o NCM mais repetido entre os itens do mesmo tipo. Só conta como
+  // prova a partir de dois itens concordando.
+  const porNcm = new Map<string, number>();
+  const vistos = new Set<number>();
+  let comNcm = 0;
+  for (const candidato of [...aprovados, ...doMesmoTipo]) {
+    const id = Number(candidato.row.id);
+    if (vistos.has(id)) continue;
+    vistos.add(id);
+    const ncm = input.ncmPorItem?.get(id);
+    if (!ncm) continue;
+    comNcm += 1;
+    porNcm.set(ncm, (porNcm.get(ncm) ?? 0) + 1);
+  }
+  let consenso: ConsensoNcm | null = null;
+  for (const [ncm, itens] of porNcm) {
+    if (itens >= 2 && (!consenso || itens > consenso.itens)) {
+      consenso = { ncm, itens, candidatos_com_ncm: comNcm };
+    }
+  }
+
+  // Concordar com o NCM do tipo é o que a pessoa quer copiar: vale o maior peso
+  // entre os reforços, ainda sem poder aprovar quem a regra base recusou.
+  if (consenso) {
+    for (const candidato of new Set([...aprovados, ...doMesmoTipo])) {
+      if (input.ncmPorItem?.get(Number(candidato.row.id)) === consenso.ncm) {
+        candidato.total += 0.1;
+        candidato.reforcos.push(`NCM ${consenso.ncm} usado por ${consenso.itens} itens do mesmo tipo`);
+      }
+    }
+  }
+
+  aprovados.sort((a, b) => b.total - a.total);
+  doMesmoTipo.sort((a, b) => b.total - a.total);
+  return { aprovados, doMesmoTipo, consenso };
+}
+
+function similarPontuado(melhor: CandidatoPontuado, consenso: ConsensoNcm | null): SimilarInterno {
   const similaridade = Math.round(melhor.base * 100);
   const reforco = melhor.reforcos.length > 0 ? ` Reforçado por: ${melhor.reforcos.join(", ")}.` : "";
   return {
@@ -1097,19 +1196,61 @@ export function selecionarSimilar(input: {
     preco_unitario: numero(melhor.row.preco_unitario, 0, 999999999),
     margem_lucro_percentual: numero(melhor.row.margem_lucro_percentual, 0, 100),
     similaridade,
-    justificativa: `Item interno no mesmo contexto, com termos em comum: ${melhor.compartilhados.slice(0, 6).join(", ")}. Similaridade ${similaridade}%.${reforco}`,
+    justificativa: `Item interno do mesmo tipo, com termos em comum: ${melhor.compartilhados.slice(0, 6).join(", ")}. Similaridade ${similaridade}%.${reforco}`,
     origem_correspondencia: "descricao",
     nota_fiscal: null,
+    consenso_ncm: consenso,
   };
 }
 
 /**
- * Item interno encontrado pelo código do fabricante em uma nota de entrada.
- *
- * É a correspondência mais forte que o agente consegue: o mesmo código já
- * entrou pela nota, então o NCM e os impostos daquele cadastro são os certos.
+ * Item do mesmo tipo, o NCM em que esses itens concordam e, quando nenhum
+ * candidato é bom o bastante para virar similar comercial, o item que sustenta
+ * esse NCM — porque copiar o NCM é o que a pessoa precisa ao recadastrar.
  */
-export function similarDoCodigoDaNota(row: SimilarRow, nota: NotaFiscalReferencia): SimilarInterno {
+export function selecionarSimilarComConsenso(input: EntradaSelecaoSimilar): {
+  similar: SimilarInterno | null;
+  consenso: ConsensoNcm | null;
+  referenciaNcm: { id: number; codigo_interno: string } | null;
+} {
+  const { aprovados, doMesmoTipo, consenso } = pontuarCandidatos(input);
+  const similar = aprovados[0] ? similarPontuado(aprovados[0], consenso) : null;
+  const sustenta = consenso
+    ? [...aprovados, ...doMesmoTipo].find((c) => input.ncmPorItem?.get(Number(c.row.id)) === consenso.ncm) ?? null
+    : null;
+  return {
+    similar,
+    consenso,
+    referenciaNcm: sustenta
+      ? { id: Number(sustenta.row.id), codigo_interno: String(sustenta.row.codigo_interno ?? "") }
+      : null,
+  };
+}
+
+/** Compatibilidade: só o item do mesmo tipo, sem o consenso de NCM. */
+export function selecionarSimilar(input: EntradaSelecaoSimilar): SimilarInterno | null {
+  return selecionarSimilarComConsenso(input).similar;
+}
+
+/**
+ * Item interno que é o próprio produto: mesmo código já cadastrado em outro
+ * fornecedor, ou mesmo código já recebido por nota de entrada.
+ *
+ * É a correspondência mais forte que o agente consegue — o NCM e os impostos
+ * daquele cadastro são os do produto, não uma aproximação por palavras.
+ */
+export function similarDoMesmoCodigo(
+  row: SimilarRow,
+  input: { origem: OrigemCorrespondenciaSimilar; nota?: NotaFiscalReferencia | null; fornecedorNome?: string | null }
+): SimilarInterno {
+  const nota = input.nota ?? null;
+  const itemNaNota = nota?.codigo_fornecedor ? ` (item ${nota.codigo_fornecedor})` : "";
+  const motivo =
+    input.origem === "codigo_cadastrado"
+      ? `Mesmo código já cadastrado${input.fornecedorNome ? ` no fornecedor ${input.fornecedorNome}` : " em outro fornecedor"}`
+      : nota
+        ? `Mesmo código do fabricante já recebido na ${identificacaoNota(nota)}${itemNaNota}`
+        : "Mesmo código do fabricante já recebido por nota de entrada";
   return {
     id: Number(row.id),
     codigo_interno: String(row.codigo_interno ?? ""),
@@ -1121,10 +1262,16 @@ export function similarDoCodigoDaNota(row: SimilarRow, nota: NotaFiscalReferenci
     preco_unitario: numero(row.preco_unitario, 0, 999999999),
     margem_lucro_percentual: numero(row.margem_lucro_percentual, 0, 100),
     similaridade: 100,
-    justificativa: `Mesmo código do fabricante já recebido na ${identificacaoNota(nota)}${nota.codigo_fornecedor ? ` (item ${nota.codigo_fornecedor})` : ""}`.replace(/\.+$/, "") + ".",
-    origem_correspondencia: "codigo_nota_fiscal",
+    justificativa: `${motivo.replace(/\.+$/, "")}.`,
+    origem_correspondencia: input.origem,
     nota_fiscal: nota,
+    consenso_ncm: null,
   };
+}
+
+/** Compatibilidade com a assinatura anterior, só para a origem de nota. */
+export function similarDoCodigoDaNota(row: SimilarRow, nota: NotaFiscalReferencia): SimilarInterno {
+  return similarDoMesmoCodigo(row, { origem: "codigo_nota_fiscal", nota });
 }
 
 export function sanitizarFiscal(value: unknown): FiscalValores | null {
@@ -1268,6 +1415,13 @@ export function fiscalDeItemENota(input: {
   referenciaItemCodigo?: string | null;
   linhaNota?: unknown;
   nota?: NotaFiscalReferencia | null;
+  /** Concordância de NCM entre os itens do mesmo tipo, quando houver. */
+  consensoNcm?: ConsensoNcm | null;
+  /**
+   * Nenhum candidato chegou a similar comercial: só o NCM do consenso foi
+   * aproveitado. A frase muda para deixar isso explícito na tela.
+   */
+  apenasNcmDoConsenso?: boolean;
 }): FiscalSugerido | null {
   const doItem = sanitizarFiscal(input.fiscalItem);
   const daNota = input.nota ? sanitizarFiscal(input.linhaNota) : null;
@@ -1309,16 +1463,30 @@ export function fiscalDeItemENota(input: {
         : `Dados fiscais copiados do item interno ${itemDescrito ?? "de referência"}`
   );
 
+  // O consenso só é anunciado quando confirma o NCM que está sendo sugerido;
+  // nenhum NCM é inventado a partir dele.
+  const consenso = input.consensoNcm ?? null;
+  const consensoConfirma = Boolean(consenso && fiscal.ncm && consenso.ncm === fiscal.ncm);
+  const resumo =
+    consensoConfirma && consenso && input.apenasNcmDoConsenso
+      ? encerrar(
+          `NCM ${consenso.ncm} copiado da concordância de ${consenso.itens} itens do mesmo tipo${itemDescrito ? `, entre eles ${itemDescrito}` : ""}`
+        )
+      : consensoConfirma && consenso
+        ? `${procedencia} ${consenso.itens} itens do mesmo tipo usam este NCM (${consenso.ncm}).`
+        : procedencia;
+
   return {
     ...fiscal,
     // Sugestão começa nacional; confirmação pode escolher outra origem.
     origem: 0,
     referencia_item_id: input.referenciaItemId,
-    justificativa: `${procedencia} Validar antes da confirmação.`,
+    justificativa: `${resumo} Validar antes da confirmação.`,
     origem_dados: origemDados,
     campos_da_nota: camposDaNota,
     nota_fiscal: notaUsada,
-    procedencia_resumo: procedencia,
+    procedencia_resumo: resumo,
+    consenso_ncm: consensoConfirma ? consenso : null,
   };
 }
 

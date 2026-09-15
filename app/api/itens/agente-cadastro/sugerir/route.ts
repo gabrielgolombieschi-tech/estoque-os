@@ -25,10 +25,13 @@ import {
   parseRespostaJson,
   promptSistemaAgenteCadastro,
   schemaRespostaAgente,
+  sanitizarFiscal,
   sanitizarSugestaoModelo,
-  selecionarSimilar,
-  similarDoCodigoDaNota,
+  selecionarSimilarComConsenso,
+  similarDoMesmoCodigo,
   texto,
+  tokensFortesDescricao,
+  type ConsensoNcm,
   type FiscalSugerido,
   type FonteWeb,
   type FornecedorRow,
@@ -121,8 +124,13 @@ const SELECT_NOTA = "id,numero,serie,data_emissao,emitente_nome,fornecedor_id,de
 
 /** Teto por consulta na nota: o código é seletivo e a rota já espera a IA. */
 const LIMITE_LINHAS_NOTA = 40;
-/** Mesmo teto de candidatos da busca por palavras que já existia. */
-const LIMITE_CANDIDATOS_SIMILAR = 120;
+/**
+ * Teto de candidatos por consulta. O maior grupo da empresa tem 240 itens, e a
+ * média é 9: 240 cobre o grupo inteiro sem risco de cortar o melhor candidato.
+ */
+const LIMITE_CANDIDATOS_SIMILAR = 240;
+/** Teto por palavra na varredura do catálogo, para uma palavra genérica não tomar tudo. */
+const LIMITE_POR_TOKEN = 80;
 
 // Marketplace generico e otimo para item de consumo e pessimo para material
 // eletrico industrial: disjuntor Siemens, borne WAGO ou fonte Phoenix quase nao
@@ -379,38 +387,90 @@ async function carregarFornecedor(input: {
   return (data ?? null) as unknown as FornecedorRow | null;
 }
 
-async function localizarDuplicidade(input: {
+type CadastroExistente = {
+  status: "ativo" | "inativo";
+  item: { id: number; codigo_interno: string; nome: string; ativo: boolean; fornecedor_id: number | null };
+};
+
+function escolherCadastro(rows: ItemDuplicado[], codigo: string): CadastroExistente | null {
+  const ativo = rows.find((row) => row.ativo !== false) ?? null;
+  const item = ativo ?? rows.find((row) => row.ativo === false) ?? null;
+  if (!item) return null;
+  return {
+    status: ativo ? "ativo" : "inativo",
+    item: {
+      id: Number(item.id),
+      codigo_interno: String(item.codigo_interno ?? codigo),
+      nome: String(item.nome ?? ""),
+      ativo: item.ativo !== false,
+      fornecedor_id: item.fornecedor_id == null ? null : Number(item.fornecedor_id),
+    },
+  };
+}
+
+/**
+ * Procura o código já cadastrado, em qualquer fornecedor.
+ *
+ * O bloqueio continua valendo só para o mesmo fornecedor com o mesmo código,
+ * como antes. Em outro fornecedor o cadastro não bloqueia: ele aparece como
+ * aviso, porque a pessoa está recadastrando o catálogo e precisa ver que a
+ * peça já existe — e, de quebra, é a melhor referência fiscal possível.
+ *
+ * A comparação é normalizada (chaveCodigoCatalogo), porque o mesmo código está
+ * na base com e sem separador: "CP1H-EX40DT-D" e "CP1HEX40DTD".
+ */
+async function localizarCadastroExistente(input: {
   supabase: SupabaseClient;
   tenantId: string;
   empresaId: string;
   fornecedorId: number;
   codigo: string;
-}) {
+}): Promise<{ duplicidade: CadastroExistente | null; outroFornecedor: CadastroExistente | null }> {
+  const chave = chaveCodigoCatalogo(input.codigo);
+  const padrao = padraoCodigoNotaFiscal(chave);
+  if (!padrao) return { duplicidade: null, outroFornecedor: null };
+
   const { data, error } = await input.supabase
     .from("itens")
     .select("id,codigo_interno,nome,ativo,fornecedor_id")
     .eq("tenant_id", input.tenantId)
     .eq("empresa_id", input.empresaId)
-    .eq("fornecedor_id", input.fornecedorId)
-    .eq("codigo_interno", input.codigo)
+    .regexIMatch("codigo_interno", padrao)
     .order("ativo", { ascending: false })
-    .limit(10);
+    .limit(20);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as unknown as ItemDuplicado[];
-  const ativo = rows.find((row) => row.ativo !== false) ?? null;
-  const inativo = rows.find((row) => row.ativo === false) ?? null;
-  const item = ativo ?? inativo;
-  return item
-    ? {
-        status: ativo ? ("ativo" as const) : ("inativo" as const),
-        item: {
-          id: Number(item.id),
-          codigo_interno: String(item.codigo_interno ?? input.codigo),
-          nome: String(item.nome ?? ""),
-          ativo: item.ativo !== false,
-        },
-      }
-    : null;
+  const rows = ((data ?? []) as unknown as ItemDuplicado[]).filter(
+    (row) => chaveCodigoCatalogo(row.codigo_interno) === chave
+  );
+
+  return {
+    duplicidade: escolherCadastro(
+      rows.filter((row) => Number(row.fornecedor_id) === input.fornecedorId),
+      input.codigo
+    ),
+    outroFornecedor: escolherCadastro(
+      rows.filter((row) => Number(row.fornecedor_id) !== input.fornecedorId),
+      input.codigo
+    ),
+  };
+}
+
+async function nomeDoFornecedor(input: {
+  supabase: SupabaseClient;
+  tenantId: string;
+  empresaId: string;
+  fornecedorId: number | null;
+}): Promise<string | null> {
+  if (!input.fornecedorId) return null;
+  const { data, error } = await input.supabase
+    .from("fornecedores")
+    .select("nome")
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .eq("id", input.fornecedorId)
+    .maybeSingle();
+  if (error) return null;
+  return texto((data as { nome?: unknown } | null)?.nome, 160);
 }
 
 async function carregarGrupos(input: { supabase: SupabaseClient; tenantId: string; empresaId: string }) {
@@ -484,8 +544,9 @@ async function carregarNotas(input: ContextoBusca & { ids: number[] }): Promise<
   return notas;
 }
 
-async function itensComFiscalNcm(input: ContextoBusca & { ids: number[] }): Promise<Set<number>> {
-  if (input.ids.length === 0) return new Set();
+/** NCM já cadastrado de cada item, para reforçar a escolha e medir o consenso. */
+async function ncmPorItem(input: ContextoBusca & { ids: number[] }): Promise<Map<number, string>> {
+  if (input.ids.length === 0) return new Map();
   const { data, error } = await input.supabase
     .from("fiscal_itens")
     .select("item_id,ncm")
@@ -493,8 +554,17 @@ async function itensComFiscalNcm(input: ContextoBusca & { ids: number[] }): Prom
     .eq("empresa_id", input.empresaId)
     .in("item_id", input.ids)
     .not("ncm", "is", null);
-  if (error) return new Set();
-  return new Set((data ?? []).map((row) => Number((row as { item_id: number }).item_id)));
+  if (error) return new Map();
+  const mapa = new Map<number, string>();
+  for (const row of (data ?? []) as unknown as { item_id: number; ncm: string | null }[]) {
+    const ncm = texto(row.ncm, 12);
+    if (ncm) mapa.set(Number(row.item_id), ncm);
+  }
+  return mapa;
+}
+
+async function itensComFiscalNcm(input: ContextoBusca & { ids: number[] }): Promise<Set<number>> {
+  return new Set((await ncmPorItem(input)).keys());
 }
 
 async function itensJaRecebidosPorNota(input: ContextoBusca & { ids: number[] }): Promise<Set<number>> {
@@ -599,7 +669,54 @@ async function carregarFiscalDoItem(input: ContextoBusca & { itemId: number }): 
   return (data ?? null) as unknown as FiscalDbRow | null;
 }
 
-/** Busca por palavras da descrição, reforçada pelo que já entrou por nota. */
+/** Itens ativos de um grupo — o grupo é a definição de "tipo de produto" do ERP. */
+async function candidatosDoGrupo(input: ContextoBusca & { grupoId: number }): Promise<SimilarDbRow[]> {
+  const { data, error } = await input.supabase
+    .from("itens")
+    .select(SELECT_ITEM_SIMILAR)
+    .eq("tenant_id", input.tenantId)
+    .eq("empresa_id", input.empresaId)
+    .eq("ativo", true)
+    .eq("grupo_id", input.grupoId)
+    .limit(LIMITE_CANDIDATOS_SIMILAR);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as SimilarDbRow[];
+}
+
+/**
+ * Itens do mesmo tipo em TODO o catálogo da empresa, sem restringir fornecedor.
+ *
+ * Uma consulta por palavra forte, em paralelo, cada uma com teto próprio: assim
+ * uma palavra genérica não consome sozinha o orçamento de linhas e o CLP Omron
+ * novo enxerga o CLP Siemens já cadastrado. Trazer o catálogo inteiro seria
+ * possível (são poucos milhares de itens), mas cresce sem limite e não é
+ * necessário — a palavra do tipo do produto já reduz para dezenas.
+ */
+async function candidatosPorTokens(input: ContextoBusca & { tokensFortes: string[] }): Promise<SimilarDbRow[]> {
+  if (input.tokensFortes.length === 0) return [];
+  const buscas = input.tokensFortes.map(async (token) => {
+    const { data, error } = await input.supabase
+      .from("itens")
+      .select(SELECT_ITEM_SIMILAR)
+      .eq("tenant_id", input.tenantId)
+      .eq("empresa_id", input.empresaId)
+      .eq("ativo", true)
+      .ilike("nome", `%${token.replace(/[%_\\]/g, "")}%`)
+      .limit(LIMITE_POR_TOKEN);
+    if (error) return [];
+    return (data ?? []) as unknown as SimilarDbRow[];
+  });
+  return (await Promise.all(buscas)).flat();
+}
+
+/**
+ * Item do mesmo tipo de produto, no catálogo inteiro da empresa.
+ *
+ * O grupo vem primeiro, porque é a classificação que a empresa mantém. Quando
+ * o grupo é novo, ausente, ou nenhum item dele tem NCM, a busca se abre para o
+ * catálogo pelas palavras fortes da descrição — é assim que um CLP de uma marca
+ * copia o NCM de um CLP de outra marca.
+ */
 async function buscarSimilarPorDescricao(
   input: ContextoBusca & {
     fornecedorId: number;
@@ -608,48 +725,63 @@ async function buscarSimilarPorDescricao(
     fabricante: string | null;
     grupoId: number | null;
   }
-): Promise<SimilarInterno | null> {
-  let query = input.supabase
-    .from("itens")
-    .select(SELECT_ITEM_SIMILAR)
-    .eq("tenant_id", input.tenantId)
-    .eq("empresa_id", input.empresaId)
-    .eq("ativo", true)
-    .neq("codigo_interno", input.codigo)
-    .limit(LIMITE_CANDIDATOS_SIMILAR);
-
-  if (input.grupoId) query = query.eq("grupo_id", input.grupoId);
-  else query = query.eq("fornecedor_id", input.fornecedorId);
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  const candidatos = (data ?? []) as unknown as SimilarDbRow[];
-  if (candidatos.length === 0) return null;
-
+): Promise<{
+  similar: SimilarInterno | null;
+  consenso: ConsensoNcm | null;
+  referenciaNcm: { id: number; codigo_interno: string } | null;
+}> {
   const contexto = { supabase: input.supabase, tenantId: input.tenantId, empresaId: input.empresaId };
-  const ids = candidatos.map((row) => Number(row.id));
-  const [itensComNota, itensComNcm] = await Promise.all([
-    itensJaRecebidosPorNota({ ...contexto, ids }),
-    itensComFiscalNcm({ ...contexto, ids }),
-  ]);
+  const chaveCodigo = chaveCodigoCatalogo(input.codigo);
+  const semOProprioItem = (linhas: SimilarDbRow[]) =>
+    linhas.filter((row) => chaveCodigoCatalogo(row.codigo_interno) !== chaveCodigo);
 
-  return selecionarSimilar({
+  const porGrupo = input.grupoId
+    ? semOProprioItem(await candidatosDoGrupo({ ...contexto, grupoId: input.grupoId }))
+    : [];
+  const ncmDoGrupo = await ncmPorItem({ ...contexto, ids: porGrupo.map((row) => Number(row.id)) });
+
+  const candidatosPorId = new Map<number, SimilarDbRow>();
+  for (const row of porGrupo) candidatosPorId.set(Number(row.id), row);
+  const ncms = new Map(ncmDoGrupo);
+
+  // Sem grupo, ou com um grupo que ainda não tem NCM nenhum, vale abrir para o
+  // catálogo: o objetivo é achar de quem copiar o NCM.
+  if (ncmDoGrupo.size === 0) {
+    const porTokens = semOProprioItem(
+      await candidatosPorTokens({ ...contexto, tokensFortes: tokensFortesDescricao(input.descricao, 3) })
+    ).filter((row) => !candidatosPorId.has(Number(row.id)));
+    for (const row of porTokens) candidatosPorId.set(Number(row.id), row);
+    const ncmDosTokens = await ncmPorItem({ ...contexto, ids: porTokens.map((row) => Number(row.id)) });
+    for (const [id, ncm] of ncmDosTokens) ncms.set(id, ncm);
+  }
+
+  const candidatos = [...candidatosPorId.values()];
+  if (candidatos.length === 0) return { similar: null, consenso: null, referenciaNcm: null };
+
+  const itensComNota = await itensJaRecebidosPorNota({ ...contexto, ids: candidatos.map((row) => Number(row.id)) });
+  return selecionarSimilarComConsenso({
     descricao: input.descricao,
     grupoId: input.grupoId,
     fornecedorId: input.fornecedorId,
     candidatos,
     fabricante: input.fabricante,
     itensComNota,
-    itensComNcm,
+    ncmPorItem: ncms,
   });
 }
 
 /**
  * Ordem de escolha:
- * 1. mesmo código do fabricante já recebido por nota de entrada — o fiscal sai
+ * 1. o próprio item já cadastrado com o mesmo código em outro fornecedor — é o
+ *    produto, então o cadastro fiscal dele é o certo;
+ * 2. mesmo código do fabricante já recebido por nota de entrada — o fiscal sai
  *    do item vinculado a essa linha e o que faltar vem da própria nota;
- * 2. sem código igual, o similar por palavras de sempre, agora preferindo quem
- *    já entrou por nota e quem já tem NCM.
+ * 3. sem código igual, um item do mesmo TIPO no catálogo inteiro da empresa
+ *    (qualquer fornecedor), preferindo quem já tem NCM e o NCM em que os itens
+ *    do tipo concordam.
+ *
+ * Em qualquer caminho, a linha de nota encontrada completa o que o cadastro
+ * fiscal do item de referência não tiver.
  */
 async function buscarSimilarEFiscal(input: {
   supabase: SupabaseClient;
@@ -661,6 +793,9 @@ async function buscarSimilarEFiscal(input: {
   fabricante: string | null;
   grupoId: number | null;
   podeFiscal: boolean;
+  /** Item já cadastrado com o mesmo código em outro fornecedor, se houver. */
+  cadastroEmOutroFornecedor: CadastroExistente | null;
+  fornecedorDoCadastro: string | null;
 }): Promise<{ similar: SimilarInterno | null; fiscal: FiscalSugerido | null }> {
   const contexto = { supabase: input.supabase, tenantId: input.tenantId, empresaId: input.empresaId };
   const referenciaNota = await buscarLinhaDeNotaPorCodigo({ ...contexto, codigo: input.codigo });
@@ -669,45 +804,79 @@ async function buscarSimilarEFiscal(input: {
     referenciaNota?.linha.item_id != null
       ? await carregarItemPorId({ ...contexto, itemId: Number(referenciaNota.linha.item_id) })
       : null;
+  const itemJaCadastrado = input.cadastroEmOutroFornecedor
+    ? await carregarItemPorId({ ...contexto, itemId: input.cadastroEmOutroFornecedor.item.id })
+    : null;
 
-  // Só um item ativo vira referência comercial; o cadastro fiscal de um item
-  // inativo continua valendo para o mesmo código e é aproveitado mesmo assim.
-  const similar =
-    referenciaNota && itemDaNota && itemDaNota.ativo !== false
-      ? similarDoCodigoDaNota(itemDaNota, referenciaNota.nota)
-      : await buscarSimilarPorDescricao({
-          ...contexto,
-          fornecedorId: input.fornecedorId,
-          codigo: input.codigo,
-          descricao: input.descricao,
-          fabricante: input.fabricante,
-          grupoId: input.grupoId,
+  // O mesmo código já cadastrado é a referência mais direta; a nota vem logo
+  // atrás. Só um item ativo vira referência comercial, mas o cadastro fiscal de
+  // um item inativo continua valendo para o mesmo código.
+  const itemDoMesmoCodigo = itemJaCadastrado ?? itemDaNota;
+  let similar: SimilarInterno | null = null;
+  let consenso: ConsensoNcm | null = null;
+  let referenciaNcm: { id: number; codigo_interno: string } | null = null;
+
+  if (itemDoMesmoCodigo && itemDoMesmoCodigo.ativo !== false) {
+    similar = itemJaCadastrado
+      ? similarDoMesmoCodigo(itemJaCadastrado, {
+          origem: "codigo_cadastrado",
+          nota: referenciaNota?.nota ?? null,
+          fornecedorNome: input.fornecedorDoCadastro,
+        })
+      : similarDoMesmoCodigo(itemDoMesmoCodigo, {
+          origem: "codigo_nota_fiscal",
+          nota: referenciaNota?.nota ?? null,
         });
+  } else {
+    const porTipo = await buscarSimilarPorDescricao({
+      ...contexto,
+      fornecedorId: input.fornecedorId,
+      codigo: input.codigo,
+      descricao: input.descricao,
+      fabricante: input.fabricante,
+      grupoId: input.grupoId,
+    });
+    similar = porTipo.similar;
+    consenso = porTipo.consenso;
+    referenciaNcm = porTipo.referenciaNcm;
+  }
 
   if (!input.podeFiscal) return { similar, fiscal: null };
 
-  if (referenciaNota) {
-    const fiscalItem = itemDaNota ? await carregarFiscalDoItem({ ...contexto, itemId: Number(itemDaNota.id) }) : null;
+  // Item de referência do fiscal: o do mesmo código quando existe (mesmo
+  // inativo), senão o item do mesmo tipo escolhido pela descrição.
+  const itemFiscal = itemDoMesmoCodigo ?? null;
+  const referenciaItemId = itemFiscal ? Number(itemFiscal.id) : similar?.id ?? null;
+  const referenciaItemCodigo = itemFiscal?.codigo_interno ?? similar?.codigo_interno ?? null;
+  const fiscalItem = referenciaItemId ? await carregarFiscalDoItem({ ...contexto, itemId: referenciaItemId }) : null;
+
+  // Nenhum item virou referência fiscal, mas os itens do mesmo tipo concordam
+  // num NCM: é o que a pessoa precisa ao recadastrar o catálogo. Só o NCM é
+  // aproveitado — alíquotas dependem da operação e não se copiam por tipo.
+  if (!sanitizarFiscal(fiscalItem) && !referenciaNota && consenso && referenciaNcm) {
     return {
       similar,
       fiscal: fiscalDeItemENota({
-        fiscalItem,
-        referenciaItemId: itemDaNota ? Number(itemDaNota.id) : null,
-        referenciaItemCodigo: itemDaNota?.codigo_interno ?? null,
-        linhaNota: fiscalDaLinhaDeNota(referenciaNota.linha),
-        nota: referenciaNota.nota,
+        fiscalItem: { ncm: consenso.ncm },
+        referenciaItemId: referenciaNcm.id,
+        referenciaItemCodigo: referenciaNcm.codigo_interno || null,
+        consensoNcm: consenso,
+        apenasNcmDoConsenso: true,
       }),
     };
   }
 
-  if (!similar) return { similar, fiscal: null };
-  const fiscalItem = await carregarFiscalDoItem({ ...contexto, itemId: similar.id });
+  if (!fiscalItem && !referenciaNota) return { similar, fiscal: null };
+
   return {
     similar,
     fiscal: fiscalDeItemENota({
       fiscalItem,
-      referenciaItemId: similar.id,
-      referenciaItemCodigo: similar.codigo_interno || null,
+      referenciaItemId,
+      referenciaItemCodigo: referenciaItemCodigo || null,
+      linhaNota: referenciaNota ? fiscalDaLinhaDeNota(referenciaNota.linha) : undefined,
+      nota: referenciaNota?.nota ?? null,
+      consensoNcm: consenso,
     }),
   };
 }
@@ -747,13 +916,37 @@ export async function POST(req: NextRequest) {
     if (!fornecedor) return jsonError(422, "Fornecedor inválido para a empresa atual.");
     if (fornecedor.ativo === false) return jsonError(422, "O fornecedor selecionado está inativo.");
 
-    const duplicidade = await localizarDuplicidade({
+    const { duplicidade, outroFornecedor } = await localizarCadastroExistente({
       supabase: auth.supabase,
       tenantId: ctx.tenantId,
       empresaId: ctx.empresaId,
       fornecedorId,
       codigo,
     });
+
+    // O mesmo código em OUTRO fornecedor não bloqueia: a pessoa está
+    // recadastrando o catálogo e precisa ver que a peça já existe para decidir.
+    const fornecedorDoCadastro = await nomeDoFornecedor({
+      supabase: auth.supabase,
+      tenantId: ctx.tenantId,
+      empresaId: ctx.empresaId,
+      fornecedorId: outroFornecedor?.item.fornecedor_id ?? null,
+    });
+    const jaCadastradoEmOutroFornecedor = outroFornecedor
+      ? {
+          id: outroFornecedor.item.id,
+          codigo: outroFornecedor.item.codigo_interno,
+          nome: outroFornecedor.item.nome,
+          ativo: outroFornecedor.item.ativo,
+          status: outroFornecedor.status,
+          fornecedor_id: outroFornecedor.item.fornecedor_id,
+          fornecedor_nome: fornecedorDoCadastro,
+          mensagem: `Esta peça já está cadastrada como ${outroFornecedor.item.codigo_interno}${
+            fornecedorDoCadastro ? ` no fornecedor ${fornecedorDoCadastro}` : " em outro fornecedor"
+          }${outroFornecedor.status === "inativo" ? " (cadastro inativo)" : ""}.`,
+        }
+      : null;
+
     if (duplicidade) {
       return NextResponse.json({
         model: null,
@@ -771,6 +964,7 @@ export async function POST(req: NextRequest) {
               ? "Já existe um item ativo com este fornecedor e código."
               : "Existe um item inativo com este fornecedor e código; revise-o ou reative-o antes de cadastrar outro.",
         },
+        ja_cadastrado_em_outro_fornecedor: jaCadastradoEmOutroFornecedor,
         sugestao: null,
         fontes: [],
         similar_interno: null,
@@ -945,6 +1139,8 @@ export async function POST(req: NextRequest) {
       fabricante: proposta.fabricante_sugerido,
       grupoId: proposta.grupo_id,
       podeFiscal,
+      cadastroEmOutroFornecedor: outroFornecedor,
+      fornecedorDoCadastro,
     });
 
     // Este fluxo inicia todo novo item como matéria-prima; a revisão humana pode alterar depois.
@@ -960,6 +1156,7 @@ export async function POST(req: NextRequest) {
     if (fiscal?.campos_da_nota.includes("cfop_padrao")) {
       dadosPendentes.push("O CFOP padrão foi copiado da nota de entrada (operação do emitente); confira antes de confirmar.");
     }
+    if (jaCadastradoEmOutroFornecedor) dadosPendentes.push(jaCadastradoEmOutroFornecedor.mensagem);
 
     const novoGrupoResposta = proposta.novo_grupo
       ? {
@@ -976,6 +1173,7 @@ export async function POST(req: NextRequest) {
       codigo,
       quantidade_referencia: quantidade,
       duplicidade: null,
+      ja_cadastrado_em_outro_fornecedor: jaCadastradoEmOutroFornecedor,
       sugestao: {
         codigo,
         descricao_padronizada: proposta.descricao_padronizada,

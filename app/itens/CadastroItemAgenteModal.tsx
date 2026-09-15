@@ -65,6 +65,13 @@ export type CadastroItemAgenteNotaFiscal = {
   item_id: number | null;
 };
 
+/** NCM em que os itens do mesmo tipo concordam. */
+export type CadastroItemAgenteConsensoNcm = {
+  ncm: string | null;
+  itens: number | null;
+  candidatos_com_ncm: number | null;
+};
+
 export type CadastroItemAgenteFiscal = {
   ncm: string | null;
   cest: string | null;
@@ -89,6 +96,7 @@ export type CadastroItemAgenteFiscal = {
   campos_da_nota: string[];
   nota_fiscal: CadastroItemAgenteNotaFiscal | null;
   procedencia_resumo: string | null;
+  consenso_ncm: CadastroItemAgenteConsensoNcm | null;
 };
 
 export type CadastroItemAgenteSimilarInterno = {
@@ -97,9 +105,22 @@ export type CadastroItemAgenteSimilarInterno = {
   nome: string | null;
   fornecedor: string | null;
   justificativa: string | null;
-  /** "codigo_nota_fiscal" quando o mesmo código já entrou por nota. */
+  /** "codigo_cadastrado", "codigo_nota_fiscal" ou "descricao". */
   origem_correspondencia: string | null;
   nota_fiscal: CadastroItemAgenteNotaFiscal | null;
+  consenso_ncm: CadastroItemAgenteConsensoNcm | null;
+};
+
+/** Mesmo código já cadastrado em outro fornecedor: avisa, não bloqueia. */
+export type CadastroItemAgenteJaCadastrado = {
+  id: number | null;
+  codigo: string | null;
+  nome: string | null;
+  ativo: boolean | null;
+  status: string | null;
+  fornecedor_id: number | null;
+  fornecedor_nome: string | null;
+  mensagem: string | null;
 };
 
 export type CadastroItemAgenteSugestao = {
@@ -134,6 +155,7 @@ export type CadastroItemAgenteSugestaoResposta = {
   model: string | null;
   fornecedor: CadastroItemAgenteFornecedor | null;
   duplicidade: CadastroItemAgenteDuplicidade | null;
+  ja_cadastrado_em_outro_fornecedor: CadastroItemAgenteJaCadastrado | null;
   cotacao_token: string | null;
   sugestao: CadastroItemAgenteSugestao | null;
   similar_interno: CadastroItemAgenteSimilarInterno | null;
@@ -278,6 +300,30 @@ function decodeNotaFiscal(value: unknown): CadastroItemAgenteNotaFiscal | null {
   };
 }
 
+function decodeConsensoNcm(value: unknown): CadastroItemAgenteConsensoNcm | null {
+  if (!isRecord(value)) return null;
+  const ncm = text(value.ncm);
+  if (!ncm) return null;
+  return { ncm, itens: integerOrNull(value.itens), candidatos_com_ncm: integerOrNull(value.candidatos_com_ncm) };
+}
+
+function decodeJaCadastrado(value: unknown): CadastroItemAgenteJaCadastrado | null {
+  if (!isRecord(value)) return null;
+  const id = integerOrNull(value.id);
+  const codigo = text(value.codigo);
+  if (!id && !codigo) return null;
+  return {
+    id,
+    codigo,
+    nome: text(value.nome),
+    ativo: typeof value.ativo === "boolean" ? value.ativo : null,
+    status: text(value.status),
+    fornecedor_id: integerOrNull(value.fornecedor_id),
+    fornecedor_nome: text(value.fornecedor_nome),
+    mensagem: text(value.mensagem),
+  };
+}
+
 function decodeFiscal(value: unknown): CadastroItemAgenteFiscal | null {
   if (!isRecord(value)) return null;
   return {
@@ -302,6 +348,7 @@ function decodeFiscal(value: unknown): CadastroItemAgenteFiscal | null {
     campos_da_nota: strings(value.campos_da_nota),
     nota_fiscal: decodeNotaFiscal(value.nota_fiscal),
     procedencia_resumo: text(value.procedencia_resumo),
+    consenso_ncm: decodeConsensoNcm(value.consenso_ncm),
   };
 }
 
@@ -360,6 +407,7 @@ function decodeSimilar(value: unknown): CadastroItemAgenteSimilarInterno | null 
     justificativa: text(value.justificativa, text(value.motivo)),
     origem_correspondencia: text(value.origem_correspondencia),
     nota_fiscal: decodeNotaFiscal(value.nota_fiscal),
+    consenso_ncm: decodeConsensoNcm(value.consenso_ncm),
   };
 }
 
@@ -394,6 +442,7 @@ export function decodeCadastroItemAgenteSugestaoResposta(value: unknown): Cadast
     model: text(raw.model),
     fornecedor: decodeFornecedor(raw.fornecedor),
     duplicidade: decodeDuplicidade(raw.duplicidade),
+    ja_cadastrado_em_outro_fornecedor: decodeJaCadastrado(raw.ja_cadastrado_em_outro_fornecedor),
     cotacao_token: text(raw.cotacao_token),
     sugestao: decodeSugestao(raw.sugestao),
     similar_interno: decodeSimilar(raw.similar_interno),
@@ -515,9 +564,35 @@ function fiscalInicial(value: CadastroItemAgenteFiscal | null): CadastroItemAgen
     campos_da_nota: [],
     nota_fiscal: null,
     procedencia_resumo: null,
+    consenso_ncm: null,
     ...(value ?? {}),
     origem: value?.origem ?? 0,
   };
+}
+
+/**
+ * A peça já existe no catálogo, só que em outro fornecedor. Não bloqueia o
+ * cadastro — quem está recadastrando decide se é a mesma peça.
+ */
+function AvisoJaCadastrado({ aviso }: { aviso: CadastroItemAgenteJaCadastrado }) {
+  return (
+    <div
+      data-testid="ja-cadastrado-outro-fornecedor"
+      className="rounded-lg border border-sky-500/45 bg-sky-500/10 px-4 py-3 text-sm text-sky-100"
+    >
+      <div className="font-medium">Esta peça já está cadastrada em outro fornecedor.</div>
+      <div className="mt-1 text-sky-100/90">
+        {aviso.mensagem ??
+          [aviso.codigo, aviso.nome, aviso.fornecedor_nome].filter(Boolean).join(" — ")}
+      </div>
+      <div className="mt-1 text-xs text-sky-200/90">
+        {[aviso.id ? `Item #${aviso.id}` : null, aviso.nome, aviso.ativo === false ? "cadastro inativo" : null]
+          .filter(Boolean)
+          .join(" — ")}
+        . Confirme apenas se for mesmo um cadastro novo para este fornecedor.
+      </div>
+    </div>
+  );
 }
 
 export default function CadastroItemAgenteModal({
@@ -537,6 +612,7 @@ export default function CadastroItemAgenteModal({
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [aceitarNovoGrupo, setAceitarNovoGrupo] = useState(false);
   const [duplicidade, setDuplicidade] = useState<CadastroItemAgenteDuplicidade | null>(null);
+  const [jaCadastrado, setJaCadastrado] = useState<CadastroItemAgenteJaCadastrado | null>(null);
   const [busy, setBusy] = useState<"sugerir" | "confirmar" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<CadastroItemAgenteItemCriado | null>(null);
@@ -566,6 +642,7 @@ export default function CadastroItemAgenteModal({
     setRascunho(null);
     setAceitarNovoGrupo(false);
     setDuplicidade(null);
+    setJaCadastrado(null);
     setBusy(null);
     setErro(null);
     setSucesso(null);
@@ -602,6 +679,7 @@ export default function CadastroItemAgenteModal({
     event.preventDefault();
     setErro(null);
     setDuplicidade(null);
+    setJaCadastrado(null);
     const fornecedor = Number(fornecedorId);
     const codigoNormalizado = normalizarCodigo(codigo);
     if (!Number.isInteger(fornecedor) || fornecedor <= 0) {
@@ -634,6 +712,9 @@ export default function CadastroItemAgenteModal({
 
       const resultado = decodeCadastroItemAgenteSugestaoResposta(payload);
       if (resultado.error) throw new Error(resultado.error);
+      // O mesmo código em outro fornecedor não impede o cadastro: fica como
+      // aviso na revisão, porque quem recadastra o catálogo precisa decidir.
+      setJaCadastrado(resultado.ja_cadastrado_em_outro_fornecedor);
       if (resultado.duplicidade) {
         setDuplicidade(resultado.duplicidade);
         return;
@@ -888,6 +969,8 @@ export default function CadastroItemAgenteModal({
               </div>
             )}
 
+            {!duplicidade && jaCadastrado && <AvisoJaCadastrado aviso={jaCadastrado} />}
+
             {erro && <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{erro}</div>}
 
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-zinc-800 pt-4">
@@ -913,6 +996,8 @@ export default function CadastroItemAgenteModal({
                 Confiança {sugestao.confianca}
               </span>
             </div>
+
+            {jaCadastrado && <AvisoJaCadastrado aviso={jaCadastrado} />}
 
             <section className="rounded-lg border border-zinc-800 bg-zinc-900/20 p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -1024,9 +1109,15 @@ export default function CadastroItemAgenteModal({
               {(fiscal?.procedencia_resumo || notaFiscalOrigem) && (
                 <div
                   data-testid="fiscal-procedencia"
-                  className={`mt-3 rounded-md border px-3 py-2 text-xs ${notaFiscalOrigem ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-100" : "border-zinc-700 bg-zinc-900/40 text-zinc-300"}`}
+                  className={`mt-3 rounded-md border px-3 py-2 text-xs ${notaFiscalOrigem || fiscal?.consenso_ncm ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-100" : "border-zinc-700 bg-zinc-900/40 text-zinc-300"}`}
                 >
                   <p className="font-medium">{fiscal?.procedencia_resumo ?? "Dados fiscais sugeridos a partir do histórico interno."}</p>
+                  {fiscal?.consenso_ncm?.ncm && !notaFiscalOrigem && (
+                    <p className="mt-1.5 text-[11px] text-emerald-100/85">
+                      <span className="text-emerald-200/70">Concordância:</span> {fiscal.consenso_ncm.itens ?? 0} itens do mesmo tipo usam o NCM {fiscal.consenso_ncm.ncm}
+                      {rascunho.similarInterno?.codigo ? `, entre eles ${rascunho.similarInterno.codigo}` : ""}.
+                    </p>
+                  )}
                   {notaFiscalOrigem && (
                     <ul className="mt-1.5 space-y-0.5 text-[11px] text-emerald-100/85">
                       <li>
