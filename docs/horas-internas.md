@@ -110,5 +110,16 @@ depois, quando ele existir; a hora não fica presa a isso.
   diz "Aprovação automática".
 - **Cancelar e restaurar** funcionam como na hora em OS (o arquivo de cancelamentos aceita
   hora sem OS). O aviso diz "em Treinamento" e abre o Histórico, nunca "na OS " vazia.
-- **Quem corrige.** Como nasce aprovada, só a coordenação para cima edita ou cancela hora
-  interna; a própria pessoa não. É a regra da hora em OS depois de aprovada.
+- **Quem corrige** (decidido com o Gabriel em 15/09/2026, migration
+  `20260915110000_hora_interna_corrigida_pela_propria_pessoa.sql`). A hora interna nasce
+  aprovada, então a regra da hora em OS ("depois de aprovada, só a gestão") não serve:
+  - a **própria pessoa** edita as horas e cancela as suas;
+  - **quem lançou** para outra pessoa, como a coordenação lançando para a equipe, edita e
+    cancela o que lançou, com motivo. A conta do tablet não conta como quem lançou;
+  - **diretoria e administração**, qualquer uma;
+  - a coordenação **não** corrige hora interna que não lançou.
+
+  Isso vale no aplicativo (Histórico: a linha da hora interna abre editar e cancelar) e na
+  web. Não depende da permissão geral de editar apontamentos, que a coordenação, o
+  apontador e o técnico não têm. Na hora interna a descrição é opcional e o tipo de hora
+  fica o da classificação. Hora em OS não mudou.

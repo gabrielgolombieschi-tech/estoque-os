@@ -1387,6 +1387,16 @@ begin
      or v.status <> 'aprovado' or v.pode_ver_autoria or v.autor_nome is not null then
     raise exception 'historico da ANA, Comercial digitado: %', row_to_json(v);
   end if;
+  -- A hora e dela: o Historico deixa corrigir (pode_alterar), e para isso entrega a descricao
+  -- gravada na hora (descricao_hora), porque "descricao" mostra o orcamento.
+  if not coalesce(v.pode_alterar, false) then
+    raise exception 'historico da ANA: a propria hora interna veio sem pode_alterar: %', row_to_json(v);
+  end if;
+  reset role;
+  if v.descricao_hora is distinct from (select h.descricao from public.apontamentos_horas as h where h.id = pg_temp.ap('AP_COMERCIAL_DIGITADO')) then
+    raise exception 'historico da ANA: descricao_hora nao e a descricao gravada: %', row_to_json(v);
+  end if;
+  set local role authenticated;
   select * into v from public.app_historico_lancamentos('horas', v_de, v_hoje, null, null, 100, null) as h
   where h.origem_id = pg_temp.ap('AP_EXAMES_ANA')::text;
   if not found or v.atividade_nome <> 'Exames' or v.cliente_nome is not null or v.descricao is distinct from 'exame periódico' then
@@ -1413,7 +1423,8 @@ begin
   select * into v from public.app_historico_lancamentos('horas', v_de, v_hoje, null, null, 100, null) as h
   where h.origem_id = pg_temp.ap('AP_TABLET')::text;
   if not found or v.atividade_nome <> 'Treinamento' or v.autor_nome <> 'BRUNO' or v.os_id is not null or not v.pode_ver_autoria
-     or v.descricao is not null or v.cliente_nome is not null or v.aprovado_por_nome is distinct from 'Aprovação automática' then
+     or v.descricao is not null or v.cliente_nome is not null or v.aprovado_por_nome is distinct from 'Aprovação automática'
+     or not coalesce(v.pode_alterar, false) or v.descricao_hora is not null then
     raise exception 'historico da gestao, hora do tablet: %', row_to_json(v);
   end if;
   select * into v from public.app_historico_lancamentos('horas', v_de, v_hoje, null, null, 100, null) as h
@@ -1604,64 +1615,136 @@ select pg_temp.sistema();
 -- =====================================================================================
 -- 10. Editar e cancelar hora interna.
 -- =====================================================================================
+-- Quem corrige hora interna (20260915110000, decidido com o Gabriel em 15/09/2026): a propria
+-- pessoa; quem lancou para outra pessoa (a coordenacao lancando para a equipe; a conta do
+-- tablet nao conta); diretoria e administracao. A coordenacao NAO corrige a que nao lancou.
 do $pode_alterar$
 declare
-  v_id uuid := pg_temp.ap('AP_EXAMES_ANA');
+  t constant uuid := '1d000000-0000-4000-8000-000000000010';
+  e constant uuid := '1d000000-0000-4000-8000-000000000020';
+  v_exames_ana uuid := pg_temp.ap('AP_EXAMES_ANA');                   -- a ANA lancou para si
+  v_comercial_ana uuid := pg_temp.ap('AP_COMERCIAL_OUTRO_ORCAMENTO');  -- a coordenacao lancou para a ANA
+  v_treinamento_pedro uuid := pg_temp.ap('AP_TREINAMENTO_PEDRO');     -- o tecnico PEDRO lancou para si
+  v_tablet uuid := pg_temp.ap('AP_TABLET');                           -- gravada pela conta do tablet
 begin
-  -- Nasce aprovada e nao tem responsavel de OS: so a gestao altera, nem a propria pessoa.
-  if public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000004', v_id) then
-    raise exception 'a propria ANA pode alterar a hora interna ja aprovada';
+  if not exists (select 1 from public.apontamentos_horas where id in (v_exames_ana, v_comercial_ana, v_treinamento_pedro, v_tablet) having count(*) = 4) then
+    raise exception 'alguma hora do bloco 10 sumiu antes da conferencia';
   end if;
-  if public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000003', v_id)
-     or public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000008', v_id)
-     or public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000006', v_id) then
-    raise exception 'TECNICO, FATURAMENTO ou PAINEL_TV podem alterar hora interna de outra pessoa';
+  -- A propria pessoa.
+  if not public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000004', v_exames_ana)
+     or not public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000004', v_comercial_ana)
+     or not public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000003', v_treinamento_pedro) then
+    raise exception 'a propria pessoa (ANA, PEDRO) devia poder corrigir a sua hora interna';
   end if;
-  if not public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000002', v_id)
-     or not public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000005', v_id)
-     or not public.fn_usuario_pode_alterar_apontamento('1d000000-0000-4000-8000-000000000010', '1d000000-0000-4000-8000-000000000020', '1d000000-0000-4000-8000-000000000007', v_id) then
-    raise exception 'COORDENACAO, DIRETOR e ADMIN deviam poder alterar hora interna';
+  -- Quem lancou: a coordenacao corrige a que lancou para a ANA, e so essa.
+  if not public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000002', v_comercial_ana) then
+    raise exception 'a coordenacao devia poder corrigir a hora interna que lancou para a ANA';
+  end if;
+  if public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000002', v_exames_ana)
+     or public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000002', v_treinamento_pedro) then
+    raise exception 'a coordenacao corrige hora interna que nao lancou';
+  end if;
+  -- Ninguem mais: tecnico na hora alheia, faturamento, televisao, a ANA na hora do PEDRO.
+  if public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000003', v_exames_ana)
+     or public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000008', v_exames_ana)
+     or public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000006', v_exames_ana)
+     or public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000004', v_treinamento_pedro) then
+    raise exception 'TECNICO, FATURAMENTO, PAINEL_TV ou outra pessoa corrigem hora interna alheia';
+  end if;
+  -- Diretoria e administracao, qualquer uma.
+  if not public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000005', v_exames_ana)
+     or not public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000007', v_treinamento_pedro) then
+    raise exception 'DIRETOR e ADMIN deviam poder corrigir qualquer hora interna';
+  end if;
+  -- No tablet quem grava e a conta do aparelho: ela nao vira "quem lancou".
+  if public.fn_usuario_pode_alterar_apontamento(t, e, '1d000000-0000-4000-8000-000000000001', v_tablet) then
+    raise exception 'a conta do tablet corrige a hora gravada no tablet';
   end if;
 end $pode_alterar$;
 
+-- A propria ANA (APONTADOR, sem a permissao geral de editar apontamentos) corrige a sua.
 select pg_temp.como('1d000000-0000-4000-8000-000000000004');
 set local role authenticated;
 do $ana_edita$
+declare
+  r jsonb;
+  v_antes public.apontamentos_horas;
+  v public.apontamentos_horas;
 begin
-  begin
-    perform public.app_editar_apontamento(pg_temp.ap('AP_EXAMES_ANA'), 2, '1d000000-0000-4000-8000-000000000301', 'exame periódico anual', true, null);
-    raise exception 'a ANA editou a propria hora interna aprovada';
-  exception when others then
-    if sqlerrm <> 'Seu perfil não possui permissão para editar apontamentos.' then raise; end if;
-  end;
+  reset role;
+  select * into v_antes from public.apontamentos_horas where id = pg_temp.ap('AP_EXAMES_ANA');
+  set local role authenticated;
+  -- Sem tipo de hora (fica o da classificacao) e sem motivo: a hora e dela.
+  r := public.app_editar_apontamento(pg_temp.ap('AP_EXAMES_ANA'), 2, null, 'exame periódico anual', true, null);
+  if not pg_temp.ok(r) then raise exception 'a ANA corrigindo a propria hora interna: %', r; end if;
+  reset role;
+  select * into v from public.apontamentos_horas where id = pg_temp.ap('AP_EXAMES_ANA');
+  if v.horas <> 2 or v.tipo_hora_id is distinct from v_antes.tipo_hora_id or v.descricao is distinct from 'exame periódico anual'
+     or v.status_aprovacao <> 'aprovado' or v.aprovado_por is not null or v.aprovado_automaticamente_em is null then
+    raise exception 'hora interna corrigida pela ANA: antes %, depois %', to_jsonb(v_antes), to_jsonb(v);
+  end if;
+  set local role authenticated;
+  -- Na hora interna a descricao e opcional, como no lancamento.
+  r := public.app_editar_apontamento(pg_temp.ap('AP_EXAMES_ANA'), 2, null, null, true, null);
+  if not pg_temp.ok(r) then raise exception 'hora interna corrigida sem descricao: %', r; end if;
+  -- A do PEDRO nao e dela e ela nao lancou.
+  r := public.app_editar_apontamento(pg_temp.ap('AP_TREINAMENTO_PEDRO'), 2, null, null, true, 'ajuste qualquer');
+  if pg_temp.ok(r) or r->'erros'->0->>'tipo' is distinct from 'permissao'
+     or r->'erros'->0->>'mensagem' is distinct from 'Hora interna só pode ser alterada pela própria pessoa, por quem a lançou, pela diretoria ou pela administração.' then
+    raise exception 'a ANA corrigindo a hora interna do PEDRO: %', r;
+  end if;
 end $ana_edita$;
 reset role;
 select pg_temp.sistema();
 
--- Coordenacao editando a hora interna de outra pessoa.
+-- Coordenacao (papel de tenant GESTOR, sem a permissao geral de editar apontamentos):
+-- corrige a hora interna que lancou para a ANA, com motivo; a do PEDRO, que nao lancou, nao.
 select pg_temp.como('1d000000-0000-4000-8000-000000000002');
 set local role authenticated;
 do $editar_coordenacao$
 declare
-  v_tipo uuid;
+  r jsonb;
+  v public.apontamentos_horas;
+  v_id uuid := pg_temp.ap('AP_COMERCIAL_OUTRO_ORCAMENTO');
 begin
+  -- Hora de outra pessoa pede motivo.
+  r := public.app_editar_apontamento(v_id, 1.25, null, null, true, null);
+  if pg_temp.ok(r) or r->'erros'->0->>'tipo' is distinct from 'motivo' then
+    raise exception 'coordenacao sem motivo na hora da ANA: %', r;
+  end if;
+  r := public.app_editar_apontamento(v_id, 1.25, null, null, true, 'conferido com a Ana');
+  if not pg_temp.ok(r) then raise exception 'coordenacao corrigindo a hora interna que lancou para a ANA: %', r; end if;
   reset role;
-  select h.tipo_hora_id into v_tipo from public.apontamentos_horas as h where h.id = pg_temp.ap('AP_TREINAMENTO_PEDRO');
+  select * into v from public.apontamentos_horas where id = v_id;
+  if v.horas <> 1.25 or v.status_aprovacao <> 'aprovado' or v.aprovado_por is not null
+     or v.cliente_nome is distinct from 'PADARIA NOVA' or v.orcamento_descricao is distinct from 'painel da linha 4' then
+    raise exception 'hora interna corrigida pela coordenacao: %', to_jsonb(v);
+  end if;
+  -- A trilha guarda quem corrigiu e por que. (O aviso para a pessoa tem o texto conferido no
+  -- bloco da diretoria, com o PEDRO: a ANA do fixture nao tem empresa_memberships e nao
+  -- recebe notificacao nenhuma.)
+  if not exists (
+    select 1 from public.apontamentos_horas_edicoes as ed
+    where ed.apontamento_id = v_id and ed.os_id is null and ed.horas_depois = 1.25
+      and ed.motivo = 'conferido com a Ana' and ed.editado_por_user_id = '1d000000-0000-4000-8000-000000000002'
+  ) then
+    raise exception 'a trilha da correcao pela coordenacao nao gravou';
+  end if;
   set local role authenticated;
-  -- >>> CENARIO QUE FALHA HOJE (reportado em 14/09/2026): fn_usuario_pode_alterar_apontamento
-  -- >>> diz que a coordenacao pode, mas app_editar_apontamento (e web_atualizar_apontamento_horas)
-  -- >>> pergunta antes can('apontamentos', 'write'), que e falso para COORDENACAO com papel de
-  -- >>> tenant GESTOR. Este trecho confere o que o banco faz HOJE; quando a coordenacao passar a
-  -- >>> editar, ele quebra: troque pela edicao comentada abaixo e confira a notificacao como no
-  -- >>> bloco da gestao logo depois (com "Coordenacao alterou ...").
+  -- Pela web tambem.
+  r := public.web_atualizar_apontamento_horas(v_id, jsonb_build_object('horas', 1.5));
+  if not pg_temp.ok(r) then raise exception 'coordenacao corrigindo pela web a hora interna que lancou: %', r; end if;
+  -- A do PEDRO ela nao lancou: recusada no aplicativo e na web.
+  r := public.app_editar_apontamento(pg_temp.ap('AP_TREINAMENTO_PEDRO'), 3.25, null, 'curso de NR10 da turma', true, 'conferido com o Pedro');
+  if pg_temp.ok(r) or r->'erros'->0->>'tipo' is distinct from 'permissao' then
+    raise exception 'coordenacao corrigindo hora interna que nao lancou: %', r;
+  end if;
   begin
-    perform public.app_editar_apontamento(pg_temp.ap('AP_TREINAMENTO_PEDRO'), 3.25, v_tipo, 'curso de NR10 da turma', true, 'conferido com o Pedro');
-    raise exception 'a coordenacao editou a hora interna do PEDRO: a trava de can() saiu, troque este trecho pela edicao comentada abaixo';
+    perform public.web_atualizar_apontamento_horas(pg_temp.ap('AP_TREINAMENTO_PEDRO'), jsonb_build_object('horas', 3.25));
+    raise exception 'coordenacao corrigiu pela web hora interna que nao lancou';
   exception when others then
-    if sqlerrm <> 'Seu perfil não possui permissão para editar apontamentos.' then raise; end if;
+    if sqlerrm <> 'Hora interna só pode ser alterada pela própria pessoa, por quem a lançou, pela diretoria ou pela administração.' then raise; end if;
   end;
-  -- r := public.app_editar_apontamento(pg_temp.ap('AP_TREINAMENTO_PEDRO'), 3.25, v_tipo, 'curso de NR10 da turma', true, 'conferido com o Pedro');
-  -- if not pg_temp.ok(r) then raise exception 'coordenacao editando hora interna: %', r; end if;
 end $editar_coordenacao$;
 reset role;
 select pg_temp.sistema();
@@ -1786,16 +1869,27 @@ end $cancelar$;
 reset role;
 select pg_temp.sistema();
 
--- A propria ANA nao cancela a hora interna: ja nasce aprovada, e depois disso so a gestao.
+-- A propria ANA cancela a sua hora interna (esta foi lancada para ela pela coordenacao); a do
+-- PEDRO, nao.
 select pg_temp.como('1d000000-0000-4000-8000-000000000004');
 set local role authenticated;
 do $ana_cancela$
 declare r jsonb;
 begin
-  r := public.app_cancelar_apontamento(pg_temp.ap('AP_EXAMES_ANA'), 'lançado errado');
-  if pg_temp.ok(r) or r->'erros'->0->>'tipo' is distinct from 'permissao' then
+  r := public.app_cancelar_apontamento(pg_temp.ap('AP_COMERCIAL_OUTRO_CLIENTE'), 'lançado errado');
+  if not pg_temp.ok(r) or (r->>'gravados')::integer <> 1 then
     raise exception 'a ANA cancelando a propria hora interna: %', r;
   end if;
+  r := public.app_cancelar_apontamento(pg_temp.ap('AP_TREINAMENTO_PEDRO'), 'lançado errado');
+  if pg_temp.ok(r) or r->'erros'->0->>'tipo' is distinct from 'permissao'
+     or r->'erros'->0->>'mensagem' is distinct from 'Hora interna só pode ser cancelada pela própria pessoa, por quem a lançou, pela diretoria ou pela administração.' then
+    raise exception 'a ANA cancelando a hora interna do PEDRO: %', r;
+  end if;
+  reset role;
+  if exists (select 1 from public.apontamentos_horas where id = pg_temp.ap('AP_COMERCIAL_OUTRO_CLIENTE')) then
+    raise exception 'a hora interna cancelada pela ANA continua na tabela';
+  end if;
+  set local role authenticated;
 end $ana_cancela$;
 reset role;
 select pg_temp.sistema();
