@@ -1849,16 +1849,12 @@ begin
      or v_cancelamento.dados_apontamento->>'orcamento_descricao' is distinct from 'painel da linha 4' then
     raise exception 'arquivo do cancelamento da hora interna: %', to_jsonb(v_cancelamento);
   end if;
-  -- Quem lancou (a coordenacao, para a ANA) e avisado falando da atividade, nao de OS.
-  if not coalesce((r->>'notificacao_enviada')::boolean, false) then
-    raise exception 'o cancelamento da hora interna nao avisou quem lancou: %', r;
-  end if;
-  select * into v_notificacao from public.app_notificacoes as n
-  where n.usuario_id = '1d000000-0000-4000-8000-000000000002' and n.tipo = 'hora_cancelada' and n.dados->>'apontamento_id' = v_id::text;
-  if not found or v_notificacao.corpo like '%na OS%'
-     or v_notificacao.corpo not like '% em Comercial foram canceladas por Coordenacao. Motivo: lançado em duplicidade'
-     or v_notificacao.dados->>'url' is distinct from '/(tabs)/historico' then
-    raise exception 'notificacao do cancelamento da hora interna: % %', v_notificacao.corpo, v_notificacao.dados;
+  -- Quem cancelou nao recebe o proprio aviso (20260915130000): a coordenacao lancou e
+  -- cancelou, entao o aviso e so da ANA, que no fixture nao tem empresa_memberships.
+  if exists (select 1 from public.app_notificacoes as n
+             where n.usuario_id = '1d000000-0000-4000-8000-000000000002' and n.tipo = 'hora_cancelada'
+               and n.dados->>'apontamento_id' = v_id::text) then
+    raise exception 'a coordenacao recebeu o aviso do cancelamento que ela mesma fez';
   end if;
   set local role authenticated;
 
@@ -1874,12 +1870,28 @@ select pg_temp.sistema();
 select pg_temp.como('1d000000-0000-4000-8000-000000000004');
 set local role authenticated;
 do $ana_cancela$
-declare r jsonb;
+declare
+  r jsonb;
+  v_notificacao public.app_notificacoes;
 begin
   r := public.app_cancelar_apontamento(pg_temp.ap('AP_COMERCIAL_OUTRO_CLIENTE'), 'lançado errado');
   if not pg_temp.ok(r) or (r->>'gravados')::integer <> 1 then
     raise exception 'a ANA cancelando a propria hora interna: %', r;
   end if;
+  -- Quem lancou para ela (a coordenacao) e avisado, falando da atividade e abrindo o Historico.
+  if not coalesce((r->>'notificacao_enviada')::boolean, false) then
+    raise exception 'o cancelamento pela ANA nao avisou quem lancou: %', r;
+  end if;
+  reset role;
+  select * into v_notificacao from public.app_notificacoes as n
+  where n.usuario_id = '1d000000-0000-4000-8000-000000000002' and n.tipo = 'hora_cancelada'
+    and n.dados->>'apontamento_id' = pg_temp.ap('AP_COMERCIAL_OUTRO_CLIENTE')::text;
+  if not found or v_notificacao.corpo like '%na OS%'
+     or v_notificacao.corpo not like '% em Comercial foram canceladas por Pessoa Ana. Motivo: lançado errado'
+     or v_notificacao.dados->>'url' is distinct from '/(tabs)/historico' then
+    raise exception 'notificacao do cancelamento pela ANA: % %', v_notificacao.corpo, v_notificacao.dados;
+  end if;
+  set local role authenticated;
   r := public.app_cancelar_apontamento(pg_temp.ap('AP_TREINAMENTO_PEDRO'), 'lançado errado');
   if pg_temp.ok(r) or r->'erros'->0->>'tipo' is distinct from 'permissao'
      or r->'erros'->0->>'mensagem' is distinct from 'Hora interna só pode ser cancelada pela própria pessoa, por quem a lançou, pela diretoria ou pela administração.' then
