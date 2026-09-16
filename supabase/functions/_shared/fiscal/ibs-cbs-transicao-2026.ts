@@ -26,8 +26,8 @@ export type RegraIbsCbsTransicao2026 = {
 /**
  * CST 410 (imunidade e nao incidencia) nao leva o grupo de base e valores (gIBSCBS): o
  * item sai so com CST e cClassTrib, como as remessas 5901 e retornos 6916 de terceiros em
- * 2026. As aliquotas continuam no payload, zeradas, porque os portoes de producao conferem
- * as tres contra o perfil.
+ * 2026. Nem aliquota zerada pode ir: a Focus monta o gIBSCBS com ela e a SEFAZ recusa
+ * (cStat 1021 na homologacao da remessa SICK, 16/09/2026).
  */
 export function ibsCbsSemGrupoDeValores(regra: RegraIbsCbsTransicao2026) {
   return regra.cst === "410";

@@ -722,13 +722,10 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ...(aliquotaCofins !== null ? { cofins_base_calculo: basePisCofins, cofins_aliquota_porcentual: aliquotaCofins, cofins_valor: cofinsValor } : {}),
       ibs_cbs_situacao_tributaria: cstIbsCbs,
       ibs_cbs_classificacao_tributaria: cclassTrib,
-      // CST 410 (remessa): sem base e valores, so CST, cClassTrib e as aliquotas zeradas
-      // que os portoes de producao conferem contra o perfil.
-      ...(ibsCbsSemGrupoDeValores(regraIbsCbs) ? {
-        ibs_uf_aliquota: aliquotaIbsUf,
-        ibs_mun_aliquota: aliquotaIbsMun,
-        cbs_aliquota: aliquotaCbs,
-      } : {
+      // CST 410 (remessa): so CST e cClassTrib. Qualquer aliquota, mesmo zerada, faz a Focus
+      // montar o gIBSCBS e a SEFAZ recusa (cStat 1021, homologacao da remessa SICK em
+      // 16/09/2026). Os portoes de producao conferem CST e cClassTrib nesse caso.
+      ...(ibsCbsSemGrupoDeValores(regraIbsCbs) ? {} : {
         ibs_cbs_base_calculo: baseIbsCbs,
         ibs_uf_aliquota: aliquotaIbsUf,
         ibs_uf_valor: ibsUfValor,
