@@ -74,8 +74,13 @@ const AMARELO = "#EFC15E";
 const VERMELHO = "#F87171"; // texto de alerta
 const VERMELHO_BORDA = "#EF4444";
 const VERMELHO_FUNDO = "#3B1B1B";
-// Ausencia (folga, ferias, outro) e azul: nao e falta, e dia que saiu da conta.
+// Ausencia planejada (folga, ferias, outro) e azul: nao e falta, e dia que saiu
+// da conta.
 const AZUL = "#4F8FD1";
+// Falta COM atestado e violeta. Ela tambem sai da cobranca, mas nao e folga:
+// misturar as duas no azul apagaria a diferenca que a coordenacao precisa ver
+// da parede.
+const VIOLETA = "#A78BFA";
 
 // Cor do circulo de iniciais: deterministica pelo id, para o mesmo colaborador
 // manter a cor entre recargas e entre os tres layouts.
@@ -90,10 +95,86 @@ const PALETA_INICIAIS = [
   "#4ADE80",
 ];
 
-const ROTULO_AUSENCIA: Record<string, string> = {
+// As categorias de ausencia que moram em public.tarefas.categoria. As duas
+// faltas entraram em 16/09/2026: 'falta_justificada' e a que tem atestado e
+// 'falta' e a que nao tem.
+const CATEGORIAS_AUSENCIA = [
+  "folga",
+  "ferias",
+  "outro",
+  "falta_justificada",
+  "falta",
+] as const;
+
+type CategoriaAusencia = (typeof CATEGORIAS_AUSENCIA)[number];
+
+// Categoria que o banco nao conhece (ou que apareceu depois desta tela) cai em
+// 'outro': e melhor a televisao mostrar "Ausente" do que perder a linha.
+function normalizarCategoria(valor: string | null | undefined): CategoriaAusencia {
+  return (CATEGORIAS_AUSENCIA as readonly string[]).includes(valor ?? "")
+    ? (valor as CategoriaAusencia)
+    : "outro";
+}
+
+// Quem manda no que a pessoa ainda deve na semana. Folga, ferias, outro e falta
+// COM atestado tiram o dia (ou as horas) da cobranca. A falta SEM atestado
+// **nao** tira: as horas continuam previstas e o buraco tem de aparecer na
+// parede — foi essa a decisao do Gabriel em 16/09/2026.
+function descontaDaMeta(categoria: CategoriaAusencia): boolean {
+  return categoria !== "falta";
+}
+
+// Ordem de gravidade quando cai mais de uma ausencia no mesmo dia da mesma
+// pessoa. Enquanto as tres categorias antigas se comportavam igual, tanto fazia
+// qual ficava; agora a falta muda a meta, entao a escolha tem de ser sempre a
+// mesma entre uma recarga e outra — e a mais grave, que e a que cobra.
+const GRAVIDADE_AUSENCIA: Record<CategoriaAusencia, number> = {
+  folga: 1,
+  ferias: 1,
+  outro: 1,
+  falta_justificada: 2,
+  falta: 3,
+};
+
+const ROTULO_AUSENCIA: Record<CategoriaAusencia, string> = {
   folga: "Folga",
   ferias: "Férias",
   outro: "Ausente",
+  falta_justificada: "Falta com atestado",
+  falta: "Falta sem atestado",
+};
+
+// Na grade dos sete dias cada celula tem cerca de 200px: ali entra o rotulo
+// curto, que ainda distingue as quatro cores por escrito para quem nao enxerga
+// cor. O rotulo por extenso fica no cartao, na linha do dia e na legenda.
+const ROTULO_AUSENCIA_CURTO: Record<CategoriaAusencia, string> = {
+  folga: "Folga",
+  ferias: "Férias",
+  outro: "Ausente",
+  falta_justificada: "Atestado",
+  falta: "Falta",
+};
+
+// As quatro cores do painel, e o que cada uma quer dizer de longe:
+//   verde    trabalhado (amarelo quando a hora ainda espera aprovacao);
+//   azul     ausencia planejada — folga, ferias, outro: saiu da cobranca;
+//   violeta  falta COM atestado: tambem sai da cobranca, mas nao e folga;
+//   vermelho falta SEM atestado: a unica que continua cobrada, e por isso a
+//            unica desenhada CHEIA — e a marca mais forte da tela, de proposito.
+const CORES_AUSENCIA: Record<
+  CategoriaAusencia,
+  { texto: string; borda: string; fundo: string; cheio: boolean }
+> = {
+  folga: { texto: AZUL, borda: AZUL, fundo: "rgba(79,143,209,0.16)", cheio: false },
+  ferias: { texto: AZUL, borda: AZUL, fundo: "rgba(79,143,209,0.16)", cheio: false },
+  outro: { texto: AZUL, borda: AZUL, fundo: "rgba(79,143,209,0.16)", cheio: false },
+  falta_justificada: {
+    texto: VIOLETA,
+    borda: VIOLETA,
+    fundo: "rgba(167,139,250,0.18)",
+    cheio: false,
+  },
+  falta: { texto: VERMELHO, borda: VERMELHO_BORDA, fundo: VERMELHO_BORDA, cheio: true },
 };
 
 const DOW_ABREV = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
@@ -139,7 +220,9 @@ type AusenciaLinha = {
   colaborador_id: string;
   colaborador_nome: string;
   data: string;
-  categoria: "folga" | "ferias" | "outro";
+  // tv_ausencias_periodo devolve tudo que nao e 'os', entao as duas faltas
+  // chegam aqui sem mudanca nenhuma no banco.
+  categoria: CategoriaAusencia;
   medida: "dias" | "horas";
   horas: number | string | null;
   descricao: string | null;
@@ -166,9 +249,9 @@ type TarefaLinha = {
   tipo: "agendada" | "sem_data";
   data: string | null;
   situacao: "pendente" | "concluida" | "cancelada";
-  // 'os' e trabalho; folga, ferias e outro sao ausencia e nao entram nas listas
-  // de tarefa da televisao.
-  categoria: "os" | "folga" | "ferias" | "outro";
+  // 'os' e trabalho; folga, ferias, outro e as duas faltas sao ausencia e nao
+  // entram nas listas de tarefa da televisao.
+  categoria: "os" | CategoriaAusencia;
   colaborador_id: string;
   colaborador_nome: string;
   os_id: number;
@@ -203,10 +286,15 @@ type DiaDoColaborador = {
 };
 
 type AusenciaDoDia = {
-  categoria: "folga" | "ferias" | "outro";
+  categoria: CategoriaAusencia;
   medida: "dias" | "horas";
   horas: number;
 };
+
+// Uma linha do resumo da semana, ja com a categoria junto: o cartao precisa da
+// cor de cada pedaco, porque "Férias · 3 dias" e "Falta sem atestado · 1 dia"
+// nao podem sair pintados igual.
+type ResumoDeAusencia = { categoria: CategoriaAusencia; texto: string };
 
 type ResumoColaborador = {
   id: string;
@@ -217,12 +305,13 @@ type ResumoColaborador = {
   osSemana: OsDaSemana[];
   porDia: Map<string, DiaDoColaborador>;
   ausenciaPorDia: Map<string, AusenciaDoDia>;
-  // Previsto da semana ja descontando folga e ferias: e o que a pessoa ainda
-  // deve. Ausencia nao conta como hora cumprida, so sai da cobranca.
+  // Previsto da semana ja descontando folga, ferias, outro e falta COM
+  // atestado: e o que a pessoa ainda deve. Ausencia nao conta como hora
+  // cumprida, so sai da cobranca. Falta SEM atestado nao sai: continua prevista.
   metaSemana: number;
-  // Resumo curto do que saiu da cobranca nesta semana, ja pronto para a tela:
-  // "Férias · 3 dias", "Folga · 4h".
-  ausenciaDaSemana: string | null;
+  // Resumo curto da ausencia desta semana, ja pronto para a tela: "Férias ·
+  // 3 dias", "Folga · 4h", "Falta sem atestado · 1 dia".
+  ausenciaDaSemana: ResumoDeAusencia[];
   faltasEmDiaUtil: number;
   // Pendentes na ordem em que o cartao mostra: com data primeiro, porque sao as
   // que cobram dia, e as sem data no fim.
@@ -241,7 +330,7 @@ type LinhaDoDia =
       tipo: "ocioso";
       resumo: ResumoColaborador;
       concluidasHoje: number;
-      // Quem esta de folga ou de ferias hoje nao esta "sem tarefa": esta fora.
+      // Quem esta de folga, de ferias ou faltou hoje nao esta "sem tarefa".
       ausenciaHoje?: AusenciaDoDia;
     };
 
@@ -356,14 +445,22 @@ function primeiroNomeDe(nome: string): string {
 
 // "32h" quando fecha na hora cheia e "32h30" quando sobra minuto: quem le de
 // longe nao converte 32,5 de cabeca.
-// "Férias · 3 dias" ou "Folga · 4h": o que saiu da cobranca da pessoa nesta
-// semana. Junta por categoria, porque na televisao o que importa e o motivo.
+// Quem fica quando cai mais de uma ausencia no mesmo dia: a mais grave, e entre
+// iguais a que pega o dia inteiro.
+function pesoDaAusencia(ausencia: AusenciaDoDia): number {
+  return GRAVIDADE_AUSENCIA[ausencia.categoria] * 2 + (ausencia.medida === "dias" ? 1 : 0);
+}
+
+// "Férias · 3 dias", "Folga · 4h", "Falta sem atestado · 1 dia": a ausencia da
+// pessoa nesta semana. Junta por categoria, porque na televisao o que importa e
+// o motivo — e volta com a categoria junto, para o cartao pintar cada pedaco na
+// cor certa.
 function resumirAusencia(
   porDia: Map<string, AusenciaDoDia>,
   dias: DiaPeriodo[]
-): string | null {
-  const emDias = new Map<string, number>();
-  const emHoras = new Map<string, number>();
+): ResumoDeAusencia[] {
+  const emDias = new Map<CategoriaAusencia, number>();
+  const emHoras = new Map<CategoriaAusencia, number>();
   for (const dia of dias) {
     const ausencia = porDia.get(dia.data);
     if (!ausencia) continue;
@@ -373,17 +470,18 @@ function resumirAusencia(
       emHoras.set(ausencia.categoria, (emHoras.get(ausencia.categoria) ?? 0) + ausencia.horas);
     }
   }
-  const partes: string[] = [];
+  const partes: ResumoDeAusencia[] = [];
   for (const [categoria, quantos] of emDias) {
-    partes.push(
-      `${ROTULO_AUSENCIA[categoria] ?? "Ausente"} · ${quantos} ${quantos === 1 ? "dia" : "dias"}`
-    );
+    partes.push({
+      categoria,
+      texto: `${ROTULO_AUSENCIA[categoria]} · ${quantos} ${quantos === 1 ? "dia" : "dias"}`,
+    });
   }
   for (const [categoria, horas] of emHoras) {
     if (horas <= 0) continue;
-    partes.push(`${ROTULO_AUSENCIA[categoria] ?? "Ausente"} · ${formatarHoras(horas)}`);
+    partes.push({ categoria, texto: `${ROTULO_AUSENCIA[categoria]} · ${formatarHoras(horas)}` });
   }
-  return partes.length ? partes.join(" · ") : null;
+  return partes;
 }
 
 function formatarHoras(horas: number): string {
@@ -565,7 +663,8 @@ function PainelColaboradores() {
           p_fim: periodo.hoje,
           p_area: areaParam,
         }),
-        // Folga, ferias e outros da semana: e o que sai da cobranca.
+        // A ausencia da semana: folga, ferias, outro e as duas faltas. Quatro
+        // das cinco saem da cobranca; a falta sem atestado so marca o dia.
         supabase.rpc("tv_ausencias_periodo", {
           p_inicio: periodo.inicio_semana,
           p_fim: periodo.dias[periodo.dias.length - 1]?.data ?? periodo.hoje,
@@ -615,9 +714,10 @@ function PainelColaboradores() {
   const dias = useMemo(() => periodos?.dias ?? [], [periodos]);
   const hoje = periodos?.hoje ?? "";
 
-  // As listas de tarefa da televisao sao sobre TRABALHO. Folga, ferias e outros
-  // chegam pela mesma tabela, mas quem mostra ausencia e a grade da semana (o
-  // azul) e a linha do dia — nao faz sentido cobrar "ferias atrasada 5 dias".
+  // As listas de tarefa da televisao sao sobre TRABALHO. Folga, ferias, outro e
+  // as duas faltas chegam pela mesma tabela, mas quem mostra ausencia e a grade
+  // da semana (as quatro cores) e a linha do dia — nao faz sentido cobrar
+  // "ferias atrasada 5 dias" nem "falta atrasada".
   const tarefasPendentes = useMemo(
     () =>
       tarefas.filter(
@@ -681,17 +781,23 @@ function PainelColaboradores() {
       tarefasDoColaborador.set(tarefa.colaborador_id, lista);
     }
 
-    // Folga, ferias e outros, por pessoa e por dia. Ausencia em dias tira o dia
-    // inteiro da cobranca; em horas, tira so aquelas horas.
+    // Folga, ferias, outro e as duas faltas, por pessoa e por dia. Ausencia que
+    // desconta e em dias tira o dia inteiro da cobranca; em horas, tira so
+    // aquelas horas. Falta sem atestado nao tira nada — so marca o dia.
     const ausenciaPorPessoa = new Map<string, Map<string, AusenciaDoDia>>();
     for (const linha of ausencias) {
       const mapa = ausenciaPorPessoa.get(linha.colaborador_id) ?? new Map<string, AusenciaDoDia>();
       const horas = Number(linha.horas ?? 0);
-      mapa.set(linha.data, {
-        categoria: linha.categoria,
+      const nova: AusenciaDoDia = {
+        categoria: normalizarCategoria(linha.categoria),
         medida: linha.medida,
         horas: Number.isFinite(horas) ? horas : 0,
-      });
+      };
+      // Duas ausencias no mesmo dia: fica a mais grave, e entre iguais a que
+      // pega o dia inteiro. Antes a ultima linha lida ganhava, o que agora
+      // mudaria a meta conforme a ordem em que o banco devolvesse.
+      const atual = mapa.get(linha.data);
+      if (!atual || pesoDaAusencia(nova) > pesoDaAusencia(atual)) mapa.set(linha.data, nova);
       ausenciaPorPessoa.set(linha.colaborador_id, mapa);
     }
 
@@ -722,12 +828,14 @@ function PainelColaboradores() {
         ausenciaPorPessoa.get(colaborador.id) ?? new Map<string, AusenciaDoDia>();
 
       // Meta da semana: o previsto de cada dia menos o que a ausencia tirou.
+      // Falta SEM atestado nao tira nada — o dia continua previsto inteiro, e e
+      // por isso que o buraco dela aparece aqui e no total.
       let metaSemana = 0;
       for (const dia of dias) {
         const previsto = Number(dia.horas_previstas ?? 0);
         if (previsto <= 0) continue;
         const ausencia = ausenciaDoColaborador.get(dia.data);
-        if (!ausencia) {
+        if (!ausencia || !descontaDaMeta(ausencia.categoria)) {
           metaSemana += previsto;
           continue;
         }
@@ -746,13 +854,15 @@ function PainelColaboradores() {
         ausenciaPorDia: ausenciaDoColaborador,
         metaSemana,
         ausenciaDaSemana: resumirAusencia(ausenciaDoColaborador, dias),
-        // Dia de folga ou ferias nao e falta: saiu da cobranca por decisao do
-        // Gabriel ("desconta da semana, tira da cobranca").
-        faltasEmDiaUtil: diasCobrados.filter(
-          (dia) =>
-            (diasDoColaborador.get(dia.data)?.horas ?? 0) <= 0 &&
-            ausenciaDoColaborador.get(dia.data)?.medida !== "dias"
-        ).length,
+        // Dia de folga, ferias ou falta COM atestado nao e falta na conta: saiu
+        // da cobranca por decisao do Gabriel ("desconta da semana, tira da
+        // cobranca"). Falta SEM atestado continua cobrada, entao o dia dela
+        // deixa o total da semana vermelho como qualquer dia util vazio.
+        faltasEmDiaUtil: diasCobrados.filter((dia) => {
+          if ((diasDoColaborador.get(dia.data)?.horas ?? 0) > 0) return false;
+          const ausencia = ausenciaDoColaborador.get(dia.data);
+          return !(ausencia && ausencia.medida === "dias" && descontaDaMeta(ausencia.categoria));
+        }).length,
         tarefasPendentes: [
           ...listaTarefas.filter((tarefa) => tarefa.data !== null),
           ...listaTarefas.filter((tarefa) => tarefa.data === null),
@@ -1033,12 +1143,31 @@ function PainelColaboradores() {
     return `${areaExibida} · semana ${rotuloPeriodo(periodos.inicio_semana, periodos.hoje)}`;
   }, [periodos, areaExibida, quadroAtual.layout, dowDeHoje, hoje]);
 
-  const legenda = useMemo(() => {
+  // Cor sozinha nao serve para quem nao enxerga cor, e uma TV na parede nao tem
+  // onde passar o mouse: cada cor do quadro sai escrita aqui embaixo.
+  const legenda = useMemo<{ cor: string; texto: string }[]>(() => {
     if (quadroAtual.layout === "barras") {
-      return "vermelho = dia útil sem apontamento · amarelo = hora pendente de aprovação · azul = folga ou férias";
+      return [
+        { cor: VERDE, texto: "apontado" },
+        { cor: AMARELO, texto: "aguardando aprovação" },
+        { cor: AZUL, texto: "folga ou férias" },
+        { cor: VIOLETA, texto: "falta com atestado" },
+        { cor: VERMELHO_BORDA, texto: "falta sem atestado ou dia vazio" },
+      ];
     }
-    if (quadroAtual.layout === "tarefas") return "vermelho = atrasada";
-    return "hora pendente de aprovação";
+    if (quadroAtual.layout === "tarefas") {
+      return [
+        { cor: AZUL, texto: "folga ou férias" },
+        { cor: VIOLETA, texto: "falta com atestado" },
+        { cor: VERMELHO, texto: "atrasada ou falta sem atestado" },
+      ];
+    }
+    return [
+      { cor: AMARELO, texto: "hora pendente de aprovação" },
+      { cor: AZUL, texto: "folga ou férias" },
+      { cor: VIOLETA, texto: "falta com atestado" },
+      { cor: VERMELHO, texto: "falta sem atestado" },
+    ];
   }, [quadroAtual.layout]);
 
   return (
@@ -1091,14 +1220,19 @@ function PainelColaboradores() {
         className="shrink-0 flex items-baseline gap-6 px-8 pt-4 pb-6 text-xl"
         style={{ color: TEXTO_3 }}
       >
-        <span className="flex items-center gap-2 min-w-0 truncate">
-          {quadroAtual.layout === "cartoes" && (
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-              style={{ background: AMARELO }}
-            />
-          )}
-          {legenda}
+        {/* Sem quebrar linha: o rodape tem de manter a mesma altura sempre,
+            senao a area util muda e a conta de quantas linhas cabem no layout C
+            oscila de quadro para quadro. */}
+        <span className="flex items-center gap-x-5 min-w-0 overflow-hidden whitespace-nowrap">
+          {legenda.map((item) => (
+            <span key={item.texto} className="flex shrink-0 items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-sm shrink-0"
+                style={{ background: item.cor }}
+              />
+              {item.texto}
+            </span>
+          ))}
         </span>
         <div className="flex-1" />
         <span className="shrink-0 tabular-nums">
@@ -1253,13 +1387,24 @@ function CartaoColaborador({ resumo }: { resumo: ResumoColaborador }) {
       <div className="mt-2 text-2xl tabular-nums" style={{ color: TEXTO_2 }}>
         {formatarHoras(resumo.horasMes)} no mês
       </div>
-      {/* Meta da semana pela jornada da fabrica (44h), ja descontando folga e
-          ferias. Some quando nao ha jornada cadastrada para a empresa. */}
-      {/* Por que a meta caiu: folga e ferias tiram o dia (ou as horas) da
-          cobranca, e sem dizer isso o numero menor parece defeito. */}
-      {resumo.ausenciaDaSemana ? (
-        <div className="mt-1 text-xl" style={{ color: AZUL }}>
-          {resumo.ausenciaDaSemana}
+      {/* Meta da semana pela jornada da fabrica (44h), ja descontando folga,
+          ferias e falta com atestado. Some quando nao ha jornada cadastrada
+          para a empresa. */}
+      {/* Por que a meta caiu: folga, ferias e falta COM atestado tiram o dia (ou
+          as horas) da cobranca, e sem dizer isso o numero menor parece defeito.
+          A falta SEM atestado aparece na mesma linha, em vermelho, e ali a meta
+          NAO caiu — e por isso que ela vem escrita, e nao so colorida. */}
+      {resumo.ausenciaDaSemana.length > 0 ? (
+        <div className="mt-1 flex items-baseline gap-x-3 text-xl overflow-hidden whitespace-nowrap">
+          {resumo.ausenciaDaSemana.map((parte) => (
+            <span
+              key={`${parte.categoria}-${parte.texto}`}
+              className="shrink-0"
+              style={{ color: CORES_AUSENCIA[parte.categoria].texto }}
+            >
+              {parte.texto}
+            </span>
+          ))}
         </div>
       ) : null}
       {resumo.metaSemana > 0 ? (
@@ -1441,23 +1586,26 @@ function CelulaDoDia({
   maiorHoraDoDia: number;
 }) {
   const horas = lancamento?.horas ?? 0;
+  const cores = ausencia ? CORES_AUSENCIA[ausencia.categoria] : null;
 
-  // Folga ou ferias do dia inteiro: azul, sem cobranca. Nao e falta, e dia que
-  // saiu da conta da semana.
-  if (ausencia && ausencia.medida === "dias") {
+  // Ausencia do dia inteiro. Folga, ferias e outro saem azuis e falta COM
+  // atestado sai violeta: os dois casos sairam da conta da semana. Falta SEM
+  // atestado sai CHEIA de vermelho, porque ela continua cobrada — e a marca que
+  // tem de chamar atencao da parede.
+  if (ausencia && cores && ausencia.medida === "dias") {
     return (
       <div className="h-full flex items-end">
         <div
-          className="w-full rounded-md grid place-items-center text-lg font-semibold"
+          className="w-full rounded-md grid place-items-center px-1 text-center text-lg font-semibold leading-tight"
           style={{
             height: "100%",
             maxHeight: `${BARRA_ALTURA_MAX_PX}px`,
-            border: `2px solid ${AZUL}`,
-            background: "rgba(79,143,209,0.16)",
-            color: AZUL,
+            border: `2px solid ${cores.borda}`,
+            background: cores.fundo,
+            color: cores.cheio ? FUNDO : cores.texto,
           }}
         >
-          {ROTULO_AUSENCIA[ausencia.categoria] ?? "Ausente"}
+          {ROTULO_AUSENCIA_CURTO[ausencia.categoria]}
         </div>
       </div>
     );
@@ -1475,31 +1623,41 @@ function CelulaDoDia({
             minHeight: "0.75rem",
             maxHeight: `${BARRA_ALTURA_MAX_PX}px`,
             background: lancamento?.pendente ? AMARELO : VERDE,
+            // Dia trabalhado que ainda assim teve ausencia em horas (quatro de
+            // folga, duas de atraso): a barra ganha um anel na cor da ausencia.
+            // Sem ele, a falta de duas horas de quem trabalhou o resto do dia
+            // sumia da grade e so aparecia na meta.
+            boxShadow: cores ? `0 0 0 3px ${cores.borda}` : undefined,
           }}
-          title={formatarHoras(horas)}
+          title={
+            ausencia
+              ? `${formatarHoras(horas)} · ${ROTULO_AUSENCIA[ausencia.categoria]} ${formatarHoras(ausencia.horas)}`
+              : formatarHoras(horas)
+          }
         />
       </div>
     );
   }
 
   // Dia util que ja passou e ninguem apontou: e o que a coordenacao precisa ver.
-  // Com folga em horas no dia, o alerta continua valendo (a pessoa trabalhou o
-  // resto do dia e mesmo assim nao apontou nada), mas a marca fica azul para a
-  // coordenacao saber que parte do dia estava liberada.
+  // Com ausencia em horas no dia, o alerta continua valendo (a pessoa trabalhou
+  // o resto do dia e mesmo assim nao apontou nada), mas a marca fica na cor da
+  // ausencia, com o motivo escrito, para a coordenacao saber o que houve.
   if (dia.eh_util && dia.passado) {
-    if (ausencia) {
+    if (ausencia && cores) {
       return (
         <div className="h-full flex items-end">
           <div
-            className="w-full rounded-md grid place-items-center text-lg font-semibold"
+            className="w-full rounded-md grid place-items-center px-1 text-center text-lg font-semibold leading-tight"
             style={{
               height: "100%",
               maxHeight: `${BARRA_ALTURA_MAX_PX}px`,
-              border: `2px solid ${AZUL}`,
-              color: AZUL,
+              border: `2px solid ${cores.borda}`,
+              background: cores.cheio ? cores.fundo : "transparent",
+              color: cores.cheio ? FUNDO : cores.texto,
             }}
           >
-            {formatarHoras(ausencia.horas)}
+            {ROTULO_AUSENCIA_CURTO[ausencia.categoria]} {formatarHoras(ausencia.horas)}
           </div>
         </div>
       );
@@ -1649,10 +1807,12 @@ function LinhaSemTarefa({
   primeira: boolean;
   ref: Ref<HTMLDivElement> | null;
 }) {
-  // Ausencia do dia inteiro: a linha e azul e diz o motivo. Quem esta de ferias
-  // nao esta "sem tarefa hoje" — nao e cobranca, e informacao.
+  // Ausencia do dia inteiro: a linha ganha a cor da categoria e diz o motivo.
+  // Quem esta de ferias nao esta "sem tarefa hoje" — nao e cobranca, e
+  // informacao; quem faltou sem atestado aparece em vermelho, que e cobranca.
   const foraHoje = ausenciaHoje?.medida === "dias";
-  const cor = foraHoje ? AZUL : TEXTO_3;
+  const coresHoje = ausenciaHoje ? CORES_AUSENCIA[ausenciaHoje.categoria] : null;
+  const cor = foraHoje && coresHoje ? coresHoje.texto : TEXTO_3;
 
   return (
     <div
@@ -1671,14 +1831,19 @@ function LinhaSemTarefa({
         —
       </span>
       <span className="min-w-0 truncate text-3xl" style={{ color: cor }}>
-        {foraHoje
-          ? (ROTULO_AUSENCIA[ausenciaHoje.categoria] ?? "Ausente")
+        {foraHoje && ausenciaHoje
+          ? ROTULO_AUSENCIA[ausenciaHoje.categoria]
           : concluidasHoje > 0
             ? `Concluiu ${concluidasHoje} hoje`
             : "Sem tarefa hoje"}
-        {ausenciaHoje && !foraHoje
-          ? ` · ${ROTULO_AUSENCIA[ausenciaHoje.categoria] ?? "Ausente"} de ${formatarHoras(ausenciaHoje.horas)}`
-          : ""}
+        {/* Ausencia em horas: a pessoa esta na fabrica, entao a linha continua
+            sendo a dela, e o motivo entra colorido no fim. */}
+        {ausenciaHoje && coresHoje && !foraHoje ? (
+          <span style={{ color: coresHoje.texto }}>
+            {" · "}
+            {ROTULO_AUSENCIA[ausenciaHoje.categoria]} de {formatarHoras(ausenciaHoje.horas)}
+          </span>
+        ) : null}
         {resumo.tarefasSemData > 0 ? ` · ${resumo.tarefasSemData} sem data` : ""}
       </span>
     </div>

@@ -3,8 +3,10 @@
 Migrations: `supabase/migrations/20260912160000_tv_colaboradores_area.sql` (as funções
 `tv_*` e a coluna `area`), `20260912190000_tv_jornada_e_area_por_cargo.sql` (a jornada
 e a área pelo cargo), `20260912220000_tarefas_participantes_dias_e_ausencias.sql`
-(`tv_ausencias_periodo`, e a tarefa por participante) e
-`20260913100000_tv_area_engenharia.sql` (a terceira área).
+(`tv_ausencias_periodo`, e a tarefa por participante),
+`20260913100000_tv_area_engenharia.sql` (a terceira área) e
+`20260916100000_falta_com_e_sem_atestado.sql` (as categorias `falta_justificada` e
+`falta`).
 Teste: `supabase/tests/tv_colaboradores.sql` (roda em transação e faz rollback).
 Tela: `/painel-tv/colaboradores?area=mecanica|eletrica|engenharia`.
 
@@ -59,7 +61,7 @@ recebe "Este painel é restrito ao perfil de painel de TV e à gestão."
 | `tv_colaboradores(p_area)` | os ativos da empresa na área, por nome, inclusive quem não tem hora nem tarefa |
 | `tv_colaboradores_tarefas(p_area)` | `setof tarefa_linha`, **uma linha por participante**, com as pendentes e as concluídas hoje, atrasadas primeiro |
 | `tv_horas_periodo(p_inicio, p_fim, p_area)` | uma linha por colaborador, OS e dia, com a soma das horas |
-| `tv_ausencias_periodo(p_inicio, p_fim, p_area)` | uma linha por pessoa e por dia de folga, férias ou outro, com `medida` e `horas` |
+| `tv_ausencias_periodo(p_inicio, p_fim, p_area)` | uma linha por pessoa e por dia de ausência — folga, férias, outro, falta com atestado ou falta sem atestado — com `medida` e `horas` |
 
 A tela chama `tv_periodos()`, `tv_colaboradores(area)`,
 `tv_colaboradores_tarefas(area)`, `tv_horas_periodo(inicio_semana, hoje, area)`,
@@ -74,12 +76,12 @@ propósito: a validação é uma só, no banco, e é essa mensagem que aparece n
 televisão. `fn_tv_area` não tem grant para `authenticated`; só as funções
 `SECURITY DEFINER` a chamam.
 
-**Ausência não é tarefa na televisão.** `tv_colaboradores_tarefas` devolve folga e
-férias porque elas moram na mesma tabela, mas a tela filtra `categoria = 'os'` nas
-listas de tarefa: quem está de férias não deve trabalho. A ausência entra pela
-`tv_ausencias_periodo`, e aparece como o azul da grade e como a linha do dia. Pelo
-mesmo motivo `atrasada` só vale para trabalho — ninguém conclui férias, então
-ausência com data passada apenas terminou.
+**Ausência não é tarefa na televisão.** `tv_colaboradores_tarefas` devolve folga,
+férias e as duas faltas porque elas moram na mesma tabela, mas a tela filtra
+`categoria = 'os'` nas listas de tarefa: quem está de férias não deve trabalho. A
+ausência entra pela `tv_ausencias_periodo`, e aparece como a cor da grade e como a
+linha do dia. Pelo mesmo motivo `atrasada` só vale para trabalho — ninguém conclui
+férias nem uma falta, então ausência com data passada apenas terminou.
 
 Numa tarefa de várias pessoas, quem já fechou a própria parte sai das listas de
 pendente (é o `participante_concluida_em` que diz isso, porque a tarefa continua
@@ -93,22 +95,77 @@ nunca passa uma data `AAAA-MM-DD` por `new Date()` — corta a string, e a únic
 conta de data que faz é a diferença em dias de uma tarefa atrasada, em aritmética
 inteira sobre a própria string.
 
-## Cores da grade da semana
+## As quatro cores
+
+Decisão do Gabriel, 16/09/2026: *"na televisão, quando é folga é uma cor, quando
+trabalhado é outra, e vazio é quando não trabalhou. Falta com atestado tem que ficar
+uma cor, falta sem atestado outra cor. Então vão ser quatro cores diferentes."*
+
+| O que é | Cor | Onde aparece |
+| --- | --- | --- |
+| Trabalhado | verde `#57A882` | a barra do dia na grade |
+| Ausência planejada — folga, férias, outro | azul `#4F8FD1` | caixa de borda azul com fundo apagado |
+| Falta **com** atestado (`falta_justificada`) | violeta `#A78BFA` | caixa de borda violeta com fundo apagado |
+| Falta **sem** atestado (`falta`) | vermelho `#EF4444` | bloco **cheio**, texto escuro por cima |
+
+A falta sem atestado é a única desenhada cheia, e isso é a regra: ela é a única que
+**continua cobrada**, então tem de ser a marca mais forte da tela. É o mesmo vermelho
+do dia útil vazio de propósito — nas duas o recado é "esse dia a pessoa deve" —, e o
+que separa as duas marcas é o preenchimento e a palavra escrita.
+
+Hora aguardando aprovação continua saindo em amarelo `#EFC15E`: é um modificador do
+verde (a hora está lá, falta aprovar), não uma quinta cor de estado.
+
+**Cor sozinha não basta.** Toda marca traz o rótulo por escrito, porque quem não
+enxerga cor não distingue violeta de vermelho numa TV a dez metros. Na grade, onde a
+célula tem uns 200 px, vai o rótulo curto — `Folga`, `Férias`, `Ausente`, `Atestado`,
+`Falta`. Em todo o resto — cartão, linha do dia, legenda — vai o rótulo por extenso:
+**"Falta com atestado"** e **"Falta sem atestado"**.
+
+O rodapé mostra a legenda das cores do quadro que está no ar, com o quadradinho
+colorido e o nome ao lado. Ela **nunca quebra linha**: se o rodapé crescesse, a área
+útil encolheria e a conta de quantas linhas cabem no layout C oscilaria de quadro
+para quadro.
+
+### A grade da semana, célula por célula
 
 | Estado do dia | Como aparece |
 | --- | --- |
 | Com hora apontada | barra verde, proporcional às horas |
 | Com hora aguardando aprovação | barra amarela |
 | Dia útil que já passou, sem apontamento | quadrado de borda vermelha com "0h", e o total da semana em vermelho |
-| Folga, férias ou outra ausência do dia inteiro | quadrado azul com o rótulo, **sem** deixar o total vermelho |
-| Folga em horas, no dia em que a pessoa não apontou nada | quadrado azul com as horas liberadas |
+| Ausência do dia inteiro | caixa na cor da categoria, com o rótulo curto; a falta sem atestado vem cheia |
+| Ausência em horas, no dia em que a pessoa não apontou nada | caixa na cor da categoria, com o rótulo e as horas ("Folga 4h", "Falta 2h") |
+| Ausência em horas num dia trabalhado | a barra verde ganha um **anel** na cor da ausência — sem ele, o atraso de duas horas de quem trabalhou o resto do dia sumia da grade |
 | Fim de semana, feriado ou dia que ainda não chegou | barrinha baixa, sem alerta |
 
-O azul existe porque ausência **não é falta**: o dia saiu da conta. Qualquer dia útil
-sem apontamento, um só que seja, deixa o total da semana em vermelho.
+**O total da semana fica vermelho** quando sobrou dia útil já passado sem apontamento.
+Folga, férias e falta com atestado tiram o dia dessa conta; falta sem atestado **não
+tira**, então o dia dela deixa o total vermelho como qualquer dia vazio.
+
+Se caírem duas ausências no mesmo dia da mesma pessoa, fica a **mais grave** (falta
+sem atestado > falta com atestado > folga/férias/outro) e, entre iguais, a que pega o
+dia inteiro. Enquanto as três categorias antigas se comportavam igual tanto fazia qual
+ficava; agora a escolha muda a meta, e precisa ser a mesma entre uma recarga e outra.
 
 A grade mostra **oito pessoas por tela**. Acima disso ela pagina, 30 segundos por
 página, porque numa TV de 1080p mais que isso deixa as linhas ilegíveis de longe.
+
+### A lista de categorias também vive em mais de um lugar
+
+Como a lista de áreas, esta precisa concordar ponta a ponta — categoria nova que o
+cadastro grave e a televisão não conheça vira "Ausente" azul, em silêncio:
+
+| Onde | Decide |
+| --- | --- |
+| `chk_tarefas_categoria`, em `public.tarefas` | o que o banco aceita gravar |
+| `public.app_tarefas_criar` | o que o cadastro consegue criar, e a mensagem de erro |
+| `CATEGORIAS_AUSENCIA`, no topo de `app/painel-tv/colaboradores/page.tsx` | o rótulo, a cor e se desconta da meta |
+
+`tv_ausencias_periodo` não precisa de mudança para uma categoria nova: ela devolve
+tudo que **não** é `'os'`. Quem precisa saber o nome de cada uma é a tela. Categoria
+que a tela não conhece cai em `'outro'` de propósito — é melhor mostrar "Ausente" do
+que perder a linha.
 
 ## Jornada: quanto falta fechar na semana
 
@@ -123,10 +180,24 @@ inteira) e `horas_previstas_ate_hoje` (só os dias que já passaram), que é a c
 honesta para a televisão cobrar: ela compara o apontado com o que já deveria ter sido
 apontado, não com o que ainda vai acontecer.
 
-**Ausência desconta da semana.** Folga, férias e outros tiram o dia, ou as horas, da
-meta daquela pessoa: quem tirou férias na quarta passa a dever 35 horas em vez de 44.
-Não conta como hora cumprida, apenas sai da cobrança. O cartão do layout A mostra a
-meta e quanto falta, já com esse desconto, e a função `tv_ausencias_periodo` é a fonte.
+**Ausência desconta da semana — menos a falta sem atestado.** Folga, férias, outros e
+a falta **com** atestado tiram o dia, ou as horas, da meta daquela pessoa: quem tirou
+férias na quarta passa a dever 35 horas em vez de 44. Não conta como hora cumprida,
+apenas sai da cobrança. O cartão do layout A mostra a meta e quanto falta, já com esse
+desconto, e a função `tv_ausencias_periodo` é a fonte.
+
+A falta **sem** atestado é a exceção, e é o motivo de ela existir: as horas **continuam
+previstas**. Quem faltou três dias sem atestado segue devendo as 44 horas da semana, e
+o buraco aparece escrito no cartão ("meta 44h · faltam 44h") e no total vermelho da
+grade. Vale igual quando a falta é medida em horas: duas horas de atraso sem atestado
+não saem da meta, então quem apontou 7h num dia de 9h aparece devendo as 2h.
+
+O par que a tela foi feita para mostrar lado a lado:
+
+| | Ausência | Horas apontadas | Meta da semana | Total |
+| --- | --- | --- | --- | --- |
+| falta com atestado | 3 dias | 0h | **17h** (44 − 27) | normal |
+| falta sem atestado | 3 dias | 0h | **44h** | vermelho |
 
 **Empresa nova nasce com jornada.** A `20260912190000` só semeou as empresas que
 existiam naquele dia, e `tv_periodos` usa `coalesce(jornada.horas, 0)`: uma empresa
@@ -211,9 +282,16 @@ atalho por área. Área nova passa por todos eles.
 
 ## O cartão do colaborador, por dentro
 
-O cartão do layout A mostra as horas da semana e do mês, a meta já com o desconto
-de ausência, as OS em que a pessoa lançou hora, e então a lista de tarefas. Essa
-lista segue três regras:
+O cartão do layout A mostra as horas da semana e do mês, a ausência da semana, a meta
+já com o desconto, as OS em que a pessoa lançou hora, e então a lista de tarefas.
+
+A linha da ausência junta por categoria e sai **cada pedaço na cor dele**: "Férias ·
+3 dias" em azul, "Falta com atestado · 3 dias" em violeta, "Falta sem atestado · 2h"
+em vermelho. Ela existe para explicar a meta: sem dizer o motivo, uma meta de 35h
+parece defeito. E quando o pedaço é falta sem atestado, a meta **não** caiu — daí a
+importância de o motivo vir escrito, e não só colorido.
+
+A lista de tarefas segue três regras:
 
 - **As pendentes vêm todas**, com data primeiro e as sem data no fim. A tarefa sem
   data não ganha rótulo: o que interessa é o serviço, e escrever "Sem data" só
