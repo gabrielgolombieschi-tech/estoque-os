@@ -858,4 +858,95 @@ assert.throws(
 );
 assert.doesNotThrow(() => validarAcaoCicloPorAmbiente("EMAIL", "PRODUCAO"));
 
+// Excecao "ICMS 12% por exigencia do destinatario" (PORTOBELLO, 16/09/2026). Manutencao
+// vai a 17%, mas o contribuinte pode exigir 12% pela OC: item sem SC820006 sai CST 00 a
+// 12%, indFinal 1, IPI de manutencao continua na base, e o texto cita os itens e a OC.
+const operacaoExcecao = (extra = {}) => ({
+  ...solicitacao().operacao_snapshot,
+  destinacao_mercadoria: "MANUTENCAO",
+  consumidor_final: 1,
+  excecao_aliquota_destinatario: { numero_oc: "4500123456", ativada_em: "2026-09-16T10:00:00-03:00" },
+  ...extra,
+});
+const comExcecao = (itens, extraOperacao = {}, extraSolicitacao = {}) => montarPayloadNfe(contexto({
+  solicitacao: solicitacao({ operacao_snapshot: operacaoExcecao(extraOperacao), ...extraSolicitacao }),
+  itens,
+}));
+
+// FAB com IPI e ICMS a 12%: vBC = vProd + vIPI = 1.000,00 + 97,50.
+const fabExcecao = comExcecao(
+  [linha({ codigo_produto: "FAB-0001", cfop: "5101", ncm: "90328989", quantidade: 1, valor_unitario: 1000, aliquota_icms: 12, cbenef: null, cst_ipi: "50", aliquota_ipi: 9.75, ipi_codigo_enquadramento_legal: "999" })],
+  { natureza_operacao: "VENDA_INDUSTRIALIZACAO_INTERNA" },
+);
+assert.equal(fabExcecao.consumidor_final, 1, "excecao mantem indFinal 1");
+assert.equal(fabExcecao.items[0].icms_situacao_tributaria, "00");
+assert.equal(fabExcecao.items[0].icms_aliquota, 12);
+assert.equal(fabExcecao.items[0].ipi_valor, 97.5, "IPI nao muda");
+assert.equal(fabExcecao.items[0].icms_base_calculo, 1097.5, "FAB: vBC do ICMS = vProd + vIPI");
+assert.equal(fabExcecao.items[0].icms_valor, 131.7);
+assert.match(
+  fabExcecao.informacoes_adicionais_contribuinte,
+  /Item 1: ICMS à alíquota de 12% \(RICMS\/SC-01, art\. 26, III, "n"\) aplicada por determinação do destinatário, conforme OC nº 4500123456, utilização informada: manutenção\. O destinatário responde solidariamente pela diferença de alíquota, nos termos do art\. 26, § 6º, do RICMS\/SC-01\./,
+);
+assert.doesNotMatch(fabExcecao.informacoes_adicionais_contribuinte, /Lei 10\.297\/96/, "sem citar a alinea n da lei junto");
+
+// Revenda sem SC820006: 12%, CST 00, base integral.
+const revendaExcecao = comExcecao([linha({ ncm: "90328911", quantidade: 1, valor_unitario: 4821, aliquota_icms: 12, cbenef: null })]);
+assert.equal(revendaExcecao.items[0].icms_situacao_tributaria, "00");
+assert.equal(revendaExcecao.items[0].icms_aliquota, 12);
+assert.equal(revendaExcecao.items[0].icms_base_calculo, 4821);
+assert.equal(revendaExcecao.items[0].icms_valor, 578.52);
+assert.equal("codigo_beneficio_fiscal" in revendaExcecao.items[0], false, "excecao nao e beneficio: sem cBenef");
+
+// Nota mista: item 1 com SC820006 (CST 20, regra propria) e item 2 comum. O texto da
+// excecao lista so o item 2; o do beneficio, so o item 1.
+const mistaExcecao = comExcecao([
+  linha({ ncm: "85365090", quantidade: 1, valor_unitario: 100, cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 29.412, cbenef: "SC820006" }),
+  linha({ codigo_produto: "ITEM-2", ncm: "90328911", quantidade: 1, valor_unitario: 200, aliquota_icms: 12, cbenef: null }),
+]);
+assert.equal(mistaExcecao.items[0].icms_situacao_tributaria, "20");
+assert.equal(mistaExcecao.items[0].icms_reducao_base_calculo, 29.412);
+assert.equal(mistaExcecao.items[0].codigo_beneficio_fiscal, "SC820006");
+assert.equal(mistaExcecao.items[1].icms_situacao_tributaria, "00");
+assert.match(mistaExcecao.informacoes_adicionais_contribuinte, /Item 2: ICMS à alíquota de 12%/);
+assert.doesNotMatch(mistaExcecao.informacoes_adicionais_contribuinte, /Itens? [\d, ]*1[\d, ]*: ICMS à alíquota/, "o item com SC820006 fica fora do texto da excecao");
+assert.match(mistaExcecao.informacoes_adicionais_contribuinte, /Item 1: Base de cálculo reduzida/);
+
+// Sem numero de OC: bloqueia.
+assert.throws(
+  () => comExcecao([linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })], { excecao_aliquota_destinatario: { numero_oc: "  " } }),
+  /exige o número da OC/,
+);
+// Destinatario nao contribuinte: excecao indisponivel.
+assert.throws(
+  () => comExcecao(
+    [linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })],
+    {},
+    { destinatario_snapshot: { ...solicitacao().destinatario_snapshot, indicador_ie: "9", inscricao_estadual: null } },
+  ),
+  /só vale para destinatário contribuinte/,
+);
+// Destinacao revenda nao usa a excecao (os 12% ja sao a regra).
+assert.throws(
+  () => comExcecao([linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })], { destinacao_mercadoria: "REVENDA" }),
+  /não se aplica à destinação revenda/,
+);
+// Excecao com item comum a 17% ou indFinal 0: nao sai.
+assert.throws(
+  () => comExcecao([linha({ ncm: "90328911", aliquota_icms: 17, cbenef: null })]),
+  /sai com CST 00 a 12% sobre a base integral/,
+);
+assert.throws(
+  () => comExcecao([linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })], { consumidor_final: 0 }),
+  /mantém indFinal = 1/,
+);
+// Sem a excecao a trava continua bloqueando manutencao a 12%.
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: "MANUTENCAO", consumidor_final: 0 } }),
+    itens: [linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })],
+  })),
+  /destinação manutenção exige alíquota interna de 17%, e a nota está com 12%/,
+);
+
 console.log("107 cenarios locais do pipeline NF-e passaram.");

@@ -4,12 +4,17 @@ import {
   conflitoIpiNaBaseComAliquota,
   ehDestinatarioContribuinte,
   ehDestinacaoValida,
+  excecaoAliquota12Indisponivel,
+  EXCECAO_ALIQUOTA_12_DESTINATARIO,
   faltaCbenefAutomacaoSc,
+  itemNaExcecaoAliquota12,
+  lerExcecaoAliquota12,
   REDUCAO_MAQUINAS_CONVENIO_52_91,
   temReducaoAutomacaoSc,
   ipiIntegraBaseIcms,
   temReducaoMaquinas5291,
   textoDestinacao,
+  textoExcecaoAliquota12,
   textoReducaoAutomacaoSc,
   textoReducaoMaquinas5291,
   type DestinacaoMercadoria,
@@ -293,6 +298,15 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     throw new Error(`Solicitação incompleta: destinação da mercadoria ${destinacaoInformada} desconhecida.`);
   }
   const destinacao: DestinacaoMercadoria = destinacaoInformada;
+  // Excecao "ICMS 12% por exigencia do destinatario" (icms-sc-destinacao.ts). Gravada na
+  // conferencia com OC e evidencia; aqui so se confere que ainda cabe nesta nota.
+  const excecaoAliquota12 = lerExcecaoAliquota12(operacao.excecao_aliquota_destinatario);
+  if (excecaoAliquota12) {
+    const indisponivel = excecaoAliquota12Indisponivel(destinacao, destinatarioContribuinte, interestadual);
+    if (indisponivel) throw new Error(`Emissão bloqueada: ${indisponivel}.`);
+  }
+  // nItem dos itens que sairam a 12% pela excecao: vao listados no texto da nota.
+  const itensExcecaoAliquota12: number[] = [];
 
   let valorProdutos = 0;
   let valorDesconto = 0;
@@ -563,10 +577,31 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ? null
       : round(aliquotaIcms * (1 - reducao / 100));
     if (cargaEfetivaIcms !== null) aliquotasIcms.add(cargaEfetivaIcms);
+    // Com a excecao ativa, item sem SC820006 sai CST 00 a 12% cheios. A conferencia ja
+    // grava assim; aqui a nota nao sai se chegou outra coisa — nunca corrige calado.
+    const itemNaExcecao = excecaoAliquota12 !== null && itemNaExcecaoAliquota12(item.cbenef);
+    if (itemNaExcecao) {
+      if (
+        situacaoIcms !== EXCECAO_ALIQUOTA_12_DESTINATARIO.cst
+        || aliquotaIcms !== EXCECAO_ALIQUOTA_12_DESTINATARIO.aliquota
+        || reducao !== 0
+        || text(item.cbenef)
+      ) {
+        throw new Error(
+          `Emissão bloqueada: item ${codigo}, com a exceção de ICMS 12% por exigência do destinatário `
+          + `o item sem cBenef SC820006 sai com CST 00 a 12% sobre a base integral, e a conferência `
+          + `trouxe CST ${situacaoIcms} a ${aliquotaIcms ?? "?"}%${reducao ? ` com redução de ${reducao}%` : ""}`
+          + `${text(item.cbenef) ? ` e cBenef ${text(item.cbenef)}` : ""}. Refaça a conferência.`,
+        );
+      }
+      itensExcecaoAliquota12.push(numeroItem);
+    }
     // Os dois efeitos da destinacao tem de andar juntos. Item a item, porque a
     // aliquota e a base sao do item — o conflito de destinacao x aliquota, mais
     // abaixo, olha a nota inteira e nao pegaria um item destoante.
-    const conflitoIpiBase = conflitoIpiNaBaseComAliquota(
+    // Na excecao os 12% vem da exigencia do destinatario, nao de a mercadoria seguir em
+    // operacao tributada: o IPI continua na base (manutencao) e isso nao e contradicao.
+    const conflitoIpiBase = itemNaExcecao ? null : conflitoIpiNaBaseComAliquota(
       destinacao,
       cargaEfetivaIcms,
       ipiNaBaseIcms > 0,
@@ -679,7 +714,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // interna de equipamentos de automação, Anexo 2, Art. 7º, VII) e não da
   // destinação: nesses NCMs a contabilidade lista 12% direto, sem a alternativa
   // de 17%. Só confiro destinação contra alíquota fora desse caso.
-  const conflito = usaBeneficioReducaoSc || usaBeneficioMaquinas5291
+  // Com a excecao ativa a divergencia foi confirmada na tela, com OC e evidencia: nao bloqueia.
+  const conflito = usaBeneficioReducaoSc || usaBeneficioMaquinas5291 || excecaoAliquota12
     ? null
     : conflitoDestinacaoAliquota(destinacao, aliquotaUnica, interestadual, destinatarioContribuinte);
   if (conflito) {
@@ -714,6 +750,11 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // preenche o vTotTrib sozinha pela tabela IBPT dela (doc. do campo
   // valor_total_tributos); foi o que aconteceu nas NF-e 2/11 e 2/12.
   const consumidorFinal = requiredNumber(operacao.consumidor_final, "indicador de consumidor final");
+  if (excecaoAliquota12 && consumidorFinal !== 1) {
+    throw new Error(
+      `Emissão bloqueada: a exceção de ICMS 12% por exigência do destinatário mantém indFinal = 1, e a nota está com ${consumidorFinal}.`,
+    );
+  }
   const tributosAproximados = tributosAproximadosNota({
     consumidorFinal,
     ehVenda: natureza.codigo.startsWith("VENDA_"),
@@ -732,7 +773,17 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(textoTributosAproximados ? [textoTributosAproximados] : []),
     ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc(itensBeneficioReducaoSc, items.length)] : []),
     ...(usaBeneficioMaquinas5291 ? [textoReducaoMaquinas5291()] : []),
-    textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291),
+    ...(excecaoAliquota12 && itensExcecaoAliquota12.length > 0
+      ? [textoExcecaoAliquota12(itensExcecaoAliquota12, excecaoAliquota12.numeroOc, destinacao)]
+      : []),
+    // Na excecao a base legal dos 12% ja esta no texto dela; citar aqui a alinea "n" da
+    // Lei 10.297/96 ("destinada a contribuinte") contradiria a utilizacao informada.
+    textoDestinacao(
+      destinacao,
+      aliquotaUnica,
+      interestadual,
+      usaBeneficioReducaoSc || usaBeneficioMaquinas5291 || itensExcecaoAliquota12.length > 0,
+    ),
     ...(text(solicitacao.pedido_cliente)
       ? [`Pedido de compra do cliente: ${text(solicitacao.pedido_cliente)}`]
       : []),

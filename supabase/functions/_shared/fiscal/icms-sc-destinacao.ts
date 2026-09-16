@@ -290,6 +290,77 @@ export function textoReducaoAutomacaoSc(itensComBeneficio: number[] = [], totalI
 }
 
 /**
+ * Excecao "ICMS 12% por exigencia do destinatario" (Gabriel, 16/09/2026, pedido da
+ * PORTOBELLO). Mercadoria de manutencao, uso e consumo ou ativo imobilizado vai a 17%
+ * (art. 19, § 3º), mas o destinatario contribuinte pode exigir os 12% declarando a
+ * utilizacao na OC — e ai responde solidariamente pela diferenca (RICMS/SC-01, art. 26,
+ * § 6º). Nao e beneficio (sem cBenef) e nao muda o IPI.
+ *
+ * Com a excecao ativa, cada item SEM o cBenef SC820006 sai CST 00 a 12% sobre a base
+ * integral; o item COM SC820006 segue a propria regra (CST 20, base reduzida). O indFinal
+ * fica 1 e o IPI continua dentro da base do ICMS, porque a destinacao nao mudou.
+ */
+export const EXCECAO_ALIQUOTA_12_DESTINATARIO = {
+  aliquota: 12,
+  cst: "00",
+  baseLegal: 'RICMS/SC-01, art. 26, III, "n"',
+  destinacoes: ["MANUTENCAO", "USO_CONSUMO", "ATIVO_IMOBILIZADO"] as DestinacaoMercadoria[],
+};
+
+export type ExcecaoAliquota12 = { numeroOc: string };
+
+/** Por que a excecao nao cabe nesta nota, ou null quando cabe. */
+export function excecaoAliquota12Indisponivel(
+  destinacao: DestinacaoMercadoria,
+  destinatarioContribuinte: boolean,
+  interestadual: boolean,
+): string | null {
+  if (!destinatarioContribuinte) {
+    return "a exceção de ICMS 12% por exigência do destinatário só vale para destinatário contribuinte (indIEDest = 1)";
+  }
+  if (interestadual) {
+    return "a exceção de ICMS 12% por exigência do destinatário só vale em operação interna";
+  }
+  if (!EXCECAO_ALIQUOTA_12_DESTINATARIO.destinacoes.includes(destinacao)) {
+    return `a exceção de ICMS 12% por exigência do destinatário não se aplica à destinação ${rotuloDestinacao(destinacao)}`;
+  }
+  return null;
+}
+
+/**
+ * Le a excecao gravada no snapshot da operacao. Ausente e null; presente sem o numero
+ * da OC aborta, porque o texto da nota cita a OC e sem ela a exigencia nao tem prova.
+ */
+export function lerExcecaoAliquota12(valor: unknown): ExcecaoAliquota12 | null {
+  if (valor === null || valor === undefined) return null;
+  const registro = typeof valor === "object" && !Array.isArray(valor) ? valor as Record<string, unknown> : {};
+  const numeroOc = typeof registro.numero_oc === "string" ? registro.numero_oc.trim() : "";
+  if (!numeroOc) {
+    throw new Error("Emissão bloqueada: a exceção de ICMS 12% por exigência do destinatário exige o número da OC.");
+  }
+  return { numeroOc };
+}
+
+/** O item entra na excecao? So quem nao tem o cBenef do Anexo 2, Art. 7º, VII. */
+export function itemNaExcecaoAliquota12(cbenef: string | null | undefined) {
+  return String(cbenef ?? "").trim() !== REDUCAO_AUTOMACAO_SC.cbenef;
+}
+
+/** Texto das informacoes complementares. Sempre lista os itens (nItem) que usaram a excecao. */
+export function textoExcecaoAliquota12(
+  itens: number[],
+  numeroOc: string,
+  destinacao: DestinacaoMercadoria,
+) {
+  const lista = [...new Set(itens)].sort((a, b) => a - b);
+  return `${lista.length === 1 ? "Item" : "Itens"} ${lista.join(", ")}: ICMS à alíquota de 12% `
+    + `(${EXCECAO_ALIQUOTA_12_DESTINATARIO.baseLegal}) aplicada por determinação do destinatário, `
+    + `conforme OC nº ${numeroOc}, utilização informada: ${rotuloDestinacao(destinacao)}. `
+    + "O destinatário responde solidariamente pela diferença de alíquota, nos termos do "
+    + "art. 26, § 6º, do RICMS/SC-01.";
+}
+
+/**
  * Maquinas e aparelhos industriais do Convenio ICMS 52/91 (RICMS/SC-01, Anexo 2,
  * Art. 9o): reducao de base para carga efetiva de 8,80%, interna (17% nominal)
  * e interestadual (12% nominal). Contador, 06/09/2026, sobre o NCM 8460.90.90:
