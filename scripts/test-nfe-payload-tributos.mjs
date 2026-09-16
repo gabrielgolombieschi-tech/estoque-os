@@ -110,60 +110,100 @@ for (const cenario of cenarios) {
   }
 }
 
-// "Valor aproximado dos tributos" (Lei 12.741/2012), em toda venda: mesma frase e
-// mesma conta (ICMS + IPI da nota) do emissor antigo, pedido do Gabriel em 10/09/2026
-// — conferido contra 20 notas reais dele (ver comentario em nfe-payload.ts). Reusa o
-// cenario A (IPI por fora), so trocando natureza e CFOP.
+// "Valor aproximado dos tributos" (Lei 12.741/2012) e vTotTrib — regra de 16/09/2026:
+// so com indFinal = 1, e o valor e federal + estadual da tabela IBPT por NCM. Com
+// indFinal = 0 nao ha frase nem valor_total_tributos; sem tabela vigente para algum NCM
+// da nota, tambem nao (nunca uma aliquota inventada, nunca o ICMS + IPI da nota).
 //
-// O que nao e venda nao leva a frase: numa remessa para industrializacao nao ha preco
-// cobrado do comprador de que esses tributos sejam parte.
-function infCplDaNatureza(naturezaOperacao, cfop) {
+// As aliquotas abaixo sao FICTICIAS, so para exercitar a conta — nao sao do IBPT.
+const IBPT_TESTE = [{
+  uf: "SC", codigo: "85371020", ex: "", descricao: "teste",
+  nacional_federal_pct: 13.45, importados_federal_pct: 15.45, estadual_pct: 17, municipal_pct: 0,
+  vigencia_inicio: "2026-07-01", vigencia_fim: "2026-12-31", versao: "TESTE.1", chave: "TESTE", fonte: "IBPT",
+}];
+const AGORA = new Date("2026-09-16T15:00:00Z");
+
+function payloadCom({ consumidorFinal, ibpt, origem = 0, natureza, cfop }) {
   const ctx = contexto(9000.00);
-  ctx.solicitacao.operacao_snapshot.natureza_operacao = naturezaOperacao;
-  ctx.itens[0].solicitacao_item.cfop = cfop;
-  ctx.itens[0].documento_item.cfop = cfop;
-  // A fixture e de um painel fabricado (CST 50, 9,75%). Na revenda isso nao existe:
-  // so o industrial e quem a ele se equipara destacam IPI (RIPI art. 9o), entao o
-  // item vira CST 53 sem aliquota — e o "valor aproximado" cai para so o ICMS.
-  if (["5102", "6102"].includes(cfop)) {
-    ctx.itens[0].solicitacao_item.cst_ipi = "53";
-    ctx.itens[0].solicitacao_item.aliquota_ipi = null;
-    ctx.itens[0].solicitacao_item.ipi_tipi_aliquota = null;
+  ctx.solicitacao.operacao_snapshot.consumidor_final = consumidorFinal;
+  if (natureza) ctx.solicitacao.operacao_snapshot.natureza_operacao = natureza;
+  if (cfop) {
+    ctx.itens[0].solicitacao_item.cfop = cfop;
+    ctx.itens[0].documento_item.cfop = cfop;
   }
-  return String(montarPayloadNfe(ctx).informacoes_adicionais_contribuinte ?? "");
+  if (origem === 1) {
+    // Origem 1 exige a equiparacao a industrial (RIPI art. 9o, I).
+    ctx.itens[0].solicitacao_item.origem_mercadoria = 1;
+    ctx.itens[0].solicitacao_item.equiparado_industrial = true;
+  }
+  if (ibpt !== undefined) ctx.ibpt = ibpt;
+  return montarPayloadNfe(ctx, AGORA);
 }
 
-const casosInfCpl = [
-  { nome: "C · Revenda (5102)", natureza: "VENDA_MERCADORIA_TERCEIROS", cfop: "5102", frase: null },
-  { nome: "D · Industrializacao interna (5101)", natureza: "VENDA_INDUSTRIALIZACAO_INTERNA", cfop: "5101" },
-  { nome: "E · Industrializacao interestadual (6101)", natureza: "VENDA_INDUSTRIALIZACAO_INTERESTADUAL", cfop: "6101" },
-];
-const FRASE_TRIBUTOS = "Valor aproximado dos tributos: 2556,68.";
-// Sem IPI a revenda so soma o ICMS: 9.000,00 x 17% = 1.530,00.
-const FRASE_TRIBUTOS_REVENDA = "Valor aproximado dos tributos: 1530,00.";
-for (const caso of casosInfCpl) {
-  const infCpl = infCplDaNatureza(caso.natureza, caso.cfop);
-  const esperada = caso.frase === null ? FRASE_TRIBUTOS_REVENDA : FRASE_TRIBUTOS;
-  const bate = infCpl.startsWith(esperada);
-  if (!bate) falhas += 1;
-  console.log(`\n${caso.nome} — texto no infCpl`);
-  console.log(`  ${bate ? "ok   " : "FALHA"} ${"infCpl".padEnd(12)} ${JSON.stringify(infCpl.slice(0, 60))}${bate ? "" : `  (esperado iniciar com ${JSON.stringify(esperada)})`}`);
+function confere(nome, condicao, detalhe) {
+  if (!condicao) falhas += 1;
+  console.log(`  ${condicao ? "ok   " : "FALHA"} ${nome}${condicao ? "" : `  (${detalhe})`}`);
 }
 
-// A frase e so das vendas. Isso ainda nao da para observar pelo infCpl: as tres
-// naturezas acima sao as unicas com cClassTrib mapeado para 2026, e qualquer outra
-// para antes, no IBS/CBS. O caso negativo fica registrado aqui — quando uma remessa
-// passar a ser emissivel, e este ponto que tem de ser reconferido.
+function semTributosAproximados(payload) {
+  return !/Valor aproximado dos tributos/.test(String(payload.informacoes_adicionais_contribuinte ?? ""))
+    && !("valor_total_tributos" in payload)
+    && payload.items.every((item) => !("valor_total_tributos" in item));
+}
+
+{
+  console.log("\nC · indFinal 0 (venda a contribuinte): sem frase e sem vTotTrib, mesmo com tabela");
+  const p = payloadCom({ consumidorFinal: 0, ibpt: IBPT_TESTE });
+  confere("sem frase, sem valor_total_tributos", semTributosAproximados(p), p.informacoes_adicionais_contribuinte);
+}
+{
+  console.log("\nD · indFinal 1 sem tabela IBPT: sem frase e sem vTotTrib (nada de ICMS + IPI)");
+  const p = payloadCom({ consumidorFinal: 1 });
+  confere("sem frase, sem valor_total_tributos", semTributosAproximados(p), p.informacoes_adicionais_contribuinte);
+}
+{
+  console.log("\nE · indFinal 1 com tabela vigente, origem nacional: federal + estadual");
+  const p = payloadCom({ consumidorFinal: 1, ibpt: IBPT_TESTE });
+  // 9.000,00 x 13,45% = 1.210,50 federal; 9.000,00 x 17% = 1.530,00 estadual.
+  const frase = "Valor aproximado dos tributos: 2740,50 (federal 1210,50 e estadual 1530,00). Fonte: IBPT TESTE, versão TESTE.1.";
+  confere("infCpl abre com a frase", String(p.informacoes_adicionais_contribuinte).startsWith(frase), p.informacoes_adicionais_contribuinte);
+  confere("vTotTrib do item 2740,50", p.items[0].valor_total_tributos === 2740.50, p.items[0].valor_total_tributos);
+  confere("vTotTrib total 2740,50", p.valor_total_tributos === 2740.50, p.valor_total_tributos);
+}
+{
+  console.log("\nF · indFinal 1 com tabela, origem 1 (estrangeira): coluna de importados");
+  const p = payloadCom({ consumidorFinal: 1, ibpt: IBPT_TESTE, origem: 1 });
+  // 9.000,00 x 15,45% = 1.390,50 federal; + 1.530,00 estadual.
+  confere("vTotTrib total 2920,50", p.valor_total_tributos === 2920.50, p.valor_total_tributos);
+}
+{
+  console.log("\nG · indFinal 1 com tabela vencida na data da emissao: sem frase e sem vTotTrib");
+  const vencida = [{ ...IBPT_TESTE[0], vigencia_fim: "2026-09-15" }];
+  const p = payloadCom({ consumidorFinal: 1, ibpt: vencida });
+  confere("sem frase, sem valor_total_tributos", semTributosAproximados(p), p.informacoes_adicionais_contribuinte);
+}
+{
+  console.log("\nH · as contas de ICMS e IPI nao mudam com a regra dos tributos aproximados");
+  const a = payloadCom({ consumidorFinal: 1 });
+  const b = payloadCom({ consumidorFinal: 1, ibpt: IBPT_TESTE });
+  const campos = ["icms_base_calculo", "icms_valor", "icms_aliquota", "ipi_base_calculo", "ipi_valor", "valor_total_item"];
+  confere("ICMS/IPI do item iguais", campos.every((c) => a.items[0][c] === b.items[0][c]), campos.map((c) => `${c}:${a.items[0][c]}/${b.items[0][c]}`).join(" "));
+  confere("vNF igual", a.valor_total === b.valor_total, `${a.valor_total}/${b.valor_total}`);
+}
+
+// A frase e so das vendas. Nao da para observar pelo infCpl: as tres naturezas de
+// venda sao as unicas com cClassTrib mapeado para 2026, e qualquer outra para antes,
+// no IBS/CBS. O caso negativo fica registrado — quando uma remessa passar a ser
+// emissivel, e este ponto que tem de ser reconferido.
 {
   let barrou = false;
   try {
-    infCplDaNatureza("REMESSA_INDUSTRIALIZACAO_ENCOMENDA", "5901");
+    payloadCom({ consumidorFinal: 1, ibpt: IBPT_TESTE, natureza: "REMESSA_INDUSTRIALIZACAO_ENCOMENDA", cfop: "5901" });
   } catch (erro) {
     barrou = /sem cClassTrib mapeado/.test(String(erro.message));
   }
-  if (!barrou) falhas += 1;
-  console.log("\nF · Remessa p/ industrializacao ainda nao e emissivel");
-  console.log(`  ${barrou ? "ok   " : "FALHA"} ${"barrada".padEnd(12)} no IBS/CBS, antes do infCpl${barrou ? "" : " (esperado bloqueio por cClassTrib nao mapeado)"}`);
+  console.log("\nI · Remessa p/ industrializacao ainda nao e emissivel");
+  confere("barrada no IBS/CBS, antes do infCpl", barrou, "esperado bloqueio por cClassTrib nao mapeado");
 }
 
 console.log(falhas === 0 ? "\nTributos da NF-e: todos os cenarios passaram." : `\nTributos da NF-e: ${falhas} divergencia(s).`);

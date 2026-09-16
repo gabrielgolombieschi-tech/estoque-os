@@ -4,7 +4,7 @@ import {
   conflitoIpiNaBaseComAliquota,
   ehDestinatarioContribuinte,
   ehDestinacaoValida,
-  REDUCAO_AUTOMACAO_SC,
+  faltaCbenefAutomacaoSc,
   REDUCAO_MAQUINAS_CONVENIO_52_91,
   temReducaoAutomacaoSc,
   ipiIntegraBaseIcms,
@@ -19,6 +19,13 @@ import {
   resolverIbsCbsTransicao2026,
   validarCfopIbsCbsTransicao2026,
 } from "./fiscal/ibs-cbs-transicao-2026.ts";
+import {
+  dataCivilSaoPaulo,
+  type IbptNcm,
+  type ItemIbpt,
+  textoTributosAproximados as fraseTributosAproximados,
+  tributosAproximadosNota,
+} from "./fiscal/ibpt.ts";
 
 type LinhaContexto = {
   documento_item?: Record<string, unknown> | null;
@@ -133,6 +140,12 @@ export type ContextoEmissao = {
   documento?: Record<string, unknown>;
   solicitacao: Record<string, unknown>;
   itens: LinhaContexto[];
+  /**
+   * Linhas da tabela IBPT (f.ibpt_ncm) dos NCMs da nota, anexadas pela Edge Function
+   * (_shared/ibpt-contexto.ts). Ausente = sem tabela: a nota sai sem a frase da
+   * Lei 12.741 e sem vTotTrib.
+   */
+  ibpt?: IbptNcm[] | null;
 };
 
 function digits(value: unknown) {
@@ -284,7 +297,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   let valorProdutos = 0;
   let valorDesconto = 0;
   let valorIpi = 0;
-  let icmsTotal = 0;
+  const itensIbpt: ItemIbpt[] = [];
   let baseIbsCbsTotal = 0;
   let vItemTotal = 0;
   let ibsUfTotal = 0;
@@ -515,13 +528,10 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
-    // Para o texto "Valor aproximado dos tributos" da revenda, mais abaixo — nao e
-    // IBPT (a tarifa exigiria tabela por NCM que a Segau nao tem, Lei 12.741/2012).
-    // O emissor antigo somava exatamente ICMS + IPI da propria nota: conferido contra
-    // uma amostra de 20 das 98 notas reais dele com essa frase no XML (NCM e CFOP
-    // variados, com e sem IPI), sem excecao — backups/pre_conferencia_destino_perfil_
-    // 20260903_1145_data.sql.
-    icmsTotal = round(icmsTotal + (icmsValor ?? 0));
+    // Valor do item para o "Valor aproximado dos tributos" (Lei 12.741/2012), mais
+    // abaixo. Ate 16/09/2026 a frase somava ICMS + IPI da propria nota, como o emissor
+    // antigo; agora e federal + estadual da tabela IBPT, e so com indFinal = 1.
+    itensIbpt.push({ codigo, ncm, origem, valor: base });
     baseIbsCbsTotal = round(baseIbsCbsTotal + baseIbsCbs);
     // vNFTot da NT 2025.002-RTC v1.30 (pag. 47): soma dos vItem, e vItem NAO leva
     // vIBSUF, vIBSMun, vIBS, vCBS nem vIS em 2025 e 2026 — era exatamente o que estava
@@ -560,15 +570,19 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     if (conflitoIpiBase) {
       throw new Error(`Emissão bloqueada: item ${codigo}, ${conflitoIpiBase}.`);
     }
+    // Trava antes de qualquer envio a Focus: CST 20 (ou os 12% da alinea "a") num NCM
+    // do Anexo 2, Art. 7º, VII sem cBenef. A conferencia da tela chama a mesma funcao.
+    const faltaCbenef = faltaCbenefAutomacaoSc({
+      codigo,
+      ncm,
+      situacaoIcms,
+      cargaEfetivaIcms,
+      cbenef: text(item.cbenef),
+      interestadual,
+    });
+    if (faltaCbenef) throw new Error(`Emissão bloqueada: ${faltaCbenef}.`);
     if (temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
       usaBeneficioReducaoSc = true;
-      if (!text(item.cbenef)) {
-        throw new Error(
-          `Solicitação incompleta: item ${codigo}, NCM ${ncm} tem redução de base do Anexo 2, `
-          + `Art. 7º, VII e exige o cBenef ${REDUCAO_AUTOMACAO_SC.cbenef} — a SEFAZ rejeita `
-          + "benefício de ICMS sem código desde 03/02/2025.",
-        );
-      }
     }
     // Maquina industrial do Convenio 52/91 (NCM 8460.90.90): CST 20, cBenef do convenio e base
     // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
@@ -675,23 +689,37 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const observacaoSolicitacao = observacaoBruta && !/^Composi[cç][aã]o (parcial|livre) da (OV|OS)\b/i.test(observacaoBruta)
     ? observacaoBruta
     : null;
-  // "Valor aproximado dos tributos" (Lei 12.741/2012), na primeira posicao do infCpl —
-  // mesma conta (ICMS + IPI da nota) do emissor antigo, conferida contra 20 notas
-  // legadas. Escrito em frase normal, nao na caixa alta do emissor antigo, para nao
-  // destoar dos outros fragmentos (destinacao, pedido) — decisao do Gabriel em
-  // 10/09/2026.
+  // "Valor aproximado dos tributos" (Lei 12.741/2012), na primeira posicao do infCpl,
+  // e o vTotTrib (item e total). Decisao do Gabriel em 16/09/2026:
   //
-  // Vale para toda VENDA, nao so a revenda (Gabriel, 10/09/2026): o direito do
-  // comprador a informacao, no art. 1o da Lei 12.741/2012, nao distingue mercadoria
-  // revendida de mercadoria industrializada aqui dentro.
+  //   · so com indFinal = 1. Na venda a contribuinte (indFinal = 0) nao ha frase nem
+  //     vTotTrib — a NF-e 2/52 (venda 355) saiu com "265,20" ao lado de indFinal 0;
+  //   · o valor e federal + estadual da tabela IBPT por NCM (f.ibpt_ncm, carregada
+  //     pela Edge Function em contexto.ibpt), nao o ICMS + IPI da nota, que era a
+  //     conta do emissor antigo e daqui ate essa data.
   //
-  // Fica de fora o que nao e venda — remessa e retorno de industrializacao, devolucao
-  // de compra, estorno, outras saidas. Ali nao ha preco cobrado do comprador de que
-  // esses tributos sejam parte, e a frase afirmaria uma coisa que a operacao nao tem.
-  const valorAproximadoTributos = round(icmsTotal + valorIpi);
-  const textoTributosAproximados = natureza.codigo.startsWith("VENDA_")
-    ? `Valor aproximado dos tributos: ${valorAproximadoTributos.toFixed(2).replace(".", ",")}.`
+  // Continua so em VENDA (Gabriel, 10/09/2026): remessa, retorno e devolucao nao tem
+  // preco cobrado do comprador de que esses tributos sejam parte.
+  //
+  // Sem linha vigente do IBPT para algum NCM, a nota nao leva a frase nem o campo —
+  // nunca uma aliquota inventada. Atencao: nesse caso, com indFinal = 1, a Focus
+  // preenche o vTotTrib sozinha pela tabela IBPT dela (doc. do campo
+  // valor_total_tributos); foi o que aconteceu nas NF-e 2/11 e 2/12.
+  const consumidorFinal = requiredNumber(operacao.consumidor_final, "indicador de consumidor final");
+  const tributosAproximados = tributosAproximadosNota({
+    consumidorFinal,
+    ehVenda: natureza.codigo.startsWith("VENDA_"),
+    uf: ufEmitente,
+    data: dataCivilSaoPaulo(agora),
+    itens: itensIbpt,
+    tabela: contexto.ibpt,
+  });
+  const textoTributosAproximados = tributosAproximados.aplica
+    ? fraseTributosAproximados(tributosAproximados)
     : null;
+  const itensComTributos = tributosAproximados.aplica
+    ? items.map((item, indice) => ({ ...item, valor_total_tributos: tributosAproximados.itens[indice].total }))
+    : items;
   const informacoesComplementares = [
     ...(textoTributosAproximados ? [textoTributosAproximados] : []),
     ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc()] : []),
@@ -842,7 +870,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     tipo_documento: 1,
     local_destino: interestadual ? 2 : 1,
     finalidade_emissao: finalidadeEmissao,
-    consumidor_final: requiredNumber(operacao.consumidor_final, "indicador de consumidor final"),
+    consumidor_final: consumidorFinal,
     presenca_comprador: presencaComprador,
     cnpj_emitente: digits(requiredText(emitente.cnpj, "CNPJ do emitente")),
     nome_emitente: requiredText(emitente.razao_social, "razão social do emitente"),
@@ -887,6 +915,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ibs_valor_total: round(ibsUfTotal + ibsMunTotal),
     cbs_valor_total: cbsTotal,
     ibs_cbs_is_valor_total: vItemTotal,
+    ...(tributosAproximados.aplica ? { valor_total_tributos: tributosAproximados.total } : {}),
     formas_pagamento: [{
       forma_pagamento: formaPagamento,
       valor_pagamento: valorTotal,
@@ -908,6 +937,6 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(informacoesComplementares
       ? { informacoes_adicionais_contribuinte: informacoesComplementares }
       : {}),
-    items,
+    items: itensComTributos,
   };
 }

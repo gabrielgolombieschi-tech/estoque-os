@@ -12,6 +12,7 @@ import { requireAny } from "@/lib/auth/capabilities";
 import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
 import { normalizarConversaoCadastro, ORIGENS_MERCADORIA } from "@/lib/itens/cadastroNormalizacao";
 import CadastroItemAgenteModal from "./CadastroItemAgenteModal";
+import { alertaCadastroNcm } from "@/lib/itens/alertasNcm";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
 
@@ -2157,6 +2158,13 @@ export default function ItensClient({
                       </select>
                     </div>
                   </div>
+
+                  {/* Alerta, nao trava: o cadastro salva do mesmo jeito. */}
+                  {alertaCadastroNcm(fiscalForm.ncm) ? (
+                    <div role="alert" data-testid="alerta-ncm" className="rounded border border-amber-800/70 bg-amber-950/25 px-3 py-2 text-xs text-amber-100">
+                      {alertaCadastroNcm(fiscalForm.ncm)}
+                    </div>
+                  ) : null}
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">

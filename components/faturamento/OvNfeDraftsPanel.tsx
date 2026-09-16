@@ -7,6 +7,13 @@ import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } 
 import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { resolverIbsCbsTransicao2026 } from "@/supabase/functions/_shared/fiscal/ibs-cbs-transicao-2026";
+import { faltaCbenefAutomacaoSc } from "@/supabase/functions/_shared/fiscal/icms-sc-destinacao";
+import {
+  dataCivilSaoPaulo,
+  tributosAproximadosNota,
+  type IbptNcm,
+  type ResultadoIbpt,
+} from "@/supabase/functions/_shared/fiscal/ibpt";
 
 type Solicitacao = {
   id: string;
@@ -715,6 +722,34 @@ function perfilCabecalhoUnico(resolucao: ResolucaoPerfis | null) {
   return ids.size === 1 ? perfis[0] : null;
 }
 
+/**
+ * A mesma trava do builder (faltaCbenefAutomacaoSc em icms-sc-destinacao.ts): CST 20, ou
+ * os 12% da alinea "a", num NCM do RICMS/SC-01, Anexo 2, Art. 7º, VII sem cBenef. Aparece
+ * na conferencia para a pessoa ver antes de tentar; o servidor recusa do mesmo jeito.
+ */
+function bloqueiosCbenefConferencia(
+  itensRascunho: SolicitacaoItem[],
+  itensForm: ItemForm[],
+  resolucao: ResolucaoPerfis | null,
+) {
+  if (!resolucao?.ok) return [];
+  return itensForm.flatMap((form, indice) => {
+    const item = itensRascunho.find((linha) => linha.id === form.id);
+    const resolvido = resolucao.itens?.find((linha) => linha.solicitacao_item_id === form.id);
+    const aliquota = paraNumero(form.aliquota_icms);
+    const reducao = paraNumero(form.reducao_base_icms_percentual) ?? 0;
+    const motivo = faltaCbenefAutomacaoSc({
+      codigo: item?.codigo_produto || (item?.item_id ? `#${item.item_id} (linha ${indice + 1})` : `da linha ${indice + 1}`),
+      ncm: resolvido?.produto?.ncm ?? item?.ncm ?? "",
+      situacaoIcms: form.cst_icms.trim() || form.csosn.trim() || null,
+      cargaEfetivaIcms: aliquota === null ? null : arredondarMoeda(aliquota * (1 - reducao / 100)),
+      cbenef: form.cbenef.trim() || null,
+      interestadual: resolucao.ambito !== "INTERNA",
+    });
+    return motivo ? [`Emissão bloqueada: ${motivo}.`] : [];
+  });
+}
+
 function camposObrigatoriosPendentes(operacao: OperacaoForm, itens: ItemForm[], totalNota: number) {
   const pendentes: string[] = [];
   const camposOperacao: Array<[keyof OperacaoForm, string]> = [
@@ -822,6 +857,8 @@ export default function OvNfeDraftsPanel({
   const [destinoUf, setDestinoUf] = useState("");
   const [resolucaoPerfis, setResolucaoPerfis] = useState<ResolucaoPerfis | null>(null);
   const [resolvendoDestino, setResolvendoDestino] = useState(false);
+  // Tabela IBPT dos NCMs da conferencia aberta (so com consumidor final = 1).
+  const [ibptConferencia, setIbptConferencia] = useState<{ chave: string; linhas: IbptNcm[] | null; erro: string | null } | null>(null);
   const [descarteId, setDescarteId] = useState<string | null>(null);
   const [justificativaDescarte, setJustificativaDescarte] = useState("");
 
@@ -989,6 +1026,33 @@ export default function OvNfeDraftsPanel({
     return () => window.clearInterval(timer);
   }, [carregar, drafts]);
 
+  // Valor aproximado dos tributos (Lei 12.741/2012): so com consumidor final = 1, pela
+  // tabela IBPT por NCM. Carrega as linhas para a conferencia mostrar o valor ou os NCMs
+  // sem tabela — a nota sai sem a frase quando falta algum.
+  const draftAberto = drafts.find((draft) => draft.id === openId) ?? null;
+  const ufEmitenteConferencia = resolucaoPerfis?.uf_emitente ?? "";
+  const ncmsConferencia = draftAberto && etapaConferencia === "FISCAL" && operacao?.consumidor_final === "1"
+    ? [...new Set(draftAberto.itens.map((item) => {
+        const resolvido = resolucaoPerfis?.itens?.find((linha) => linha.solicitacao_item_id === item.id);
+        return String(resolvido?.produto?.ncm ?? item.ncm ?? "").replace(/\D/g, "");
+      }).filter((ncm) => ncm.length === 8))].sort().join(",")
+    : "";
+  const chaveIbpt = ncmsConferencia && ufEmitenteConferencia ? `${ufEmitenteConferencia}:${ncmsConferencia}` : "";
+  useEffect(() => {
+    if (!chaveIbpt) return;
+    let ativo = true;
+    const [uf, lista] = chaveIbpt.split(":");
+    void supabase.schema("f").from("ibpt_ncm")
+      .select("uf,codigo,ex,nacional_federal_pct,importados_federal_pct,estadual_pct,vigencia_inicio,vigencia_fim,versao,chave")
+      .eq("uf", uf)
+      .in("codigo", lista.split(","))
+      .then(({ data, error }) => {
+        if (!ativo) return;
+        setIbptConferencia({ chave: chaveIbpt, linhas: error ? null : (data ?? []) as IbptNcm[], erro: error?.message ?? null });
+      });
+    return () => { ativo = false; };
+  }, [chaveIbpt, supabase]);
+
   // Contexto de entrega das notas reais autorizadas: busca uma vez por documento,
   // quando a nota aparece. So producao — homologacao nao se manda para cliente.
   useEffect(() => {
@@ -1134,6 +1198,11 @@ export default function OvNfeDraftsPanel({
       itensForm,
       totalDaConferencia(draft.itens, itensForm, operacao),
     );
+    const bloqueiosCbenef = bloqueiosCbenefConferencia(draft.itens, itensForm, resolucaoPerfis);
+    if (bloqueiosCbenef.length > 0) {
+      avisar(draft.id, bloqueiosCbenef.join(" "), true);
+      return;
+    }
     if (camposPendentes.length > 0) {
       setFeedback((current) => ({
         ...current,
@@ -1531,6 +1600,36 @@ export default function OvNfeDraftsPanel({
         const camposPendentesConferencia = openId === draft.id && operacao
           ? camposObrigatoriosPendentes(operacao, itensForm, totalConferencia)
           : [];
+        const bloqueiosCbenef = openId === draft.id && etapaConferencia === "FISCAL"
+          ? bloqueiosCbenefConferencia(draft.itens, itensForm, resolucaoPerfis)
+          : [];
+        // O que a nota vai dizer do valor aproximado dos tributos, com os mesmos dados do
+        // builder: indFinal, natureza, NCM, origem e valor de cada item, tabela IBPT.
+        let tributosAproximados: ResultadoIbpt | null = null;
+        if (openId === draft.id && etapaConferencia === "FISCAL" && operacao && resolucaoPerfis?.ok) {
+          const linhasIbpt = operacao.consumidor_final === "1" && ibptConferencia?.chave === chaveIbpt
+            ? ibptConferencia.linhas
+            : undefined;
+          // Sem o consumidor final confirmado nao ha o que dizer: Number("") daria 0.
+          if (operacao.consumidor_final === "0" || (operacao.consumidor_final === "1" && linhasIbpt)) {
+            tributosAproximados = tributosAproximadosNota({
+              consumidorFinal: Number(operacao.consumidor_final),
+              ehVenda: String(draft.natureza_operacao ?? "").startsWith("VENDA_"),
+              uf: resolucaoPerfis.uf_emitente ?? "",
+              data: dataCivilSaoPaulo(new Date()),
+              itens: draft.itens.map((item) => {
+                const resolvido = resolucaoPerfis.itens?.find((linha) => linha.solicitacao_item_id === item.id);
+                return {
+                  codigo: item.codigo_produto ?? "",
+                  ncm: String(resolvido?.produto?.ncm ?? item.ncm ?? "").replace(/\D/g, ""),
+                  origem: Number(resolvido?.origem_mercadoria ?? item.origem_mercadoria ?? 0),
+                  valor: arredondarMoeda(arredondarMoeda(numero(item.quantidade) * numero(item.valor_unitario)) - numero(item.valor_desconto)),
+                };
+              }),
+              tabela: linhasIbpt,
+            });
+          }
+        }
         const parcelasDivergentes = openId === draft.id && operacao && operacao.pagamento_indicador === "1"
           ? divergenciaParcelas(operacao.pagamento_parcelas, totalConferencia)
           : null;
@@ -1970,6 +2069,28 @@ export default function OvNfeDraftsPanel({
 
                         {/* Enquanto o perfil nao resolve, os campos travados ainda estao vazios e
                             o aviso de bloqueio dava a impressao de impasse. Mostra o carregamento. */}
+                        {tributosAproximados && !autorizada && !processando ? (
+                          <div role="status" data-testid="tributos-aproximados" className="rounded border border-zinc-800 bg-zinc-900/30 p-3 text-sm text-zinc-300">
+                            <div className="font-medium text-zinc-200">Valor aproximado dos tributos (Lei 12.741/2012)</div>
+                            <p className="mt-1">
+                              {tributosAproximados.aplica
+                                ? <>Vai na nota: <strong>R$ {formatMoneyBR(tributosAproximados.total)}</strong> (federal R$ {formatMoneyBR(tributosAproximados.federal)} e estadual R$ {formatMoneyBR(tributosAproximados.estadual)}), pela tabela IBPT versão {tributosAproximados.versoes.join("/")}, na frase das informações complementares e no vTotTrib.</>
+                                : tributosAproximados.motivo === "NAO_CONSUMIDOR_FINAL"
+                                ? <>Não vai na nota: consumidor final 0 (venda a contribuinte). Sem a frase nas informações complementares e sem vTotTrib.</>
+                                : tributosAproximados.motivo === "NAO_E_VENDA"
+                                ? <>Não vai na nota: a natureza da operação não é de venda.</>
+                                : <span className="text-amber-200">Não vai na nota: sem tabela IBPT vigente para o NCM {("ncmsSemTabela" in tributosAproximados ? tributosAproximados.ncmsSemTabela : []).map((ncm: string) => ncm.replace(/^(\d{4})(\d{2})(\d{2})$/, "$1.$2.$3")).join(", ")}. A frase sai das informações complementares e o sistema não preenche o vTotTrib — com consumidor final 1, a Focus preenche o vTotTrib pela tabela dela.</span>}
+                            </p>
+                          </div>
+                        ) : null}
+                        {ibptConferencia?.erro && ibptConferencia.chave === chaveIbpt && operacao?.consumidor_final === "1" && openId === draft.id ? (
+                          <div role="alert" className="rounded border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100">Não foi possível ler a tabela IBPT: {ibptConferencia.erro}</div>
+                        ) : null}
+                        {bloqueiosCbenef.length > 0 && !autorizada && !processando ? (
+                          <div role="alert" className="rounded border border-red-900 bg-red-950/30 p-3 text-sm text-red-200">
+                            {bloqueiosCbenef.map((motivo) => <div key={motivo}>{motivo}</div>)}
+                          </div>
+                        ) : null}
                         {resolucaoPerfis === null && !autorizada && !processando ? (
                           <div role="status" className="rounded border border-sky-900 bg-sky-950/20 p-3 text-sm text-sky-200">
                             Carregando o perfil fiscal dos itens… os campos com cadeado são preenchidos automaticamente ao final.
@@ -1982,7 +2103,7 @@ export default function OvNfeDraftsPanel({
                         {feedback[draft.id] ? <div role="alert" className="rounded border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100">{feedback[draft.id]}</div> : null}
                         {(pendencias[draft.id]?.length ?? 0) > 0 ? <ul className="space-y-1 rounded border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100">{pendencias[draft.id].map((item, index) => <li key={`${item.campo}-${index}`}>• {item.mensagem || item.campo}{item.rota && !item.rota.startsWith("/faturamento/solicitacoes/") ? <> · <Link className="underline" href={item.rota}>corrigir cadastro</Link></> : null}</li>)}</ul> : null}
                       </div>
-                      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950 p-4"><div><div className="text-xs uppercase text-zinc-500">Total conferido</div><div className="text-xl font-semibold">R$ {formatMoneyBR(totalConferencia)}</div></div><div className="flex gap-2"><button type="button" onClick={() => alterarDestino(draft)} disabled={busyId === draft.id || autorizada || processando} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900 disabled:opacity-40">Voltar ao destino</button><button type="button" onClick={() => void salvarEEmitir(draft)} disabled={busyId === draft.id || !todosPerfisResolvidos || camposPendentesConferencia.length > 0} className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${ambienteConferencia === "PRODUCAO" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-sky-600 hover:bg-sky-500"}`}>{busyId === draft.id ? "Enviando..." : !todosPerfisResolvidos ? "Perfil fiscal pendente" : camposPendentesConferencia.length > 0 ? "Complete os campos obrigatórios" : ambienteConferencia === "PRODUCAO" ? "Emitir NF-e real em produção" : (draft.emissao ? "Tentar emitir novamente" : "Emitir em homologação")}</button></div></div>
+                      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950 p-4"><div><div className="text-xs uppercase text-zinc-500">Total conferido</div><div className="text-xl font-semibold">R$ {formatMoneyBR(totalConferencia)}</div></div><div className="flex gap-2"><button type="button" onClick={() => alterarDestino(draft)} disabled={busyId === draft.id || autorizada || processando} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900 disabled:opacity-40">Voltar ao destino</button><button type="button" onClick={() => void salvarEEmitir(draft)} disabled={busyId === draft.id || !todosPerfisResolvidos || camposPendentesConferencia.length > 0 || bloqueiosCbenef.length > 0} className={`rounded-md px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${ambienteConferencia === "PRODUCAO" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-sky-600 hover:bg-sky-500"}`}>{busyId === draft.id ? "Enviando..." : !todosPerfisResolvidos ? "Perfil fiscal pendente" : camposPendentesConferencia.length > 0 ? "Complete os campos obrigatórios" : bloqueiosCbenef.length > 0 ? "cBenef obrigatório" : ambienteConferencia === "PRODUCAO" ? "Emitir NF-e real em produção" : (draft.emissao ? "Tentar emitir novamente" : "Emitir em homologação")}</button></div></div>
                     </>
                   )}
                 </div>

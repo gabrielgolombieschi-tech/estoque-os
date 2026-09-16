@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { normalizarConversaoCadastro, ORIGENS_MERCADORIA, origemFiscalConfirmada } from "@/lib/itens/cadastroNormalizacao";
+import { alertaCadastroNcm } from "@/lib/itens/alertasNcm";
 
 /** Dados mínimos já carregados pela tela de itens. */
 export type CadastroItemAgenteFornecedor = {
@@ -1174,6 +1175,12 @@ export default function CadastroItemAgenteModal({
                   <input className={INPUT_CLASS} disabled={!rascunho.podeEditarFiscal} value={fiscal?.cfop_padrao ?? ""} onChange={(event) => atualizarFiscal((current) => ({ ...current, cfop_padrao: event.target.value || null }))} placeholder="A confirmar" />
                 </label>
               </div>
+              {/* Alerta, nao trava: o cadastro salva do mesmo jeito. */}
+              {alertaCadastroNcm(fiscal?.ncm) ? (
+                <div role="alert" data-testid="alerta-ncm" className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                  {alertaCadastroNcm(fiscal?.ncm)}
+                </div>
+              ) : null}
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <label>
                   <span className={FIELD_LABEL_CLASS}>CST ICMS</span>

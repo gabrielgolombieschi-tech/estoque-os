@@ -2,6 +2,7 @@ import { aplicarRetorno } from "../_shared/nfe-retorno.ts";
 import { chamarFocus, focusConfigurado, normalizarFocus } from "../_shared/focus-nfe.ts";
 import { adminClient, json, mensagemErro, responderOptions, userClient } from "../_shared/nfe-http.ts";
 import { montarPayloadNfe, type ContextoEmissao } from "../_shared/nfe-payload.ts";
+import { anexarIbpt } from "../_shared/ibpt-contexto.ts";
 
 type Body = {
   acao?: "EMITIR" | "ABANDONAR_REJEITADA";
@@ -301,7 +302,7 @@ Deno.serve(async (request) => {
 
     let payload: ReturnType<typeof montarPayloadNfe>;
     try {
-      const payloadAtual = montarPayloadNfe(contexto);
+      const payloadAtual = montarPayloadNfe(await anexarIbpt(admin, contexto));
       if (emissao.payload_enviado && typeof emissao.payload_enviado === "object" && !Array.isArray(emissao.payload_enviado)) {
         payload = emissao.payload_enviado as ReturnType<typeof montarPayloadNfe>;
       } else {

@@ -10,6 +10,7 @@ import {
   validarReferenciaFocusEsperada,
 } from "../supabase/functions/_shared/focus-nfe.ts";
 import { validarAcaoCicloPorAmbiente } from "../supabase/functions/_shared/nfe-ciclo-guard.ts";
+import { faltaCbenefAutomacaoSc } from "../supabase/functions/_shared/fiscal/icms-sc-destinacao.ts";
 import {
   calcularIbsCbsTransicao2026,
   resolverIbsCbsTransicao2026,
@@ -425,9 +426,8 @@ const reduzida = montarPayloadNfe(contexto({
 }));
 assert.equal(reduzida.items[0].icms_base_calculo, 141.18);
 assert.match(
-  // Nao ancorado no inicio: revenda (natureza padrao desta fixture) agora abre o
-  // infCpl com "VALOR APROXIMADO DOS TRIBUTOS" (Lei 12.741/2012, pedido de
-  // 10/09/2026) — o texto do beneficio continua presente, so nao e mais o primeiro.
+  // Nao ancorado no inicio: com indFinal 1 e tabela IBPT a nota abre o infCpl com o
+  // "Valor aproximado dos tributos" (Lei 12.741/2012), e o texto do beneficio vem depois.
   reduzida.informacoes_adicionais_contribuinte,
   /Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS\/SC-01, Anexo 2, Art\. 7º, VII/,
 );
@@ -443,6 +443,31 @@ assert.equal(aliquotaDireta.items[0].codigo_beneficio_fiscal, "SC820006");
 assert.throws(
   () => montarPayloadNfe(contexto({ itens: [linha({ aliquota_icms: 12, cbenef: null })] })),
   /exige o cBenef SC820006/,
+);
+// Trava de 16/09/2026: CST 20 num NCM do Art. 7º, VII sem cBenef bloqueia com
+// QUALQUER reducao — antes so a carga efetiva de 12% disparava, e um CST 20 com
+// outra reducao seguia para a Focus sem o codigo.
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    itens: [linha({ cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 29.412, cbenef: null })],
+  })),
+  /Emissão bloqueada: item ITEM-1, CST 20 com o benefício de redução de base do RICMS\/SC-01, Anexo 2, Art\. 7º, VII \(NCM 8536\.50\.90\) e sem cBenef/,
+);
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    itens: [linha({ cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 10, cbenef: null })],
+  })),
+  /CST 20 com o benefício .* sem cBenef/,
+);
+// Interestadual nao tem o beneficio (so saidas internas): nada a travar por ele.
+assert.equal(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85365090", situacaoIcms: "20", cargaEfetivaIcms: 12, cbenef: null, interestadual: true }),
+  null,
+);
+// NCM fora da lista nao e o beneficio do Art. 7º, VII.
+assert.equal(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85364100", situacaoIcms: "20", cargaEfetivaIcms: 12, cbenef: null, interestadual: false }),
+  null,
 );
 
 // NCM fora da lista: os 12% vem da Lei 10.297/96, art. 19, III, "n", e nao ha

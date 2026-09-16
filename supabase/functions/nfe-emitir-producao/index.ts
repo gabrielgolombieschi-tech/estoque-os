@@ -6,6 +6,7 @@ import {
   type ContextoEmissao,
   validarPayloadProducaoContraHomologacao,
 } from "../_shared/nfe-payload.ts";
+import { anexarIbpt } from "../_shared/ibpt-contexto.ts";
 
 type Body = {
   acao?: "STATUS" | "EMITIR" | "ABANDONAR_REJEITADA";
@@ -153,7 +154,7 @@ Deno.serve(async (request) => {
           }
           const emissaoHomologacao = preflight.contexto.emissao as EmissaoContexto;
           const payloadConfirmacao = montarPayloadNfe({
-            ...preflight.contexto,
+            ...(await anexarIbpt(adminClient(), preflight.contexto)),
             emissao: { ...preflight.contexto.emissao, ambiente: "PRODUCAO" },
           });
           validarPayloadProducaoContraHomologacao(emissaoHomologacao.payload_enviado, payloadConfirmacao);
@@ -542,7 +543,7 @@ Deno.serve(async (request) => {
     let payload: ReturnType<typeof montarPayloadNfe>;
     try {
       const payloadAtual = montarPayloadNfe({
-        ...contextoHomologacao,
+        ...(await anexarIbpt(admin, contextoHomologacao)),
         emissao: { ...contextoHomologacao.emissao, ambiente: "PRODUCAO" },
       });
       validarPayloadProducaoContraHomologacao(emissaoHomologacao.payload_enviado, payloadAtual);

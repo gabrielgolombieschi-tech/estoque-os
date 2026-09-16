@@ -241,6 +241,39 @@ export function temReducaoAutomacaoSc(ncm: string, interestadual: boolean) {
   return (REDUCAO_AUTOMACAO_SC.ncms as readonly string[]).includes(ncm);
 }
 
+/**
+ * Trava do cBenef do Anexo 2, Art. 7o, VII. Devolve o motivo do bloqueio, ou null.
+ *
+ * O item usa o beneficio quando o NCM esta na lista, a operacao e interna e ele sai
+ * por um dos dois caminhos do inciso: CST 20 (base reduzida, com QUALQUER reducao —
+ * a trava nao confere a conta, so a falta do codigo) ou a faculdade da alinea "a",
+ * 12% direto sobre a base integral. Nos dois a SEFAZ exige o cBenef desde 03/02/2025.
+ *
+ * Ate 16/09/2026 so a carga efetiva de 12% disparava a trava: um CST 20 com outra
+ * reducao na mesma lista seguia para a Focus sem cBenef. Fica aqui, e nao dentro do
+ * builder, para a conferencia da tela chamar a mesma regra antes de a pessoa tentar.
+ */
+export function faltaCbenefAutomacaoSc(item: {
+  codigo: string;
+  ncm: string;
+  situacaoIcms: string | null;
+  cargaEfetivaIcms: number | null;
+  cbenef: string | null;
+  interestadual: boolean;
+}): string | null {
+  const ncm = String(item.ncm ?? "").replace(/\D/g, "");
+  if (!temReducaoAutomacaoSc(ncm, item.interestadual)) return null;
+  if (String(item.cbenef ?? "").trim()) return null;
+  const situacao = String(item.situacaoIcms ?? "").trim();
+  const usaBeneficio = situacao === "20" || item.cargaEfetivaIcms === 12;
+  if (!usaBeneficio) return null;
+  const ncmFormatado = ncm.replace(/^(\d{4})(\d{2})(\d{2})$/, "$1.$2.$3");
+  return `item ${item.codigo}, CST ${situacao || "?"} com o benefício de redução de base do `
+    + `${REDUCAO_AUTOMACAO_SC.baseLegal} (NCM ${ncmFormatado}) e sem cBenef. O benefício `
+    + `exige o cBenef ${REDUCAO_AUTOMACAO_SC.cbenef} — a SEFAZ rejeita benefício de ICMS sem código `
+    + "desde 03/02/2025. Corrija o perfil fiscal do item antes de emitir";
+}
+
 /** Texto completo para dados adicionais quando o beneficio de automacao e usado. */
 export function textoReducaoAutomacaoSc() {
   return `${REDUCAO_AUTOMACAO_SC.observacaoDocumento} - ${REDUCAO_AUTOMACAO_SC.baseLegal}`;
