@@ -274,11 +274,14 @@ export default function CadastroFiscalCliente() {
 
     setBuscandoMunicipio(true);
     setError(null);
+    // Busca sem acento: quem digita "SAO BERNARDO DO CAMPO" precisa achar "São Bernardo do
+    // Campo" (16/09/2026, cadastro da SICK). nome_normalizado ja esta sem acento e em minusculas.
+    const cidadeNormalizada = cidade.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
     const { data, error: municipioError } = await supabase
       .from("municipios_ibge")
       .select("codigo_ibge,nome,uf")
       .eq("uf", uf)
-      .ilike("nome", `%${cidade}%`)
+      .ilike("nome_normalizado", `%${cidadeNormalizada}%`)
       .order("nome")
       .limit(15);
     setBuscandoMunicipio(false);

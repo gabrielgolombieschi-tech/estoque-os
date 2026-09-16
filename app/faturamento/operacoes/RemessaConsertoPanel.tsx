@@ -32,7 +32,7 @@ type Cliente = {
   transportador_padrao_modalidade_frete: number | null;
 };
 
-type ItemBusca = { id: number; codigo: string; nome: string; unidade: string | null; valor_unitario: number | string | null; peso_liquido: number | string | null; peso_bruto: number | string | null };
+type ItemBusca = { id: number; codigo: string; nome: string; unidade: string | null; custo_ultima_compra: number | string | null; ncm: string | null; origem: number | null; fiscal_pronto: boolean; peso_liquido: number | string | null; peso_bruto: number | string | null };
 type Linha = { item: ItemBusca; quantidade: string; valor_unitario: string };
 type Transportador = { nome: string; documento: string; inscricao_estadual: string; endereco: string; municipio: string; uf: string };
 type Volume = { quantidade: string; especie: string; peso_liquido: string; peso_bruto: string };
@@ -216,7 +216,8 @@ export default function RemessaConsertoPanel({ tenantId, empresaId }: { tenantId
     if (termo.length < 2) return;
     setBusy("item");
     try {
-      const { data, error } = await supabase.schema("f").rpc("fn_faturamento_buscar_itens", { p_tenant_id: tenantId, p_empresa_id: empresaId, p_termo: termo, p_limite: 12 });
+      // Busca propria da remessa: catalogo inteiro (a do faturamento so traz item fabricado).
+      const { data, error } = await supabase.schema("f").rpc("fn_remessa_buscar_itens", { p_termo: termo, p_limite: 12 });
       if (error) throw error;
       setItensBusca((data ?? []) as ItemBusca[]);
       if ((data ?? []).length === 0) avisar(`Nenhum item com "${termo}". Cadastre em Cadastros › Itens, com NCM e origem na aba Fiscal.`, true);
@@ -225,7 +226,7 @@ export default function RemessaConsertoPanel({ tenantId, empresaId }: { tenantId
   }
 
   function adicionarItem(item: ItemBusca) {
-    setLinhas((atual) => atual.some((l) => l.item.id === item.id) ? atual : [...atual, { item, quantidade: "1", valor_unitario: decimal(item.valor_unitario) }]);
+    setLinhas((atual) => atual.some((l) => l.item.id === item.id) ? atual : [...atual, { item, quantidade: "1", valor_unitario: decimal(item.custo_ultima_compra) }]);
     setItensBusca([]);
     setBuscaItem("");
     // Peso dos volumes: soma do cadastro dos itens, quando houver.
@@ -390,7 +391,10 @@ export default function RemessaConsertoPanel({ tenantId, empresaId }: { tenantId
             {itensBusca.map((i) => (
               <button key={i.id} type="button" onClick={() => adicionarItem(i)} className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-zinc-900">
                 <span><span className="font-mono text-xs text-zinc-500">{i.codigo}</span> {i.nome}</span>
-                <span className="text-xs text-zinc-500">{i.unidade ?? "UN"}</span>
+                <span className="text-xs text-zinc-500">
+                  {i.unidade ?? "UN"}{i.custo_ultima_compra ? ` · última compra R$ ${formatMoneyBR(numero(i.custo_ultima_compra))}` : ""}
+                  {i.fiscal_pronto ? "" : <span className="ml-2 text-amber-300">sem NCM/origem no cadastro fiscal</span>}
+                </span>
               </button>
             ))}
           </div>
@@ -402,7 +406,7 @@ export default function RemessaConsertoPanel({ tenantId, empresaId }: { tenantId
               <tbody className="divide-y divide-zinc-800">
                 {linhas.map((l) => (
                   <tr key={l.item.id}>
-                    <td className="py-2 pr-2"><div>{l.item.nome}</div><div className="font-mono text-xs text-zinc-500">{l.item.codigo}</div></td>
+                    <td className="py-2 pr-2"><div>{l.item.nome}</div><div className="font-mono text-xs text-zinc-500">{l.item.codigo} · NCM {l.item.ncm ?? "?"} · origem {l.item.origem ?? "?"}{l.item.fiscal_pronto ? "" : <Link href={`/itens?id=${l.item.id}&editar=1&aba=fiscal&retorno=/faturamento/operacoes`} className="ml-2 text-amber-300 underline">completar cadastro fiscal</Link>}</div></td>
                     <td className="py-2 pr-2"><input aria-label={`Quantidade de ${l.item.codigo}`} className={`${field} w-24`} inputMode="decimal" value={l.quantidade} onChange={(e) => setLinhas((a) => a.map((x) => x.item.id === l.item.id ? { ...x, quantidade: e.target.value } : x))} /></td>
                     <td className="py-2 pr-2"><input aria-label={`Valor unitário de ${l.item.codigo}`} className={`${field} w-36`} inputMode="decimal" value={l.valor_unitario} onChange={(e) => setLinhas((a) => a.map((x) => x.item.id === l.item.id ? { ...x, valor_unitario: e.target.value } : x))} placeholder="valor de compra" /></td>
                     <td className="py-2 text-right tabular-nums">R$ {formatMoneyBR(numero(l.quantidade) * numero(l.valor_unitario))}</td>
