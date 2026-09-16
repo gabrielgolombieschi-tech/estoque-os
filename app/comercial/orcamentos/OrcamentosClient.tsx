@@ -65,6 +65,14 @@ function statusColor(status: string): string {
   return "var(--carteira-amber)";
 }
 
+function statusComDocumento(row: OrcamentoListaRow): string {
+  const status = getOrcamentoStatusLabel(row.status);
+  const codigo = row.documento_codigo?.trim();
+  if (normalizeOrcamentoStatus(row.status) !== "FECHADO" || !codigo) return status;
+  const documento = /^(OS|OV)\b/i.test(codigo) ? codigo : `${row.tipo_documento ?? "OS"} ${codigo}`;
+  return `${status} · ${documento}`;
+}
+
 function ResumoCard({ titulo, valor, detalhe }: { titulo: string; valor: string; detalhe: string }) {
   return (
     <article className="carteira-surface min-h-[96px] min-w-0 rounded-xl border px-4 py-3.5">
@@ -546,7 +554,9 @@ export default function OrcamentosClient() {
                           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor(linha.status) }} />
                           <span className="carteira-blue font-mono text-[12px] font-bold tabular-nums">{linha.codigo}</span>
                           <span className="carteira-text min-w-0 truncate text-[12.5px] font-medium" title={linha.titulo}>{linha.titulo}</span>
-                          <span className="carteira-muted min-w-0 truncate text-[11px]">{linha.vendedor_nome ?? "Sem vendedor"} · {getOrcamentoStatusLabel(linha.status)}</span>
+                          <span className="carteira-muted min-w-0 text-[11px]">
+                            {linha.vendedor_nome ?? "Sem vendedor"} · <span className="inline-block">{statusComDocumento(linha)}</span>
+                          </span>
                           <span className="text-right">
                             <span className="carteira-text block font-mono text-[12.5px] font-semibold tabular-nums">R$ {formatMoneyBR(n(linha.total_liquido))}</span>
                             <span className="carteira-muted mt-0.5 block text-[9.5px]">{formatDateBR(linha.emissao_date)}</span>
@@ -595,7 +605,7 @@ export default function OrcamentosClient() {
                       <td className="max-w-[230px] px-4 py-3 align-middle">
                         <div className="flex items-center gap-2 whitespace-nowrap">
                           <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: statusColor(row.status) }} />
-                          <span className="carteira-text text-xs font-medium">{getOrcamentoStatusLabel(row.status)}</span>
+                          <span className="carteira-text text-xs font-medium">{statusComDocumento(row)}</span>
                         </div>
                         {followup ? <div className="carteira-muted mt-1 text-[10.5px]" title={followup}>Último follow-up: {truncateFollowup(followup)}</div> : null}
                       </td>
