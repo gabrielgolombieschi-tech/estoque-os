@@ -409,7 +409,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
         </div>
         {listadas.length === 0 ? <p className="text-sm text-zinc-500">Nenhuma remessa {filtroStatus === "TODAS" ? "" : filtroStatus.toLowerCase()} importada.</p> : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[960px] text-sm">
               <thead className="text-left text-xs uppercase text-zinc-500"><tr><th className="py-2 pr-3">Chave</th><th className="py-2 pr-3">Remetente</th><th className="py-2 pr-3">Nº/Série</th><th className="py-2 pr-3">Emissão</th><th className="py-2 pr-3">Dias</th><th className="py-2 pr-3">Prazo</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pr-3">CFOP</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">NF-e de retorno</th><th className="py-2 text-right">Ações</th></tr></thead>
               <tbody className="divide-y divide-zinc-800">
                 {listadas.map((r) => {
@@ -429,12 +429,12 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
                   return (
                     <tr key={r.id} className="align-top">
                       <td className="py-2 pr-2 font-mono text-xs" title={r.chave}>{r.chave.slice(0, 8)}…{r.chave.slice(-6)}</td>
-                      <td className="py-2 pr-2"><div>{r.emitente_nome}</div><div className="text-xs text-zinc-500">{cnpjFormatado(r.emitente_cnpj)} · {r.emitente_endereco?.cidade ?? "?"}/{r.emitente_endereco?.uf ?? "?"}</div></td>
-                      <td className="py-2 pr-2">{r.numero}/{r.serie}</td>
-                      <td className="py-2 pr-2">{dataBR(r.dh_emi)}</td>
+                      <td className="py-2 pr-2"><div>{r.emitente_nome}</div><div className="text-xs text-zinc-500">{cnpjFormatado(r.emitente_cnpj)}<br />{r.emitente_endereco?.cidade ?? "?"}/{r.emitente_endereco?.uf ?? "?"}</div></td>
+                      <td className="py-2 pr-2 whitespace-nowrap">{r.numero}/{r.serie}</td>
+                      <td className="py-2 pr-2 whitespace-nowrap">{dataBR(r.dh_emi)}</td>
                       <td className="py-2 pr-2 tabular-nums">{dias}</td>
-                      <td className="py-2 pr-2"><span className={`rounded-full border px-2 py-0.5 text-xs ${corPrazo(dias)}`}>{dataBR(r.prazo_retorno)}{dias > 180 ? " · vencido" : ""}</span></td>
-                      <td className="py-2 pr-2 text-right tabular-nums">R$ {formatMoneyBR(numero(r.valor_total))}</td>
+                      <td className="py-2 pr-2"><span className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${corPrazo(dias)}`}>{dataBR(r.prazo_retorno)}{dias > 180 ? " · vencido" : ""}</span></td>
+                      <td className="py-2 pr-2 text-right tabular-nums whitespace-nowrap">R$ {formatMoneyBR(numero(r.valor_total))}</td>
                       <td className="py-2 pr-2">{r.cfop_origem}<div className="text-xs text-zinc-500">{tipoRotulo(r.tipo)}</div></td>
                       <td className="py-2 pr-2">
                         <div>{r.status === "ABERTA" ? "Aberta" : r.status === "RETORNADA" ? "Retornada" : "Cancelada"}</div>

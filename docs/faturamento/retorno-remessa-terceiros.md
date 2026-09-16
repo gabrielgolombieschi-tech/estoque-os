@@ -3,7 +3,11 @@
 Construído em 16/09/2026 a pedido do Gabriel. Caso de referência: NF-e 900356/1 da WEG Tintas
 (CFOP 5901, remessa para industrialização por encomenda, chave
 42260660621141000404550010009003561304254706, XML em `docs/fiscal/exemplos/`). Haverá umas dez
-notas iguais.
+notas iguais. Homologação do retorno: **NF-e 2/59** (chave
+42260913671448000189550020000000591436774130, protocolo 342260000950288); perfil liberado
+contra ela e produção da aba ligada em 16/09/2026 — a nota real sai quando as latas
+voltarem à WEG ("Emitir NF-e real (produção)"). Manual com telas:
+`Dropbox/Projeto_Estoque/Manual-Retorno-Remessa-Terceiros.docx`.
 
 ## O problema
 
@@ -50,7 +54,7 @@ produção: remessa volta a ABERTA. Homologação só grava `homologada_em`/`nfe
 | finNFe / tpNF / indFinal / indPres | 1 / 1 / 0 / 9; idDest pela UF do destinatário |
 | natOp | `RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA` (60 caracteres; o texto pedido tinha 66) — conserto: `RETORNO DE MERCADORIA RECEBIDA PARA CONSERTO` |
 | Destinatário | emitente da origem, do XML (CNPJ, IE, endereço), nunca do cadastro |
-| NFref | `refNFe` = chave da origem (`notas_referenciadas` na Focus) |
+| NFref | `refNFe` = chave da origem (`notas_referenciadas` na Focus) — **só em produção**: a SEFAZ de homologação não conhece a chave de produção e recusou com cStat 267 (16/09/2026); em homologação a chave fica só no infCpl e a comparação produção × homologação ignora o grupo |
 | Itens | espelho exato: cProd, xProd, NCM, uCom, qCom, vUnCom, vProd, mesma ordem; total = vProd, vNF = vProd |
 | ICMS | CST 50, sem base/valor, orig da origem, cBenef **SC840008** (`CBENEF_RETORNO_SC`, não copia o da origem) |
 | IPI | CST 55, sem valor, cEnq **108** |
