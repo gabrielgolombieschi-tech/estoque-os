@@ -315,6 +315,23 @@ function totalNotaNfe(
   );
 }
 
+/**
+ * Troca a modalidade do frete. Com "1 · Destinatario" o frete e contratado e pago pelo
+ * comprador, fora da nota: frete, seguro e outras despesas ja vem com 0, so nos campos
+ * ainda vazios — o que a pessoa ja digitou nao e apagado, e ela pode trocar o 0.
+ */
+function comModalidadeFrete(operacao: OperacaoForm, modalidade: string): OperacaoForm {
+  const proxima = { ...operacao, modalidade_frete: modalidade };
+  if (modalidade !== "1") return proxima;
+  const zeroSeVazio = (valor: string) => (valor.trim() === "" ? "0" : valor);
+  return {
+    ...proxima,
+    valor_frete: zeroSeVazio(operacao.valor_frete),
+    valor_seguro: zeroSeVazio(operacao.valor_seguro),
+    valor_outras_despesas: zeroSeVazio(operacao.valor_outras_despesas),
+  };
+}
+
 /** Total da nota como a conferencia o mostra: IPI do formulario, frete e despesas digitados. */
 function totalDaConferencia(
   itensRascunho: SolicitacaoItem[],
@@ -2014,7 +2031,7 @@ export default function OvNfeDraftsPanel({
                               </p>
                             ) : null}
                             <div className="grid gap-3 md:grid-cols-4">
-                              <label className={label}>Modalidade do frete<select className={field} value={operacao.modalidade_frete} onChange={(event) => setOperacao({ ...operacao, modalidade_frete: event.target.value })}><option value="">Confirme...</option><option value="0">0 · Emitente</option><option value="1">1 · Destinatário</option><option value="2">2 · Terceiros</option><option value="3">3 · Próprio emitente</option><option value="4">4 · Próprio destinatário</option><option value="9">9 · Sem frete</option></select></label>
+                              <label className={label}>Modalidade do frete<select className={field} value={operacao.modalidade_frete} onChange={(event) => setOperacao(comModalidadeFrete(operacao, event.target.value))}><option value="">Confirme...</option><option value="0">0 · Emitente</option><option value="1">1 · Destinatário</option><option value="2">2 · Terceiros</option><option value="3">3 · Próprio emitente</option><option value="4">4 · Próprio destinatário</option><option value="9">9 · Sem frete</option></select></label>
                               <label className={label}>Frete (R$)<input required className={field} inputMode="decimal" value={operacao.valor_frete} onChange={(event) => setOperacao({ ...operacao, valor_frete: event.target.value })} placeholder="Digite 0 quando não houver" /></label>
                               <label className={label}>Seguro (R$)<input required className={field} inputMode="decimal" value={operacao.valor_seguro} onChange={(event) => setOperacao({ ...operacao, valor_seguro: event.target.value })} placeholder="Digite 0 quando não houver" /></label>
                               <label className={label}>Outras despesas (R$)<input required className={field} inputMode="decimal" value={operacao.valor_outras_despesas} onChange={(event) => setOperacao({ ...operacao, valor_outras_despesas: event.target.value })} placeholder="Digite 0 quando não houver" /></label>
