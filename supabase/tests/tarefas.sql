@@ -1670,4 +1670,379 @@ begin
   delete from public.tarefas where id = v_tarefa;
 end $tablet_e_motivo$;
 
+-- 17. Falta com e sem atestado (20260916100000). --------------------------------------------
+-- A ausência que ninguém combinou. 'falta_justificada' é a falta COM atestado e
+-- desconta a meta da semana, como folga e férias; 'falta' é a SEM atestado e não
+-- desconta, para o buraco aparecer na TV. As duas são da coordenação para cima,
+-- inclusive a própria, e o atestado que chega dias depois troca uma pela outra na
+-- mesma linha.
+
+-- A coordenação também é gente da equipe: sem um colaborador ligado à conta dela não
+-- dá para testar "coordenação marcando a própria falta".
+insert into public.colaboradores (id, nome, ativo, tenant_id, empresa_id, user_id) values
+  ('1b000000-0000-4000-8000-000000000107', 'CORINA', true, '1b000000-0000-4000-8000-000000000010', '1b000000-0000-4000-8000-000000000020', '1b000000-0000-4000-8000-000000000002');
+
+-- 17a. A coordenação registra as quatro combinações: com e sem atestado, em dias e em horas.
+select pg_temp.como('1b000000-0000-4000-8000-000000000002');
+set local role authenticated;
+do $faltas_criar$
+declare
+  v_dia date := (now() at time zone 'America/Sao_Paulo')::date + 70;
+  v_ana uuid := '1b000000-0000-4000-8000-000000000101';
+  v_bruno uuid := '1b000000-0000-4000-8000-000000000102';
+  v_pedro uuid := '1b000000-0000-4000-8000-000000000105';
+  v_corina uuid := '1b000000-0000-4000-8000-000000000107';
+  r jsonb;
+  t uuid;
+begin
+  -- Falta SEM atestado, dia inteiro: o caso da segunda-feira que gerou tudo isto.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_bruno], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Nao apareceu e nao avisou', p_categoria => 'falta');
+  if not (r->>'sucesso')::boolean then raise exception 'falta sem atestado em dias recusada: %', r; end if;
+  t := (r->'tarefa'->>'id')::uuid;
+  insert into ids values ('F_BRUNO', t);
+  if r->'tarefa'->>'categoria' <> 'falta' or r->'tarefa'->>'medida' <> 'dias' or (r->'tarefa'->>'dias')::int <> 1 then raise exception 'falta sem atestado: %', r; end if;
+  if r->'tarefa'->>'os_id' is not null or r->'tarefa'->>'numero_os' is not null then raise exception 'falta ganhou OS: %', r; end if;
+  if not (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta de dia inteiro devia reservar o dia: %', r; end if;
+
+  -- Falta COM atestado, dia inteiro.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_pedro], p_tipo => 'agendada', p_data => v_dia + 1, p_dias => 1,
+    p_descricao => 'Consulta medica o dia inteiro', p_categoria => 'falta_justificada');
+  if not (r->>'sucesso')::boolean then raise exception 'falta com atestado em dias recusada: %', r; end if;
+  insert into ids values ('F_PEDRO', (r->'tarefa'->>'id')::uuid);
+  if r->'tarefa'->>'categoria' <> 'falta_justificada' then raise exception 'falta com atestado: %', r; end if;
+  if not (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta com atestado de dia inteiro devia reservar: %', r; end if;
+
+  -- Falta COM atestado em HORAS: saída antes do fim do expediente. Não reserva o
+  -- dia, porque a pessoa trabalhou o resto dele.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia + 2, p_dias => 1,
+    p_descricao => 'Saiu duas horas mais cedo, com documento', p_categoria => 'falta_justificada',
+    p_medida => 'horas', p_horas => 2);
+  if not (r->>'sucesso')::boolean then raise exception 'falta com atestado em horas recusada: %', r; end if;
+  insert into ids values ('F_ANA', (r->'tarefa'->>'id')::uuid);
+  if r->'tarefa'->>'medida' <> 'horas' or (r->'tarefa'->>'horas')::numeric <> 2 then raise exception 'falta em horas: %', r; end if;
+  if (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta em horas nao devia reservar o dia: %', r; end if;
+
+  -- Falta SEM atestado em HORAS, e a coordenação marcando a PRÓPRIA: atraso dela.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_corina], p_tipo => 'agendada', p_data => v_dia + 3, p_dias => 1,
+    p_descricao => 'Chegou tres horas depois', p_categoria => 'falta', p_medida => 'horas', p_horas => 3);
+  if not (r->>'sucesso')::boolean then raise exception 'coordenacao nao marcou a propria falta: %', r; end if;
+  insert into ids values ('F_CORINA', (r->'tarefa'->>'id')::uuid);
+  if r->'tarefa'->>'categoria' <> 'falta' or (r->'tarefa'->>'colaborador_id')::uuid <> v_corina then raise exception 'falta da propria coordenacao: %', r; end if;
+
+  -- Falta de dia inteiro prende o dia; falta em horas deixa trabalhar no resto.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_bruno], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Trabalho no dia em que faltou', p_categoria => 'os', p_os_id => 929001);
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'colaborador_reservado' then raise exception 'agendou trabalho no dia da falta: %', r; end if;
+  if r->'conflito'->>'categoria' <> 'falta' then raise exception 'o conflito devia dizer que o dia e de falta: %', r; end if;
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_corina], p_tipo => 'agendada', p_data => v_dia + 3, p_dias => 1,
+    p_descricao => 'Resto do dia do atraso', p_categoria => 'os', p_os_id => 929001);
+  if not (r->>'sucesso')::boolean then raise exception 'falta em horas bloqueou o resto do dia: %', r; end if;
+
+  -- Falta continua sendo ausência: sem OS e sempre com data.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia + 9, p_dias => 1,
+    p_descricao => 'Falta com OS', p_categoria => 'falta', p_os_id => 929001);
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'os_invalida' then raise exception 'falta com OS aceita: %', r; end if;
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'sem_data', p_data => null, p_dias => 1,
+    p_descricao => 'Falta sem data', p_categoria => 'falta_justificada');
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'data_obrigatoria' then raise exception 'falta sem data aceita: %', r; end if;
+  -- E o nome da categoria é exatamente este: 'falta' e 'falta_justificada'.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia + 9, p_dias => 1,
+    p_descricao => 'Nome parecido', p_categoria => 'faltas');
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'categoria_invalida' then raise exception 'categoria "faltas" aceita: %', r; end if;
+end $faltas_criar$;
+reset role;
+select pg_temp.sistema();
+
+-- 17b. O banco recusa a categoria inventada mesmo por fora das funções. ---------------------
+do $check_categoria$
+declare
+  v_ok boolean := false;
+begin
+  begin
+    insert into public.tarefas (tenant_id, empresa_id, os_id, tipo, data, descricao, categoria, dias, medida)
+    values ('1b000000-0000-4000-8000-000000000010', '1b000000-0000-4000-8000-000000000020', null,
+            'agendada', public.fn_tablet_data_hoje() + 80, 'Categoria inventada', 'falta_sem_atestado', 1, 'dias');
+  exception when check_violation then
+    v_ok := true;
+  end;
+  if not v_ok then raise exception 'chk_tarefas_categoria aceitou falta_sem_atestado'; end if;
+end $check_categoria$;
+
+-- 17c. Técnico e apontador não marcam falta, nem a própria. --------------------------------
+-- A falta é o registro do que a COORDENAÇÃO viu. Quem faltou carimbando a si mesmo
+-- esvaziaria o registro, então nem a própria vale.
+select pg_temp.como('1b000000-0000-4000-8000-000000000003');
+set local role authenticated;
+do $falta_tecnico$
+declare
+  v_dia date := (now() at time zone 'America/Sao_Paulo')::date + 75;
+  v_bruno uuid := '1b000000-0000-4000-8000-000000000102';
+  v_pedro uuid := '1b000000-0000-4000-8000-000000000105';
+  r jsonb;
+begin
+  -- O técnico é responsável pela OS TAR-2, o que o deixa criar TAREFA de OS. Falta, não.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_bruno], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Falta dada pelo tecnico', p_categoria => 'falta');
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sem_permissao' then raise exception 'tecnico marcou falta de outro: %', r; end if;
+  -- Nem a dele mesmo (PEDRO é o colaborador desta conta).
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_pedro], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Minha propria falta', p_categoria => 'falta_justificada');
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sem_permissao' then raise exception 'tecnico marcou a propria falta: %', r; end if;
+  -- E não marca o atestado da falta que a coordenação registrou.
+  r := public.app_tarefas_marcar_atestado((select id from ids where nome = 'F_PEDRO'));
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sem_permissao' then raise exception 'tecnico mexeu no atestado: %', r; end if;
+end $falta_tecnico$;
+reset role;
+select pg_temp.sistema();
+
+select pg_temp.como('1b000000-0000-4000-8000-000000000004');
+set local role authenticated;
+do $falta_apontador$
+declare
+  v_dia date := (now() at time zone 'America/Sao_Paulo')::date + 76;
+  v_ana uuid := '1b000000-0000-4000-8000-000000000101';
+  v_bruno uuid := '1b000000-0000-4000-8000-000000000102';
+  r jsonb;
+begin
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Faltei ontem', p_categoria => 'falta');
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sem_permissao' then raise exception 'apontador marcou a propria falta: %', r; end if;
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_bruno], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Falta do colega', p_categoria => 'falta_justificada');
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sem_permissao' then raise exception 'apontador marcou falta de outro: %', r; end if;
+  r := public.app_tarefas_marcar_atestado((select id from ids where nome = 'F_ANA'), false);
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sem_permissao' then raise exception 'apontador tirou o atestado da propria falta: %', r; end if;
+end $falta_apontador$;
+reset role;
+select pg_temp.sistema();
+
+-- Nenhuma das recusas gravou tarefa, e a falta da ANA continua com atestado.
+do $recusas_nao_gravaram$
+declare
+  v_hoje date := public.fn_tablet_data_hoje();
+begin
+  if (select count(*) from public.tarefas where data between v_hoje + 75 and v_hoje + 76) <> 0 then
+    raise exception 'a recusa do tecnico ou do apontador gravou tarefa';
+  end if;
+  if (select categoria from public.tarefas where id = (select id from ids where nome = 'F_ANA')) is distinct from 'falta_justificada' then
+    raise exception 'o apontador conseguiu tirar o atestado da propria falta';
+  end if;
+end $recusas_nao_gravaram$;
+
+-- 17d. O atestado que chega dias depois: mesma linha, categoria trocada. --------------------
+-- Sem "set local role authenticated" porque o bloco confere a TABELA por dentro
+-- (mesma linha, mesma reserva, mesma criacao). Que a coordenacao chega na RPC pelo
+-- papel dela ja esta provado em 17a e nas recusas de 17c.
+select pg_temp.como('1b000000-0000-4000-8000-000000000002');
+do $atestado$
+declare
+  f_bruno uuid := (select id from ids where nome = 'F_BRUNO');
+  f_ana uuid := (select id from ids where nome = 'F_ANA');
+  t_dias uuid := (select id from ids where nome = 'T_DIAS');
+  v_bruno uuid := '1b000000-0000-4000-8000-000000000102';
+  v_dia date;
+  v_reservas integer;
+  v_criada timestamptz;
+  r jsonb;
+begin
+  select t.data, t.criado_em into v_dia, v_criada from public.tarefas as t where t.id = f_bruno;
+  select count(*) into v_reservas from public.tarefas_reservas as r where r.tarefa_id = f_bruno and r.liberada_em is null;
+
+  r := public.app_tarefas_marcar_atestado(f_bruno);
+  if not (r->>'sucesso')::boolean then raise exception 'nao marquei o atestado: %', r; end if;
+  if (r->>'repetido')::boolean then raise exception 'a primeira marcacao veio como repetida: %', r; end if;
+  if r->>'anterior' <> 'falta' then raise exception 'o retorno devia dizer de onde veio: %', r; end if;
+  if r->'tarefa'->>'categoria' <> 'falta_justificada' then raise exception 'a falta nao virou falta com atestado: %', r; end if;
+  if (r->'tarefa'->>'id')::uuid <> f_bruno then raise exception 'o atestado criou outra tarefa: %', r; end if;
+
+  -- Nada foi apagado nem recadastrado: mesma linha, mesmo dia, mesma reserva.
+  if (select data from public.tarefas where id = f_bruno) is distinct from v_dia then raise exception 'o atestado mudou o dia da falta'; end if;
+  if (select criado_em from public.tarefas where id = f_bruno) is distinct from v_criada then raise exception 'o atestado recriou a tarefa'; end if;
+  if (select count(*) from public.tarefas_reservas where tarefa_id = f_bruno and liberada_em is null) <> v_reservas then
+    raise exception 'o atestado mexeu na reserva do dia';
+  end if;
+  if (select count(*) from public.tarefas_participantes where tarefa_id = f_bruno) <> 1 then raise exception 'o atestado mexeu nos participantes'; end if;
+  -- E o dia continua preso, agora com o rótulo novo.
+  if (select ocupado_resumo from public.app_tarefas_colaboradores(v_dia) where id = v_bruno) is distinct from 'Falta com atestado' then
+    raise exception 'o dia do BRUNO devia dizer que e falta com atestado';
+  end if;
+
+  -- Marcar de novo não regrava: responde 'repetido'.
+  r := public.app_tarefas_marcar_atestado(f_bruno);
+  if not (r->>'sucesso')::boolean or not (r->>'repetido')::boolean then raise exception 'a segunda marcacao devia ser repetida: %', r; end if;
+  if r->'tarefa'->>'categoria' <> 'falta_justificada' then raise exception 'repetido mudou a categoria: %', r; end if;
+
+  -- Marcou errado: p_com_atestado = false volta para falta sem atestado.
+  r := public.app_tarefas_marcar_atestado(f_ana, false);
+  if not (r->>'sucesso')::boolean or r->>'anterior' <> 'falta_justificada' then raise exception 'nao desfiz o atestado: %', r; end if;
+  if r->'tarefa'->>'categoria' <> 'falta' then raise exception 'desfazer o atestado: %', r; end if;
+  if (r->'tarefa'->>'horas')::numeric <> 2 or r->'tarefa'->>'medida' <> 'horas' then raise exception 'desfazer o atestado mexeu na duracao: %', r; end if;
+
+  -- O atestado só vale para falta.
+  r := public.app_tarefas_marcar_atestado(t_dias);
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'categoria_invalida' then raise exception 'marquei atestado numa tarefa de OS: %', r; end if;
+  r := public.app_tarefas_marcar_atestado((select id from ids where nome = 'T_FERIAS'));
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'categoria_invalida' then raise exception 'marquei atestado em ferias: %', r; end if;
+  r := public.app_tarefas_marcar_atestado(gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'tarefa_nao_encontrada' then raise exception 'marquei atestado em tarefa que nao existe: %', r; end if;
+
+  -- Falta cancelada não recebe atestado: não existe mais o que justificar.
+  r := public.app_tarefas_cancelar((select id from ids where nome = 'F_CORINA'), 'Era engano');
+  if not (r->>'sucesso')::boolean then raise exception 'nao cancelei a falta da corina: %', r; end if;
+  r := public.app_tarefas_marcar_atestado((select id from ids where nome = 'F_CORINA'));
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'tarefa_encerrada' then raise exception 'falta cancelada recebeu atestado: %', r; end if;
+
+  -- A troca fica na auditoria: é ela que conta a história do atestado, já que a
+  -- tarefa não guarda "quando o atestado chegou".
+  if (select count(*) from public.audit_log
+      where table_name = 'tarefas' and action = 'UPDATE'
+        and old_data->>'categoria' = 'falta' and new_data->>'categoria' = 'falta_justificada'
+        and actor_user_id = '1b000000-0000-4000-8000-000000000002') < 1 then
+    raise exception 'a troca de categoria nao entrou na auditoria com quem marcou';
+  end if;
+end $atestado$;
+select pg_temp.sistema();
+
+-- 17e. O que as listagens devolvem para as duas categorias. --------------------------------
+select pg_temp.como('1b000000-0000-4000-8000-000000000005');
+set local role authenticated;
+do $faltas_leitura$
+declare
+  f_bruno uuid := (select id from ids where nome = 'F_BRUNO');
+  f_pedro uuid := (select id from ids where nome = 'F_PEDRO');
+  f_ana uuid := (select id from ids where nome = 'F_ANA');
+  v_ana uuid := '1b000000-0000-4000-8000-000000000101';
+  v_pedro uuid := '1b000000-0000-4000-8000-000000000105';
+  v_dia date := (now() at time zone 'America/Sao_Paulo')::date + 70;
+  v_qtd integer;
+begin
+  -- Seção 'ausencias': falta entra nela, do lado de folga e férias.
+  if (select count(*) from public.app_tarefas_listar('ausencias') where id in (f_bruno, f_pedro, f_ana)) <> 3 then
+    raise exception 'as tres faltas pendentes deviam aparecer nas ausencias';
+  end if;
+  -- E nunca nas seções de trabalho.
+  if (select count(*) from public.app_tarefas_listar('agendadas') where id in (f_bruno, f_pedro, f_ana)) <> 0 then
+    raise exception 'falta apareceu entre as tarefas agendadas de OS';
+  end if;
+
+  -- A categoria chega crua para a tela: é dela que saem o rótulo e a conta da meta.
+  if (select categoria from public.app_tarefas_listar('ausencias') where id = f_bruno) is distinct from 'falta_justificada' then
+    raise exception 'app_tarefas_listar nao devolveu falta_justificada';
+  end if;
+  if (select categoria from public.app_tarefas_listar('ausencias') where id = f_ana) is distinct from 'falta' then
+    raise exception 'app_tarefas_listar nao devolveu falta';
+  end if;
+  -- Campos de OS vazios, como em toda ausência.
+  if (select count(*) from public.app_tarefas_listar('ausencias')
+      where id in (f_bruno, f_pedro, f_ana) and (os_id is not null or numero_os is not null or cliente_nome is not null)) <> 0 then
+    raise exception 'falta veio com campo de OS preenchido';
+  end if;
+  -- Falta não é cobrança de trabalho: nada de "atrasada".
+  if (select count(*) from public.app_tarefas_listar('ausencias') where id in (f_bruno, f_pedro, f_ana) and atrasada) <> 0 then
+    raise exception 'falta marcada como atrasada';
+  end if;
+
+  -- Procurar pela palavra: "falta" traz as duas, "atestado" separa uma da outra.
+  select count(*) into v_qtd from public.app_tarefas_listar('ausencias', null, null, null, null, 'falta');
+  if v_qtd <> 3 then raise exception 'a busca por "falta" devia trazer as 3 faltas, trouxe %', v_qtd; end if;
+  select count(*) into v_qtd from public.app_tarefas_listar('ausencias', null, null, null, null, 'sem atestado');
+  if v_qtd <> 1 or (select id from public.app_tarefas_listar('ausencias', null, null, null, null, 'sem atestado')) is distinct from f_ana then
+    raise exception 'a busca por "sem atestado" devia trazer so a falta da ANA, trouxe %', v_qtd;
+  end if;
+  select count(*) into v_qtd from public.app_tarefas_listar('ausencias', null, null, null, null, 'com atestado');
+  if v_qtd <> 2 then raise exception 'a busca por "com atestado" devia trazer as 2 justificadas, trouxe %', v_qtd; end if;
+  -- E a folga não vira falta na busca.
+  if (select count(*) from public.app_tarefas_listar('ausencias', null, null, null, null, 'folga') where id in (f_bruno, f_pedro, f_ana)) <> 0 then
+    raise exception 'a busca por "folga" trouxe falta';
+  end if;
+
+  -- O contador da tela soma falta junto das outras ausências.
+  if (public.app_tarefas_contar()->>'ausencias')::int < 3 then raise exception 'o contador de ausencias nao soma as faltas'; end if;
+
+  -- Agenda: a falta de dia inteiro reserva a célula; a de horas aparece sem reserva.
+  if (select count(*) from public.app_tarefas_agenda(v_dia + 1, v_dia + 1)
+      where colaborador_id = v_pedro and categoria = 'falta_justificada' and reserva_dia) <> 1 then
+    raise exception 'a falta de dia inteiro nao apareceu na agenda como reserva';
+  end if;
+  if (select count(*) from public.app_tarefas_agenda(v_dia + 2, v_dia + 2)
+      where colaborador_id = v_ana and categoria = 'falta' and not reserva_dia and horas = 2) <> 1 then
+    raise exception 'a falta em horas nao apareceu na agenda com as horas';
+  end if;
+end $faltas_leitura$;
+reset role;
+select pg_temp.sistema();
+
+-- 17f. O painel de TV recebe a categoria, que é onde a regra do desconto mora. --------------
+-- O banco não faz a conta da meta: ele diz a categoria e a TV desconta folga, férias,
+-- outro e falta_justificada, e NÃO desconta falta. Aqui se confere que a categoria
+-- chega inteira nas duas funções que a TV lê.
+
+-- Uma falta da semana passada, para o caso que começou tudo: ela não pode chegar na
+-- TV como tarefa "ATRASADA" — ninguém conclui uma falta, ela só aconteceu.
+do $falta_passada$
+begin
+  insert into public.tarefas (id, tenant_id, empresa_id, os_id, tipo, data, descricao, categoria, dias, medida, criado_por_user_id)
+  values ('1b000000-0000-4000-8000-000000000901', '1b000000-0000-4000-8000-000000000010', '1b000000-0000-4000-8000-000000000020',
+          null, 'agendada', public.fn_tablet_data_hoje() - 3, 'Faltou na segunda passada', 'falta', 1, 'dias', null);
+  insert into public.tarefas_participantes (tarefa_id, colaborador_id)
+  values ('1b000000-0000-4000-8000-000000000901', '1b000000-0000-4000-8000-000000000102');
+end $falta_passada$;
+
+-- Sem "set local role authenticated": fn_tarefas_linhas e helper do dono das
+-- funcoes, como ja acontece na Parte 16.
+select pg_temp.como('1b000000-0000-4000-8000-000000000005');
+do $faltas_tv$
+declare
+  f_pedro uuid := (select id from ids where nome = 'F_PEDRO');
+  f_ana uuid := (select id from ids where nome = 'F_ANA');
+  f_passada uuid := '1b000000-0000-4000-8000-000000000901';
+  v_ana uuid := '1b000000-0000-4000-8000-000000000101';
+  v_pedro uuid := '1b000000-0000-4000-8000-000000000105';
+  v_dia date := (now() at time zone 'America/Sao_Paulo')::date + 70;
+  v_linha record;
+begin
+  -- tv_ausencias_periodo: uma linha por dia de ausência, com a categoria crua.
+  select * into v_linha from public.tv_ausencias_periodo(v_dia + 1, v_dia + 1, null)
+  where colaborador_id = v_pedro;
+  if v_linha.categoria is distinct from 'falta_justificada' or v_linha.medida is distinct from 'dias' then
+    raise exception 'tv_ausencias_periodo devia devolver falta_justificada em dias: %', v_linha;
+  end if;
+  select * into v_linha from public.tv_ausencias_periodo(v_dia + 2, v_dia + 2, null)
+  where colaborador_id = v_ana;
+  if v_linha.categoria is distinct from 'falta' or v_linha.medida is distinct from 'horas' or v_linha.horas is distinct from 2 then
+    raise exception 'tv_ausencias_periodo devia devolver falta em horas com as horas: %', v_linha;
+  end if;
+
+  -- tv_colaboradores_tarefas: a falta aparece no cartão da pessoa, com a categoria,
+  -- e a da semana passada NÃO chega como atrasada.
+  if (select categoria from public.tv_colaboradores_tarefas(null) where id = f_pedro) is distinct from 'falta_justificada' then
+    raise exception 'tv_colaboradores_tarefas nao devolveu falta_justificada';
+  end if;
+  if (select categoria from public.tv_colaboradores_tarefas(null) where id = f_ana) is distinct from 'falta' then
+    raise exception 'tv_colaboradores_tarefas nao devolveu falta';
+  end if;
+  if (select count(*) from public.tv_colaboradores_tarefas(null) where id = f_passada and atrasada) <> 0 then
+    raise exception 'a falta da semana passada chegou na TV como atrasada';
+  end if;
+  if (select count(*) from public.fn_tarefas_linhas('1b000000-0000-4000-8000-000000000010', '1b000000-0000-4000-8000-000000000020', null, true, null)
+      where id = f_passada and atrasada) <> 0 then
+    raise exception 'fn_tarefas_linhas marcou a falta passada como atrasada';
+  end if;
+end $faltas_tv$;
+select pg_temp.sistema();
+
 rollback;
