@@ -91,6 +91,8 @@ export type OrcamentoRow = {
   validade_proposta: string | null;
   observacoes: string | null;
   os_id: number | null;
+  documento_codigo?: string | null;
+  tipo_documento?: "OS" | "OV" | null;
   os_itens_importados_at: string | null;
   created_at: string;
   updated_at: string;

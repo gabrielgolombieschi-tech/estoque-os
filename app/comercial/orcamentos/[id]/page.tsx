@@ -16,7 +16,7 @@ import type {
   OrcamentoStatus,
   UsuarioLookupRow,
 } from "@/lib/comercial/types";
-import { getOrcamentoStatusLabel, normalizeOrcamentoStatus, type OrcamentoStatusCanonical } from "@/lib/comercial/status";
+import { getOrcamentoStatusComDocumento, getOrcamentoStatusLabel, normalizeOrcamentoStatus, type OrcamentoStatusCanonical } from "@/lib/comercial/status";
 import { getSuggestedOrcamentoUnitPrice, isOrcamentoReadOnly, mapOrcamentoError, n, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import {
   addItem,
@@ -606,7 +606,7 @@ export default function OrcamentoPage() {
 
       setLoading(true);
     try {
-      const { orcamento } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam });
+      const { orcamento } = await getOrcamento(supabase, { tenantId, empresaId, idOrCodigo: idParam, incluirDocumento: true });
 
       const { data: itens, error: itensErr } = await supabase
         .schema("r")
@@ -2525,7 +2525,7 @@ export default function OrcamentoPage() {
               )}
             </span>
             {orc?.status && (
-              <span className={`px-2 py-0.5 rounded-full border text-xs ${statusBadgeClass(status)}`}>{statusLabel}</span>
+              <span className={`px-2 py-0.5 rounded-full border text-xs ${statusBadgeClass(status)}`}>{getOrcamentoStatusComDocumento(orc)}</span>
             )}
             {orc?.emissao_date ? <span>Emissao: {formatDateBR(orc.emissao_date)}</span> : null}
             {statusFollowup ? <span className="text-zinc-400">Ultimo followup: {truncateText(statusFollowup)}</span> : null}

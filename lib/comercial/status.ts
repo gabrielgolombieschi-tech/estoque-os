@@ -1,4 +1,4 @@
-import type { OrcamentoStatus } from "@/lib/comercial/types";
+import type { OrcamentoListaRow, OrcamentoStatus } from "@/lib/comercial/types";
 
 export type OrcamentoStatusCanonical = "ANDAMENTO" | "FECHADO" | "PERDIDO";
 
@@ -37,6 +37,16 @@ export function getOrcamentoStatusLabel(status: string | null | undefined): stri
   return normalized;
 }
 
+export function getOrcamentoStatusComDocumento(
+  row: Pick<OrcamentoListaRow, "status" | "documento_codigo" | "tipo_documento">
+): string {
+  const status = getOrcamentoStatusLabel(row.status);
+  const codigo = row.documento_codigo?.trim();
+  if (normalizeOrcamentoStatus(row.status) !== "FECHADO" || !codigo) return status;
+  const documento = /^(OS|OV)\b/i.test(codigo) ? codigo : `${row.tipo_documento ?? "OS"} ${codigo}`;
+  return `${status} · ${documento}`;
+}
+
 export function getOrcamentoStatusFilterValues(status: OrcamentoStatus): string[] {
   const normalized = normalizeOrcamentoStatus(status) as KnownStatus | string;
   if (normalized === "ANDAMENTO") return ["ANDAMENTO", "RASCUNHO"];
@@ -49,4 +59,3 @@ export function isCanonicalOrcamentoStatus(status: string | null | undefined): s
   const s = upper(status);
   return s === "ANDAMENTO" || s === "FECHADO" || s === "PERDIDO";
 }
-

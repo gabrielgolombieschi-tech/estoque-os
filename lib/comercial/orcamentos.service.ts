@@ -358,7 +358,7 @@ export async function listOrcamentosAnalitico(
 
 export async function getOrcamento(
   supabase: SupabaseClient,
-  params: { tenantId: string; empresaId: string; idOrCodigo: string }
+  params: { tenantId: string; empresaId: string; idOrCodigo: string; incluirDocumento?: boolean }
 ): Promise<{ orcamento: OrcamentoRow }> {
   const raw = String(params.idOrCodigo ?? "").trim();
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
@@ -381,7 +381,25 @@ export async function getOrcamento(
   if (oErr) throw oErr;
   if (!orc?.id) throw new Error("Orçamento não encontrado.");
 
-  return { orcamento: orc as OrcamentoRow };
+  if (!params.incluirDocumento || !orc.os_id) return { orcamento: orc };
+
+  // Usa os mesmos metadados da listagem: acesso ao orçamento não exige os.read.
+  // A impressão continua carregando apenas os dados da proposta.
+  const linhas = await listOrcamentosDoCliente(supabase, {
+    tenantId: params.tenantId,
+    empresaId: params.empresaId,
+    clienteId: orc.cliente_id,
+    q: orc.codigo,
+  });
+  const documento = linhas.find((linha) => linha.id === orc.id);
+
+  return {
+    orcamento: {
+      ...orc,
+      documento_codigo: documento?.documento_codigo ?? null,
+      tipo_documento: documento?.tipo_documento ?? null,
+    },
+  };
 }
 
 export async function createOrcamento(
