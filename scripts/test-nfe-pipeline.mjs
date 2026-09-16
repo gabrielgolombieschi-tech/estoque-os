@@ -457,6 +457,31 @@ assert.match(
 );
 assert.equal(misturada.items[0].icms_valor, 24);
 assert.equal(misturada.items[2].icms_base_calculo, 141.18);
+// O N da observacao e o nItem do det (numero_item), nao a posicao num array ja filtrado
+// so com os itens do beneficio. Nota de 4 itens, beneficio nos itens 1 e 3: num array
+// filtrado eles seriam "1, 2"; o certo e "Itens 1, 3".
+const quatroItens = montarPayloadNfe(contexto({
+  itens: [
+    itemComReducaoSc(1),
+    itemSemReducaoSc(2),
+    itemComReducaoSc(3, { cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 29.412 }),
+    itemSemReducaoSc(4),
+  ],
+}));
+assert.deepEqual(quatroItens.items.map((item) => item.numero_item), [1, 2, 3, 4]);
+assert.deepEqual(
+  quatroItens.items.filter((item) => item.codigo_beneficio_fiscal).map((item) => item.numero_item),
+  [1, 3],
+);
+assert.match(
+  quatroItens.informacoes_adicionais_contribuinte,
+  /(^|\| )Itens 1, 3: Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS\/SC-01, Anexo 2, Art\. 7º, VII/,
+);
+assert.doesNotMatch(quatroItens.informacoes_adicionais_contribuinte, /Itens 1, 2:/);
+// O calculo dos itens com beneficio nao muda com a lista na observacao.
+assert.equal(quatroItens.items[0].icms_valor, 24);
+assert.equal(quatroItens.items[2].icms_base_calculo, 141.18);
+
 const umComBeneficio = montarPayloadNfe(contexto({ itens: [itemSemReducaoSc(1), itemComReducaoSc(2)] }));
 assert.match(
   umComBeneficio.informacoes_adicionais_contribuinte,

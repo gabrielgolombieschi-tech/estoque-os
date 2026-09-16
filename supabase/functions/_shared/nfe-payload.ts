@@ -314,6 +314,10 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const aliquotasIcms = new Set<number>();
   const items = contexto.itens.map((linha, index) => {
     const item = linha.solicitacao_item;
+    // nItem do det: o mesmo numero vai em numero_item e na lista de itens da observacao
+    // do beneficio, entao "Itens 1, 3: ..." sempre aponta para os det certos. E a
+    // posicao na lista COMPLETA dos itens da nota, nunca num array ja filtrado.
+    const numeroItem = index + 1;
     const codigo = requiredText(item.codigo_produto, `linha ${index + 1}, código do produto`);
     const descricao = requiredText(item.descricao, `item ${codigo}, descrição`);
     const ncm = digits(item.ncm);
@@ -586,7 +590,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     if (faltaCbenef) throw new Error(`Emissão bloqueada: ${faltaCbenef}.`);
     if (temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
       usaBeneficioReducaoSc = true;
-      itensBeneficioReducaoSc.push(index + 1);
+      itensBeneficioReducaoSc.push(numeroItem);
     }
     // Maquina industrial do Convenio 52/91 (NCM 8460.90.90): CST 20, cBenef do convenio e base
     // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
@@ -605,7 +609,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     }
 
     return {
-      numero_item: index + 1,
+      numero_item: numeroItem,
       codigo_produto: codigo,
       descricao: descricao.slice(0, 120),
       codigo_ncm: ncm,
