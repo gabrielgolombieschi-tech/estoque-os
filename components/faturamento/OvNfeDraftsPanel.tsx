@@ -306,6 +306,21 @@ function totalNotaNfe(
   );
 }
 
+/** Total da nota como a conferencia o mostra: IPI do formulario, frete e despesas digitados. */
+function totalDaConferencia(
+  itensRascunho: SolicitacaoItem[],
+  itensForm: Array<{ id: string; aliquota_ipi: string }>,
+  operacao: { valor_frete: string; valor_seguro: string; valor_outras_despesas: string },
+) {
+  const aliquotasIpi = new Map(itensForm.map((item) => [item.id, paraNumero(item.aliquota_ipi)]));
+  return totalNotaNfe(
+    itensRascunho.map((item) => ({ ...item, aliquota_ipi: aliquotasIpi.get(item.id) ?? item.aliquota_ipi })),
+    paraNumero(operacao.valor_frete),
+    paraNumero(operacao.valor_seguro),
+    paraNumero(operacao.valor_outras_despesas),
+  );
+}
+
 function decimal(value: unknown) {
   if (value === null || value === undefined || String(value).trim() === "") return "";
   return String(value).replace(".", ",");
@@ -321,14 +336,29 @@ function parcelasParaForm(parcelas: Solicitacao["pagamento_parcelas"] | undefine
   }));
 }
 
-function pendenciasParcelas(parcelas: ParcelaForm[]) {
+function pendenciasParcelas(parcelas: ParcelaForm[], totalNota: number) {
   if (parcelas.length === 0) return "ao menos uma parcela";
   for (const [indice, parcela] of parcelas.entries()) {
     const dias = Number(parcela.dias.trim());
     if (!parcela.dias.trim() || !Number.isInteger(dias) || dias < 0) return `dias da parcela ${indice + 1}`;
     if (parcelas.length > 1 && (paraNumero(parcela.valor) ?? 0) <= 0) return `valor da parcela ${indice + 1}`;
   }
-  return null;
+  return divergenciaParcelas(parcelas, totalNota);
+}
+
+/**
+ * O backend (nfe-payload) recusa a nota quando as duplicatas nao fecham no total,
+ * mas so depois de salvar e chamar a Focus. As parcelas vem gravadas na solicitacao
+ * e podem ser de um total antigo: na OV 355 (16/09/2026) elas somavam 2.245,99 de
+ * uma nota anterior com IPI e a nota nova valia 2.209,98 — a pessoa emitia, a tela
+ * recarregava e ela voltava ao inicio sem ver o motivo. Conferir aqui, antes.
+ */
+function divergenciaParcelas(parcelas: ParcelaForm[], totalNota: number) {
+  const unicaSemValor = parcelas.length === 1 && !parcelas[0].valor.trim();
+  if (parcelas.length === 0 || unicaSemValor) return null;
+  const soma = arredondarMoeda(parcelas.reduce((acc, parcela) => acc + (paraNumero(parcela.valor) ?? 0), 0));
+  if (Math.abs(soma - arredondarMoeda(totalNota)) <= 0.009) return null;
+  return `parcelas somam R$ ${formatMoneyBR(soma)} e a nota vale R$ ${formatMoneyBR(totalNota)}`;
 }
 
 function paraNumero(value: string) {
@@ -685,7 +715,7 @@ function perfilCabecalhoUnico(resolucao: ResolucaoPerfis | null) {
   return ids.size === 1 ? perfis[0] : null;
 }
 
-function camposObrigatoriosPendentes(operacao: OperacaoForm, itens: ItemForm[]) {
+function camposObrigatoriosPendentes(operacao: OperacaoForm, itens: ItemForm[], totalNota: number) {
   const pendentes: string[] = [];
   const camposOperacao: Array<[keyof OperacaoForm, string]> = [
     ["finalidade_emissao", "finalidade"],
@@ -704,7 +734,7 @@ function camposObrigatoriosPendentes(operacao: OperacaoForm, itens: ItemForm[]) 
     camposOperacao.push(["pagamento_descricao", "descrição da forma de pagamento"]);
   }
   if (operacao.pagamento_indicador === "1") {
-    const pendenciaParcela = pendenciasParcelas(operacao.pagamento_parcelas);
+    const pendenciaParcela = pendenciasParcelas(operacao.pagamento_parcelas, totalNota);
     if (pendenciaParcela) pendentes.push(pendenciaParcela);
   }
   if (operacao.modalidade_frete !== "9") {
@@ -1099,7 +1129,11 @@ export default function OvNfeDraftsPanel({
       avisar(draft.id, "Confirme primeiro o destino fiscal da NF-e.", true);
       return;
     }
-    const camposPendentes = camposObrigatoriosPendentes(operacao, itensForm);
+    const camposPendentes = camposObrigatoriosPendentes(
+      operacao,
+      itensForm,
+      totalDaConferencia(draft.itens, itensForm, operacao),
+    );
     if (camposPendentes.length > 0) {
       setFeedback((current) => ({
         ...current,
@@ -1491,21 +1525,15 @@ export default function OvNfeDraftsPanel({
           && Boolean(resolucaoPerfis?.ok)
           && (resolucaoPerfis?.itens?.length ?? 0) === draft.itens.length
           && (resolucaoPerfis?.itens ?? []).every((item) => item.status === "RESOLVIDO");
-        const camposPendentesConferencia = openId === draft.id && operacao
-          ? camposObrigatoriosPendentes(operacao, itensForm)
-          : [];
-        const aliquotasIpiConferencia = new Map(itensForm.map((item) => [item.id, paraNumero(item.aliquota_ipi)]));
         const totalConferencia = openId === draft.id && operacao
-          ? totalNotaNfe(
-              draft.itens.map((item) => ({
-                ...item,
-                aliquota_ipi: aliquotasIpiConferencia.get(item.id) ?? item.aliquota_ipi,
-              })),
-              paraNumero(operacao.valor_frete),
-              paraNumero(operacao.valor_seguro),
-              paraNumero(operacao.valor_outras_despesas),
-            )
+          ? totalDaConferencia(draft.itens, itensForm, operacao)
           : totalNota;
+        const camposPendentesConferencia = openId === draft.id && operacao
+          ? camposObrigatoriosPendentes(operacao, itensForm, totalConferencia)
+          : [];
+        const parcelasDivergentes = openId === draft.id && operacao && operacao.pagamento_indicador === "1"
+          ? divergenciaParcelas(operacao.pagamento_parcelas, totalConferencia)
+          : null;
         return (
           <article key={draft.id} className="overflow-hidden rounded-xl border border-sky-900/70 bg-sky-950/10">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-800 p-4">
@@ -1851,6 +1879,24 @@ export default function OvNfeDraftsPanel({
                                     </button>
                                   </div>
                                 ))}
+                                {parcelasDivergentes ? (
+                                  <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-800 bg-amber-950/20 p-2 text-sm text-amber-100">
+                                    <span>As {parcelasDivergentes}. Ajuste os valores ou divida o total igualmente.</span>
+                                    <button
+                                      type="button"
+                                      className="rounded-md border border-amber-700 px-3 py-1.5 text-xs hover:bg-amber-950/40"
+                                      onClick={() => {
+                                        const rateio = ratearParcelas(totalConferencia, operacao.pagamento_parcelas.length);
+                                        setOperacao({
+                                          ...operacao,
+                                          pagamento_parcelas: operacao.pagamento_parcelas.map((p, i) => ({ ...p, valor: rateio[i] ?? "" })),
+                                        });
+                                      }}
+                                    >
+                                      Dividir R$ {formatMoneyBR(totalConferencia)} igualmente
+                                    </button>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </section>

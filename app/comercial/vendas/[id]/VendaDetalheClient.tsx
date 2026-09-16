@@ -735,7 +735,12 @@ export default function VendaDetalheClient() {
 
   if (!ready && permissionsLoading) return <div className="py-12 text-center text-zinc-400">Carregando permissões...</div>;
   if (!canView) return <div className="py-12 text-center text-zinc-400">Acesso negado.</div>;
-  if (loading) return <div className="py-12 text-center text-zinc-400">Carregando venda...</div>;
+  // So a PRIMEIRA carga troca a pagina pelo aviso. O reload tambem roda por realtime
+  // a cada mudanca em documento_fiscal_emissao da empresa — inclusive a que a propria
+  // emissao faz. Desmontar a pagina ali levava junto o painel de NF-e: a conferencia
+  // fechava e a mensagem de erro sumia, e a pessoa voltava ao "Continuar conferencia"
+  // sem saber por que (OV 355, 16/09/2026).
+  if (loading && !venda) return <div className="py-12 text-center text-zinc-400">Carregando venda...</div>;
   if (!venda) return <div className="space-y-3"><div className="rounded-lg border border-red-900 bg-red-950/30 p-3 text-red-300">{error ?? "Venda não encontrada."}</div><Link href="/comercial/vendas" className="text-sky-300 hover:underline">Voltar para Vendas</Link></div>;
 
   return (
