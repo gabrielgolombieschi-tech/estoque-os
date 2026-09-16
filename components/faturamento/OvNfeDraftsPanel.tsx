@@ -6,6 +6,8 @@ import { formatMoneyBR } from "@/lib/decimal";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
 import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { usePermissions } from "@/components/auth/PermissionsProvider";
+import VincularSimilarModal from "@/components/faturamento/VincularSimilarModal";
 import { resolverIbsCbsTransicao2026 } from "@/supabase/functions/_shared/fiscal/ibs-cbs-transicao-2026";
 import { faltaCbenefAutomacaoSc } from "@/supabase/functions/_shared/fiscal/icms-sc-destinacao";
 import {
@@ -860,6 +862,10 @@ export default function OvNfeDraftsPanel({
   // Tabela IBPT dos NCMs da conferencia aberta (so com consumidor final = 1).
   const [ibptConferencia, setIbptConferencia] = useState<{ chave: string; linhas: IbptNcm[] | null; erro: string | null } | null>(null);
   const [descarteId, setDescarteId] = useState<string | null>(null);
+  // "Vincular com similar": item sem fiscal (estoque antigo sem nota) copia de um parecido.
+  const { has } = usePermissions();
+  const podeEditarFiscal = has("fiscal_itens.write") === true;
+  const [vincularSimilar, setVincularSimilar] = useState<{ draft: Draft; itemId: number; descricao: string } | null>(null);
   const [justificativaDescarte, setJustificativaDescarte] = useState("");
 
   const carregar = useCallback(async () => {
@@ -1902,7 +1908,7 @@ export default function OvNfeDraftsPanel({
                       <div className="space-y-5 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 text-sm"><div><span className="text-zinc-500">Destino confirmado:</span> <strong>{resolucaoPerfis?.ambito === "INTERNA" ? "SC · operação interna" : `${resolucaoPerfis?.uf_confirmada} · operação interestadual`}</strong><span className="ml-3 text-zinc-500">Cliente: {resolucaoPerfis?.uf_cliente || "UF ausente"} · indIEDest {resolucaoPerfis?.indicador_ie || "ausente"}</span></div><button type="button" onClick={() => alterarDestino(draft)} disabled={autorizada || processando} className="rounded border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800 disabled:opacity-40">Alterar destino</button></div>
 
-                        {!todosPerfisResolvidos ? <div role="alert" className="rounded-lg border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100"><div className="font-medium">Emissão bloqueada até existir um perfil fiscal válido para cada item.</div>{(resolucaoPerfis?.itens ?? []).filter((item) => item.status !== "RESOLVIDO").map((item) => <div key={item.solicitacao_item_id} className="mt-1">• Linha {item.item_id ?? "avulsa"}: {item.motivo || item.status}</div>)}</div> : null}
+                        {!todosPerfisResolvidos ? <div role="alert" className="rounded-lg border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100"><div className="font-medium">Emissão bloqueada até existir um perfil fiscal válido para cada item.</div>{(resolucaoPerfis?.itens ?? []).filter((item) => item.status !== "RESOLVIDO").map((item) => <div key={item.solicitacao_item_id} className="mt-1 flex flex-wrap items-center gap-2"><span>• Linha {item.item_id ?? "avulsa"}: {item.motivo || item.status}</span>{item.status === "PRODUTO_INCOMPLETO" && item.item_id && podeEditarFiscal && !autorizada && !processando ? <button type="button" onClick={() => setVincularSimilar({ draft, itemId: item.item_id as number, descricao: draft.itens.find((linha) => linha.id === item.solicitacao_item_id)?.descricao ?? "" })} className="rounded border border-amber-600 px-2 py-0.5 text-xs text-amber-100 hover:bg-amber-900/40">Vincular com similar</button> : null}</div>)}</div> : null}
 
                         <fieldset disabled={autorizada || processando} className="space-y-5 border-0 p-0 disabled:opacity-70">
                           <section className="space-y-3 rounded-lg border border-zinc-800 p-4">
@@ -2045,7 +2051,7 @@ export default function OvNfeDraftsPanel({
                             const trava = (campo: CampoPerfil) => bloqueado(campo) || resolvido?.status !== "RESOLVIDO";
                             return <section key={item.id} className="space-y-4 rounded-lg border border-zinc-800 p-4">
                               <div className="flex flex-wrap items-start justify-between gap-2"><div><div className="font-medium">{item.item_id ? <><Link href={`/itens?id=${item.item_id}&editar=1&aba=fiscal&retorno=/comercial/vendas/${ovId}`} className="text-sky-200 underline">#{item.item_id}</Link> · </> : null}{item.codigo_produto ? `[${item.codigo_produto}] ` : ""}{item.descricao}</div><div className="text-xs text-zinc-500">{numero(item.quantidade).toLocaleString("pt-BR")} {item.unidade} · R$ {formatMoneyBR(numero(item.valor_unitario))} por unidade · origem {resolvido?.origem_mercadoria ?? "ausente"}</div></div>{perfil ? <span className="rounded border border-sky-800 bg-sky-950/30 px-2 py-1 text-xs text-sky-200">Perfil {perfil.codigo} · <Link href={`/faturamento/perfis?perfil=${perfil.id}&solicitacao=${draft.id}&retorno=/comercial/vendas/${ovId}`} className="underline">abrir cadastro</Link></span> : null}</div>
-                              {resolvido?.status !== "RESOLVIDO" ? <div className="rounded border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100">{resolvido?.motivo || "Perfil fiscal não resolvido."}</div> : null}
+                              {resolvido?.status !== "RESOLVIDO" ? <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100"><span>{resolvido?.motivo || "Perfil fiscal não resolvido."}</span>{resolvido?.status === "PRODUTO_INCOMPLETO" && item.item_id ? (podeEditarFiscal ? <button type="button" disabled={autorizada || processando} onClick={() => setVincularSimilar({ draft, itemId: item.item_id as number, descricao: item.descricao })} className="rounded-md border border-amber-600 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-900/40 disabled:opacity-40">Vincular com similar</button> : <span className="text-xs text-amber-200/80">Quem edita o fiscal dos itens pode vincular com um similar.</span>) : null}</div> : null}
                               <div className="space-y-2"><h4 className="text-sm font-medium text-zinc-300">ICMS</h4><div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                                 <label className={label}>CFOP {bloqueado("cfop") ? <span className="text-sky-300">🔒 perfil</span> : null}<input disabled={trava("cfop")} className={classeCampo("cfop")} value={form.cfop} onChange={(event) => atualizarItem(item.id, { cfop: event.target.value })} maxLength={4} /></label>
                                 {perfil?.crt === "1" ? <><label className={label}>CST ICMS<input disabled className={`${field} opacity-50`} value="Não se aplica" readOnly /></label><label className={label}>CSOSN {bloqueado("csosn") ? <span className="text-sky-300">🔒 perfil</span> : null}<input disabled={trava("csosn")} className={classeCampo("csosn")} value={form.csosn} onChange={(event) => atualizarItem(item.id, { csosn: event.target.value })} maxLength={3} /></label></> : <><label className={label}>CST ICMS {bloqueado("cst_icms") ? <span className="text-sky-300">🔒 perfil</span> : null}<input disabled={trava("cst_icms")} className={classeCampo("cst_icms")} value={form.cst_icms} onChange={(event) => atualizarItem(item.id, { cst_icms: event.target.value })} maxLength={2} /></label><label className={label}>CSOSN<input disabled className={`${field} opacity-50`} value="Não se aplica" readOnly /></label></>}
@@ -2112,6 +2118,21 @@ export default function OvNfeDraftsPanel({
           </article>
         );
       })}
+      {vincularSimilar ? (
+        <VincularSimilarModal
+          supabase={supabase}
+          itemId={vincularSimilar.itemId}
+          descricao={vincularSimilar.descricao}
+          onClose={() => setVincularSimilar(null)}
+          onCopiado={async (mensagem) => {
+            const { draft } = vincularSimilar;
+            setVincularSimilar(null);
+            // Resolve de novo com o mesmo destino: se a origem era a unica pendencia, o bloqueio sai.
+            await confirmarDestino(draft);
+            avisar(draft.id, mensagem);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
