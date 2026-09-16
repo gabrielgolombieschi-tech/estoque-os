@@ -692,7 +692,7 @@ select
   true, false,
   'Retorno de mercadoria de terceiros recebida para industrializacao por encomenda. cBenef e cEnq a confirmar com a contadora (f.fn_retorno_terceiros_config).',
   'IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).',
-  '2026-09-17', '4c0a5e1e-9f0b-4c7a-9b2e-5902a0000001'::uuid, 'REVISAO',
+  '2026-09-16', '4c0a5e1e-9f0b-4c7a-9b2e-5902a0000001'::uuid, 'REVISAO',
   'Primeiro retorno pelo ERP: homologar e revisar antes de liberar producao.', false
 where exists (select 1 from f.perfil_operacao_evidencia ev where ev.id = '4c0a5e1e-9f0b-4c7a-9b2e-5902a0000001'::uuid)
 on conflict (tenant_id, empresa_id, codigo, vigencia_inicio) do nothing;
