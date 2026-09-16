@@ -8,8 +8,16 @@ import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import VincularSimilarModal from "@/components/faturamento/VincularSimilarModal";
+import ExcecaoIcms12Destinatario, {
+  confirmacaoExcecaoIcms12,
+  type ExcecaoIcms12Ativa,
+} from "@/components/faturamento/ExcecaoIcms12Destinatario";
 import { resolverIbsCbsTransicao2026 } from "@/supabase/functions/_shared/fiscal/ibs-cbs-transicao-2026";
-import { faltaCbenefAutomacaoSc } from "@/supabase/functions/_shared/fiscal/icms-sc-destinacao";
+import {
+  EXCECAO_ALIQUOTA_12_DESTINATARIO,
+  faltaCbenefAutomacaoSc,
+  itemNaExcecaoAliquota12,
+} from "@/supabase/functions/_shared/fiscal/icms-sc-destinacao";
 import {
   dataCivilSaoPaulo,
   tributosAproximadosNota,
@@ -448,7 +456,7 @@ type MemoriaOperacao = { rotulo: string; resumo: string; campos: Partial<Operaca
 const DESTINACOES_MERCADORIA: Array<[string, string, number]> = [
   ["REVENDA", "Vai revender", 12],
   ["INSUMO", "Vai usar como insumo de produção", 12],
-  ["MANUTENCAO", "Vai usar em manutenção", 12],
+  ["MANUTENCAO", "Vai usar em manutenção", 17],
   ["CONSIGNADO", "Recebe em consignação", 12],
   ["USO_CONSUMO", "Uso e consumo próprio", 17],
   ["ATIVO_IMOBILIZADO", "Vai para o ativo imobilizado", 17],
@@ -875,6 +883,7 @@ export default function OvNfeDraftsPanel({
   const [entregas, setEntregas] = useState<Record<string, EntregaNota>>({});
   const [destinoUf, setDestinoUf] = useState("");
   const [resolucaoPerfis, setResolucaoPerfis] = useState<ResolucaoPerfis | null>(null);
+  const [excecaoIcms12, setExcecaoIcms12] = useState<ExcecaoIcms12Ativa | null>(null);
   const [resolvendoDestino, setResolvendoDestino] = useState(false);
   // Tabela IBPT dos NCMs da conferencia aberta (so com consumidor final = 1).
   const [ibptConferencia, setIbptConferencia] = useState<{ chave: string; linhas: IbptNcm[] | null; erro: string | null } | null>(null);
@@ -1145,8 +1154,41 @@ export default function OvNfeDraftsPanel({
     setDestinoTipo(ufBase ? (ufBase === "SC" ? "SC" : "FORA") : "");
     setDestinoUf(ufBase && ufBase !== "SC" ? ufBase : "");
     setResolucaoPerfis(null);
+    setExcecaoIcms12(null);
     avisar(draft.id, "");
     setPendencias((current) => ({ ...current, [draft.id]: [] }));
+  }
+
+  /**
+   * Excecao ICMS 12% por exigencia do destinatario: os itens sem SC820006 saem CST 00 a
+   * 12% sem reducao e o indFinal fica 1 — a mesma regra que o banco confere ao salvar
+   * (f.fn_solicitacao_nfe_salvar_conferencia). Desativada, tudo volta ao perfil.
+   */
+  function aplicarExcecaoIcms12(draft: Draft, excecao: ExcecaoIcms12Ativa | null) {
+    const estavaAtiva = excecaoIcms12 !== null;
+    setExcecaoIcms12(excecao);
+    // Sem excecao antes nem agora nao ha o que refazer — e refazer apagaria o que a pessoa
+    // ja conferiu nos itens.
+    if (!resolucaoPerfis?.ok || (!excecao && !estavaAtiva)) return;
+    const porId = new Map((resolucaoPerfis.itens ?? []).map((item) => [item.solicitacao_item_id, item]));
+    setItensForm((current) => current.map((item) => {
+      const resolvido = porId.get(item.id);
+      const base = resolvido ? aplicarPerfilNoItem(item, resolvido, resolucaoPerfis.ambito, draft.natureza_operacao) : item;
+      if (!excecao || !itemNaExcecaoAliquota12(resolvido?.perfil?.cbenef_aplicacao === "COM_BENEFICIO" ? resolvido.perfil.cbenef : null)) return base;
+      return {
+        ...base,
+        cst_icms: EXCECAO_ALIQUOTA_12_DESTINATARIO.cst,
+        csosn: "",
+        aliquota_icms: String(EXCECAO_ALIQUOTA_12_DESTINATARIO.aliquota),
+        reducao_base_icms_percentual: "0",
+        cbenef: "",
+      };
+    }));
+    const perfilCabecalho = perfilCabecalhoUnico(resolucaoPerfis);
+    setOperacao((current) => current ? {
+      ...current,
+      consumidor_final: excecao ? "1" : perfilCabecalho?.consumidor_final?.toString() ?? current.consumidor_final,
+    } : current);
   }
 
   function atualizarItem(id: string, patch: Partial<ItemForm>) {
@@ -1205,6 +1247,7 @@ export default function OvNfeDraftsPanel({
   function alterarDestino(draft: Draft) {
     setEtapaConferencia("DESTINO");
     setResolucaoPerfis(null);
+    setExcecaoIcms12(null);
     setOperacao(formOperacao(draft, memoria, padraoTransportador));
     setItensForm(draft.itens.map(formItem));
     avisar(draft.id, "");
@@ -1231,6 +1274,10 @@ export default function OvNfeDraftsPanel({
         ...current,
         [draft.id]: `Preencha os campos obrigatórios antes de emitir: ${camposPendentes.join("; ")}.`,
       }));
+      return;
+    }
+    // Com a excecao ativa, a trava "manutencao exige 17%" vira esta confirmacao.
+    if (excecaoIcms12 && !window.confirm(confirmacaoExcecaoIcms12(excecaoIcms12, operacao.destinacao_mercadoria_confirmada))) {
       return;
     }
     let confirmacaoContextoHash: string | null = null;
@@ -1894,8 +1941,9 @@ export default function OvNfeDraftsPanel({
                         <h3 className="text-base font-semibold">O que o cliente vai fazer com a mercadoria?</h3>
                         <p className="mt-1 text-sm text-zinc-400">
                           Em SC é a destinação do cliente que decide a alíquota interna, não o produto: <strong>12%</strong> quando
-                          ele é contribuinte e vai revender, usar como insumo, em manutenção ou receber em consignação; <strong>17%</strong> quando
-                          é destinatário final. Vem informada na OC dele e sai nas informações complementares da nota.
+                          ele é contribuinte e vai revender, usar como insumo ou receber em consignação; <strong>17%</strong> quando
+                          a mercadoria para nele (manutenção, uso e consumo, ativo imobilizado) ou ele não é contribuinte. Se o cliente
+                          exige 12% na OC, a exceção aparece na etapa seguinte. Vem informada na OC dele e sai nas informações complementares da nota.
                         </p>
                         <label className={`${label} mt-4 block max-w-md`}>Destinação declarada
                           <select
@@ -1925,6 +1973,14 @@ export default function OvNfeDraftsPanel({
                       <div className="space-y-5 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 text-sm"><div><span className="text-zinc-500">Destino confirmado:</span> <strong>{resolucaoPerfis?.ambito === "INTERNA" ? "SC · operação interna" : `${resolucaoPerfis?.uf_confirmada} · operação interestadual`}</strong><span className="ml-3 text-zinc-500">Cliente: {resolucaoPerfis?.uf_cliente || "UF ausente"} · indIEDest {resolucaoPerfis?.indicador_ie || "ausente"}</span></div><button type="button" onClick={() => alterarDestino(draft)} disabled={autorizada || processando} className="rounded border border-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-800 disabled:opacity-40">Alterar destino</button></div>
 
+                        <ExcecaoIcms12Destinatario
+                          solicitacaoId={draft.id}
+                          destinacao={operacao.destinacao_mercadoria_confirmada}
+                          interna={resolucaoPerfis?.ambito === "INTERNA"}
+                          bloqueado={autorizada || processando || ambienteConferencia === "PRODUCAO"}
+                          onChange={(excecao) => aplicarExcecaoIcms12(draft, excecao)}
+                        />
+
                         {!todosPerfisResolvidos ? <div role="alert" className="rounded-lg border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-100"><div className="font-medium">Emissão bloqueada até existir um perfil fiscal válido para cada item.</div>{(resolucaoPerfis?.itens ?? []).filter((item) => item.status !== "RESOLVIDO").map((item) => <div key={item.solicitacao_item_id} className="mt-1 flex flex-wrap items-center gap-2"><span>• Linha {item.item_id ?? "avulsa"}: {item.motivo || item.status}</span>{item.status === "PRODUTO_INCOMPLETO" && item.item_id && podeEditarFiscal && !autorizada && !processando ? <button type="button" onClick={() => setVincularSimilar({ draft, itemId: item.item_id as number, descricao: draft.itens.find((linha) => linha.id === item.solicitacao_item_id)?.descricao ?? "" })} className="rounded border border-amber-600 px-2 py-0.5 text-xs text-amber-100 hover:bg-amber-900/40">Vincular com similar</button> : null}</div>)}</div> : null}
 
                         <fieldset disabled={autorizada || processando} className="space-y-5 border-0 p-0 disabled:opacity-70">
@@ -1932,7 +1988,7 @@ export default function OvNfeDraftsPanel({
                             <div><h3 className="font-medium">Operação e destinatário</h3><p className="text-xs text-zinc-500">Campos com cadeado vieram do perfil e não podem ser alterados nesta nota.</p></div>
                             <div className="grid gap-3 md:grid-cols-4">
                               <label className={label}>Finalidade {perfilCabecalho?.finalidade_emissao != null ? <span className="text-sky-300">🔒 perfil</span> : null}<select disabled={perfilCabecalho?.finalidade_emissao != null} className={field} value={operacao.finalidade_emissao} onChange={(event) => setOperacao({ ...operacao, finalidade_emissao: event.target.value })}><option value="">Confirme...</option><option value="1">1 · Normal</option><option value="2">2 · Complementar</option><option value="3">3 · Ajuste</option><option value="4">4 · Devolução</option></select></label>
-                              <label className={label}>Consumidor final {perfilCabecalho?.consumidor_final != null ? <span className="text-sky-300">🔒 perfil</span> : null}<select disabled={perfilCabecalho?.consumidor_final != null} className={field} value={operacao.consumidor_final} onChange={(event) => setOperacao({ ...operacao, consumidor_final: event.target.value })}><option value="">Confirme...</option><option value="0">0 · Não</option><option value="1">1 · Sim</option></select></label>
+                              <label className={label}>Consumidor final {excecaoIcms12 ? <span className="text-amber-300">🔒 exceção 12%</span> : perfilCabecalho?.consumidor_final != null ? <span className="text-sky-300">🔒 perfil</span> : null}<select disabled={Boolean(excecaoIcms12) || perfilCabecalho?.consumidor_final != null} className={field} value={operacao.consumidor_final} onChange={(event) => setOperacao({ ...operacao, consumidor_final: event.target.value })}><option value="">Confirme...</option><option value="0">0 · Não</option><option value="1">1 · Sim</option></select></label>
                               <label className={label}>Presença do comprador <span className="text-amber-300">confirmar</span><select className={field} value={operacao.presenca_comprador} onChange={(event) => setOperacao({ ...operacao, presenca_comprador: event.target.value })}><option value="">Confirme...</option>{operacao.finalidade_emissao === "2" || operacao.finalidade_emissao === "3" ? <option value="0">0 · Não se aplica (complementar/ajuste)</option> : null}<option value="1">1 · Presencial</option><option value="2">2 · Internet</option><option value="3">3 · Teleatendimento</option><option value="5">5 · Fora do estabelecimento</option><option value="9">9 · Outros</option></select></label>
                             </div>
                           </section>

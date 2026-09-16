@@ -3,12 +3,16 @@
 import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { formatMoneyBR } from "@/lib/decimal";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
 import FaturarNfseOs, { type PerfilServico, type RefazerNfse } from "./FaturarNfseOs";
+import ExcecaoIcms12Destinatario, {
+  confirmacaoExcecaoIcms12,
+  type ExcecaoIcms12Ativa,
+} from "@/components/faturamento/ExcecaoIcms12Destinatario";
 
 const R$ = (value: number) => `R$ ${formatMoneyBR(value)}`;
 
@@ -87,7 +91,7 @@ const DESTINACOES: Array<[string, string, number]> = [
   ["ATIVO_IMOBILIZADO", "Vai para o ativo imobilizado", 17],
   ["REVENDA", "Vai revender", 12],
   ["INSUMO", "Vai usar como insumo de produção", 12],
-  ["MANUTENCAO", "Vai usar em manutenção", 12],
+  ["MANUTENCAO", "Vai usar em manutenção", 17],
   ["CONSIGNADO", "Recebe em consignação", 12],
 ];
 const FORMAS_PAGAMENTO: Array<[string, string]> = [
@@ -181,6 +185,18 @@ export default function FaturarOsPage() {
   const [parcelas, setParcelas] = useState<Parcela[]>([{ dias: "30", valor: "" }]);
   const [observacao, setObservacao] = useState("");
   const [conferida, setConferida] = useState(false);
+  // Excecao ICMS 12% por exigencia do destinatario. Quem aplica nos itens e a conferencia
+  // (f.fn_os_nfe_conferir_homologacao); ativar ou desativar derruba o snapshot no banco,
+  // entao a nota precisa ser reconferida antes de emitir.
+  const [excecaoIcms12, setExcecaoIcms12] = useState<ExcecaoIcms12Ativa | null>(null);
+  const excecaoVista = useRef<string | null>(null);
+  function mudouExcecaoIcms12(solicitacaoId: string | null, excecao: ExcecaoIcms12Ativa | null) {
+    const chave = `${solicitacaoId}:${excecao?.id ?? "-"}`;
+    const anterior = excecaoVista.current;
+    excecaoVista.current = chave;
+    setExcecaoIcms12(excecao);
+    if (anterior && anterior.startsWith(`${solicitacaoId}:`) && anterior !== chave) setConferida(false);
+  }
 
   const [criandoProduto, setCriandoProduto] = useState<number | null>(null);
   const [novoProduto, setNovoProduto] = useState({ nome: "", ncm: "", origem: "", unidade: "UN", cst_ipi: "", aliquota_ipi: "" });
@@ -560,6 +576,7 @@ export default function FaturarOsPage() {
 
   async function emitir() {
     if (!solicitacao) return;
+    if (excecaoIcms12 && !window.confirm(confirmacaoExcecaoIcms12(excecaoIcms12, destinacao))) return;
     if (!window.confirm(`Emitir NF-e em HOMOLOGAÇÃO (sem valor fiscal) para a OS ${os?.numero_os ?? os?.id}?\n\nCFOP ${cfop} · total ${R$(itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario), 0))}`)) return;
     setOcupado(true); setErro(null); setAviso(null);
     try {
@@ -582,6 +599,7 @@ export default function FaturarOsPage() {
       const st = statusData as ProducaoStatus | null;
       const resumo = st?.resumo_confirmacao;
       if (!st?.pronta || !st.preflight_confirmacao_pronto || !resumo?.contexto_hash) throw new Error(st?.motivo ?? "A confirmação de produção não pôde ser montada a partir do snapshot homologado.");
+      if (excecaoIcms12 && !window.confirm(confirmacaoExcecaoIcms12(excecaoIcms12, destinacao))) return;
       // Sem OC a nota e valida, mas o cliente costuma recusar o recebimento e a
       // cobranca trava — foi o que derrubou a NF-e 2/13 em 11/09/2026. Pergunta
       // antes da confirmacao da emissao real, para dar chance de desistir; nao
@@ -959,6 +977,15 @@ export default function FaturarOsPage() {
             if (proxima !== "9" && volumes.length === 0) setVolumes([{ quantidade: "1", especie: "", marca: "", numeracao: "", peso_liquido: decimal(pesoSugerido.liquido || ""), peso_bruto: decimal(pesoSugerido.bruto || "") }]);
           }}>{MODALIDADES_FRETE.map(([codigo, rotulo]) => <option key={codigo} value={codigo}>{rotulo}</option>)}</select><span className="text-xs text-zinc-500">Fora do 9, a nota exige transportador e ao menos um volume com peso.</span></label>
         </div>
+
+        <ExcecaoIcms12Destinatario
+          solicitacaoId={solicitacao?.id ?? null}
+          destinacao={destinacao}
+          interna={ambito === "INTERNA"}
+          bloqueado={Boolean(emissao && !["RASCUNHO", "REJEITADA", "ERRO"].includes(emissao.status))}
+          depoisDeAlterar="Clique em Reconferir para aplicar na nota."
+          onChange={(excecao) => mudouExcecaoIcms12(solicitacao?.id ?? null, excecao)}
+        />
 
         {modalidadeFrete !== "9" ? (
           <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-900/30 p-3">
