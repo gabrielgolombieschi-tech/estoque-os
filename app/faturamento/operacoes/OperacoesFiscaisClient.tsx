@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import RemessaConsertoPanel from "./RemessaConsertoPanel";
 
-type Aba = "DEVOLUCAO" | "VENDA_ORDEM" | "REMESSA" | "ESTORNO";
+type Aba = "DEVOLUCAO" | "VENDA_ORDEM" | "REMESSA" | "REMESSA_OUTRAS" | "ESTORNO";
 type ItemXml = { nitem: number; codigo: string; descricao: string; quantidade_original: number; valor_unitario: number; cfop_original: string; cfop_proposto: string | null };
 type Operacao = { id: string; tipo: string; finalidade: string | null; status: string; cfop_confirmado: string | null; cfop_segunda_nota: string | null; chave_primeira_nota: string | null; chave_segunda_nota: string | null; valor_total: number; created_at: string };
 type Remessa = { id: string; operacao_remessa_id: string; finalidade: string; chave_remessa: string; destinatario_nome: string; remessa_em: string; dias_decorridos: number; prazo_dias: number | null; prazo_excedido: boolean };
@@ -22,7 +23,7 @@ function errorMessage(error: unknown) {
 export default function OperacoesFiscaisClient() {
   const scope = useTenantEmpresa();
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const [aba, setAba] = useState<Aba>("DEVOLUCAO");
+  const [aba, setAba] = useState<Aba>("REMESSA");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
@@ -45,7 +46,8 @@ export default function OperacoesFiscaisClient() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("aba") === "ESTORNO") setAba("ESTORNO");
+    const abaParam = params.get("aba");
+    if (abaParam === "ESTORNO" || abaParam === "DEVOLUCAO" || abaParam === "VENDA_ORDEM") setAba(abaParam);
     const documento = params.get("documento");
     if (documento) setDocumentoOriginal(documento);
   }, []);
@@ -160,16 +162,17 @@ export default function OperacoesFiscaisClient() {
 
   return <main className="mx-auto max-w-[1500px] space-y-6 p-6 text-zinc-100">
     <header className="flex flex-wrap items-start justify-between gap-4">
-      <div><div className="text-xs text-zinc-500">Faturamento › Operações fiscais</div><h1 className="text-2xl font-semibold">Operações que não nascem do botão Faturar</h1><p className="text-sm text-zinc-400">Somente homologação. Nenhum perfil é habilitado para produção nesta tela.</p></div>
+      <div><div className="text-xs text-zinc-500">Faturamento › Operações fiscais</div><h1 className="text-2xl font-semibold">Operações que não nascem do botão Faturar</h1><p className="text-sm text-zinc-400">Remessa para conserto sai pelo pipeline de NF-e (homologação, liberação do perfil, produção). Devolução, venda à ordem e estorno seguem só em homologação.</p></div>
       <Link href="/faturamento/nfe" className={button}>Voltar para NF-e</Link>
     </header>
     {message && <div className="rounded border border-sky-700/50 bg-sky-950/30 p-3 text-sm text-sky-200">{message}</div>}
-    <div className="flex flex-wrap gap-2">{(["DEVOLUCAO","VENDA_ORDEM","REMESSA","ESTORNO"] as Aba[]).map((value)=><button key={value} onClick={()=>setAba(value)} className={`${button} ${aba===value?"border-sky-500 bg-sky-950/50":""}`}>{value.replaceAll("_"," ")}</button>)}</div>
+    <div className="flex flex-wrap gap-2">{(["REMESSA","DEVOLUCAO","VENDA_ORDEM","REMESSA_OUTRAS","ESTORNO"] as Aba[]).map((value)=><button key={value} onClick={()=>setAba(value)} className={`${button} ${aba===value?"border-sky-500 bg-sky-950/50":""}`}>{value==="REMESSA"?"REMESSA PARA CONSERTO":value==="REMESSA_OUTRAS"?"OUTRAS REMESSAS":value.replaceAll("_"," ")}</button>)}</div>
 
     <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-5">
       {aba === "DEVOLUCAO" && <div className="space-y-4"><h2 className="font-semibold">Devolução de compra a partir da entrada</h2><div className="flex gap-2"><input className={field} value={nfEntradaId} onChange={e=>setNfEntradaId(e.target.value)} placeholder="ID da nota de entrada"/><button disabled={busy||!nfEntradaId} className={button} onClick={carregarEntrada}>Ler e validar XML</button></div>{itensXml.length>0&&<><div className="overflow-auto"><table className="w-full text-sm"><thead className="text-left text-zinc-500"><tr><th>Item</th><th>Descrição</th><th>Qtd. original</th><th>Qtd. devolver</th><th>CFOP entrada</th><th>CFOP confirmado</th></tr></thead><tbody>{itensXml.map(item=><tr key={item.nitem} className="border-t border-zinc-800"><td className="py-2">{item.nitem}</td><td>{item.descricao}</td><td>{item.quantidade_original}</td><td><input className={`${field} w-28`} type="number" min="0" max={item.quantidade_original} step="0.0001" value={selecionados[item.nitem]?.quantidade??"0"} onChange={e=>setSelecionados(s=>({...s,[item.nitem]:{...s[item.nitem],quantidade:e.target.value}}))}/></td><td>{item.cfop_original}</td><td><input className={`${field} w-28`} value={selecionados[item.nitem]?.cfop??""} onChange={e=>setSelecionados(s=>({...s,[item.nitem]:{...s[item.nitem],cfop:e.target.value}}))}/></td></tr>)}</tbody></table></div><button disabled={busy} className={button} onClick={criarDevolucao}>Criar devolução parcial</button></>}</div>}
       {aba === "VENDA_ORDEM" && <div className="space-y-3"><h2 className="font-semibold">Venda à ordem — 6119 seguida de 6923</h2><input className={field} value={ovId} onChange={e=>setOvId(e.target.value)} placeholder="ID da OV"/><div className="grid gap-2 md:grid-cols-3">{Object.entries(entrega).map(([key,value])=><input key={key} className={field} value={value} onChange={e=>setEntrega(s=>({...s,[key]:e.target.value}))} placeholder={`Entrega: ${key}`}/>)}</div><button disabled={busy||!ovId} className={button} onClick={criarVendaOrdem}>Criar as duas etapas</button></div>}
-      {aba === "REMESSA" && <div className="space-y-3"><h2 className="font-semibold">Remessa com controle de retorno</h2><div className="flex flex-wrap gap-2"><select className={field} value={finalidade} onChange={e=>setFinalidade(e.target.value)}><option>INDUSTRIALIZACAO</option><option>CONSERTO</option><option>SIMPLES</option><option>CONTA_ORDEM</option></select><input className={field} value={cfopRemessa} onChange={e=>setCfopRemessa(e.target.value)} placeholder="CFOP confirmado"/><input className={field} value={destinatario.documento} onChange={e=>setDestinatario(s=>({...s,documento:e.target.value}))} placeholder="CPF/CNPJ destinatário"/><input className={field} value={destinatario.nome} onChange={e=>setDestinatario(s=>({...s,nome:e.target.value}))} placeholder="Nome destinatário"/></div><textarea className={`${field} min-h-24 w-full font-mono`} value={itensRemessa} onChange={e=>setItensRemessa(e.target.value)}/><button disabled={busy} className={button} onClick={criarRemessa}>Criar remessa</button><div className="flex gap-2 border-t border-zinc-800 pt-3"><input className={field} type="number" min="1" value={prazo} onChange={e=>setPrazo(e.target.value)} placeholder="Prazo em dias (vazio = desligado)"/><button className={button} onClick={salvarPrazo}>Salvar prazo da finalidade</button></div></div>}
+      {aba === "REMESSA" && scope.tenantId && scope.empresaId && <RemessaConsertoPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
+      {aba === "REMESSA_OUTRAS" && <div className="space-y-3"><h2 className="font-semibold">Remessa com controle de retorno (chave digitada)</h2><div className="flex flex-wrap gap-2"><select className={field} value={finalidade} onChange={e=>setFinalidade(e.target.value)}><option>INDUSTRIALIZACAO</option><option>CONSERTO</option><option>SIMPLES</option><option>CONTA_ORDEM</option></select><input className={field} value={cfopRemessa} onChange={e=>setCfopRemessa(e.target.value)} placeholder="CFOP confirmado"/><input className={field} value={destinatario.documento} onChange={e=>setDestinatario(s=>({...s,documento:e.target.value}))} placeholder="CPF/CNPJ destinatário"/><input className={field} value={destinatario.nome} onChange={e=>setDestinatario(s=>({...s,nome:e.target.value}))} placeholder="Nome destinatário"/></div><textarea className={`${field} min-h-24 w-full font-mono`} value={itensRemessa} onChange={e=>setItensRemessa(e.target.value)}/><button disabled={busy} className={button} onClick={criarRemessa}>Criar remessa</button><div className="flex gap-2 border-t border-zinc-800 pt-3"><input className={field} type="number" min="1" value={prazo} onChange={e=>setPrazo(e.target.value)} placeholder="Prazo em dias (vazio = desligado; conserto: 180)"/><button className={button} onClick={salvarPrazo}>Salvar prazo da finalidade</button></div></div>}
       {aba === "ESTORNO" && <div className="space-y-3"><h2 className="font-semibold">Estorno espelhado da NF-e original</h2><input className={`${field} w-full`} value={documentoOriginal} onChange={e=>setDocumentoOriginal(e.target.value)} placeholder="UUID do documento fiscal original"/><input className={field} value={cfopEstorno} onChange={e=>setCfopEstorno(e.target.value)} placeholder="CFOP confirmado: 1102, 1201, 1202, 1915 ou 2202"/><textarea className={`${field} min-h-20 w-full`} value={justificativa} onChange={e=>setJustificativa(e.target.value)} placeholder="Justificativa ao fisco"/><button disabled={busy} className={button} onClick={criarEstorno}>Criar estorno com finalidade 3</button></div>}
     </section>
 

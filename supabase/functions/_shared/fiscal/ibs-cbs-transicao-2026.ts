@@ -16,12 +16,22 @@
 export type RegraIbsCbsTransicao2026 = {
   readonly naturezaOperacao: string;
   readonly cfops: readonly string[];
-  readonly cst: "000";
-  readonly cClassTrib: "000001";
-  readonly pIBSUF: 0.1;
+  readonly cst: "000" | "410";
+  readonly cClassTrib: "000001" | "410999";
+  readonly pIBSUF: 0.1 | 0;
   readonly pIBSMun: 0;
-  readonly pCBS: 0.9;
+  readonly pCBS: 0.9 | 0;
 };
+
+/**
+ * CST 410 (imunidade e nao incidencia) nao leva o grupo de base e valores (gIBSCBS): o
+ * item sai so com CST e cClassTrib, como as remessas 5901 e retornos 6916 de terceiros em
+ * 2026. As aliquotas continuam no payload, zeradas, porque os portoes de producao conferem
+ * as tres contra o perfil.
+ */
+export function ibsCbsSemGrupoDeValores(regra: RegraIbsCbsTransicao2026) {
+  return regra.cst === "410";
+}
 
 export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
   exercicio: 2026,
@@ -58,6 +68,27 @@ export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
       pIBSUF: 0.1,
       pIBSMun: 0,
       pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
+    // Remessa para conserto (16/09/2026): nao e fornecimento oneroso, entao nao incide
+    // IBS/CBS. CST 410 / cClassTrib 410999 e o que os XMLs de terceiros de 2026 trazem
+    // nas remessas (WEG 5901, Keyence 6916). Ver ./remessa-conserto.ts.
+    REMESSA_CONSERTO_INTERNA: Object.freeze({
+      naturezaOperacao: "REMESSA_CONSERTO_INTERNA",
+      cfops: Object.freeze(["5915"]),
+      cst: "410",
+      cClassTrib: "410999",
+      pIBSUF: 0,
+      pIBSMun: 0,
+      pCBS: 0,
+    } satisfies RegraIbsCbsTransicao2026),
+    REMESSA_CONSERTO_INTERESTADUAL: Object.freeze({
+      naturezaOperacao: "REMESSA_CONSERTO_INTERESTADUAL",
+      cfops: Object.freeze(["6915"]),
+      cst: "410",
+      cClassTrib: "410999",
+      pIBSUF: 0,
+      pIBSMun: 0,
+      pCBS: 0,
     } satisfies RegraIbsCbsTransicao2026),
   }),
 });

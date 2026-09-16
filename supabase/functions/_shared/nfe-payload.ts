@@ -1,5 +1,11 @@
 import { tributacaoProvisoria } from "./tributacao-provisoria.ts";
 import {
+  ehNaturezaRemessaConserto,
+  motivoItemForaDaRemessaConserto,
+  REMESSA_CONSERTO,
+  textosRemessaConserto,
+} from "./fiscal/remessa-conserto.ts";
+import {
   conflitoDestinacaoAliquota,
   conflitoIpiNaBaseComAliquota,
   ehDestinatarioContribuinte,
@@ -21,6 +27,7 @@ import {
 } from "./fiscal/icms-sc-destinacao.ts";
 import {
   calcularIbsCbsTransicao2026,
+  ibsCbsSemGrupoDeValores,
   resolverIbsCbsTransicao2026,
   validarCfopIbsCbsTransicao2026,
 } from "./fiscal/ibs-cbs-transicao-2026.ts";
@@ -307,18 +314,22 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // Destinação declarada pelo destinatário: é ela que decide a alíquota interna
   // de SC, e o cliente confere o destaque contra a utilização que informou na
   // OC. Sem ela a nota sai com alíquota que ninguém confirmou.
+  // A remessa para conserto nao tem destinacao: a mercadoria volta. Tudo que depende da
+  // destinacao (aliquota, IPI na base, excecao de 12%, texto) fica de fora dela.
+  const remessaConserto = ehNaturezaRemessaConserto(natureza.codigo) ? natureza.codigo : null;
   const destinacaoInformada = text(operacao.destinacao_mercadoria);
-  if (!destinacaoInformada) {
+  if (!remessaConserto && !destinacaoInformada) {
     throw new Error("Solicitação incompleta: destinação da mercadoria não confirmada.");
   }
-  if (!ehDestinacaoValida(destinacaoInformada)) {
+  if (destinacaoInformada && !ehDestinacaoValida(destinacaoInformada)) {
     throw new Error(`Solicitação incompleta: destinação da mercadoria ${destinacaoInformada} desconhecida.`);
   }
-  const destinacao: DestinacaoMercadoria = destinacaoInformada;
+  const destinacao: DestinacaoMercadoria | null = remessaConserto ? null : (destinacaoInformada as DestinacaoMercadoria);
   // Excecao "ICMS 12% por exigencia do destinatario" (icms-sc-destinacao.ts). Gravada na
   // conferencia com OC e evidencia; aqui so se confere que ainda cabe nesta nota.
   const excecaoAliquota12 = lerExcecaoAliquota12(operacao.excecao_aliquota_destinatario);
   if (excecaoAliquota12) {
+    if (!destinacao) throw new Error("Emissão bloqueada: a exceção de ICMS 12% não se aplica a remessa.");
     const indisponivel = excecaoAliquota12Indisponivel(destinacao, destinatarioContribuinte, interestadual);
     if (indisponivel) throw new Error(`Emissão bloqueada: ${indisponivel}.`);
   }
@@ -522,7 +533,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // proprio parque nao e industrializar nem revender, entao o IPI integra a base.
     // Lendo por indFinal a nota saia com ICMS a menos — na OS 319, R$ 1.657,50 a cada
     // R$ 100 mil (contabilidade, 10/09/2026).
-    const ipiNaBaseIcms = ipiIntegraBaseIcms(destinacao, destinatarioContribuinte) ? ipiValor : 0;
+    const ipiNaBaseIcms = destinacao && ipiIntegraBaseIcms(destinacao, destinatarioContribuinte) ? ipiValor : 0;
     const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
     const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
     // O ICMS destacado sai da base de PIS/COFINS (STF, RE 574.706/PR, Tema 69, com
@@ -554,7 +565,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // ISS entra como zero porque nota de produto nao o destaca; o termo fica explicito
     // para o dia em que houver documento misto.
     const issValor = 0;
-    const baseIbsCbs = round(Math.max(
+    const baseIbsCbs = ibsCbsSemGrupoDeValores(regraIbsCbs) ? 0 : round(Math.max(
       base - (icmsValor ?? 0) - issValor - (pisValor ?? 0) - (cofinsValor ?? 0),
       0,
     ));
@@ -563,6 +574,22 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     const ibsMunValor = calculoIbsCbs.vIBSMun;
     const ibsValor = round(ibsUfValor + ibsMunValor);
     const cbsValor = calculoIbsCbs.vCBS;
+    // Remessa para conserto: a conferencia grava CST 50 + SC840007, IPI 55, PIS/COFINS 08.
+    // Se chegou outra coisa a nota nao sai — nunca se corrige calado.
+    if (remessaConserto) {
+      const foraDaRemessa = motivoItemForaDaRemessaConserto({
+        codigo,
+        cfop,
+        situacaoIcms,
+        aliquotaIcms,
+        cbenef: text(item.cbenef),
+        cstIpi,
+        aliquotaIpi,
+        cstPis,
+        cstCofins,
+      }, remessaConserto);
+      if (foraDaRemessa) throw new Error(`Emissão bloqueada: ${foraDaRemessa}.`);
+    }
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
@@ -618,7 +645,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // abaixo, olha a nota inteira e nao pegaria um item destoante.
     // Na excecao os 12% vem da exigencia do destinatario, nao de a mercadoria seguir em
     // operacao tributada: o IPI continua na base (manutencao) e isso nao e contradicao.
-    const conflitoIpiBase = itemNaExcecao ? null : conflitoIpiNaBaseComAliquota(
+    const conflitoIpiBase = itemNaExcecao || !destinacao ? null : conflitoIpiNaBaseComAliquota(
       destinacao,
       cargaEfetivaIcms,
       ipiNaBaseIcms > 0,
@@ -695,14 +722,22 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ...(aliquotaCofins !== null ? { cofins_base_calculo: basePisCofins, cofins_aliquota_porcentual: aliquotaCofins, cofins_valor: cofinsValor } : {}),
       ibs_cbs_situacao_tributaria: cstIbsCbs,
       ibs_cbs_classificacao_tributaria: cclassTrib,
-      ibs_cbs_base_calculo: baseIbsCbs,
-      ibs_uf_aliquota: aliquotaIbsUf,
-      ibs_uf_valor: ibsUfValor,
-      ibs_mun_aliquota: aliquotaIbsMun,
-      ibs_mun_valor: ibsMunValor,
-      ibs_valor_total: ibsValor,
-      cbs_aliquota: aliquotaCbs,
-      cbs_valor: cbsValor,
+      // CST 410 (remessa): sem base e valores, so CST, cClassTrib e as aliquotas zeradas
+      // que os portoes de producao conferem contra o perfil.
+      ...(ibsCbsSemGrupoDeValores(regraIbsCbs) ? {
+        ibs_uf_aliquota: aliquotaIbsUf,
+        ibs_mun_aliquota: aliquotaIbsMun,
+        cbs_aliquota: aliquotaCbs,
+      } : {
+        ibs_cbs_base_calculo: baseIbsCbs,
+        ibs_uf_aliquota: aliquotaIbsUf,
+        ibs_uf_valor: ibsUfValor,
+        ibs_mun_aliquota: aliquotaIbsMun,
+        ibs_mun_valor: ibsMunValor,
+        ibs_valor_total: ibsValor,
+        cbs_aliquota: aliquotaCbs,
+        cbs_valor: cbsValor,
+      }),
       // vItem: a mesma conta do vNFTot, item a item. Sai daqui a soma que a rejeicao
       // 1094 confere contra o total — por isso o IPI entra tambem aqui. Enquanto so o
       // total levava o IPI, a NF-e 2/35 (homologacao, OS 287) saiu com vNFTot 21.303,95
@@ -732,7 +767,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // destinação: nesses NCMs a contabilidade lista 12% direto, sem a alternativa
   // de 17%. Só confiro destinação contra alíquota fora desse caso.
   // Com a excecao ativa a divergencia foi confirmada na tela, com OC e evidencia: nao bloqueia.
-  const conflito = usaBeneficioReducaoSc || usaBeneficioMaquinas5291 || excecaoAliquota12
+  const conflito = usaBeneficioReducaoSc || usaBeneficioMaquinas5291 || excecaoAliquota12 || !destinacao
     ? null
     : conflitoDestinacaoAliquota(destinacao, aliquotaUnica, interestadual, destinatarioContribuinte);
   if (conflito) {
@@ -796,7 +831,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // Com a excecao o texto dela ja traz a utilizacao informada: repetir "Destinacao
     // informada pelo destinatario" seria dizer a mesma coisa duas vezes (Gabriel, 16/09/2026,
     // revisao da NF-e 2/55).
-    ...(itensExcecaoAliquota12.length > 0
+    ...(remessaConserto ? textosRemessaConserto() : []),
+    ...(itensExcecaoAliquota12.length > 0 || !destinacao
       ? []
       : [textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291)]),
     ...(text(solicitacao.pedido_cliente)
@@ -844,6 +880,15 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const descricaoPagamento = text(pagamento?.descricao)?.slice(0, 60);
   if (formaPagamento === "99" && !descricaoPagamento) {
     throw new Error("Solicitação incompleta: descreva a forma de pagamento quando escolher 99 (outros).");
+  }
+  // tPag 90 (sem pagamento) e o da remessa: vPag 0 e sem indPag, como nas NF-e de
+  // remessa de terceiros. Uma venda nao sai sem pagamento.
+  const semPagamento = formaPagamento === REMESSA_CONSERTO.formaPagamento;
+  if (semPagamento && !remessaConserto) {
+    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa.");
+  }
+  if (remessaConserto && !semPagamento) {
+    throw new Error(`Solicitação incompleta: remessa para conserto sai sem pagamento (tPag 90), e a conferência trouxe ${formaPagamento}.`);
   }
 
   // Grupo cobr (fatura + duplicatas) para venda a prazo. As parcelas vem do
@@ -1000,8 +1045,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(tributosAproximados.aplica ? { valor_total_tributos: tributosAproximados.total } : {}),
     formas_pagamento: [{
       forma_pagamento: formaPagamento,
-      valor_pagamento: valorTotal,
-      indicador_pagamento: indicadorPagamento,
+      valor_pagamento: semPagamento ? 0 : valorTotal,
+      ...(semPagamento ? {} : { indicador_pagamento: indicadorPagamento }),
       ...(descricaoPagamento ? { descricao_pagamento: descricaoPagamento } : {}),
     }],
     ...(cobranca ?? {}),

@@ -974,6 +974,84 @@ assert.equal(
   "Tijucas",
 );
 
+// Remessa para conserto (16/09/2026, cortinas SICK em garantia): CFOP 6915, ICMS CST 50 com
+// SC840007, IPI 55 cEnq 108, PIS/COFINS 08, IBS/CBS 410/410999 sem base, tPag 90 com vPag 0,
+// textos legais no infCpl e nenhum imposto destacado.
+const itemRemessa = (extra = {}) => linha({
+  codigo_produto: "1211502", ncm: "85365090", cfop: "6915", origem_mercadoria: 2, quantidade: 1,
+  valor_unitario: 2563.6, cst_icms: "50", aliquota_icms: null, reducao_base_icms_percentual: 0,
+  cbenef: "SC840007", cst_ipi: "55", ipi_codigo_enquadramento_legal: "108", aliquota_ipi: null,
+  cst_pis: "08", cst_cofins: "08", aliquota_pis: null, aliquota_cofins: null, ...extra,
+});
+const contextoRemessa = (extraOperacao = {}, itens = [itemRemessa()]) => contexto({
+  solicitacao: solicitacao({
+    destinatario_snapshot: { ...solicitacao().destinatario_snapshot, nome: "SICK SOLUCAO EM SENSORES LTDA", uf: "SP", cidade: "SAO BERNARDO DO CAMPO", codigo_ibge_municipio: "3548708" },
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      natureza_operacao: "REMESSA_CONSERTO_INTERESTADUAL",
+      destinacao_mercadoria: null,
+      consumidor_final: 0,
+      pagamento: { forma: "90", indicador: 0, descricao: null, parcelas: null, fatura_numero: null },
+      ...extraOperacao,
+    },
+  }),
+  itens,
+});
+const remessa = montarPayloadNfe(contextoRemessa());
+assert.equal(remessa.natureza_operacao, "REMESSA PARA CONSERTO FORA DO ESTADO");
+assert.equal(remessa.local_destino, 2);
+assert.equal(remessa.consumidor_final, 0);
+assert.equal(remessa.valor_total, 2563.6);
+assert.deepEqual(remessa.formas_pagamento, [{ forma_pagamento: "90", valor_pagamento: 0 }], "tPag 90 sem valor e sem indPag");
+assert.equal("duplicatas" in remessa, false);
+const itemR = remessa.items[0];
+assert.equal(itemR.cfop, "6915");
+assert.equal(itemR.icms_situacao_tributaria, "50");
+assert.equal("icms_aliquota" in itemR, false, "CST 50 sem base nem aliquota");
+assert.equal(itemR.codigo_beneficio_fiscal, "SC840007");
+assert.equal(itemR.ipi_situacao_tributaria, "55");
+assert.equal(itemR.ipi_codigo_enquadramento_legal, "108");
+assert.equal("ipi_valor" in itemR, false);
+assert.equal(itemR.pis_situacao_tributaria, "08");
+assert.equal("pis_valor" in itemR, false);
+assert.equal(itemR.ibs_cbs_situacao_tributaria, "410");
+assert.equal(itemR.ibs_cbs_classificacao_tributaria, "410999");
+assert.equal(itemR.ibs_uf_aliquota, 0);
+assert.equal(itemR.cbs_aliquota, 0);
+assert.equal("ibs_cbs_base_calculo" in itemR, false, "CST 410 sem grupo de valores");
+assert.equal("cbs_valor" in itemR, false);
+assert.equal(itemR.valor_total_item, 2563.6);
+assert.equal(remessa.ibs_cbs_base_calculo, 0);
+assert.equal(remessa.cbs_valor_total, 0);
+assert.equal(remessa.ibs_cbs_is_valor_total, 2563.6, "vNFTot continua a soma dos itens");
+assert.equal("valor_total_tributos" in remessa, false);
+assert.equal(
+  remessa.informacoes_adicionais_contribuinte,
+  "ICMS suspenso, conforme o inciso I do art. 27 do Anexo 2 do Decreto nº 2.870/01 - RICMS-SC/01 (cBenef SC840007) | "
+  + "IPI suspenso, conforme o inciso VI do art. 43 do Decreto nº 7.212/10 - RIPI/10 | "
+  + "Mercadoria remetida para conserto ou análise em garantia, com retorno ao estabelecimento de origem no prazo de 180 dias | "
+  + "Pedido de compra do cliente: PC-123",
+);
+assert.doesNotMatch(remessa.informacoes_adicionais_contribuinte, /Destinação informada/);
+// Remessa com tributacao de venda nao sai.
+assert.throws(() => montarPayloadNfe(contextoRemessa({}, [itemRemessa({ cst_icms: "00", aliquota_icms: 12 })])), /não está tributado como remessa para conserto: CST ICMS 00/);
+assert.throws(() => montarPayloadNfe(contextoRemessa({}, [itemRemessa({ cbenef: null })])), /cBenef vazio \(esperado SC840007\)/);
+assert.throws(() => montarPayloadNfe(contextoRemessa({}, [itemRemessa({ cst_ipi: "53", ipi_codigo_enquadramento_legal: "999" })])), /CST IPI 53 \(esperado 55\)/);
+assert.throws(() => montarPayloadNfe(contextoRemessa({}, [itemRemessa({ cfop: "5915" })])), /nao possui cClassTrib aprovado para o CFOP 5915/);
+// Remessa com pagamento, ou venda sem pagamento, nao saem.
+assert.throws(() => montarPayloadNfe(contextoRemessa({ pagamento: { forma: "15", indicador: 0 } })), /remessa para conserto sai sem pagamento \(tPag 90\)/);
+assert.throws(
+  () => montarPayloadNfe(contexto({ solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, pagamento: { forma: "90", indicador: 0 } } }) })),
+  /forma de pagamento 90 \(sem pagamento\) só vale para remessa/,
+);
+// Dentro de SC: 5915.
+const remessaInterna = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, natureza_operacao: "REMESSA_CONSERTO_INTERNA", destinacao_mercadoria: null, consumidor_final: 0, pagamento: { forma: "90", indicador: 0 } } }),
+  itens: [itemRemessa({ cfop: "5915" })],
+}));
+assert.equal(remessaInterna.natureza_operacao, "REMESSA PARA CONSERTO DENTRO DO ESTADO");
+assert.equal(remessaInterna.local_destino, 1);
+
 // Sem a excecao a trava continua bloqueando manutencao a 12%.
 assert.throws(
   () => montarPayloadNfe(contexto({
