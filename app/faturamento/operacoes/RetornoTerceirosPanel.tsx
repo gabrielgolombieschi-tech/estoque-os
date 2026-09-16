@@ -154,6 +154,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
   const [filtroStatus, setFiltroStatus] = useState<"ABERTA" | "RETORNADA" | "CANCELADA" | "TODAS">("ABERTA");
   const [empresa, setEmpresa] = useState<{ uf: string | null; cnpj: string | null }>({ uf: null, cnpj: null });
   const [producaoLigada, setProducaoLigada] = useState(false);
+  const [perfisLiberados, setPerfisLiberados] = useState<string[]>([]);
   const [papel, setPapel] = useState<string | null>(null);
 
   // Modal "Gerar NF-e de retorno"
@@ -175,20 +176,24 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
     setRemessas(lista);
     const ids = lista.map((r) => r.id);
     const sols = lista.map((r) => r.solicitacao_retorno_id).filter((id): id is string => Boolean(id));
-    const [it, em, ops, cfg] = await Promise.all([
+    const [it, em, ops, cfg, perfis] = await Promise.all([
       ids.length ? supabase.schema("f").from("remessas_terceiros_itens").select("id,remessa_id,n_item,c_prod,x_prod,ncm,cfop_origem,u_com,q_com,v_un_com,v_prod,orig").in("remessa_id", ids).order("n_item") : Promise.resolve({ data: [], error: null }),
       sols.length ? supabase.schema("f").from("documento_fiscal_emissao").select("documento_fiscal_id,solicitacao_id,ambiente,status,chave_acesso,numero,serie,codigo_status,mensagem,xml_path,danfe_path,autorizado_em,updated_at").in("solicitacao_id", sols).order("updated_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
       sols.length ? supabase.schema("f").from("operacao_fiscal").select("id,solicitacao_id,status,dados_json").eq("tipo", "RETORNO").in("solicitacao_id", sols).is("deleted_at", null) : Promise.resolve({ data: [], error: null }),
       supabase.schema("f").from("retorno_terceiros_config").select("producao_ligada").eq("empresa_id", empresaId).maybeSingle(),
+      // Perfil ja liberado: o link "Liberar perfil" some da linha.
+      supabase.schema("f").from("perfil_operacao").select("codigo,habilitado_producao").eq("modelo", "NFE").like("natureza_operacao", "RETORNO_REMESSA_TERCEIROS%"),
     ]);
     if (it.error) throw it.error;
     if (em.error) throw em.error;
     if (ops.error) throw ops.error;
     if (cfg.error) throw cfg.error;
+    if (perfis.error) throw perfis.error;
     setItens((it.data ?? []) as Item[]);
     setEmissoes((em.data ?? []) as Emissao[]);
     setOperacoes((ops.data ?? []) as Operacao[]);
     setProducaoLigada(Boolean((cfg.data as { producao_ligada?: boolean } | null)?.producao_ligada));
+    setPerfisLiberados(((perfis.data ?? []) as Array<{ codigo: string; habilitado_producao: boolean }>).filter((p) => p.habilitado_producao).map((p) => p.codigo));
   }, [empresaId, supabase]);
 
   useEffect(() => { void carregar().catch((e) => avisar(textoErro(e), true)); }, [carregar, avisar]);
@@ -417,8 +422,9 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
                   const homAutorizada = hom?.status === "AUTORIZADA";
                   const podeHomologar = aberta && Boolean(r.solicitacao_retorno_id) && !prod && (!hom || ["RASCUNHO", "REJEITADA", "ERRO"].includes(hom.status));
                   const podeProduzir = aberta && producaoLigada && homAutorizada && (!prod || ["RASCUNHO", "REJEITADA", "ERRO"].includes(prod.status));
-                  const linkPerfil = op?.dados_json?.perfil_codigo && r.solicitacao_retorno_id
-                    ? `/faturamento/perfis?perfil=${encodeURIComponent(op.dados_json.perfil_codigo)}&solicitacao=${r.solicitacao_retorno_id}&retorno=/faturamento/operacoes?aba=RETORNO`
+                  const perfilCodigo = op?.dados_json?.perfil_codigo ?? null;
+                  const linkPerfil = perfilCodigo && r.solicitacao_retorno_id && !perfisLiberados.includes(perfilCodigo)
+                    ? `/faturamento/perfis?perfil=${encodeURIComponent(perfilCodigo)}&solicitacao=${r.solicitacao_retorno_id}&retorno=/faturamento/operacoes?aba=RETORNO`
                     : null;
                   return (
                     <tr key={r.id} className="align-top">

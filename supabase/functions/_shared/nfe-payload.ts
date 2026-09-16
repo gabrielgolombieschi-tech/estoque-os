@@ -137,6 +137,9 @@ function normalizarPayloadFiscal(value: unknown, ambiente: "HOMOLOGACAO" | "PROD
   payload.nome_destinatario = "<NOME_DESTINATARIO_POR_AMBIENTE>";
   delete payload.ambiente;
   delete payload.ambiente_emissao;
+  // NFref (retorno de terceiros) so vai na nota real: a SEFAZ de homologacao nao conhece a
+  // chave de producao referenciada (rejeicao 267). A chave continua congelada no infCpl.
+  delete payload.notas_referenciadas;
   return ordenarJson(payload);
 }
 
@@ -1109,7 +1112,10 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(modalidadeFrete !== 9 && volumes.length > 0 ? { volumes } : {}),
     // NFref da nota de origem (refNFe) e a base legal da suspensao em infAdFisco: so no
     // retorno de terceiros. Devolucao continua citando a chave apenas no infCpl.
-    ...(origemRetorno ? { notas_referenciadas: [{ chave_nfe: origemRetorno.chave }] } : {}),
+    // Em HOMOLOGACAO o NFref fica de fora: a chave da origem e de producao e a SEFAZ de
+    // homologacao nao a conhece (rejeicao 267 no retorno da WEG, 16/09/2026). A chave
+    // continua no infCpl, e a nota real leva o NFref.
+    ...(origemRetorno && ambiente === "PRODUCAO" ? { notas_referenciadas: [{ chave_nfe: origemRetorno.chave }] } : {}),
     ...(retornoTerceiros ? { informacoes_adicionais_fisco: RETORNO_REMESSA_TERCEIROS.textoFisco } : {}),
     ...(informacoesComplementaresFinal
       ? { informacoes_adicionais_contribuinte: informacoesComplementaresFinal }

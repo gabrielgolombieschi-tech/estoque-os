@@ -1110,7 +1110,12 @@ assert.equal(retorno.cnpj_destinatario, "60621141000404");
 assert.equal(retorno.inscricao_estadual_destinatario, "257843876");
 assert.equal(retorno.municipio_destinatario, "Guaramirim");
 assert.equal(retorno.codigo_municipio_destinatario, "4206504");
-assert.deepEqual(retorno.notas_referenciadas, [{ chave_nfe: CHAVE_WEG }], "NFref com a chave da origem");
+// NFref so na nota real: a SEFAZ de homologacao nao conhece a chave de producao (cStat 267).
+assert.equal("notas_referenciadas" in retorno, false, "homologacao sem NFref");
+const retornoProducao = montarPayloadNfe({ ...contextoRetorno(), emissao: { ambiente: "PRODUCAO", referencia_externa: "NFEP-TESTE", tenant_id: "t", empresa_id: "e" } });
+assert.deepEqual(retornoProducao.notas_referenciadas, [{ chave_nfe: CHAVE_WEG }], "NFref com a chave da origem em producao");
+assert.equal(retornoProducao.nome_destinatario, "WEG TINTAS LTDA");
+assert.doesNotThrow(() => validarPayloadProducaoContraHomologacao(retorno, retornoProducao), "NFref a mais na producao nao e divergencia");
 assert.equal(retorno.items.length, 1);
 const itemT = retorno.items[0];
 assert.equal(itemT.codigo_produto, "000000000050017810", "cProd igual ao da origem, com os zeros");
