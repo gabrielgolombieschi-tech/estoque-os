@@ -8,18 +8,31 @@ Teste: `supabase/tests/tarefas.sql` (roda em transação e faz rollback).
 ## O que é
 
 Uma tarefa amarra **uma ou mais pessoas** a um trabalho, por um ou mais dias. Ela é
-de uma das quatro categorias:
+de uma das seis categorias:
 
-| Categoria | O que é | Tem OS? | Duração |
-| --- | --- | --- | --- |
-| `os` | trabalho numa ordem de serviço | obrigatória | dias |
-| `folga` | folga combinada | não | dias **ou** horas |
-| `ferias` | férias | não | dias **ou** horas |
-| `outro` | qualquer outra ausência | não | dias **ou** horas |
+| Categoria | O que é | Tem OS? | Duração | Desconta a meta da semana? |
+| --- | --- | --- | --- | --- |
+| `os` | trabalho numa ordem de serviço | obrigatória | dias | — |
+| `folga` | folga combinada | não | dias **ou** horas | sim |
+| `ferias` | férias | não | dias **ou** horas | sim |
+| `falta_justificada` | falta **com** atestado | não | dias **ou** horas | sim |
+| `falta` | falta **sem** atestado | não | dias **ou** horas | **não** |
+| `outro` | qualquer outra ausência | não | dias **ou** horas | sim |
 
-As três últimas são **ausência**: a pessoa não está disponível, e aquele tempo sai
-da cobrança da semana. Trabalho e ausência moram na mesma tabela porque disputam a
-mesma coisa — o dia da pessoa.
+As cinco últimas são **ausência**: a pessoa não está disponível. Trabalho e ausência
+moram na mesma tabela porque disputam a mesma coisa — o dia da pessoa.
+
+A falta entrou em 16/09/2026 (`20260916100000_falta_com_e_sem_atestado.sql`), decidida
+com o Gabriel depois de um funcionário faltar numa segunda e o dia dele ficar zerado, sem
+ninguém saber se faltou, se esqueceu de apontar ou se o apontamento se perdeu. Ela é a
+única ausência que **não** sai da cobrança: as horas continuam previstas e o buraco
+aparece na televisão, que é o que a gestão quer enxergar. Com atestado, sai da cobrança
+como folga e férias. Atraso e saída antes do fim do expediente são falta medida em horas.
+
+Quem apresenta o atestado dias depois não perde o registro:
+`app_tarefas_marcar_atestado(p_tarefa_id, p_com_atestado default true)` troca entre as
+duas categorias sem apagar e recriar, nos dois sentidos, e mexe só na categoria — data,
+horas, participantes e reservas ficam como estavam. Não digitaliza documento: é registro.
 
 Dois tipos: **agendada**, que tem data e reserva o dia; e **sem data**, que fica
 pendente sem reservar nada. Ausência é sempre agendada, porque não existe "férias
@@ -155,6 +168,10 @@ Todas em `public`, para `authenticated`, contexto por `set_current_tenant` /
 
 - `app_tarefas_contexto()` → `{gestao, pode_criar, papel, colaborador_id, hoje}`
 - `app_tarefas_criar(p_colaboradores uuid[], p_tipo, p_data, p_dias, p_descricao, p_categoria, p_os_id, p_medida, p_horas, p_chave)`
+- `app_tarefas_marcar_atestado(p_tarefa_id, p_com_atestado default true)` — troca entre
+  `falta` e `falta_justificada`, nos dois sentidos, sem apagar e recriar. Só gestão.
+  Recusa o que não é falta (`categoria_invalida`) e falta cancelada (`tarefa_encerrada`);
+  marcar de novo o que já está devolve `repetido` sem gravar.
 - `app_tarefas_criar(p_tipo, p_colaborador_id, p_os_id, p_descricao, p_data, p_chave)` —
   **atalho de compatibilidade**: uma pessoa, um dia, sempre trabalho em OS. Existe
   para o aplicativo publicado antes de 12/09/2026 não quebrar quando a migration
@@ -216,5 +233,8 @@ mensagem do servidor ao salvar, não antes.
 - **Tablet**: depois do PIN, Apontar horas / Minhas tarefas / Finalizar.
   "Minhas tarefas" lista e conclui **a parte da pessoa**; quando a tarefa tem mais
   gente, a tela avisa. Nada de administração nem aprovação.
-- **Televisão**: `/painel-tv/colaboradores`. As listas de tarefa lá são de trabalho;
-  folga e férias aparecem como o azul da grade da semana e na linha do dia.
+- **Televisão**: `/painel-tv/colaboradores`. As listas de tarefa lá são de trabalho.
+  A grade da semana tem quatro cores: trabalhado verde, ausência planejada (folga,
+  férias, outro) azul, falta com atestado violeta e falta sem atestado vermelho cheio —
+  a única preenchida, porque é a única que continua sendo cobrada. Cada cor vem com o
+  rótulo escrito. Detalhe em `docs/painel-tv-colaboradores.md`.

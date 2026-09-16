@@ -37,7 +37,12 @@ type Contadores = {
   hoje_data: string;
 };
 
-type Categoria = "os" | "folga" | "ferias" | "outro";
+// 'falta_justificada' e a falta COM atestado e 'falta' a falta SEM atestado: e a
+// mesma ausencia, o que muda e o documento. A justificada desconta da meta da
+// semana, como folga e ferias; a sem atestado nao desconta (conta da TV, que e
+// outra frente). O atestado que chega dias depois troca uma pela outra na mesma
+// linha, por app_tarefas_marcar_atestado — nada e apagado nem recadastrado.
+type Categoria = "os" | "folga" | "ferias" | "falta_justificada" | "falta" | "outro";
 type Medida = "dias" | "horas";
 
 // Uma linha por PARTICIPANTE: a tarefa de tres pessoas vem tres vezes e cada
@@ -181,6 +186,9 @@ type Modal =
   | { tipo: "editar"; tarefa: Tarefa }
   | { tipo: "cancelar"; tarefa: Tarefa }
   | { tipo: "liberar"; tarefa: Tarefa }
+  // comAtestado = true e o atestado que chegou depois; false e o desfazer de quem
+  // marcou na falta errada. O banco aceita os dois sentidos (p_com_atestado).
+  | { tipo: "atestado"; tarefa: Tarefa; comAtestado: boolean }
   | { tipo: "detalhe"; tarefa: Tarefa };
 
 // Motivos gravados pelo banco na reserva liberada; a tela so traduz.
@@ -199,6 +207,8 @@ const CATEGORIAS: { valor: Categoria; rotulo: string }[] = [
   { valor: "os", rotulo: "Trabalho em OS" },
   { valor: "folga", rotulo: "Folga" },
   { valor: "ferias", rotulo: "Férias" },
+  { valor: "falta_justificada", rotulo: "Falta com atestado" },
+  { valor: "falta", rotulo: "Falta sem atestado" },
   { valor: "outro", rotulo: "Outro" },
 ];
 
@@ -208,6 +218,8 @@ const CATEGORIAS: { valor: Categoria; rotulo: string }[] = [
 const CONFIRMACAO_AUSENCIA: Record<Exclude<Categoria, "os">, string> = {
   folga: "Folga registrada.",
   ferias: "Férias registradas.",
+  falta_justificada: "Falta com atestado registrada.",
+  falta: "Falta sem atestado registrada.",
   outro: "Ausência registrada.",
 };
 
@@ -215,6 +227,10 @@ const ROTULO_CATEGORIA: Record<Categoria, string> = {
   os: "Trabalho",
   folga: "Folga",
   ferias: "Férias",
+  // Escrito por extenso em toda parte (lista, agenda, detalhe, conflito): "Falta"
+  // sozinho nao diz o que importa, que e ter ou nao o atestado.
+  falta_justificada: "Falta com atestado",
+  falta: "Falta sem atestado",
   outro: "Outro",
 };
 
@@ -300,6 +316,18 @@ function ehAusencia(t: Tarefa) {
   return t.categoria !== "os";
 }
 
+function ehFalta(categoria: Categoria | null | undefined) {
+  return categoria === "falta" || categoria === "falta_justificada";
+}
+
+// O que a falta faz com a meta da semana, dito na tela onde a coordenacao marca:
+// com atestado desconta, como folga e ferias; sem atestado nao desconta.
+function textoMetaDaFalta(categoria: Categoria) {
+  if (categoria === "falta_justificada") return "Falta com atestado: desconta da meta da semana, como folga e férias.";
+  if (categoria === "falta") return "Falta sem atestado: não desconta da meta da semana.";
+  return "";
+}
+
 // A duracao em texto: um dia, um intervalo ou um punhado de horas num dia.
 function textoDuracao(t: Tarefa) {
   if (!t.data) return "Sem data";
@@ -371,7 +399,24 @@ const CLASSE_BADGE_CATEGORIA: Record<Categoria, string> = {
   os: "bg-zinc-800 text-zinc-300 border-zinc-700",
   folga: "bg-violet-900/40 text-violet-300 border-violet-800",
   ferias: "bg-teal-900/40 text-teal-300 border-teal-800",
+  // A falta sem atestado fica em rosa, e nao no vermelho da situacao "Atrasada":
+  // as duas tarjas aparecem lado a lado na mesma linha e nao podem se confundir.
+  // A com atestado fica em amarelo, perto mas separada dela.
+  falta_justificada: "bg-yellow-900/40 text-yellow-300 border-yellow-800",
+  falta: "bg-rose-900/40 text-rose-300 border-rose-800",
   outro: "bg-orange-900/40 text-orange-300 border-orange-800",
+};
+
+// Mesma celula da agenda quando a ausencia e medida em HORAS: borda tracejada e
+// sem fundo, porque o dia nao esta tomado, mas com a cor da categoria — um atraso
+// de 2h e falta e tem de parecer falta, nao trabalho pendente.
+const CLASSE_CELULA_HORAS: Record<Categoria, string> = {
+  os: "bg-transparent text-sky-300 border-sky-800 border-dashed",
+  folga: "bg-transparent text-violet-300 border-violet-800 border-dashed",
+  ferias: "bg-transparent text-teal-300 border-teal-800 border-dashed",
+  falta_justificada: "bg-transparent text-yellow-300 border-yellow-800 border-dashed",
+  falta: "bg-transparent text-rose-300 border-rose-800 border-dashed",
+  outro: "bg-transparent text-orange-300 border-orange-800 border-dashed",
 };
 
 function BadgeCategoria({ categoria }: { categoria: Categoria }) {
@@ -875,6 +920,7 @@ export default function TarefasPage() {
         break;
       case "cancelar":
       case "liberar":
+      case "atestado":
         setCampoTexto("");
         break;
       case "detalhe":
@@ -981,7 +1027,9 @@ export default function TarefasPage() {
     const dias = medida === "horas" || tipo === "sem_data" ? 1 : Number(campoDias);
     const horas = medida === "horas" ? Number(novasHoras.replace(",", ".")) : null;
     if (tipo === "agendada" && !campoData) {
-      setModalErro(novaCategoria === "os" ? "Tarefa agendada precisa de uma data." : "Folga, férias e outras ausências precisam de data.");
+      setModalErro(
+        novaCategoria === "os" ? "Tarefa agendada precisa de uma data." : "Folga, férias, falta e outras ausências precisam de data."
+      );
       return;
     }
     if (medida === "dias" && tipo === "agendada" && (!Number.isInteger(dias) || dias < 1 || dias > 60)) {
@@ -1000,7 +1048,10 @@ export default function TarefasPage() {
       setModalErro("Escolha a OS.");
       return;
     }
-    if (!campoTexto.trim()) {
+    // Na falta a observacao e opcional; nas outras categorias a descricao continua
+    // obrigatoria (e o banco recusa vazio de qualquer jeito).
+    const descricao = campoTexto.trim() || (ehFalta(novaCategoria) ? "Falta" : "");
+    if (!descricao) {
       setModalErro(novaCategoria === "os" ? "Descreva a tarefa." : "Descreva a ausência.");
       return;
     }
@@ -1016,7 +1067,7 @@ export default function TarefasPage() {
         p_tipo: tipo,
         p_data: tipo === "agendada" ? campoData : null,
         p_dias: dias,
-        p_descricao: campoTexto.trim(),
+        p_descricao: descricao,
         p_categoria: novaCategoria,
         p_os_id: novaCategoria === "os" ? Number(novaOsId) : null,
         p_medida: medida,
@@ -1209,6 +1260,36 @@ export default function TarefasPage() {
     await recarregarTudo();
   }
 
+  // Atestado apresentado dias depois: a falta sem atestado vira falta com
+  // atestado na MESMA linha — nada e cancelado nem recadastrado, a reserva do dia
+  // continua e o historico da tarefa fica inteiro. O sentido contrario desfaz quem
+  // marcou na falta errada. Quem decide e o banco; a tela so pede e repassa.
+  async function marcarAtestado(tarefa: Tarefa, comAtestado: boolean) {
+    setSalvando(true);
+    setModalErro(null);
+    const retorno = await chamarAcao(
+      "app_tarefas_marcar_atestado",
+      { p_tarefa_id: tarefa.id, p_com_atestado: comAtestado },
+      comAtestado ? "Não foi possível marcar o atestado." : "Não foi possível tirar o atestado.",
+      "modal"
+    );
+    setSalvando(false);
+    if (!retorno) return;
+    setModal(null);
+    // O nome da pessoa entra no meio da frase e nao pode ser rebaixado: nada de
+    // toLowerCase na frase inteira, que fazia "jonas montador" (achado em
+    // 16/09/2026 navegando pela tela).
+    const dequem = `a falta de ${tarefa.colaborador_nome} em ${textoDuracao(tarefa)}`;
+    setOk(
+      retorno.repetido
+        ? `A falta de ${tarefa.colaborador_nome} em ${textoDuracao(tarefa)} já estava ${comAtestado ? "com" : "sem"} atestado.`
+        : comAtestado
+          ? `Atestado registrado: ${dequem} passou a ser falta com atestado e desconta da meta da semana. O registro é o mesmo e a reserva do dia continua.`
+          : `Atestado retirado: ${dequem} voltou a ser falta sem atestado e não desconta da meta da semana.`
+    );
+    await recarregarTudo();
+  }
+
   function confirmarModal() {
     if (!modal) return;
     switch (modal.tipo) {
@@ -1233,6 +1314,9 @@ export default function TarefasPage() {
       case "liberar":
         void salvarLiberacao(modal.tarefa);
         break;
+      case "atestado":
+        void marcarAtestado(modal.tarefa, modal.comAtestado);
+        break;
       case "detalhe":
         break;
     }
@@ -1254,6 +1338,8 @@ export default function TarefasPage() {
         return "Cancelar tarefa";
       case "liberar":
         return "Liberar reserva do dia";
+      case "atestado":
+        return m.comAtestado ? "Marcar atestado da falta" : "Tirar o atestado da falta";
       case "detalhe":
         return "Detalhe da tarefa";
     }
@@ -1275,6 +1361,8 @@ export default function TarefasPage() {
         return "Cancelar tarefa";
       case "liberar":
         return "Liberar reserva";
+      case "atestado":
+        return m.comAtestado ? "Marcar atestado" : "Tirar atestado";
       case "detalhe":
         return "";
     }
@@ -1298,8 +1386,13 @@ export default function TarefasPage() {
   }
 
   function classeCelulaAgenda(item: AgendaItem) {
-    // Ausencia em horas: borda tracejada, porque o dia NAO esta tomado.
-    if (!item.reserva_dia) return "bg-transparent text-sky-300 border-sky-800 border-dashed";
+    // Ausencia em horas: borda tracejada, porque o dia NAO esta tomado. Sem o
+    // detalhe a celula fica neutra, para nao contar pela cor o que o banco
+    // escondeu.
+    if (!item.reserva_dia) {
+      if (!item.detalhe_visivel) return "bg-transparent text-zinc-400 border-zinc-600 border-dashed";
+      return CLASSE_CELULA_HORAS[item.categoria] ?? CLASSE_CELULA_HORAS.outro;
+    }
     if (!item.detalhe_visivel) return "bg-zinc-800 text-zinc-400 border-zinc-700";
     // Ausencia tem a cor da categoria: na grade, folga nao pode parecer trabalho.
     if (item.categoria !== "os") return CLASSE_BADGE_CATEGORIA[item.categoria] ?? CLASSE_BADGE_CATEGORIA.outro;
@@ -1397,9 +1490,15 @@ export default function TarefasPage() {
           OS usa &quot;Liberar reserva&quot;. Tarefa e apontamento de horas são independentes.
         </p>
         <p className="text-zinc-400">
-          A coordenação também registra <strong>folga</strong>, <strong>férias</strong> e <strong>outras ausências</strong>: não têm OS,
-          sempre têm data e aparecem na aba Ausências. Ausência medida em <strong>horas</strong> não reserva o dia — a pessoa trabalha o
-          resto dele.
+          A coordenação também registra <strong>folga</strong>, <strong>férias</strong>, <strong>falta com atestado</strong>,{" "}
+          <strong>falta sem atestado</strong> e <strong>outras ausências</strong>: não têm OS, sempre têm data e aparecem na aba Ausências.
+          Ausência medida em <strong>horas</strong> não reserva o dia — a pessoa trabalha o resto dele, e é assim que entram o atraso e a
+          saída antes do fim do expediente.
+        </p>
+        <p className="text-zinc-400">
+          Falta <strong>com atestado</strong> desconta da meta da semana, como folga e férias; falta <strong>sem atestado</strong> não
+          desconta. Quem apresenta o atestado dias depois não recadastra nada: a coordenação usa &quot;Marcar atestado&quot; na própria
+          falta, na aba Ausências. O documento não é anexado no sistema.
         </p>
       </div>
 
@@ -1444,14 +1543,14 @@ export default function TarefasPage() {
               Sem data
               {contadores && <span className="text-xs text-zinc-400">{contadores.sem_data}</span>}
             </button>
-            {/* Folga, ferias e outras ausencias sao da coordenacao: so a gestao ve a aba. */}
+            {/* Folga, ferias, falta e outras ausencias sao da coordenacao: so a gestao ve a aba. */}
             {gestao && (
               <button
                 type="button"
                 onClick={() => mudarAba("ausencias")}
                 disabled={salvando}
                 className={classeAba("ausencias")}
-                title="Folgas, férias e outras ausências que ainda não terminaram"
+                title="Folgas, férias, faltas e outras ausências que ainda não terminaram. Para achar uma falta já passada, informe o período."
               >
                 Ausências
                 {contadores && <span className="text-xs text-zinc-400">{contadores.ausencias}</span>}
@@ -1513,7 +1612,7 @@ export default function TarefasPage() {
                   <input
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
-                    placeholder="OS, cliente, descrição ou colaborador"
+                    placeholder="OS, cliente, descrição, colaborador, folga, férias, falta, atestado"
                     className={CLASSE_INPUT_FILTRO}
                   />
                 </label>
@@ -1633,6 +1732,23 @@ export default function TarefasPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap gap-1">
+                              {/* O atestado chega dias depois: a falta ja registrada troca
+                                  de "sem atestado" para "com atestado" sem perder nada.
+                                  Vem antes das outras acoes porque e o que se procura ao
+                                  voltar numa falta antiga. */}
+                              {ehFalta(t.categoria) && t.pode_gerir && t.situacao !== "cancelada" && (
+                                <BotaoAcao
+                                  onClick={() => abrirModal({ tipo: "atestado", tarefa: t, comAtestado: t.categoria === "falta" })}
+                                  disabled={ocupado}
+                                  title={
+                                    t.categoria === "falta"
+                                      ? "A pessoa apresentou o atestado depois: esta falta passa a ser falta com atestado"
+                                      : "Marcou o atestado na falta errada: volta a ser falta sem atestado"
+                                  }
+                                >
+                                  {t.categoria === "falta" ? "Marcar atestado" : "Tirar atestado"}
+                                </BotaoAcao>
+                              )}
                               {pendente && t.pode_concluir && (
                                 <BotaoAcao
                                   onClick={() => void concluirParte(t, t.colaborador_id, t.colaborador_nome, "pagina")}
@@ -1708,7 +1824,7 @@ export default function TarefasPage() {
                               : aba === "sem_data"
                                 ? "Nenhuma tarefa sem data pendente."
                                 : aba === "ausencias"
-                                  ? "Nenhuma folga, férias ou outra ausência em aberto."
+                                  ? "Nenhuma folga, férias, falta ou outra ausência em aberto. Para ver ausências já passadas, informe o período acima."
                                   : "Nenhuma tarefa concluída ou cancelada no período."}
                         </td>
                       </tr>
@@ -1775,8 +1891,20 @@ export default function TarefasPage() {
                   concluída
                   <span className="inline-block w-3 h-3 rounded-sm bg-zinc-800 border border-zinc-700 align-middle ml-3 mr-1" />
                   reservado (sem detalhe)
-                  <span className="inline-block w-3 h-3 rounded-sm border border-dashed border-sky-800 align-middle ml-3 mr-1" />
-                  ausência em horas (o dia segue livre)
+                  <span className="inline-block w-3 h-3 rounded-sm border border-dashed border-zinc-500 align-middle ml-3 mr-1" />
+                  tracejado = ausência em horas (o dia segue livre)
+                </span>
+                {/* A ausencia vem com a cor da categoria; sem legenda o rosa da falta
+                    passava por "atrasada", que e vermelha na lista. */}
+                <span className="text-xs text-zinc-500">
+                  <span className="inline-block w-3 h-3 rounded-sm bg-violet-900/70 border border-violet-800 align-middle mr-1" />
+                  folga
+                  <span className="inline-block w-3 h-3 rounded-sm bg-teal-900/70 border border-teal-800 align-middle ml-3 mr-1" />
+                  férias
+                  <span className="inline-block w-3 h-3 rounded-sm bg-yellow-900/70 border border-yellow-800 align-middle ml-3 mr-1" />
+                  falta com atestado
+                  <span className="inline-block w-3 h-3 rounded-sm bg-rose-900/70 border border-rose-800 align-middle ml-3 mr-1" />
+                  falta sem atestado
                 </span>
               </div>
 
@@ -1906,16 +2034,28 @@ export default function TarefasPage() {
                     }}
                     className={CLASSE_INPUT}
                   >
-                    {CATEGORIAS.filter((c) => c.valor === "os" || gestao).map((c) => (
-                      <option key={c.valor} value={c.valor}>
-                        {c.rotulo}
-                      </option>
-                    ))}
+                    <option value="os">Trabalho em OS</option>
+                    {/* Ausencia — falta inclusive — e so da coordenacao para cima: quem
+                        nao e gestao nem enxerga as opcoes, e o banco recusa de qualquer
+                        jeito (fn_tarefas_criar exige v_ctx.gestao). */}
+                    {gestao && (
+                      <optgroup label="Ausência (só a coordenação)">
+                        {CATEGORIAS.filter((c) => c.valor !== "os").map((c) => (
+                          <option key={c.valor} value={c.valor}>
+                            {c.rotulo}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <small className="text-zinc-500 block">
                     {novaCategoria === "os"
                       ? "Trabalho em OS: precisa de uma OS em andamento."
-                      : "Folga, férias e outras ausências não têm OS e só a coordenação registra."}
+                      : novaCategoria === "falta_justificada"
+                        ? "Falta com atestado: desconta da meta da semana, como folga e férias. O documento não é anexado no sistema."
+                        : novaCategoria === "falta"
+                          ? "Falta sem atestado: não desconta da meta da semana. Se o atestado chegar depois, use “Marcar atestado” na aba Ausências — não registre a falta de novo."
+                          : "Folga, férias e outras ausências não têm OS e só a coordenação registra."}
                   </small>
                 </div>
 
@@ -1941,7 +2081,7 @@ export default function TarefasPage() {
                     <div className="flex gap-4 text-sm text-zinc-200 flex-wrap">
                       <label className="flex items-center gap-2">
                         <input type="radio" name="medida" checked={novaMedida === "dias"} onChange={() => setNovaMedida("dias")} />
-                        Dias (reserva o dia inteiro)
+                        {ehFalta(novaCategoria) ? "Dia inteiro (reserva o dia)" : "Dias (reserva o dia inteiro)"}
                       </label>
                       <label className="flex items-center gap-2">
                         <input type="radio" name="medida" checked={novaMedida === "horas"} onChange={() => setNovaMedida("horas")} />
@@ -1950,6 +2090,7 @@ export default function TarefasPage() {
                     </div>
                     <small className="text-zinc-500 block">
                       Em horas o dia <strong>não</strong> fica reservado: a pessoa trabalha o resto dele.
+                      {ehFalta(novaCategoria) ? " Atraso ou saída antes do fim do expediente é falta em horas." : ""}
                     </small>
                   </div>
                 )}
@@ -2109,16 +2250,29 @@ export default function TarefasPage() {
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-sm text-zinc-300">Descrição *</label>
+                  {/* Na falta a observacao e opcional: o que importa e o registro do
+                      dia, com ou sem atestado. O banco continua exigindo descricao,
+                      entao em branco a tela grava "Falta" — texto que continua certo
+                      quando o atestado chegar depois e a categoria mudar. */}
+                  <label className="text-sm text-zinc-300">{ehFalta(novaCategoria) ? "Observação" : "Descrição *"}</label>
                   <textarea
                     value={campoTexto}
                     onChange={(e) => setCampoTexto(e.target.value)}
                     rows={3}
                     maxLength={2000}
-                    placeholder={novaCategoria === "os" ? "O que os colaboradores vão fazer" : "Motivo ou observação da ausência"}
+                    placeholder={
+                      novaCategoria === "os"
+                        ? "O que os colaboradores vão fazer"
+                        : ehFalta(novaCategoria)
+                          ? "Opcional: motivo ou observação da falta"
+                          : "Motivo ou observação da ausência"
+                    }
                     className={CLASSE_INPUT}
-                    aria-label="Descrição"
+                    aria-label={ehFalta(novaCategoria) ? "Observação" : "Descrição"}
                   />
+                  {ehFalta(novaCategoria) && (
+                    <small className="text-zinc-500 block">Pode ficar em branco: sem observação a falta fica registrada como “Falta”.</small>
+                  )}
                 </div>
               </div>
             )}
@@ -2346,6 +2500,31 @@ export default function TarefasPage() {
               </div>
             )}
 
+            {modal.tipo === "atestado" && (
+              <div className="space-y-2 text-sm text-zinc-300">
+                <p>
+                  {modal.comAtestado ? "A pessoa apresentou o atestado depois. " : "O atestado foi marcado nesta falta por engano. "}A
+                  falta de{" "}
+                  <strong>
+                    {modal.tarefa.participantes > 1
+                      ? `${modal.tarefa.participantes} participantes`
+                      : modal.tarefa.colaborador_nome}
+                  </strong>{" "}
+                  em <strong>{textoDuracao(modal.tarefa)}</strong> passa de{" "}
+                  <strong>{modal.comAtestado ? "falta sem atestado" : "falta com atestado"}</strong> para{" "}
+                  <strong>{modal.comAtestado ? "falta com atestado" : "falta sem atestado"}</strong>.
+                </p>
+                <p className="text-zinc-400">
+                  É o mesmo registro: nada é cancelado nem cadastrado de novo, a reserva do dia continua como está e o histórico da falta
+                  fica inteiro. O que muda é a meta da semana —{" "}
+                  {modal.comAtestado
+                    ? "com atestado a falta passa a descontar, como folga e férias"
+                    : "sem atestado a falta deixa de descontar"}
+                  . O documento não é anexado no sistema.
+                </p>
+              </div>
+            )}
+
             {modal.tipo === "detalhe" && (
               <div className="space-y-3 text-sm">
                 {!detalhe && !modalErro && <div className="text-zinc-400">Carregando...</div>}
@@ -2369,6 +2548,14 @@ export default function TarefasPage() {
                     {detalhe.tarefa.medida === "horas" && (
                       <div className="sm:col-span-2 text-zinc-400">
                         Medida em horas: {textoHoras(detalhe.tarefa.horas)} de um dia só, sem reservar o dia.
+                      </div>
+                    )}
+                    {ehFalta(detalhe.tarefa.categoria) && (
+                      <div className="sm:col-span-2 text-zinc-400">
+                        {textoMetaDaFalta(detalhe.tarefa.categoria)}
+                        {detalhe.tarefa.categoria === "falta" && detalhe.tarefa.pode_gerir
+                          ? " Se a pessoa apresentar o atestado depois, use “Marcar atestado” na linha desta falta, na aba Ausências: o registro é o mesmo."
+                          : ""}
                       </div>
                     )}
                     <div>
