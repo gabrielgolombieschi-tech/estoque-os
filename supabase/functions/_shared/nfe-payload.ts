@@ -304,6 +304,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   let ibsMunTotal = 0;
   let cbsTotal = 0;
   let usaBeneficioReducaoSc = false;
+  // Numero na nota (nItem) de cada item que usou a reducao do Anexo 2, Art. 7º, VII:
+  // a observacao lista esses itens quando a nota nao e toda deles.
+  const itensBeneficioReducaoSc: number[] = [];
   let usaBeneficioMaquinas5291 = false;
   // Só cito a base legal da alíquota quando a nota inteira usa uma única
   // alíquota; com itens em alíquotas diferentes, a citação apontaria para a
@@ -583,6 +586,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     if (faltaCbenef) throw new Error(`Emissão bloqueada: ${faltaCbenef}.`);
     if (temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
       usaBeneficioReducaoSc = true;
+      itensBeneficioReducaoSc.push(index + 1);
     }
     // Maquina industrial do Convenio 52/91 (NCM 8460.90.90): CST 20, cBenef do convenio e base
     // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
@@ -722,7 +726,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     : items;
   const informacoesComplementares = [
     ...(textoTributosAproximados ? [textoTributosAproximados] : []),
-    ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc()] : []),
+    ...(usaBeneficioReducaoSc ? [textoReducaoAutomacaoSc(itensBeneficioReducaoSc, items.length)] : []),
     ...(usaBeneficioMaquinas5291 ? [textoReducaoMaquinas5291()] : []),
     textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291),
     ...(text(solicitacao.pedido_cliente)

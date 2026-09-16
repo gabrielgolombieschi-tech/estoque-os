@@ -431,6 +431,41 @@ assert.match(
   reduzida.informacoes_adicionais_contribuinte,
   /Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS\/SC-01, Anexo 2, Art\. 7º, VII/,
 );
+// Todos os itens da nota usam o beneficio: o texto fica sem a lista de itens.
+assert.doesNotMatch(reduzida.informacoes_adicionais_contribuinte, /Itens? \d/);
+
+// Nota misturada (Gabriel, 16/09/2026): a observacao do beneficio lista, pelo numero do
+// item na nota, so os itens que usaram a reducao. O calculo de ICMS nao muda.
+const itemSemReducaoSc = (ordem) => ({
+  ...linha({ ordem, codigo_produto: `SEM-BENEF-${ordem}`, ncm: "85364100", cbenef: null }),
+  documento_item: { item_n: ordem },
+});
+const itemComReducaoSc = (ordem, extra = {}) => ({
+  ...linha({ ordem, codigo_produto: `COM-BENEF-${ordem}`, ...extra }),
+  documento_item: { item_n: ordem },
+});
+const misturada = montarPayloadNfe(contexto({
+  itens: [
+    itemSemReducaoSc(1),
+    itemComReducaoSc(2),
+    itemComReducaoSc(3, { cst_icms: "20", aliquota_icms: 17, reducao_base_icms_percentual: 29.412 }),
+  ],
+}));
+assert.match(
+  misturada.informacoes_adicionais_contribuinte,
+  /(^|\| )Itens 2, 3: Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações - RICMS\/SC-01, Anexo 2, Art\. 7º, VII/,
+);
+assert.equal(misturada.items[0].icms_valor, 24);
+assert.equal(misturada.items[2].icms_base_calculo, 141.18);
+const umComBeneficio = montarPayloadNfe(contexto({ itens: [itemSemReducaoSc(1), itemComReducaoSc(2)] }));
+assert.match(
+  umComBeneficio.informacoes_adicionais_contribuinte,
+  /(^|\| )Item 2: Base de cálculo reduzida - produtos da indústria de automação/,
+);
+assert.equal(
+  (umComBeneficio.informacoes_adicionais_contribuinte.match(/Base de cálculo reduzida/g) ?? []).length,
+  1,
+);
 
 // Caminho 2, a faculdade da alinea "a": 12% direto sobre a base integral. O
 // texto e OBRIGATORIO aqui — e a condicao que o regulamento impoe para a

@@ -274,9 +274,19 @@ export function faltaCbenefAutomacaoSc(item: {
     + "desde 03/02/2025. Corrija o perfil fiscal do item antes de emitir";
 }
 
-/** Texto completo para dados adicionais quando o beneficio de automacao e usado. */
-export function textoReducaoAutomacaoSc() {
-  return `${REDUCAO_AUTOMACAO_SC.observacaoDocumento} - ${REDUCAO_AUTOMACAO_SC.baseLegal}`;
+/**
+ * Texto completo para dados adicionais quando o beneficio de automacao e usado.
+ *
+ * Nota que mistura itens com e sem o beneficio diz quais usaram a reducao, pelo
+ * numero do item na nota (nItem): "Itens 2, 5: Base de calculo reduzida ...". Quando
+ * todos os itens usaram, o texto fica sem a lista. Decisao do Gabriel, 16/09/2026:
+ * sem a lista, a observacao dava a entender que a nota inteira tinha base reduzida.
+ */
+export function textoReducaoAutomacaoSc(itensComBeneficio: number[] = [], totalItens = 0) {
+  const texto = `${REDUCAO_AUTOMACAO_SC.observacaoDocumento} - ${REDUCAO_AUTOMACAO_SC.baseLegal}`;
+  const itens = [...new Set(itensComBeneficio)].sort((a, b) => a - b);
+  if (itens.length === 0 || itens.length >= totalItens) return texto;
+  return `${itens.length === 1 ? "Item" : "Itens"} ${itens.join(", ")}: ${texto}`;
 }
 
 /**
