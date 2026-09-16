@@ -940,6 +940,40 @@ assert.throws(
   () => comExcecao([linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })], { consumidor_final: 0 }),
   /mantém indFinal = 1/,
 );
+// Com a excecao, a frase "Destinacao informada pelo destinatario" nao se repete.
+assert.doesNotMatch(fabExcecao.informacoes_adicionais_contribuinte, /Destinação informada pelo destinatário/);
+assert.doesNotMatch(revendaExcecao.informacoes_adicionais_contribuinte, /Destinação informada pelo destinatário/);
+// indFinal 1 sem tabela IBPT: a Focus acrescenta "Trib. aprox." ao fim; o infCpl termina em " |".
+assert.match(fabExcecao.informacoes_adicionais_contribuinte, /Pedido de compra do cliente: PC-123 \|$/);
+assert.equal("valor_total_tributos" in fabExcecao, false);
+// indFinal 0: a Focus nao acrescenta nada, e o texto nao termina com separador.
+assert.doesNotMatch(payload.informacoes_adicionais_contribuinte, /\|$/);
+
+// NF-e 2/55: xMun do destinatario saiu "4218004", o codigo IBGE no lugar do nome.
+const comMunicipio = (extraSolicitacao, extraOperacao = {}) => () => montarPayloadNfe(contexto({
+  solicitacao: solicitacao({ ...extraSolicitacao, operacao_snapshot: { ...solicitacao().operacao_snapshot, ...extraOperacao } }),
+}));
+assert.throws(
+  comMunicipio({ destinatario_snapshot: { ...solicitacao().destinatario_snapshot, cidade: "4218004" } }),
+  /município do destinatário está como "4218004", só com dígitos/,
+);
+assert.throws(
+  comMunicipio({ emitente_snapshot: { ...solicitacao().emitente_snapshot, cidade: " 4209102 " } }),
+  /município do emitente está como "4209102", só com dígitos/,
+);
+assert.throws(
+  comMunicipio({}, {
+    modalidade_frete: 1,
+    transportador: { nome: "TEDE TRANSPORTES LTDA", documento: "02484555001072", municipio: "4202404", uf: "SC" },
+    volumes: [{ quantidade: 1, peso_liquido: 2, peso_bruto: 2.1 }],
+  }),
+  /município do transportador está como "4202404", só com dígitos/,
+);
+assert.equal(
+  comMunicipio({ destinatario_snapshot: { ...solicitacao().destinatario_snapshot, cidade: "Tijucas" } })().municipio_destinatario,
+  "Tijucas",
+);
+
 // Sem a excecao a trava continua bloqueando manutencao a 12%.
 assert.throws(
   () => montarPayloadNfe(contexto({

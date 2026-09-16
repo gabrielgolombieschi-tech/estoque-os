@@ -37,8 +37,9 @@ Para não contribuinte a opção não aparece.
   `Itens N: ICMS à alíquota de 12% (RICMS/SC-01, art. 26, III, "n") aplicada por
   determinação do destinatário, conforme OC nº X, utilização informada: manutenção. O
   destinatário responde solidariamente pela diferença de alíquota, nos termos do art. 26,
-  § 6º, do RICMS/SC-01.` A frase "Destinação informada" continua, sem citar a alínea "n"
-  da Lei 10.297/96.
+  § 6º, do RICMS/SC-01.` A frase "Destinação informada pelo destinatário" não se repete:
+  o texto da exceção já traz a utilização (revisão da NF-e 2/55).
+- A Focus troca "º" por "o" no XML ("OC no", "§ 6o"); o payload enviado leva "º".
 
 ## Trava de 17%
 

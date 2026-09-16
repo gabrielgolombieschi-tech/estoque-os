@@ -261,6 +261,23 @@ function objetoOpcional(value: unknown, label: string) {
   return value as Record<string, unknown>;
 }
 
+/**
+ * xMun (C10, E10, X10) e o NOME do municipio. So digitos e o codigo IBGE no lugar do nome:
+ * a SEFAZ autoriza, porque valida o cMun, mas o DANFE imprime "4218004" como cidade. Foi a
+ * NF-e 2/55 (PBG S/A, 16/09/2026), com a cidade do cliente gravada pela importacao de NFS-e.
+ * O congelamento ja troca pelo nome da tabela IBGE a partir do cMun; esta e a rede final.
+ */
+function nomeMunicipio(valor: unknown, label: string) {
+  const nome = requiredText(valor, `município ${label}`);
+  if (/^[\d\s.-]+$/.test(nome)) {
+    throw new Error(
+      `Emissão bloqueada: município ${label} está como "${nome}", só com dígitos — é o código IBGE, não o nome (xMun). `
+      + "Corrija o município no cadastro.",
+    );
+  }
+  return nome;
+}
+
 export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) {
   const emissao = contexto.emissao;
   const solicitacao = contexto.solicitacao;
@@ -776,20 +793,26 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(excecaoAliquota12 && itensExcecaoAliquota12.length > 0
       ? [textoExcecaoAliquota12(itensExcecaoAliquota12, excecaoAliquota12.numeroOc, destinacao)]
       : []),
-    // Na excecao a base legal dos 12% ja esta no texto dela; citar aqui a alinea "n" da
-    // Lei 10.297/96 ("destinada a contribuinte") contradiria a utilizacao informada.
-    textoDestinacao(
-      destinacao,
-      aliquotaUnica,
-      interestadual,
-      usaBeneficioReducaoSc || usaBeneficioMaquinas5291 || itensExcecaoAliquota12.length > 0,
-    ),
+    // Com a excecao o texto dela ja traz a utilizacao informada: repetir "Destinacao
+    // informada pelo destinatario" seria dizer a mesma coisa duas vezes (Gabriel, 16/09/2026,
+    // revisao da NF-e 2/55).
+    ...(itensExcecaoAliquota12.length > 0
+      ? []
+      : [textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291)]),
     ...(text(solicitacao.pedido_cliente)
       ? [`Pedido de compra do cliente: ${text(solicitacao.pedido_cliente)}`]
       : []),
     ...(chaveReferenciada ? [`Chave da NF-e referenciada: ${chaveReferenciada}`] : []),
     ...(observacaoSolicitacao ? [observacaoSolicitacao] : []),
-  ].join(" | ").slice(0, 5000);
+  ].join(" | ");
+  // Com indFinal = 1 e sem valor_total_tributos nosso, a Focus calcula o vTotTrib e ACRESCENTA
+  // "Trib. aprox. R$: ... Fonte: IBPT" ao fim do infCpl, separado so por um espaco — na 2/55
+  // saiu "Pedido de compra do cliente: 1311953 Trib. aprox.". O " |" no fim mantem o mesmo
+  // separador das demais frases. Os 4.998 caracteres deixam lugar para ele no limite de 5.000.
+  const focusAcrescentaTributos = consumidorFinal === 1 && !tributosAproximados.aplica;
+  const informacoesComplementaresFinal = focusAcrescentaTributos && informacoesComplementares
+    ? `${informacoesComplementares.slice(0, 4998)} |`
+    : informacoesComplementares.slice(0, 5000);
 
   const finalidadeEmissao = requiredNumber(operacao.finalidade_emissao, "finalidade da emissão");
   const presencaComprador = requiredNumber(operacao.presenca_comprador, "presença do comprador");
@@ -938,7 +961,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     numero_emitente: requiredText(emitente.numero, "número do emitente"),
     complemento_emitente: text(emitente.complemento) ?? undefined,
     bairro_emitente: requiredText(emitente.bairro, "bairro do emitente"),
-    municipio_emitente: requiredText(emitente.cidade, "município do emitente"),
+    municipio_emitente: nomeMunicipio(emitente.cidade, "do emitente"),
     codigo_municipio_emitente: digits(requiredText(emitente.codigo_municipio_ibge, "código IBGE do emitente")),
     uf_emitente: ufEmitente,
     cep_emitente: digits(requiredText(emitente.cep, "CEP do emitente")),
@@ -956,7 +979,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     numero_destinatario: requiredText(destinatario.numero_endereco, "número do destinatário"),
     complemento_destinatario: text(destinatario.complemento) ?? undefined,
     bairro_destinatario: requiredText(destinatario.bairro, "bairro do destinatário"),
-    municipio_destinatario: requiredText(destinatario.cidade, "município do destinatário"),
+    municipio_destinatario: nomeMunicipio(destinatario.cidade, "do destinatário"),
     codigo_municipio_destinatario: digits(requiredText(destinatario.codigo_ibge_municipio, "código IBGE do destinatário")),
     uf_destinatario: ufDestinatario,
     cep_destinatario: digits(requiredText(destinatario.cep, "CEP do destinatário")),
@@ -989,12 +1012,12 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ...(documentoTransportador.length === 11 ? { cpf_transportador: documentoTransportador } : {}),
       ...(text(transportador?.inscricao_estadual) ? { inscricao_estadual_transportador: text(transportador?.inscricao_estadual) } : {}),
       ...(text(transportador?.endereco) ? { endereco_transportador: text(transportador?.endereco)?.slice(0, 60) } : {}),
-      ...(text(transportador?.municipio) ? { municipio_transportador: text(transportador?.municipio)?.slice(0, 60) } : {}),
+      ...(text(transportador?.municipio) ? { municipio_transportador: nomeMunicipio(transportador?.municipio, "do transportador").slice(0, 60) } : {}),
       ...(text(transportador?.uf) ? { uf_transportador: text(transportador?.uf)?.toUpperCase() } : {}),
     } : {}),
     ...(modalidadeFrete !== 9 && volumes.length > 0 ? { volumes } : {}),
-    ...(informacoesComplementares
-      ? { informacoes_adicionais_contribuinte: informacoesComplementares }
+    ...(informacoesComplementaresFinal
+      ? { informacoes_adicionais_contribuinte: informacoesComplementaresFinal }
       : {}),
     items: itensComTributos,
   };

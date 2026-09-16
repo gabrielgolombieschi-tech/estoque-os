@@ -12,6 +12,8 @@
 --   4  congelamento: a excecao vai para o snapshot; desativada, some e a trava do perfil volta
 --   5  conferencia da OS: FAB com perfil 17% sai CST 00 a 12%, indFinal 1, IPI igual
 --   6  relatorio mensal: vBC, ICMS e diferenca para 17% so dos itens da excecao
+--   7  xMun: codigo IBGE na cidade do cliente vira o nome; snapshot com o nome do IBGE
+--      (20260916150000_nfe_xmun_nome_do_municipio.sql)
 --
 -- Tenant 1e120000-...-0001, empresa ...0002 (SC). Clientes:
 --   912001 PBG contribuinte SC        912002 nao contribuinte SC
@@ -387,6 +389,40 @@ begin
   end if;
   if (select count(*) from f.fn_nfe_excecao_aliquota_relatorio('2026-09-01', 'HOMOLOGACAO')) <> 0 then
     raise exception 'relatorio misturou ambientes';
+  end if;
+end;
+$test$;
+
+-- 7 ---------------------------------------------------------------- xMun (NF-e 2/55)
+-- Cidade com o codigo IBGE vira o nome pelo gatilho, e o snapshot leva o nome da tabela IBGE
+-- pelo cMun (supabase/migrations/20260916150000_nfe_xmun_nome_do_municipio.sql).
+do $test$
+declare
+  v_ov uuid := (select id from excecao_ids where nome = 'ov_pbg');
+begin
+  -- O banco local pode estar sem a tabela IBGE carregada: as duas linhas usadas entram aqui.
+  insert into public.municipios_ibge (codigo_ibge, nome, nome_normalizado, uf, fonte, fonte_versao, atualizado_em)
+  values ('4218004', 'Tijucas', 'tijucas', 'SC', 'teste', 'teste', now()),
+         ('4209102', 'Joinville', 'joinville', 'SC', 'teste', 'teste', now())
+  on conflict (codigo_ibge) do nothing;
+  update public.clientes set cidade = '4218004' where id = 912001;
+  if (select cidade from public.clientes where id = 912001) <> 'Tijucas' then
+    raise exception 'gatilho nao trocou o codigo pelo nome: %', (select cidade from public.clientes where id = 912001);
+  end if;
+  insert into public.clientes (id, tenant_id, empresa_id, nome, documento, razao_social, cidade, uf, indicador_ie)
+  values (912009, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'CLIENTE NFSE', '44555666000181', 'CLIENTE NFSE', ' 4209102 ', 'SC', '9');
+  if (select cidade || '/' || codigo_ibge_municipio from public.clientes where id = 912009) <> 'Joinville/4209102' then
+    raise exception 'insert com codigo na cidade: %', (select cidade || '/' || coalesce(codigo_ibge_municipio, '-') from public.clientes where id = 912009);
+  end if;
+
+  -- Nome do cadastro diferente do IBGE: o snapshot usa o da tabela pelo cMun.
+  update public.clientes set cidade = 'TIJUCAS SC' where id = 912001;
+  perform f.fn_solicitacao_nfe_congelar_cadastro(v_ov);
+  if (select destinatario_snapshot->>'cidade' from f.solicitacao_faturamento where id = v_ov) is distinct from 'Tijucas'
+     or (select emitente_snapshot->>'cidade' from f.solicitacao_faturamento where id = v_ov) is distinct from 'Joinville' then
+    raise exception 'snapshot sem o nome do IBGE: dest %, emit %',
+      (select destinatario_snapshot->>'cidade' from f.solicitacao_faturamento where id = v_ov),
+      (select emitente_snapshot->>'cidade' from f.solicitacao_faturamento where id = v_ov);
   end if;
 end;
 $test$;
