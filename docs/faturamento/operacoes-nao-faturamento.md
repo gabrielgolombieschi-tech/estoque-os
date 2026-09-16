@@ -27,7 +27,20 @@ O CFOP é apenas proposto (`1101→5201`, `2101→6201`, `1551→5553`, `2556→
 
 O endereço alternativo é snapshot da operação; ele não altera o cadastro principal do cliente.
 
-### Remessa e retorno
+### Remessa para conserto (emitida pelo ERP desde 16/09/2026)
+
+É a aba padrão de `/faturamento/operacoes`. Ao contrário das demais, ela **emite** a NF-e pelo
+pipeline fiscal (homologação → liberação do perfil → produção); nada de chave digitada.
+Passo a passo, tributação e primeira nota real (NF-e 2/19, cortinas SICK em garantia) em
+[remessa-conserto.md](remessa-conserto.md).
+
+Resumo: destinatário do cadastro de clientes, itens do catálogo com o valor de compra,
+transporte, `f.fn_remessa_nfe_criar` monta a solicitação com a tributação do perfil
+`SEG-REMESSA-CONSERTO-6915-O2-CST50` (ou `-5915-` dentro de SC): ICMS 50 + cBenef SC840007,
+IPI 55 cEnq 108, PIS/COFINS 08, IBS/CBS 410/410999 sem grupo de valores, tPag 90. A
+autorização em produção abre `f.remessa_controle` sozinha (prazo CONSERTO = 180 dias).
+
+### Outras remessas e retorno (chave digitada)
 
 As finalidades são distintas e aceitam somente estes CFOPs:
 
