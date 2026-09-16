@@ -35,7 +35,19 @@ export type ParsedItem = {
   aliquotaIpi?: number | null;
   aliquotaPis?: number | null;
   aliquotaCofins?: number | null;
+  /** cProd como veio no XML (o retorno de terceiros espelha a origem, com zeros a esquerda). */
+  codigoOriginal?: string | null;
+  origem?: number | null;
+  cstIcms?: string | null;
+  cstIpi?: string | null;
+  cEnqIpi?: string | null;
+  cstPis?: string | null;
+  cstCofins?: string | null;
+  cstIbsCbs?: string | null;
+  cClassTrib?: string | null;
 };
+
+export type ParsedVolume = { qVol: number | null; esp: string | null; pesoL: number | null; pesoB: number | null };
 
 export type ParsedNfe = {
   chave: string | null;
@@ -44,6 +56,21 @@ export type ParsedNfe = {
   emitente: string | null;
   dataEmissao: string | null;
   cnpjEmitente: string | null;
+  inscricaoEstadualEmitente?: string | null;
+  endEmitLogradouro?: string | null;
+  endEmitNumero?: string | null;
+  endEmitComplemento?: string | null;
+  endEmitBairro?: string | null;
+  endEmitCidade?: string | null;
+  endEmitCodigoIbge?: string | null;
+  endEmitUf?: string | null;
+  endEmitCep?: string | null;
+  natOp?: string | null;
+  /** protNFe: 100 e autorizada; sem protocolo o XML nao e nfeProc. */
+  cStat?: string | null;
+  protocolo?: string | null;
+  modFrete?: string | null;
+  volumes?: ParsedVolume[];
   destinatario: string | null;
   documentoDestinatario: string | null;
   inscricaoEstadualDestinatario: string | null;
@@ -96,6 +123,18 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
   const serie = doc.querySelector("ide > serie")?.textContent ?? null;
   const emitente = doc.querySelector("emit > xNome")?.textContent ?? null;
   const cnpjEmitente = doc.querySelector("emit > CNPJ")?.textContent ?? null;
+  const ieEmitente = doc.querySelector("emit > IE")?.textContent ?? null;
+  const enderEmit = doc.querySelector("emit > enderEmit");
+  const natOp = doc.querySelector("ide > natOp")?.textContent ?? null;
+  const cStat = doc.querySelector("protNFe > infProt > cStat")?.textContent ?? null;
+  const protocolo = doc.querySelector("protNFe > infProt > nProt")?.textContent ?? null;
+  const modFrete = doc.querySelector("transp > modFrete")?.textContent ?? null;
+  const volumes: ParsedVolume[] = Array.from(doc.querySelectorAll("transp > vol")).map((vol) => ({
+    qVol: numOrNull(vol.querySelector("qVol")?.textContent),
+    esp: vol.querySelector("esp")?.textContent ?? null,
+    pesoL: numOrNull(vol.querySelector("pesoL")?.textContent),
+    pesoB: numOrNull(vol.querySelector("pesoB")?.textContent),
+  }));
 
   // Destinatário (cliente da NF-e de saída)
   const destinatario = doc.querySelector("dest > xNome")?.textContent ?? null;
@@ -177,6 +216,16 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
     const aliquotaIpi = numOrNull(det.querySelector("IPI > IPITrib > pIPI")?.textContent) ?? numOrNull(det.querySelector("IPI > IPI > pIPI")?.textContent);
     const aliquotaPis = numOrNull(det.querySelector("PIS > * > pPIS")?.textContent);
     const aliquotaCofins = numOrNull(det.querySelector("COFINS > * > pCOFINS")?.textContent);
+    // Situacoes tributarias como vieram: o retorno de terceiros espelha a origem.
+    const origemRaw = det.querySelector("ICMS > * > orig")?.textContent ?? null;
+    const origem = origemRaw !== null && /^\d$/.test(origemRaw.trim()) ? Number(origemRaw.trim()) : null;
+    const cstIcms = det.querySelector("ICMS > * > CST")?.textContent ?? det.querySelector("ICMS > * > CSOSN")?.textContent ?? null;
+    const cstIpi = det.querySelector("IPI > IPITrib > CST")?.textContent ?? det.querySelector("IPI > IPINT > CST")?.textContent ?? null;
+    const cEnqIpi = det.querySelector("IPI > cEnq")?.textContent ?? null;
+    const cstPis = det.querySelector("PIS > * > CST")?.textContent ?? null;
+    const cstCofins = det.querySelector("COFINS > * > CST")?.textContent ?? null;
+    const cstIbsCbs = det.querySelector("IBSCBS > CST")?.textContent ?? null;
+    const cClassTrib = det.querySelector("IBSCBS > cClassTrib")?.textContent ?? null;
 
     if (!codigo) return;
 
@@ -212,6 +261,15 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
       aliquotaIpi,
       aliquotaPis,
       aliquotaCofins,
+      codigoOriginal: (prod.querySelector("cProd")?.textContent ?? "").trim() || null,
+      origem,
+      cstIcms,
+      cstIpi,
+      cEnqIpi,
+      cstPis,
+      cstCofins,
+      cstIbsCbs,
+      cClassTrib,
     });
   });
 
@@ -246,6 +304,20 @@ export function parseNfeXml(raw: string): { nfe: ParsedNfe; itens: ParsedItem[] 
       emitente,
       dataEmissao,
       cnpjEmitente,
+      inscricaoEstadualEmitente: ieEmitente,
+      endEmitLogradouro: enderEmit?.querySelector("xLgr")?.textContent ?? null,
+      endEmitNumero: enderEmit?.querySelector("nro")?.textContent ?? null,
+      endEmitComplemento: enderEmit?.querySelector("xCpl")?.textContent ?? null,
+      endEmitBairro: enderEmit?.querySelector("xBairro")?.textContent ?? null,
+      endEmitCidade: enderEmit?.querySelector("xMun")?.textContent ?? null,
+      endEmitCodigoIbge: enderEmit?.querySelector("cMun")?.textContent ?? null,
+      endEmitUf: enderEmit?.querySelector("UF")?.textContent ?? null,
+      endEmitCep: enderEmit?.querySelector("CEP")?.textContent ?? null,
+      natOp,
+      cStat,
+      protocolo,
+      modFrete,
+      volumes,
       destinatario,
       documentoDestinatario: docDest,
       inscricaoEstadualDestinatario: ieDest,

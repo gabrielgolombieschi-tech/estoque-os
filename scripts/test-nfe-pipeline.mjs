@@ -1061,4 +1061,134 @@ assert.throws(
   /destinação manutenção exige alíquota interna de 17%, e a nota está com 12%/,
 );
 
-console.log("107 cenarios locais do pipeline NF-e passaram.");
+// Retorno de mercadoria de terceiros (16/09/2026): a NF-e 900356/1 da WEG Tintas (CFOP 5901,
+// 4 GL de tinta a R$ 400) volta inteira em 5902. Espelho da origem, NFref com a chave, ICMS 50
+// com SC840008, IPI 55 cEnq 108, PIS/COFINS 08, IBS/CBS 410/410999, tPag 90, sem cobr, infAdFisco
+// com a base legal e infCpl com a nota de origem; modFrete da tela sem transportadora.
+const CHAVE_WEG = "42260660621141000404550010009003561304254706";
+const itemRetorno = (extra = {}) => linha({
+  codigo_produto: "000000000050017810", descricao: "MATERIAIS PARA PINTURA", ncm: "32099019", cfop: "5902",
+  origem_mercadoria: 0, unidade: "GL", unidade_tributavel: "GL", quantidade: 4, valor_unitario: 400, valor_desconto: 0,
+  cst_icms: "50", aliquota_icms: null, reducao_base_icms_percentual: 0, cbenef: "SC840008",
+  cst_ipi: "55", ipi_codigo_enquadramento_legal: "108", aliquota_ipi: null,
+  cst_pis: "08", cst_cofins: "08", aliquota_pis: null, aliquota_cofins: null, ...extra,
+});
+const contextoRetorno = (extraOperacao = {}, itens = [itemRetorno()], extraSolicitacao = {}) => contexto({
+  solicitacao: solicitacao({
+    pedido_cliente: null,
+    observacao: "Retorno das latas da OP 1234",
+    destinatario_snapshot: {
+      id: null, nome: "WEG TINTAS LTDA", documento: "60621141000404", inscricao_estadual: "257843876", indicador_ie: "1",
+      logradouro: "RODOVIA BR 280 - KM50", numero_endereco: "6918", complemento: "BLOCO A", bairro: "CAIXA D AGUA",
+      cidade: "Guaramirim", uf: "SC", cep: "89270000", codigo_ibge_municipio: "4206504", telefone: "4732764000",
+    },
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      natureza_operacao: "RETORNO_REMESSA_TERCEIROS",
+      destinacao_mercadoria: null,
+      consumidor_final: 0,
+      presenca_comprador: 9,
+      modalidade_frete: 9,
+      nfe_referenciada: CHAVE_WEG,
+      pagamento: { forma: "90", indicador: 0, descricao: null, parcelas: null, fatura_numero: null },
+      retorno_terceiros: { remessa_id: "r", chave: CHAVE_WEG, numero: "900356", serie: "1", data_emissao: "10/06/2026", cfop_origem: "5901", tipo: "INDUSTRIALIZACAO" },
+      ...extraOperacao,
+    },
+    ...extraSolicitacao,
+  }),
+  itens,
+});
+const retorno = montarPayloadNfe(contextoRetorno());
+assert.equal(retorno.natureza_operacao, "RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA");
+assert.equal(retorno.natureza_operacao.length <= 60, true);
+assert.equal(retorno.finalidade_emissao, 1, "retorno nao e devolucao (finNFe 4)");
+assert.equal(retorno.tipo_documento, 1);
+assert.equal(retorno.local_destino, 1);
+assert.equal(retorno.consumidor_final, 0);
+assert.equal(retorno.presenca_comprador, 9);
+assert.equal(retorno.cnpj_destinatario, "60621141000404");
+assert.equal(retorno.inscricao_estadual_destinatario, "257843876");
+assert.equal(retorno.municipio_destinatario, "Guaramirim");
+assert.equal(retorno.codigo_municipio_destinatario, "4206504");
+assert.deepEqual(retorno.notas_referenciadas, [{ chave_nfe: CHAVE_WEG }], "NFref com a chave da origem");
+assert.equal(retorno.items.length, 1);
+const itemT = retorno.items[0];
+assert.equal(itemT.codigo_produto, "000000000050017810", "cProd igual ao da origem, com os zeros");
+assert.equal(itemT.descricao, "MATERIAIS PARA PINTURA");
+assert.equal(itemT.codigo_ncm, "32099019");
+assert.equal(itemT.cfop, "5902");
+assert.equal(itemT.unidade_comercial, "GL");
+assert.equal(itemT.quantidade_comercial, 4);
+assert.equal(itemT.valor_unitario_comercial, 400);
+assert.equal(itemT.valor_bruto, 1600);
+assert.equal(itemT.icms_origem, 0);
+assert.equal(itemT.icms_situacao_tributaria, "50");
+assert.equal("icms_base_calculo" in itemT, false, "CST 50 sem base");
+assert.equal("icms_valor" in itemT, false);
+assert.equal(itemT.codigo_beneficio_fiscal, "SC840008", "cBenef do retorno, nao o SC840007 da origem");
+assert.equal(itemT.ipi_situacao_tributaria, "55");
+assert.equal(itemT.ipi_codigo_enquadramento_legal, "108");
+assert.equal("ipi_valor" in itemT, false);
+assert.equal(itemT.pis_situacao_tributaria, "08");
+assert.equal(itemT.cofins_situacao_tributaria, "08");
+assert.equal("pis_valor" in itemT, false);
+assert.equal(itemT.ibs_cbs_situacao_tributaria, "410");
+assert.equal(itemT.ibs_cbs_classificacao_tributaria, "410999");
+assert.equal("ibs_uf_aliquota" in itemT, false, "CST 410 so com CST e cClassTrib");
+assert.equal(itemT.valor_total_item, 1600);
+assert.equal(retorno.valor_produtos, 1600);
+assert.equal(retorno.valor_total, 1600, "vNF = vProd");
+assert.equal(retorno.valor_frete, 0);
+assert.equal(retorno.ibs_cbs_is_valor_total, 1600);
+assert.equal("valor_total_tributos" in retorno, false);
+assert.deepEqual(retorno.formas_pagamento, [{ forma_pagamento: "90", valor_pagamento: 0 }], "tPag 90 vPag 0 sem indPag");
+assert.equal("duplicatas" in retorno, false, "sem grupo cobr");
+assert.equal("numero_fatura" in retorno, false);
+assert.equal(retorno.modalidade_frete, 9);
+assert.equal("nome_transportador" in retorno, false);
+assert.equal("volumes" in retorno, false);
+assert.equal(
+  retorno.informacoes_adicionais_fisco,
+  "ICMS SUSPENSO CONFORME ART. 27, II, ANEXO 2 DO RICMS/SC. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).",
+);
+assert.equal(
+  retorno.informacoes_adicionais_contribuinte,
+  `RETORNO INTEGRAL DA MERCADORIA RECEBIDA PELA NF-E N. 900356 SERIE 1 DE 10/06/2026, CHAVE ${CHAVE_WEG}. MERCADORIA DE TERCEIROS. SEM COBRANCA. | Retorno das latas da OP 1234`,
+);
+assert.doesNotMatch(retorno.informacoes_adicionais_contribuinte, /Chave da NF-e referenciada/);
+assert.doesNotMatch(retorno.informacoes_adicionais_contribuinte, /Destinação informada/);
+// modFrete da tela sem transportadora e sem rebaixar para 9; volumes da origem quando existem.
+const retornoFrete4 = montarPayloadNfe(contextoRetorno({
+  modalidade_frete: 4,
+  volumes: [{ quantidade: 4, especie: "VOLUMES", peso_liquido: 5.56, peso_bruto: 5.56 }],
+}));
+assert.equal(retornoFrete4.modalidade_frete, 4);
+assert.equal("nome_transportador" in retornoFrete4, false);
+assert.deepEqual(retornoFrete4.volumes, [{ quantidade: 4, especie: "VOLUMES", marca: undefined, numero: undefined, peso_liquido: 5.56, peso_bruto: 5.56 }]);
+const retornoFrete1SemVolume = montarPayloadNfe(contextoRetorno({ modalidade_frete: 1, volumes: [] }));
+assert.equal(retornoFrete1SemVolume.modalidade_frete, 1, "sem volumes na origem a modalidade fica a da tela");
+assert.equal("volumes" in retornoFrete1SemVolume, false);
+assert.throws(() => montarPayloadNfe(contextoRetorno({ modalidade_frete: 2 })), /modalidade do frete 2 não vale para o retorno de terceiros/);
+// Conserto (origem 5915): 5916 com a natureza de conserto; fora de SC, 6916.
+const retornoConserto = montarPayloadNfe(contextoRetorno({ natureza_operacao: "RETORNO_REMESSA_TERCEIROS_CONSERTO" }, [itemRetorno({ cfop: "5916" })]));
+assert.equal(retornoConserto.natureza_operacao, "RETORNO DE MERCADORIA RECEBIDA PARA CONSERTO");
+assert.equal(retornoConserto.items[0].cfop, "5916");
+// Fora da lista da natureza o IBS/CBS barra antes da trava do retorno.
+assert.throws(() => montarPayloadNfe(contextoRetorno({}, [itemRetorno({ cfop: "5916" })])), /RETORNO_REMESSA_TERCEIROS nao possui cClassTrib aprovado para o CFOP 5916/);
+// 6916 e da mesma natureza; se ele cabe no ambito e a RPC que decide (fn_remessa_terceiros_retorno_criar).
+assert.equal(montarPayloadNfe(contextoRetorno({ natureza_operacao: "RETORNO_REMESSA_TERCEIROS_CONSERTO" }, [itemRetorno({ cfop: "6916" })])).items[0].cfop, "6916");
+// Tributacao fora do retorno, pagamento, referencia e origem: a nota nao sai.
+assert.throws(() => montarPayloadNfe(contextoRetorno({}, [itemRetorno({ cst_icms: "00", aliquota_icms: 17 })])), /não está tributado como retorno de mercadoria de terceiros: CST ICMS 00/);
+assert.throws(() => montarPayloadNfe(contextoRetorno({}, [itemRetorno({ cbenef: "SC840007" })])), /cBenef SC840007 \(esperado SC840008\)/);
+assert.throws(() => montarPayloadNfe(contextoRetorno({}, [itemRetorno({ cst_ipi: "53", ipi_codigo_enquadramento_legal: "999" })])), /CST IPI 53 \(esperado 55\)/);
+assert.throws(() => montarPayloadNfe(contextoRetorno({}, [itemRetorno({ valor_desconto: 10 })])), /desconto 10/);
+assert.throws(() => montarPayloadNfe(contextoRetorno({ pagamento: { forma: "15", indicador: 0 } })), /retorno de terceiros sai sem pagamento \(tPag 90/);
+assert.throws(() => montarPayloadNfe(contextoRetorno({ nfe_referenciada: "42260660621141000404550010009003571304254700" })), /chave referenciada do retorno não é a da NF-e de origem/);
+assert.throws(() => montarPayloadNfe(contextoRetorno({ retorno_terceiros: null })), /retorno de terceiros sem a nota de origem/);
+// A venda continua exigindo destinacao e pagamento de verdade.
+assert.throws(
+  () => montarPayloadNfe(contexto({ solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: null } }) })),
+  /destinação da mercadoria não confirmada/,
+);
+
+console.log("142 cenarios locais do pipeline NF-e passaram.");

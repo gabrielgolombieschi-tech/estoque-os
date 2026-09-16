@@ -90,6 +90,26 @@ export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
       pIBSMun: 0,
       pCBS: 0,
     } satisfies RegraIbsCbsTransicao2026),
+    // Retorno de mercadoria de terceiros (16/09/2026): mesma nao incidencia da remessa; e o
+    // que os retornos 6916 de terceiros trazem em 2026. Ver ./retorno-remessa-terceiros.ts.
+    RETORNO_REMESSA_TERCEIROS: Object.freeze({
+      naturezaOperacao: "RETORNO_REMESSA_TERCEIROS",
+      cfops: Object.freeze(["5902", "6902", "5903", "6903"]),
+      cst: "410",
+      cClassTrib: "410999",
+      pIBSUF: 0,
+      pIBSMun: 0,
+      pCBS: 0,
+    } satisfies RegraIbsCbsTransicao2026),
+    RETORNO_REMESSA_TERCEIROS_CONSERTO: Object.freeze({
+      naturezaOperacao: "RETORNO_REMESSA_TERCEIROS_CONSERTO",
+      cfops: Object.freeze(["5916", "6916", "5903", "6903"]),
+      cst: "410",
+      cClassTrib: "410999",
+      pIBSUF: 0,
+      pIBSMun: 0,
+      pCBS: 0,
+    } satisfies RegraIbsCbsTransicao2026),
   }),
 });
 

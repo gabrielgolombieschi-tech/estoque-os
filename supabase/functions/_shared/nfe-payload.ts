@@ -6,6 +6,13 @@ import {
   textosRemessaConserto,
 } from "./fiscal/remessa-conserto.ts";
 import {
+  ehNaturezaRetornoTerceiros,
+  lerOrigemRetornoTerceiros,
+  motivoItemForaDoRetornoTerceiros,
+  RETORNO_REMESSA_TERCEIROS,
+  textoRetornoTerceiros,
+} from "./fiscal/retorno-remessa-terceiros.ts";
+import {
   conflitoDestinacaoAliquota,
   conflitoIpiNaBaseComAliquota,
   ehDestinatarioContribuinte,
@@ -317,14 +324,19 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // A remessa para conserto nao tem destinacao: a mercadoria volta. Tudo que depende da
   // destinacao (aliquota, IPI na base, excecao de 12%, texto) fica de fora dela.
   const remessaConserto = ehNaturezaRemessaConserto(natureza.codigo) ? natureza.codigo : null;
+  // Retorno de mercadoria de terceiros (fiscal/retorno-remessa-terceiros.ts): tambem sem
+  // destinacao — a mercadoria nem e nossa e volta inteira ao remetente, sem cobranca.
+  const retornoTerceiros = ehNaturezaRetornoTerceiros(natureza.codigo) ? natureza.codigo : null;
+  const semDestinacao = remessaConserto !== null || retornoTerceiros !== null;
+  const origemRetorno = retornoTerceiros ? lerOrigemRetornoTerceiros(operacao.retorno_terceiros) : null;
   const destinacaoInformada = text(operacao.destinacao_mercadoria);
-  if (!remessaConserto && !destinacaoInformada) {
+  if (!semDestinacao && !destinacaoInformada) {
     throw new Error("Solicitação incompleta: destinação da mercadoria não confirmada.");
   }
   if (destinacaoInformada && !ehDestinacaoValida(destinacaoInformada)) {
     throw new Error(`Solicitação incompleta: destinação da mercadoria ${destinacaoInformada} desconhecida.`);
   }
-  const destinacao: DestinacaoMercadoria | null = remessaConserto ? null : (destinacaoInformada as DestinacaoMercadoria);
+  const destinacao: DestinacaoMercadoria | null = semDestinacao ? null : (destinacaoInformada as DestinacaoMercadoria);
   // Excecao "ICMS 12% por exigencia do destinatario" (icms-sc-destinacao.ts). Gravada na
   // conferencia com OC e evidencia; aqui so se confere que ainda cabe nesta nota.
   const excecaoAliquota12 = lerExcecaoAliquota12(operacao.excecao_aliquota_destinatario);
@@ -590,6 +602,24 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       }, remessaConserto);
       if (foraDaRemessa) throw new Error(`Emissão bloqueada: ${foraDaRemessa}.`);
     }
+    // Retorno de terceiros: CST 50 + cBenef do retorno, IPI 55 cEnq 108, PIS/COFINS 08, sem
+    // desconto — o item e o espelho da nota de origem e nada e destacado.
+    if (retornoTerceiros) {
+      const foraDoRetorno = motivoItemForaDoRetornoTerceiros({
+        codigo,
+        cfop,
+        situacaoIcms,
+        aliquotaIcms,
+        cbenef: text(item.cbenef),
+        cstIpi,
+        cEnqIpi: enquadramentoIpi,
+        aliquotaIpi,
+        cstPis,
+        cstCofins,
+        desconto,
+      }, retornoTerceiros);
+      if (foraDoRetorno) throw new Error(`Emissão bloqueada: ${foraDoRetorno}.`);
+    }
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
@@ -674,7 +704,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // Maquina industrial do Convenio 52/91 (NCM 8460.90.90): CST 20, cBenef do convenio e base
     // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
     // Sem isso a nota nao sai — nem a 12% direto, nem a 17% cheia (contador, 06/09/2026).
-    if (temReducaoMaquinas5291(ncm)) {
+    // No retorno de terceiros a maquina volta ao dono com ICMS suspenso: o convenio e da venda.
+    if (!retornoTerceiros && temReducaoMaquinas5291(ncm)) {
       const carga = REDUCAO_MAQUINAS_CONVENIO_52_91.cargaEfetiva;
       if (situacaoIcms !== "20" || cargaEfetivaIcms === null || Math.abs(cargaEfetivaIcms - carga) > 0.01 || !text(item.cbenef)) {
         throw new Error(
@@ -758,6 +789,10 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   if (referenciaInformada && chaveReferenciada?.length !== 44) {
     throw new Error("Solicitação incompleta: chave da NF-e referenciada deve ter 44 dígitos.");
   }
+  // O retorno referencia a nota de origem em NFref (refNFe), nao so no texto.
+  if (origemRetorno && origemRetorno.chave !== chaveReferenciada) {
+    throw new Error("Solicitação incompleta: a chave referenciada do retorno não é a da NF-e de origem.");
+  }
   const aliquotaUnica = aliquotasIcms.size === 1 ? [...aliquotasIcms][0] : null;
   // Quando o benefício de automação está em uso, os 12% vêm do produto (saída
   // interna de equipamentos de automação, Anexo 2, Art. 7º, VII) e não da
@@ -829,13 +864,16 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // informada pelo destinatario" seria dizer a mesma coisa duas vezes (Gabriel, 16/09/2026,
     // revisao da NF-e 2/55).
     ...(remessaConserto ? textosRemessaConserto() : []),
+    // O texto do retorno ja traz numero, serie, data e chave da origem; a linha generica da
+    // chave referenciada seria repeticao.
+    ...(origemRetorno ? [textoRetornoTerceiros(origemRetorno)] : []),
     ...(itensExcecaoAliquota12.length > 0 || !destinacao
       ? []
       : [textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291)]),
     ...(text(solicitacao.pedido_cliente)
       ? [`Pedido de compra do cliente: ${text(solicitacao.pedido_cliente)}`]
       : []),
-    ...(chaveReferenciada ? [`Chave da NF-e referenciada: ${chaveReferenciada}`] : []),
+    ...(chaveReferenciada && !origemRetorno ? [`Chave da NF-e referenciada: ${chaveReferenciada}`] : []),
     ...(observacaoSolicitacao ? [observacaoSolicitacao] : []),
   ].join(" | ");
   // Com indFinal = 1 e sem valor_total_tributos nosso, a Focus calcula o vTotTrib e ACRESCENTA
@@ -881,11 +919,14 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // tPag 90 (sem pagamento) e o da remessa: vPag 0 e sem indPag, como nas NF-e de
   // remessa de terceiros. Uma venda nao sai sem pagamento.
   const semPagamento = formaPagamento === REMESSA_CONSERTO.formaPagamento;
-  if (semPagamento && !remessaConserto) {
-    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa.");
+  if (semPagamento && !remessaConserto && !retornoTerceiros) {
+    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa ou retorno de terceiros.");
   }
   if (remessaConserto && !semPagamento) {
     throw new Error(`Solicitação incompleta: remessa para conserto sai sem pagamento (tPag 90), e a conferência trouxe ${formaPagamento}.`);
+  }
+  if (retornoTerceiros && (formaPagamento !== RETORNO_REMESSA_TERCEIROS.formaPagamento || indicadorPagamento !== 0)) {
+    throw new Error(`Solicitação incompleta: retorno de terceiros sai sem pagamento (tPag 90, à vista), e a conferência trouxe ${formaPagamento}.`);
   }
 
   // Grupo cobr (fatura + duplicatas) para venda a prazo. As parcelas vem do
@@ -938,7 +979,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const transportador = objetoOpcional(operacao.transportador, "transportador");
   const nomeTransportador = text(transportador?.nome);
   const modalidadeFreteInformada = requiredNumber(operacao.modalidade_frete, "modalidade do frete");
-  const modalidadeFrete = nomeTransportador ? modalidadeFreteInformada : 9;
+  // Retorno de terceiros: a modalidade e a escolhida na tela (0, 1, 3, 4 ou 9), sem o grupo
+  // transportadora e sem rebaixar para 9 (Gabriel, 16/09/2026). Nas demais naturezas, sem
+  // transportador a nota sai como 9.
+  const modalidadeFrete = nomeTransportador || retornoTerceiros ? modalidadeFreteInformada : 9;
+  if (retornoTerceiros && !(RETORNO_REMESSA_TERCEIROS.modalidadesFrete as readonly number[]).includes(modalidadeFrete)) {
+    throw new Error(`Solicitação incompleta: modalidade do frete ${modalidadeFrete} não vale para o retorno de terceiros (0, 1, 3, 4 ou 9).`);
+  }
   if (nomeTransportador && modalidadeFrete === 9) {
     throw new Error("Solicitação incompleta: transportador informado é incompatível com modalidade 9 (sem transporte).");
   }
@@ -948,7 +995,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   }
 
   const volumesInformados = Array.isArray(operacao.volumes) ? operacao.volumes : [];
-  if (modalidadeFrete !== 9 && volumesInformados.length === 0) {
+  // No retorno de terceiros os volumes vem da nota de origem quando ela os tem; sem eles a
+  // nota sai sem o grupo vol, que e opcional.
+  if (modalidadeFrete !== 9 && volumesInformados.length === 0 && !retornoTerceiros) {
     throw new Error("Solicitação incompleta: informe ao menos um volume quando houver transporte.");
   }
   const volumes = volumesInformados.map((volumeRaw, index) => {
@@ -1058,6 +1107,10 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       ...(text(transportador?.uf) ? { uf_transportador: text(transportador?.uf)?.toUpperCase() } : {}),
     } : {}),
     ...(modalidadeFrete !== 9 && volumes.length > 0 ? { volumes } : {}),
+    // NFref da nota de origem (refNFe) e a base legal da suspensao em infAdFisco: so no
+    // retorno de terceiros. Devolucao continua citando a chave apenas no infCpl.
+    ...(origemRetorno ? { notas_referenciadas: [{ chave_nfe: origemRetorno.chave }] } : {}),
+    ...(retornoTerceiros ? { informacoes_adicionais_fisco: RETORNO_REMESSA_TERCEIROS.textoFisco } : {}),
     ...(informacoesComplementaresFinal
       ? { informacoes_adicionais_contribuinte: informacoesComplementaresFinal }
       : {}),

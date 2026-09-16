@@ -1925,6 +1925,17 @@ export default function ImportarXmlPage() {
       error = "Tenant ou empresa nao carregados.";
     }
 
+    // Remessa de terceiros (industrializacao por encomenda 5901/6901, conserto 5915/6915): a
+    // mercadoria e do remetente e nao entra no estoque. O caminho e a aba Retorno das
+    // operacoes fiscais, que importa o XML e depois emite a NF-e de retorno.
+    const cfopsRemessaTerceiros = ["5901", "6901", "5915", "6915"];
+    const cfopsNota = parsed.itens.map((item) => String(item.cfop ?? "").trim()).filter(Boolean);
+    if (status === "ok" && cfopsNota.length > 0 && cfopsNota.every((c) => cfopsRemessaTerceiros.includes(c))) {
+      status = "erro";
+      error = "Esta nota é remessa de terceiros e não entra no estoque. Importe em Faturamento › Operações › Retorno";
+      selected = false;
+    }
+
     const chave = parsed.nfe.chave ?? null;
 
     if (chave && status === "ok" && tenantId && empresaId) {
@@ -4418,7 +4429,15 @@ export default function ImportarXmlPage() {
                   </div>
                 )}
                 {selectedJobHasError && (
-                  <div className="text-sm text-red-200">{selectedJob.error ?? "Nao foi possivel validar este XML."}</div>
+                  <div className="text-sm text-red-200">
+                    {selectedJob.error ?? "Nao foi possivel validar este XML."}
+                    {selectedJob.error?.startsWith("Esta nota é remessa de terceiros") && (
+                      <>
+                        {" "}
+                        <a href="/faturamento/operacoes?aba=RETORNO" className="underline">Abrir Faturamento › Operações › Retorno</a>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
               {renderNfeResumo(selectedJob.nfeInfo, selectedJob.itens.length)}
