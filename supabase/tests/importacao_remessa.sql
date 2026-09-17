@@ -58,10 +58,13 @@ values (918001, '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000
 
 -- Motivo de compra e conta bancaria (nota de debito do courier).
 insert into f.plano_contas (id, tenant_id, codigo, nome)
-values ('1e1a0000-0000-4000-8000-000000000402', '1e1a0000-0000-4000-8000-000000000001', '3.1.01', 'Compras para estoque');
+values ('1e1a0000-0000-4000-8000-000000000402', '1e1a0000-0000-4000-8000-000000000001', '3.1.01', 'Compras para estoque'),
+       ('1e1a0000-0000-4000-8000-000000000404', '1e1a0000-0000-4000-8000-000000000001', 'CONSUMO_GERAL', 'CONSUMO - MATERIAIS GERAIS'),
+       ('1e1a0000-0000-4000-8000-000000000406', '1e1a0000-0000-4000-8000-000000000001', '4.02', 'INVESTIMENTOS');
 insert into f.motivo_compra (id, tenant_id, codigo, nome, aplica_em, favorito, plano_contas_id)
 values ('1e1a0000-0000-4000-8000-000000000401', '1e1a0000-0000-4000-8000-000000000001', 'ESTOQUE', 'Compra para estoque', 'PRODUTO', true, '1e1a0000-0000-4000-8000-000000000402'),
-       ('1e1a0000-0000-4000-8000-000000000403', '1e1a0000-0000-4000-8000-000000000001', 'CONSUMO_PRODUCAO', 'CONSUMO - PRODUCAO E ENGENHARIA', 'PRODUTO', false, '1e1a0000-0000-4000-8000-000000000402');
+       ('1e1a0000-0000-4000-8000-000000000403', '1e1a0000-0000-4000-8000-000000000001', 'CONSUMO_PRODUCAO', 'CONSUMO - PRODUCAO E ENGENHARIA', 'PRODUTO', false, '1e1a0000-0000-4000-8000-000000000404'),
+       ('1e1a0000-0000-4000-8000-000000000405', '1e1a0000-0000-4000-8000-000000000001', 'INVESTIMENTO', 'ATIVO IMOBILIZADO/INVESTIMENTO', 'PRODUTO', false, '1e1a0000-0000-4000-8000-000000000406');
 insert into f.conta_bancaria (id, tenant_id, empresa_id, codigo, nome, tipo)
 values ('1e1a0000-0000-4000-8000-000000000501', '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002', 'SICREDI', 'SICREDI', 'BANCO');
 
@@ -525,13 +528,24 @@ begin
     'xml', v_xml, 'cfop', '3556', 'aliquota_icms', 17,
     'gnre', jsonb_build_object('numero', '1234567890', 'receita', '10005-6', 'uf', 'SC', 'valor', 143.53),
     'courier', jsonb_build_object('servicos', 138.53, 'armazenagem', 12.41),
-    'nota_debito', jsonb_build_object('numero', '2953830', 'valor', 557.25, 'pago_em', '2026-09-10', 'motivo_compra_id', '1e1a0000-0000-4000-8000-000000000401'),
+    'nota_debito', jsonb_build_object('numero', '2953831', 'valor', 557.25, 'pago_em', '2026-09-10', 'motivo_compra_id', '1e1a0000-0000-4000-8000-000000000401'),
     'exportador', jsonb_build_object('nome', 'Shenzhen Haoxin Xunji', 'logradouro', 'Jiaxian Road 2000', 'pais_codigo', '1600', 'pais_nome', 'China'),
     'itens', jsonb_build_array(jsonb_build_object('item_id', 918002, 'ncm', '85371020', 'fabricante', 'OMRON')),
     'observacao', 'CPU para a bancada propria de automacao'
   ));
   if (select dados_json->>'uso_proprio' from f.importacao_remessa where id = (v_res->>'importacao_id')::uuid) not like 'observacao: %bancada%' then
     raise exception 'uso proprio devia ficar registrado na importacao 3556';
+  end if;
+  -- 3556: o motivo "Compra para estoque" da tela vira o de consumo (o plano do titulo segue o destino).
+  if v_res->>'motivo_compra_id' <> '1e1a0000-0000-4000-8000-000000000403' or v_res->>'motivo_compra_codigo' <> 'CONSUMO_PRODUCAO'
+     or (select (nota_debito_motivo_compra_id, (dados_json#>>'{motivo_compra,trocado_pelo_cfop}')::boolean) from f.importacao_remessa where id = (v_res->>'importacao_id')::uuid)
+        is distinct from ('1e1a0000-0000-4000-8000-000000000403'::uuid, true) then
+    raise exception 'motivo de compra em 3556 devia ser o de consumo: %', v_res;
+  end if;
+  if f.fn_importacao_remessa_motivo_por_cfop('1e1a0000-0000-4000-8000-000000000001', '3551', '1e1a0000-0000-4000-8000-000000000401') <> '1e1a0000-0000-4000-8000-000000000405'
+     or f.fn_importacao_remessa_motivo_por_cfop('1e1a0000-0000-4000-8000-000000000001', '3101', '1e1a0000-0000-4000-8000-000000000401') <> '1e1a0000-0000-4000-8000-000000000401'
+     or f.fn_importacao_remessa_motivo_por_cfop('1e1a0000-0000-4000-8000-000000000001', '3556', '1e1a0000-0000-4000-8000-000000000403') <> '1e1a0000-0000-4000-8000-000000000403' then
+    raise exception 'regra do motivo por CFOP errada';
   end if;
   if v_res->>'natureza_operacao' <> 'IMPORTACAO_CONSUMO' or v_res->>'perfil_id' <> '1e1a0000-0000-4000-8000-000000000302' then
     raise exception 'criacao 3556 errada: %', v_res;
@@ -564,11 +578,17 @@ begin
   update f.documento_fiscal_emissao set status = 'AUTORIZADA', chave_acesso = '42260922222222000191550020000000811000000003', numero = 81, serie = 2, autorizado_em = now()
   where documento_fiscal_id = '1e1a0000-0000-4000-8000-000000000603';
   select * into v_imp from f.importacao_remessa where id = v_imp_id;
-  if v_imp.status <> 'CONCLUIDA' or (v_imp.dados_json#>>'{ap,criado}')::boolean is not false or v_imp.dados_json#>>'{ap,titulo_id}' is null then
-    raise exception 'segunda importacao devia concluir reaproveitando o titulo: %', row_to_json(v_imp);
+  if v_imp.status <> 'CONCLUIDA' or (v_imp.dados_json#>>'{ap,criado}')::boolean is not true or v_imp.dados_json#>>'{ap,titulo_id}' is null then
+    raise exception 'segunda importacao devia concluir com o titulo da nota de debito 2953831: %', row_to_json(v_imp);
   end if;
-  if (select count(*) from f.titulo where tenant_id = '1e1a0000-0000-4000-8000-000000000001') <> 1 then
-    raise exception 'nota de debito duplicada no contas a pagar';
+  if (select count(*) from f.titulo where tenant_id = '1e1a0000-0000-4000-8000-000000000001') <> 2 then
+    raise exception 'devia haver um titulo por nota de debito (2953830 e 2953831)';
+  end if;
+  -- Titulo do 3556 no plano de consumo (motivo CONSUMO_PRODUCAO -> CONSUMO - MATERIAIS GERAIS), nao em estoque.
+  if (select (t.motivo_compra_id, r.plano_contas_id) from f.titulo t join f.titulo_rateio r on r.titulo_id = t.id and r.deleted_at is null
+        where t.id = (v_imp.dados_json#>>'{ap,titulo_id}')::uuid)
+     is distinct from ('1e1a0000-0000-4000-8000-000000000403'::uuid, '1e1a0000-0000-4000-8000-000000000404'::uuid) then
+    raise exception 'titulo do 3556 devia ratear no plano de consumo: %', (select row_to_json(t) from f.titulo t where t.id = (v_imp.dados_json#>>'{ap,titulo_id}')::uuid);
   end if;
   select * into v_mov from public.movimentacoes where id = (v_imp.dados_json#>>'{estoque_movimentacoes,0,movimentacao_id}')::bigint;
   if v_mov.item_id <> 918002 or v_mov.custo_unitario_real <> 995.22 or v_mov.credito_icms <> 0 or v_mov.v_icms <> 143.53 then

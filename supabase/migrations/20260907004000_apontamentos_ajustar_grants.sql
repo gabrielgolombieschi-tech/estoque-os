@@ -25,7 +25,19 @@ grant execute on function public.app_editar_apontamento(uuid, numeric, uuid, tex
 do $assert$
 declare
   v_acl text;
+  v_fn regprocedure;
 begin
+  -- Banco recriado do zero (18/09/2026): outras sobrecargas dessas funcoes nascem com o EXECUTE
+  -- padrao (anon junto). Fecha todas antes de conferir; em producao ja estavam fechadas.
+  for v_fn in
+    select p.oid::regprocedure
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('app_sou_responsavel_os', 'app_lancar_apontamentos_lote', 'app_editar_apontamento', 'fn_usuario_pode_alterar_apontamento')
+  loop
+    execute format('revoke all on function %s from public, anon', v_fn);
+  end loop;
   for v_acl in
     select coalesce(p.proacl::text, '')
     from pg_proc p

@@ -31,6 +31,11 @@ do $assert$
 declare
   v_papel text;
 begin
+  -- Banco recriado do zero (18/09/2026): sem o usuario de teste nao ha o que conferir.
+  if not exists (select 1 from a.usuario u where u.email = 'estoque@segau.com.br' and u.deleted_at is null) then
+    raise notice 'assert pulado: usuario estoque@segau.com.br ausente neste banco';
+    return;
+  end if;
   select upper(ue.papel)
     into v_papel
   from a.usuario u

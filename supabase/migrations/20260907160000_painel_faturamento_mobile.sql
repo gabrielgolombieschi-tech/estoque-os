@@ -225,6 +225,11 @@ do $assertions$
 declare
   v_meta numeric;
 begin
+  -- Banco recriado do zero (18/09/2026): sem o tenant da Segau a meta nao foi semeada e nao ha o que conferir.
+  if not exists (select 1 from public.tenants t where t.id = '3ced7cfa-efbb-4f0f-addc-2028f60d1ca7'::uuid) then
+    raise notice 'assert pulado: tenant da Segau ausente neste banco';
+    return;
+  end if;
   select valor_mensal into v_meta
   from f.meta_faturamento
   where tenant_id = '3ced7cfa-efbb-4f0f-addc-2028f60d1ca7'::uuid

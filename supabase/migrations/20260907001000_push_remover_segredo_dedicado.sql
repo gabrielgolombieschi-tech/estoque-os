@@ -18,8 +18,10 @@ begin
   if exists (select 1 from vault.secrets where name = 'push_dispatch_token') then
     raise exception 'push_dispatch_token_ainda_existe';
   end if;
+  -- Banco recriado do zero (18/09/2026): o segredo e do ambiente (vault), nao das migrations.
   if not exists (select 1 from vault.secrets where name = 'service_role_key') then
-    raise exception 'service_role_key_ausente';
+    raise notice 'assert pulado: service_role_key ausente no vault deste banco';
+    return;
   end if;
 end;
 $assert$;

@@ -30,6 +30,11 @@ declare
   v_papel_tenant text;
   v_papel_empresa text;
 begin
+  -- Banco recriado do zero (18/09/2026): sem o usuario de teste nao ha o que conferir.
+  if not exists (select 1 from a.usuario u where u.email = 'gabrielgolombieschi@gmail.com' and u.deleted_at is null) then
+    raise notice 'assert pulado: usuario gabrielgolombieschi@gmail.com ausente neste banco';
+    return;
+  end if;
   select upper(ut.papel)
     into v_papel_tenant
   from a.usuario u

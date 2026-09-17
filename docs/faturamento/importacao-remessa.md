@@ -58,7 +58,9 @@ anexos, estoque e contas a pagar, cancelar).
   `equiparado_industrial`, IPI destacado na saída futura; registrado em `dados_json.fiscal_itens`
   e desfeito no cancelamento); em 3556/3551 nada muda no cadastro. **Não gera contas a pagar da
   NF-e.** A nota de débito do courier vira título AP (`origem = IMPORTACAO`, fornecedor pelo
-  CNPJ do manifesto, criado se não existir, rateio 100% no plano do motivo) **sem duplicar** um
+  CNPJ do manifesto, criado se não existir, rateio 100% no plano do motivo de compra; **o motivo
+  segue o destino**, `f.fn_importacao_remessa_motivo_por_cfop`: 3556 → CONSUMO_PRODUCAO ou outro
+  CONSUMO_*, 3551 → INVESTIMENTO, 3101/3102 → o escolhido, padrão ESTOQUE) **sem duplicar** um
   título do mesmo fornecedor com o mesmo número; com data, conta e forma informadas o pagamento
   é registrado por `f.registrar_pagamento_ap_v2` (título PAGO). Cancelamento da nota real estorna
   a entrada e cancela a importação (a DIR fica livre).
@@ -100,6 +102,26 @@ anexos, estoque e contas a pagar, cancelar).
 8. cExportador = nome do exportador (não há código interno).
 9. Item importado pela Segau (3101/3102): alíquota de IPI da TIPI para o NCM no cadastro fiscal,
    para a saída futura destacar o IPI (a equiparação é marcada pelo ERP; a alíquota não).
+
+## Proposta: pagamento ao exportador (US$ 45,00 = R$ 437,97), ainda não feito
+
+Hoje o valor da mercadoria entra no custo (vProd da DIR) sem título e sem pagamento no ERP. O
+lugar natural é o mesmo dos demais pagamentos por cartão: `f.titulo` AP com `f.pagamento` de
+forma `CARTAO` (312 pagamentos assim hoje, contra as contas SICREDI e SANTANDER, ou seja, a
+fatura do cartão debitada na conta). Fluxo proposto, a decidir:
+
+1. Cadastrar o exportador como fornecedor sem CNPJ (o cadastro já aceita documento nulo; há 41
+   fornecedores assim) com o país no nome/observação, criado pela importação quando não existir.
+2. Na importação, um bloco "pagamento ao exportador": forma (cartão corporativo, PayPal,
+   transferência internacional), data, conta bancária debitada (a do cartão ou uma conta nova
+   "PAYPAL"/"CARTAO", o tipo hoje só aceita BANCO ou CAIXA) e o valor em reais efetivamente
+   debitado (fatura do cartão, com IOF e spread).
+3. Na nota real, título AP `origem = IMPORTACAO` para o exportador no valor debitado, baixado
+   por `f.registrar_pagamento_ap_v2` como a nota de débito; rateio: o valor aduaneiro da DIR no
+   plano do destino (consumo/estoque/investimento) e a diferença (IOF + variação cambial) num
+   plano de despesa financeira, que hoje não existe no plano de contas (nada com "financeira",
+   "IOF" ou "câmbio").
+4. O custo de estoque continua o da DIR (vProd + II + courier), sem a variação cambial.
 
 ## Backlog (decisão do Gabriel em 18/09/2026, não fazer agora)
 

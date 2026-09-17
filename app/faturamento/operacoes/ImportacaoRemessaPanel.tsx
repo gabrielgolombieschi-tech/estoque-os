@@ -306,6 +306,18 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
   const ibsBase = conta ? round2(conta.valorAduaneiro + conta.ii) : 0;
   const ibsUf = round2(ibsBase * 0.001);
   const cbs = round2(ibsBase * 0.009);
+  // O plano do titulo segue o destino (mesma regra de f.fn_importacao_remessa_motivo_por_cfop):
+  // 3556 consumo, 3551 investimento, 3101/3102 estoque. Trocar o CFOP troca o motivo sugerido.
+  useEffect(() => {
+    if (!motivos.length) return;
+    const atual = motivos.find((m) => m.id === nd.motivo_compra_id) ?? null;
+    const escolher = (pred: (m: Motivo) => boolean, preferido?: string) => motivos.find((m) => m.codigo === preferido) ?? motivos.find(pred) ?? null;
+    let alvo: Motivo | null = null;
+    if (cfop === "3556") { if (!atual || !/^CONSUMO/i.test(atual.codigo)) alvo = escolher((m) => /^CONSUMO/i.test(m.codigo), "CONSUMO_PRODUCAO"); }
+    else if (cfop === "3551") { if (!atual || !/^INVESTIMENTO/i.test(atual.codigo)) alvo = escolher((m) => /^INVESTIMENTO/i.test(m.codigo)); }
+    else if (!atual || /^(CONSUMO|INVESTIMENTO)/i.test(atual.codigo)) alvo = escolher((m) => m.codigo === "ESTOQUE") ?? motivos[0];
+    if (alvo && alvo.id !== nd.motivo_compra_id) setNd((s) => ({ ...s, motivo_compra_id: alvo!.id }));
+  }, [cfop, motivos, nd.motivo_compra_id]);
   // Trava de destino (o banco repete a mesma regra): uso proprio nao entra em 3101/3102.
   const motivoEscolhido = motivos.find((m) => m.id === nd.motivo_compra_id) ?? null;
   const usoProprio = useMemo(() => indicioUsoProprio(observacao, motivoEscolhido?.codigo ?? null, motivoEscolhido?.nome ?? null), [observacao, motivoEscolhido]);
@@ -570,7 +582,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
               <label className={label}>Forma<select aria-label="Forma de pagamento" className={`${field} w-full`} value={nd.forma_pagamento} onChange={(e) => setNd((s) => ({ ...s, forma_pagamento: e.target.value }))}>{FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}</select></label>
               <label className={`${label} md:col-span-2`}>Motivo de compra do título<select aria-label="Motivo de compra" className={`${field} w-full`} value={nd.motivo_compra_id} onChange={(e) => setNd((s) => ({ ...s, motivo_compra_id: e.target.value }))}><option value="">—</option>{motivos.map((m) => <option key={m.id} value={m.id}>{m.codigo} · {m.nome}</option>)}</select></label>
             </div>
-            <p className="text-xs text-zinc-500">A nota de débito ({dir.courier.nome ?? "courier"}) normalmente soma II + ICMS/GNRE + serviços + armazenagem. Com a data de pagamento e a conta, o título já nasce baixado quando a nota real for autorizada; sem elas, fica aprovado para baixa no financeiro. Nunca duplica um título já lançado com o mesmo número.</p>
+            <p className="text-xs text-zinc-500">A nota de débito ({dir.courier.nome ?? "courier"}) normalmente soma II + ICMS/GNRE + serviços + armazenagem. Com a data de pagamento e a conta, o título já nasce baixado quando a nota real for autorizada; sem elas, fica aprovado para baixa no financeiro. Nunca duplica um título já lançado com o mesmo número. O rateio do título segue o destino: 3556 no plano de consumo, 3551 em investimento, 3101/3102 em estoque (o motivo sugerido muda com o CFOP).</p>
           </div>
 
           <div className="space-y-2">
