@@ -2,7 +2,12 @@
 
 Primeira emissão em 16/09/2026: duas cortinas de luz SICK enviadas para análise em garantia
 (SICK SOLUCAO EM SENSORES LTDA, São Bernardo do Campo/SP). Homologação NF-e 2/58, produção
-**NF-e 2/19**, chave 42260913671448000189550020000000191919938263, protocolo 242260439497523.
+NF-e 2/19 (chave 42260913671448000189550020000000191919938263) — **cancelada em 17/09/2026**:
+a SICK avisou que o item 1 estava errado (era a C4C-SA12030A10000, cód. 1211501, da NF
+347.442/002 da SICK de 03/03/2026, e não a C4C-SA15010A10000). Refeita em 17/09 com
+1211501 (R$ 2.196,49) + 1211502 (R$ 2.563,60) = R$ 4.760,09: homologação 2/61 e produção
+**NF-e 2/21**, chave 42260913671448000189550020000000211604881603. O cancelamento da nota de
+produção encerra a operação e o controle de retorno (migration 20260917150000).
 
 ## Onde
 
