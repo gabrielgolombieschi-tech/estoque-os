@@ -122,6 +122,46 @@ export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
       pIBSMun: 0,
       pCBS: 0.9,
     } satisfies RegraIbsCbsTransicao2026),
+    // Importacao por remessa expressa (17/09/2026): a importacao de bem material e fato gerador
+    // do IBS/CBS (LC 214/2025, art. 4º, II), com a base do art. 71 (valor aduaneiro + II + ICMS)
+    // e as aliquotas de teste de 2026. CST 000 / cClassTrib 000001, como a operacao tributada.
+    // Ver ./importacao-remessa.ts; a contadora confere na primeira nota real.
+    IMPORTACAO_INDUSTRIALIZACAO: Object.freeze({
+      naturezaOperacao: "IMPORTACAO_INDUSTRIALIZACAO",
+      cfops: Object.freeze(["3101"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
+    IMPORTACAO_COMERCIALIZACAO: Object.freeze({
+      naturezaOperacao: "IMPORTACAO_COMERCIALIZACAO",
+      cfops: Object.freeze(["3102"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
+    IMPORTACAO_CONSUMO: Object.freeze({
+      naturezaOperacao: "IMPORTACAO_CONSUMO",
+      cfops: Object.freeze(["3556"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
+    IMPORTACAO_ATIVO: Object.freeze({
+      naturezaOperacao: "IMPORTACAO_ATIVO",
+      cfops: Object.freeze(["3551"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
   }),
 });
 

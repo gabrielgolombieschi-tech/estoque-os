@@ -26,6 +26,16 @@ import {
   textoFiscoDevolucaoCompra,
 } from "./fiscal/devolucao-compra.ts";
 import {
+  destinatarioExteriorPayload,
+  documentoImportacaoDoItem,
+  ehNaturezaImportacao,
+  IMPORTACAO_REMESSA,
+  impostoImportacaoDoItem,
+  itemDaImportacao,
+  lerOrigemImportacao,
+  motivoItemForaDaImportacao,
+} from "./fiscal/importacao-remessa.ts";
+import {
   conflitoDestinacaoAliquota,
   conflitoIpiNaBaseComAliquota,
   ehDestinatarioContribuinte,
@@ -367,9 +377,19 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // entrada com os impostos da origem, sem destinacao e sem cobranca. O IPI fica fora da base
   // do ICMS como na compra (destinacao nula => ipiNaBaseIcms 0).
   const devolucaoCompra = ehNaturezaDevolucaoCompra(natureza.codigo) ? natureza.codigo : null;
-  const semDestinacao = remessaConserto !== null || retornoTerceiros !== null || devolucaoCompra !== null;
+  // Importacao por remessa expressa (fiscal/importacao-remessa.ts): NF-e de ENTRADA (tpNF 0) com o
+  // exportador no exterior como destinatario, grupos DI e II, ICMS por dentro e vOutro = ICMS.
+  // Tambem sem destinacao e sem cobranca; a origem 1 nasce aqui.
+  const importacao = ehNaturezaImportacao(natureza.codigo) ? natureza.codigo : null;
+  const semDestinacao = remessaConserto !== null || retornoTerceiros !== null || devolucaoCompra !== null || importacao !== null;
   const origemRetorno = retornoTerceiros ? lerOrigemRetornoTerceiros(operacao.retorno_terceiros) : null;
   const origemDevolucao = devolucaoCompra ? lerOrigemDevolucaoCompra(operacao.devolucao_compra) : null;
+  const origemImportacao = importacao ? lerOrigemImportacao(operacao.importacao) : null;
+  if (origemImportacao && (ufDestinatario !== IMPORTACAO_REMESSA.ufExterior || indicadorIe !== IMPORTACAO_REMESSA.indicadorIe)) {
+    throw new Error(`Solicitação incompleta: a importação sai para o exterior (UF ${IMPORTACAO_REMESSA.ufExterior}, indicador de IE ${IMPORTACAO_REMESSA.indicadorIe}).`);
+  }
+  let valorIi = 0;
+  let outrasDespesasDosItens = 0;
   const destinacaoInformada = text(operacao.destinacao_mercadoria);
   if (!semDestinacao && !destinacaoInformada) {
     throw new Error("Solicitação incompleta: destinação da mercadoria não confirmada.");
@@ -513,7 +533,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // o CFOP.
     // Na devolucao de compra a origem e o IPI sao os da nota do fornecedor (espelho), nao da
     // Segau: a regra da equiparacao e da venda.
-    if (origem === 1 && !equiparadoIndustrial && !devolucaoCompra) {
+    // Na importacao a origem 1 e o proprio fato: a nota de entrada e que a declara.
+    if (origem === 1 && !equiparadoIndustrial && !devolucaoCompra && !importacao) {
       throw new Error(
         `Emissão bloqueada: item ${codigo}, origem 1 (importação direta ou por conta e ordem) `
         + "sem a marca de equiparado a industrial no cadastro fiscal. Se a Segau importou, "
@@ -589,8 +610,21 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // Lendo por indFinal a nota saia com ICMS a menos — na OS 319, R$ 1.657,50 a cada
     // R$ 100 mil (contabilidade, 10/09/2026).
     const ipiNaBaseIcms = destinacao && ipiIntegraBaseIcms(destinacao, destinatarioContribuinte) ? ipiValor : 0;
-    const baseIcms = round((base + ipiNaBaseIcms) * (1 - reducao / 100));
+    // Importacao: o ICMS e "por dentro" da propria base — BC = (vProd + II) / (1 - aliquota)
+    // (LC 87/96, art. 13, V e § 1º), ja calculada e conferida pelo banco item a item. A nota
+    // fecha porque vOutro do item recebe o proprio ICMS.
+    const itemImportacao = origemImportacao ? itemDaImportacao(origemImportacao, numeroItem) : null;
+    if (itemImportacao && Math.abs(itemImportacao.valorAduaneiro - base) > 0.005) {
+      throw new Error(`Emissão bloqueada: item ${codigo}, vProd (${base.toFixed(2)}) difere do valor aduaneiro da DIR (${itemImportacao.valorAduaneiro.toFixed(2)}).`);
+    }
+    if (itemImportacao && (aliquotaIcms === null || Math.abs(aliquotaIcms - origemImportacao!.aliquotaIcms) > 0.001 || reducao !== 0)) {
+      throw new Error(`Emissão bloqueada: item ${codigo}, alíquota de ICMS da importação deve ser ${origemImportacao!.aliquotaIcms}% sem redução.`);
+    }
+    const baseIcms = itemImportacao ? itemImportacao.bcIcms : round((base + ipiNaBaseIcms) * (1 - reducao / 100));
     const icmsValor = aliquotaIcms === null ? null : round(baseIcms * aliquotaIcms / 100);
+    if (itemImportacao && icmsValor !== itemImportacao.icms) {
+      throw new Error(`Emissão bloqueada: item ${codigo}, ICMS calculado (${icmsValor}) difere do conferido na importação (${itemImportacao.icms}).`);
+    }
     // O ICMS destacado sai da base de PIS/COFINS (STF, RE 574.706/PR, Tema 69, com
     // efeitos desde 15/03/2017; nos embargos de 13/05/2021 ficou definido que o valor
     // a excluir e o ICMS DESTACADO na nota, nao o efetivamente recolhido). Sem isso a
@@ -620,7 +654,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // ISS entra como zero porque nota de produto nao o destaca; o termo fica explicito
     // para o dia em que houver documento misto.
     const issValor = 0;
-    const baseIbsCbs = ibsCbsSemGrupoDeValores(regraIbsCbs) ? 0 : round(Math.max(
+    // Importacao: a base do IBS/CBS e o valor aduaneiro acrescido do II e do ICMS (LC 214/2025,
+    // art. 71) — o inverso da venda, onde os tributos saem da base.
+    const baseIbsCbs = ibsCbsSemGrupoDeValores(regraIbsCbs) ? 0 : itemImportacao ? round(base + itemImportacao.ii + itemImportacao.icms) : round(Math.max(
       base - (icmsValor ?? 0) - issValor - (pisValor ?? 0) - (cofinsValor ?? 0),
       0,
     ));
@@ -668,9 +704,20 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       const foraDaDevolucao = motivoItemForaDaDevolucaoCompra({ codigo, cfop, desconto }, devolucaoCompra);
       if (foraDaDevolucao) throw new Error(`Emissão bloqueada: ${foraDaDevolucao}.`);
     }
+    // Importacao: CFOP 3xxx da natureza, origem 1, CST 00 com modBC 3, IPI 03/999, PIS/COFINS 98, sem desconto.
+    if (importacao) {
+      const foraDaImportacao = motivoItemForaDaImportacao({
+        codigo, cfop, origem, situacaoIcms, modalidadeBase: text(item.icms_modalidade_base_calculo), cstIpi, cEnqIpi: enquadramentoIpi, aliquotaIpi, cstPis, cstCofins, desconto,
+      }, importacao);
+      if (foraDaImportacao) throw new Error(`Emissão bloqueada: ${foraDaImportacao}.`);
+    }
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
+    if (itemImportacao) {
+      valorIi = round(valorIi + itemImportacao.ii);
+      outrasDespesasDosItens = round(outrasDespesasDosItens + itemImportacao.outrasDespesas);
+    }
     // Valor do item para o "Valor aproximado dos tributos" (Lei 12.741/2012), mais
     // abaixo. Ate 16/09/2026 a frase somava ICMS + IPI da propria nota, como o emissor
     // antigo; agora e federal + estadual da tabela IBPT, e so com indFinal = 1.
@@ -681,7 +728,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // aqui antes. Dos componentes da formula, este emissor so produz vProd, vDesc e
     // vIPI; ST, desoneracao, monofasico, II e servico nao existem neste fluxo e por
     // isso nao entram na conta. Validacao da SEFAZ: rejeicao 1094.
-    vItemTotal = round(vItemTotal + base + ipiValor);
+    // Na importacao o vItem leva tambem o II e o vOutro do item (mesma soma do vNF).
+    vItemTotal = round(vItemTotal + base + ipiValor + (itemImportacao ? itemImportacao.ii + itemImportacao.outrasDespesas : 0));
     ibsUfTotal = round(ibsUfTotal + ibsUfValor);
     ibsMunTotal = round(ibsMunTotal + ibsMunValor);
     cbsTotal = round(cbsTotal + cbsValor);
@@ -737,7 +785,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // Trava antes de qualquer envio a Focus: CST 20 (ou os 12% da alinea "a") num NCM
     // do Anexo 2, Art. 7º, VII sem cBenef. A conferencia da tela chama a mesma funcao.
     // Beneficios de SC sao da venda; a devolucao espelha a tributacao do fornecedor.
-    const faltaCbenef = devolucaoCompra ? null : faltaCbenefAutomacaoSc({
+    const faltaCbenef = devolucaoCompra || importacao ? null : faltaCbenefAutomacaoSc({
       codigo,
       ncm,
       situacaoIcms,
@@ -746,7 +794,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       interestadual,
     });
     if (faltaCbenef) throw new Error(`Emissão bloqueada: ${faltaCbenef}.`);
-    if (!devolucaoCompra && temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
+    if (!devolucaoCompra && !importacao && temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
       usaBeneficioReducaoSc = true;
       itensBeneficioReducaoSc.push(numeroItem);
     }
@@ -754,7 +802,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
     // Sem isso a nota nao sai — nem a 12% direto, nem a 17% cheia (contador, 06/09/2026).
     // No retorno de terceiros a maquina volta ao dono com ICMS suspenso: o convenio e da venda.
-    if (!retornoTerceiros && !devolucaoCompra && temReducaoMaquinas5291(ncm)) {
+    if (!retornoTerceiros && !devolucaoCompra && !importacao && temReducaoMaquinas5291(ncm)) {
       const carga = REDUCAO_MAQUINAS_CONVENIO_52_91.cargaEfetiva;
       if (situacaoIcms !== "20" || cargaEfetivaIcms === null || Math.abs(cargaEfetivaIcms - carga) > 0.01 || !text(item.cbenef)) {
         throw new Error(
@@ -819,17 +867,34 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       // 1094 confere contra o total — por isso o IPI entra tambem aqui. Enquanto so o
       // total levava o IPI, a NF-e 2/35 (homologacao, OS 287) saiu com vNFTot 21.303,95
       // contra 19.411,34 de soma dos vItem, os 1.892,61 de IPI de diferenca.
-      valor_total_item: round(base + ipiValor),
+      valor_total_item: round(base + ipiValor + (itemImportacao ? itemImportacao.ii + itemImportacao.outrasDespesas : 0)),
       ...(text(solicitacao.pedido_cliente) ? { pedido_compra: text(solicitacao.pedido_cliente)?.slice(0, 15) } : {}),
       // Devolucao: DFeReferenciado do item (chaveAcesso + nItem de origem), NT 2025.002-RTC.
       ...(origemDevolucao ? documentoReferenciadoDoItem(origemDevolucao, ambiente, numeroItem) : {}),
+      // Importacao: vOutro = ICMS do item, grupo II e grupo DI com a adicao do item.
+      ...(origemImportacao && itemImportacao ? {
+        valor_outras_despesas: itemImportacao.outrasDespesas,
+        ...impostoImportacaoDoItem(itemImportacao),
+        ...documentoImportacaoDoItem(origemImportacao, itemImportacao),
+      } : {}),
     };
   });
 
   const valorFrete = requiredNumber(operacao.valor_frete, "valor do frete");
   const valorSeguro = requiredNumber(operacao.valor_seguro, "valor do seguro");
   const outrasDespesas = requiredNumber(operacao.valor_outras_despesas, "outras despesas");
-  const valorTotal = round(valorProdutos - valorDesconto + valorFrete + valorSeguro + outrasDespesas + valorIpi);
+  if (origemImportacao) {
+    if (Math.abs(outrasDespesas - outrasDespesasDosItens) > 0.005) {
+      throw new Error(`Solicitação incompleta: outras despesas da importação (${outrasDespesas.toFixed(2)}) devem ser a soma do ICMS dos itens (${outrasDespesasDosItens.toFixed(2)}).`);
+    }
+    if (valorFrete !== 0 || valorSeguro !== 0) {
+      throw new Error("Solicitação incompleta: a importação por remessa expressa sai sem frete e sem seguro na nota (o frete já compõe o valor aduaneiro).");
+    }
+    if (Math.abs(valorIi - origemImportacao.ii) > 0.005 || Math.abs(round(valorProdutos + valorIi + outrasDespesas) - origemImportacao.valorNota) > 0.005) {
+      throw new Error("Solicitação incompleta: os itens não fecham com o II e o valor da nota conferidos na importação.");
+    }
+  }
+  const valorTotal = round(valorProdutos - valorDesconto + valorFrete + valorSeguro + outrasDespesas + valorIpi + valorIi);
 
   const referenciaInformada = text(
     contexto.documento?.nfe_referenciada
@@ -922,6 +987,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // chave referenciada seria repeticao.
     ...(origemRetorno ? [textoRetornoTerceiros(origemRetorno)] : []),
     ...(origemDevolucao ? [textoDevolucaoCompra(origemDevolucao)] : []),
+    ...(origemImportacao ? [origemImportacao.textoComplementar] : []),
     ...(itensExcecaoAliquota12.length > 0 || !destinacao
       ? []
       : [textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291)]),
@@ -947,6 +1013,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   }
   if (!devolucaoCompra && finalidadeEmissao === DEVOLUCAO_COMPRA.finalidadeEmissao) {
     throw new Error("Solicitação incompleta: finalidade 4 (devolução) só vale para a devolução de compra.");
+  }
+  if (importacao && finalidadeEmissao !== IMPORTACAO_REMESSA.finalidadeEmissao) {
+    throw new Error(`Solicitação incompleta: importação sai com finalidade ${IMPORTACAO_REMESSA.finalidadeEmissao} (normal), e a conferência trouxe ${finalidadeEmissao}.`);
   }
   const presencaComprador = requiredNumber(operacao.presenca_comprador, "presença do comprador");
   // indPres 0 ("nao se aplica") e reservado a NF-e complementar ou de ajuste.
@@ -981,8 +1050,11 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // tPag 90 (sem pagamento) e o da remessa: vPag 0 e sem indPag, como nas NF-e de
   // remessa de terceiros. Uma venda nao sai sem pagamento.
   const semPagamento = formaPagamento === REMESSA_CONSERTO.formaPagamento;
-  if (semPagamento && !remessaConserto && !retornoTerceiros && !devolucaoCompra) {
-    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa, retorno de terceiros ou devolução de compra.");
+  if (semPagamento && !remessaConserto && !retornoTerceiros && !devolucaoCompra && !importacao) {
+    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa, retorno de terceiros, devolução de compra ou importação.");
+  }
+  if (importacao && (formaPagamento !== IMPORTACAO_REMESSA.formaPagamento || indicadorPagamento !== 0)) {
+    throw new Error(`Solicitação incompleta: importação sai sem pagamento na nota (tPag 90, à vista), e a conferência trouxe ${formaPagamento}.`);
   }
   if (devolucaoCompra && (formaPagamento !== DEVOLUCAO_COMPRA.formaPagamento || indicadorPagamento !== 0)) {
     throw new Error(`Solicitação incompleta: devolução de compra sai sem pagamento (tPag 90, à vista), e a conferência trouxe ${formaPagamento}.`);
@@ -1054,6 +1126,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   if (devolucaoCompra && !(DEVOLUCAO_COMPRA.modalidadesFrete as readonly number[]).includes(modalidadeFrete)) {
     throw new Error(`Solicitação incompleta: modalidade do frete ${modalidadeFrete} não vale para a devolução de compra (0 a 4 ou 9).`);
   }
+  if (importacao && (modalidadeFreteInformada !== IMPORTACAO_REMESSA.modalidadeFrete || nomeTransportador)) {
+    throw new Error("Solicitação incompleta: a importação por remessa expressa sai sem transporte na nota (modalidade 9, sem transportadora).");
+  }
   if (nomeTransportador && modalidadeFrete === 9) {
     throw new Error("Solicitação incompleta: transportador informado é incompatível com modalidade 9 (sem transporte).");
   }
@@ -1108,8 +1183,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     serie: requiredNumber(emitente.serie_nfe, "série da NF-e do emitente"),
     data_emissao: dataHora,
     data_entrada_saida: dataHora,
-    tipo_documento: 1,
-    local_destino: interestadual ? 2 : 1,
+    // Importacao: nota de ENTRADA (tpNF 0) em operacao com o exterior (idDest 3).
+    tipo_documento: importacao ? IMPORTACAO_REMESSA.tipoDocumento : 1,
+    local_destino: importacao ? IMPORTACAO_REMESSA.localDestino : interestadual ? 2 : 1,
     finalidade_emissao: finalidadeEmissao,
     consumidor_final: consumidorFinal,
     presenca_comprador: presencaComprador,
@@ -1129,26 +1205,30 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     nome_destinatario: ambiente === "HOMOLOGACAO"
       ? NOME_DESTINATARIO_HOMOLOGACAO
       : requiredText(destinatario.nome, "nome do destinatário"),
-    ...documentoDestinatario(destinatario),
-    ...(indicadorIe !== "2" && text(destinatario.inscricao_estadual)
-      ? { inscricao_estadual_destinatario: text(destinatario.inscricao_estadual) }
-      : {}),
-    indicador_inscricao_estadual_destinatario: Number(indicadorIe),
-    logradouro_destinatario: requiredText(destinatario.logradouro, "logradouro do destinatário"),
-    numero_destinatario: requiredText(destinatario.numero_endereco, "número do destinatário"),
-    complemento_destinatario: text(destinatario.complemento) ?? undefined,
-    bairro_destinatario: requiredText(destinatario.bairro, "bairro do destinatário"),
-    municipio_destinatario: nomeMunicipio(destinatario.cidade, "do destinatário"),
-    codigo_municipio_destinatario: digits(requiredText(destinatario.codigo_ibge_municipio, "código IBGE do destinatário")),
-    uf_destinatario: ufDestinatario,
-    cep_destinatario: digits(requiredText(destinatario.cep, "CEP do destinatário")),
-    pais_destinatario: "Brasil",
-    telefone_destinatario: digits(destinatario.telefone) || undefined,
+    // Exportador no exterior (importacao): sem CNPJ, IE, CEP e UF; municipio 9999999 e pais BACEN.
+    ...(origemImportacao ? destinatarioExteriorPayload(destinatario) : {
+      ...documentoDestinatario(destinatario),
+      ...(indicadorIe !== "2" && text(destinatario.inscricao_estadual)
+        ? { inscricao_estadual_destinatario: text(destinatario.inscricao_estadual) }
+        : {}),
+      indicador_inscricao_estadual_destinatario: Number(indicadorIe),
+      logradouro_destinatario: requiredText(destinatario.logradouro, "logradouro do destinatário"),
+      numero_destinatario: requiredText(destinatario.numero_endereco, "número do destinatário"),
+      complemento_destinatario: text(destinatario.complemento) ?? undefined,
+      bairro_destinatario: requiredText(destinatario.bairro, "bairro do destinatário"),
+      municipio_destinatario: nomeMunicipio(destinatario.cidade, "do destinatário"),
+      codigo_municipio_destinatario: digits(requiredText(destinatario.codigo_ibge_municipio, "código IBGE do destinatário")),
+      uf_destinatario: ufDestinatario,
+      cep_destinatario: digits(requiredText(destinatario.cep, "CEP do destinatário")),
+      pais_destinatario: "Brasil",
+      telefone_destinatario: digits(destinatario.telefone) || undefined,
+    }),
     valor_frete: valorFrete,
     valor_seguro: valorSeguro,
     valor_desconto: valorDesconto,
     valor_outras_despesas: outrasDespesas,
     valor_produtos: valorProdutos,
+    ...(origemImportacao ? { valor_total_ii: valorIi } : {}),
     valor_total: valorTotal,
     ibs_cbs_base_calculo: baseIbsCbsTotal,
     ibs_uf_valor_total: ibsUfTotal,
@@ -1189,6 +1269,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // mesma (fiscal/devolucao-compra.ts). A comparacao producao x homologacao ignora o
     // DFeReferenciado e o destinatario da nota de teste.
     ...(origemDevolucao ? { informacoes_adicionais_fisco: textoFiscoDevolucaoCompra(origemDevolucao) } : {}),
+    // Importacao: o infAdFisco diz o regime (RTS), a DIR e a GNRE; o infCpl traz AWB, cambio,
+    // valores, nota de debito, remetente da DIR x exportador da invoice.
+    ...(origemImportacao ? { informacoes_adicionais_fisco: origemImportacao.textoFisco } : {}),
     ...(informacoesComplementaresFinal
       ? { informacoes_adicionais_contribuinte: informacoesComplementaresFinal }
       : {}),

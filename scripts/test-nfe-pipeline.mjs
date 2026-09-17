@@ -1361,4 +1361,205 @@ assert.throws(() => montarPayloadNfe(contextoDevolucao({ devolucao_compra: null 
 assert.throws(() => montarPayloadNfe(contextoDevolucao({ modalidade_frete: 5 })), /modalidade do frete 5 não vale para a devolução de compra/);
 assert.throws(() => montarPayloadNfe(contextoDevolucao({ volumes: [] })), /informe ao menos um volume quando houver transporte/);
 
-console.log("218 cenarios locais do pipeline NF-e passaram.");
+// Importacao por remessa expressa (17/09/2026): NF-e de ENTRADA da CPU OMRON CQM1H-CPU61 (UPS
+// 1ZJ451C10441551106, DIR 260191366846): tpNF 0, idDest 3, exportador no exterior sem CNPJ, item
+// origem 1 CST 00 a 17% por dentro (BC 844,28 = (437,97 + 262,78) / 0,83), II 262,78, IPI 03/999,
+// PIS/COFINS 98, IBS/CBS sobre 844,28, vOutro = ICMS 143,53, vNF 844,28, grupo DI, tPag 90.
+const itemImportacao = (extra = {}) => linha({
+  codigo_produto: "CQM1HCPU61", descricao: "CONTROLADOR PROGRAMAVEL PLC CPU", ncm: "85371020", cfop: "3101",
+  origem_mercadoria: 1, unidade: "UN", unidade_tributavel: "UN", quantidade: 1, valor_unitario: 437.97, valor_desconto: 0,
+  cst_icms: "00", aliquota_icms: 17, reducao_base_icms_percentual: 0, cbenef: null, icms_modalidade_base_calculo: "3",
+  cst_ipi: "03", ipi_codigo_enquadramento_legal: "999", aliquota_ipi: null,
+  cst_pis: "98", cst_cofins: "98", aliquota_pis: null, aliquota_cofins: null, ...extra,
+});
+const snapshotImportacao = (extra = {}) => ({
+  importacao_id: "imp-1", awb: "1ZJ451C10441551106", courier_nome: "UPS DO BRASIL REMESSAS EXPRESSAS LTDA", courier_cnpj: "74155052000173",
+  dir_numero: "260191366846", dir_data_registro: "2026-09-09", dir_data_registro_texto: "09/09/2026", ua_entrada: "0817700",
+  local_desembaraco: "AEROPORTO INTERNACIONAL DE VIRACOPOS - CAMPINAS", uf_desembaraco: "SP", data_desembaraco: "2026-09-09",
+  via_transporte: 4, forma_intermedio: 1, exportador_codigo: "SHENZHEN-HAOXIN-XUNJI", remetente_dir: "SHENZHEN COOL DREAM SUPPLY CO LTD", regime_tributacao: "7",
+  cambio: 5.0856, valor_mercadoria_usd: 45, frete_usd: 41.12, valor_aduaneiro: 437.97, ii: 262.78, aliquota_icms: 17, bc_icms: 844.28, icms: 143.53, valor_nota: 844.28,
+  gnre: { numero: "1234567890", receita: "10005-6", uf: "SC", valor: 143.53 }, nota_debito: { numero: "2953830", valor: 557.25 },
+  courier_servicos: 138.53, courier_armazenagem: 12.41, credito_icms: true,
+  itens: [{ ordem: 1, sequencia_dir: "00001", adicao: 1, sequencial_adicao: 1, fabricante: "OMRON", valor_aduaneiro: 437.97, ii: 262.78, bc_icms: 844.28, icms: 143.53, outras_despesas: 143.53 }],
+  texto_fisco: "NF-E DE ENTRADA DE IMPORTACAO POR REMESSA EXPRESSA (RTS, REGIME DE TRIBUTACAO SIMPLIFICADA). DIR 260191366846 DE 09/09/2026. II RECOLHIDO NA DIR. ICMS RECOLHIDO POR GNRE RECEITA 10005-6.",
+  texto_complementar: "IMPORTACAO POR REMESSA EXPRESSA. AWB 1ZJ451C10441551106 UPS DO BRASIL REMESSAS EXPRESSAS LTDA. DIR 260191366846 REGISTRADA EM 09/09/2026. SEM COBRANCA.",
+  ...extra,
+});
+const destinatarioExportador = {
+  id: null, documento: null, id_estrangeiro: null, nome: "SHENZHEN HAOXIN XUNJI ELECTRONIC TECHNOLOGY TRADING CO., LTD", inscricao_estadual: null, indicador_ie: "9",
+  logradouro: "JIAXIAN ROAD, YOU SUOWEI BUILDING, UNIT B1-A6", numero_endereco: "2000", complemento: "BANTIAN, LONGGANG", bairro: "SHENZHEN", cidade: "EXTERIOR", uf: "EX",
+  codigo_ibge_municipio: "9999999", cep: null, pais_codigo: "1600", pais_nome: "CHINA",
+};
+const contextoImportacao = (extraOperacao = {}, itens = [itemImportacao()], extraSolicitacao = {}) => contexto({
+  solicitacao: solicitacao({
+    pedido_cliente: null,
+    observacao: "CPU de CLP para a bancada",
+    destinatario_snapshot: { ...destinatarioExportador },
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      natureza_operacao: "IMPORTACAO_INDUSTRIALIZACAO", finalidade_emissao: 1, consumidor_final: 0, presenca_comprador: 9,
+      tipo_documento: 0, local_destino: 3, modalidade_frete: 9, valor_frete: 0, valor_seguro: 0, valor_outras_despesas: 143.53, valor_total_ii: 262.78,
+      destinacao_mercadoria: null, nfe_referenciada: null, transportador: null, volumes: null,
+      pagamento: { forma: "90", indicador: 0, descricao: null, parcelas: null, fatura_numero: null },
+      importacao: snapshotImportacao(),
+      ...extraOperacao,
+    },
+    ...extraSolicitacao,
+  }),
+  itens,
+});
+const imp = montarPayloadNfe(contextoImportacao());
+assert.equal(imp.natureza_operacao, "COMPRA PARA INDUSTRIALIZACAO - IMPORTACAO");
+assert.equal(imp.tipo_documento, 0, "nota de entrada");
+assert.equal(imp.local_destino, 3, "operacao com o exterior");
+assert.equal(imp.finalidade_emissao, 1);
+assert.equal(imp.consumidor_final, 0);
+assert.equal(imp.presenca_comprador, 9);
+assert.equal(imp.modalidade_frete, 9);
+assert.equal("volumes" in imp, false);
+assert.equal("nome_transportador" in imp, false);
+// Destinatario no exterior: sem CNPJ/CPF, IE, CEP e UF; municipio 9999999 EXTERIOR; pais BACEN.
+assert.equal("cnpj_destinatario" in imp, false);
+assert.equal("cpf_destinatario" in imp, false);
+assert.equal("id_estrangeiro_destinatario" in imp, false, "idEstrangeiro so quando informado");
+assert.equal("inscricao_estadual_destinatario" in imp, false);
+assert.equal("uf_destinatario" in imp, false, "a Focus manda omitir a UF em operacao com o exterior");
+assert.equal("cep_destinatario" in imp, false);
+assert.equal(imp.indicador_inscricao_estadual_destinatario, 9);
+assert.equal(imp.nome_destinatario, "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL");
+assert.equal(imp.logradouro_destinatario, "JIAXIAN ROAD, YOU SUOWEI BUILDING, UNIT B1-A6");
+assert.equal(imp.numero_destinatario, "2000");
+assert.equal(imp.complemento_destinatario, "BANTIAN, LONGGANG");
+assert.equal(imp.bairro_destinatario, "SHENZHEN");
+assert.equal(imp.municipio_destinatario, "EXTERIOR");
+assert.equal(imp.codigo_municipio_destinatario, "9999999");
+assert.equal(imp.codigo_pais_destinatario, 1600);
+assert.equal(imp.pais_destinatario, "CHINA");
+// Totais: vNF = vProd + II + vOutro (= ICMS) = base do ICMS; vNFTot igual; sem frete e seguro.
+assert.equal(imp.valor_produtos, 437.97);
+assert.equal(imp.valor_total_ii, 262.78);
+assert.equal(imp.valor_outras_despesas, 143.53);
+assert.equal(imp.valor_frete, 0);
+assert.equal(imp.valor_seguro, 0);
+assert.equal(imp.valor_total, 844.28);
+assert.equal(imp.ibs_cbs_is_valor_total, 844.28, "vNFTot = soma dos vItem (vProd + II + vOutro)");
+assert.equal(imp.ibs_cbs_base_calculo, 844.28, "base IBS/CBS = valor aduaneiro + II + ICMS (LC 214, art. 71)");
+assert.equal(imp.ibs_uf_valor_total, 0.84);
+assert.equal(imp.cbs_valor_total, 7.6);
+assert.equal("valor_total_tributos" in imp, false, "sem vTotTrib: nao e venda");
+assert.deepEqual(imp.formas_pagamento, [{ forma_pagamento: "90", valor_pagamento: 0 }]);
+assert.equal("numero_fatura" in imp, false);
+assert.equal("notas_referenciadas" in imp, false);
+assert.equal(imp.informacoes_adicionais_fisco, snapshotImportacao().texto_fisco);
+assert.match(imp.informacoes_adicionais_contribuinte, /^IMPORTACAO POR REMESSA EXPRESSA\. AWB 1ZJ451C10441551106 .* SEM COBRANCA\. \| CPU de CLP para a bancada$/);
+// Item: origem 1, CST 00 modBC 3 com a base por dentro, II, sem IPI/PIS/COFINS, IBS/CBS, vOutro, DI.
+assert.equal(imp.items.length, 1);
+const itemI = imp.items[0];
+assert.equal(itemI.cfop, "3101");
+assert.equal(itemI.codigo_produto, "CQM1HCPU61");
+assert.equal(itemI.codigo_ncm, "85371020");
+assert.equal(itemI.quantidade_comercial, 1);
+assert.equal(itemI.valor_unitario_comercial, 437.97);
+assert.equal(itemI.valor_bruto, 437.97);
+assert.equal("valor_desconto" in itemI, false);
+assert.equal(itemI.icms_origem, 1);
+assert.equal(itemI.icms_situacao_tributaria, "00");
+assert.equal(itemI.icms_modalidade_base_calculo, "3");
+assert.equal(itemI.icms_base_calculo, 844.28, "BC por dentro: (437,97 + 262,78) / (1 - 0,17)");
+assert.equal(itemI.icms_aliquota, 17);
+assert.equal(itemI.icms_valor, 143.53);
+assert.equal("icms_reducao_base_calculo" in itemI, false);
+assert.equal("codigo_beneficio_fiscal" in itemI, false);
+assert.equal(itemI.ipi_situacao_tributaria, "03");
+assert.equal(itemI.ipi_codigo_enquadramento_legal, "999");
+assert.equal("ipi_valor" in itemI, false);
+assert.equal(itemI.pis_situacao_tributaria, "98");
+assert.equal("pis_valor" in itemI, false);
+assert.equal(itemI.cofins_situacao_tributaria, "98");
+assert.equal("cofins_valor" in itemI, false);
+assert.equal(itemI.ibs_cbs_situacao_tributaria, "000");
+assert.equal(itemI.ibs_cbs_classificacao_tributaria, "000001");
+assert.equal(itemI.ibs_cbs_base_calculo, 844.28);
+assert.equal(itemI.ibs_uf_valor, 0.84);
+assert.equal(itemI.ibs_mun_valor, 0);
+assert.equal(itemI.cbs_valor, 7.6);
+assert.equal(itemI.valor_outras_despesas, 143.53, "vOutro do item = ICMS");
+assert.equal(itemI.valor_total_item, 844.28, "vItem = vProd + II + vOutro");
+assert.equal(itemI.ii_base_calculo, 437.97);
+assert.equal(itemI.ii_despesas_aduaneiras, 0);
+assert.equal(itemI.ii_valor, 262.78);
+assert.equal(itemI.ii_valor_iof, 0);
+assert.deepEqual(itemI.documentos_importacao, [{
+  numero: "260191366846", data_registro: "2026-09-09", local_desembaraco_aduaneiro: "AEROPORTO INTERNACIONAL DE VIRACOPOS - CAMPINAS",
+  uf_desembaraco_aduaneiro: "SP", data_desembaraco_aduaneiro: "2026-09-09", via_transporte: 4, forma_intermedio: 1, codigo_exportador: "SHENZHEN-HAOXIN-XUNJI",
+  adicoes: [{ numero: 1, numero_sequencial_item: 1, codigo_fabricante_estrangeiro: "OMRON" }],
+}]);
+assert.equal("chave_acesso_dfe_referenciado" in itemI, false);
+assert.equal("pedido_compra" in itemI, false);
+// Producao: o mesmo payload com o nome real do exportador; idEstrangeiro quando informado.
+const impProducao = montarPayloadNfe({ ...contextoImportacao(), emissao: { ambiente: "PRODUCAO", referencia_externa: "NFEP-IMP", tenant_id: "t", empresa_id: "e" } });
+assert.equal(impProducao.nome_destinatario, "SHENZHEN HAOXIN XUNJI ELECTRONIC TECHNOLOGY TRADING CO., LTD");
+assert.equal(impProducao.tipo_documento, 0);
+assert.doesNotThrow(() => validarPayloadProducaoContraHomologacao(imp, impProducao));
+assert.throws(
+  () => validarPayloadProducaoContraHomologacao(imp, { ...impProducao, items: [{ ...impProducao.items[0], ii_valor: 100 }] }),
+  /diverge da homologacao autorizada no campo items\[0\]\.ii_valor/,
+);
+const impId = montarPayloadNfe(contextoImportacao({}, [itemImportacao()], { destinatario_snapshot: { ...destinatarioExportador, id_estrangeiro: "91440300MA5F" } }));
+assert.equal(impId.id_estrangeiro_destinatario, "91440300MA5F");
+// 3556 (uso e consumo): indFinal 1, mesma conta; 3102 revenda; 3551 ativo.
+const imp3556 = montarPayloadNfe(contextoImportacao({ natureza_operacao: "IMPORTACAO_CONSUMO", consumidor_final: 1 }, [itemImportacao({ cfop: "3556" })]));
+assert.equal(imp3556.natureza_operacao, "COMPRA DE MATERIAL PARA USO OU CONSUMO - IMPORTACAO");
+assert.equal(imp3556.consumidor_final, 1);
+assert.equal(imp3556.valor_total, 844.28);
+assert.equal(montarPayloadNfe(contextoImportacao({ natureza_operacao: "IMPORTACAO_COMERCIALIZACAO" }, [itemImportacao({ cfop: "3102" })])).natureza_operacao, "COMPRA PARA COMERCIALIZACAO - IMPORTACAO");
+assert.equal(montarPayloadNfe(contextoImportacao({ natureza_operacao: "IMPORTACAO_ATIVO", consumidor_final: 1 }, [itemImportacao({ cfop: "3551" })])).natureza_operacao, "COMPRA DE BEM PARA O ATIVO IMOBILIZADO - IMPORTACAO");
+// Dois itens: cada um com a sua adicao, II e ICMS; os totais somam.
+// O ICMS de cada item e base x aliquota (98,31 + 45,21); o total da nota (143,52) anda um centavo
+// em relacao aos 17% da base total, e o vNF acompanha (844,27).
+const impDois = montarPayloadNfe(
+  contextoImportacao(
+    { valor_outras_despesas: 143.52, importacao: snapshotImportacao({ icms: 143.52, valor_nota: 844.27, itens: [
+      { ordem: 1, adicao: 1, sequencial_adicao: 1, fabricante: "OMRON", valor_aduaneiro: 300, ii: 180, bc_icms: 578.31, icms: 98.31, outras_despesas: 98.31 },
+      { ordem: 2, adicao: 1, sequencial_adicao: 2, fabricante: "OMRON", valor_aduaneiro: 137.97, ii: 82.78, bc_icms: 265.97, icms: 45.21, outras_despesas: 45.21 },
+    ] }) },
+    [itemImportacao({ valor_unitario: 300 }), itemImportacao({ ordem: 2, codigo_produto: "CJ1W-ID211", descricao: "CARTAO DE ENTRADA", valor_unitario: 137.97 })],
+  ),
+);
+assert.equal(impDois.items.length, 2);
+assert.equal(impDois.items[1].documentos_importacao[0].adicoes[0].numero_sequencial_item, 2);
+assert.equal(impDois.items[0].icms_base_calculo, 578.31);
+assert.equal(impDois.items[1].icms_valor, 45.21);
+assert.equal(impDois.items[1].ii_valor, 82.78);
+assert.equal(impDois.valor_total_ii, 262.78);
+assert.equal(impDois.valor_outras_despesas, 143.52);
+assert.equal(impDois.valor_total, 844.27);
+assert.equal(impDois.ibs_cbs_is_valor_total, 844.27);
+// O que barra: CFOP fora da natureza, origem, CST, IPI destacado, PIS/COFINS, desconto, base e
+// valores fora da DIR, outras despesas, frete, pagamento, finalidade, transporte, destinatario no Brasil.
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cfop: "3102" })])), /IMPORTACAO_INDUSTRIALIZACAO nao possui cClassTrib aprovado para o CFOP 3102/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ origem_mercadoria: 0 })])), /origem 0 \(importação direta é origem 1\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_icms: "20", reducao_base_icms_percentual: 10 })])), /alíquota de ICMS da importação deve ser 17% sem redução/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_ipi: "50", aliquota_ipi: 5 })])), /IPI 50\/999 \(esperado 03\/999\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_pis: "01", aliquota_pis: 1.65 })])), /PIS\/COFINS 01\/98 \(esperado 98\/98\)/);
+// Desconto tira o vProd do valor aduaneiro da DIR antes mesmo da checagem do item.
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ valor_desconto: 10 })])), /vProd \(427\.97\) difere do valor aduaneiro da DIR \(437\.97\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ valor_unitario: 400 })])), /vProd \(400\.00\) difere do valor aduaneiro da DIR \(437\.97\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ aliquota_icms: 12 })])), /alíquota de ICMS da importação deve ser 17%/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ importacao: snapshotImportacao({ bc_icms: 700.75 }) })), /base do ICMS da importação \(700\.75\) não é \(vProd \+ II\) \/ \(1 − 17%\) = 844\.28/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ importacao: snapshotImportacao({ icms: 100, valor_nota: 800.75 }) })), /ICMS da importação \(100\.00\) não é 17% de 844\.28/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ importacao: snapshotImportacao({ itens: [{ ...snapshotImportacao().itens[0], outras_despesas: 0 }] }) })), /vOutro \(0\.00\) deve ser o ICMS \(143\.53\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ valor_outras_despesas: 0 })), /outras despesas da importação \(0\.00\) devem ser a soma do ICMS dos itens \(143\.53\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ valor_frete: 50 })), /sai sem frete e sem seguro na nota/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ pagamento: { forma: "15", indicador: 0 } })), /importação sai sem pagamento na nota \(tPag 90/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ finalidade_emissao: 2 })), /importação sai com finalidade 1 \(normal\), e a conferência trouxe 2/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ modalidade_frete: 0, volumes: [{ quantidade: 1, peso_liquido: 1, peso_bruto: 1 }] })), /sai sem transporte na nota \(modalidade 9/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao()], { destinatario_snapshot: { ...destinatarioExportador, uf: "SC" } })), /a importação sai para o exterior \(UF EX, indicador de IE 9\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao()], { destinatario_snapshot: { ...destinatarioExportador, pais_codigo: "1058", pais_nome: "BRASIL" } })), /país do exportador \(código BACEN diferente de 1058/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ importacao: null })), /importação sem os dados da DIR/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({ importacao: snapshotImportacao({ itens: [] }) })), /importação sem os itens/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao(), itemImportacao({ ordem: 2 })])), /importação sem os valores do item 2/);
+// Sem equiparacao a industrial: a origem 1 nasce na propria nota de entrada.
+assert.doesNotThrow(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ equiparado_industrial: undefined })])));
+
+console.log("318 cenarios locais do pipeline NF-e passaram.");
