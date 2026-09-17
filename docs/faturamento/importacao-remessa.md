@@ -4,8 +4,14 @@ Entregue em 17/09/2026. Primeiro caso: remessa UPS 1ZJ451C10441551106 (DIR 26019
 registrada em 09/09/2026, UA 0817700 Viracopos/SP), uma CPU de CLP OMRON CQM1H-CPU61
 (US$ 45,00 + frete US$ 41,12 a 5,0856) no regime de tributação simplificada (RTS, regime 7):
 II de 60% recolhido pelo courier (R$ 262,78), ICMS por GNRE (receita 10005-6, R$ 143,53), sem
-IPI, PIS e COFINS. Homologação: **NF-e 2/66 autorizada em 17/09/2026** (chave
-42260913671448000189550020000000661858317736, protocolo 342260000953704).
+IPI, PIS e COFINS. Destino confirmado pelo Gabriel: bancada própria, CFOP 3556. Homologação
+**NF-e 2/67** (a 2/66, em 3101 e com o ICMS na base do IBS/CBS, foi cancelada). **Nota real:
+NF-e 2/24, autorizada em 17/09/2026 20:26** (chave 42260913671448000189550020000000241890455952,
+protocolo 242260441882906, lidos do XML autorizado). Resultado: entrada de 1 UN no item 3629 a
+R$ 995,22 (movimentação 13351, crédito de ICMS zero, cadastro fiscal do item intocado) e título AP
+da nota de débito UPS 2953830 (R$ 557,25, vencimento 10/09/2026) **APROVADO**, sem baixa: a conta
+e a forma de pagamento não foram informadas. DANFE e XML (real e homologação) em
+`docs/importacao/1ZJ451C10441551106/`.
 
 ## Onde
 
@@ -66,7 +72,9 @@ anexos, estoque e contas a pagar, cancelar).
   `_anexo_registrar`; gatilho pós-emissão; patch das funções de preparo (ENTRADA + II no total);
   perfis. `..._010000` — tipos de anexo no bucket e `fn_importacao_remessa_nota_debito_atualizar`.
   `..._020000` — base IBS/CBS sem ICMS no snapshot, trava de uso próprio, equiparação a
-  industrial em 3101/3102 e crédito de ICMS pendente da contadora.
+  industrial em 3101/3102 e crédito de ICMS pendente da contadora. `..._030000` e `..._040000` —
+  o claim de produção (`fn_nfe_producao_preparar_e_claimar`) passa a somar o II no vNF e o II e
+  o vOutro no vItem (as duas travas que barraram a primeira emissão real).
 - `supabase/functions/_shared/fiscal/importacao-remessa.ts` + ramo `importacao` em
   `nfe-payload.ts`; naturezas em `tributacao-provisoria.ts` e `fiscal/ibs-cbs-transicao-2026.ts`.
 - `lib/importacao/dir-remessa.ts` (parser e conta, usados pela tela e pelos testes),
@@ -92,3 +100,9 @@ anexos, estoque e contas a pagar, cancelar).
 8. cExportador = nome do exportador (não há código interno).
 9. Item importado pela Segau (3101/3102): alíquota de IPI da TIPI para o NCM no cadastro fiscal,
    para a saída futura destacar o IPI (a equiparação é marcada pelo ERP; a alíquota não).
+
+## Backlog (decisão do Gabriel em 18/09/2026, não fazer agora)
+
+- Campo estruturado "destino" na importação (uso próprio / industrialização / revenda) decidindo o
+  CFOP, no lugar da trava por palavra-chave na observação e no motivo de compra.
+- Equiparação a industrial por lote de entrada, não pelo cadastro do item.
