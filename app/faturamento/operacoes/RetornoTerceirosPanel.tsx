@@ -183,8 +183,9 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
       sols.length ? supabase.schema("f").from("documento_fiscal_emissao").select("documento_fiscal_id,solicitacao_id,ambiente,status,chave_acesso,numero,serie,codigo_status,mensagem,xml_path,danfe_path,autorizado_em,updated_at").in("solicitacao_id", sols).order("updated_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
       sols.length ? supabase.schema("f").from("operacao_fiscal").select("id,solicitacao_id,status,dados_json").eq("tipo", "RETORNO").in("solicitacao_id", sols).is("deleted_at", null) : Promise.resolve({ data: [], error: null }),
       supabase.schema("f").from("retorno_terceiros_config").select("producao_ligada").eq("empresa_id", empresaId).maybeSingle(),
-      // Perfil ja liberado: o link "Liberar perfil" some da linha.
-      supabase.schema("f").from("perfil_operacao").select("codigo,habilitado_producao").eq("modelo", "NFE").like("natureza_operacao", "RETORNO_REMESSA_TERCEIROS%"),
+      // Perfil liberado PARA ESTA solicitacao: o link "Liberar perfil" some da linha. Liberado
+      // para outra homologacao (retorno gerado de novo), o link volta.
+      supabase.schema("f").from("perfil_operacao").select("codigo,habilitado_producao,producao_homologacao_solicitacao_id").eq("modelo", "NFE").like("natureza_operacao", "RETORNO_REMESSA_TERCEIROS%"),
     ]);
     if (it.error) throw it.error;
     if (em.error) throw em.error;
@@ -195,7 +196,9 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
     setEmissoes((em.data ?? []) as Emissao[]);
     setOperacoes((ops.data ?? []) as Operacao[]);
     setProducaoLigada(Boolean((cfg.data as { producao_ligada?: boolean } | null)?.producao_ligada));
-    setPerfisLiberados(((perfis.data ?? []) as Array<{ codigo: string; habilitado_producao: boolean }>).filter((p) => p.habilitado_producao).map((p) => p.codigo));
+    setPerfisLiberados(((perfis.data ?? []) as Array<{ codigo: string; habilitado_producao: boolean; producao_homologacao_solicitacao_id: string | null }>)
+      .filter((p) => p.habilitado_producao && p.producao_homologacao_solicitacao_id)
+      .map((p) => `${p.codigo}|${p.producao_homologacao_solicitacao_id}`));
   }, [empresaId, supabase]);
 
   useEffect(() => { void carregar().catch((e) => avisar(textoErro(e), true)); }, [carregar, avisar]);
@@ -425,7 +428,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
                   const podeHomologar = aberta && Boolean(r.solicitacao_retorno_id) && !prod && (!hom || ["RASCUNHO", "REJEITADA", "ERRO"].includes(hom.status));
                   const podeProduzir = aberta && producaoLigada && homAutorizada && (!prod || ["RASCUNHO", "REJEITADA", "ERRO"].includes(prod.status));
                   const perfilCodigo = op?.dados_json?.perfil_codigo ?? null;
-                  const linkPerfil = perfilCodigo && r.solicitacao_retorno_id && !perfisLiberados.includes(perfilCodigo)
+                  const linkPerfil = perfilCodigo && r.solicitacao_retorno_id && !perfisLiberados.includes(`${perfilCodigo}|${r.solicitacao_retorno_id}`)
                     ? `/faturamento/perfis?perfil=${encodeURIComponent(perfilCodigo)}&solicitacao=${r.solicitacao_retorno_id}&retorno=/faturamento/operacoes?aba=RETORNO`
                     : null;
                   return (

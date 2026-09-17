@@ -3,11 +3,18 @@
 Construído em 16/09/2026 a pedido do Gabriel. Caso de referência: NF-e 900356/1 da WEG Tintas
 (CFOP 5901, remessa para industrialização por encomenda, chave
 42260660621141000404550010009003561304254706, XML em `docs/fiscal/exemplos/`). Haverá umas dez
-notas iguais. Homologação do retorno: **NF-e 2/59** (chave
-42260913671448000189550020000000591436774130, protocolo 342260000950288); perfil liberado
-contra ela e produção da aba ligada em 16/09/2026 — a nota real sai quando as latas
-voltarem à WEG ("Emitir NF-e real (produção)"). Manual com telas:
+notas iguais. Homologação do retorno: **NF-e 2/60** (chave
+42260913671448000189550020000000601648220511, protocolo 342260000950332; a 2/59 saiu antes
+do ajuste de natOp/infAdFisco/frete e ficou só como histórico); perfil liberado contra a 2/60
+e produção da aba ligada em 16/09/2026 — a nota real sai quando as latas voltarem à WEG
+("Emitir NF-e real (produção)"). Manual com telas:
 `Dropbox/Projeto_Estoque/Manual-Retorno-Remessa-Terceiros.docx`.
+
+Referências do ERP antigo (Vertex) citadas pelo Gabriel em 16/09/2026 e ainda **não** no banco
+nem no repositório: NF 3427/1 (23/09/2025, WEG, 5902, chave
+42250913671448000189550010000034271000045843) e NF 3644/1 (07/05/2026, Krona, 5916, chave
+42260513671448000189550010000036441000050862). Quando os XMLs entrarem em
+`docs/fiscal/exemplos/`, comparar campo a campo com o montador.
 
 ## O problema
 
