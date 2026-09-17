@@ -69,3 +69,4 @@ out/
 
 # Chrome de teste (perfil dedicado, nao versionar)
 /.chrome-e2e/
+docs/importacao/

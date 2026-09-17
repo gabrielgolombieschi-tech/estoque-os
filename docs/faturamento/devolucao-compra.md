@@ -57,7 +57,10 @@ liberação do perfil, produção, DANFE/XML, ciclo de vida, situação do estoq
 | infCpl | `DEVOLUCAO PARCIAL DA MERCADORIA RECEBIDA PELA NF-E N. {nNF} SERIE {serie} DE {data}, CHAVE {chave}. ITEM {n} ({cProd}): {qtd} {un} DE {qtd original} {un}. SEM COBRANCA.` + observação |
 
 Primeiro caso (NF-e 2/65 de homologação, 17/09/2026): vProd 303,32 · ICMS 36,40 · IPI 9,86 ·
-PIS 4,40 · COFINS 20,29 · vNF 313,18.
+PIS 4,40 · COFINS 20,29 · vNF 313,18. **Nota real: NF-e 2/23, autorizada em 17/09/2026 18:13,
+chave 42260913671448000189550020000000231669304150, protocolo 242260441730438**, DFeReferenciado
+com a chave de entrada e nItem 2, destinatário Aços America. Estoque: pendência registrada
+(saldo 0 do 401014); DANFE e XML em Dropbox/Projeto_Estoque (`NFe-2-23-devolucao-ACOS-*`).
 
 ## Por que a homologação é diferente da nota real
 
