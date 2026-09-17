@@ -32,6 +32,8 @@ faturamento** (`/faturamento/operacoes`), aba **Remessa para conserto**.
    preenchida; justificativa + confirmação → "Conferir e liberar para esta homologação".
 8. **Produção**: "Emitir NF-e real (produção)" → confirmação → autorizada. A remessa passa a
    "Remessas em aberto" com a chave, a data e os dias decorridos; "Criar retorno" quando voltar.
+   Na lista de NF-e (`/faturamento/nfe`) a remessa aparece como **Sem cobrança** (tPag 90,
+   sem título), fora do faturado e do a receber.
 
 ## Tributação (Status Contabilidade, docs/faturamento/regras-icms-sc-contabilidade.md)
 

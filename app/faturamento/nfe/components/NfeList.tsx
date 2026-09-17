@@ -61,7 +61,11 @@ type ParcelaFinanceiraRow = {
 // aparece no livro de saidas, mas nao cobra nem paga nada. Sem ele, toda cancelada
 // sem titulo financeiro entrava no resumo como "a receber" (o fallback so olhava o
 // valor_total) — a lista de 10/09/2026 somava 6 canceladas no total a receber.
-type PagamentoStatus = "PAGO" | "A_PAGAR" | "ATRASADO" | "CANCELADA";
+// SEM_COBRANCA e a nota que saiu sem pagamento (tPag 90): remessa para conserto e retorno
+// de mercadoria de terceiros. Nao gera titulo, nao e "a receber" — o fallback pelo
+// valor_total mostrava a remessa da SICK (2/21) e o retorno da WEG (2/20) como a pagar
+// (Gabriel, 17/09/2026).
+type PagamentoStatus = "PAGO" | "A_PAGAR" | "ATRASADO" | "CANCELADA" | "SEM_COBRANCA";
 type PagamentoFiltro = "TODOS" | "PAGOS" | "A_PAGAR" | "ATRASADOS";
 
 type PagamentoMeta = {
@@ -142,6 +146,7 @@ function pagamentoStatusLabel(status: PagamentoStatus): string {
   if (status === "PAGO") return "Pago";
   if (status === "ATRASADO") return "Atrasado";
   if (status === "CANCELADA") return "Sem cobrança";
+  if (status === "SEM_COBRANCA") return "Sem cobrança";
   return "A pagar";
 }
 
@@ -152,7 +157,7 @@ function pagamentoStatusBadgeClass(status: PagamentoStatus): string {
   if (status === "ATRASADO") {
     return "border-rose-500/30 bg-rose-500/10 text-rose-300";
   }
-  if (status === "CANCELADA") {
+  if (status === "CANCELADA" || status === "SEM_COBRANCA") {
     return "border-zinc-600/40 bg-zinc-500/10 text-zinc-400";
   }
   return "border-amber-500/30 bg-amber-500/10 text-amber-200";
@@ -161,7 +166,7 @@ function pagamentoStatusBadgeClass(status: PagamentoStatus): string {
 function pagamentoRowClass(status: PagamentoStatus): string {
   if (status === "PAGO") return "bg-emerald-950/10 hover:bg-emerald-950/20";
   if (status === "ATRASADO") return "bg-rose-950/10 hover:bg-rose-950/20";
-  if (status === "CANCELADA") return "bg-zinc-900/40 hover:bg-zinc-900/60";
+  if (status === "CANCELADA" || status === "SEM_COBRANCA") return "bg-zinc-900/40 hover:bg-zinc-900/60";
   return "bg-amber-950/10 hover:bg-amber-950/20";
 }
 
@@ -182,12 +187,15 @@ function buildPagamentoFallback(row: DocumentoFiscalRow): PagamentoMeta {
 function computePagamentoMeta(
   row: DocumentoFiscalRow,
   titulos: TituloFinanceiroRow[],
-  parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]>
+  parcelasByTituloId: Record<string, ParcelaFinanceiraRow[]>,
+  semCobranca: boolean
 ): PagamentoMeta {
   // Antes dos titulos: cancelada nao gera cobranca nem quando sobrou titulo em
   // aberto do tempo em que a nota valia — quem baixa o titulo e o financeiro,
   // mas o livro de notas nao pode continuar somando isso como a receber.
   if (isCancelada(row)) return { status: "CANCELADA", pago: 0, aPagar: 0, atrasado: 0 };
+  // Nota sem pagamento (tPag 90) e sem titulo: nao ha o que receber.
+  if (!titulos.length && semCobranca) return { status: "SEM_COBRANCA", pago: 0, aPagar: 0, atrasado: 0 };
   if (!titulos.length) return buildPagamentoFallback(row);
 
   const totalTitulos = titulos.reduce((sum, titulo) => sum + n(titulo.valor_total), 0);
@@ -472,12 +480,43 @@ export default function NfeList() {
       parcelasByTituloId[tituloId].push(parcela);
     }
 
+    // Nota emitida pelo ERP sem pagamento (tPag 90 na conferencia: remessa para conserto,
+    // retorno de terceiros): a solicitacao guarda a forma. Nota importada do emissor
+    // antigo nao tem essa informacao e segue pelo titulo.
+    const semCobrancaByDocId = new Set<string>();
+    const documentoIds = rows.map((row) => String(row.id));
+    const { data: emissaoData, error: emissaoErr } = await applyTenantEmpresa(
+      supabase
+        .schema("f")
+        .from("documento_fiscal_emissao")
+        .select("documento_fiscal_id,solicitacao_id")
+        .in("documento_fiscal_id", documentoIds)
+        .eq("ambiente", "PRODUCAO"),
+      tenantId,
+      empresaId
+    ).returns<Array<{ documento_fiscal_id: string; solicitacao_id: string | null }>>();
+    if (emissaoErr) throw emissaoErr;
+    const solicitacaoIds = Array.from(new Set((emissaoData ?? []).map((e) => String(e.solicitacao_id ?? "")).filter(Boolean)));
+    if (solicitacaoIds.length) {
+      const { data: solData, error: solErr } = await applyTenantEmpresa(
+        supabase.schema("f").from("solicitacao_faturamento").select("id,pagamento_forma").in("id", solicitacaoIds),
+        tenantId,
+        empresaId
+      ).returns<Array<{ id: string; pagamento_forma: string | null }>>();
+      if (solErr) throw solErr;
+      const semPagamento = new Set((solData ?? []).filter((s) => String(s.pagamento_forma ?? "") === "90").map((s) => String(s.id)));
+      for (const emissao of emissaoData ?? []) {
+        if (semPagamento.has(String(emissao.solicitacao_id ?? ""))) semCobrancaByDocId.add(String(emissao.documento_fiscal_id));
+      }
+    }
+
     const next: Record<string, PagamentoMeta> = {};
     for (const row of rows) {
       next[String(row.id)] = computePagamentoMeta(
         row,
         titulosByDocumentoId[String(row.id)] ?? [],
-        parcelasByTituloId
+        parcelasByTituloId,
+        semCobrancaByDocId.has(String(row.id))
       );
     }
     return next;
@@ -723,7 +762,10 @@ export default function NfeList() {
   const resumoFiltro = useMemo(() => {
     // Cancelada continua na lista (existiu, tem numero e protocolo de cancelamento
     // na SEFAZ), mas fica fora de todo somatorio: nao e faturamento nem cobranca.
+    // Remessa e retorno (tPag 90) tambem existem sem serem faturamento: entram na
+    // lista com o valor da nota, mas nao somam no faturado nem no a receber.
     let canceladas = 0;
+    let semCobranca = 0;
     const totals = filtered.reduce(
       (acc, row) => {
         if (isCancelada(row)) {
@@ -731,6 +773,10 @@ export default function NfeList() {
           return acc;
         }
         const pagamento = pagamentosByDocId[String(row.id)] ?? buildPagamentoFallback(row);
+        if (pagamento.status === "SEM_COBRANCA") {
+          semCobranca += 1;
+          return acc;
+        }
         acc.valor += Math.max(0, n(row.valor_total));
         acc.pago += pagamento.pago;
         acc.aPagar += pagamento.aPagar;
@@ -744,6 +790,7 @@ export default function NfeList() {
       label: pagamentoResumoLabel(pagamentoFiltro),
       value: pagamentoResumoValor(pagamentoFiltro, totals),
       canceladas,
+      semCobranca,
       ...totals,
     };
   }, [filtered, pagamentoFiltro, pagamentosByDocId]);
@@ -835,6 +882,11 @@ export default function NfeList() {
             {resumoFiltro.canceladas > 0 ? (
               <div className="mt-1 text-xs text-zinc-500">
                 {resumoFiltro.canceladas} nota(s) cancelada(s) na lista, fora do somatório.
+              </div>
+            ) : null}
+            {resumoFiltro.semCobranca > 0 ? (
+              <div className="mt-1 text-xs text-zinc-500">
+                {resumoFiltro.semCobranca} nota(s) sem cobrança (remessa ou retorno), fora do somatório.
               </div>
             ) : null}
           </div>

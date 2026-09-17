@@ -78,7 +78,11 @@ produção: remessa volta a ABERTA. Homologação só grava `homologada_em`/`nfe
 | infCpl | `RETORNO INTEGRAL DA MERCADORIA RECEBIDA PELA NF-E N. {nNF} SERIE {serie} DE {dd/mm/aaaa}, CHAVE {chave}. MERCADORIA DE TERCEIROS. SEM COBRANCA.` + observação |
 
 Sem título financeiro (`fn_upsert_ar_from_nfe_venda` ignora tPag 90), sem estoque, fora de
-receita e relatórios de venda.
+receita e relatórios de venda. Na lista de NF-e (`/faturamento/nfe`) a nota aparece como
+**Sem cobrança**, com "A pagar" zerado, e fica fora do faturado e do a receber: a lista lê
+a forma de pagamento da solicitação pela emissão de produção (tPag 90) em vez de cair no
+fallback "A pagar pelo valor da nota" (corrigido em 17/09/2026, quando a 2/20 e a 2/21
+apareceram como a pagar).
 
 ## Onde está no código
 
