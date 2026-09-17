@@ -1704,7 +1704,8 @@ begin
   insert into ids values ('F_BRUNO', t);
   if r->'tarefa'->>'categoria' <> 'falta' or r->'tarefa'->>'medida' <> 'dias' or (r->'tarefa'->>'dias')::int <> 1 then raise exception 'falta sem atestado: %', r; end if;
   if r->'tarefa'->>'os_id' is not null or r->'tarefa'->>'numero_os' is not null then raise exception 'falta ganhou OS: %', r; end if;
-  if not (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta de dia inteiro devia reservar o dia: %', r; end if;
+  -- Desde 20260917130000 a falta nao reserva o dia: e registro de quem nao veio.
+  if (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta nao devia reservar o dia: %', r; end if;
 
   -- Falta COM atestado, dia inteiro.
   r := public.app_tarefas_criar(
@@ -1713,7 +1714,7 @@ begin
   if not (r->>'sucesso')::boolean then raise exception 'falta com atestado em dias recusada: %', r; end if;
   insert into ids values ('F_PEDRO', (r->'tarefa'->>'id')::uuid);
   if r->'tarefa'->>'categoria' <> 'falta_justificada' then raise exception 'falta com atestado: %', r; end if;
-  if not (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta com atestado de dia inteiro devia reservar: %', r; end if;
+  if (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'falta com atestado nao devia reservar: %', r; end if;
 
   -- Falta COM atestado em HORAS: saída antes do fim do expediente. Não reserva o
   -- dia, porque a pessoa trabalhou o resto dele.
@@ -1734,12 +1735,13 @@ begin
   insert into ids values ('F_CORINA', (r->'tarefa'->>'id')::uuid);
   if r->'tarefa'->>'categoria' <> 'falta' or (r->'tarefa'->>'colaborador_id')::uuid <> v_corina then raise exception 'falta da propria coordenacao: %', r; end if;
 
-  -- Falta de dia inteiro prende o dia; falta em horas deixa trabalhar no resto.
+  -- Falta nao prende o dia (20260917130000): a tarefa da OS no dia da falta entra, e e
+  -- a coordenacao que decide o que fazer com ela. Falta em horas idem.
   r := public.app_tarefas_criar(
     p_colaboradores => array[v_bruno], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
     p_descricao => 'Trabalho no dia em que faltou', p_categoria => 'os', p_os_id => 929001);
-  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'colaborador_reservado' then raise exception 'agendou trabalho no dia da falta: %', r; end if;
-  if r->'conflito'->>'categoria' <> 'falta' then raise exception 'o conflito devia dizer que o dia e de falta: %', r; end if;
+  if not (r->>'sucesso')::boolean then raise exception 'a falta prendeu o dia: %', r; end if;
+  insert into ids values ('OS_DIA_FALTA', (r->'tarefa'->>'id')::uuid);
   r := public.app_tarefas_criar(
     p_colaboradores => array[v_corina], p_tipo => 'agendada', p_data => v_dia + 3, p_dias => 1,
     p_descricao => 'Resto do dia do atraso', p_categoria => 'os', p_os_id => 929001);
@@ -1876,9 +1878,14 @@ begin
     raise exception 'o atestado mexeu na reserva do dia';
   end if;
   if (select count(*) from public.tarefas_participantes where tarefa_id = f_bruno) <> 1 then raise exception 'o atestado mexeu nos participantes'; end if;
-  -- E o dia continua preso, agora com o rótulo novo.
-  if (select ocupado_resumo from public.app_tarefas_colaboradores(v_dia) where id = v_bruno) is distinct from 'Falta com atestado' then
-    raise exception 'o dia do BRUNO devia dizer que e falta com atestado';
+  -- A falta nao prende o dia (20260917130000): o que prende o dia do BRUNO e a OS que
+  -- entrou no dia da falta (17a), e a agenda mostra a falta com o rotulo novo.
+  if (select ocupado_resumo from public.app_tarefas_colaboradores(v_dia) where id = v_bruno) not like 'OS TAR-1%' then
+    raise exception 'o dia do BRUNO devia estar preso pela OS, nao pela falta: %',
+      (select ocupado_resumo from public.app_tarefas_colaboradores(v_dia) where id = v_bruno);
+  end if;
+  if (select categoria from public.app_tarefas_agenda(v_dia, v_dia) where tarefa_id = f_bruno) is distinct from 'falta_justificada' then
+    raise exception 'a agenda do BRUNO devia dizer que e falta com atestado';
   end if;
 
   -- Marcar de novo não regrava: responde 'repetido'.
@@ -2044,5 +2051,88 @@ begin
   end if;
 end $faltas_tv$;
 select pg_temp.sistema();
+
+-- 18. Falta nao reserva o dia (20260917130000). ---------------------------------------------
+-- Quem tinha OS marcada e nao veio recebe a falta mesmo assim: nada de
+-- colaborador_reservado. A tarefa da OS continua reservando o dia (a coordenacao
+-- reagenda ou tira a pessoa), a agenda mostra as duas linhas e a lista de
+-- colaboradores segue dizendo que o dia esta preso pela OS.
+select pg_temp.como('1b000000-0000-4000-8000-000000000002');
+set local role authenticated;
+do $falta_com_reserva$
+declare
+  v_dia date := (now() at time zone 'America/Sao_Paulo')::date + 90;
+  v_ana uuid := '1b000000-0000-4000-8000-000000000101';
+  r jsonb;
+  t_os uuid;
+  t_falta uuid;
+begin
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia, p_dias => 2,
+    p_descricao => 'Dois dias na TAR-1', p_categoria => 'os', p_os_id => 929001);
+  if not (r->>'sucesso')::boolean then raise exception 'OS de dois dias recusada: %', r; end if;
+  t_os := (r->'tarefa'->>'id')::uuid;
+
+  -- Falta de dia inteiro no primeiro dia da OS.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia, p_dias => 1,
+    p_descricao => 'Nao veio; tinha OS marcada', p_categoria => 'falta');
+  if not (r->>'sucesso')::boolean then raise exception 'falta de quem tinha OS foi recusada: %', r; end if;
+  t_falta := (r->'tarefa'->>'id')::uuid;
+  insert into ids values ('T18_OS', t_os), ('F18_FALTA', t_falta);
+  if (r->'tarefa'->>'reserva_ativa')::boolean then raise exception 'a falta reservou o dia: %', r; end if;
+
+  -- Falta com atestado de dois dias em cima da OS: uma linha por dia na agenda.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia, p_dias => 2,
+    p_descricao => 'Atestado de dois dias', p_categoria => 'falta_justificada');
+  if not (r->>'sucesso')::boolean then raise exception 'falta de dois dias recusada: %', r; end if;
+  if (select count(*) from public.app_tarefas_agenda(v_dia, v_dia + 1)
+      where tarefa_id = (r->'tarefa'->>'id')::uuid and categoria = 'falta_justificada' and reserva_dia and horas is null) <> 2 then
+    raise exception 'a falta de dois dias nao apareceu nos dois dias da agenda';
+  end if;
+
+  -- Agenda do primeiro dia: a OS (reserva) e as duas faltas (pela tarefa), todas de dia inteiro.
+  if (select count(*) from public.app_tarefas_agenda(v_dia, v_dia) where colaborador_id = v_ana and tarefa_id = t_os and reserva_dia) <> 1
+     or (select count(*) from public.app_tarefas_agenda(v_dia, v_dia) where colaborador_id = v_ana and tarefa_id = t_falta and categoria = 'falta' and reserva_dia) <> 1 then
+    raise exception 'agenda do dia da falta: %', (select jsonb_agg(to_jsonb(a)) from public.app_tarefas_agenda(v_dia, v_dia) a where a.colaborador_id = v_ana);
+  end if;
+  -- Falta em horas continua sem reserva_dia e com as horas.
+  r := public.app_tarefas_criar(
+    p_colaboradores => array[v_ana], p_tipo => 'agendada', p_data => v_dia + 1, p_dias => 1,
+    p_descricao => 'Saiu duas horas antes', p_categoria => 'falta', p_medida => 'horas', p_horas => 2);
+  if not (r->>'sucesso')::boolean then raise exception 'falta em horas recusada: %', r; end if;
+  if (select count(*) from public.app_tarefas_agenda(v_dia + 1, v_dia + 1)
+      where tarefa_id = (r->'tarefa'->>'id')::uuid and not reserva_dia and horas = 2) <> 1 then
+    raise exception 'falta em horas sumiu da agenda';
+  end if;
+
+  -- Para quem monta a agenda, o dia continua preso pela OS, nao pela falta.
+  if (select ocupado_resumo from public.app_tarefas_colaboradores(v_dia) where id = v_ana) not like 'OS TAR-1%' then
+    raise exception 'o dia devia continuar preso pela OS: %', (select ocupado_resumo from public.app_tarefas_colaboradores(v_dia) where id = v_ana);
+  end if;
+
+  -- Cancelar a falta tira a linha da agenda; a OS fica.
+  r := public.app_tarefas_cancelar(t_falta, 'Marcada por engano, a pessoa veio');
+  if not (r->>'sucesso')::boolean then raise exception 'cancelar a falta: %', r; end if;
+  if exists (select 1 from public.app_tarefas_agenda(v_dia, v_dia) where tarefa_id = t_falta) then
+    raise exception 'falta cancelada continuou na agenda';
+  end if;
+  if (select count(*) from public.app_tarefas_agenda(v_dia, v_dia) where tarefa_id = t_os) <> 1 then
+    raise exception 'a OS sumiu da agenda ao cancelar a falta';
+  end if;
+end $falta_com_reserva$;
+reset role;
+select pg_temp.sistema();
+-- Por baixo: a falta nao gravou reserva nenhuma e as duas da OS continuam la.
+do $falta_sem_reserva$
+begin
+  if exists (select 1 from public.tarefas_reservas where tarefa_id = (select id from ids where nome = 'F18_FALTA')) then
+    raise exception 'a falta gravou reserva';
+  end if;
+  if (select count(*) from public.tarefas_reservas where tarefa_id = (select id from ids where nome = 'T18_OS') and liberada_em is null) <> 2 then
+    raise exception 'a falta mexeu na reserva da OS';
+  end if;
+end $falta_sem_reserva$;
 
 rollback;
