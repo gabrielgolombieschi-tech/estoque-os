@@ -22,6 +22,14 @@ operação `DEVOLUCAO_COMPRA` e a solicitação (finNFe 4, espelho proporcional 
 XML, IPI fora da base do ICMS, tPag 90, `DFeReferenciado` por item). A nota real dá baixa no
 estoque; sem saldo, fica a pendência na operação.
 
+### Importação por remessa expressa (emitida pelo ERP desde 17/09/2026)
+
+Aba IMPORTACAO de `/faturamento/operacoes`. NF-e de **entrada** (tpNF 0, idDest 3) da
+mercadoria desembaraçada pela DIR do Siscomex Remessa (courier), com o exportador no exterior
+como destinatário, ICMS por dentro conferido com a GNRE, grupos DI e II, sem cobrança. A nota
+real dá entrada no estoque e lança a nota de débito do courier no contas a pagar. Passo a
+passo, regras e pendências para a contadora em [importacao-remessa.md](importacao-remessa.md).
+
 ### Venda à ordem
 
 1. Informar a OV e o local de entrega alternativo, incluindo documento, nome, endereço, número, bairro, município, UF, CEP e código IBGE.
