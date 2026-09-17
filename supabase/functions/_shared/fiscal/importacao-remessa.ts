@@ -12,8 +12,9 @@
  *     opcional, UF EX, municipio 9999999 EXTERIOR, pais da tabela BACEN, indIEDest 9);
  *   - item: origem 1, CST ICMS 00 com modBC 3 e base "por dentro" (vProd + II) / (1 - aliquota),
  *     grupo II (vBC = vProd, vDespAdu 0, vII, vIOF 0), grupo DI com uma adicao, IPI CST 03/999,
- *     PIS/COFINS CST 98, IBS/CBS 000/000001 sobre valor aduaneiro + II + ICMS (LC 214/2025,
- *     art. 71), vOutro = ICMS (para o vNF fechar com a base);
+ *     PIS/COFINS CST 98, IBS/CBS 000/000001 sobre valor aduaneiro + II — base do II acrescida dos
+ *     tributos do caput, sem o ICMS (LC 214/2025, art. 69, caput e §§ 1º e 2º) —, vOutro = ICMS
+ *     (para o vNF fechar com a base do ICMS);
  *   - totais: vNF = vProd + vII + vOutro; sem frete (modFrete 9), sem cobranca (tPag 90).
  * f.fn_importacao_remessa_criar calcula e grava tudo em operacao_snapshot.importacao; aqui so se
  * le, confere e monta o payload da Focus.
@@ -64,6 +65,8 @@ export type ItemImportacao = {
   bcIcms: number;
   icms: number;
   outrasDespesas: number;
+  /** Base do IBS/CBS conferida pelo banco (valor aduaneiro + II); null nas importacoes gravadas antes de 18/09/2026. */
+  baseIbsCbs: number | null;
 };
 
 /** O que f.fn_importacao_remessa_criar gravou em operacao_snapshot.importacao. */
@@ -151,13 +154,18 @@ export function lerOrigemImportacao(valor: unknown): OrigemImportacao {
     const vBc = numero(item.bc_icms);
     const vIcms = numero(item.icms);
     const vOutro = numero(item.outras_despesas);
+    const vBaseIbsCbs = numero(item.base_ibs_cbs);
     if (ordem === null || !Number.isInteger(ordem) || ordem < 1 || !fabricante || vAdu === null || vIi === null || vBc === null || vIcms === null || vOutro === null) {
       throw falta(`os valores do item ${indice + 1} (ordem, fabricante, valor aduaneiro, II, base e valor do ICMS, outras despesas)`);
     }
     if (Math.abs(vOutro - vIcms) > 0.005) {
       throw new Error(`Emissão bloqueada: item ${ordem} da importação, vOutro (${vOutro.toFixed(2)}) deve ser o ICMS (${vIcms.toFixed(2)}) para o total fechar com a base.`);
     }
-    return { ordem, adicao, sequencialAdicao, fabricante: fabricante.slice(0, 60), valorAduaneiro: vAdu, ii: vIi, bcIcms: vBc, icms: vIcms, outrasDespesas: vOutro };
+    // Base do IBS/CBS = valor aduaneiro + II (LC 214/2025, art. 69, §§ 1º e 2º): sem ICMS e sem IPI.
+    if (vBaseIbsCbs !== null && Math.abs(vBaseIbsCbs - round(vAdu + vIi)) > 0.005) {
+      throw new Error(`Emissão bloqueada: item ${ordem} da importação, base do IBS/CBS (${vBaseIbsCbs.toFixed(2)}) não é valor aduaneiro + II (${round(vAdu + vIi).toFixed(2)}); o ICMS fica fora (LC 214/2025, art. 69, § 2º, II).`);
+    }
+    return { ordem, adicao, sequencialAdicao, fabricante: fabricante.slice(0, 60), valorAduaneiro: vAdu, ii: vIi, bcIcms: vBc, icms: vIcms, outrasDespesas: vOutro, baseIbsCbs: vBaseIbsCbs };
   });
   if (itens.length === 0) throw falta("os itens");
   // Base "por dentro": BC = (vProd + II) / (1 - aliquota) (LC 87/96, art. 13, V e § 1º). O ICMS

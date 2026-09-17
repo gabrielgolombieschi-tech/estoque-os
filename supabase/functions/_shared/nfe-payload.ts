@@ -654,12 +654,16 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // ISS entra como zero porque nota de produto nao o destaca; o termo fica explicito
     // para o dia em que houver documento misto.
     const issValor = 0;
-    // Importacao: a base do IBS/CBS e o valor aduaneiro acrescido do II e do ICMS (LC 214/2025,
-    // art. 71) — o inverso da venda, onde os tributos saem da base.
-    const baseIbsCbs = ibsCbsSemGrupoDeValores(regraIbsCbs) ? 0 : itemImportacao ? round(base + itemImportacao.ii + itemImportacao.icms) : round(Math.max(
+    // Importacao: a base do IBS/CBS e a base do II acrescida dos tributos do caput do art. 69 da
+    // LC 214/2025; o § 2º, II exclui o ICMS e, na remessa (RTS, § 1º), fica valor aduaneiro + II,
+    // sem ICMS e sem IPI. O banco grava a mesma conta no snapshot (base_ibs_cbs) para conferir.
+    const baseIbsCbs = ibsCbsSemGrupoDeValores(regraIbsCbs) ? 0 : itemImportacao ? round(base + itemImportacao.ii) : round(Math.max(
       base - (icmsValor ?? 0) - issValor - (pisValor ?? 0) - (cofinsValor ?? 0),
       0,
     ));
+    if (itemImportacao && itemImportacao.baseIbsCbs !== null && Math.abs(itemImportacao.baseIbsCbs - baseIbsCbs) > 0.005) {
+      throw new Error(`Emissão bloqueada: item ${codigo}, base do IBS/CBS conferida na importação (${itemImportacao.baseIbsCbs.toFixed(2)}) não é valor aduaneiro + II (${baseIbsCbs.toFixed(2)}).`);
+    }
     const calculoIbsCbs = calcularIbsCbsTransicao2026(baseIbsCbs, regraIbsCbs);
     const ibsUfValor = calculoIbsCbs.vIBSUF;
     const ibsMunValor = calculoIbsCbs.vIBSMun;

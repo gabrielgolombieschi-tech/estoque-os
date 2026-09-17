@@ -45,7 +45,14 @@ type Importacao = {
   valor_aduaneiro_brl: number | string; ii_valor: number | string; bc_icms: number | string; icms_valor: number | string; valor_nota: number | string;
   gnre_valor: number | string; exportador_nome: string; courier_nome: string | null; nota_debito_numero: string | null; nota_debito_valor: number | string | null;
   solicitacao_id: string | null; chave_nfe: string | null; nfe_numero: number | null; nfe_serie: number | null; created_at: string; credito_icms: boolean;
-  dados_json: { perfil_codigo?: string | null; estoque_movimentacoes?: Array<{ item_id: number; quantidade: number; custo_unitario: number }>; estoque_pendencias?: Array<{ codigo?: string; motivo?: string }>; ap?: { titulo_id?: string | null; pagamento_id?: string | null; erro?: string | null; criado?: boolean }; cancelamento?: { motivo?: string } } | null;
+  dados_json: {
+    perfil_codigo?: string | null; uso_proprio?: string | null;
+    estoque_movimentacoes?: Array<{ item_id: number; quantidade: number; custo_unitario: number }>; estoque_pendencias?: Array<{ codigo?: string; motivo?: string }>;
+    ap?: { titulo_id?: string | null; pagamento_id?: string | null; erro?: string | null; criado?: boolean };
+    icms_credito?: { valor?: number | string; status?: string; motivo?: string } | null;
+    fiscal_itens?: Array<{ item_id: number; erro?: string; depois?: { equiparado_industrial?: boolean } }>;
+    cancelamento?: { motivo?: string };
+  } | null;
 };
 type ImportacaoItem = { importacao_id: string; ordem: number; codigo: string; descricao: string; ncm: string; quantidade: number | string; unidade: string; valor_aduaneiro_brl: number | string; ii_valor: number | string; icms_valor: number | string; custo_unitario: number | string | null };
 type Anexo = { id: string; importacao_id: string; tipo: string; nome_arquivo: string; created_at: string };
@@ -120,6 +127,16 @@ function statusRotulo(status: string) {
 function cnpjFormatado(valor: string | null | undefined) {
   const d = String(valor ?? "").replace(/\D/g, "");
   return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : (valor ?? "");
+}
+/** Mesma regra de f.fn_importacao_remessa_uso_proprio: indicio de uso proprio na observacao ou no motivo de compra. */
+function indicioUsoProprio(observacao: string, motivoCodigo: string | null, motivoNome: string | null): string | null {
+  const obs = observacao.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const reObs = /(uso|consumo)\s+(propri[oa]|intern[oa])|uso\s+e\s+consumo|ativo\s+imobilizado|imobilizado|bancada(?!\s+(do|da|de|para\s+[oa])\s+cliente)|manutencao\s+(propria|interna|da\s+(fabrica|empresa|sede))|almoxarifado\s+intern|ferramental\s+(propri|intern)|para\s+(a\s+)?(nossa|nosso|nos|a\s+segau)\b|escritorio|laboratorio|\bsede\b/i;
+  if (obs.trim() && reObs.test(obs)) return `observação: "${observacao.trim().slice(0, 80)}"`;
+  const codigo = (motivoCodigo ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const nome = (motivoNome ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (/^(CONSUMO|MANUTENCAO|INVESTIMENTO|OPEX)/i.test(codigo) || /CONSUMO|USO\s+(E|OU)\s+CONSUMO|IMOBILIZADO|INVESTIMENTO|MANUTEN/i.test(nome)) return `motivo de compra: ${motivoNome ?? motivoCodigo}`;
+  return null;
 }
 
 export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenantId: string; empresaId: string }) {
@@ -285,9 +302,13 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
   }, [dir, aliquota, gnre.valor]);
   const courierTotal = round2(numeroDecimal(courier.servicos) + numeroDecimal(courier.armazenagem));
   const custo = conta ? custoImportacao({ valorAduaneiro: conta.valorAduaneiro, ii: conta.ii, icms: conta.icms, courier: courierTotal, creditoIcms: cfopEscolhido.creditoIcms, quantidade: itens.reduce((acc, i) => acc + numeroDecimal(i.quantidade), 0) || 1 }) : null;
-  const ibsBase = conta ? round2(conta.valorAduaneiro + conta.ii + conta.icms) : 0;
+  // IBS/CBS: base do II acrescida dos tributos do caput, sem o ICMS (LC 214/2025, art. 69, caput e §§ 1º e 2º).
+  const ibsBase = conta ? round2(conta.valorAduaneiro + conta.ii) : 0;
   const ibsUf = round2(ibsBase * 0.001);
   const cbs = round2(ibsBase * 0.009);
+  // Trava de destino (o banco repete a mesma regra): uso proprio nao entra em 3101/3102.
+  const motivoEscolhido = motivos.find((m) => m.id === nd.motivo_compra_id) ?? null;
+  const usoProprio = useMemo(() => indicioUsoProprio(observacao, motivoEscolhido?.codigo ?? null, motivoEscolhido?.nome ?? null), [observacao, motivoEscolhido]);
   // Bloqueios: os do banco (quem decide); os da tela so quando o banco nao respondeu.
   const bloqueios = useMemo(() => (leitura ? leitura.bloqueios ?? [] : bloqueiosTela), [leitura, bloqueiosTela]);
   const pendenciasForm = useMemo(() => {
@@ -303,6 +324,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
       if (!i.item_id && (!i.codigo.trim() || !i.descricao.trim())) p.push(`Mercadoria ${k + 1}: item do catálogo (ou código e descrição).`);
       if (!(numeroDecimal(i.quantidade) > 0)) p.push(`Mercadoria ${k + 1}: quantidade.`);
     });
+    if (usoProprio && cfopEscolhido.creditoIcms) p.push(`Uso próprio indicado (${usoProprio}) não combina com o CFOP ${cfop} (${cfop === "3101" ? "industrialização" : "revenda"}). Use 3556 (uso e consumo) ou 3551 (ativo imobilizado), ou corrija a observação e o motivo de compra.`);
     if (!conta) p.push("Alíquota do ICMS entre 0 e 100.");
     else if (!gnre.valor.trim()) p.push("Valor da GNRE paga.");
     else if (!conta.gnreConfere) p.push(`ICMS calculado R$ ${formatarBrl(conta.icms)} difere da GNRE R$ ${formatarBrl(conta.gnre ?? 0)} em R$ ${formatarBrl(conta.diferencaGnre ?? 0)} (limite R$ 0,05).`);
@@ -310,7 +332,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
     if (nd.numero.trim() && !(numeroDecimal(nd.valor) > 0)) p.push("Valor da nota de débito do courier.");
     if (nd.numero.trim() && nd.pago_em && !nd.conta_bancaria_id) p.push("Nota de débito já paga: informe a conta bancária (ou deixe a data em branco para baixar depois).");
     return p;
-  }, [dir, bloqueios, leitura, substituir, exp, itens, conta, gnre.valor, desemb, nd]);
+  }, [dir, bloqueios, leitura, substituir, exp, itens, conta, gnre.valor, desemb, nd, usoProprio, cfopEscolhido.creditoIcms, cfop]);
 
   // ---------------------------------------------------------------- 4 · gerar e homologar
   async function enviarAnexo(importacaoId: string, tipo: string, file: File) {
@@ -577,8 +599,9 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                 <tr><td className="py-1 pr-3 text-zinc-400">IPI, PIS e COFINS (RTS)</td><td className="py-1 text-right tabular-nums">R$ 0,00 · CST IPI 03 (cEnq 999) · CST PIS/COFINS 98</td></tr>
                 <tr><td className="py-1 pr-3 text-zinc-400">vOutro = ICMS</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(conta.outrasDespesas)}</td></tr>
                 <tr className="font-semibold"><td className="py-1 pr-3">vNF = vProd + II + vOutro</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(conta.valorNota)}</td></tr>
-                <tr><td className="py-1 pr-3 text-zinc-400">IBS/CBS (2026, teste): base vProd + II + ICMS = R$ {formatarBrl(ibsBase)} · IBS UF 0,1% · CBS 0,9%</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(ibsUf)} · R$ {formatarBrl(cbs)}</td></tr>
-                <tr><td className="py-1 pr-3 text-zinc-400">Custo de estoque = vProd + II + courier (R$ {formatarBrl(courierTotal)}){cfopEscolhido.creditoIcms ? " · ICMS com crédito, fora do custo" : " + ICMS (sem crédito)"}</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(custo?.total ?? 0)}{quantidadeTotal > 1 ? ` · R$ ${qtd(custo?.unitario ?? 0, 6)} por unidade` : ""}</td></tr>
+                <tr><td className="py-1 pr-3 text-zinc-400">IBS/CBS (2026, teste): base vProd + II = R$ {formatarBrl(ibsBase)} (sem ICMS e sem IPI, LC 214 art. 69) · IBS UF 0,1% · CBS 0,9%</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(ibsUf)} · R$ {formatarBrl(cbs)}</td></tr>
+                <tr><td className="py-1 pr-3 text-zinc-400">Custo de estoque = vProd + II + courier (R$ {formatarBrl(courierTotal)}){cfopEscolhido.creditoIcms ? " · ICMS fora do custo (crédito pendente da contadora)" : " + ICMS (sem crédito)"}</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(custo?.total ?? 0)}{quantidadeTotal > 1 ? ` · R$ ${qtd(custo?.unitario ?? 0, 6)} por unidade` : ""}</td></tr>
+                <tr><td className="py-1 pr-3 text-zinc-400">Depois da nota real</td><td className="py-1 text-right text-xs text-zinc-300">{cfopEscolhido.creditoIcms ? "item marcado como importado pela Segau (origem 1, equiparado a industrial: IPI na saída); crédito de ICMS fica pendente de aprovação da contadora (GNRE em nome do courier)" : "sem equiparação a industrial e sem crédito de ICMS (uso próprio)"}</td></tr>
               </tbody>
             </table>
           </div>
@@ -626,7 +649,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                       <td className="py-1 pr-2 text-right tabular-nums">R$ {formatarBrl(vProd)}</td>
                       <td className="py-1 pr-2 text-xs">orig 1 · CST 00 · modBC 3<br />BC {formatarBrl(bc)} · {qtd(conta.aliquotaIcms, 2)}% · {formatarBrl(icms)}</td>
                       <td className="py-1 pr-2 text-xs">vBC {formatarBrl(vProd)} · vDespAdu 0,00<br />vII {formatarBrl(ii)} · vIOF 0,00</td>
-                      <td className="py-1 pr-2 text-xs">IPI 03/999 · PIS 98 · COFINS 98<br />IBS/CBS 000/000001 · base {formatarBrl(round2(vProd + ii + icms))}</td>
+                      <td className="py-1 pr-2 text-xs">IPI 03/999 · PIS 98 · COFINS 98<br />IBS/CBS 000/000001 · base {formatarBrl(round2(vProd + ii))}</td>
                       <td className="py-1 pr-2 text-right tabular-nums">R$ {formatarBrl(icms)}</td>
                       <td className="py-1 pr-2 text-xs">nDI {dir.dir.numero} · dDI {dataBR(desemb.data)}<br />{desemb.local} / {desemb.uf} · dDesemb {dataBR(desemb.data)}<br />via {via} · intermédio {intermedio} · cExportador {(exp.codigo || exp.nome).toUpperCase().slice(0, 30)}…<br />adição 1 · seq {k + 1} · cFabricante {i.fabricante.toUpperCase()}</td>
                     </tr>
@@ -684,6 +707,9 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                         {pendencias.length > 0 ? <div className="mt-1 text-xs text-amber-300" title={pendencias.map((p) => `${p.codigo ?? "?"}: ${p.motivo ?? ""}`).join("; ")}>estoque pendente: {pendencias.map((p) => p.codigo).join(", ")}</div> : null}
                         {ap?.titulo_id ? <div className="mt-1 text-xs text-emerald-300">nota de débito {imp.nota_debito_numero ?? ""} no contas a pagar{ap.pagamento_id ? " (baixada)" : " (aprovada)"}{ap.criado === false ? " · já existia" : ""}</div> : null}
                         {ap?.erro ? <div className="mt-1 text-xs text-red-300" title={ap.erro}>contas a pagar pendente: {ap.erro}</div> : null}
+                        {imp.dados_json?.icms_credito?.status === "PENDENTE_CONTADORA" ? <div className="mt-1 text-xs text-amber-300" title={imp.dados_json.icms_credito.motivo ?? ""}>crédito de ICMS R$ {formatMoneyBR(numero(imp.dados_json.icms_credito.valor))} pendente de aprovação da contadora</div> : null}
+                        {(imp.dados_json?.fiscal_itens?.length ?? 0) > 0 ? <div className="mt-1 text-xs text-zinc-400">{imp.dados_json?.fiscal_itens?.some((f) => f.erro) ? `equiparação a industrial com erro: ${imp.dados_json?.fiscal_itens?.map((f) => f.erro).filter(Boolean).join("; ")}` : "item marcado como importado pela Segau (origem 1, equiparado a industrial)"}</div> : null}
+                        {imp.dados_json?.uso_proprio ? <div className="mt-1 text-xs text-zinc-500">uso próprio ({imp.dados_json.uso_proprio})</div> : null}
                         {imp.status === "CANCELADA" && imp.dados_json?.cancelamento?.motivo ? <div className="mt-1 text-xs text-zinc-500">{imp.dados_json.cancelamento.motivo}</div> : null}
                       </td>
                       <td className="py-2 pr-2 text-xs">

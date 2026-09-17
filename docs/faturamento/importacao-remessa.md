@@ -31,16 +31,26 @@ anexos, estoque e contas a pagar, cancelar).
   EXTERIOR, UF EX, país BACEN); item origem 1, CST 00 modBC 3 (base por dentro), grupo II
   (vBC = vProd, vDespAdu 0, vIOF 0), grupo DI (nDI, dDI = dDesemb = registro, local/UF pela UA,
   tpViaTransp da tela, tpIntermedio 1, cExportador, uma adição por item com cFabricante),
-  IPI 03/999, PIS/COFINS 98, IBS/CBS 000/000001 sobre valor aduaneiro + II + ICMS (LC 214/2025,
-  art. 71; 0,1% / 0% / 0,9% em 2026), modFrete 9, tPag 90, infAdFisco e infCpl com AWB, DIR,
-  GNRE, nota de débito, remetente da DIR e exportador da invoice.
+  IPI 03/999, PIS/COFINS 98, IBS/CBS 000/000001 sobre **valor aduaneiro + II** (base do II
+  acrescida dos tributos do caput, sem o ICMS e sem o IPI: LC 214/2025, art. 69, caput e §§ 1º e
+  2º; 0,1% / 0% / 0,9% em 2026; nesta nota 700,75, IBS 0,70 e CBS 6,31), modFrete 9, tPag 90,
+  infAdFisco e infCpl com AWB, DIR, GNRE, nota de débito, remetente da DIR e exportador da invoice.
+- **Trava de destino**: CFOP 3101/3102 (industrialização/revenda) é recusado, na tela e no banco
+  (`f.fn_importacao_remessa_uso_proprio`), quando a observação ou o motivo de compra indicam uso
+  próprio (bancada, uso e consumo, ativo imobilizado, manutenção interna, sede, motivos
+  CONSUMO_*, MANUTENCAO_*, INVESTIMENTO, OPEX_*). Uso próprio é 3556 ou 3551.
 - **Perfis**: `SEG-IMPORTACAO-3101-O1-CST00`, `-3102-`, `-3556-`, `-3551-` (natureza
   `IMPORTACAO_*`, âmbito INTERESTADUAL com UF **EX**, CFOP no campo externo). Nascem em revisão;
   liberação pela tela de perfis, por homologação, como nas outras operações.
 - **Depois da nota real** (gatilho `trg_importacao_remessa_apos_emissao`): entrada no estoque por
   item do catálogo (custo = vProd + II + despesas do courier rateadas; **ICMS entra no custo só
-  em 3556/3551**, sem crédito), `credito_icms` na movimentação para os perfis com crédito; sem
-  item do catálogo a linha fica em `dados_json.estoque_pendencias`. **Não gera contas a pagar da
+  em 3556/3551**); sem item do catálogo a linha fica em `dados_json.estoque_pendencias`. O
+  **crédito de ICMS não é apropriado automaticamente** (movimentação com `credito_icms` 0): a
+  GNRE está em nome do courier e repassada na nota de débito, e a pendência fica em
+  `dados_json.icms_credito` (PENDENTE_CONTADORA) para a contadora aprovar. Em **3101/3102 o item
+  passa a importado pela Segau** (`fiscal_itens.origem` 1, `origem_entrada` 1,
+  `equiparado_industrial`, IPI destacado na saída futura; registrado em `dados_json.fiscal_itens`
+  e desfeito no cancelamento); em 3556/3551 nada muda no cadastro. **Não gera contas a pagar da
   NF-e.** A nota de débito do courier vira título AP (`origem = IMPORTACAO`, fornecedor pelo
   CNPJ do manifesto, criado se não existir, rateio 100% no plano do motivo) **sem duplicar** um
   título do mesmo fornecedor com o mesmo número; com data, conta e forma informadas o pagamento
@@ -55,6 +65,8 @@ anexos, estoque e contas a pagar, cancelar).
   `f.importacao_remessa`, `_item`, `_anexo`; `fn_importacao_remessa_ler_dir`, `_criar`, `_cancelar`,
   `_anexo_registrar`; gatilho pós-emissão; patch das funções de preparo (ENTRADA + II no total);
   perfis. `..._010000` — tipos de anexo no bucket e `fn_importacao_remessa_nota_debito_atualizar`.
+  `..._020000` — base IBS/CBS sem ICMS no snapshot, trava de uso próprio, equiparação a
+  industrial em 3101/3102 e crédito de ICMS pendente da contadora.
 - `supabase/functions/_shared/fiscal/importacao-remessa.ts` + ramo `importacao` em
   `nfe-payload.ts`; naturezas em `tributacao-provisoria.ts` e `fiscal/ibs-cbs-transicao-2026.ts`.
 - `lib/importacao/dir-remessa.ts` (parser e conta, usados pela tela e pelos testes),
@@ -72,8 +84,11 @@ anexos, estoque e contas a pagar, cancelar).
    a nota sai para o exportador da invoice e cita o remetente da DIR no infCpl.
 4. Despesas do courier (serviços + armazenagem, R$ 150,94) fora da base do ICMS e fora da nota;
    entram só no custo do estoque.
-5. Crédito do ICMS (CFOP 3101/3102) com a GNRE recolhida em nome da UPS e repassada na nota de débito.
+5. Crédito do ICMS (CFOP 3101/3102) com a GNRE recolhida em nome da UPS e repassada na nota de
+   débito: o ERP não apropria; fica pendente da aprovação da contadora.
 6. tpViaTransp 4 (aérea) ou 11 (courier) para remessa expressa.
-7. IBS/CBS na entrada de importação: CST 000/000001, base valor aduaneiro + II + ICMS, alíquotas
-   de teste de 2026.
+7. IBS/CBS na entrada de importação: CST 000/000001, base = valor aduaneiro + II (LC 214/2025,
+   art. 69, caput e §§ 1º e 2º; o § 2º, II exclui o ICMS), alíquotas de teste de 2026.
 8. cExportador = nome do exportador (não há código interno).
+9. Item importado pela Segau (3101/3102): alíquota de IPI da TIPI para o NCM no cadastro fiscal,
+   para a saída futura destacar o IPI (a equiparação é marcada pelo ERP; a alíquota não).

@@ -51,15 +51,17 @@ insert into public.municipios_ibge (codigo_ibge, nome, nome_normalizado, uf, fon
 values ('4209102', 'Joinville', 'joinville', 'SC', 'teste', 'teste', now())
 on conflict (codigo_ibge) do nothing;
 
--- Item do catalogo (a CPU importada), sem saldo.
+-- Itens do catalogo (a CPU importada; o segundo para a importacao de uso proprio), sem saldo e sem cadastro fiscal.
 insert into public.itens (id, tenant_id, empresa_id, codigo_interno, nome, tipo, unidade_medida, controla_estoque, ativo, finalidade, custo_medio)
-values (918001, '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002', 'CQM1HCPU61', 'CONTROLADOR PROGRAMAVEL PLC CPU', 'produto', 'UN', true, true, 'materia_prima', 0);
+values (918001, '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002', 'CQM1HCPU61', 'CONTROLADOR PROGRAMAVEL PLC CPU', 'produto', 'UN', true, true, 'materia_prima', 0),
+       (918002, '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002', 'CQM1HCPU61B', 'CONTROLADOR PROGRAMAVEL PLC CPU (BANCADA)', 'produto', 'UN', true, true, 'materia_prima', 0);
 
 -- Motivo de compra e conta bancaria (nota de debito do courier).
 insert into f.plano_contas (id, tenant_id, codigo, nome)
 values ('1e1a0000-0000-4000-8000-000000000402', '1e1a0000-0000-4000-8000-000000000001', '3.1.01', 'Compras para estoque');
 insert into f.motivo_compra (id, tenant_id, codigo, nome, aplica_em, favorito, plano_contas_id)
-values ('1e1a0000-0000-4000-8000-000000000401', '1e1a0000-0000-4000-8000-000000000001', 'ESTOQUE', 'Compra para estoque', 'PRODUTO', true, '1e1a0000-0000-4000-8000-000000000402');
+values ('1e1a0000-0000-4000-8000-000000000401', '1e1a0000-0000-4000-8000-000000000001', 'ESTOQUE', 'Compra para estoque', 'PRODUTO', true, '1e1a0000-0000-4000-8000-000000000402'),
+       ('1e1a0000-0000-4000-8000-000000000403', '1e1a0000-0000-4000-8000-000000000001', 'CONSUMO_PRODUCAO', 'CONSUMO - PRODUCAO E ENGENHARIA', 'PRODUTO', false, '1e1a0000-0000-4000-8000-000000000402');
 insert into f.conta_bancaria (id, tenant_id, empresa_id, codigo, nome, tipo)
 values ('1e1a0000-0000-4000-8000-000000000501', '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002', 'SICREDI', 'SICREDI', 'BANCO');
 
@@ -161,10 +163,23 @@ begin
                                      'logradouro', 'Jiaxian Road, You Suowei Building, Unit B1-A6', 'numero', '2000',
                                      'complemento', 'Bantian, Longgang', 'bairro', 'Shenzhen', 'pais_codigo', '1600', 'pais_nome', 'China'),
     'itens', jsonb_build_array(jsonb_build_object('item_id', 918001, 'ncm', '8537.10.20', 'fabricante', 'OMRON')),
-    'observacao', 'CPU de CLP para a bancada'
+    'observacao', 'CPU de CLP para painel do cliente'
   );
 
   -- Recusas.
+  -- Trava de destino: uso proprio (observacao ou motivo de compra) nao entra em 3101/3102.
+  begin
+    perform f.fn_importacao_remessa_criar(v_base || jsonb_build_object('observacao', 'CPU de CLP para a bancada de automacao'));
+    raise exception 'aceitou 3101 com observacao de uso proprio';
+  exception when sqlstate '22023' then
+    if sqlerrm not like 'Uso proprio indicado (observacao: "CPU de CLP para a bancada de automacao") nao combina com o CFOP 3101 (industrializacao). Use 3556%' then raise; end if;
+  end;
+  begin
+    perform f.fn_importacao_remessa_criar(v_base || jsonb_build_object('cfop', '3102', 'nota_debito', (v_base->'nota_debito') || jsonb_build_object('motivo_compra_id', '1e1a0000-0000-4000-8000-000000000403')));
+    raise exception 'aceitou 3102 com motivo de consumo';
+  exception when sqlstate '22023' then
+    if sqlerrm not like 'Uso proprio indicado (motivo de compra: CONSUMO - PRODUCAO E ENGENHARIA) nao combina com o CFOP 3102 (revenda).%' then raise; end if;
+  end;
   begin
     perform f.fn_importacao_remessa_criar(v_base || jsonb_build_object('gnre', jsonb_build_object('valor', 100)));
     raise exception 'aceitou ICMS divergente da GNRE';
@@ -207,6 +222,7 @@ begin
   if v_res->>'cfop' <> '3101' or v_res->>'natureza_operacao' <> 'IMPORTACAO_INDUSTRIALIZACAO'
      or (v_res->>'valor_aduaneiro')::numeric <> 437.97 or (v_res->>'ii')::numeric <> 262.78 or (v_res->>'bc_icms')::numeric <> 844.28
      or (v_res->>'icms')::numeric <> 143.53 or (v_res->>'valor_nota')::numeric <> 844.28 or (v_res->>'itens')::integer <> 1
+     or (v_res->>'base_ibs_cbs')::numeric <> 700.75
      or v_res->>'perfil_id' <> '1e1a0000-0000-4000-8000-000000000301' or v_res->>'perfil_codigo' <> 'TESTE-IMPORTACAO-3101'
      or v_res->>'destinatario' <> 'SHENZHEN HAOXIN XUNJI ELECTRONIC TECHNOLOGY TRADING CO., LTD.' or v_res->>'substituiu' is not null then
     raise exception 'retorno da criacao errado: %', v_res;
@@ -227,7 +243,8 @@ begin
      or v_imp.exportador_pais_codigo <> '1600' or v_imp.exportador_pais_nome <> 'CHINA' or v_imp.remetente_dir_nome <> 'SHENZHEN COOL DREAM SUPPLY CO LTD'
      or v_imp.natureza_operacao <> 'IMPORTACAO_INDUSTRIALIZACAO' or v_imp.cfop <> '3101' or v_imp.consumidor_final <> 0 or not v_imp.credito_icms
      or v_imp.perfil_operacao_id <> '1e1a0000-0000-4000-8000-000000000301' or v_imp.solicitacao_id <> v_primeira_sol
-     or v_imp.observacao <> 'CPU de CLP para a bancada' or v_imp.dados_json->>'perfil_codigo' <> 'TESTE-IMPORTACAO-3101' or v_imp.xml_dir is null then
+     or v_imp.observacao <> 'CPU de CLP para painel do cliente' or v_imp.dados_json->>'perfil_codigo' <> 'TESTE-IMPORTACAO-3101' or v_imp.xml_dir is null
+     or v_imp.dados_json->>'uso_proprio' is not null or v_imp.dados_json#>>'{motivo_compra,codigo}' <> 'ESTOQUE' then
     raise exception 'importacao errada: %', row_to_json(v_imp);
   end if;
   select * into v_it from f.importacao_remessa_item where importacao_id = v_primeira;
@@ -245,7 +262,7 @@ begin
      or v_sf.pagamento_forma <> '90' or v_sf.pagamento_indicador <> 0 or v_sf.destinacao_mercadoria is not null
      or v_sf.destino_uf_confirmada <> 'EX' or v_sf.snapshot_cadastro_em is null or v_sf.revisao_fiscal_confirmada_em is null
      or v_sf.transportador_dados is not null or v_sf.volumes_dados is not null
-     or v_sf.observacao <> 'CPU de CLP para a bancada' or v_sf.perfil_operacao_id <> '1e1a0000-0000-4000-8000-000000000301' then
+     or v_sf.observacao <> 'CPU de CLP para painel do cliente' or v_sf.perfil_operacao_id <> '1e1a0000-0000-4000-8000-000000000301' then
     raise exception 'solicitacao errada: %', row_to_json(v_sf);
   end if;
   if v_sf.destinatario_snapshot->>'documento' is not null or v_sf.destinatario_snapshot->>'id_estrangeiro' is not null
@@ -276,6 +293,9 @@ begin
      or (v_sf.operacao_snapshot#>>'{importacao,valor_aduaneiro}')::numeric <> 437.97 or (v_sf.operacao_snapshot#>>'{importacao,ii}')::numeric <> 262.78
      or (v_sf.operacao_snapshot#>>'{importacao,bc_icms}')::numeric <> 844.28 or (v_sf.operacao_snapshot#>>'{importacao,icms}')::numeric <> 143.53
      or (v_sf.operacao_snapshot#>>'{importacao,aliquota_icms}')::numeric <> 17 or (v_sf.operacao_snapshot#>>'{importacao,credito_icms}')::boolean is not true
+     -- IBS/CBS: valor aduaneiro + II, sem o ICMS (LC 214/2025, art. 69, § 2º, II).
+     or (v_sf.operacao_snapshot#>>'{importacao,base_ibs_cbs}')::numeric <> 700.75
+     or (v_sf.operacao_snapshot#>>'{importacao,itens,0,base_ibs_cbs}')::numeric <> 700.75
      or v_sf.operacao_snapshot#>>'{importacao,gnre,receita}' <> '10005-6' or (v_sf.operacao_snapshot#>>'{importacao,gnre,valor}')::numeric <> 143.53
      or v_sf.operacao_snapshot#>>'{importacao,nota_debito,numero}' <> '2953830' or v_sf.operacao_snapshot#>>'{importacao,remetente_dir}' <> 'SHENZHEN COOL DREAM SUPPLY CO LTD'
      or jsonb_array_length(v_sf.operacao_snapshot#>'{importacao,itens}') <> 1
@@ -411,12 +431,28 @@ begin
      or v_imp.dados_json#>>'{ap,erro}' is not null or v_imp.dados_json#>>'{ap,pagamento_id}' is null or v_imp.nota_debito_titulo_id is null then
     raise exception 'producao nao concluiu a importacao: %', row_to_json(v_imp);
   end if;
+  -- Credito de ICMS: nao apropriado; pendencia para a contadora (GNRE em nome do courier).
+  if v_imp.dados_json#>>'{icms_credito,status}' <> 'PENDENTE_CONTADORA' or (v_imp.dados_json#>>'{icms_credito,valor}')::numeric <> 143.53
+     or v_imp.dados_json#>>'{icms_credito,cfop}' <> '3101' then
+    raise exception 'credito de ICMS devia ficar pendente da contadora: %', v_imp.dados_json->'icms_credito';
+  end if;
+  -- Equiparacao a industrial (3101): o item passa a ser importado pela Segau.
+  if (select (origem, origem_entrada, equiparado_industrial, ncm::text) from public.fiscal_itens where item_id = 918001)
+     is distinct from (1::smallint, 1::smallint, true, '85371020'::text) then
+    raise exception 'cadastro fiscal do item nao foi marcado como importado/equiparado: %', (select row_to_json(fi) from public.fiscal_itens fi where fi.item_id = 918001);
+  end if;
+  -- O cadastro fiscal nasce vazio junto com o item (gatilho do catalogo): existia, sem origem e sem equiparacao.
+  if jsonb_array_length(v_imp.dados_json->'fiscal_itens') <> 1 or (v_imp.dados_json#>>'{fiscal_itens,0,existia}')::boolean is not true
+     or (v_imp.dados_json#>>'{fiscal_itens,0,antes,equiparado_industrial}')::boolean is not false or v_imp.dados_json#>>'{fiscal_itens,0,antes,origem}' is not null
+     or (v_imp.dados_json#>>'{fiscal_itens,0,depois,equiparado_industrial}')::boolean is not true then
+    raise exception 'registro da equiparacao errado: %', v_imp.dados_json->'fiscal_itens';
+  end if;
   if (select count(*) from public.movimentacoes) <> v_movimentos + 1 then
     raise exception 'entrada nao gerou uma movimentacao';
   end if;
   select * into v_mov from public.movimentacoes where id = (v_imp.dados_json#>>'{estoque_movimentacoes,0,movimentacao_id}')::bigint;
   if v_mov.item_id <> 918001 or v_mov.tipo <> 'entrada' or v_mov.quantidade <> 1 or v_mov.realizado_por <> 'importacao@example.test'
-     or v_mov.custo_unitario_real <> 851.69 or v_mov.custo_unitario_bruto <> 437.97 or v_mov.credito_icms <> 143.53 or v_mov.v_icms <> 143.53
+     or v_mov.custo_unitario_real <> 851.69 or v_mov.custo_unitario_bruto <> 437.97 or v_mov.credito_icms <> 0 or v_mov.v_icms <> 143.53
      or v_mov.v_frete_rateado <> 209.11 or v_mov.v_ipi <> 0 or v_mov.v_pis <> 0 or v_mov.v_cofins <> 0
      or v_mov.motivo not like 'Entrada por importacao NF-e 2/80 (AWB 1ZJ451C10441551106, DIR 260191366846) [IMPORTACAO %' then
     raise exception 'movimentacao errada: %', row_to_json(v_mov);
@@ -467,6 +503,11 @@ begin
      or (select tipo from public.movimentacoes where id = (v_imp.dados_json#>>'{estoque_estornos,0,movimentacao_id}')::bigint) <> 'saida' then
     raise exception 'estorno nao gerou a saida';
   end if;
+  -- A marca de importacao no cadastro fiscal voltou ao que era (sem origem, sem equiparacao).
+  if (select (origem, origem_entrada, equiparado_industrial) from public.fiscal_itens where item_id = 918001) is distinct from (null::smallint, null::smallint, false)
+     or v_imp.dados_json->>'fiscal_itens_desfeitos_em' is null then
+    raise exception 'cancelamento nao desfez a equiparacao do item: %', (select row_to_json(fi) from public.fiscal_itens fi where fi.item_id = 918001);
+  end if;
 end;
 $test$;
 
@@ -486,8 +527,12 @@ begin
     'courier', jsonb_build_object('servicos', 138.53, 'armazenagem', 12.41),
     'nota_debito', jsonb_build_object('numero', '2953830', 'valor', 557.25, 'pago_em', '2026-09-10', 'motivo_compra_id', '1e1a0000-0000-4000-8000-000000000401'),
     'exportador', jsonb_build_object('nome', 'Shenzhen Haoxin Xunji', 'logradouro', 'Jiaxian Road 2000', 'pais_codigo', '1600', 'pais_nome', 'China'),
-    'itens', jsonb_build_array(jsonb_build_object('item_id', 918001, 'ncm', '85371020', 'fabricante', 'OMRON'))
+    'itens', jsonb_build_array(jsonb_build_object('item_id', 918002, 'ncm', '85371020', 'fabricante', 'OMRON')),
+    'observacao', 'CPU para a bancada propria de automacao'
   ));
+  if (select dados_json->>'uso_proprio' from f.importacao_remessa where id = (v_res->>'importacao_id')::uuid) not like 'observacao: %bancada%' then
+    raise exception 'uso proprio devia ficar registrado na importacao 3556';
+  end if;
   if v_res->>'natureza_operacao' <> 'IMPORTACAO_CONSUMO' or v_res->>'perfil_id' <> '1e1a0000-0000-4000-8000-000000000302' then
     raise exception 'criacao 3556 errada: %', v_res;
   end if;
@@ -526,11 +571,17 @@ begin
     raise exception 'nota de debito duplicada no contas a pagar';
   end if;
   select * into v_mov from public.movimentacoes where id = (v_imp.dados_json#>>'{estoque_movimentacoes,0,movimentacao_id}')::bigint;
-  if v_mov.custo_unitario_real <> 995.22 or v_mov.credito_icms <> 0 or v_mov.v_icms <> 143.53 then
+  if v_mov.item_id <> 918002 or v_mov.custo_unitario_real <> 995.22 or v_mov.credito_icms <> 0 or v_mov.v_icms <> 143.53 then
     raise exception 'custo sem credito errado: %', row_to_json(v_mov);
   end if;
-  if (select custo_medio from public.itens where id = 918001) <> 995.22 then
+  if (select custo_medio from public.itens where id = 918002) <> 995.22 then
     raise exception 'custo medio devia ser 995,22';
+  end if;
+  -- Uso proprio: sem credito de ICMS e sem equiparacao a industrial.
+  if v_imp.dados_json#>>'{icms_credito,status}' <> 'SEM_CREDITO' or (v_imp.dados_json#>>'{icms_credito,valor}')::numeric <> 0
+     or v_imp.dados_json->'fiscal_itens' <> '[]'::jsonb
+     or exists (select 1 from public.fiscal_itens where item_id = 918002 and (equiparado_industrial or origem is not null)) then
+    raise exception '3556 nao devia creditar ICMS nem marcar equiparacao: %', v_imp.dados_json;
   end if;
 end;
 $test$;

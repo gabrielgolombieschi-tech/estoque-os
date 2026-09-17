@@ -123,8 +123,10 @@ export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
       pCBS: 0.9,
     } satisfies RegraIbsCbsTransicao2026),
     // Importacao por remessa expressa (17/09/2026): a importacao de bem material e fato gerador
-    // do IBS/CBS (LC 214/2025, art. 4º, II), com a base do art. 71 (valor aduaneiro + II + ICMS)
-    // e as aliquotas de teste de 2026. CST 000 / cClassTrib 000001, como a operacao tributada.
+    // do IBS/CBS (LC 214/2025, art. 4º, II). Base do art. 69: caput e § 1º (remessa) = base do
+    // II acrescida dos tributos do caput; o § 2º, II exclui o ICMS. Na remessa (RTS) fica valor
+    // aduaneiro + II, sem ICMS e sem IPI (correcao do Gabriel em 18/09/2026: a primeira
+    // homologacao, NF-e 2/66, somou o ICMS). Aliquotas de teste de 2026, CST 000 / 000001.
     // Ver ./importacao-remessa.ts; a contadora confere na primeira nota real.
     IMPORTACAO_INDUSTRIALIZACAO: Object.freeze({
       naturezaOperacao: "IMPORTACAO_INDUSTRIALIZACAO",
