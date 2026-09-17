@@ -66,8 +66,11 @@ const primario = "rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white
 const FORMAS_PAGAMENTO = ["BOLETO", "PIX", "TRANSFERENCIA", "CARTAO", "DINHEIRO", "OUTROS"];
 const TIPOS_ANEXO: Array<[string, string]> = [["GNRE", "GNRE"], ["NOTA_DEBITO", "Nota de débito"], ["INVOICE", "Invoice"], ["OUTRO", "Outro"]];
 
+/** Valor vindo do banco ou da Edge: numero, ou texto com ponto decimal ("844.28"); "844,28" tambem entra. */
 function numero(valor: unknown) {
-  const n = Number(String(valor ?? "").replace(/\./g, "").replace(",", "."));
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+  const s = String(valor ?? "").trim();
+  const n = Number(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s);
   return Number.isFinite(n) ? n : 0;
 }
 function numeroDecimal(valor: unknown) {
@@ -285,14 +288,12 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
   const ibsBase = conta ? round2(conta.valorAduaneiro + conta.ii + conta.icms) : 0;
   const ibsUf = round2(ibsBase * 0.001);
   const cbs = round2(ibsBase * 0.009);
-  const bloqueios = useMemo(() => {
-    const doBanco = leitura?.bloqueios ?? [];
-    return [...doBanco, ...bloqueiosTela.filter((b) => !doBanco.includes(b))];
-  }, [leitura, bloqueiosTela]);
+  // Bloqueios: os do banco (quem decide); os da tela so quando o banco nao respondeu.
+  const bloqueios = useMemo(() => (leitura ? leitura.bloqueios ?? [] : bloqueiosTela), [leitura, bloqueiosTela]);
   const pendenciasForm = useMemo(() => {
     const p: string[] = [];
     if (!dir) return p;
-    if (bloqueios.length) p.push(...bloqueios);
+    if (bloqueios.length) p.push("A DIR está bloqueada (veja o passo 1).");
     if (leitura?.em_uso && !substituir) p.push("A DIR já está em uso. Marque \"gerar de novo\" para cancelar a anterior (só sem nota real).");
     if (!exp.nome.trim() || !exp.logradouro.trim()) p.push("Exportador: nome e endereço (conforme a invoice).");
     if (!/^\d{2,4}$/.test(exp.pais_codigo) || !exp.pais_nome.trim()) p.push("Exportador: país (código BACEN e nome).");
