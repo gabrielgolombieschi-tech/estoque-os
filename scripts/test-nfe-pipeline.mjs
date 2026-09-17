@@ -1099,7 +1099,7 @@ const contextoRetorno = (extraOperacao = {}, itens = [itemRetorno()], extraSolic
   itens,
 });
 const retorno = montarPayloadNfe(contextoRetorno());
-assert.equal(retorno.natureza_operacao, "RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA");
+assert.equal(retorno.natureza_operacao, "RETORNO DE MERCADORIA UTILIZADA NA INDUSTRIALIZACAO");
 assert.equal(retorno.natureza_operacao.length <= 60, true);
 assert.equal(retorno.finalidade_emissao, 1, "retorno nao e devolucao (finNFe 4)");
 assert.equal(retorno.tipo_documento, 1);
@@ -1152,9 +1152,10 @@ assert.equal("numero_fatura" in retorno, false);
 assert.equal(retorno.modalidade_frete, 9);
 assert.equal("nome_transportador" in retorno, false);
 assert.equal("volumes" in retorno, false);
+// infAdFisco no modelo da NF 3427 do Vertex: base do ICMS + nota de origem (+ IPI, porque o grupo vai).
 assert.equal(
   retorno.informacoes_adicionais_fisco,
-  "ICMS SUSPENSO CONFORME ART. 27, II, ANEXO 2 DO RICMS/SC. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).",
+  "ICMS SUSPENSO CONFORME ANEXO 2, ART. 27, II, DO RICMS-SC. RETORNO DA NF-E 900356 DE 10/06/2026. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).",
 );
 assert.equal(
   retorno.informacoes_adicionais_contribuinte,

@@ -14,9 +14,9 @@ export const tributacaoProvisoria = {
     REMESSA_CONSERTO_INTERESTADUAL: "REMESSA PARA CONSERTO FORA DO ESTADO",
     RETORNO_INDUSTRIALIZACAO: "RETORNO DE MERCAD. UTILIZADA NA INDUST.",
     // Retorno de mercadoria de terceiros (16/09/2026): a nota espelha a remessa recebida
-    // (5901/6901 ou 5915/6915). Tributacao em ./fiscal/retorno-remessa-terceiros.ts. O texto
-    // pedido tinha 66 caracteres; natOp aceita 60.
-    RETORNO_REMESSA_TERCEIROS: "RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA",
+    // (5901/6901 ou 5915/6915). Tributacao em ./fiscal/retorno-remessa-terceiros.ts, que
+    // guarda o mesmo texto e explica os 60 caracteres.
+    RETORNO_REMESSA_TERCEIROS: "RETORNO DE MERCADORIA UTILIZADA NA INDUSTRIALIZACAO",
     RETORNO_REMESSA_TERCEIROS_CONSERTO: "RETORNO DE MERCADORIA RECEBIDA PARA CONSERTO",
     OUTRAS_SAIDAS_INTERESTADUAL: "OUTRAS SAIDAS FORA DO ESTADO",
     REMESSA_CONTA_ORDEM_TERCEIRO: "REMESSA MERCA POR CONTA E ORDEM TERCEIRO",

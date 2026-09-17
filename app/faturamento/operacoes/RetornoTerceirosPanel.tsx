@@ -80,13 +80,15 @@ const CFOP_DESCRICAO: Record<string, string> = {
   "5903": "Retorno de mercadoria recebida para industrialização e não aplicada",
   "5916": "Retorno de mercadoria recebida para conserto ou reparo",
 };
+// Padrao 0, como a Segau ja emitia no Vertex (NF 3427, 23/09/2025).
 const MODALIDADES_FRETE: Array<[string, string]> = [
-  ["9", "9 · Sem frete"],
   ["0", "0 · Por conta do remetente (SEGAU paga)"],
   ["1", "1 · Por conta do destinatário"],
   ["3", "3 · Por conta do destinatário, transporte próprio"],
   ["4", "4 · Por conta do remetente, transporte próprio"],
+  ["9", "9 · Sem frete"],
 ];
+const MODALIDADE_FRETE_PADRAO = "0";
 const field = "rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
 const label = "space-y-1 text-xs text-zinc-400";
 const button = "rounded border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40";
@@ -160,7 +162,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
   // Modal "Gerar NF-e de retorno"
   const [modal, setModal] = useState<Remessa | null>(null);
   const [cfop, setCfop] = useState("");
-  const [modalidade, setModalidade] = useState("9");
+  const [modalidade, setModalidade] = useState(MODALIDADE_FRETE_PADRAO);
   const [observacao, setObservacao] = useState("");
   const [qVol, setQVol] = useState("");
   const [especie, setEspecie] = useState("");
@@ -267,7 +269,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
     const opcoes = cfopsRetorno(r, empresa.uf);
     setModal(r);
     setCfop(opcoes[0]?.cfop ?? "");
-    setModalidade("9");
+    setModalidade(MODALIDADE_FRETE_PADRAO);
     setObservacao(r.obs ?? "");
     setQVol("");
     setEspecie("");

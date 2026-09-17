@@ -34,7 +34,7 @@ itens sejam todos 5901/6901/5915/6915 e aponta para cá.
    retorno. Filtro por status (padrão ABERTA). Badge "homologada em dd/mm/aaaa".
 3. **Gerar NF-e de retorno** (modal) — remetente e itens só leitura; CFOP (5902/5903 na
    industrialização, 5916/5903 no conserto; 6xxx fora da UF do remetente), modalidade do frete
-   (9 padrão; 0/1/3/4 sem transportadora; volumes copiados da origem, senão qVol/espécie
+   (0 padrão; 1/3/4/9 sem transportadora; volumes copiados da origem, senão qVol/espécie
    opcionais), observação. "Emitir em homologação" cria a solicitação
    (`f.fn_remessa_terceiros_retorno_criar`) e chama `nfe-emitir`. Enquanto a remessa estiver
    ABERTA pode gerar de novo: o retorno anterior sem produção é cancelado.
@@ -52,7 +52,7 @@ produção: remessa volta a ABERTA. Homologação só grava `homologada_em`/`nfe
 | Campo | Valor |
 | --- | --- |
 | finNFe / tpNF / indFinal / indPres | 1 / 1 / 0 / 9; idDest pela UF do destinatário |
-| natOp | `RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA` (60 caracteres; o texto pedido tinha 66) — conserto: `RETORNO DE MERCADORIA RECEBIDA PARA CONSERTO` |
+| natOp | `RETORNO DE MERCADORIA UTILIZADA NA INDUSTRIALIZACAO` (o padrão pedido, "…POR ENCOMENDA", tem 65 caracteres e natOp aceita 60; a NF 3427 do Vertex usava "RETORNO DE MERCAD. UTILIZADA NA INDUST.") — conserto: `RETORNO DE MERCADORIA RECEBIDA PARA CONSERTO` |
 | Destinatário | emitente da origem, do XML (CNPJ, IE, endereço), nunca do cadastro |
 | NFref | `refNFe` = chave da origem (`notas_referenciadas` na Focus) — **só em produção**: a SEFAZ de homologação não conhece a chave de produção e recusou com cStat 267 (16/09/2026); em homologação a chave fica só no infCpl e a comparação produção × homologação ignora o grupo |
 | Itens | espelho exato: cProd, xProd, NCM, uCom, qCom, vUnCom, vProd, mesma ordem; total = vProd, vNF = vProd |
@@ -61,8 +61,8 @@ produção: remessa volta a ABERTA. Homologação só grava `homologada_em`/`nfe
 | PIS/COFINS | CST 08 |
 | IBS/CBS | CST 410, cClassTrib 410999, sem gIBSCBS |
 | Pagamento | tPag 90, vPag 0; sem cobr |
-| Transporte | modFrete da tela, sem grupo transportadora; volumes da origem se existirem |
-| infAdFisco | `ICMS SUSPENSO CONFORME ART. 27, II, ANEXO 2 DO RICMS/SC. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).` |
+| Transporte | modFrete da tela (padrão **0**, como na NF 3427 do Vertex; 1/3/4/9), sem grupo transportadora; volumes da origem se existirem |
+| infAdFisco | `ICMS SUSPENSO CONFORME ANEXO 2, ART. 27, II, DO RICMS-SC. RETORNO DA NF-E {nNF} DE {dd/mm/aaaa}. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).` (a frase do IPI acompanha o grupo IPI, que hoje sempre vai; conserto: "ART. 27" sem inciso até a NF 3644 do Vertex ser conferida) |
 | infCpl | `RETORNO INTEGRAL DA MERCADORIA RECEBIDA PELA NF-E N. {nNF} SERIE {serie} DE {dd/mm/aaaa}, CHAVE {chave}. MERCADORIA DE TERCEIROS. SEM COBRANCA.` + observação |
 
 Sem título financeiro (`fn_upsert_ar_from_nfe_venda` ignora tPag 90), sem estoque, fora de

@@ -31,21 +31,41 @@ export const RETORNO_REMESSA_TERCEIROS = {
   cstIbsCbs: "410",
   cClassTrib: "410999",
   formaPagamento: "90",
-  /** Modalidades de frete aceitas sem o grupo transportadora (decisao do Gabriel, 16/09/2026). */
+  /** Modalidades de frete aceitas sem o grupo transportadora (decisao do Gabriel, 16/09/2026); padrao 0, como na NF 3427 do Vertex. */
   modalidadesFrete: [0, 1, 3, 4, 9],
+  modalidadeFretePadrao: 0,
   naturezas: {
-    // natOp tem 60 caracteres; o texto pedido (66) foi abreviado sem perder palavra.
+    // natOp aceita 60 caracteres. O padrao pedido em 16/09/2026, "RETORNO DE MERCADORIA
+    // UTILIZADA NA INDUSTRIALIZACAO POR ENCOMENDA" (descricao do CFOP 5902), tem 65: fica sem
+    // o "POR ENCOMENDA". A NF 3427 do Vertex saiu como "RETORNO DE MERCAD. UTILIZADA NA INDUST.".
     RETORNO_REMESSA_TERCEIROS: {
       cfops: ["5902", "6902", "5903", "6903"],
-      natOp: "RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA",
+      natOp: "RETORNO DE MERCADORIA UTILIZADA NA INDUSTRIALIZACAO",
+      textoIcms: "ICMS SUSPENSO CONFORME ANEXO 2, ART. 27, II, DO RICMS-SC.",
     },
     RETORNO_REMESSA_TERCEIROS_CONSERTO: {
       cfops: ["5916", "6916", "5903", "6903"],
       natOp: "RETORNO DE MERCADORIA RECEBIDA PARA CONSERTO",
+      // TODO contadora: inciso do art. 27 no retorno de conserto (a NF 3644 do Vertex vai dizer).
+      textoIcms: "ICMS SUSPENSO CONFORME ANEXO 2, ART. 27, DO RICMS-SC.",
     },
   },
-  textoFisco: "ICMS SUSPENSO CONFORME ART. 27, II, ANEXO 2 DO RICMS/SC. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).",
+  // So enquanto a nota levar o grupo IPI (CST 55): sem o grupo, a frase sai junto.
+  textoIpi: "IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).",
 } as const;
+
+/**
+ * infAdFisco do retorno, no modelo da NF 3427 do Vertex (23/09/2025, WEG): base legal do ICMS e
+ * a nota de origem. O IPI entra porque o item sai com o grupo IPI (CST 55, cEnq 108).
+ */
+export function textoFiscoRetornoTerceiros(natureza: NaturezaRetornoTerceiros, origem: OrigemRetornoTerceiros, comGrupoIpi = true) {
+  const partes = [
+    RETORNO_REMESSA_TERCEIROS.naturezas[natureza].textoIcms,
+    `RETORNO DA NF-E ${origem.numero} DE ${origem.dataEmissao}.`,
+    ...(comGrupoIpi ? [RETORNO_REMESSA_TERCEIROS.textoIpi] : []),
+  ];
+  return partes.join(" ");
+}
 
 export type NaturezaRetornoTerceiros = keyof typeof RETORNO_REMESSA_TERCEIROS.naturezas;
 

@@ -10,6 +10,7 @@ import {
   lerOrigemRetornoTerceiros,
   motivoItemForaDoRetornoTerceiros,
   RETORNO_REMESSA_TERCEIROS,
+  textoFiscoRetornoTerceiros,
   textoRetornoTerceiros,
 } from "./fiscal/retorno-remessa-terceiros.ts";
 import {
@@ -1116,7 +1117,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // homologacao nao a conhece (rejeicao 267 no retorno da WEG, 16/09/2026). A chave
     // continua no infCpl, e a nota real leva o NFref.
     ...(origemRetorno && ambiente === "PRODUCAO" ? { notas_referenciadas: [{ chave_nfe: origemRetorno.chave }] } : {}),
-    ...(retornoTerceiros ? { informacoes_adicionais_fisco: RETORNO_REMESSA_TERCEIROS.textoFisco } : {}),
+    ...(retornoTerceiros && origemRetorno ? { informacoes_adicionais_fisco: textoFiscoRetornoTerceiros(retornoTerceiros, origemRetorno) } : {}),
     ...(informacoesComplementaresFinal
       ? { informacoes_adicionais_contribuinte: informacoesComplementaresFinal }
       : {}),
