@@ -1197,4 +1197,168 @@ assert.throws(
   /destinação da mercadoria não confirmada/,
 );
 
-console.log("142 cenarios locais do pipeline NF-e passaram.");
+// Devolucao de compra (17/09/2026): 41,55 kg do tubo 401014 da NF-e 121481/3 da Acos America
+// voltam em 5201, finNFe 4 com NFref nos dois ambientes, impostos da origem (ICMS 00 a 12% com
+// o IPI fora da base, IPI 50/999 a 3,25%, PIS/COFINS 01), IBS/CBS 000/000001, tPag 90, sem
+// cobr, volumes da tela sem transportadora, infAdFisco e infCpl com a nota de origem.
+const CHAVE_ACOS = "42260808819200000182550030001214811001242895";
+const itemDevolucao = (extra = {}) => linha({
+  codigo_produto: "401014", descricao: 'TB RED 76,10x3,75 NBR5580 2.1/2" (66)', ncm: "73063090", cfop: "5201",
+  origem_mercadoria: 0, unidade: "KG", unidade_tributavel: "KG", quantidade: 41.55, valor_unitario: 7.3, valor_desconto: 0,
+  cst_icms: "00", aliquota_icms: 12, reducao_base_icms_percentual: 0, cbenef: null, icms_modalidade_base_calculo: "3",
+  cst_ipi: "50", ipi_codigo_enquadramento_legal: "999", aliquota_ipi: 3.25,
+  cst_pis: "01", cst_cofins: "01", aliquota_pis: 1.65, aliquota_cofins: 7.6, ...extra,
+});
+const contextoDevolucao = (extraOperacao = {}, itens = [itemDevolucao()], extraSolicitacao = {}) => contexto({
+  solicitacao: solicitacao({
+    pedido_cliente: null,
+    observacao: "Tubo fora de medida",
+    destinatario_snapshot: {
+      id: null, nome: "ACOS AMERICA LTDA", documento: "08819200000182", inscricao_estadual: "255387644", indicador_ie: "1",
+      logradouro: "RUA DONA FRANCISCA", numero_endereco: "7796", complemento: null, bairro: "DISTRITO INDUSTRIAL",
+      cidade: "Joinville", uf: "SC", cep: "89219600", codigo_ibge_municipio: "4209102", telefone: "4734179500",
+    },
+    operacao_snapshot: {
+      ...solicitacao().operacao_snapshot,
+      natureza_operacao: "DEVOLUCAO_COMPRA",
+      finalidade_emissao: 4,
+      destinacao_mercadoria: null,
+      consumidor_final: 0,
+      presenca_comprador: 9,
+      modalidade_frete: 0,
+      transportador: null,
+      volumes: [{ quantidade: 1, peso_liquido: 41.55, peso_bruto: 41.55 }],
+      nfe_referenciada: CHAVE_ACOS,
+      pagamento: { forma: "90", indicador: 0, descricao: null, parcelas: null, fatura_numero: null },
+      devolucao_compra: {
+        nf_entrada_id: 2205, operacao_id: "o", chave: CHAVE_ACOS, numero: "121481", serie: "3", data_emissao: "24/08/2026",
+        emitente_nome: "ACOS AMERICA LTDA", cfop: "5201", ambito: "INTERNA", itens_texto: "ITEM 2 (401014): 41,55 KG DE 2.742,30 KG",
+        itens: [{ ordem: 1, nitem: 2, codigo: "401014" }],
+        chave_referencia_homologacao: "42260913671448000189550020000000641164283751",
+        referencia_homologacao_nitem: 1,
+      },
+      ...extraOperacao,
+    },
+    ...extraSolicitacao,
+  }),
+  itens,
+});
+const devolucao = montarPayloadNfe(contextoDevolucao());
+assert.equal(devolucao.natureza_operacao, "DEVOLUCAO DE COMPRA PARA INDUSTRIALIZACAO");
+assert.equal(devolucao.finalidade_emissao, 4, "devolucao e finNFe 4 nos dois ambientes");
+assert.equal(devolucao.local_destino, 1);
+assert.equal(devolucao.consumidor_final, 0);
+assert.equal(devolucao.presenca_comprador, 9);
+// Nota de teste: destinatario = a propria empresa (VC02-50), com o nome de homologacao.
+assert.equal(devolucao.cnpj_destinatario, devolucao.cnpj_emitente, "em homologacao a devolucao sai para a propria empresa");
+assert.equal(devolucao.inscricao_estadual_destinatario, devolucao.inscricao_estadual_emitente);
+assert.equal(devolucao.municipio_destinatario, devolucao.municipio_emitente);
+assert.equal(devolucao.nome_destinatario, "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL");
+// NFref: em homologacao a NF-e de homologacao da empresa para ela mesma (a SEFAZ de teste
+// recusa com 321 a chave real, uma NF-e de venda da empresa e a origem como nota modelo 1);
+// em producao a chave real. A comparacao entre ambientes tolera o grupo.
+const CHAVE_HOM = "42260913671448000189550020000000641164283751";
+assert.equal("notas_referenciadas" in devolucao, false, "devolucao sem NFref no cabecalho: a referencia e por item (rejeicao 1010 com os dois)");
+assert.throws(
+  () => montarPayloadNfe(contextoDevolucao({ devolucao_compra: { ...contextoDevolucao().solicitacao.operacao_snapshot.devolucao_compra, chave_referencia_homologacao: null } })),
+  /devolução em homologação precisa de uma NF-e de homologação da empresa para ela mesma/,
+);
+// DFeReferenciado do item (NT 2025.002-RTC): na nota de teste, a referencia e o item 1 dela; na
+// real, a chave de entrada e o nItem 2 de origem.
+assert.equal(devolucao.items[0].chave_acesso_dfe_referenciado, CHAVE_HOM);
+assert.equal(devolucao.items[0].numero_item_dfe_referenciado, "1");
+const devolucaoProducao = montarPayloadNfe({ ...contextoDevolucao(), emissao: { ambiente: "PRODUCAO", referencia_externa: "NFEP-DEV", tenant_id: "t", empresa_id: "e" } });
+assert.equal(devolucaoProducao.finalidade_emissao, 4);
+assert.equal("notas_referenciadas" in devolucaoProducao, false);
+assert.equal(devolucaoProducao.items[0].chave_acesso_dfe_referenciado, CHAVE_ACOS, "a nota real referencia a chave de entrada no item");
+assert.equal(devolucaoProducao.items[0].numero_item_dfe_referenciado, "2", "nItem de origem do item devolvido");
+assert.equal(devolucaoProducao.cnpj_destinatario, "08819200000182", "a nota real vai ao fornecedor");
+assert.equal(devolucaoProducao.inscricao_estadual_destinatario, "255387644");
+assert.equal(devolucaoProducao.nome_destinatario, "ACOS AMERICA LTDA");
+assert.doesNotThrow(() => validarPayloadProducaoContraHomologacao(devolucao, devolucaoProducao), "destinatario e referencias diferentes entre ambientes nao sao divergencia na devolucao");
+assert.throws(
+  () => validarPayloadProducaoContraHomologacao(devolucao, { ...devolucaoProducao, items: [{ ...devolucaoProducao.items[0], icms_aliquota: 17 }] }),
+  /diverge da homologacao autorizada no campo items\[0\]\.icms_aliquota/,
+);
+assert.throws(
+  () => montarPayloadNfe(contextoDevolucao({ devolucao_compra: { ...contextoDevolucao().solicitacao.operacao_snapshot.devolucao_compra, itens: [] } })),
+  /sem a nota de origem/,
+);
+// A finalidade continua congelada entre os ambientes.
+assert.throws(
+  () => validarPayloadProducaoContraHomologacao(retorno, { ...retornoProducao, finalidade_emissao: 4 }),
+  /diverge da homologacao autorizada no campo finalidade_emissao/,
+);
+assert.equal(devolucaoProducao.nome_destinatario, "ACOS AMERICA LTDA");
+assert.doesNotThrow(() => validarPayloadProducaoContraHomologacao(devolucao, devolucaoProducao));
+assert.equal(devolucao.items.length, 1);
+const itemD = devolucao.items[0];
+assert.equal(itemD.cfop, "5201");
+assert.equal(itemD.codigo_produto, "401014");
+assert.equal(itemD.unidade_comercial, "KG");
+assert.equal(itemD.quantidade_comercial, 41.55);
+assert.equal(itemD.valor_unitario_comercial, 7.3);
+assert.ok(Math.abs(itemD.valor_bruto - 303.315) < 0.006, `vProd proporcional (${itemD.valor_bruto})`);
+const vProdD = itemD.valor_bruto;
+assert.equal(itemD.icms_origem, 0);
+assert.equal(itemD.icms_situacao_tributaria, "00");
+assert.equal(itemD.icms_modalidade_base_calculo, "3");
+assert.equal(itemD.icms_base_calculo, vProdD, "IPI fora da base do ICMS, como na origem");
+assert.equal(itemD.icms_aliquota, 12);
+assert.equal(itemD.icms_valor, Math.round(vProdD * 12) / 100);
+assert.equal("codigo_beneficio_fiscal" in itemD, false);
+assert.equal(itemD.ipi_situacao_tributaria, "50");
+assert.equal(itemD.ipi_codigo_enquadramento_legal, "999");
+assert.equal(itemD.ipi_base_calculo, vProdD);
+assert.equal(itemD.ipi_aliquota, 3.25);
+assert.equal(itemD.ipi_valor, Math.round(vProdD * 3.25) / 100);
+assert.equal(itemD.pis_situacao_tributaria, "01");
+assert.equal(itemD.pis_base_calculo, Math.round((vProdD - itemD.icms_valor) * 100) / 100, "PIS/COFINS sem o ICMS na base, como na origem");
+assert.equal(itemD.pis_aliquota_porcentual, 1.65);
+assert.equal(itemD.cofins_situacao_tributaria, "01");
+assert.equal(itemD.cofins_aliquota_porcentual, 7.6);
+assert.equal(itemD.ibs_cbs_situacao_tributaria, "000");
+assert.equal(itemD.ibs_cbs_classificacao_tributaria, "000001");
+assert.equal(itemD.ibs_uf_aliquota, 0.1);
+assert.equal(itemD.cbs_aliquota, 0.9);
+assert.equal(itemD.valor_total_item, Math.round((vProdD + itemD.ipi_valor) * 100) / 100, "vItem com o IPI");
+assert.equal("valor_total_tributos" in devolucao, false, "sem tributos aproximados: nao e venda");
+assert.equal(devolucao.valor_produtos, vProdD);
+assert.equal(devolucao.valor_total, Math.round((vProdD + itemD.ipi_valor) * 100) / 100, "vNF = vProd + IPI");
+assert.deepEqual(devolucao.formas_pagamento, [{ forma_pagamento: "90", valor_pagamento: 0 }]);
+assert.equal("duplicatas" in devolucao, false);
+assert.equal(devolucao.modalidade_frete, 0, "modalidade da tela sem transportadora");
+assert.equal("nome_transportador" in devolucao, false);
+assert.deepEqual(devolucao.volumes, [{ quantidade: 1, especie: undefined, marca: undefined, numero: undefined, peso_liquido: 41.55, peso_bruto: 41.55 }]);
+assert.equal(
+  devolucao.informacoes_adicionais_fisco,
+  "DEVOLUCAO DE COMPRA REFERENTE A NF-E 121481 DE 24/08/2026. ICMS, IPI, PIS E COFINS DESTACADOS PROPORCIONALMENTE CONFORME A NOTA DE ORIGEM.",
+);
+assert.equal(
+  devolucao.informacoes_adicionais_contribuinte,
+  `DEVOLUCAO PARCIAL DA MERCADORIA RECEBIDA PELA NF-E N. 121481 SERIE 3 DE 24/08/2026, CHAVE ${CHAVE_ACOS}. ITEM 2 (401014): 41,55 KG DE 2.742,30 KG. SEM COBRANCA. | Tubo fora de medida`,
+);
+assert.doesNotMatch(devolucao.informacoes_adicionais_contribuinte, /Chave da NF-e referenciada/);
+assert.doesNotMatch(devolucao.informacoes_adicionais_contribuinte, /Destinação informada/);
+// Transportadora informada entra com a modalidade escolhida.
+const devolucaoTransp = montarPayloadNfe(contextoDevolucao({ modalidade_frete: 1, transportador: { nome: "EXPRESSO SAO MIGUEL", documento: "01234567000189", uf: "SC" } }));
+assert.equal(devolucaoTransp.modalidade_frete, 1);
+assert.equal(devolucaoTransp.nome_transportador, "EXPRESSO SAO MIGUEL");
+assert.equal(devolucaoTransp.cnpj_transportador, "01234567000189");
+// Origem 1 da nota do fornecedor nao pede equiparacao: e espelho, nao venda.
+assert.doesNotThrow(() => montarPayloadNfe(contextoDevolucao({}, [itemDevolucao({ origem_mercadoria: 1 })])));
+// O que barra: finalidade errada, CFOP fora da natureza, desconto, pagamento, referencia, origem, frete.
+assert.throws(() => montarPayloadNfe(contextoDevolucao({ finalidade_emissao: 1 })), /devolução de compra sai com finalidade 4, e a conferência trouxe 1/);
+assert.throws(
+  () => montarPayloadNfe(contexto({ solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, finalidade_emissao: 4 } }) })),
+  /finalidade 4 \(devolução\) só vale para a devolução de compra/,
+);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({}, [itemDevolucao({ cfop: "5902" })])), /DEVOLUCAO_COMPRA nao possui cClassTrib aprovado para o CFOP 5902/);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({}, [itemDevolucao({ valor_desconto: 10 })])), /desconto 10 \(a devolução espelha a origem/);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({ pagamento: { forma: "15", indicador: 0 } })), /devolução de compra sai sem pagamento \(tPag 90/);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({ nfe_referenciada: "42260808819200000182550030001214821001242890" })), /chave referenciada da devolução não é a da NF-e de entrada/);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({ devolucao_compra: null })), /devolução de compra sem a nota de origem/);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({ modalidade_frete: 5 })), /modalidade do frete 5 não vale para a devolução de compra/);
+assert.throws(() => montarPayloadNfe(contextoDevolucao({ volumes: [] })), /informe ao menos um volume quando houver transporte/);
+
+console.log("218 cenarios locais do pipeline NF-e passaram.");

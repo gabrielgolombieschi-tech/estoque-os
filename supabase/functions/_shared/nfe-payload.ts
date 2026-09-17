@@ -14,6 +14,18 @@ import {
   textoRetornoTerceiros,
 } from "./fiscal/retorno-remessa-terceiros.ts";
 import {
+  CHAVES_DESTINATARIO_PAYLOAD,
+  CHAVES_ITEM_DFE_REFERENCIADO,
+  DEVOLUCAO_COMPRA,
+  destinatarioDeTesteDevolucao,
+  documentoReferenciadoDoItem,
+  ehNaturezaDevolucaoCompra,
+  lerOrigemDevolucaoCompra,
+  motivoItemForaDaDevolucaoCompra,
+  textoDevolucaoCompra,
+  textoFiscoDevolucaoCompra,
+} from "./fiscal/devolucao-compra.ts";
+import {
   conflitoDestinacaoAliquota,
   conflitoIpiNaBaseComAliquota,
   ehDestinatarioContribuinte,
@@ -138,9 +150,24 @@ function normalizarPayloadFiscal(value: unknown, ambiente: "HOMOLOGACAO" | "PROD
   payload.nome_destinatario = "<NOME_DESTINATARIO_POR_AMBIENTE>";
   delete payload.ambiente;
   delete payload.ambiente_emissao;
-  // NFref (retorno de terceiros) so vai na nota real: a SEFAZ de homologacao nao conhece a
-  // chave de producao referenciada (rejeicao 267). A chave continua congelada no infCpl.
+  // NFref (retorno de terceiros, devolucao) so vai na nota real: a SEFAZ de homologacao nao
+  // conhece a chave de producao referenciada (rejeicao 267/321). A chave continua congelada
+  // no infCpl.
   delete payload.notas_referenciadas;
+  // Devolucao de compra (NT 2025.002-RTC): a nota de teste tem a propria empresa como
+  // destinataria e referencia, no cabecalho e em cada item, a NF-e de homologacao da empresa;
+  // a real, o fornecedor e a nota de entrada. So esses campos, e so nesta natureza — o mesmo
+  // criterio de f.fn_nfe_payload_comparavel.
+  if (String(payload.natureza_operacao ?? "") === DEVOLUCAO_COMPRA.naturezas.DEVOLUCAO_COMPRA.natOp) {
+    for (const chave of CHAVES_DESTINATARIO_PAYLOAD) delete payload[chave];
+    if (Array.isArray(payload.items)) {
+      payload.items = payload.items.map((item) => {
+        const copia = { ...jsonObject(item, "item") };
+        for (const chave of CHAVES_ITEM_DFE_REFERENCIADO) delete copia[chave];
+        return copia;
+      });
+    }
+  }
   return ordenarJson(payload);
 }
 
@@ -305,9 +332,14 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   }
 
   const emitente = snapshot(solicitacao.emitente_snapshot, "emitente");
-  const destinatario = snapshot(solicitacao.destinatario_snapshot, "destinatário");
   const operacao = snapshot(solicitacao.operacao_snapshot, "operação");
   const natureza = naturezaOperacao(operacao.natureza_operacao);
+  // Devolucao de compra em homologacao: a nota de teste sai para a propria empresa, porque a
+  // SEFAZ de teste so aceita como referencia uma NF-e que ela conheca e exige o destinatario
+  // igual ao emitente da referenciada (fiscal/devolucao-compra.ts). A real vai ao fornecedor.
+  const destinatario = ehNaturezaDevolucaoCompra(natureza.codigo) && ambiente === "HOMOLOGACAO"
+    ? destinatarioDeTesteDevolucao(emitente)
+    : snapshot(solicitacao.destinatario_snapshot, "destinatário");
   const regraIbsCbs = resolverIbsCbsTransicao2026(natureza.codigo, agora);
   const ufEmitente = requiredText(emitente.uf, "UF do emitente").toUpperCase();
   const ufDestinatario = requiredText(destinatario.uf, "UF do destinatário").toUpperCase();
@@ -331,8 +363,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // Retorno de mercadoria de terceiros (fiscal/retorno-remessa-terceiros.ts): tambem sem
   // destinacao — a mercadoria nem e nossa e volta inteira ao remetente, sem cobranca.
   const retornoTerceiros = ehNaturezaRetornoTerceiros(natureza.codigo) ? natureza.codigo : null;
-  const semDestinacao = remessaConserto !== null || retornoTerceiros !== null;
+  // Devolucao de compra (fiscal/devolucao-compra.ts): finNFe 4, espelho proporcional da nota de
+  // entrada com os impostos da origem, sem destinacao e sem cobranca. O IPI fica fora da base
+  // do ICMS como na compra (destinacao nula => ipiNaBaseIcms 0).
+  const devolucaoCompra = ehNaturezaDevolucaoCompra(natureza.codigo) ? natureza.codigo : null;
+  const semDestinacao = remessaConserto !== null || retornoTerceiros !== null || devolucaoCompra !== null;
   const origemRetorno = retornoTerceiros ? lerOrigemRetornoTerceiros(operacao.retorno_terceiros) : null;
+  const origemDevolucao = devolucaoCompra ? lerOrigemDevolucaoCompra(operacao.devolucao_compra) : null;
   const destinacaoInformada = text(operacao.destinacao_mercadoria);
   if (!semDestinacao && !destinacaoInformada) {
     throw new Error("Solicitação incompleta: destinação da mercadoria não confirmada.");
@@ -474,7 +511,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // 5102/6102 ainda que destaque IPI (Resposta a Consulta SP 22712/2020). O 5101 e
     // so da fabricacao propria. Por isso a autorizacao do destaque e a flag, nunca
     // o CFOP.
-    if (origem === 1 && !equiparadoIndustrial) {
+    // Na devolucao de compra a origem e o IPI sao os da nota do fornecedor (espelho), nao da
+    // Segau: a regra da equiparacao e da venda.
+    if (origem === 1 && !equiparadoIndustrial && !devolucaoCompra) {
       throw new Error(
         `Emissão bloqueada: item ${codigo}, origem 1 (importação direta ou por conta e ordem) `
         + "sem a marca de equiparado a industrial no cadastro fiscal. Se a Segau importou, "
@@ -624,6 +663,11 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       }, retornoTerceiros);
       if (foraDoRetorno) throw new Error(`Emissão bloqueada: ${foraDoRetorno}.`);
     }
+    // Devolucao de compra: CFOP de devolucao e sem desconto; CST e aliquotas vem do XML de origem.
+    if (devolucaoCompra) {
+      const foraDaDevolucao = motivoItemForaDaDevolucaoCompra({ codigo, cfop, desconto }, devolucaoCompra);
+      if (foraDaDevolucao) throw new Error(`Emissão bloqueada: ${foraDaDevolucao}.`);
+    }
     valorProdutos = round(valorProdutos + bruto);
     valorDesconto = round(valorDesconto + desconto);
     valorIpi = round(valorIpi + ipiValor);
@@ -692,7 +736,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     }
     // Trava antes de qualquer envio a Focus: CST 20 (ou os 12% da alinea "a") num NCM
     // do Anexo 2, Art. 7º, VII sem cBenef. A conferencia da tela chama a mesma funcao.
-    const faltaCbenef = faltaCbenefAutomacaoSc({
+    // Beneficios de SC sao da venda; a devolucao espelha a tributacao do fornecedor.
+    const faltaCbenef = devolucaoCompra ? null : faltaCbenefAutomacaoSc({
       codigo,
       ncm,
       situacaoIcms,
@@ -701,7 +746,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       interestadual,
     });
     if (faltaCbenef) throw new Error(`Emissão bloqueada: ${faltaCbenef}.`);
-    if (temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
+    if (!devolucaoCompra && temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
       usaBeneficioReducaoSc = true;
       itensBeneficioReducaoSc.push(numeroItem);
     }
@@ -709,7 +754,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // reduzida ate a carga efetiva de 8,80% (17% interna ou 12% interestadual, nominais).
     // Sem isso a nota nao sai — nem a 12% direto, nem a 17% cheia (contador, 06/09/2026).
     // No retorno de terceiros a maquina volta ao dono com ICMS suspenso: o convenio e da venda.
-    if (!retornoTerceiros && temReducaoMaquinas5291(ncm)) {
+    if (!retornoTerceiros && !devolucaoCompra && temReducaoMaquinas5291(ncm)) {
       const carga = REDUCAO_MAQUINAS_CONVENIO_52_91.cargaEfetiva;
       if (situacaoIcms !== "20" || cargaEfetivaIcms === null || Math.abs(cargaEfetivaIcms - carga) > 0.01 || !text(item.cbenef)) {
         throw new Error(
@@ -776,6 +821,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       // contra 19.411,34 de soma dos vItem, os 1.892,61 de IPI de diferenca.
       valor_total_item: round(base + ipiValor),
       ...(text(solicitacao.pedido_cliente) ? { pedido_compra: text(solicitacao.pedido_cliente)?.slice(0, 15) } : {}),
+      // Devolucao: DFeReferenciado do item (chaveAcesso + nItem de origem), NT 2025.002-RTC.
+      ...(origemDevolucao ? documentoReferenciadoDoItem(origemDevolucao, ambiente, numeroItem) : {}),
     };
   });
 
@@ -796,6 +843,9 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // O retorno referencia a nota de origem em NFref (refNFe), nao so no texto.
   if (origemRetorno && origemRetorno.chave !== chaveReferenciada) {
     throw new Error("Solicitação incompleta: a chave referenciada do retorno não é a da NF-e de origem.");
+  }
+  if (origemDevolucao && origemDevolucao.chave !== chaveReferenciada) {
+    throw new Error("Solicitação incompleta: a chave referenciada da devolução não é a da NF-e de entrada.");
   }
   const aliquotaUnica = aliquotasIcms.size === 1 ? [...aliquotasIcms][0] : null;
   // Quando o benefício de automação está em uso, os 12% vêm do produto (saída
@@ -871,13 +921,14 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // O texto do retorno ja traz numero, serie, data e chave da origem; a linha generica da
     // chave referenciada seria repeticao.
     ...(origemRetorno ? [textoRetornoTerceiros(origemRetorno)] : []),
+    ...(origemDevolucao ? [textoDevolucaoCompra(origemDevolucao)] : []),
     ...(itensExcecaoAliquota12.length > 0 || !destinacao
       ? []
       : [textoDestinacao(destinacao, aliquotaUnica, interestadual, usaBeneficioReducaoSc || usaBeneficioMaquinas5291)]),
     ...(text(solicitacao.pedido_cliente)
       ? [`Pedido de compra do cliente: ${text(solicitacao.pedido_cliente)}`]
       : []),
-    ...(chaveReferenciada && !origemRetorno ? [`Chave da NF-e referenciada: ${chaveReferenciada}`] : []),
+    ...(chaveReferenciada && !origemRetorno && !origemDevolucao ? [`Chave da NF-e referenciada: ${chaveReferenciada}`] : []),
     ...(observacaoSolicitacao ? [observacaoSolicitacao] : []),
   ].join(" | ");
   // Com indFinal = 1 e sem valor_total_tributos nosso, a Focus calcula o vTotTrib e ACRESCENTA
@@ -890,6 +941,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     : informacoesComplementares.slice(0, 5000);
 
   const finalidadeEmissao = requiredNumber(operacao.finalidade_emissao, "finalidade da emissão");
+  // finNFe 4 e da devolucao, e so dela: a SEFAZ exige a nota de origem em NFref.
+  if (devolucaoCompra && finalidadeEmissao !== DEVOLUCAO_COMPRA.finalidadeEmissao) {
+    throw new Error(`Solicitação incompleta: devolução de compra sai com finalidade 4, e a conferência trouxe ${finalidadeEmissao}.`);
+  }
+  if (!devolucaoCompra && finalidadeEmissao === DEVOLUCAO_COMPRA.finalidadeEmissao) {
+    throw new Error("Solicitação incompleta: finalidade 4 (devolução) só vale para a devolução de compra.");
+  }
   const presencaComprador = requiredNumber(operacao.presenca_comprador, "presença do comprador");
   // indPres 0 ("nao se aplica") e reservado a NF-e complementar ou de ajuste.
   // A 2/8 saiu com 0 numa venda normal; venda a distancia e 9 (nao presencial,
@@ -923,8 +981,11 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // tPag 90 (sem pagamento) e o da remessa: vPag 0 e sem indPag, como nas NF-e de
   // remessa de terceiros. Uma venda nao sai sem pagamento.
   const semPagamento = formaPagamento === REMESSA_CONSERTO.formaPagamento;
-  if (semPagamento && !remessaConserto && !retornoTerceiros) {
-    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa ou retorno de terceiros.");
+  if (semPagamento && !remessaConserto && !retornoTerceiros && !devolucaoCompra) {
+    throw new Error("Solicitação incompleta: forma de pagamento 90 (sem pagamento) só vale para remessa, retorno de terceiros ou devolução de compra.");
+  }
+  if (devolucaoCompra && (formaPagamento !== DEVOLUCAO_COMPRA.formaPagamento || indicadorPagamento !== 0)) {
+    throw new Error(`Solicitação incompleta: devolução de compra sai sem pagamento (tPag 90, à vista), e a conferência trouxe ${formaPagamento}.`);
   }
   if (remessaConserto && !semPagamento) {
     throw new Error(`Solicitação incompleta: remessa para conserto sai sem pagamento (tPag 90), e a conferência trouxe ${formaPagamento}.`);
@@ -986,9 +1047,12 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   // Retorno de terceiros: a modalidade e a escolhida na tela (0, 1, 3, 4 ou 9), sem o grupo
   // transportadora e sem rebaixar para 9 (Gabriel, 16/09/2026). Nas demais naturezas, sem
   // transportador a nota sai como 9.
-  const modalidadeFrete = nomeTransportador || retornoTerceiros ? modalidadeFreteInformada : 9;
+  const modalidadeFrete = nomeTransportador || retornoTerceiros || devolucaoCompra ? modalidadeFreteInformada : 9;
   if (retornoTerceiros && !(RETORNO_REMESSA_TERCEIROS.modalidadesFrete as readonly number[]).includes(modalidadeFrete)) {
     throw new Error(`Solicitação incompleta: modalidade do frete ${modalidadeFrete} não vale para o retorno de terceiros (0, 1, 3, 4 ou 9).`);
+  }
+  if (devolucaoCompra && !(DEVOLUCAO_COMPRA.modalidadesFrete as readonly number[]).includes(modalidadeFrete)) {
+    throw new Error(`Solicitação incompleta: modalidade do frete ${modalidadeFrete} não vale para a devolução de compra (0 a 4 ou 9).`);
   }
   if (nomeTransportador && modalidadeFrete === 9) {
     throw new Error("Solicitação incompleta: transportador informado é incompatível com modalidade 9 (sem transporte).");
@@ -1118,6 +1182,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     // continua no infCpl, e a nota real leva o NFref.
     ...(origemRetorno && ambiente === "PRODUCAO" ? { notas_referenciadas: [{ chave_nfe: origemRetorno.chave }] } : {}),
     ...(retornoTerceiros && origemRetorno ? { informacoes_adicionais_fisco: textoFiscoRetornoTerceiros(retornoTerceiros, origemRetorno) } : {}),
+    // Devolucao (finNFe 4 nos dois ambientes): desde 01/09/2026 a origem vai item a item
+    // (DFeReferenciado, acima) e SEM o NFref do cabecalho — com os dois a SEFAZ recusa
+    // (rejeicao 1010, "referenciamento a nivel de nota e a nivel de item", 17/09/2026).
+    // Producao: a chave real de entrada. Homologacao: a NF-e de homologacao da empresa para ela
+    // mesma (fiscal/devolucao-compra.ts). A comparacao producao x homologacao ignora o
+    // DFeReferenciado e o destinatario da nota de teste.
+    ...(origemDevolucao ? { informacoes_adicionais_fisco: textoFiscoDevolucaoCompra(origemDevolucao) } : {}),
     ...(informacoesComplementaresFinal
       ? { informacoes_adicionais_contribuinte: informacoesComplementaresFinal }
       : {}),

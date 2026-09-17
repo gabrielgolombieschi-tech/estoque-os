@@ -5,6 +5,7 @@ import { adminClient, corsHeaders, json, mensagemErro, responderOptions, userCli
 
 type Acao =
   | "CANCELAR"
+  | "CONSULTAR"
   | "TESTAR_CANCELAMENTO_FORA_PRAZO"
   | "CARTA_CORRECAO"
   | "EMAIL"
@@ -151,6 +152,25 @@ Deno.serve(async (request) => {
     }
 
     if (!focusConfigurado(ambiente)) throw new Error(`Ciclo de vida em ${ambiente} desativado ou sem credencial propria.`);
+
+    // Diagnostico: como a Focus entendeu a requisicao (requisicao_nota_fiscal) e o estado dela.
+    // Nada muda; serve para investigar rejeicao (a devolucao de compra, 17/09/2026: a SEFAZ dizia
+    // "sem documento fiscal referenciado" com notas_referenciadas no JSON enviado).
+    if (acao === "CONSULTAR") {
+      const consulta = await chamarFocus(`/v2/nfe/${encodeURIComponent(referencia)}?completa=1`, {}, ambiente);
+      const bruto = objeto(consulta.body);
+      return json({
+        ok: consulta.response.ok,
+        http: consulta.response.status,
+        status: bruto.status ?? null,
+        status_sefaz: bruto.status_sefaz ?? null,
+        mensagem_sefaz: bruto.mensagem_sefaz ?? null,
+        requisicao: bruto.requisicao_nota_fiscal ?? null,
+        erros: bruto.erros ?? null,
+        chaves: Object.keys(bruto),
+        bruto,
+      });
+    }
 
     if (acao === "CANCELAR" || acao === "TESTAR_CANCELAMENTO_FORA_PRAZO") {
       const testeForaPrazo = acao === "TESTAR_CANCELAMENTO_FORA_PRAZO";

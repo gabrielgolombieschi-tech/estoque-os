@@ -110,6 +110,18 @@ export const IBS_CBS_TRANSICAO_2026 = Object.freeze({
       pIBSMun: 0,
       pCBS: 0,
     } satisfies RegraIbsCbsTransicao2026),
+    // Devolucao de compra (17/09/2026): operacao tributada que espelha a NF-e de entrada; a
+    // NF 121481/3 da Acos America traz IBSCBS CST 000 / 000001 com 0,1% e 0,9%, a mesma regra
+    // de 2026 da venda (ADCT art. 125). Ver ./devolucao-compra.ts.
+    DEVOLUCAO_COMPRA: Object.freeze({
+      naturezaOperacao: "DEVOLUCAO_COMPRA",
+      cfops: Object.freeze(["5201", "6201", "5202", "6202"]),
+      cst: "000",
+      cClassTrib: "000001",
+      pIBSUF: 0.1,
+      pIBSMun: 0,
+      pCBS: 0.9,
+    } satisfies RegraIbsCbsTransicao2026),
   }),
 });
 

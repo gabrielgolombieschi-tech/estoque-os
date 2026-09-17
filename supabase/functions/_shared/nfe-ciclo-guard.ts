@@ -1,5 +1,6 @@
 export type AcaoCicloFiscal =
   | "CANCELAR"
+  | "CONSULTAR"
   | "TESTAR_CANCELAMENTO_FORA_PRAZO"
   | "CARTA_CORRECAO"
   | "EMAIL"

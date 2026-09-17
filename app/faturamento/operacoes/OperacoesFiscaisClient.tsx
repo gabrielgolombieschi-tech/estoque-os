@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import DevolucaoCompraPanel from "./DevolucaoCompraPanel";
 import RemessaConsertoPanel from "./RemessaConsertoPanel";
 import RetornoTerceirosPanel from "./RetornoTerceirosPanel";
 
 type Aba = "DEVOLUCAO" | "VENDA_ORDEM" | "REMESSA" | "RETORNO" | "REMESSA_OUTRAS" | "ESTORNO";
-type ItemXml = { nitem: number; codigo: string; descricao: string; quantidade_original: number; valor_unitario: number; cfop_original: string; cfop_proposto: string | null };
 type Operacao = { id: string; tipo: string; finalidade: string | null; status: string; cfop_confirmado: string | null; cfop_segunda_nota: string | null; chave_primeira_nota: string | null; chave_segunda_nota: string | null; valor_total: number; created_at: string };
 type Remessa = { id: string; operacao_remessa_id: string; finalidade: string; chave_remessa: string; destinatario_nome: string; remessa_em: string; dias_decorridos: number; prazo_dias: number | null; prazo_excedido: boolean };
 
@@ -30,9 +30,6 @@ export default function OperacoesFiscaisClient() {
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
   const [remessas, setRemessas] = useState<Remessa[]>([]);
 
-  const [nfEntradaId, setNfEntradaId] = useState("");
-  const [itensXml, setItensXml] = useState<ItemXml[]>([]);
-  const [selecionados, setSelecionados] = useState<Record<number, { quantidade: string; cfop: string }>>({});
   const [ovId, setOvId] = useState("");
   const [entrega, setEntrega] = useState({ cnpj: "", nome: "", logradouro: "", numero: "", bairro: "", municipio: "", uf: "SC", cep: "", codigo_municipio: "" });
   const [finalidade, setFinalidade] = useState("INDUSTRIALIZACAO");
@@ -75,29 +72,6 @@ export default function OperacoesFiscaisClient() {
   async function run(action: () => Promise<void>) {
     setBusy(true); setMessage("");
     try { await action(); await reload(); } catch (e) { setMessage(errorMessage(e)); } finally { setBusy(false); }
-  }
-
-  async function carregarEntrada() {
-    await run(async () => {
-      const { data, error } = await supabase.schema("f").rpc("fn_devolucao_compra_preparar", { p_nf_entrada_id: Number(nfEntradaId) });
-      if (error) throw error;
-      const rows = ((data as { itens?: ItemXml[] })?.itens ?? []);
-      setItensXml(rows);
-      setSelecionados(Object.fromEntries(rows.map((item) => [item.nitem, { quantidade: "0", cfop: item.cfop_proposto ?? "" }])));
-      setMessage(`XML validado: ${rows.length} item(ns). Selecione quantidades e confirme o CFOP de cada linha.`);
-    });
-  }
-
-  async function criarDevolucao() {
-    await run(async () => {
-      const itens = itensXml.flatMap((item) => {
-        const value = selecionados[item.nitem];
-        return Number(value?.quantidade) > 0 ? [{ nitem: item.nitem, quantidade: Number(value.quantidade), cfop_confirmado: value.cfop }] : [];
-      });
-      const { data, error } = await supabase.schema("f").rpc("fn_devolucao_compra_criar", { p_nf_entrada_id: Number(nfEntradaId), p_itens: itens });
-      if (error) throw error;
-      setMessage(`Devolução ${data} criada e validada contra o XML original.`);
-    });
   }
 
   async function criarVendaOrdem() {
@@ -163,14 +137,14 @@ export default function OperacoesFiscaisClient() {
 
   return <main className="mx-auto max-w-[1500px] space-y-6 p-6 text-zinc-100">
     <header className="flex flex-wrap items-start justify-between gap-4">
-      <div><div className="text-xs text-zinc-500">Faturamento › Operações fiscais</div><h1 className="text-2xl font-semibold">Operações que não nascem do botão Faturar</h1><p className="text-sm text-zinc-400">Remessa para conserto sai pelo pipeline de NF-e (homologação, liberação do perfil, produção). Devolução, venda à ordem e estorno seguem só em homologação.</p></div>
+      <div><div className="text-xs text-zinc-500">Faturamento › Operações fiscais</div><h1 className="text-2xl font-semibold">Operações que não nascem do botão Faturar</h1><p className="text-sm text-zinc-400">Remessa para conserto, retorno de terceiros e devolução de compra saem pelo pipeline de NF-e (homologação, liberação do perfil, produção). Venda à ordem e estorno seguem só em homologação.</p></div>
       <Link href="/faturamento/nfe" className={button}>Voltar para NF-e</Link>
     </header>
     {message && <div className="rounded border border-sky-700/50 bg-sky-950/30 p-3 text-sm text-sky-200">{message}</div>}
     <div className="flex flex-wrap gap-2">{(["REMESSA","RETORNO","DEVOLUCAO","VENDA_ORDEM","REMESSA_OUTRAS","ESTORNO"] as Aba[]).map((value)=><button key={value} onClick={()=>setAba(value)} className={`${button} ${aba===value?"border-sky-500 bg-sky-950/50":""}`}>{value==="REMESSA"?"REMESSA PARA CONSERTO":value==="RETORNO"?"RETORNO DE TERCEIROS":value==="REMESSA_OUTRAS"?"OUTRAS REMESSAS":value.replaceAll("_"," ")}</button>)}</div>
 
     <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-5">
-      {aba === "DEVOLUCAO" && <div className="space-y-4"><h2 className="font-semibold">Devolução de compra a partir da entrada</h2><div className="flex gap-2"><input className={field} value={nfEntradaId} onChange={e=>setNfEntradaId(e.target.value)} placeholder="ID da nota de entrada"/><button disabled={busy||!nfEntradaId} className={button} onClick={carregarEntrada}>Ler e validar XML</button></div>{itensXml.length>0&&<><div className="overflow-auto"><table className="w-full text-sm"><thead className="text-left text-zinc-500"><tr><th>Item</th><th>Descrição</th><th>Qtd. original</th><th>Qtd. devolver</th><th>CFOP entrada</th><th>CFOP confirmado</th></tr></thead><tbody>{itensXml.map(item=><tr key={item.nitem} className="border-t border-zinc-800"><td className="py-2">{item.nitem}</td><td>{item.descricao}</td><td>{item.quantidade_original}</td><td><input className={`${field} w-28`} type="number" min="0" max={item.quantidade_original} step="0.0001" value={selecionados[item.nitem]?.quantidade??"0"} onChange={e=>setSelecionados(s=>({...s,[item.nitem]:{...s[item.nitem],quantidade:e.target.value}}))}/></td><td>{item.cfop_original}</td><td><input className={`${field} w-28`} value={selecionados[item.nitem]?.cfop??""} onChange={e=>setSelecionados(s=>({...s,[item.nitem]:{...s[item.nitem],cfop:e.target.value}}))}/></td></tr>)}</tbody></table></div><button disabled={busy} className={button} onClick={criarDevolucao}>Criar devolução parcial</button></>}</div>}
+      {aba === "DEVOLUCAO" && scope.tenantId && scope.empresaId && <DevolucaoCompraPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
       {aba === "VENDA_ORDEM" && <div className="space-y-3"><h2 className="font-semibold">Venda à ordem — 6119 seguida de 6923</h2><input className={field} value={ovId} onChange={e=>setOvId(e.target.value)} placeholder="ID da OV"/><div className="grid gap-2 md:grid-cols-3">{Object.entries(entrega).map(([key,value])=><input key={key} className={field} value={value} onChange={e=>setEntrega(s=>({...s,[key]:e.target.value}))} placeholder={`Entrega: ${key}`}/>)}</div><button disabled={busy||!ovId} className={button} onClick={criarVendaOrdem}>Criar as duas etapas</button></div>}
       {aba === "REMESSA" && scope.tenantId && scope.empresaId && <RemessaConsertoPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
       {aba === "RETORNO" && scope.tenantId && scope.empresaId && <RetornoTerceirosPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}

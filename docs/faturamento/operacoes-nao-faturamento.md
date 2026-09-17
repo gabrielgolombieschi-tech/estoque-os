@@ -8,15 +8,19 @@ Nenhum perfil de operação foi habilitado para produção e nenhuma alíquota, 
 
 ## Caminho de cada operação
 
-### Devolução de compra
+### Devolução de compra (emitida pelo ERP desde 17/09/2026)
 
-1. Em **Faturamento > Outras operações**, informar o ID da entrada e carregar o XML armazenado.
-2. O ERP recusa a preparação se não houver XML ou chave de acesso de 44 dígitos.
-3. Para cada linha, informar a quantidade a devolver e confirmar o CFOP sugerido. É permitida devolução parcial, mas a soma das devoluções abertas/concluídas não pode superar a quantidade original.
-4. O ERP copia do XML código, descrição, NCM, unidade, quantidade, valor unitário, total, CFOP, CST e valores/alíquotas de ICMS, IPI, PIS e COFINS. Qualquer valor fiscal informado pelo cliente que divirja do XML é recusado com o nome do campo divergente.
-5. A chave da entrada é gravada em `nfe_referenciada` e acompanha o documento a ser emitido.
+Aba DEVOLUCAO de `/faturamento/operacoes`. Como a remessa para conserto e o retorno de terceiros,
+**emite** a NF-e pelo pipeline fiscal (homologação → liberação do perfil → produção). Passo a
+passo, tributação, a nota de referência de homologação e o estoque em
+[devolucao-compra.md](devolucao-compra.md).
 
-O CFOP é apenas proposto (`1101→5201`, `2101→6201`, `1551→5553`, `2556→6556`) e sempre exige confirmação humana. Um CFOP sem regra comprovada fica sem proposta e bloqueia a homologação até confirmação.
+Resumo: busca a nota de entrada importada com XML, `f.fn_devolucao_compra_preparar` lê o XML,
+a tela recebe a quantidade a devolver por item (a soma das devoluções de cada linha nunca passa
+do XML), CFOP 5201/6201 (5553/6556), frete e volumes; `f.fn_devolucao_compra_nfe_criar` monta a
+operação `DEVOLUCAO_COMPRA` e a solicitação (finNFe 4, espelho proporcional com os impostos do
+XML, IPI fora da base do ICMS, tPag 90, `DFeReferenciado` por item). A nota real dá baixa no
+estoque; sem saldo, fica a pendência na operação.
 
 ### Venda à ordem
 
