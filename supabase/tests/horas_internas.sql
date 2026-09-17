@@ -263,7 +263,8 @@ begin
   select array_agg(a.codigo order by a.ordem) into v_codigos
   from public.atividades_internas as a
   where a.tenant_id = '1d000000-0000-4000-8000-000000000010' and a.empresa_id = '1d000000-0000-4000-8000-000000000020';
-  if v_codigos is distinct from array['comercial', 'treinamento', 'manutencao_fabrica', 'administrativo', 'exames', 'integracao'] then
+  -- Garantia entrou em 20260917140000, entre a manutencao da fabrica e o administrativo.
+  if v_codigos is distinct from array['comercial', 'treinamento', 'manutencao_fabrica', 'garantia', 'administrativo', 'exames', 'integracao'] then
     raise exception 'catalogo de partida da empresa A: %', v_codigos;
   end if;
   select array_agg(a.codigo) into v_codigos
@@ -273,8 +274,8 @@ begin
   if exists (select 1 from public.atividades_internas as a where a.tenant_id = '1d000000-0000-4000-8000-000000000010' and not a.ativo) then
     raise exception 'atividade de partida nasceu inativa';
   end if;
-  if (select count(*) from public.atividades_internas as a where a.empresa_id = '1d000000-0000-4000-8000-000000000021') <> 6 then
-    raise exception 'empresa B devia nascer com as seis atividades';
+  if (select count(*) from public.atividades_internas as a where a.empresa_id = '1d000000-0000-4000-8000-000000000021') <> 7 then
+    raise exception 'empresa B devia nascer com as sete atividades';
   end if;
   if (select nome from public.atividades_internas where id = (select id from ids where nome = 'ATIV_MANUTENCAO_FABRICA')) <> 'Manutenção da fábrica' then
     raise exception 'nome da manutencao da fabrica';
@@ -313,20 +314,20 @@ declare
   v_visita uuid;
 begin
   select array_agg(a.codigo order by a.ordem, a.nome) into v_codigos from public.app_atividades_internas() as a;
-  if v_codigos is distinct from array['comercial', 'treinamento', 'manutencao_fabrica', 'administrativo', 'exames', 'integracao'] then
+  if v_codigos is distinct from array['comercial', 'treinamento', 'manutencao_fabrica', 'garantia', 'administrativo', 'exames', 'integracao'] then
     raise exception 'app_atividades_internas(): %', v_codigos;
   end if;
   if (select a.codigo from public.app_atividades_internas() as a limit 1) <> 'comercial' then
     raise exception 'app_atividades_internas devia vir em ordem, comercial primeiro';
   end if;
   select array_agg(a.codigo order by a.ordem, a.nome) into v_codigos from public.app_atividades_internas(true) as a;
-  if v_codigos is distinct from array['treinamento', 'manutencao_fabrica', 'administrativo', 'exames', 'integracao'] then
+  if v_codigos is distinct from array['treinamento', 'manutencao_fabrica', 'garantia', 'administrativo', 'exames', 'integracao'] then
     raise exception 'app_atividades_internas(true) nao devia trazer a comercial: %', v_codigos;
   end if;
 
-  if (select count(*) from public.web_atividades_internas_listar()) <> 6
+  if (select count(*) from public.web_atividades_internas_listar()) <> 7
      or (select sum(em_uso) from public.web_atividades_internas_listar()) <> 0 then
-    raise exception 'cadastro devia listar as seis sem uso';
+    raise exception 'cadastro devia listar as sete sem uso';
   end if;
 
   -- Nova, inativa, codigo tirado do nome (sem acento).
@@ -337,8 +338,8 @@ begin
   if (select codigo from public.web_atividades_internas_listar() where id = v_visita) <> 'visita_tecnica' then
     raise exception 'codigo tirado do nome: %', (select codigo from public.web_atividades_internas_listar() where id = v_visita);
   end if;
-  if (select count(*) from public.web_atividades_internas_listar()) <> 7 then raise exception 'cadastro devia listar a inativa'; end if;
-  if (select codigo from public.web_atividades_internas_listar() offset 6 limit 1) <> 'visita_tecnica' then
+  if (select count(*) from public.web_atividades_internas_listar()) <> 8 then raise exception 'cadastro devia listar a inativa'; end if;
+  if (select codigo from public.web_atividades_internas_listar() offset 7 limit 1) <> 'visita_tecnica' then
     raise exception 'a inativa devia vir por ultimo no cadastro';
   end if;
   if exists (select 1 from public.app_atividades_internas() where id = v_visita) then raise exception 'inativa apareceu no aplicativo'; end if;
@@ -384,7 +385,7 @@ set local role authenticated;
 do $catalogo_coord$
 declare r jsonb;
 begin
-  if (select count(*) from public.web_atividades_internas_listar()) <> 7 then raise exception 'coordenacao nao listou o cadastro'; end if;
+  if (select count(*) from public.web_atividades_internas_listar()) <> 8 then raise exception 'coordenacao nao listou o cadastro'; end if;
   r := public.web_atividade_interna_salvar((select id from ids where nome = 'ATIV_VISITA'), 'visita_tecnica', 'Visita ao cliente', false, false, 80);
   if not pg_temp.ok(r) then raise exception 'coordenacao nao salvou: %', r; end if;
 end $catalogo_coord$;
@@ -395,7 +396,7 @@ select pg_temp.como('1d000000-0000-4000-8000-000000000007');
 set local role authenticated;
 do $catalogo_admin$
 begin
-  if (select count(*) from public.web_atividades_internas_listar()) <> 7 then raise exception 'admin nao listou o cadastro'; end if;
+  if (select count(*) from public.web_atividades_internas_listar()) <> 8 then raise exception 'admin nao listou o cadastro'; end if;
 end $catalogo_admin$;
 reset role;
 select pg_temp.sistema();
@@ -422,7 +423,7 @@ set local role authenticated;
 do $catalogo_ana$
 begin
   perform pg_temp.cadastro_fechado('APONTADOR');
-  if (select count(*) from public.app_atividades_internas()) <> 6 then raise exception 'ANA devia ler as seis ativas no aplicativo'; end if;
+  if (select count(*) from public.app_atividades_internas()) <> 7 then raise exception 'ANA devia ler as sete ativas no aplicativo'; end if;
 end $catalogo_ana$;
 reset role;
 select pg_temp.sistema();
@@ -489,7 +490,7 @@ begin
   end;
 
   -- Seis de partida, a visita, comercial2 e manutencao_da_fabrica_x; nada das recusadas.
-  if (select count(*) from public.web_atividades_internas_listar()) <> 9 then
+  if (select count(*) from public.web_atividades_internas_listar()) <> 10 then
     raise exception 'cadastro devia ter 9 atividades: %', (select array_agg(l.codigo) from public.web_atividades_internas_listar() as l);
   end if;
 end $codigo$;
@@ -513,7 +514,7 @@ select pg_temp.sistema();
 
 do $empresa_nova$
 declare
-  v_seis constant text[] := array['comercial', 'treinamento', 'manutencao_fabrica', 'administrativo', 'exames', 'integracao'];
+  v_seis constant text[] := array['comercial', 'treinamento', 'manutencao_fabrica', 'garantia', 'administrativo', 'exames', 'integracao'];
   v_codigos text[];
 begin
   -- A migration semeou as empresas que ja existiam no banco.
@@ -1126,7 +1127,7 @@ begin
   -- So as ativas que nao pedem cliente, na ordem do cadastro (sem Comercial, sem as inativas).
   r := public.app_tablet_atividades(v_token);
   select array_agg(x.e->>'codigo' order by x.n) into v_codigos from jsonb_array_elements(r->'atividades') with ordinality as x(e, n);
-  if not pg_temp.ok(r) or v_codigos is distinct from array['treinamento', 'manutencao_fabrica', 'administrativo', 'exames', 'integracao'] then
+  if not pg_temp.ok(r) or v_codigos is distinct from array['treinamento', 'manutencao_fabrica', 'garantia', 'administrativo', 'exames', 'integracao'] then
     raise exception 'atividades do tablet: %', r;
   end if;
   r := public.app_tablet_atividades('token-que-nao-existe');
@@ -2039,6 +2040,83 @@ begin
   end;
   set local role authenticated;
 end $hora_antiga$;
+reset role;
+select pg_temp.sistema();
+
+-- =====================================================================================
+-- 12. Garantia (20260917140000): atividade de partida, sem OS nem cliente; a descricao e
+--     obrigatoria (a OS ou o cliente vai nela), menos no tablet, que nao tem o campo; e o
+--     resumo responde "quantas horas foram para garantia".
+-- =====================================================================================
+select pg_temp.como('1d000000-0000-4000-8000-000000000002');
+set local role authenticated;
+do $garantia$
+declare
+  r jsonb;
+  v_hoje date := pg_temp.d('hoje');
+  v_garantia uuid := pg_temp.ap('ATIV_GARANTIA');
+  v_ana constant text := '1d000000-0000-4000-8000-000000000101';
+begin
+  -- Sem descricao (ou so com espacos): recusa apontando o campo, nada gravado.
+  r := public.app_lancar_horas_internas(v_garantia, v_hoje, pg_temp.lote(v_ana, 2), null, null, null, null, true);
+  if pg_temp.ok(r) or (r->>'gravados')::integer <> 0 or not pg_temp.tem_erro(r, 'descricao') then
+    raise exception 'garantia sem descricao aceita: %', r;
+  end if;
+  r := public.app_lancar_horas_internas(v_garantia, v_hoje, pg_temp.lote(v_ana, 2), '   ', null, null, null, true);
+  if pg_temp.ok(r) or not pg_temp.tem_erro(r, 'descricao') then raise exception 'garantia com descricao em branco aceita: %', r; end if;
+  -- Com descricao: grava, sem OS e sem cliente.
+  r := public.app_lancar_horas_internas(v_garantia, v_hoje, pg_temp.lote(v_ana, 2), 'OS 282 Biancogres: troca do contator em garantia', null, null, null, true);
+  if not pg_temp.ok(r) or (r->>'gravados')::integer < 1 or r->>'atividade_nome' <> 'Garantia' then raise exception 'garantia com descricao recusada: %', r; end if;
+  insert into ids values ('AP_GARANTIA_ANA', (r->'apontamento_ids'->>0)::uuid);
+end $garantia$;
+reset role;
+select pg_temp.sistema();
+do $garantia_linha$
+declare
+  v public.apontamentos_horas;
+begin
+  select * into v from public.apontamentos_horas where id = pg_temp.ap('AP_GARANTIA_ANA');
+  if v.os_id is not null or v.atividade_id <> pg_temp.ap('ATIV_GARANTIA') or v.cliente_id is not null
+     or v.cliente_nome is not null or v.orcamento_descricao is not null or v.descricao not like 'OS 282%' then
+    raise exception 'linha da garantia: %', row_to_json(v);
+  end if;
+  if exists (select 1 from public.vw_apontamentos_horas_custo as c where c.apontamento_id = v.id) then
+    raise exception 'garantia entrou no custo de OS';
+  end if;
+end $garantia_linha$;
+
+-- Tablet do PIN: Garantia aparece e grava sem descricao (o tablet nao tem o campo).
+select pg_temp.como('1d000000-0000-4000-8000-000000000001');
+set local role authenticated;
+do $garantia_tablet$
+declare
+  r jsonb;
+  v_token text;
+begin
+  r := public.app_tablet_identificar('1234');
+  if not pg_temp.ok(r) then raise exception 'PIN 1234 para a garantia: %', r; end if;
+  v_token := r->>'sessao_token';
+  if not exists (select 1 from jsonb_array_elements(public.app_tablet_atividades(v_token)->'atividades') as a where a->>'codigo' = 'garantia') then
+    raise exception 'o tablet nao lista a Garantia';
+  end if;
+  r := public.app_tablet_lancar_horas_internas(v_token, pg_temp.ap('ATIV_GARANTIA'), pg_temp.d('hoje'), 1, 30, gen_random_uuid(), true);
+  if not pg_temp.ok(r) then raise exception 'garantia pelo tablet sem descricao: %', r; end if;
+end $garantia_tablet$;
+reset role;
+select pg_temp.sistema();
+
+-- Para onde foram as horas: 2 h da ANA pelo aplicativo + 1,5 h do BRUNO pelo tablet.
+select pg_temp.como('1d000000-0000-4000-8000-000000000005');
+set local role authenticated;
+do $garantia_resumo$
+declare
+  v_horas numeric;
+begin
+  select sum(r.horas) into v_horas
+  from public.web_horas_internas_resumo(pg_temp.d('hoje') - 60, pg_temp.d('hoje')) as r
+  where r.atividade_codigo = 'garantia';
+  if coalesce(v_horas, 0) <> 3.5 then raise exception 'resumo da garantia devia somar 3,5 h: %', v_horas; end if;
+end $garantia_resumo$;
 reset role;
 select pg_temp.sistema();
 

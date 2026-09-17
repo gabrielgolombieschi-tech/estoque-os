@@ -30,6 +30,7 @@ Atividade interna é um catálogo pequeno, por empresa, cadastrado pela gestão.
 | Administrativo | o resto do escritório que não é de OS nem de cliente |
 | Exames | exame periódico, admissional, demissional |
 | Integração | os primeiros dias de quem entra, antes de produzir |
+| Garantia | atendimento sem cobrança em algo já entregue (desde 17/09/2026, migration `20260917140000`). Não escolhe OS nem cliente: isso vai na **descrição, obrigatória** (menos no tablet, que não tem o campo). O que interessa é o total de horas de garantia no fim do ano, em "Para onde foram as horas" |
 
 Exames e Integração entram como itens próprios de propósito: daqui a um ano a pergunta
 vai ser "para onde foram as horas", e essa resposta só existe se cada coisa tiver o seu
