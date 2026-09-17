@@ -34,7 +34,8 @@
     "chrome:nfe:ciclo": "node scripts/chrome-nfe-ciclo.mjs",
     "chrome:ov": "node scripts/chrome-ov-listar.mjs",
     "chrome:ov:triagem": "node scripts/chrome-ov-triagem.mjs",
-    "test:nfe-tributos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-nfe-payload-tributos.mjs"
+    "test:nfe-tributos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-nfe-payload-tributos.mjs",
+    "test:importacao-remessa": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-importacao-remessa.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

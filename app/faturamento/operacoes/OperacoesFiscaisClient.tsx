@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import DevolucaoCompraPanel from "./DevolucaoCompraPanel";
+import ImportacaoRemessaPanel from "./ImportacaoRemessaPanel";
 import RemessaConsertoPanel from "./RemessaConsertoPanel";
 import RetornoTerceirosPanel from "./RetornoTerceirosPanel";
 
-type Aba = "DEVOLUCAO" | "VENDA_ORDEM" | "REMESSA" | "RETORNO" | "REMESSA_OUTRAS" | "ESTORNO";
+type Aba = "DEVOLUCAO" | "IMPORTACAO" | "VENDA_ORDEM" | "REMESSA" | "RETORNO" | "REMESSA_OUTRAS" | "ESTORNO";
 type Operacao = { id: string; tipo: string; finalidade: string | null; status: string; cfop_confirmado: string | null; cfop_segunda_nota: string | null; chave_primeira_nota: string | null; chave_segunda_nota: string | null; valor_total: number; created_at: string };
 type Remessa = { id: string; operacao_remessa_id: string; finalidade: string; chave_remessa: string; destinatario_nome: string; remessa_em: string; dias_decorridos: number; prazo_dias: number | null; prazo_excedido: boolean };
 
@@ -45,7 +46,7 @@ export default function OperacoesFiscaisClient() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const abaParam = params.get("aba");
-    if (abaParam === "ESTORNO" || abaParam === "DEVOLUCAO" || abaParam === "VENDA_ORDEM" || abaParam === "RETORNO") setAba(abaParam);
+    if (abaParam === "ESTORNO" || abaParam === "DEVOLUCAO" || abaParam === "IMPORTACAO" || abaParam === "VENDA_ORDEM" || abaParam === "RETORNO") setAba(abaParam);
     const documento = params.get("documento");
     if (documento) setDocumentoOriginal(documento);
   }, []);
@@ -141,10 +142,11 @@ export default function OperacoesFiscaisClient() {
       <Link href="/faturamento/nfe" className={button}>Voltar para NF-e</Link>
     </header>
     {message && <div className="rounded border border-sky-700/50 bg-sky-950/30 p-3 text-sm text-sky-200">{message}</div>}
-    <div className="flex flex-wrap gap-2">{(["REMESSA","RETORNO","DEVOLUCAO","VENDA_ORDEM","REMESSA_OUTRAS","ESTORNO"] as Aba[]).map((value)=><button key={value} onClick={()=>setAba(value)} className={`${button} ${aba===value?"border-sky-500 bg-sky-950/50":""}`}>{value==="REMESSA"?"REMESSA PARA CONSERTO":value==="RETORNO"?"RETORNO DE TERCEIROS":value==="REMESSA_OUTRAS"?"OUTRAS REMESSAS":value.replaceAll("_"," ")}</button>)}</div>
+    <div className="flex flex-wrap gap-2">{(["REMESSA","RETORNO","DEVOLUCAO","IMPORTACAO","VENDA_ORDEM","REMESSA_OUTRAS","ESTORNO"] as Aba[]).map((value)=><button key={value} onClick={()=>setAba(value)} className={`${button} ${aba===value?"border-sky-500 bg-sky-950/50":""}`}>{value==="REMESSA"?"REMESSA PARA CONSERTO":value==="RETORNO"?"RETORNO DE TERCEIROS":value==="REMESSA_OUTRAS"?"OUTRAS REMESSAS":value.replaceAll("_"," ")}</button>)}</div>
 
     <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-5">
       {aba === "DEVOLUCAO" && scope.tenantId && scope.empresaId && <DevolucaoCompraPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
+      {aba === "IMPORTACAO" && scope.tenantId && scope.empresaId && <ImportacaoRemessaPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
       {aba === "VENDA_ORDEM" && <div className="space-y-3"><h2 className="font-semibold">Venda à ordem — 6119 seguida de 6923</h2><input className={field} value={ovId} onChange={e=>setOvId(e.target.value)} placeholder="ID da OV"/><div className="grid gap-2 md:grid-cols-3">{Object.entries(entrega).map(([key,value])=><input key={key} className={field} value={value} onChange={e=>setEntrega(s=>({...s,[key]:e.target.value}))} placeholder={`Entrega: ${key}`}/>)}</div><button disabled={busy||!ovId} className={button} onClick={criarVendaOrdem}>Criar as duas etapas</button></div>}
       {aba === "REMESSA" && scope.tenantId && scope.empresaId && <RemessaConsertoPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
       {aba === "RETORNO" && scope.tenantId && scope.empresaId && <RetornoTerceirosPanel tenantId={scope.tenantId} empresaId={scope.empresaId} />}
