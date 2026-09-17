@@ -270,7 +270,7 @@ export default function NfeList() {
   const [docs, setDocs] = useState<DocumentoFiscalRow[]>([]);
   const [clientesById, setClientesById] = useState<Record<string, string>>({});
   const [fornecedoresById, setFornecedoresById] = useState<Record<string, string>>({});
-  const [osNumeroById, setOsNumeroById] = useState<Record<string, string>>({});
+  const [vinculoById, setVinculoById] = useState<Record<string, string>>({});
   const [pagamentosByDocId, setPagamentosByDocId] = useState<Record<string, PagamentoMeta>>({});
   const [empresaCatalog, setEmpresaCatalog] = useState(te.empresas);
 
@@ -532,7 +532,7 @@ export default function NfeList() {
           .filter((v): v is number => typeof v === "number")
       )
     );
-    const missing = ids.filter((id) => !(String(id) in osNumeroById));
+    const missing = ids.filter((id) => !(String(id) in vinculoById));
     if (!missing.length) return;
 
     const supabase = supabaseBrowser();
@@ -542,14 +542,16 @@ export default function NfeList() {
     const resolved = await Promise.all(
       missing.map(async (osId) => {
         const selection = await fetchOsSelectionById({ supabase, tenantId, empresaId, osId });
-        return { osId, numeroOs: selection?.numeroOs ?? "" };
+        // A nota pode estar presa a uma OS ou a uma OV (ordens_servico.tipo_documento):
+        // a coluna mostra "OS-356" ou "OV-364", nao o numero solto (Gabriel, 17/09/2026).
+        return { osId, vinculo: selection ? `${selection.tipoDocumento}-${selection.numeroOs}` : "" };
       })
     );
 
-    setOsNumeroById((prev) => {
+    setVinculoById((prev) => {
       const next = { ...prev };
       for (const item of resolved) {
-        next[String(item.osId)] = item.numeroOs;
+        next[String(item.osId)] = item.vinculo;
       }
       return next;
     });
@@ -660,7 +662,7 @@ export default function NfeList() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro inesperado ao carregar NF-e.");
       setDocs([]);
-      setOsNumeroById({});
+      setVinculoById({});
       setPagamentosByDocId({});
       setOffsetsByEmpresa({});
       setMoreByEmpresa({});
@@ -933,7 +935,7 @@ export default function NfeList() {
                 <th className="px-4 py-3 text-left font-medium">Serie</th>
                 <th className="px-4 py-3 text-left font-medium">Numero</th>
                 <th className="px-4 py-3 text-left font-medium">Parceiro</th>
-                <th className="px-4 py-3 text-left font-medium">OS vinculada</th>
+                <th className="px-4 py-3 text-left font-medium">Vínculo</th>
                 <th className="px-4 py-3 text-left font-medium">Chave</th>
                 <th className="px-4 py-3 text-left font-medium">Status NF-e</th>
                 <th className="px-4 py-3 text-left font-medium">Pagamento</th>
@@ -970,9 +972,9 @@ export default function NfeList() {
                     <td className="px-4 py-3 text-zinc-200">
                       {typeof r.cliente_id === "number" ? clientesById[String(r.cliente_id)] ?? `ID ${r.cliente_id}` : "-"}
                     </td>
-                    <td className="px-4 py-3 text-zinc-200">
+                    <td className="whitespace-nowrap px-4 py-3 text-zinc-200">
                       {typeof r.os_id_import === "number"
-                        ? osNumeroById[String(r.os_id_import)] || `ID ${r.os_id_import}`
+                        ? vinculoById[String(r.os_id_import)] || `ID ${r.os_id_import}`
                         : "-"}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-zinc-200" title={r.chave_acesso}>
