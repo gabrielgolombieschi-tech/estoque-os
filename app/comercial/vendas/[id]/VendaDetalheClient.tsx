@@ -228,6 +228,12 @@ export default function VendaDetalheClient() {
   const empresaId = te.empresaId;
 
   const [tab, setTab] = useState<Tab>("itens");
+  // Quem volta da tela de perfis (liberacao para producao) chega com ?aba=faturamento e
+  // cai direto na aba da NF-e, sem procurar o botao de novo (Gabriel, 17/09/2026).
+  useEffect(() => {
+    const aba = new URLSearchParams(window.location.search).get("aba");
+    if (aba === "itens" || aba === "compras" || aba === "faturamento" || aba === "historico") setTab(aba);
+  }, []);
   const [venda, setVenda] = useState<Venda | null>(null);
   const [itens, setItens] = useState<VendaItem[]>([]);
   const [catalogo, setCatalogo] = useState<ItemMeta[]>([]);

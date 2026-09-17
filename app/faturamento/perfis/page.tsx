@@ -4,11 +4,13 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const OV_PATH = /^\/comercial\/vendas\/(?:[1-9]\d*|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+// A OV volta ja na aba de faturamento (?aba=faturamento), onde esta o botao de producao.
+const OV_PATH = /^\/comercial\/vendas\/(?:[1-9]\d*|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:\?aba=[a-z]{1,20})?$/i;
 // A tela de faturar OS manda para ca quando falta perfil vigente para a destinacao.
 const OS_PATH = /^\/os\/[1-9]\d*\/faturar$/;
-// A remessa para conserto libera o perfil a partir da tela de operacoes.
-const OPERACOES_PATH = /^\/faturamento\/operacoes$/;
+// A remessa para conserto e o retorno de terceiros liberam o perfil a partir da tela de
+// operacoes, cada um na sua aba (?aba=RETORNO).
+const OPERACOES_PATH = /^\/faturamento\/operacoes(?:\?aba=[A-Z_]{1,20})?$/;
 const PROFILE_KEY = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

@@ -1781,7 +1781,7 @@ export default function OvNfeDraftsPanel({
                       {perfisDoRascunho.map((perfilId, index) => (
                         <Link
                           key={perfilId}
-                          href={`/faturamento/perfis?perfil=${perfilId}&solicitacao=${draft.id}&retorno=/comercial/vendas/${ovId}`}
+                          href={`/faturamento/perfis?perfil=${perfilId}&solicitacao=${draft.id}&retorno=${encodeURIComponent(`/comercial/vendas/${ovId}?aba=faturamento`)}`}
                           className="rounded border border-amber-700 px-2 py-1 text-xs font-medium underline hover:bg-amber-950/40"
                         >
                           {perfisDoRascunho.length === 1 ? "Revisar e liberar o perfil fiscal" : `Revisar e liberar perfil ${index + 1}`}

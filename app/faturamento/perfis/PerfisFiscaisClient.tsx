@@ -566,6 +566,13 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
       if (error) throw error;
       const response = data && typeof data === "object" ? (data as { mensagem?: unknown }) : null;
       setRelease((current) => ({ ...current, justificativa: "", confirmou: false }));
+      // Liberado, o proximo passo e emitir a nota real, e ele fica na tela de onde a pessoa
+      // veio (OV na aba de faturamento, OS, operacoes): volta para la sozinho. So quem
+      // abriu a tela de perfis por conta propria fica aqui vendo o resultado.
+      if (retorno !== "/faturamento/nfe") {
+        router.push(retorno);
+        return;
+      }
       await reload(selected.id);
       setNotice({
         kind: "success",
