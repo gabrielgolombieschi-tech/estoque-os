@@ -51,13 +51,17 @@ Todas têm `SET search_path TO 'pg_catalog'` e `row_security off`. "Linha" é a 
 não confere `auth.uid()` nem o tenant do chamador: qualquer papel com EXECUTE (até 18/09, o `anon`)
 podia voltar uma OS FATURADA de qualquer tenant para "concluída", desde que ela tivesse documento
 fiscal de saída vinculado e nenhuma nota válida (os guards das linhas 28–47 são sobre a OS, não
-sobre quem chama). Depois da migration 070000 só `authenticated` e `service_role` executam; um
-usuário autenticado de outro tenant ainda passa. **Não corrigida**: aguarda o ok do Gabriel.
-Correção proposta: exigir `session_user = 'postgres' or auth.jwt()->>'role' = 'service_role'`
-(ela é chamada pela finalização do cancelamento da NF-e, no banco) ou validar
-`p_tenant_id`/`p_empresa_id` contra `f.fn_operacao_assert_acesso()`.
+sobre quem chama). **Corrigida em 18/09/2026 com o ok do Gabriel** (migration
+`20260918110000_fn_os_reverter_faturada_sem_nota_checa_acesso.sql`): a primeira instrução é a
+checagem de acesso. Backend fiscal = `service_role` (a Edge que finaliza o cancelamento e dispara o
+gatilho `trg_documento_fiscal__reverter_os_faturada`, único chamador) ou sessão `postgres` sem JWT
+(migration, SQL editor). Qualquer sessão com usuário passa por `f.fn_operacao_assert_acesso()` e só
+pode informar o tenant e a empresa da própria sessão (42501 caso contrário). Teste
+`supabase/tests/os_reverter_faturada_acesso.sql`: usuário do tenant A com tenant B → recusado antes
+de ler a OS; empresa de outro tenant → recusado; sessão anônima → recusada; usuário certo → reverte a
+OS faturada sem nota e registra o evento com o seu uid; backend → passa.
 
-## 3. Schemas `public`, `a` e `m`: RPCs abertas ao anon (só mapa, nada revogado)
+## 3. Schemas `public`, `a` e `m`: RPCs abertas ao anon (mapa; revogadas em 18/09/2026, ver abaixo)
 
 Origem do EXECUTE do `anon`: em `public`, o privilégio padrão do Supabase (`pg_default_acl`:
 anon/authenticated/service_role); em `a` e `m`, o PUBLIC do PostgreSQL. O `site-segau` não usa
@@ -73,11 +77,27 @@ Supabase (nenhum arquivo cita `supabase`): **não há link público** que depend
 | `a.fn_map_papel_empresa`, `fn_map_papel_empresa_to_role`, `fn_map_papel_tenant`, `fn_map_papel_tenant_to_role` | nenhuma chamada no código; helpers de `a_is_tenant_role`/projeção de acessos | — |
 | `m.fn_orcamento_item_calcular` | nenhuma chamada no código; gatilho `trg_orcamento_item_biu` e `fn_orcamento_sync_itens` | — |
 
-Recomendação: revogar `anon` e PUBLIC das 24 e dar `authenticated` + `service_role` (mesmo desenho
-da migration 070000). As oito `app_*` do mobile continuam funcionando (sessão). As helpers precisam
-de `authenticated` porque gatilhos e funções SECURITY INVOKER rodam como o usuário da sessão; nada
-precisa de `anon`. Ponto de atenção antes de revogar: `fn_fix_nf_entrada_pos_import` e
-`fn_regerar_parcelas_titulo_from_xml` são de manutenção e podem estar em scripts fora do repositório.
+**Revogadas em 18/09/2026** (migration `20260918120000_public_a_m_rpcs_fechadas_para_anon.sql`, 25
+assinaturas: `fn_hh_sync_apontamento_key` tem duas sobrecargas): `revoke ... from public, anon` e
+`grant ... to authenticated, service_role`, com assert final sobre as 25. Varredura online depois:
+**0** RPCs `app_*`/`fn_*` abertas ao anon em public, a, m, c, f e graphql_public. Conferências
+feitas antes: as colunas geradas `documento_key` de fornecedores/clientes usam `fn_documento_key`
+(avaliadas como o usuário que grava, que continua com EXECUTE); a única policy RLS que passa por
+essas helpers (`empresas_select_a`, via `a_is_tenant_role` SECURITY DEFINER) é só para
+`authenticated`; nenhuma view é lida pelo anon. App mobile: não há suíte de testes (só `typecheck` e
+`lint`, os dois passam). Teste à mão no app (as oito RPCs continuam com `authenticated`): tela
+inicial (lista de OS e fluxo), detalhe de uma OS (apontamentos e resumo de materiais), lançar
+material em uma OS (por busca e por item), aba Orçamento (lista agrupada por cliente e detalhe do
+cliente).
+
+**Divergência encontrada**: o banco local recriado do zero tem **48 outras RPCs** `app_*`/`fn_*` de
+`public` abertas ao anon (`app_buscar_materiais`, `app_lancar_hh`, `app_listar_colaboradores`,
+`fn_usuario_pode_editar_apontamento`, ...) que **no online estão fechadas** (ACLs variadas: 18 só
+`authenticated`, 14 `authenticated`+`service_role`, 11 só o dono, 5 com `service_role`). O baseline
+faz `REVOKE ... FROM PUBLIC` e `GRANT ... TO authenticated` nelas, mas o privilégio padrão do
+Supabase em `public` dá `anon` e `service_role` explicitamente na criação, e o revoke do PUBLIC não
+tira esses grants; no online eles foram fechados fora das migrations. Proposta (não feita): migration
+que espelha as ACLs do online nessas 48, para o rebuild ficar igual.
 
 ## 4. Default privileges (migration `20260918080000_default_privileges_funcoes_sem_anon_public.sql`)
 
@@ -127,6 +147,26 @@ teste passa. Reproduzido no banco local: dois inserts com `default now()` na mes
 entre eles, `created_at` idêntico, e a ordem do claim devolveu `ENVIANDO`. Em produção as duas
 chamadas são transações diferentes (`created_at` distintos), por isso nunca apareceu lá; é o teste
 que expõe uma fragilidade real da função: a ordenação por uuid não é determinística e o claim
-`ENVIANDO` nunca é fechado. Sem correção sem o ok do Gabriel. Opções: (a) `finalizar` marcar o evento
-do claim como concluído; (b) o claim conferir `v_emissao.status` antes do ramo `ENVIANDO`; (c) o
-teste forçar `created_at` distintos.
+`ENVIANDO` nunca é fechado.
+
+**Corrigido em 18/09/2026 com o ok do Gabriel** (migration
+`20260918130000_documento_fiscal_evento_seq_e_claim_cancelamento.sql`, definições completas copiadas
+do banco, local = online por md5):
+
+- (a) `fn_nfe_cancelamento_{producao,homologacao}_claim`: a guarda por status (emissão ≠ AUTORIZADA →
+  55000) é a primeira verificação depois do lock da emissão, antes do ramo "aguardar" e da
+  reconciliação.
+- (b) os eventos são **append-only** (gatilho `documento_fiscal_evento_append_only` recusa UPDATE), então
+  o claim não é alterado: ele conta como encerrado assim que existe o evento do resultado que o
+  referencia (`resposta.claim_evento_id`, gravado pela finalização). As sete leituras de "último
+  cancelamento" (dois claims, duas finalizações, `fn_nfe_producao_pronta`,
+  `fn_nfe_producao_preparar_e_claimar` e o gatilho `trg_nfe_bloquear_producao_cancelamento_hom_pendente`)
+  ignoram claims com resultado, em qualquer ordem.
+- (c) `f.documento_fiscal_evento.seq` (sequência, ordem de inserção; as 669 linhas existentes
+  preenchidas uma vez pela ordem `created_at, id`, com o gatilho append-only desligado só nessa
+  transação) e as 12 funções que ordenavam `created_at desc, id desc` passam a `created_at desc, seq
+  desc`, inclusive as de NFS-e e de perfil.
+
+`faturamento_nfe_pipeline.sql` no local: antes da correção 5/10 (ordem antiga) e 0/10 com uma
+primeira versão que tentava atualizar o claim (barrada pelo append-only); com a versão final
+**10/10**. `importacao_remessa.sql` continua passando.
