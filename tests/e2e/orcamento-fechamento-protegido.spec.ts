@@ -26,6 +26,9 @@ async function prepararFechamento(page: Page, detalhe = false) {
   await expect(page.getByRole("button", { name: "Fechado", exact: true }).first()).toBeEnabled();
   if (detalhe) {
     await page.locator("tbody tr").first().getByRole("link").first().click();
+    await expect(page).toHaveURL(/\/comercial\/orcamentos\/[^/?]+/);
+    await expect(page.getByRole("heading", { name: "Orcamento", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Titulo", { exact: true })).toBeVisible();
   }
   await page.getByRole("button", { name: "Fechado", exact: true }).first().click();
   const modal = page.getByRole("dialog", { name: "Marcar como Fechado" });
