@@ -44,7 +44,7 @@ type Importacao = {
   id: string; status: string; awb: string; dir_numero: string; dir_data_registro: string; cfop: string; natureza_operacao: string;
   valor_aduaneiro_brl: number | string; ii_valor: number | string; bc_icms: number | string; icms_valor: number | string; valor_nota: number | string;
   gnre_valor: number | string; exportador_nome: string; courier_nome: string | null; nota_debito_numero: string | null; nota_debito_valor: number | string | null;
-  solicitacao_id: string | null; chave_nfe: string | null; nfe_numero: number | null; nfe_serie: number | null; created_at: string; credito_icms: boolean;
+  solicitacao_id: string | null; chave_nfe: string | null; nfe_numero: number | null; nfe_serie: number | null; created_at: string; credito_icms: boolean; teste: boolean;
   dados_json: {
     perfil_codigo?: string | null; uso_proprio?: string | null;
     estoque_movimentacoes?: Array<{ item_id: number; quantidade: number; custo_unitario: number }>; estoque_pendencias?: Array<{ codigo?: string; motivo?: string }>;
@@ -163,12 +163,14 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
   const [courier, setCourier] = useState({ servicos: "", armazenagem: "" });
   const [nd, setNd] = useState({ numero: "", valor: "", emissao: "", pago_em: "", conta_bancaria_id: "", forma_pagamento: "BOLETO", motivo_compra_id: "" });
   const [desemb, setDesemb] = useState({ local: "", uf: "", data: "" });
-  const [via, setVia] = useState("4");
+  const [via, setVia] = useState("11");
   const [intermedio, setIntermedio] = useState("1");
   const [observacao, setObservacao] = useState("");
   const [anexosNovos, setAnexosNovos] = useState<Array<{ tipo: string; file: File }>>([]);
   const [anexoTipo, setAnexoTipo] = useState("GNRE");
   const [substituir, setSubstituir] = useState(false);
+  // Teste de homologacao: convive com a DIR ja usada, nunca vai para producao (coluna f.importacao_remessa.teste).
+  const [teste, setTeste] = useState(false);
 
   // 5 · importacoes
   const [importacoes, setImportacoes] = useState<Importacao[]>([]);
@@ -183,7 +185,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase.schema("f").from("importacao_remessa")
-      .select("id,status,awb,dir_numero,dir_data_registro,cfop,natureza_operacao,valor_aduaneiro_brl,ii_valor,bc_icms,icms_valor,valor_nota,gnre_valor,exportador_nome,courier_nome,nota_debito_numero,nota_debito_valor,solicitacao_id,chave_nfe,nfe_numero,nfe_serie,created_at,credito_icms,dados_json")
+      .select("id,status,awb,dir_numero,dir_data_registro,cfop,natureza_operacao,valor_aduaneiro_brl,ii_valor,bc_icms,icms_valor,valor_nota,gnre_valor,exportador_nome,courier_nome,nota_debito_numero,nota_debito_valor,solicitacao_id,chave_nfe,nfe_numero,nfe_serie,created_at,credito_icms,teste,dados_json")
       .eq("empresa_id", empresaId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100);
     if (error) throw error;
     const lista = (data ?? []) as Importacao[];
@@ -327,7 +329,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
     const p: string[] = [];
     if (!dir) return p;
     if (bloqueios.length) p.push("A DIR está bloqueada (veja o passo 1).");
-    if (leitura?.em_uso && !substituir) p.push("A DIR já está em uso. Marque \"gerar de novo\" para cancelar a anterior (só sem nota real).");
+    if (leitura?.em_uso && !substituir && !teste) p.push("A DIR já está em uso. Marque \"gerar de novo\" para cancelar a anterior (só sem nota real) ou \"teste de homologação\".");
     if (!exp.nome.trim() || !exp.logradouro.trim()) p.push("Exportador: nome e endereço (conforme a invoice).");
     if (!/^\d{2,4}$/.test(exp.pais_codigo) || !exp.pais_nome.trim()) p.push("Exportador: país (código BACEN e nome).");
     itens.forEach((i, k) => {
@@ -344,7 +346,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
     if (nd.numero.trim() && !(numeroDecimal(nd.valor) > 0)) p.push("Valor da nota de débito do courier.");
     if (nd.numero.trim() && nd.pago_em && !nd.conta_bancaria_id) p.push("Nota de débito já paga: informe a conta bancária (ou deixe a data em branco para baixar depois).");
     return p;
-  }, [dir, bloqueios, leitura, substituir, exp, itens, conta, gnre.valor, desemb, nd, usoProprio, cfopEscolhido.creditoIcms, cfop]);
+  }, [dir, bloqueios, leitura, substituir, teste, exp, itens, conta, gnre.valor, desemb, nd, usoProprio, cfopEscolhido.creditoIcms, cfop]);
 
   // ---------------------------------------------------------------- 4 · gerar e homologar
   async function enviarAnexo(importacaoId: string, tipo: string, file: File) {
@@ -363,7 +365,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
     setBusy("gerar"); avisar("");
     try {
       const dados = {
-        xml: xmlDir, cfop, aliquota_icms: numeroDecimal(aliquota), substituir,
+        xml: xmlDir, cfop, aliquota_icms: numeroDecimal(aliquota), substituir, teste,
         gnre: { numero: gnre.numero.trim() || null, receita: gnre.receita.trim() || null, uf: gnre.uf.trim().toUpperCase() || null, valor: numeroDecimal(gnre.valor) },
         courier: { servicos: numeroDecimal(courier.servicos), armazenagem: numeroDecimal(courier.armazenagem) },
         nota_debito: nd.numero.trim() ? {
@@ -513,6 +515,9 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
         {dir && leitura?.em_uso ? (
           <label className="flex items-center gap-2 text-sm text-amber-200"><input type="checkbox" checked={substituir} onChange={(e) => setSubstituir(e.target.checked)} /> Gerar de novo: cancelar a importação anterior desta DIR (só possível sem NF-e real) e criar outra.</label>
         ) : null}
+        {dir ? (
+          <label className="flex items-center gap-2 text-sm text-zinc-300"><input aria-label="Teste de homologação" type="checkbox" checked={teste} onChange={(e) => setTeste(e.target.checked)} /> Teste de homologação: só emite em homologação, convive com a DIR já usada e não gera estoque nem contas a pagar</label>
+        ) : null}
       </section>
 
       {dir && conta ? (
@@ -608,7 +613,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                 <tr><td className="py-1 pr-3 text-zinc-400">BC ICMS = (vProd + II) ÷ (1 − {qtd(conta.aliquotaIcms, 2)}%)</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(conta.bcIcms)}</td></tr>
                 <tr><td className="py-1 pr-3 text-zinc-400">ICMS = BC × {qtd(conta.aliquotaIcms, 2)}%</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(conta.icms)}</td></tr>
                 <tr><td className="py-1 pr-3 text-zinc-400">GNRE paga</td><td className={`py-1 text-right tabular-nums ${conta.gnre === null ? "text-amber-300" : conta.gnreConfere ? "text-emerald-300" : "text-red-300"}`}>{conta.gnre === null ? "informe o valor" : `R$ ${formatarBrl(conta.gnre)} · diferença R$ ${formatarBrl(conta.diferencaGnre ?? 0)} ${conta.gnreConfere ? "· confere" : "· acima de R$ 0,05, bloqueia"}`}</td></tr>
-                <tr><td className="py-1 pr-3 text-zinc-400">IPI, PIS e COFINS (RTS)</td><td className="py-1 text-right tabular-nums">R$ 0,00 · CST IPI 03 (cEnq 999) · CST PIS/COFINS 98</td></tr>
+                <tr><td className="py-1 pr-3 text-zinc-400">IPI, PIS e COFINS (RTS)</td><td className="py-1 text-right tabular-nums">R$ 0,00 · CST IPI 02 (cEnq 319, RTS) · CST PIS/COFINS 71</td></tr>
                 <tr><td className="py-1 pr-3 text-zinc-400">vOutro = ICMS</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(conta.outrasDespesas)}</td></tr>
                 <tr className="font-semibold"><td className="py-1 pr-3">vNF = vProd + II + vOutro</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(conta.valorNota)}</td></tr>
                 <tr><td className="py-1 pr-3 text-zinc-400">IBS/CBS (2026, teste): base vProd + II = R$ {formatarBrl(ibsBase)} (sem ICMS e sem IPI, LC 214 art. 69) · IBS UF 0,1% · CBS 0,9%</td><td className="py-1 text-right tabular-nums">R$ {formatarBrl(ibsUf)} · R$ {formatarBrl(cbs)}</td></tr>
@@ -699,7 +704,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                   const ativa = imp.status !== "CANCELADA" && imp.status !== "CONCLUIDA";
                   const homAutorizada = hom?.status === "AUTORIZADA";
                   const podeHomologar = ativa && Boolean(imp.solicitacao_id) && !prod && (!hom || ["RASCUNHO", "REJEITADA", "ERRO"].includes(hom.status));
-                  const podeProduzir = ativa && homAutorizada && (!prod || ["RASCUNHO", "REJEITADA", "ERRO"].includes(prod.status));
+                  const podeProduzir = ativa && homAutorizada && !imp.teste && (!prod || ["RASCUNHO", "REJEITADA", "ERRO"].includes(prod.status));
                   const podeCancelar = ativa && (!prod || ["REJEITADA", "ERRO"].includes(prod.status));
                   const perfilCodigo = imp.dados_json?.perfil_codigo ?? null;
                   const linkPerfil = perfilCodigo && imp.solicitacao_id && !perfisLiberados.includes(`${perfilCodigo}|${imp.solicitacao_id}`)
@@ -715,6 +720,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                       <td className="py-2 pr-2 text-right tabular-nums whitespace-nowrap"><div>R$ {formatMoneyBR(numero(imp.valor_nota))}</div><div className="text-xs text-zinc-500">II {formatMoneyBR(numero(imp.ii_valor))} · ICMS {formatMoneyBR(numero(imp.icms_valor))}</div></td>
                       <td className="py-2 pr-2">
                         <div>{statusRotulo(imp.status)}</div>
+                        {imp.teste ? <span className="mt-1 inline-block rounded-full border border-sky-800 px-2 py-0.5 text-xs text-sky-300">TESTE de homologação</span> : null}
                         {imp.status === "CONCLUIDA" && (imp.dados_json?.estoque_movimentacoes?.length ?? 0) > 0 ? <span className="mt-1 inline-block rounded-full border border-emerald-800 px-2 py-0.5 text-xs text-emerald-300">estoque lançado</span> : null}
                         {pendencias.length > 0 ? <div className="mt-1 text-xs text-amber-300" title={pendencias.map((p) => `${p.codigo ?? "?"}: ${p.motivo ?? ""}`).join("; ")}>estoque pendente: {pendencias.map((p) => p.codigo).join(", ")}</div> : null}
                         {ap?.titulo_id ? <div className="mt-1 text-xs text-emerald-300">nota de débito {imp.nota_debito_numero ?? ""} no contas a pagar{ap.pagamento_id ? " (baixada)" : " (aprovada)"}{ap.criado === false ? " · já existia" : ""}</div> : null}

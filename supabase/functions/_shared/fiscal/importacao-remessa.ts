@@ -11,8 +11,8 @@
  *   - tpNF 0, idDest 3, finNFe 1, indPres 9; destinatario = exportador no exterior (idEstrangeiro
  *     opcional, UF EX, municipio 9999999 EXTERIOR, pais da tabela BACEN, indIEDest 9);
  *   - item: origem 1, CST ICMS 00 com modBC 3 e base "por dentro" (vProd + II) / (1 - aliquota),
- *     grupo II (vBC = vProd, vDespAdu 0, vII, vIOF 0), grupo DI com uma adicao, IPI CST 03/999,
- *     PIS/COFINS CST 98, IBS/CBS 000/000001 sobre valor aduaneiro + II — base do II acrescida dos
+ *     grupo II (vBC = vProd, vDespAdu 0, vII, vIOF 0), grupo DI com uma adicao, IPI CST 02/319,
+ *     PIS/COFINS CST 71, IBS/CBS 000/000001 sobre valor aduaneiro + II — base do II acrescida dos
  *     tributos do caput, sem o ICMS (LC 214/2025, art. 69, caput e §§ 1º e 2º) —, vOutro = ICMS
  *     (para o vNF fechar com a base do ICMS);
  *   - totais: vNF = vProd + vII + vOutro; sem frete (modFrete 9), sem cobranca (tPag 90).
@@ -35,10 +35,13 @@ export const IMPORTACAO_REMESSA = {
     origem: 1,
     cstIcms: "00",
     modalidadeBase: "3",
-    cstIpi: "03",
-    cEnqIpi: "999",
-    cstPis: "98",
-    cstCofins: "98",
+    // RTS (desde 18/09/2026): IPI 02 entrada isenta, cEnq 319 = remessas sujeitas ao regime de tributacao
+    // simplificada (RIPI, Decreto 7.212/2010, art. 54, XIX; DL 1.804/80; Portaria MF 156/99; RA art. 99).
+    // PIS/COFINS 71 = aquisicao com isencao (Lei 10.865/2004, art. 9, II, c).
+    cstIpi: "02",
+    cEnqIpi: "319",
+    cstPis: "71",
+    cstCofins: "71",
   },
   naturezas: {
     // natOp aceita 60 caracteres.

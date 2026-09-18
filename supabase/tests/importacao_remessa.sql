@@ -77,10 +77,10 @@ insert into f.perfil_operacao (
 ) values
   ('1e1a0000-0000-4000-8000-000000000301', '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002',
    'TESTE-IMPORTACAO-3101', 'Importacao industrializacao teste', 'NFE', 'IMPORTACAO_INDUSTRIALIZACAO', 'COMPRA PARA INDUSTRIALIZACAO - IMPORTACAO', '3',
-   '3101', '00', 17, '03', '999', '98', '98', 1, 0, 'INTERESTADUAL', array['EX']::text[], '9', 1, false, 'REVISAO', 'teste', false, '2026-09-17'),
+   '3101', '00', 17, '02', '319', '71', '71', 1, 0, 'INTERESTADUAL', array['EX']::text[], '9', 1, false, 'REVISAO', 'teste', false, '2026-09-17'),
   ('1e1a0000-0000-4000-8000-000000000302', '1e1a0000-0000-4000-8000-000000000001', '1e1a0000-0000-4000-8000-000000000002',
    'TESTE-IMPORTACAO-3556', 'Importacao consumo teste', 'NFE', 'IMPORTACAO_CONSUMO', 'COMPRA DE MATERIAL PARA USO OU CONSUMO - IMPORTACAO', '3',
-   '3556', '00', 17, '03', '999', '98', '98', 1, 1, 'INTERESTADUAL', array['EX']::text[], '9', 1, false, 'REVISAO', 'teste', false, '2026-09-17');
+   '3556', '00', 17, '02', '319', '71', '71', 1, 1, 'INTERESTADUAL', array['EX']::text[], '9', 1, false, 'REVISAO', 'teste', false, '2026-09-17');
 
 create temporary table imp_ctx (nome text primary key, valor text not null) on commit drop;
 grant all on imp_ctx to authenticated;
@@ -234,7 +234,7 @@ begin
   if v_imp.status <> 'RASCUNHO' or v_imp.awb <> '1ZJ451C10441551106' or v_imp.dir_numero <> '260191366846' or v_imp.dir_situacao <> '25'
      or v_imp.dir_data_registro <> '2026-09-09 14:34:00-03'::timestamptz or v_imp.ua_entrada <> '0817700'
      or v_imp.local_desembaraco not like 'AEROPORTO INTERNACIONAL DE VIRACOPOS%' or v_imp.uf_desembaraco <> 'SP' or v_imp.data_desembaraco <> '2026-09-09'
-     or v_imp.via_transporte <> 4 or v_imp.forma_intermedio <> 1 or v_imp.cambio <> 5.0856
+     or v_imp.via_transporte <> 11 or v_imp.forma_intermedio <> 1 or v_imp.cambio <> 5.0856
      or v_imp.valor_mercadoria_usd <> 45 or v_imp.frete_usd <> 41.12 or v_imp.valor_mercadoria_brl <> 228.85 or v_imp.frete_brl <> 209.11
      or v_imp.valor_aduaneiro_brl <> 437.97 or v_imp.ii_valor <> 262.78 or v_imp.aliquota_icms <> 17 or v_imp.bc_icms <> 844.28
      or v_imp.icms_valor <> 143.53 or v_imp.valor_nota <> 844.28 or v_imp.gnre_valor <> 143.53 or v_imp.gnre_receita <> '10005-6'
@@ -290,7 +290,7 @@ begin
      or v_sf.operacao_snapshot#>>'{importacao,awb}' <> '1ZJ451C10441551106' or v_sf.operacao_snapshot#>>'{importacao,dir_numero}' <> '260191366846'
      or v_sf.operacao_snapshot#>>'{importacao,dir_data_registro}' <> '2026-09-09' or v_sf.operacao_snapshot#>>'{importacao,dir_data_registro_texto}' <> '09/09/2026'
      or v_sf.operacao_snapshot#>>'{importacao,ua_entrada}' <> '0817700' or v_sf.operacao_snapshot#>>'{importacao,uf_desembaraco}' <> 'SP'
-     or v_sf.operacao_snapshot#>>'{importacao,data_desembaraco}' <> '2026-09-09' or (v_sf.operacao_snapshot#>>'{importacao,via_transporte}')::integer <> 4
+     or v_sf.operacao_snapshot#>>'{importacao,data_desembaraco}' <> '2026-09-09' or (v_sf.operacao_snapshot#>>'{importacao,via_transporte}')::integer <> 11
      or (v_sf.operacao_snapshot#>>'{importacao,forma_intermedio}')::integer <> 1
      or v_sf.operacao_snapshot#>>'{importacao,exportador_codigo}' <> 'SHENZHEN-HAOXIN-XUNJI-ELECTRONIC-TECHNOLOGY-TRADING-CO-LTD-'
      or (v_sf.operacao_snapshot#>>'{importacao,valor_aduaneiro}')::numeric <> 437.97 or (v_sf.operacao_snapshot#>>'{importacao,ii}')::numeric <> 262.78
@@ -316,8 +316,8 @@ begin
      or v_si.codigo_produto <> 'CQM1HCPU61' or v_si.descricao <> 'CONTROLADOR PROGRAMAVEL PLC CPU' or v_si.ncm <> '85371020'
      or v_si.cfop <> '3101' or v_si.cst_icms <> '00' or v_si.csosn is not null or v_si.aliquota_icms <> 17 or v_si.icms_modalidade_base_calculo <> '3'
      or v_si.cbenef is not null or v_si.reducao_base_icms_percentual <> 0
-     or v_si.cst_ipi <> '03' or v_si.ipi_codigo_enquadramento_legal <> '999' or v_si.aliquota_ipi is not null
-     or v_si.cst_pis <> '98' or v_si.cst_cofins <> '98' or v_si.aliquota_pis is not null or v_si.aliquota_cofins is not null
+     or v_si.cst_ipi <> '02' or v_si.ipi_codigo_enquadramento_legal <> '319' or v_si.aliquota_ipi is not null
+     or v_si.cst_pis <> '71' or v_si.cst_cofins <> '71' or v_si.aliquota_pis is not null or v_si.aliquota_cofins is not null
      or v_si.cst_ibs_cbs <> '000' or v_si.cclass_trib <> '000001' or (v_si.ibs_cbs_json->>'cbs_aliquota')::numeric <> 0.9
      or v_si.quantidade <> 1 or v_si.unidade <> 'UN' or v_si.unidade_tributavel <> 'UN' or v_si.valor_unitario <> 437.97
      or v_si.valor_desconto <> 0 or v_si.ordem <> 1 or v_si.origem_mercadoria <> 1
@@ -336,6 +336,25 @@ begin
   exception when sqlstate '23505' then
     if sqlerrm not like 'A DIR 260191366846 ja esta em uso na importacao ' || v_primeira::text || ' (status RASCUNHO).%' then raise; end if;
   end;
+
+  -- Teste de homologacao: convive com a DIR em uso (indice unico ignora testes), nao substitui a
+  -- anterior, e a leitura da DIR continua apontando a importacao real como "em uso".
+  v_res := f.fn_importacao_remessa_criar(v_base || jsonb_build_object('teste', true, 'observacao', 'teste de homologacao'));
+  if (v_res->>'teste')::boolean is not true or v_res->>'substituiu' is not null
+     or (select (i.teste, i.status, i.dados_json->>'teste') from f.importacao_remessa i where i.id = (v_res->>'importacao_id')::uuid) is distinct from (true, 'RASCUNHO'::text, 'true'::text)
+     or (select status from f.importacao_remessa where id = v_primeira) <> 'RASCUNHO' then
+    raise exception 'importacao de teste devia nascer ao lado da real, sem substituir: %', v_res;
+  end if;
+  if v_res->>'cst_ipi' <> '02' or v_res->>'cenq_ipi' <> '319' or v_res->>'cst_pis' <> '71' or v_res->>'cst_cofins' <> '71' then
+    raise exception 'CSTs do perfil nao chegaram ao retorno: %', v_res;
+  end if;
+  if (select r#>>'{em_uso,importacao_id}' from f.fn_importacao_remessa_ler_dir(v_xml) r) <> v_primeira::text then
+    raise exception 'a leitura da DIR devia ignorar a importacao de teste';
+  end if;
+  perform f.fn_importacao_remessa_cancelar((v_res->>'importacao_id')::uuid, 'Importacao de teste encerrada no teste');
+  if (select status from f.importacao_remessa where id = (v_res->>'importacao_id')::uuid) <> 'CANCELADA' then
+    raise exception 'importacao de teste nao cancelou';
+  end if;
 
   -- Gerar de novo: a anterior sai do caminho pelo fluxo auditado.
   v_res := f.fn_importacao_remessa_criar(v_base || jsonb_build_object('substituir', true, 'observacao', 'segunda geracao'));
@@ -377,7 +396,7 @@ begin
   if jsonb_array_length(v_ctx->'itens') <> 1
      or (v_ctx#>>'{solicitacao,operacao_snapshot,tipo_documento}')::integer <> 0
      or v_ctx#>>'{solicitacao,operacao_snapshot,importacao,dir_numero}' <> '260191366846'
-     or v_ctx#>>'{itens,0,solicitacao_item,cst_icms}' <> '00' or v_ctx#>>'{itens,0,solicitacao_item,cst_pis}' <> '98' then
+     or v_ctx#>>'{itens,0,solicitacao_item,cst_icms}' <> '00' or v_ctx#>>'{itens,0,solicitacao_item,cst_pis}' <> '71' then
     raise exception 'contexto de emissao errado';
   end if;
 end;

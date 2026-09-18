@@ -1363,15 +1363,15 @@ assert.throws(() => montarPayloadNfe(contextoDevolucao({ volumes: [] })), /infor
 
 // Importacao por remessa expressa (17/09/2026): NF-e de ENTRADA da CPU OMRON CQM1H-CPU61 (UPS
 // 1ZJ451C10441551106, DIR 260191366846): tpNF 0, idDest 3, exportador no exterior sem CNPJ, item
-// origem 1 CST 00 a 17% por dentro (BC 844,28 = (437,97 + 262,78) / 0,83), II 262,78, IPI 03/999,
+// origem 1 CST 00 a 17% por dentro (BC 844,28 = (437,97 + 262,78) / 0,83), II 262,78, IPI 02/319 (RTS),
 // PIS/COFINS 98, IBS/CBS sobre 700,75 (valor aduaneiro + II, sem o ICMS: LC 214 art. 69 § 2º, II),
 // vOutro = ICMS 143,53, vNF 844,28, grupo DI, tPag 90.
 const itemImportacao = (extra = {}) => linha({
   codigo_produto: "CQM1HCPU61", descricao: "CONTROLADOR PROGRAMAVEL PLC CPU", ncm: "85371020", cfop: "3101",
   origem_mercadoria: 1, unidade: "UN", unidade_tributavel: "UN", quantidade: 1, valor_unitario: 437.97, valor_desconto: 0,
   cst_icms: "00", aliquota_icms: 17, reducao_base_icms_percentual: 0, cbenef: null, icms_modalidade_base_calculo: "3",
-  cst_ipi: "03", ipi_codigo_enquadramento_legal: "999", aliquota_ipi: null,
-  cst_pis: "98", cst_cofins: "98", aliquota_pis: null, aliquota_cofins: null, ...extra,
+  cst_ipi: "02", ipi_codigo_enquadramento_legal: "319", aliquota_ipi: null,
+  cst_pis: "71", cst_cofins: "71", aliquota_pis: null, aliquota_cofins: null, ...extra,
 });
 const snapshotImportacao = (extra = {}) => ({
   importacao_id: "imp-1", awb: "1ZJ451C10441551106", courier_nome: "UPS DO BRASIL REMESSAS EXPRESSAS LTDA", courier_cnpj: "74155052000173",
@@ -1472,12 +1472,12 @@ assert.equal(itemI.icms_aliquota, 17);
 assert.equal(itemI.icms_valor, 143.53);
 assert.equal("icms_reducao_base_calculo" in itemI, false);
 assert.equal("codigo_beneficio_fiscal" in itemI, false);
-assert.equal(itemI.ipi_situacao_tributaria, "03");
-assert.equal(itemI.ipi_codigo_enquadramento_legal, "999");
+assert.equal(itemI.ipi_situacao_tributaria, "02");
+assert.equal(itemI.ipi_codigo_enquadramento_legal, "319");
 assert.equal("ipi_valor" in itemI, false);
-assert.equal(itemI.pis_situacao_tributaria, "98");
+assert.equal(itemI.pis_situacao_tributaria, "71");
 assert.equal("pis_valor" in itemI, false);
-assert.equal(itemI.cofins_situacao_tributaria, "98");
+assert.equal(itemI.cofins_situacao_tributaria, "71");
 assert.equal("cofins_valor" in itemI, false);
 assert.equal(itemI.ibs_cbs_situacao_tributaria, "000");
 assert.equal(itemI.ibs_cbs_classificacao_tributaria, "000001");
@@ -1554,8 +1554,8 @@ assert.equal(impDois.cbs_valor_total, 6.31, "4,32 + 1,99");
 assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cfop: "3102" })])), /IMPORTACAO_INDUSTRIALIZACAO nao possui cClassTrib aprovado para o CFOP 3102/);
 assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ origem_mercadoria: 0 })])), /origem 0 \(importação direta é origem 1\)/);
 assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_icms: "20", reducao_base_icms_percentual: 10 })])), /alíquota de ICMS da importação deve ser 17% sem redução/);
-assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_ipi: "50", aliquota_ipi: 5 })])), /IPI 50\/999 \(esperado 03\/999\)/);
-assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_pis: "01", aliquota_pis: 1.65 })])), /PIS\/COFINS 01\/98 \(esperado 98\/98\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_ipi: "50", ipi_codigo_enquadramento_legal: "999", aliquota_ipi: 5 })])), /IPI 50\/999 \(esperado 02\/319\)/);
+assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ cst_pis: "01", aliquota_pis: 1.65 })])), /PIS\/COFINS 01\/71 \(esperado 71\/71\)/);
 // Desconto tira o vProd do valor aduaneiro da DIR antes mesmo da checagem do item.
 assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ valor_desconto: 10 })])), /vProd \(427\.97\) difere do valor aduaneiro da DIR \(437\.97\)/);
 assert.throws(() => montarPayloadNfe(contextoImportacao({}, [itemImportacao({ valor_unitario: 400 })])), /vProd \(400\.00\) difere do valor aduaneiro da DIR \(437\.97\)/);
