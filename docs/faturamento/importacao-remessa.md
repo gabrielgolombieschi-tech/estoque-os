@@ -110,8 +110,15 @@ anexos, estoque e contas a pagar, cancelar).
    é "remessas postais internacionais sujeitas ao regime de tributação simplificada" (RIPI, Decreto
    7.212/2010, art. 54, XIX; tabela do Anexo XIV da NT 2015.002, que exige cEnq 3xx para CST 02).
    Até 17/09 a nota saía com 03/999 (a 2/24 fica assim).
-2. **PIS/COFINS na entrada: CST 71 (aquisição com isenção)**, sem valores — o RTS isenta
-   PIS/Pasep-Importação e Cofins-Importação (Lei 10.865/2004, art. 9º, II, "c"). Até 17/09 saía 98.
+2. **PIS/COFINS na entrada: CST 71 (aquisição com isenção)**, sem valores — Lei 10.865/2004, art. 9º:
+   "São isentas das contribuições de que trata o art. 1º desta Lei: [...] II – as hipóteses de: [...]
+   c) bagagem de viajantes procedentes do exterior e bens importados a que se apliquem os regimes de
+   tributação simplificada ou especial;". A alínea "c" **cobre destinatário pessoa jurídica**: ela
+   não restringe o destinatário (a restrição a pessoa física está só na alínea "b", "remessas postais e
+   encomendas aéreas internacionais, destinadas a pessoa física"); a condição é o bem estar sob o RTS,
+   e a própria DIR 260191366846 registra o regime 7 (RTS) para a Segau, com II de 60% e sem cobrança de
+   PIS/Pasep-Importação e Cofins-Importação. A IN RFB 1.737/2017 (remessas internacionais) é a norma que
+   aplica o RTS à remessa expressa. Até 17/09 a nota saía com 98.
 3. **Remetente da DIR ≠ exportador da invoice** (Shenzhen Cool Dream Supply × Shenzhen Haoxin Xunji):
    decisão operacional, sem base legal específica — o destinatário da NF-e de entrada é quem vendeu
    (invoice); o remetente logístico da DIR fica identificado no infCpl. Os dois constam na nota.
@@ -163,12 +170,20 @@ conta transitória (`f.conta_bancaria` só aceita BANCO e CAIXA) e baixa sem con
 exige conta bancária). Nesse padrão a despesa entra só pelo título do reembolso; não há um título
 ao fornecedor original baixado "por fora".
 
-- **Nota de débito UPS 2953830**: título AP da importação segue **APROVADO** até o ok do Gabriel.
-  Proposta (pendente de ok): cancelar o título da UPS com o motivo "pago pelo sócio; reembolso em
-  título próprio" e criar título AP MANUAL de R$ 557,25 ao fornecedor 362 (Gabriel), motivo
-  REEMBOLSO, rateio CONSUMO - MATERIAIS GERAIS (o mesmo do título da UPS), em aberto, observação
-  "Pago via PayPal, cartão pessoal do sócio; reembolsar". Quando a contadora definir a conta
-  contábil, o desenho pode virar conta transitória "Reembolso a sócio" + baixa do título original.
+- **Nota de débito UPS 2953830 — feito em 18/09/2026 com o OK do Gabriel** (migration
+  `20260918100000_reembolso_ups_2953830_socio.sql`, pelas RPCs do financeiro com a identidade dele):
+  título da UPS `258af6c2…` **CANCELADO** (parcela zerada, evento financeiro TITULO_AP_CANCELADO,
+  motivo "Pago pelo sócio (cartão pessoal via PayPal); reembolso em título próprio"); título AP
+  MANUAL `30a9391a…` de **R$ 557,25 ao fornecedor 362 (Gabriel), PENDENTE**, motivo REEMBOLSO,
+  rateio explícito 100% em CONSUMO - MATERIAIS GERAIS, emissão 10/09/2026 (data do pagamento pelo
+  sócio), vencimento 18/09/2026 (data do lançamento; ajustável na tela), descrição "REEMBOLSO - Nota
+  de débito UPS 2953830, importação 1ZJ451C10441551106, NF-e 2/24. Pago via PayPal, cartão pessoal
+  do sócio; reembolsar". A importação guarda os dois em `dados_json.ap` (`titulo_status`,
+  `cancelado_em`, `reembolso.titulo_id`), e a lista mostra "paga pelo sócio: título da UPS
+  cancelado, reembolso no contas a pagar". O gatilho pós-emissão não recria o título da UPS: ele
+  retorna antes de tudo quando a importação já tem `estoque_movimentacoes`, e a busca de título
+  existente ignora CANCELADO. Quando a contadora definir a conta contábil, o desenho pode virar
+  conta transitória "Reembolso a sócio" + baixa do título original.
 - **Pagamento ao exportador (US$ 86,12)**: continua **não implementado**. Mesmo caminho: cartão
   pessoal do sócio via PayPal; o **valor em reais vem da fatura do cartão** (câmbio do PayPal +
   IOF), não da DIR; **reembolso ao sócio** por título AP MANUAL (motivo REEMBOLSO); a **diferença**

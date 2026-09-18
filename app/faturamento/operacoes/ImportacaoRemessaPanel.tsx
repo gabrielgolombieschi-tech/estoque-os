@@ -48,7 +48,10 @@ type Importacao = {
   dados_json: {
     perfil_codigo?: string | null; uso_proprio?: string | null;
     estoque_movimentacoes?: Array<{ item_id: number; quantidade: number; custo_unitario: number }>; estoque_pendencias?: Array<{ codigo?: string; motivo?: string }>;
-    ap?: { titulo_id?: string | null; pagamento_id?: string | null; erro?: string | null; criado?: boolean };
+    ap?: {
+      titulo_id?: string | null; pagamento_id?: string | null; erro?: string | null; criado?: boolean; titulo_status?: string | null;
+      reembolso?: { titulo_id?: string; fornecedor_id?: number; valor?: number | string; status?: string } | null;
+    };
     icms_credito?: { valor?: number | string; status?: string; motivo?: string } | null;
     fiscal_itens?: Array<{ item_id: number; erro?: string; depois?: { equiparado_industrial?: boolean } }>;
     cancelamento?: { motivo?: string };
@@ -723,7 +726,9 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
                         {imp.teste ? <span className="mt-1 inline-block rounded-full border border-sky-800 px-2 py-0.5 text-xs text-sky-300">TESTE de homologação</span> : null}
                         {imp.status === "CONCLUIDA" && (imp.dados_json?.estoque_movimentacoes?.length ?? 0) > 0 ? <span className="mt-1 inline-block rounded-full border border-emerald-800 px-2 py-0.5 text-xs text-emerald-300">estoque lançado</span> : null}
                         {pendencias.length > 0 ? <div className="mt-1 text-xs text-amber-300" title={pendencias.map((p) => `${p.codigo ?? "?"}: ${p.motivo ?? ""}`).join("; ")}>estoque pendente: {pendencias.map((p) => p.codigo).join(", ")}</div> : null}
-                        {ap?.titulo_id ? <div className="mt-1 text-xs text-emerald-300">nota de débito {imp.nota_debito_numero ?? ""} no contas a pagar{ap.pagamento_id ? " (baixada)" : " (aprovada)"}{ap.criado === false ? " · já existia" : ""}</div> : null}
+                        {ap?.reembolso?.titulo_id ? (
+                          <div className="mt-1 text-xs text-sky-300" title={`Título do reembolso ${ap.reembolso.titulo_id}`}>nota de débito {imp.nota_debito_numero ?? ""} paga pelo sócio: título da UPS cancelado, reembolso de R$ {formatMoneyBR(numero(ap.reembolso.valor))} no contas a pagar{ap.reembolso.status ? ` (${ap.reembolso.status.toLowerCase()})` : ""}</div>
+                        ) : ap?.titulo_id ? <div className="mt-1 text-xs text-emerald-300">nota de débito {imp.nota_debito_numero ?? ""} no contas a pagar{ap.pagamento_id ? " (baixada)" : ap.titulo_status === "CANCELADO" ? " (cancelada)" : " (aprovada)"}{ap.criado === false ? " · já existia" : ""}</div> : null}
                         {ap?.erro ? <div className="mt-1 text-xs text-red-300" title={ap.erro}>contas a pagar pendente: {ap.erro}</div> : null}
                         {imp.dados_json?.icms_credito?.status === "PENDENTE_CONTADORA" ? <div className="mt-1 text-xs text-amber-300" title={imp.dados_json.icms_credito.motivo ?? ""}>crédito de ICMS R$ {formatMoneyBR(numero(imp.dados_json.icms_credito.valor))} pendente de aprovação da contadora</div> : null}
                         {(imp.dados_json?.fiscal_itens?.length ?? 0) > 0 ? <div className="mt-1 text-xs text-zinc-400">{imp.dados_json?.fiscal_itens?.some((f) => f.erro) ? `equiparação a industrial com erro: ${imp.dados_json?.fiscal_itens?.map((f) => f.erro).filter(Boolean).join("; ")}` : "item marcado como importado pela Segau (origem 1, equiparado a industrial)"}</div> : null}
