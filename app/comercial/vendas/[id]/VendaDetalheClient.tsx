@@ -1168,7 +1168,7 @@ export default function VendaDetalheClient() {
                   <th className="px-3 py-3">Item</th>
                   <th className="px-3 py-3 text-right">Quantidade</th>
                   <th className="px-3 py-3 text-right">Baixada</th>
-                  <th className="px-3 py-3 text-right">Custo unitário</th>
+                  <th className="px-3 py-3 text-right">Valor unitário</th>
                   <th className="px-3 py-3 text-right">Total</th>
                   <th className="px-3 py-3">Ações</th>
                 </tr>

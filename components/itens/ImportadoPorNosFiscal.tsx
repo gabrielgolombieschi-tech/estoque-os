@@ -90,7 +90,7 @@ export default function ImportadoPorNosFiscal({
     }
     if (!window.confirm(
       "Marcar este item como importado por nós?\n\n"
-      + "O cadastro fiscal passa a: origem 1 (importação direta), equiparado a industrial, "
+      + "O cadastro fiscal passa a: origem 1 (importação direta ou por conta e ordem), equiparado a industrial, "
       + "IPI CST 50 com a alíquota da TIPI do NCM. A próxima venda deste item destaca o IPI.\n\n"
       + `DIR/DI: ${dir.trim()}\nNota de entrada: ${nota.trim()}`,
     )) return;
@@ -122,18 +122,20 @@ export default function ImportadoPorNosFiscal({
   const marcado = Boolean(estado?.equiparado_industrial && estado?.importado_por_nos_em);
 
   return (
-    <section data-testid="importado-por-nos" className={`space-y-2 rounded-lg border p-3 ${marcado ? "border-emerald-900/70 bg-emerald-950/15" : "border-zinc-800 bg-zinc-900/30"}`}>
+    <section id="importado-por-nos" data-testid="importado-por-nos" className={`scroll-mt-24 space-y-2 rounded-lg border p-3 ${marcado ? "border-emerald-900/70 bg-emerald-950/15" : "border-zinc-800 bg-zinc-900/30"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-zinc-100">
-            Importado por nós (DIR/DI no nosso CNPJ)
+            Importado por nós: direto (courier/DI) ou por conta e ordem
             {marcado ? <span className="ml-2 rounded-full border border-emerald-700 px-2 py-0.5 text-xs font-normal text-emerald-200">marcado</span> : null}
           </div>
           <p className="mt-1 max-w-3xl text-xs text-zinc-400">
-            Quando a importação foi feita no nosso CNPJ (a DIR ou DI está em nosso nome), somos equiparados a industrial
-            e a venda deste item destaca o IPI da TIPI. Ex.: CPU de CLP comprada da China pela remessa expressa. Ao marcar, o
-            cadastro fica com origem 1, equiparado a industrial e IPI CST 50 com a alíquota do NCM. Comprado de distribuidor
-            no Brasil: não marque (origem 2, sem IPI).
+            Vale nos dois casos: <strong>direto</strong>, quando a Segau importou e a DIR/DI saiu no nosso CNPJ (ex.: CPU de CLP
+            pela remessa expressa), e <strong>por conta e ordem</strong>, quando um importador nacionaliza a mercadoria em nosso nome
+            (a nota dele vem como &ldquo;remessa por conta e ordem&rdquo; e a DI cita a Segau como adquirente). Nos dois, somos
+            equiparados a industrial e a venda deste item destaca o IPI da TIPI. Ao marcar, o cadastro fica com origem 1,
+            equiparado a industrial e IPI CST 50 com a alíquota do NCM. Comprado de distribuidor no Brasil, que já nacionalizou
+            por conta própria: não marque (origem 2, sem IPI).
           </p>
         </div>
         {podeEditar && !aberto ? (
@@ -159,25 +161,25 @@ export default function ImportadoPorNosFiscal({
       {aberto ? (
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-xs text-zinc-400">
-            Nº da DIR (12 dígitos) ou DI (10 dígitos) <span className="text-amber-300">obrigatório</span>
+            Nº da DIR (12 dígitos), DI (10 dígitos) ou DUIMP <span className="text-amber-300">obrigatório</span>
             <input
               aria-label="Número da DIR ou DI"
               className="w-full px-3 py-2"
               value={dir}
               onChange={(event) => setDir(event.target.value)}
               maxLength={20}
-              placeholder="Ex.: 260191366846"
+              placeholder="Ex.: 260191366846 (DIR) ou 2422904512 (DI)"
             />
           </label>
           <label className="space-y-1 text-xs text-zinc-400">
-            Nota de entrada da importação <span className="text-amber-300">obrigatório</span>
+            Nota de entrada (a da importação ou a do importador por conta e ordem) <span className="text-amber-300">obrigatório</span>
             <input
               aria-label="Nota de entrada da importação"
               className="w-full px-3 py-2"
               value={nota}
               onChange={(event) => setNota(event.target.value)}
               maxLength={60}
-              placeholder="Ex.: 2/24 (série/número) ou a chave de 44 dígitos"
+              placeholder="Ex.: 1/8509 (série/número) ou a chave de 44 dígitos"
             />
           </label>
           <div className="flex flex-wrap gap-2 md:col-span-2">
