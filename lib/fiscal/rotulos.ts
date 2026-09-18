@@ -140,3 +140,41 @@ export const FORMAS_PAGAMENTO_AP: OpcaoFiscal[] = [
   { codigo: "DINHEIRO", rotulo: "Dinheiro" },
   { codigo: "OUTROS", rotulo: "Outros" },
 ];
+
+// ------------------------------------------------------------- Faturar NFS-e
+
+/**
+ * Item da lista de servicos (LC 116/2003) em linguagem de quem fatura. So os que a Segau usa;
+ * item fora da lista cai no proprio codigo. Padrao da casa: texto simples + exemplo + codigo
+ * pequeno ao lado (docs/faturamento/rotulos-em-linguagem-simples.md).
+ */
+export const SERVICOS_LC116: OpcaoFiscal[] = [
+  { codigo: "14.01", rotulo: "Conserto, manutenção ou adequação de máquina do cliente", exemplo: "Ex.: adequar a máquina dele à NR-12; consertar um equipamento com defeito." },
+  { codigo: "14.06", rotulo: "Instalação e montagem de equipamento", exemplo: "Ex.: montar e instalar um painel na fábrica do cliente." },
+  { codigo: "17.09", rotulo: "Laudo, perícia ou parecer técnico", exemplo: "Ex.: laudo de NR-12 ou de aterramento, sem execução." },
+  { codigo: "07.02", rotulo: "Obra: execução com material próprio", exemplo: "Ex.: instalação elétrica predial em obra, com material fornecido." },
+];
+export function rotuloServicoLc116(item: string | null | undefined) {
+  return SERVICOS_LC116.find((s) => s.codigo === String(item ?? "")) ?? null;
+}
+
+/**
+ * Nome dos municipios que aparecem nas notas da Segau, para a tela falar "Joinville" e nao
+ * "4209102". Codigo desconhecido volta como codigo — nada e inventado.
+ */
+export const MUNICIPIOS_IBGE: Record<string, string> = {
+  "4209102": "Joinville",
+  "4202404": "Blumenau",
+  "4218004": "Tijucas",
+  "4215208": "Guaramirim",
+  "4216206": "São Francisco do Sul",
+  "4205407": "Florianópolis",
+  "4204202": "Criciúma",
+  "4211900": "Palhoça",
+  "4208203": "Itajaí",
+  "4106902": "Curitiba",
+};
+export function nomeMunicipioIbge(codigo: string | null | undefined) {
+  const c = String(codigo ?? "").replace(/\D/g, "");
+  return MUNICIPIOS_IBGE[c] ?? (c || "—");
+}

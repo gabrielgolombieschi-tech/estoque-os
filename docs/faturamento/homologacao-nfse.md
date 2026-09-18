@@ -86,7 +86,7 @@ Aceite dos PDFs: DANFSe da NFS-e 1 comparado com a NFS-e 35 real (mesmo tomador,
 | 16 | Retenções federais por serviço/tomador (IRRF 1,5% e PCC 4,65% nos laudos; nunca em 14.06/14.01?) e texto legal da discriminação | `retencao_*_regra`, `texto_complementar` |
 | 17 | INSS 11%: em quais serviços e sobre qual base (bruto ou só mão de obra) | `retencao_inss_regra`, `permite_deducao_material` |
 | 18 | Prazo de cancelamento da NFS-e Nacional em Joinville e códigos de substituição aceitáveis | `prazo_cancelamento_nfse_horas` |
-| 19 | PIS/COFINS próprios (CST 01, 1,65%/7,60%) e IBS/CBS 2026 (000/000001, 0,10%/0,90%) em serviços; `cIndOp` correto por serviço (hoje 050103, e 040101 na obra) | `cst_ibs_cbs`, `cclass_trib`, `cIndOp` |
+| 19 | ~~PIS/COFINS próprios (CST 01, 1,65%/7,60%)~~ **resolvido em 18/09/2026**: a DPS passou a levar `valor_pis` e `valor_cofins`; `cIndOp` virou 050102 (sem destinatário distinto do tomador) e o texto legal da retenção passou a citar a Lei 10.833/2003, arts. 30 e 31, e a IN SRF 459/2004. Ver [nfse-os-298-cremer.md](nfse-os-298-cremer.md). Falta só confirmar com a contadora a saída da IN RFB 2.141/2023 e a base do IBS/CBS (ISS só, ou ISS + PIS/COFINS) | — |
 | 20 | Série da DPS (2) e se a produção começa em 1 | `serie_dps`, `proximo_numero_dps` |
 | 21 | Perfil 07.02 (obra): dados da obra e retenções obrigatórios para desbloquear | `SEG-NFSE-0702` |
 | 22 | Totais aproximados dos tributos (Lei 12.741): usar IBPT como o emissor antigo (13,45% federal) ou PIS+COFINS+ISS como hoje | `valor_total_tributos_*` |

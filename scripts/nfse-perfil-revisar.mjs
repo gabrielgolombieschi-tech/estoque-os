@@ -35,10 +35,15 @@ const comum = {
   consumidor_final: 0, permite_deducao_material: false,
   tributos_aprox_federal_pct: 13.45,
 };
-const SEM_RETENCAO = "Serviço não sujeito à retenção de PIS/COFINS/CSLL, conforme IN RFB nº 2.141/2023.";
-// Texto exato do contador (06/09/2026, segunda rodada) para o 14.01 com CRF e sem IRRF.
-const COM_CRF = "SERVIÇO SUJEITO À RETENÇÃO DE CRF À ALÍQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) CONFORME IN RFB N° 2.141/2023. TRIBUTOS INCIDENTES SOBRE O PREÇO CONFORME LEI 12.741/2012.";
-const LAUDOS = "Serviço sujeito à retenção de IRRF (1,5%) conforme Art. 714 do RIR/2018, e CRF (4,65%, sendo PIS 0,65%, COFINS 3,0% e CSLL 1,0%) conforme IN RFB nº 2.141/2023. Valor aproximado dos tributos conforme Lei 12.741/2012: {VTOTTRIB}.";
+// Texto legal da retencao federal: Lei 10.833/2003, arts. 30 e 31 (a regra) e IN SRF 459/2004 (a
+// instrucao que manda o valor retido constar no documento fiscal). Decisao do Gabriel em
+// 18/09/2026, na NFS-e da OS 298: sai a citacao da IN RFB 2.141/2023 que estava nas frases desde
+// 06/09/2026. Divergencia a confirmar com a contadora, registrada em docs/faturamento.
+const CITACAO_RETENCAO = "Lei 10.833/2003, arts. 30 e 31, e IN SRF 459/2004";
+const SEM_RETENCAO = `Serviço não sujeito à retenção de PIS/COFINS/CSLL, conforme ${CITACAO_RETENCAO}.`;
+// Texto do contador (06/09/2026) para o 14.01 com CRF e sem IRRF, com a citacao de 18/09/2026.
+const COM_CRF = "SERVIÇO SUJEITO À RETENÇÃO DE CRF À ALÍQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) CONFORME LEI 10.833/2003, ARTS. 30 E 31, E IN SRF 459/2004. TRIBUTOS INCIDENTES SOBRE O PREÇO CONFORME LEI 12.741/2012.";
+const LAUDOS = `Serviço sujeito à retenção de IRRF (1,5%) conforme Art. 714 do RIR/2018, e CRF (4,65%, sendo PIS 0,65%, COFINS 3,0% e CSLL 1,0%) conforme ${CITACAO_RETENCAO}. Valor aproximado dos tributos conforme Lei 12.741/2012: {VTOTTRIB}.`;
 const valores = {
   // 14.06 (14.06.01): instalacao/montagem = empreitada com escopo fechado. ISS 5% sempre Joinville, sem retencao
   // (excecao: tomador substituto tributario, no cadastro do cliente). Sem INSS: cessao de mao de obra a Segau nao faz;
@@ -48,7 +53,7 @@ const valores = {
     codigo_tributacao_nacional: "140601", codigo_nbs: "120032900", descricao_servico_padrao: "INSTALACAO E MONTAGEM DE EQUIPAMENTOS ELETRICOS",
     local_prestacao_regra: "CLIENTE", incidencia_iss_regra: "PRESTADOR", aliquota_iss: 5.0,
     iss_retido_regra: "NUNCA", retencao_pcc_regra: "NUNCA", retencao_irrf_regra: "NUNCA", retencao_inss_regra: "NUNCA",
-    codigo_indicador_operacao: "050103", tributos_aprox_municipal_pct: 4.69,
+    codigo_indicador_operacao: "050102", tributos_aprox_municipal_pct: 4.69,
     texto_complementar: SEM_RETENCAO, texto_sem_retencao: SEM_RETENCAO,
   },
   // 14.01 (14.01.01): manutencao; CRF 4,65% por padrao (pergunta 3), excecoes conserto isolado, tomador do Simples e
@@ -59,7 +64,7 @@ const valores = {
     local_prestacao_regra: "CLIENTE", incidencia_iss_regra: "PRESTADOR", aliquota_iss: 5.0,
     iss_retido_regra: "NUNCA", retencao_pcc_regra: "SEMPRE", aliquota_pcc: 4.65, retencao_irrf_regra: "NUNCA", retencao_inss_regra: "NUNCA",
     excecao_conserto_isolado: true,
-    codigo_indicador_operacao: "050103", tributos_aprox_municipal_pct: 4.69,
+    codigo_indicador_operacao: "050102", tributos_aprox_municipal_pct: 4.69,
     texto_complementar: COM_CRF, texto_sem_retencao: SEM_RETENCAO,
   },
   // 17.09 (17.09.01): laudos e pericias; ISS retido pelo tomador; IRRF 1,5% (RIR/2018 art. 714) + CRF 4,65%.
@@ -68,7 +73,7 @@ const valores = {
     codigo_tributacao_nacional: "170901", codigo_nbs: "114044900", descricao_servico_padrao: "LAUDO TECNICO",
     local_prestacao_regra: "SEDE", incidencia_iss_regra: "PRESTADOR", aliquota_iss: 5.0,
     iss_retido_regra: "SEMPRE", retencao_pcc_regra: "SEMPRE", aliquota_pcc: 4.65, retencao_irrf_regra: "SEMPRE", aliquota_irrf: 1.5, retencao_inss_regra: "NUNCA",
-    codigo_indicador_operacao: "050103", tributos_aprox_municipal_pct: 3.64,
+    codigo_indicador_operacao: "050102", tributos_aprox_municipal_pct: 3.64,
     texto_complementar: LAUDOS, texto_sem_retencao: SEM_RETENCAO,
   },
   // 07.02 (07.02.01): obra eletrica/civil; ISS no municipio da obra, retido pelo tomador (SFS 2%, LC municipal;
@@ -90,7 +95,7 @@ const valores = {
 };
 const campos = valores[codigo];
 if (!campos) { console.error("Sem valores definidos para", codigo, "- disponiveis:", Object.keys(valores).join(", ")); process.exit(1); }
-const justificativa = process.argv[3] ?? `Revisao fiscal conforme respostas do contador de 06/09/2026 (docs/faturamento/respostas-contador-2026-09-06.md): ISS sempre Joinville sem retencao salvo substituto tributario; INSS so em cessao de mao de obra ou obra civil (07.02); CRF padrao no 14.01; PIS/COFINS proprios 1,65/7,60; frases da IN RFB 2.141/2023; cIndOp 050103 (bem movel) e 020201 (07.02, bem imovel); NBS 1.2003.29.00 e 1.0102.41.00. Perfil ${codigo}.`;
+const justificativa = process.argv[3] ?? `Revisao fiscal conforme respostas do contador de 06/09/2026 (docs/faturamento/respostas-contador-2026-09-06.md), com os dois ajustes decididos por Gabriel G. Mendes em 18/09/2026 na NFS-e da OS 298 (CREMER): texto legal da retencao federal passa a citar a Lei 10.833/2003, arts. 30 e 31, e a IN SRF 459/2004, saindo a IN RFB 2.141/2023; cIndOp do grupo de bem movel passa de 050103 para 050102, porque nao ha destinatario distinto do tomador. Seguem: ISS sempre Joinville sem retencao salvo substituto tributario; INSS so em cessao de mao de obra ou obra civil (07.02); CRF padrao no 14.01; PIS/COFINS proprios 1,65/7,60 (agora tambem enviados como valor na DPS); 020201 no 07.02 (bem imovel). Perfil ${codigo}.`;
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 const { error: loginError } = await supabase.auth.signInWithPassword({ email: process.env.E2E_EMAIL ?? "", password: process.env.E2E_PASSWORD ?? "" });

@@ -95,7 +95,8 @@ cenario("payload 14.06 sem retencao: campos obrigatorios e nomes da Focus", () =
   assert.equal(p.codigo_tributacao_nacional_iss, "140601");
   assert.equal(p.codigo_nbs, "120032900");
   assert.equal(p.codigo_interno_contribuinte, "OS328", "cIntContrib so alfanumerico");
-  assert.equal(p.codigo_indicador_operacao, "050103");
+  // Sem destinatario distinto do tomador o indicador do grupo 0501 e 050102 (18/09/2026).
+  assert.equal(p.codigo_indicador_operacao, "050102");
   assert.equal(p.pedido_compra, "4518");
   assert.equal(p.itens_pedido_compra, undefined);
   assert.equal(p.valor_servico, 1000);
@@ -104,6 +105,9 @@ cenario("payload 14.06 sem retencao: campos obrigatorios e nomes da Focus", () =
   assert.equal(p.tipo_retencao_iss, 1);
   assert.equal(p.situacao_tributaria_pis_cofins, "01");
   assert.equal(p.tipo_retencao_pis_cofins, 0);
+  // PIS/COFINS proprios (vPis/vCofins) vao junto com as aliquotas: 1,65% e 7,60% de 1.000.
+  assert.equal(p.valor_pis, 16.5);
+  assert.equal(p.valor_cofins, 76);
   assert.equal(p.valor_csll, undefined);
   assert.equal(p.valor_irrf, undefined);
   assert.equal(p.valor_cp, undefined);
@@ -140,6 +144,68 @@ cenario("INSS retido vira valor_cp", () => {
   assert.equal(p.valor_cp, 110);
   assert.equal(tipoRetencaoPisCofins(false), 0);
   assert.equal(tipoRetencaoPisCofins(true), 3);
+});
+
+// --- Ajustes de 18/09/2026 (NFS-e da OS 298, CREMER): PIS/COFINS proprios e cIndOp ------------
+// Caso real: 14.01, R$ 58.000,00, ISS 5% nao retido, CRF 4,65% retida, sem IRRF e sem INSS.
+const servicoCremer = {
+  perfil_codigo: "SEG-NFSE-1401", item_servico: "14.01", codigo_tributacao_nacional: "140101",
+  codigo_nbs: "120015000", municipio_prestacao_ibge: "4202404", aliquota_iss: 5,
+  valor_bruto: 58000, valor_iss: 2900, iss_retido: false,
+  retem_pcc: true, valor_pcc: 2697, retem_irrf: false, valor_irrf: 0, retem_inss: false, valor_inss: 0,
+  valor_liquido: 55303,
+  descricao_servico: "ADEQUACAO DE MAQUINA A NR-12 - COZINHA DE GOMA - OS 298. PEDIDO DE COMPRA: 148753.",
+  os_numeros: ["298"],
+};
+
+cenario("14.01 da OS 298: PIS/COFINS proprios, CRF retida e cIndOp 050102", () => {
+  const p = montarPayloadNfse(contexto({ servico: servicoCremer }), agora);
+  assert.equal(p.valor_servico, 58000);
+  assert.equal(p.valor_pis, 957, "PIS proprio 1,65% de 58.000");
+  assert.equal(p.valor_cofins, 4408, "COFINS proprio 7,60% de 58.000");
+  assert.equal(p.aliquota_pis, 1.65);
+  assert.equal(p.aliquota_cofins, 7.6);
+  assert.equal(p.tipo_retencao_pis_cofins, 3, "CRF retida");
+  assert.equal(p.valor_csll, 2697, "retencao vai somada, como nas notas reais");
+  assert.equal(p.valor_irrf, undefined);
+  assert.equal(p.valor_cp, undefined);
+  assert.equal(p.tipo_retencao_iss, 1, "ISS recolhido pela Segau");
+  assert.equal(p.codigo_indicador_operacao, "050102");
+  assert.equal(valorLiquidoNfse(contexto({ servico: servicoCremer }).solicitacao.operacao_snapshot.servico), 55303);
+});
+
+// Base do IBS/CBS na NFS-e: hoje o ERP reproduz o que o ambiente nacional devolveu nas NFS-e 32 e
+// 37 de agosto/2026 — servico menos o ISS (58.000 - 2.900 = 55.100). Excluir tambem PIS e COFINS
+// proprios (LC 214/2025, art. 12, §2º, IV), como a NF-e faz, daria 49.735,00. A DPS nao leva a
+// base; quem calcula e o ambiente nacional. Enquanto a diferenca nao for decidida, o teste fixa o
+// comportamento observado, para ninguem mudar sem querer.
+cenario("IBS/CBS da OS 298: base = servico - ISS (comportamento do ambiente nacional)", () => {
+  assert.deepEqual(calcularIbsCbsNfse({ valorServico: 58000, valorIss: 2900, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), {
+    base: 55100, ibsUf: 55.1, ibsMun: 0, cbs: 495.9, total: 551,
+  });
+  const comPisCofinsFora = 58000 - 2900 - 957 - 4408;
+  assert.equal(comPisCofinsFora, 49735, "a base pedida pelo Gabriel em 18/09/2026 exclui tambem PIS e COFINS proprios");
+});
+
+cenario("cIndOp: perfil 050103 sem destinatario distinto vira 050102; com destinatario distinto fica", () => {
+  const comPerfil = (extra) => montarPayloadNfse(contexto({ servico: { ...servicoCremer, codigo_indicador_operacao: "050103", tributacao_fonte: "PERFIL", ...extra } }), agora);
+  assert.equal(comPerfil({}).codigo_indicador_operacao, "050102");
+  assert.equal(comPerfil({ destinatario_distinto: true }).codigo_indicador_operacao, "050103");
+  // Fora do grupo 0501 o valor do perfil manda (obra).
+  assert.equal(
+    montarPayloadNfse(contexto({ servico: { ...servicoCremer, item_servico: "07.02", codigo_tributacao_nacional: "070201", codigo_indicador_operacao: "020201", tributacao_fonte: "PERFIL", obra: { codigo_obra: "123456789012" } } }), agora).codigo_indicador_operacao,
+    "020201",
+  );
+});
+
+cenario("PIS/COFINS proprios: valores da conferencia mandam; CST sem tributacao nao destaca valor", () => {
+  const daConferencia = montarPayloadNfse(contexto({ servico: { ...servicoCremer, valor_pis: 900, valor_cofins: 4000 } }), agora);
+  assert.equal(daConferencia.valor_pis, 900);
+  assert.equal(daConferencia.valor_cofins, 4000);
+  const semTributacao = montarPayloadNfse(contexto({ servico: { ...servicoCremer, cst_pis_cofins: "07", aliquota_pis: 0, aliquota_cofins: 0 } }), agora);
+  assert.equal(semTributacao.valor_pis, undefined);
+  assert.equal(semTributacao.valor_cofins, undefined);
+  assert.equal(semTributacao.situacao_tributaria_pis_cofins, "07");
 });
 
 cenario("pedido com item vira itens_pedido_compra", () => {
@@ -198,7 +264,9 @@ cenario("IBS/CBS no centavo: notas 32 e 37 reais (base = servico - ISS, meio-par
 
 cenario("cIndOp: perfil revisado sem cIndOp nao emite; fixture usa o provisorio so ate 30/09/2026; estaduais da tabela", () => {
   assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: null } }), agora), /codigo_indicador_operacao \(perfil de servico sem cIndOp/);
-  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: "050103" } }), agora).codigo_indicador_operacao, "050103");
+  // 050103 do perfil so permanece quando ha destinatario distinto do tomador (18/09/2026).
+  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: "050103", destinatario_distinto: true } }), agora).codigo_indicador_operacao, "050103");
+  assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "PERFIL", codigo_indicador_operacao: "050103" } }), agora).codigo_indicador_operacao, "050102");
   assert.equal(montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", item_servico: "07.02" } }), agora).codigo_indicador_operacao, "020201", "07.02 e servico sobre bem imovel (contador 06/09/2026)");
   // Competencia de outubro para a regra de competencia no mes da emissao nao falar antes do cIndOp.
   assert.throws(() => montarPayloadNfse(contexto({ servico: { tributacao_fonte: "FIXTURE_HOMOLOGACAO", data_competencia: "2026-10-01" } }), new Date("2026-10-01T12:00:00-03:00")), /obrigatorio desde 2026-10-01/);
@@ -258,7 +326,9 @@ cenario("producao so sai igual a homologacao (menos data, DPS, nome do tomador e
   const prod = montarPayloadNfse(contexto({ emissao: { ambiente: "PRODUCAO", dps_numero: 1 } }), new Date("2026-09-06T12:00:00Z"));
   validarPayloadNfseProducaoContraHomologacao(hom, prod);
   const divergente = montarPayloadNfse(contexto({ emissao: { ambiente: "PRODUCAO", dps_numero: 1 }, servico: { valor_bruto: 999 } }), agora);
-  assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, divergente), /diverge da homologacao autorizada no campo valor_servico/);
+  // O valor do servico arrasta PIS e COFINS proprios: a mensagem lista todos os campos.
+  assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, divergente), /diverge da homologacao autorizada nos campos .*valor_servico/);
+  assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, divergente), /valor_cofins.*valor_pis/);
   assert.throws(() => validarPayloadNfseProducaoContraHomologacao(hom, hom), /tomador real nao foi informado/);
 });
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { formasPagamentoNfe, textoOpcao } from "@/lib/fiscal/rotulos";
+import { formasPagamentoNfe, nomeMunicipioIbge, rotuloServicoLc116, textoOpcao } from "@/lib/fiscal/rotulos";
 import { formatMoneyBR } from "@/lib/decimal";
 import { codigoTributacaoExigeObra } from "@/supabase/functions/_shared/fiscal/nfse-obra";
 import { hojeSaoPaulo, pendenciaCompetenciaNfse } from "@/supabase/functions/_shared/fiscal/nfse-competencia";
@@ -33,7 +33,7 @@ export type PerfilServico = {
   permite_deducao_material?: boolean | null;
 };
 type Fixture = { item_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; descricao_servico_padrao: string; local_prestacao_regra: string; aliquota_iss: number | string | null; iss_retido_regra: string; retencao_pcc_regra: string; retencao_irrf_regra: string; retencao_inss_regra: string; aliquota_pcc: number | string | null; aliquota_irrf: number | string | null; aliquota_inss: number | string | null; pendencia_contador: string | null; fonte: string | null };
-type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; email_nfse: string | null; inscricao_municipal: string | null; codigo_ibge_municipio: string | null; cep: string | null; logradouro: string | null; numero_endereco: string | null; complemento: string | null; bairro: string | null };
+type ClienteNfse = { id: number; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; email_nfse: string | null; inscricao_municipal: string | null; codigo_ibge_municipio: string | null; cep: string | null; logradouro: string | null; numero_endereco: string | null; complemento: string | null; bairro: string | null; exige_pedido_compra?: boolean | null };
 // Local da obra (grupo obra da DPS, E0370): CNO ou endereco. Gravado pela conferencia em obra_dados.
 type LocalObra = { codigo_obra: string; cep: string; logradouro: string; numero: string; complemento: string; bairro: string };
 const OBRA_VAZIA: LocalObra = { codigo_obra: "", cep: "", logradouro: "", numero: "", complemento: "", bairro: "" };
@@ -58,6 +58,18 @@ function textoProibidoNfse(texto: string) {
   const t = texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
   return /M[AÃ]O[ -]+DE[ -]+OBRA/.test(t) ? "MÃO DE OBRA" : null;
 }
+/**
+ * O que é descontado do valor da nota até o líquido que a Segau recebe. O ISS só entra quando é
+ * retido pelo tomador; quando é nosso, sai à parte na guia do município e não muda o recebimento.
+ */
+function descontosNfse(previa: { valor_iss: number; iss_retido: boolean; valor_irrf: number; valor_pcc: number; valor_inss: number }) {
+  return [
+    previa.iss_retido ? { rotulo: "ISS retido", valor: num(previa.valor_iss) } : null,
+    num(previa.valor_pcc) > 0 ? { rotulo: "retenção federal (PIS/COFINS/CSLL)", valor: num(previa.valor_pcc) } : null,
+    num(previa.valor_irrf) > 0 ? { rotulo: "IRRF", valor: num(previa.valor_irrf) } : null,
+    num(previa.valor_inss) > 0 ? { rotulo: "INSS", valor: num(previa.valor_inss) } : null,
+  ].filter((d): d is { rotulo: string; valor: number } => Boolean(d));
+}
 function dataBR(iso: string | null | undefined) {
   const s = String(iso ?? "").slice(0, 10);
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "—";
@@ -66,7 +78,7 @@ const MOTIVO_REFAZER_PADRAO = "Refeita a pedido do tomador: competencia no mes d
 type OsLinha = { chave: number; os_id: number; os_numero: string; descricao: string; valor: string; saldo: number };
 type OsCandidata = { id: number; numero_os: string | null; descricao_servico: string | null; saldo: number };
 type Parcela = { dias: string; valor: string };
-type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; obra_dados: Partial<Record<keyof LocalObra, string | null>> | null; operacao_snapshot: { servico?: Record<string, unknown>; tributacao_fonte?: string | null } | null; substitui_documento_fiscal_id: string | null; substitui_solicitacao_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
+type Solicitacao = { id: string; status: string; perfil_operacao_id: string | null; municipio_prestacao_ibge: string | null; data_competencia: string | null; iss_retido: boolean | null; retem_pcc: boolean | null; retem_irrf: boolean | null; retem_inss: boolean | null; retencao_justificativa: string | null; valor_deducao_material?: number | string | null; pagamento_forma: string | null; pagamento_indicador: number | null; pagamento_descricao: string | null; pagamento_parcelas: Array<{ dias: number | string; valor: number | string | null }> | null; pedido_cliente: string | null; pedido_item: string | null; observacao: string | null; observacao_interna?: string | null; obra_dados: Partial<Record<keyof LocalObra, string | null>> | null; operacao_snapshot: { servico?: Record<string, unknown>; tributacao_fonte?: string | null } | null; substitui_documento_fiscal_id: string | null; substitui_solicitacao_id: string | null; substituicao_codigo: string | null; substituicao_motivo: string | null };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_nfse: string | null; nfse_numero: string | null; codigo_verificacao: string | null; dps_serie: number | null; dps_numero: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null; valor_liquido: number | string | null; autorizado_em: string | null };
 type Pendencia = { entidade?: string; campo?: string; mensagem?: string; rota?: string };
 type Previa = {
@@ -170,6 +182,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [pedidoCliente, setPedidoCliente] = useState("");
   const [pedidoItem, setPedidoItem] = useState("");
   const [observacao, setObservacao] = useState("");
+  // Observacao interna (f.solicitacao_faturamento.observacao_interna): fica no ERP, nunca na nota.
+  const [observacaoInterna, setObservacaoInterna] = useState("");
   const [solicitacao, setSolicitacao] = useState<Solicitacao | null>(null);
   const [emissao, setEmissao] = useState<Emissao | null>(null);
   const [previa, setPrevia] = useState<Previa | null>(null);
@@ -224,7 +238,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
     try {
       const [{ data: fx }, { data: cli }, { data: ef }] = await Promise.all([
         supabase.schema("f").from("tributacao_provisoria_nfse_homologacao").select("item_servico,codigo_tributacao_nacional,codigo_nbs,descricao_servico_padrao,local_prestacao_regra,aliquota_iss,iss_retido_regra,retencao_pcc_regra,retencao_irrf_regra,retencao_inss_regra,aliquota_pcc,aliquota_irrf,aliquota_inss,pendencia_contador,fonte").eq("ativo", true),
-        os.cliente_id ? supabase.from("clientes").select("id,iss_retido,retem_pcc,retem_irrf,retem_inss,email_nfse,inscricao_municipal,codigo_ibge_municipio,cep,logradouro,numero_endereco,complemento,bairro").eq("id", os.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
+        os.cliente_id ? supabase.from("clientes").select("id,iss_retido,retem_pcc,retem_irrf,retem_inss,email_nfse,inscricao_municipal,codigo_ibge_municipio,cep,logradouro,numero_endereco,complemento,bairro,exige_pedido_compra").eq("id", os.cliente_id).maybeSingle() : Promise.resolve({ data: null }),
         supabase.schema("f").rpc("fn_nfse_contexto_empresa", { p_empresa_id: empresaId }),
       ]);
       setFixtures((fx as Fixture[] | null) ?? []);
@@ -239,7 +253,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       let ativa: Solicitacao | null = null;
       let emissaoAtiva: Emissao | null = null;
       if (ids.length > 0) {
-        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,obra_dados,operacao_snapshot,substitui_documento_fiscal_id,substitui_solicitacao_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
+        const { data: sols } = await supabase.schema("f").from("solicitacao_faturamento").select("id,status,perfil_operacao_id,municipio_prestacao_ibge,data_competencia,iss_retido,retem_pcc,retem_irrf,retem_inss,retencao_justificativa,valor_deducao_material,pagamento_forma,pagamento_indicador,pagamento_descricao,pagamento_parcelas,pedido_cliente,pedido_item,observacao,observacao_interna,obra_dados,operacao_snapshot,substitui_documento_fiscal_id,substitui_solicitacao_id,substituicao_codigo,substituicao_motivo").in("id", ids).neq("status", "CANCELADA").order("created_at", { ascending: false }).limit(8);
         // Refazendo uma nota importada: so vale a solicitacao que refaz essa nota. Sem o filtro, outra NFS-e da OS
         // (rascunho ou autorizada) aparecia no lugar da composicao preenchida.
         const cands = ((sols as Solicitacao[] | null) ?? []).filter((c) => !refazer || c.substitui_documento_fiscal_id === refazer.documento_fiscal_id);
@@ -282,6 +296,7 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         setPedidoCliente(ativa.pedido_cliente ?? "");
         setPedidoItem(ativa.pedido_item ?? "");
         if (ativa.observacao && !/^NFS-e de servico da OS|^Substituicao da NFS-e/i.test(ativa.observacao)) setObservacao(ativa.observacao);
+        setObservacaoInterna(ativa.observacao_interna ?? "");
         const { data: its } = await supabase.schema("f").from("solicitacao_item").select("origem_id,descricao_servico,valor_servico,ordem").eq("solicitacao_id", ativa.id).order("ordem");
         const rows = (its as Array<{ origem_id: string; descricao_servico: string | null; valor_servico: number | string | null; ordem: number }> | null) ?? [];
         setLinhas(rows.map((r, i) => ({ chave: i + 1, os_id: Number(r.origem_id), os_numero: r.origem_id === String(osId) ? (os.numero_os ?? String(os.id)) : r.origem_id, descricao: r.descricao_servico ?? "", valor: decimal(num(r.valor_servico).toFixed(2)), saldo: 0 })));
@@ -440,6 +455,10 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       }
       const { data: r, error: erroConferir } = await supabase.schema("f").rpc("fn_os_nfse_conferir_homologacao", { p_solicitacao_id: solId, p_operacao: operacaoPayload() });
       if (erroConferir) throw erroConferir;
+      // Observacao interna: campo proprio da solicitacao, fora do payload fiscal. Nao derruba a
+      // conferencia se falhar — a nota ja esta conferida e o texto e registro interno.
+      const { error: erroInterna } = await supabase.schema("f").rpc("fn_solicitacao_observacao_interna", { p_solicitacao_id: solId, p_texto: observacaoInterna.trim() || null });
+      if (erroInterna) console.error("observacao interna:", erroInterna);
       const res = r as { ok?: boolean; pendencias?: Pendencia[]; avisos?: Pendencia[]; previa?: Previa } | null;
       setAvisos(res?.avisos ?? []);
       if (!res?.ok) {
@@ -581,7 +600,10 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const emProcessamento = emissao ? ["ENVIANDO", "PROCESSANDO"].includes(emissao.status) : false;
   const editavel = !solicitacao || !emissao || ["RASCUNHO", "REJEITADA", "ERRO"].includes(emissao.status);
   const conferida = Boolean(previa) && Boolean(solicitacao);
-  const bloqueioLocal = !perfil ? "Escolha o perfil de serviço." : perfilBloqueado ? `Perfil ${perfil.item_servico} bloqueado: ${perfil.justificativa_faixa ?? "aguarda o contador."}` : !fixture ? `Sem fixture provisória para o item ${perfil.item_servico}.` : null;
+  // Cliente que exige o numero da OC no corpo da nota (cadastro, 20260919050000): sem o numero a
+  // nota volta. Bloqueia antes de conferir, como os demais bloqueios locais da tela.
+  const exigePedido = clienteNfse?.exige_pedido_compra === true;
+  const bloqueioLocal = !perfil ? "Escolha o perfil de serviço." : perfilBloqueado ? `Perfil ${perfil.item_servico} bloqueado: ${perfil.justificativa_faixa ?? "aguarda o contador."}` : !fixture ? `Sem fixture provisória para o item ${perfil.item_servico}.` : (exigePedido && !pedidoCliente.trim()) ? "Este cliente exige o número do pedido de compra (OC) no corpo da nota: preencha o campo em Pagamento." : null;
   const producao = emissao?.ambiente === "PRODUCAO";
   // Margem da OS, nao da parcela (mesma regra da NF-e na pagina): ja faturado + esta nota - custo real da OS.
   // A nota real ja autorizada esta no faturado e nao soma de novo.
@@ -676,6 +698,13 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         {perfil ? (
           <div className={`rounded-md border p-2 text-sm ${perfilBloqueado ? "border-red-900/60 bg-red-950/20 text-red-100" : "border-amber-900/60 bg-amber-950/20 text-amber-100"}`}>
             <div><strong>{perfil.codigo} · {perfil.nome}</strong> · {perfil.habilitado_producao ? "produção" : perfilRevisado ? "revisado; produção após homologação e liberação" : "somente homologação (perfil sem valor fiscal)"}</div>
+            {/* Codigo do servico em linguagem simples: texto + exemplo + o codigo pequeno ao lado. */}
+            {rotuloServicoLc116(perfil.item_servico) ? (
+              <div className="text-xs" data-testid="legenda-servico">
+                {rotuloServicoLc116(perfil.item_servico)!.rotulo} <span className="font-mono text-zinc-400">({perfil.item_servico})</span>
+                <span className="text-zinc-400"> {rotuloServicoLc116(perfil.item_servico)!.exemplo}</span>
+              </div>
+            ) : null}
             {perfilBloqueado ? <div className="text-xs">BLOQUEADO: {perfil.justificativa_faixa}</div>
               : perfilRevisado ? <div className="text-xs">Perfil revisado: cTribNac {perfil.codigo_tributacao_nacional}{perfil.codigo_nbs ? ` · NBS ${perfil.codigo_nbs}` : ""} · ISS {decimal(perfil.aliquota_iss) || "?"}% ({perfil.incidencia_iss_regra === "LOCAL_PRESTACAO" ? "incide no município da prestação" : "incide na sede"}) · local {regras.local === "SEDE" ? "sede" : "cliente"} · cIndOp {perfil.codigo_indicador_operacao ?? <span className="text-red-300">vazio (obrigatório desde 01/10/2026)</span>}</div>
               : fixture ? <div className="text-xs">Fixture provisória: cTribNac {fixture.codigo_tributacao_nacional}{fixture.codigo_nbs ? ` · NBS ${fixture.codigo_nbs}` : ""} · ISS {decimal(fixture.aliquota_iss) || "?"}% · local {fixture.local_prestacao_regra === "SEDE" ? "sede" : "cliente"} · fonte: {fixture.fonte}</div>
@@ -690,12 +719,13 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
           <div className={label}>Tomador<div className="py-2 text-sm text-zinc-100">IM {clienteNfse?.inscricao_municipal ?? <span className="text-amber-300">vazia</span>} · e-mail NFS-e {clienteNfse?.email_nfse ?? <span className="text-amber-300">vazio</span>}</div>{cliente ? <Link className="text-xs text-sky-300 underline" href={`/clientes/cadastro-fiscal?cliente_id=${cliente.id}`}>Cadastro fiscal do cliente</Link> : null}</div>
         </div>
         <div className="grid gap-3 md:grid-cols-4">
-          {([["ISS retido pelo tomador", issRetido, setIssRetido, regras.iss, clienteNfse?.iss_retido ?? null],
-             ["PIS/COFINS/CSLL retidos (4,65%)", pcc, setPcc, regras.pcc, clienteNfse?.retem_pcc ?? null],
-             ["IRRF retido (1,5%)", irrf, setIrrf, regras.irrf, clienteNfse?.retem_irrf ?? null],
-             ["INSS retido (11%)", inss, setInss, regras.inss, clienteNfse?.retem_inss ?? null]] as Array<[string, string, (v: string) => void, string, boolean | null]>).map(([titulo, valor, setter, regra, valorCliente]) => (
+          {([["ISS retido pelo tomador?", issRetido, setIssRetido, regras.iss, clienteNfse?.iss_retido ?? null, "Marque só se o cliente avisou que vai reter. Muda o valor a receber."],
+             ["PIS/COFINS/CSLL retidos (4,65%)", pcc, setPcc, regras.pcc, clienteNfse?.retem_pcc ?? null, "A CRF de 4,65% que o cliente desconta e recolhe."],
+             ["IRRF retido (1,5%)", irrf, setIrrf, regras.irrf, clienteNfse?.retem_irrf ?? null, ""],
+             ["INSS retido (11%)", inss, setInss, regras.inss, clienteNfse?.retem_inss ?? null, ""]] as Array<[string, string, (v: string) => void, string, boolean | null, string]>).map(([titulo, valor, setter, regra, valorCliente, legenda]) => (
             <label key={titulo} className={label}>{titulo}<select className={field} value={regra === "POR_TOMADOR" ? valor : ""} disabled={!editavel || regra !== "POR_TOMADOR"} onChange={(e) => setter(e.target.value)}>
-              <option value="">{regraTexto(regra, valorCliente)}</option><option value="sim">Sim, retém (nesta nota)</option><option value="nao">Não retém (nesta nota)</option></select></label>
+              <option value="">{regraTexto(regra, valorCliente)}</option><option value="sim">Sim, retém (nesta nota)</option><option value="nao">Não retém (nesta nota)</option></select>
+              {legenda ? <span className="mt-1 block text-xs text-zinc-500">{legenda}</span> : null}</label>
           ))}
         </div>
         {perfil?.permite_deducao_material ? (
@@ -751,7 +781,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <h2 className="font-semibold">Pagamento e informações complementares</h2>
         <div className="grid gap-3 md:grid-cols-4">
-          <label className={label}>Pedido de compra do tomador<input className={field} value={pedidoCliente} disabled={!editavel} onChange={(e) => setPedidoCliente(e.target.value)} />{!pedidoCliente.trim() ? <span className="text-xs text-amber-300">Sem OC. Não bloqueia.</span> : null}</label>
+          <label className={label}>Pedido de compra do tomador{exigePedido ? <span className="text-rose-300"> · obrigatório para este cliente</span> : null}<input className={field} value={pedidoCliente} disabled={!editavel} onChange={(e) => setPedidoCliente(e.target.value)} data-testid="pedido-cliente" />
+            {!pedidoCliente.trim() ? <span className={`text-xs ${exigePedido ? "text-rose-300" : "text-amber-300"}`}>{exigePedido ? "O cadastro deste cliente diz que a nota precisa citar a OC. Sem o número, ele recusa." : "Sem OC. Não bloqueia."}</span> : null}</label>
           <label className={label}>Item do pedido<input className={field} value={pedidoItem} disabled={!editavel} onChange={(e) => setPedidoItem(e.target.value)} /></label>
           <label className={label}>Forma de pagamento<select className={field} value={pagamentoForma} disabled={!editavel} onChange={(e) => setPagamentoForma(e.target.value)}>{FORMAS_PAGAMENTO.map(([c, r]) => <option key={c} value={c}>{r}</option>)}</select></label>
           <label className={label}>À vista ou a prazo<select className={field} value={pagamentoIndicador} disabled={!editavel} onChange={(e) => setPagamentoIndicador(e.target.value)}><option value="0">0 · À vista</option><option value="1">1 · A prazo</option></select></label>
@@ -764,6 +795,10 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
           </div>
         ) : null}
         <label className={label}>Observação livre (entra no fim da discriminação)<textarea className={`${field} min-h-16`} value={observacao} disabled={!editavel} onChange={(e) => setObservacao(e.target.value)} maxLength={400} /></label>
+        <label className={label}>Observação interna (fica no ERP; não vai na nota)
+          <textarea className={`${field} min-h-16`} value={observacaoInterna} disabled={!editavel} onChange={(e) => setObservacaoInterna(e.target.value)} maxLength={1000} data-testid="observacao-interna" placeholder="Decisão de quem faturou: por que este valor, este material, esta retenção." />
+          <span className="text-xs text-zinc-500">Gravada na solicitação ao conferir. O cliente não vê.</span>
+        </label>
       </section>
 
       {/* 5 · Prévia e emissão */}
@@ -773,6 +808,26 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
         {avisos.length > 0 ? <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-sm text-amber-100"><div className="font-medium">Avisos</div><ul className="mt-1 list-disc pl-5">{avisos.map((a, i) => <li key={i}>{a.mensagem}{a.rota ? <> · <Link className="underline" href={a.rota}>abrir</Link></> : null}</li>)}</ul></div> : null}
         {previa ? (
           <div className="space-y-2 text-sm">
+            {/* O que a pessoa precisa conferir com o cliente, na conta, antes de emitir. */}
+            {(() => {
+              const descontos = descontosNfse(previa);
+              const municipioIss = nomeMunicipioIbge(previa.municipio_incidencia_iss ?? previa.municipio_prestacao_ibge);
+              return (
+                <div data-testid="liquido-nfse" className="rounded-lg border border-emerald-900/60 bg-emerald-950/20 p-3">
+                  <div className="text-emerald-100">
+                    Valor <strong>{R$(num(previa.valor_bruto))}</strong>
+                    {descontos.map((d) => <span key={d.rotulo}> − {d.rotulo} <strong>{R$(d.valor)}</strong></span>)}
+                    {" = você recebe "}<strong className="text-base">{R$(num(previa.valor_liquido))}</strong>.
+                  </div>
+                  <div className="mt-1 text-xs text-emerald-200/90">
+                    {previa.iss_retido
+                      ? `O ISS de ${R$(num(previa.valor_iss))} é retido pelo tomador: ele desconta e recolhe em ${municipioIss}.`
+                      : `O ISS de ${R$(num(previa.valor_iss))} é pago por nós em ${municipioIss}; não é descontado do que você recebe.`}
+                    {descontos.length === 0 && !previa.iss_retido ? " Sem retenção federal nesta nota." : ""}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="grid gap-2 md:grid-cols-4">
               <div>Bruto <strong>{R$(num(previa.valor_bruto))}</strong></div>
               <div>ISS {decimal(previa.aliquota_iss)}% {R$(num(previa.valor_iss))} <span className="text-xs text-zinc-400">({previa.iss_retido ? "retido pelo tomador" : "recolhido pela Segau"})</span></div>

@@ -59,12 +59,29 @@ export const NOME_TOMADOR_HOMOLOGACAO_NFSE = "NFS-E EMITIDA EM AMBIENTE DE HOMOL
 // cIndOp (Anexo VII da LC 214/2025), confirmado pelo contador em 06/09/2026: 050103 = servico prestado
 // fisicamente sobre bem movel no endereco do destinatario (14.01, 14.06, 17.09); 020201 = sobre bem imovel
 // (07.02, obra). O 040101 da NFS-e 37 real era "feiras e eventos": estava errado.
-export const CINDOP_PROVISORIO_HOMOLOGACAO: Record<string, string> = { "07.02": "020201", "14.01": "050103" };
+export const CINDOP_PROVISORIO_HOMOLOGACAO: Record<string, string> = { "07.02": "020201", "14.01": "050102" };
+/**
+ * Serviço sem destinatário distinto do tomador: quem contrata é quem recebe. Decisão do Gabriel
+ * em 18/09/2026 (NFS-e da OS 298, CREMER): nesse caso o indicador do grupo 0501 é 050102 (domicílio
+ * do tomador), não 050103, que pressupõe um destinatário diferente do tomador. A DPS já sai com
+ * indicador_destinatario 0 — não existe destinatário separado no ERP hoje — então a regra vale
+ * para toda NFS-e cujo snapshot não marque `destinatario_distinto`.
+ */
+export const CINDOP_SEM_DESTINATARIO_DISTINTO = "050102";
+export function temDestinatarioDistinto(servico: Record<string, unknown>) {
+  return servico.destinatario_distinto === true;
+}
 /** A partir desta data o grupo IBS/CBS e obrigatorio na DPS (Ato Conjunto RFB/CGIBS 4/2026): cIndOp sem default. */
 export const IBS_CBS_OBRIGATORIO_DESDE = "2026-10-01";
 export function codigoIndicadorOperacao(servico: Record<string, unknown>, agora = new Date()) {
   const explicito = text(servico.codigo_indicador_operacao);
-  if (explicito && /^[0-9]{6}$/.test(explicito)) return explicito;
+  if (explicito && /^[0-9]{6}$/.test(explicito)) {
+    // Dentro do grupo 0501 (serviço sobre bem móvel), sem destinatário distinto do tomador o
+    // indicador é 050102. Fora do grupo (ex.: 020201 da obra) o valor do perfil manda.
+    return explicito.startsWith("0501") && !temDestinatarioDistinto(servico)
+      ? CINDOP_SEM_DESTINATARIO_DISTINTO
+      : explicito;
+  }
   // Perfil revisado sem cIndOp nao emite: o valor e atributo do perfil, nao deduzido.
   if (String(servico.tributacao_fonte ?? "") === "PERFIL") {
     throw new Error("NFS-e incompleta: codigo_indicador_operacao (perfil de servico sem cIndOp; obrigatorio no grupo IBS/CBS).");
@@ -72,7 +89,8 @@ export function codigoIndicadorOperacao(servico: Record<string, unknown>, agora 
   if (dataHoraNfeSaoPaulo(agora).slice(0, 10) >= IBS_CBS_OBRIGATORIO_DESDE) {
     throw new Error(`NFS-e incompleta: codigo_indicador_operacao obrigatorio desde ${IBS_CBS_OBRIGATORIO_DESDE}; o provisorio da fixture nao vale mais.`);
   }
-  return CINDOP_PROVISORIO_HOMOLOGACAO[String(servico.item_servico ?? "")] ?? "050103";
+  return CINDOP_PROVISORIO_HOMOLOGACAO[String(servico.item_servico ?? "")]
+    ?? (temDestinatarioDistinto(servico) ? "050103" : CINDOP_SEM_DESTINATARIO_DISTINTO);
 }
 
 /** Arredondamento meio-par (o que o ambiente nacional aplica no IBS/CBS: 3,325 -> 3,32; 29,925 -> 29,92; 41,02979 -> 41,03). */
@@ -132,6 +150,26 @@ export function grupoObraNfse(servico: Record<string, unknown>, codigoTribNac: s
 // tpRetPisCofins: 0 nada retido; 3 PIS/COFINS/CSLL retidos.
 export function tipoRetencaoPisCofins(retemPcc: boolean) {
   return retemPcc ? 3 : 0;
+}
+
+/**
+ * PIS e COFINS próprios da nota (vPis e vCofins): valor, não só alíquota. Vai junto com a
+ * retenção, que é outro grupo (tpRetPisCofins e vRetCSLL com a soma retida). Sai só quando o CST
+ * é tributado e há alíquota; CST de não incidência não leva valor. A conferência pode mandar
+ * `valor_pis`/`valor_cofins` prontos; sem eles, alíquota × valor do serviço.
+ */
+export function valoresPisCofinsProprios(servico: Record<string, unknown>, valorServico: number): JsonObject {
+  const cst = text(servico.cst_pis_cofins) ?? "01";
+  const aliquotaPis = num(servico.aliquota_pis) ?? 0;
+  const aliquotaCofins = num(servico.aliquota_cofins) ?? 0;
+  // CST 01 e 02: tributado. Os demais (04 a 09, 49...) não destacam valor.
+  const tributado = ["01", "02"].includes(cst);
+  const valorPis = num(servico.valor_pis) ?? (tributado ? round(valorServico * aliquotaPis / 100) : 0);
+  const valorCofins = num(servico.valor_cofins) ?? (tributado ? round(valorServico * aliquotaCofins / 100) : 0);
+  const grupo: JsonObject = {};
+  if (valorPis > 0) grupo.valor_pis = round(valorPis);
+  if (valorCofins > 0) grupo.valor_cofins = round(valorCofins);
+  return grupo;
 }
 
 export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
@@ -244,6 +282,12 @@ export function montarPayloadNfse(contexto: ContextoNfse, agora = new Date()) {
     situacao_tributaria_pis_cofins: text(servico.cst_pis_cofins) ?? "01",
     aliquota_pis: num(servico.aliquota_pis) ?? 0,
     aliquota_cofins: num(servico.aliquota_cofins) ?? 0,
+    // PIS e COFINS PROPRIOS (vPis e vCofins do grupo tribFed): a nota passou a levar o valor, e
+    // nao so a aliquota — pedido do Gabriel em 18/09/2026, pendencia aberta desde a NFS-e 60.
+    // Base = valor do servico: PIS/COFINS incidem sobre a receita bruta, e a deducao de material
+    // da obra (LC 116/2003 art. 7 §2 I) e regra do ISS, nao das contribuicoes. A conferencia pode
+    // mandar os valores prontos (servico.valor_pis / valor_cofins) e ai eles mandam.
+    ...valoresPisCofinsProprios(servico, valorServico),
     tipo_retencao_pis_cofins: tipoRetencaoPisCofins(retemPcc),
 
     // Total aproximado de tributos (Lei 12.741): sem ele a Focus manda
@@ -347,8 +391,10 @@ export function validarPayloadNfseProducaoContraHomologacao(payloadHomologacao: 
   const prod = limpar(payloadProducao, "payload de producao");
   if (hom !== prod) {
     const a = JSON.parse(hom) as JsonObject; const b = JSON.parse(prod) as JsonObject;
-    const campo = [...new Set([...Object.keys(a), ...Object.keys(b)])].find((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k])) ?? "?";
-    throw new Error(`Emissao em producao bloqueada: o payload diverge da homologacao autorizada no campo ${campo}.`);
+    // Todos os campos divergentes, nao so o primeiro: um valor de servico diferente arrasta
+    // PIS e COFINS proprios junto, e quem le a mensagem precisa ver a causa, nao um efeito.
+    const campos = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+    throw new Error(`Emissao em producao bloqueada: o payload diverge da homologacao autorizada ${campos.length > 1 ? "nos campos" : "no campo"} ${campos.join(", ") || "?"}.`);
   }
   if (String((payloadProducao as JsonObject).razao_social_tomador ?? "") === NOME_TOMADOR_HOMOLOGACAO_NFSE) {
     throw new Error("Emissao em producao bloqueada: o tomador real nao foi informado.");

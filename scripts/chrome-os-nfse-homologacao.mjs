@@ -6,7 +6,7 @@
  *     [--valor 3000] [--municipio 4218004] [--competencia 2026-09-05] \
  *     [--iss sim|nao] [--pcc sim|nao] [--irrf sim|nao] [--inss sim|nao] [--justificativa "texto"] \
  *     [--add-os 287] [--forma 15] [--indicador 1] [--dias 30] [--pedido 1307761] [--item 10] \
- *     [--obs "texto"] [--so-conferir] [--cancelar "justificativa"] [--substituir "motivo"]
+ *     [--obs "texto"] [--obs-interna "texto"] [--so-conferir] [--cancelar "justificativa"] [--substituir "motivo"]
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -183,6 +183,8 @@ if (arg("forma")) await pagina.getByLabel("Forma de pagamento").selectOption(arg
 if (arg("indicador")) await pagina.getByLabel("À vista ou a prazo").selectOption(arg("indicador"));
 if (arg("dias")) { const d = pagina.getByLabel("Dias").first(); if ((await d.count()) > 0) await d.fill(arg("dias")); }
 if (arg("obs")) await pagina.getByLabel(/Observação livre/).fill(arg("obs"));
+// Observacao interna (nao vai na nota): campo proprio da solicitacao, gravado ao conferir.
+if (arg("obs-interna")) await pagina.getByLabel(/Observação interna/).fill(arg("obs-interna"));
 await foto("preenchido");
 console.log("[2] conferindo");
 const botaoConferir = pagina.getByRole("button", { name: jaConferida ? "Reconferir" : "Salvar rascunho e conferir" });

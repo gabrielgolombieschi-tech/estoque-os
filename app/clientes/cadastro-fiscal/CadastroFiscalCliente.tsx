@@ -49,10 +49,12 @@ type ClienteForm = {
   optante_simples: "" | "sim" | "nao";
   // Substituto tributario do ISS (orgao publico, banco, hospital, concessionaria): retem o ISS nos servicos 14.01/14.06 (contador, 06/09/2026).
   iss_substituto_tributario: boolean;
+  // Cliente que recusa nota sem o numero da OC no corpo (CREMER, 18/09/2026): a tela de faturar cobra o campo.
+  exige_pedido_compra: boolean;
   // Template da discriminacao da NFS-e deste tomador (segmentos "|", tokens {RESULTADO} {PEDIDO} {ITEM} {VENCIMENTO} {DATAS} {OS} {FRASE_LEGAL} {ISS} {OBSERVACAO}).
   nfse_discriminacao_template: string;
 };
-type ClienteNfseRow = { email_financeiro?: string | null; inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; iss_substituto_tributario?: boolean | null; nfse_discriminacao_template?: string | null };
+type ClienteNfseRow = { email_financeiro?: string | null; inscricao_municipal?: string | null; email_nfse?: string | null; iss_retido?: boolean | null; retem_pcc?: boolean | null; retem_irrf?: boolean | null; retem_inss?: boolean | null; optante_simples?: boolean | null; iss_substituto_tributario?: boolean | null; exige_pedido_compra?: boolean | null; nfse_discriminacao_template?: string | null };
 function triTexto(value: boolean | null | undefined): "" | "sim" | "nao" { return value === true ? "sim" : value === false ? "nao" : ""; }
 function triValor(value: "" | "sim" | "nao"): boolean | null { return value === "sim" ? true : value === "nao" ? false : null; }
 
@@ -85,6 +87,7 @@ const CLIENTE_FIELDS = [
   "retem_inss",
   "optante_simples",
   "iss_substituto_tributario",
+  "exige_pedido_compra",
   "nfse_discriminacao_template",
 ].join(",");
 
@@ -119,6 +122,7 @@ function formFromRow(row: ClienteRow): ClienteForm {
     retem_inss: triTexto((row as ClienteNfseRow).retem_inss),
     optante_simples: triTexto((row as ClienteNfseRow).optante_simples),
     iss_substituto_tributario: (row as ClienteNfseRow).iss_substituto_tributario === true,
+    exige_pedido_compra: (row as ClienteNfseRow).exige_pedido_compra === true,
     nfse_discriminacao_template: texto((row as ClienteNfseRow).nfse_discriminacao_template),
   };
 }
@@ -342,6 +346,7 @@ export default function CadastroFiscalCliente() {
       retem_inss: triValor(form.retem_inss),
       optante_simples: triValor(form.optante_simples),
       iss_substituto_tributario: form.iss_substituto_tributario,
+      exige_pedido_compra: form.exige_pedido_compra,
       nfse_discriminacao_template: form.nfse_discriminacao_template.trim() || null,
       atualizado_em: new Date().toISOString(),
     };
@@ -619,6 +624,10 @@ export default function CadastroFiscalCliente() {
                     <label className="flex items-start gap-2 md:col-span-2">
                       <input type="checkbox" className="mt-1" checked={form.iss_substituto_tributario} onChange={(event) => update("iss_substituto_tributario", event.target.checked)} />
                       <span className="text-xs text-zinc-300">Substituto tributário do ISS (órgão público, banco, hospital, concessionária de energia, água ou pedágio). Com a marca, a NFS-e de manutenção e instalação (14.01 e 14.06) sai com o ISS retido pelo tomador; sem ela, a Segau recolhe. Regra do contador de 06/09/2026.</span>
+                    </label>
+                    <label className="flex items-start gap-2 md:col-span-2">
+                      <input type="checkbox" className="mt-1" checked={form.exige_pedido_compra} onChange={(event) => update("exige_pedido_compra", event.target.checked)} />
+                      <span className="text-xs text-zinc-300">Exige o número do pedido de compra (OC) no corpo da nota. Com a marca, a tela de faturar NFS-e não deixa conferir sem o número — o cliente recusa a nota sem ele.</span>
                     </label>
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-zinc-300">Template da discriminação da NFS-e (vazio = padrão)</span>
