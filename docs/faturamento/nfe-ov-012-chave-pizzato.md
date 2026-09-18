@@ -3,6 +3,9 @@
 Venda de uma chave de segurança Pizzato importada por conta e ordem, para a Portobello, com a OC
 1312773. A nota passou por duas leituras fiscais no mesmo dia; a segunda é a que vale.
 
+**Fechada em 18/09/2026**: a NF-e **2/34** foi cancelada às 15:43 e a nota boa, **2/35**, foi
+autorizada às 16:20, com total de 4.145,70 e ICMS de 453,29 pelo benefício de automação.
+
 | | |
 | --- | --- |
 | OV | OV-SEG-00012-026 (`ordens_servico.id` 365) · PBG S/A · orçado 3.777,40 |
@@ -227,6 +230,9 @@ o código NG2D1D411AF30 no cadastro, mas a única entrada com DI ligada a ele é
 2065 é o F30 de verdade na descrição, porém sua entrada é uma nota emitida pela própria Segau, sem
 DI, e o cadastro dele está com origem 2, sem equiparação. O vínculo não foi alterado.
 
+A NF-e 2/35 saiu com o **item 1828**, sob o código NG2D1D411AF30. A dúvida sobre qual peça é a F30
+continua aberta e não foi tratada.
+
 ## Histórico: o que a Portobello já recebeu
 
 A **NF-e 2/15** (produção, 11/09/2026) foi para a **PBG S/A** com CST 20, 17% e redução de 29,412%
@@ -235,49 +241,35 @@ com cBenef SC820006, e foi autorizada. A 2/13, mesma configuração e mesmo clie
 informada", ou seja, não é recusa do CST nem da alíquota. Não há registro de recusa da Portobello
 por causa do CST 20.
 
-## Passo a passo para emitir a nota real
+## A nota real: NF-e 2/35, autorizada
 
-A revisão do perfil já está salva (18/09/2026 15:46, justificativa do Gabriel). Falta liberar o
-perfil **para esta homologação** e emitir. São dois lugares.
+O Gabriel liberou o perfil às 16:20:23, vinculando a liberação a esta homologação, e a nota saiu 15
+segundos depois.
 
-**Antes de tudo, confirme a peça.** O caminhão leva o **F30**; a entrada com DI ligada ao item 1828
-descreve F31. Veja a seção sobre isso mais abaixo.
-
-### Liberar o perfil para esta homologação
-
-1. Abra **Faturamento › Perfis fiscais**.
-2. No campo de busca, escreva `O1-CST20-AUTOMACAO` e clique no cartão do perfil.
-3. Desça até **Liberação separada para produção**.
-4. Clique em **Atualizar homologações**. A NF-e **2/83** deve aparecer na lista, marcada como
-   posterior à última revisão.
-5. Selecione a solicitação `3158a494-9a27-486e-8776-4b49aecd7e77`.
-6. Escreva a justificativa da liberação, algo como: "Conferida a NF-e 2/83 autorizada em
-   homologação: CST 20, base reduzida 29,412%, cBenef SC820006, IPI 50/999, total 4.145,70."
-7. Marque a caixa de confirmação da liberação vinculada a esta homologação.
-8. Clique em **Conferir e liberar para esta homologação**.
-
-Se alguma pendência aparecer, ela diz exatamente o que falta. A liberação não emite nada.
-
-### Emitir a nota real
-
-1. Abra a **OV-SEG-00012-026**, aba **Faturamento**.
-2. No cartão da NF-e, clique em **Conferir e emitir em produção**. O botão só aparece depois da
-   liberação acima.
-3. Confira a tela de conferência e clique em **Emitir NF-e real em produção**.
-4. Aguarde a autorização e confira, antes de entregar:
-
-| Conferência final | |
+| | |
 | --- | --- |
-| Cliente | PBG S/A |
-| Mercadoria | 3.777,40 |
-| IPI | 368,30 |
-| **Total** | **4.145,70** |
-| ICMS | 453,29 |
-| Vencimento | 45 dias, 02/11/2026 |
-| Pedido | 1312773 |
-| Peça | conferida como **F30** |
+| Número | **2/35** |
+| Chave | 4226 0913 6714 4800 0189 5500 2000 0000 3515 9570 2999 |
+| cStat | **100** · Autorizado o uso da NF-e |
+| Protocolo | 242260443693334 |
+| dhEmi | 18/09/2026 16:20:38 |
+| Autorizada | 18/09/2026 16:20:41 |
+| Mercadoria / IPI / **total** | 3.777,40 · 368,30 · **4.145,70** |
+| ICMS | **453,29** com **cBenef SC820006** |
+| Liberou o perfil | Gabriel G. Mendes, `gabriel@segau.com.br`, 16:20:23 |
 
-5. Baixe o DANFE e o XML e envie ao cliente pelo campo de e-mails da própria tela.
+**A nota real é idêntica à homologação 2/83 em todos os campos fiscais.** Comparando os dois
+payloads chave a chave, só divergem a data de emissão, a data de saída e o nome do destinatário,
+que em homologação é o texto obrigatório da SEFAZ no lugar de PBG S/A.
+
+Efeitos: o título a receber "NFE 35/2" nasceu com 4.145,70 em **parcela única**, vencimento
+02/11/2026, sem a duplicidade que apareceu na NFS-e 62. O título da 2/34 segue cancelado e zerado.
+A OV ficou faturada por inteiro, saldo zero. Nenhum movimento novo de estoque: a baixa vigente é a
+de 14:37. XML e DANFE estão salvos no bucket.
+
+Quem clicou em emitir **não fica registrado**: a emissão roda por função de borda com credencial de
+serviço, então nem a emissão, nem o documento, nem o log de auditoria guardam o usuário. O único
+rastro de pessoa é a liberação do perfil, 15 segundos antes.
 
 ## Para depois
 
