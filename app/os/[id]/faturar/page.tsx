@@ -958,7 +958,7 @@ export default function FaturarOsPage() {
             const contribuinte = String(cliente?.indicador_ie ?? "").trim() === "1";
             const efeito = destinacao ? efeitoDestinacao(destinacao, contribuinte) : null;
             return d ? <span className="text-xs text-zinc-500">{d.exemplo} <strong className="text-zinc-300">{efeito?.texto}</strong>{!contribuinte ? " (cliente não contribuinte do ICMS: sempre 17%)" : ""} <span className="font-mono">({d.codigo})</span></span> : null;
-          })()}</label>
+          })()}<span data-testid="legenda-destinacao" className="mt-1 block text-xs text-amber-200/90">Veja o campo Utilização no pedido do cliente. Copie o que está escrito lá; não deduza pelo tipo de peça.</span></label>
           <label className={label}>Presença do comprador<select className={field} value={presenca} onChange={(e) => setPresenca(e.target.value)}><option value="1">1 · Presencial</option><option value="2">2 · Internet</option><option value="3">3 · Teleatendimento</option><option value="5">5 · Fora do estabelecimento</option><option value="9">9 · Outros</option></select></label>
           <label className={label}>Modalidade do frete<select className={field} value={modalidadeFrete} onChange={(e) => {
             const proxima = e.target.value;

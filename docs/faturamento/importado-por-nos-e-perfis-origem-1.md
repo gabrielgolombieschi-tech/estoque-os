@@ -87,7 +87,35 @@ A importação 3556 de 17/09 não toca o cadastro por regra.
   reexecuta o gatilho pós-emissão: esses ajustes seriam por migration, com o OK.
 - Rótulo do JSON: corrigido (só texto) na migration 200000.
 
-## Estoque do item 3629 — proposta (item 7, aguarda OK)
+## 18/09/2026 à tarde — "Fechar a OV-SEG-00004-026" (o que mudou e onde parou)
+
+A OC 1309011 declara **Utilização = "Aquisição de Mercadoria Insumos"** e é valor fechado
+(R$ 4.563,40 já com o IPI). A nota passa a ser: destinação **INSUMO** (12% pela regra normal,
+sem exceção do destinatário), **IPI fora da base do ICMS**, indFinal 0, mercadoria 4.158,00 +
+IPI 9,75%.
+
+| Item | Situação |
+| --- | --- |
+| Preço | Feito. `os_itens` 6394: 4.563,40 → **4.158,00** (migration `20260918250000`, audit_log). O `orcado` da OV segue 4.563,40 (total da nota); a OV mostra o aviso de linhas × orçado e o rascunho pede o motivo, que é este: "OC 1309011 total 4.563,40 já com IPI; mercadoria 4.158,00 + IPI 9,75%". |
+| Estoque do 3629 | Feito. Migration `20260918260000`: saída −1 de estorno do ajuste fantasma de 02/09 (saldo 1 → 0) e custo 437,97 / **995,22** na saída 12634 da OV (trava de imutabilidade desligada só na transação, audit_log gravado). `custo_medio` já era 995,22. |
+| Legenda na tela | Feito. Abaixo do campo de destinação (conferência da OV e Faturar OS): "Veja o campo Utilização no pedido do cliente. Copie o que está escrito lá; não deduza pelo tipo de peça." |
+| Homologação | **Parada, dois motivos.** (1) Pré-requisito: o perfil SEG-VENDA-TERCEIROS-SC-5102-O1-CST00 (12%) **não tem revisão salva** (`revisao_fiscal_em` nulo, nenhum evento em `perfil_operacao_revisao_evento`); só o -O2- foi revisado em 05/09. (2) Arredondamento: o montador dá **vIPI 405,41 e vNF 4.563,41**, não 4.563,40. |
+| Manual "Vender peça que nós importamos" | Não feito: depende das telas da homologação. |
+
+**Regra de arredondamento usada** (`supabase/functions/_shared/nfe-payload.ts`, `round()`):
+`Math.round((v + Number.EPSILON) * 100) / 100`, meio para cima. `vIPI = round(vProd × 9,75 / 100)` =
+round(405,405) = **405,41**. Para a nota fechar em 4.563,40 é preciso decidir: (a) arredondar o
+IPI para baixo neste caso (405,40) por regra nova no montador; ou (b) aceitar 4.563,41 e a
+diferença de 1 centavo com a OC; ou (c) outro vProd — não existe vProd com 2 casas que dê
+exatamente 4.563,40 com 9,75% (4.157,99 → IPI 405,40 → 4.563,39). Nada foi alterado.
+
+O montador, rodado localmente com o cenário INSUMO (`scratchpad/ov-004-insumo-montador.mjs`),
+já entrega o restante como esperado: CFOP 5102, orig 1, CST 00, vBC ICMS 4.158,00, ICMS 12% =
+498,96, PIS 60,37 e COFINS 278,09 (base 3.659,04), base IBS/CBS 3.320,58, indFinal 0, infCpl
+"Destinação informada pelo destinatário: insumo de produção. Alíquota interna de ICMS de 12% …
+| Pedido de compra do cliente: 1309011" (sem texto de exceção).
+
+## Estoque do item 3629 — proposta (item 7; executada em 18/09 pela migration 20260918260000)
 
 Hoje: +1 ajuste manual 02/09 (mov. 12633, sem custo), −1 saída da OV 02/09 (mov. 12634, sem
 custo), +1 entrada da importação 17/09 (mov. 13351, 995,22). Saldo 1, mas a unidade vendida é a

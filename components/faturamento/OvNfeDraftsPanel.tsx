@@ -1957,6 +1957,9 @@ export default function OvNfeDraftsPanel({
                               <option key={codigo} value={codigo}>{rotulo} · {aliquota}%</option>
                             ))}
                           </select>
+                          <span data-testid="legenda-destinacao" className="mt-1 block text-xs text-amber-200/90">
+                            Veja o campo Utilização no pedido do cliente. Copie o que está escrito lá; não deduza pelo tipo de peça.
+                          </span>
                         </label>
                         {memoria?.campos.destinacao_mercadoria_confirmada && aceitaMemoria(draft) ? (
                           <p className="mt-3 text-xs text-zinc-500">
