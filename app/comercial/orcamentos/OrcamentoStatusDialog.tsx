@@ -181,6 +181,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   const [responsavelAprovacaoId, setResponsavelAprovacaoId] = useState<string | null>(null);
   const [tipoDocumento, setTipoDocumento] = useState<"OS" | "OV">(suggestedTipoDocumento);
   const [error, setError] = useState<string | null>(null);
+  const [confirmarSemPedido, setConfirmarSemPedido] = useState(false);
 
   // Gestão state
   const [gestaoHabilitado, setGestaoHabilitado] = useState(false);
@@ -188,6 +189,10 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selectRef = useRef<HTMLSelectElement | null>(null);
+  const pedidoRef = useRef<HTMLInputElement | null>(null);
+  const voltarPedidoRef = useRef<HTMLButtonElement | null>(null);
+  const focarPedidoRef = useRef(false);
+  const submittingRef = useRef(false);
 
   const meta = useMemo(() => (status ? META[status] : null), [status]);
   const valorOrcadoNumero = useMemo(() => {
@@ -199,13 +204,13 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   useEffect(() => {
     if (open) {
       // Estado do formulário é reiniciado somente quando uma nova abertura é solicitada.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAbrirOs(canOpenOs);
       setImportarItensOs(false);
       setTipoDocumento(suggestedTipoDocumento);
       setGestaoHabilitado(true);
       setGestaoItems(makeDefaultGestaoItems());
       setResponsavelAprovacaoId(null);
+      setConfirmarSemPedido(false);
     }
   }, [open, canOpenOs, suggestedTipoDocumento]);
 
@@ -222,6 +227,15 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     return () => clearTimeout(timer);
   }, [lostReason, open, status]);
 
+  useEffect(() => {
+    if (confirmarSemPedido) {
+      voltarPedidoRef.current?.focus();
+    } else if (focarPedidoRef.current) {
+      focarPedidoRef.current = false;
+      pedidoRef.current?.focus();
+    }
+  }, [confirmarSemPedido]);
+
   if (!open || !status || !meta) return null;
 
   function updateGestaoItem(item_tipo: GestaoTipo, area: GestaoArea, patch: Partial<GestaoConfigItem>) {
@@ -230,8 +244,8 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     );
   }
 
-  async function handleSubmit() {
-    if (!status) return;
+  async function handleSubmit(semPedidoConfirmado = false) {
+    if (!status || loading || submittingRef.current) return;
     let trimmed = followup.trim();
 
     if (status === "PERDIDO") {
@@ -272,21 +286,32 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
     }
 
     setError(null);
-    await onSave({
-      status,
-      followup: trimmed,
-      valorFechado: valorFechadoNumero,
-      pedidoCompraCliente: status === "FECHADO" ? pedidoCompraCliente.trim() || null : null,
-      abrirOs: status === "FECHADO" ? abrirOs : false,
-      importarItensOs: status === "FECHADO" ? abrirOs && importarItensOs : false,
-      responsavelAprovacaoId:
-        status === "FECHADO" && abrirOs && tipoDocumento === "OS" ? responsavelAprovacaoId : null,
-      tipoDocumento: status === "FECHADO" && abrirOs ? tipoDocumento : null,
-      gestao:
-        status === "FECHADO" && abrirOs && tipoDocumento === "OS"
-          ? { habilitarGestao: gestaoHabilitado, items: gestaoItems }
-          : null,
-    });
+    if (status === "FECHADO" && !pedidoCompraCliente.trim() && !semPedidoConfirmado) {
+      setConfirmarSemPedido(true);
+      return;
+    }
+
+    setConfirmarSemPedido(false);
+    submittingRef.current = true;
+    try {
+      await onSave({
+        status,
+        followup: trimmed,
+        valorFechado: valorFechadoNumero,
+        pedidoCompraCliente: status === "FECHADO" ? pedidoCompraCliente.trim() || null : null,
+        abrirOs: status === "FECHADO" ? abrirOs : false,
+        importarItensOs: status === "FECHADO" ? abrirOs && importarItensOs : false,
+        responsavelAprovacaoId:
+          status === "FECHADO" && abrirOs && tipoDocumento === "OS" ? responsavelAprovacaoId : null,
+        tipoDocumento: status === "FECHADO" && abrirOs ? tipoDocumento : null,
+        gestao:
+          status === "FECHADO" && abrirOs && tipoDocumento === "OS"
+            ? { habilitarGestao: gestaoHabilitado, items: gestaoItems }
+            : null,
+      });
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   // Show gestão column only when FECHADO + Abrir OS checked
@@ -298,10 +323,6 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
   return (
     <div
       className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4"
-      onClick={(e) => {
-        if (loading) return;
-        if (e.target === e.currentTarget) onCancel();
-      }}
       role="presentation"
     >
       <div
@@ -311,7 +332,6 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
         className={`w-full bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)] transition-all ${
           showGestao ? "max-w-4xl" : "max-w-xl"
         }`}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-zinc-900/80 bg-zinc-900/40 shrink-0">
@@ -322,7 +342,10 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
         </div>
 
         {/* Body — two columns when gestão is active */}
-        <div className={`flex min-h-0 flex-1 overflow-hidden ${showGestao ? "divide-x divide-zinc-800" : ""}`}>
+        <div
+          inert={confirmarSemPedido}
+          className={`flex min-h-0 flex-1 overflow-hidden ${showGestao ? "divide-x divide-zinc-800" : ""}`}
+        >
 
           {/* ── Coluna esquerda: campos existentes ── */}
           <div className={`overflow-y-auto ${showGestao ? "w-80 shrink-0" : "flex-1"} px-5 py-4 space-y-3`}>
@@ -422,6 +445,7 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
                   <label className="block text-xs text-zinc-400">
                     Pedido de compra do cliente
                     <input
+                      ref={pedidoRef}
                       type="text"
                       value={pedidoCompraCliente}
                       onChange={(e) => setPedidoCompraCliente(e.target.value)}
@@ -616,24 +640,57 @@ export default function OrcamentoStatusDialog(props: OrcamentoStatusDialogProps)
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-zinc-900/80 flex items-center justify-end gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={loading}
-            className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
-          >
-            {loading ? "Salvando..." : "Salvar"}
-          </button>
-        </div>
+        {confirmarSemPedido ? (
+          <div className="px-5 py-4 border-t border-amber-500/30 bg-amber-500/5 shrink-0">
+            <div role="alert">
+              <div className="text-sm font-semibold text-amber-200">Realmente não tem pedido?</div>
+              <p className="mt-1 text-sm text-zinc-300">
+                O pedido de compra do cliente não foi informado. Deseja fechar o orçamento sem pedido?
+              </p>
+            </div>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                ref={voltarPedidoRef}
+                type="button"
+                onClick={() => {
+                  focarPedidoRef.current = true;
+                  setConfirmarSemPedido(false);
+                }}
+                disabled={loading}
+                className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
+              >
+                Voltar e preencher
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSubmit(true)}
+                disabled={loading}
+                className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+              >
+                Confirmar sem pedido
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 py-4 border-t border-zinc-900/80 flex items-center justify-end gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="px-3 py-2 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              disabled={loading}
+              className="px-4 py-2 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium disabled:opacity-60"
+            >
+              {loading ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

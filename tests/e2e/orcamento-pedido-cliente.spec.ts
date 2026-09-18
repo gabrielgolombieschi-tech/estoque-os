@@ -26,15 +26,14 @@ for (const cenario of ["OV", "OS", "SEM_DOCUMENTO", "DETALHE"] as const) {
     await page.getByRole("button", { name: "Lista", exact: true }).click();
     await expect(page.getByRole("button", { name: "Fechado", exact: true }).first()).toBeEnabled();
     if (cenario === "DETALHE") {
-      const codigo = await page.locator("tbody tr").first().locator("td").first().innerText();
-      await page.goto(`/comercial/orcamentos/${encodeURIComponent(codigo.trim())}`);
+      await page.locator("tbody tr").first().getByRole("link").first().click();
     }
     await page.getByRole("button", { name: "Fechado", exact: true }).first().click();
     const modal = page.getByRole("dialog", { name: "Marcar como Fechado" });
     const pedido = modal.getByRole("textbox", { name: /^Pedido de compra do cliente/ });
     await expect(pedido).toHaveValue("PC-ANTERIOR/001");
     await pedido.fill("  PC-000123/26  ");
-    await modal.getByLabel("Followup", { exact: true }).fill("Pedido recebido");
+    await modal.getByRole("textbox", { name: /^Followup/ }).fill("Pedido recebido");
     const gerar = modal.getByRole("checkbox", { name: "Gerar documento ao fechar", exact: true });
     if (cenario === "SEM_DOCUMENTO" || cenario === "DETALHE") await gerar.uncheck();
     else {
