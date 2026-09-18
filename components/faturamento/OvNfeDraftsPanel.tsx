@@ -782,6 +782,7 @@ function bloqueiosCbenefConferencia(
   itensRascunho: SolicitacaoItem[],
   itensForm: ItemForm[],
   resolucao: ResolucaoPerfis | null,
+  destinacao?: string | null,
 ) {
   if (!resolucao?.ok) return [];
   return itensForm.flatMap((form, indice) => {
@@ -796,6 +797,11 @@ function bloqueiosCbenefConferencia(
       cargaEfetivaIcms: aliquota === null ? null : arredondarMoeda(aliquota * (1 - reducao / 100)),
       cbenef: form.cbenef.trim() || null,
       interestadual: resolucao.ambito !== "INTERNA",
+      // 12% por aliquota (revenda/insumo/consignacao a contribuinte, sem reducao) nao e beneficio
+      // e nao exige cBenef — mesma regra do montador (18/09/2026).
+      destinacao,
+      destinatarioContribuinte: String(resolucao.indicador_ie ?? "") === "1",
+      reducaoBase: reducao,
     });
     return motivo ? [`Emissão bloqueada: ${motivo}.`] : [];
   });
@@ -1325,7 +1331,7 @@ export default function OvNfeDraftsPanel({
       itensForm,
       totalDaConferencia(draft.itens, itensForm, operacao),
     );
-    const bloqueiosCbenef = bloqueiosCbenefConferencia(draft.itens, itensForm, resolucaoPerfis);
+    const bloqueiosCbenef = bloqueiosCbenefConferencia(draft.itens, itensForm, resolucaoPerfis, operacao?.destinacao_mercadoria_confirmada);
     if (bloqueiosCbenef.length > 0) {
       avisar(draft.id, bloqueiosCbenef.join(" "), true);
       return;
@@ -1732,7 +1738,7 @@ export default function OvNfeDraftsPanel({
           ? camposObrigatoriosPendentes(operacao, itensForm, totalConferencia)
           : [];
         const bloqueiosCbenef = openId === draft.id && etapaConferencia === "FISCAL"
-          ? bloqueiosCbenefConferencia(draft.itens, itensForm, resolucaoPerfis)
+          ? bloqueiosCbenefConferencia(draft.itens, itensForm, resolucaoPerfis, operacao?.destinacao_mercadoria_confirmada)
           : [];
         // O que a nota vai dizer do valor aproximado dos tributos, com os mesmos dados do
         // builder: indFinal, natureza, NCM, origem e valor de cada item, tabela IBPT.

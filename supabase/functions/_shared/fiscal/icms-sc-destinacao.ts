@@ -253,6 +253,38 @@ export function temReducaoAutomacaoSc(ncm: string, interestadual: boolean) {
  * reducao na mesma lista seguia para a Focus sem cBenef. Fica aqui, e nao dentro do
  * builder, para a conferencia da tela chamar a mesma regra antes de a pessoa tentar.
  */
+/**
+ * Os 12% vieram da ALIQUOTA, e nao do beneficio de automacao?
+ *
+ * Decisao do Gabriel em 18/09/2026 (OV-SEG-00012-026, CHAVE PIZZATO, NCM 8536.50.90): venda a
+ * contribuinte com destinacao que segue em operacao tributada (revenda, insumo, consignacao) e
+ * 12% pela Lei 10.297/96, art. 19, III, "n" — aliquota, nao beneficio. A reducao de base do
+ * Anexo 2, art. 7º, VII (cBenef SC820006) so tem funcao quando a operacao seria tributada a 17%.
+ *
+ * Sao quatro condicoes juntas; falta uma, e beneficio (e ai o cBenef e obrigatorio):
+ *   1. a destinacao segue em operacao tributada;
+ *   2. o destinatario e contribuinte;
+ *   3. o perfil NAO aplica reducao de base (CST 00, sem percentual de reducao);
+ *   4. a nota nao traz cBenef — quando traz, quem emitiu esta declarando o beneficio (alinea "a",
+ *      12% direto sobre a base integral com a observacao no documento), e nada muda.
+ */
+export function aliquota12PorDestinacaoSc(params: {
+  destinacao?: string | null;
+  destinatarioContribuinte?: boolean | null;
+  situacaoIcms?: string | null;
+  reducaoBase?: number | null;
+  cbenef?: string | null;
+}): boolean {
+  const destinacao = String(params.destinacao ?? "");
+  if (!ehDestinacaoValida(destinacao)) return false;
+  if (!segueParaOperacaoSubsequente(destinacao as DestinacaoMercadoria)) return false;
+  if (params.destinatarioContribuinte !== true) return false;
+  if (String(params.situacaoIcms ?? "").trim() === "20") return false;
+  if ((params.reducaoBase ?? 0) > 0) return false;
+  if (String(params.cbenef ?? "").trim()) return false;
+  return true;
+}
+
 export function faltaCbenefAutomacaoSc(item: {
   codigo: string;
   ncm: string;
@@ -260,10 +292,16 @@ export function faltaCbenefAutomacaoSc(item: {
   cargaEfetivaIcms: number | null;
   cbenef: string | null;
   interestadual: boolean;
+  destinacao?: string | null;
+  destinatarioContribuinte?: boolean | null;
+  reducaoBase?: number | null;
 }): string | null {
   const ncm = String(item.ncm ?? "").replace(/\D/g, "");
   if (!temReducaoAutomacaoSc(ncm, item.interestadual)) return null;
   if (String(item.cbenef ?? "").trim()) return null;
+  // 12% por aliquota (revenda/insumo/consignacao a contribuinte, sem reducao de base): o cBenef
+  // nao entra, porque nao ha beneficio na operacao.
+  if (aliquota12PorDestinacaoSc(item)) return null;
   const situacao = String(item.situacaoIcms ?? "").trim();
   const usaBeneficio = situacao === "20" || item.cargaEfetivaIcms === 12;
   if (!usaBeneficio) return null;
@@ -271,7 +309,10 @@ export function faltaCbenefAutomacaoSc(item: {
   return `item ${item.codigo}, CST ${situacao || "?"} com o benefício de redução de base do `
     + `${REDUCAO_AUTOMACAO_SC.baseLegal} (NCM ${ncmFormatado}) e sem cBenef. O benefício `
     + `exige o cBenef ${REDUCAO_AUTOMACAO_SC.cbenef} — a SEFAZ rejeita benefício de ICMS sem código `
-    + "desde 03/02/2025. Corrija o perfil fiscal do item antes de emitir";
+    + "desde 03/02/2025. Corrija o perfil fiscal do item antes de emitir. "
+    + "Se a venda é para contribuinte revender, usar como insumo ou receber em consignação, os 12% "
+    + "são a alíquota da Lei 10.297/96, art. 19, III, \"n\", e não o benefício: confirme a destinação "
+    + "declarada e use perfil sem redução de base";
 }
 
 /**

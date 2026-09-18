@@ -43,6 +43,7 @@ import {
   ehDestinacaoValida,
   excecaoAliquota12Indisponivel,
   EXCECAO_ALIQUOTA_12_DESTINATARIO,
+  aliquota12PorDestinacaoSc,
   faltaCbenefAutomacaoSc,
   itemNaExcecaoAliquota12,
   lerExcecaoAliquota12,
@@ -830,9 +831,13 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
       cargaEfetivaIcms,
       cbenef: text(item.cbenef),
       interestadual,
+      destinacao,
+      destinatarioContribuinte,
+      reducaoBase: reducao,
     });
     if (faltaCbenef) throw new Error(`Emissão bloqueada: ${faltaCbenef}.`);
-    if (!devolucaoCompra && !importacao && temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12) {
+    if (!devolucaoCompra && !importacao && temReducaoAutomacaoSc(ncm, interestadual) && cargaEfetivaIcms === 12
+      && !aliquota12PorDestinacaoSc({ destinacao, destinatarioContribuinte, situacaoIcms, reducaoBase: reducao, cbenef: text(item.cbenef) })) {
       usaBeneficioReducaoSc = true;
       itensBeneficioReducaoSc.push(numeroItem);
     }

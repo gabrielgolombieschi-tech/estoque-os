@@ -501,8 +501,48 @@ const aliquotaDireta = montarPayloadNfe(contexto({
 }));
 assert.match(aliquotaDireta.informacoes_adicionais_contribuinte, /RICMS\/SC-01, Anexo 2, Art\. 7º, VII/);
 assert.equal(aliquotaDireta.items[0].codigo_beneficio_fiscal, "SC820006");
+// Decisao do Gabriel em 18/09/2026 (OV-SEG-00012-026, CHAVE PIZZATO): venda a contribuinte com
+// destinacao que segue em operacao tributada (revenda, insumo, consignacao) e 12% pela ALIQUOTA da
+// Lei 10.297/96, art. 19, III, "n". Nao ha beneficio: sai CST 00 sobre a base integral, sem cBenef
+// e SEM o texto da reducao. A trava so vale quando ha beneficio em uso.
+const dozePorAliquota = montarPayloadNfe(contexto({ itens: [linha({ aliquota_icms: 12, cbenef: null })] }));
+assert.equal(dozePorAliquota.items[0].icms_situacao_tributaria, "00");
+assert.equal(dozePorAliquota.items[0].icms_aliquota, 12);
+assert.equal(dozePorAliquota.items[0].icms_base_calculo, 200, "base integral: 12% e aliquota, nao reducao");
+assert.equal("codigo_beneficio_fiscal" in dozePorAliquota.items[0], false);
+assert.doesNotMatch(dozePorAliquota.informacoes_adicionais_contribuinte, /Base de cálculo reduzida|Anexo 2, Art. 7º, VII/, "sem texto de beneficio");
+// O mesmo item para quem NAO e contribuinte continua exigindo o codigo (ali os 12% so existiriam
+// pelo beneficio).
 assert.throws(
-  () => montarPayloadNfe(contexto({ itens: [linha({ aliquota_icms: 12, cbenef: null })] })),
+  () => montarPayloadNfe(contexto({
+    itens: [linha({ aliquota_icms: 12, cbenef: null })],
+    solicitacao: solicitacao({ destinatario_snapshot: { ...solicitacao().destinatario_snapshot, indicador_ie: "9", inscricao_estadual: null } }),
+  })),
+  /exige o cBenef SC820006|alíquota interna de 17%/,
+);
+// Insumo a contribuinte: mesma regra da revenda.
+assert.equal(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85365090", situacaoIcms: "00", cargaEfetivaIcms: 12, cbenef: null, interestadual: false, destinacao: "INSUMO", destinatarioContribuinte: true, reducaoBase: 0 }),
+  null,
+);
+// Consumo do adquirente (manutencao/uso e consumo/ativo) a 12% sem codigo: continua travado, mesmo
+// a contribuinte — ali os 12% so viriam do beneficio ou da excecao da OC.
+assert.match(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85365090", situacaoIcms: "00", cargaEfetivaIcms: 12, cbenef: null, interestadual: false, destinacao: "MANUTENCAO", destinatarioContribuinte: true, reducaoBase: 0 }) ?? "",
+  /exige o cBenef SC820006/,
+);
+// Nao contribuinte, mesmo em revenda: travado.
+assert.match(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85365090", situacaoIcms: "00", cargaEfetivaIcms: 12, cbenef: null, interestadual: false, destinacao: "REVENDA", destinatarioContribuinte: false, reducaoBase: 0 }) ?? "",
+  /exige o cBenef SC820006/,
+);
+// Perfil que aplica reducao (CST 20 ou percentual) segue exigindo o codigo, mesmo em revenda.
+assert.match(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85365090", situacaoIcms: "20", cargaEfetivaIcms: 12, cbenef: null, interestadual: false, destinacao: "REVENDA", destinatarioContribuinte: true, reducaoBase: 29.412 }) ?? "",
+  /exige o cBenef SC820006/,
+);
+assert.match(
+  faltaCbenefAutomacaoSc({ codigo: "X", ncm: "85365090", situacaoIcms: "00", cargaEfetivaIcms: 12, cbenef: null, interestadual: false, destinacao: "REVENDA", destinatarioContribuinte: true, reducaoBase: 29.412 }) ?? "",
   /exige o cBenef SC820006/,
 );
 // Trava de 16/09/2026: CST 20 num NCM do Art. 7º, VII sem cBenef bloqueia com
@@ -898,6 +938,11 @@ assert.equal(revendaExcecao.items[0].icms_aliquota, 12);
 assert.equal(revendaExcecao.items[0].icms_base_calculo, 4821);
 assert.equal(revendaExcecao.items[0].icms_valor, 578.52);
 assert.equal("codigo_beneficio_fiscal" in revendaExcecao.items[0], false, "excecao nao e beneficio: sem cBenef");
+// Excecao 12% do destinatario (destinacao de consumo) num NCM da lista, sem codigo: travado.
+assert.throws(
+  () => comExcecao([linha({ aliquota_icms: 12, cbenef: null })]),
+  /exige o cBenef SC820006/,
+);
 
 // Nota mista: item 1 com SC820006 (CST 20, regra propria) e item 2 comum. O texto da
 // excecao lista so o item 2; o do beneficio, so o item 1.
