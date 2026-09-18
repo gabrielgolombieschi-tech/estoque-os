@@ -9,7 +9,7 @@
 --      180 dias, transporte da origem e o item como veio no XML
 --   3  gerar retorno: recusa CFOP fora do tipo/ambito e modalidade invalida; cria operacao
 --      RETORNO + solicitacao com destinatario do XML, item espelho com CST 50/SC840008,
---      IPI 55/108, PIS/COFINS 08, IBS 410/410999, tPag 90, sem estoque; volumes da origem
+--      IPI 55/109, PIS/COFINS 08, IBS 410/410999, tPag 90, sem estoque; volumes da origem
 --      quando a modalidade tem transporte; o retorno anterior sai do caminho; o pipeline
 --      prepara o documento de homologacao a partir dela
 --   4  autorizacoes: homologacao so marca homologada_em; producao baixa a remessa
@@ -75,7 +75,7 @@ insert into f.perfil_operacao (
   '1e160000-0000-4000-8000-000000000301', '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002',
   'TESTE-RETORNO-5902-O0', 'Retorno terceiros teste', 'NFE', 'RETORNO_REMESSA_TERCEIROS', 'RETORNO MERCADORIA RECEBIDA P/ INDUSTRIALIZACAO P/ ENCOMENDA', '3',
   '5902', '50', 0, 'SC840008', 'COM_BENEFICIO', 'ICMS suspenso (teste)',
-  '55', '108', '08', '08', 1, 0,
+  '55', '109', '08', '08', 1, 0,
   'INTERNA', array['SC']::text[], '1', 0, 'REVISAO', 'teste', false, '2026-09-16'
 );
 
@@ -275,7 +275,7 @@ begin
      or v_si.codigo_produto <> '000000000050017810' or v_si.descricao <> 'MATERIAIS PARA PINTURA' or v_si.ncm <> '32099019'
      or v_si.cfop <> '5902' or v_si.cst_icms <> '50' or v_si.csosn is not null or v_si.aliquota_icms is not null
      or v_si.cbenef <> 'SC840008' or v_si.reducao_base_icms_percentual <> 0
-     or v_si.cst_ipi <> '55' or v_si.ipi_codigo_enquadramento_legal <> '108' or v_si.aliquota_ipi is not null
+     or v_si.cst_ipi <> '55' or v_si.ipi_codigo_enquadramento_legal <> '109' or v_si.aliquota_ipi is not null
      or v_si.cst_pis <> '08' or v_si.cst_cofins <> '08' or v_si.aliquota_pis is not null
      or v_si.cst_ibs_cbs <> '410' or v_si.cclass_trib <> '410999' or (v_si.ibs_cbs_json->>'cbs_aliquota')::numeric <> 0
      or v_si.quantidade <> 4 or v_si.unidade <> 'GL' or v_si.unidade_tributavel <> 'GL' or v_si.valor_unitario <> 400
@@ -369,6 +369,7 @@ declare
   v_chave_prod text := '42260913671448000189550020000000711000000002';
   v_r f.remessas_terceiros%rowtype;
   v_movimentos bigint := (select count(*) from public.movimentacoes);
+  v_prontidao jsonb;
 begin
   -- Homologacao autorizada: so o carimbo; a remessa continua ABERTA e pode gerar de novo.
   update f.documento_fiscal_emissao set status = 'AUTORIZADA', chave_acesso = v_chave_hom, numero = 70, serie = 2, autorizado_em = now()
@@ -381,6 +382,30 @@ begin
      or (select status from f.operacao_fiscal where id = v_op) <> 'PRONTO_HOMOLOGACAO' then
     raise exception 'homologacao nao ficou na operacao';
   end if;
+
+  -- Portao de producao: com a homologacao autorizada mas o perfil sem revisao/liberacao (como
+  -- fica depois de uma mudanca de tributacao, ex. cEnq 108 -> 109 em 18/09/2026), a producao e
+  -- recusada antes de qualquer envio, tanto na consulta (fn_nfe_producao_pronta) quanto no
+  -- gatilho da emissao (trg_bloquear_nfe_producao_sem_perfil_liberado), aqui religado so para isso.
+  update f.documento_fiscal_emissao set payload_enviado = '{"items":[{"cfop":"5903"}]}'::jsonb where documento_fiscal_id = v_doc_hom;
+  v_prontidao := f.fn_nfe_producao_pronta(v_sol);
+  if coalesce((v_prontidao->>'pronta')::boolean, true) then
+    raise exception 'portao liberou producao com perfil nao liberado: %', v_prontidao;
+  end if;
+  if coalesce(v_prontidao->>'motivo', '') not ilike 'Perfis precisam estar liberados para esta homologacao%' then
+    raise exception 'portao recusou por outro motivo antes de chegar ao perfil: %', v_prontidao;
+  end if;
+  execute 'alter table f.documento_fiscal_emissao enable trigger trg_bloquear_nfe_producao_sem_perfil_liberado';
+  begin
+    insert into f.documento_fiscal (id, tenant_id, empresa_id, chave_acesso, modelo, serie, numero, operacao, natureza, cliente_id, nfe_status, origem, valor_total)
+    values ('1e160000-0000-4000-8000-000000000503', '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002', 'PENDENTE:X', '55', '2', '72', 'SAIDA', 'PRODUTO', 916001, 'RASCUNHO', 'EMITIDO', 1600);
+    insert into f.documento_fiscal_emissao (documento_fiscal_id, solicitacao_id, tenant_id, empresa_id, referencia_externa, ambiente, status)
+    values ('1e160000-0000-4000-8000-000000000503', v_sol, '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002', 'NFEP-RET-0', 'PRODUCAO', 'RASCUNHO');
+    raise exception 'gatilho aceitou emissao de producao com perfil nao liberado';
+  exception when others then
+    if sqlerrm not like 'Producao bloqueada:%' then raise; end if;
+  end;
+  execute 'alter table f.documento_fiscal_emissao disable trigger trg_bloquear_nfe_producao_sem_perfil_liberado';
 
   -- Producao autorizada: baixa a remessa.
   insert into f.documento_fiscal (id, tenant_id, empresa_id, chave_acesso, modelo, serie, numero, operacao, natureza, cliente_id, nfe_status, origem, valor_total)

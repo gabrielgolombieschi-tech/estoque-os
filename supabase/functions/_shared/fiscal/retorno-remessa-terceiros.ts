@@ -7,11 +7,11 @@
  * valor iguais, na mesma ordem) e referencia a chave dela em NFref. Tributacao (16/09/2026):
  *
  *   ICMS  CST 50 (suspensao), sem base e sem valor, orig da nota de origem, cBenef
- *         CBENEF_RETORNO_SC — RICMS/SC-01, Anexo 2, Art. 27, II. SC840008 e o padrao
- *         decidido pelo Gabriel e fica a confirmar com a contadora; nao se copia o cBenef
- *         da nota de origem, que e o da remessa (SC840007).
- *   IPI   CST 55 (suspensao), sem valor — RIPI/2010 (Decreto 7.212/10), art. 43, VII.
- *         cEnq 108, o codigo de suspensao que as NF-e de terceiros trazem (a confirmar).
+ *         CBENEF_RETORNO_SC = SC840008 — RICMS/SC-01, Anexo 2, Art. 27, II (confirmado em
+ *         18/09/2026); nao se copia o cBenef da nota de origem, que e o da remessa (SC840007).
+ *   IPI   CST 55 (suspensao), sem valor — RIPI/2010 (Decreto 7.212/10), art. 43, VII, cEnq 109
+ *         (tabela do Anexo XIV da NT 2015.002; confirmado em 18/09/2026). O 108 que as NF-e de
+ *         remessa trazem e o art. 43, VI, e nao serve para o retorno.
  *   PIS/COFINS CST 08: operacao sem incidencia, nao ha receita.
  *   IBS/CBS CST 410 / cClassTrib 410999 (nao incidencia), so CST e cClassTrib no item.
  *   Pagamento tPag 90 (sem pagamento), vPag 0; sem grupo cobr.
@@ -21,12 +21,13 @@
  */
 
 export const RETORNO_REMESSA_TERCEIROS = {
-  // TODO contadora: confirmar SC840008 (Anexo 2, Art. 27, II) para o retorno.
+  // cBenef do retorno: SC840008 (RICMS/SC, Anexo 2, Art. 27, II), confirmado em 18/09/2026.
   cbenef: "SC840008",
   cstIcms: "50",
   cstIpi: "55",
-  // TODO contadora: confirmar o cEnq 108 (suspensao) para o retorno com IPI CST 55.
-  cEnqIpi: "108",
+  // cEnq do retorno com IPI CST 55: 109 (RIPI art. 43, VII; Anexo XIV da NT 2015.002), confirmado em
+  // 18/09/2026. 108 (art. 43, VI) e o da remessa 5901 — a NF-e 2/20 (WEG) saiu com 108: CC-e com a contadora.
+  cEnqIpi: "109",
   cstPisCofins: "08",
   cstIbsCbs: "410",
   cClassTrib: "410999",
@@ -56,7 +57,7 @@ export const RETORNO_REMESSA_TERCEIROS = {
 
 /**
  * infAdFisco do retorno, no modelo da NF 3427 do Vertex (23/09/2025, WEG): base legal do ICMS e
- * a nota de origem. O IPI entra porque o item sai com o grupo IPI (CST 55, cEnq 108).
+ * a nota de origem. O IPI entra porque o item sai com o grupo IPI (CST 55, cEnq 109).
  */
 export function textoFiscoRetornoTerceiros(natureza: NaturezaRetornoTerceiros, origem: OrigemRetornoTerceiros, comGrupoIpi = true) {
   const partes = [

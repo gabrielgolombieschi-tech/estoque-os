@@ -1070,7 +1070,7 @@ const itemRetorno = (extra = {}) => linha({
   codigo_produto: "000000000050017810", descricao: "MATERIAIS PARA PINTURA", ncm: "32099019", cfop: "5902",
   origem_mercadoria: 0, unidade: "GL", unidade_tributavel: "GL", quantidade: 4, valor_unitario: 400, valor_desconto: 0,
   cst_icms: "50", aliquota_icms: null, reducao_base_icms_percentual: 0, cbenef: "SC840008",
-  cst_ipi: "55", ipi_codigo_enquadramento_legal: "108", aliquota_ipi: null,
+  cst_ipi: "55", ipi_codigo_enquadramento_legal: "109", aliquota_ipi: null,
   cst_pis: "08", cst_cofins: "08", aliquota_pis: null, aliquota_cofins: null, ...extra,
 });
 const contextoRetorno = (extraOperacao = {}, itens = [itemRetorno()], extraSolicitacao = {}) => contexto({
@@ -1132,7 +1132,7 @@ assert.equal("icms_base_calculo" in itemT, false, "CST 50 sem base");
 assert.equal("icms_valor" in itemT, false);
 assert.equal(itemT.codigo_beneficio_fiscal, "SC840008", "cBenef do retorno, nao o SC840007 da origem");
 assert.equal(itemT.ipi_situacao_tributaria, "55");
-assert.equal(itemT.ipi_codigo_enquadramento_legal, "108");
+assert.equal(itemT.ipi_codigo_enquadramento_legal, "109", "cEnq do retorno (art. 43, VII), nao o 108 da remessa");
 assert.equal("ipi_valor" in itemT, false);
 assert.equal(itemT.pis_situacao_tributaria, "08");
 assert.equal(itemT.cofins_situacao_tributaria, "08");

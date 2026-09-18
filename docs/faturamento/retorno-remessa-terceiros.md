@@ -69,7 +69,7 @@ produção: remessa volta a ABERTA. Homologação só grava `homologada_em`/`nfe
 | NFref | `refNFe` = chave da origem (`notas_referenciadas` na Focus) — **só em produção**: a SEFAZ de homologação não conhece a chave de produção e recusou com cStat 267 (16/09/2026); em homologação a chave fica só no infCpl e a comparação produção × homologação ignora o grupo |
 | Itens | espelho exato: cProd, xProd, NCM, uCom, qCom, vUnCom, vProd, mesma ordem; total = vProd, vNF = vProd |
 | ICMS | CST 50, sem base/valor, orig da origem, cBenef **SC840008** (`CBENEF_RETORNO_SC`, não copia o da origem) |
-| IPI | CST 55, sem valor, cEnq **108** |
+| IPI | CST 55, sem valor, cEnq **109** (RIPI art. 43, VII; Anexo XIV da NT 2015.002). Até 18/09/2026 saía 108, que é o inciso VI (remessa); a NF-e 2/20 da WEG saiu com 108 e a correção por CC-e está com a contadora (rascunho abaixo) |
 | PIS/COFINS | CST 08 |
 | IBS/CBS | CST 410, cClassTrib 410999, sem gIBSCBS |
 | Pagamento | tPag 90, vPag 0; sem cobr |
@@ -97,11 +97,31 @@ apareceram como a pagar).
 | Bloqueio na compra | `app/estoque/importar/page.tsx` (`addJobFromRaw`) |
 | Testes | `supabase/tests/remessa_terceiros_retorno.sql`, `scripts/test-nfe-pipeline.mjs` |
 
+## Decidido em 18/09/2026 (Gabriel)
+
+- **cBenef SC840008 confirmado** (RICMS/SC, Anexo 2, art. 27, II) para o retorno 5902/5903.
+- **cEnq do IPI do retorno = 109** (RIPI art. 43, VII; tabela do Anexo XIV da NT 2015.002). O 108
+  é o art. 43, VI, da remessa 5901. Alterado por migration `20260918150000_retorno_terceiros_cenq_109.sql`
+  em `f.fn_retorno_terceiros_config()`, na constante `RETORNO_REMESSA_TERCEIROS` (montador exige 109)
+  e no perfil `SEG-RETORNO-TERCEIROS-5902-O0-CST50`, que **voltou para revisão** (produção
+  desabilitada; o portão `fn_nfe_producao_pronta` só reabre com revisão, homologação posterior a ela
+  e liberação). A remessa de conserto (`remessa-conserto.ts`, 5915/5916) continua com 108: pendente.
+- Não houve homologação de teste: `f.fn_remessa_terceiros_retorno_criar` só gera retorno de remessa
+  ABERTA e a importação recusa chave repetida, então a remessa WEG 900356 (RETORNADA) não serve sem
+  mexer no status. A próxima remessa de terceiros importada homologa com o cEnq novo.
+
+### Rascunho de CC-e da NF-e 2/20 (não enviada; decisão da contadora)
+
+NF-e 2/20, chave 42260913671448000189550020000000201907656978, emitida em 16/09/2026 para WEG
+Tintas. Texto proposto (xCorrecao):
+
+`CORRECAO DO CODIGO DE ENQUADRAMENTO LEGAL DO IPI (cEnq) DO ITEM 1 - MATERIAIS PARA PINTURA, NCM 32099019, CFOP 5902: ONDE SE LE cEnq 108, LEIA-SE cEnq 109 (SUSPENSAO DO IPI NO RETORNO DE MERCADORIA RECEBIDA PARA INDUSTRIALIZACAO POR ENCOMENDA - RIPI, DECRETO 7.212/2010, ART. 43, VII). CST DO IPI 55, VALORES, QUANTIDADES, DATAS E DEMAIS DADOS DO ITEM E DA NOTA PERMANECEM INALTERADOS.`
+
+A CC-e não altera valor, quantidade, data nem partes (Ajuste SINIEF 07/05, cláusula 14-A, § 1º-A);
+só o campo de enquadramento. Envio, se aprovado, pelo ciclo de vida da NF-e (evento CARTA_CORRECAO).
+
 ## Pendências
 
-- Confirmar com a contadora: cBenef SC840008 (constante em `f.fn_retorno_terceiros_config()` e
-  em `RETORNO_REMESSA_TERCEIROS`) e cEnq 108 do IPI; e se o retorno de **conserto** (5916)
-  usa o mesmo cBenef ou o SC840007 (Art. 27, I).
-- Produção da aba nasce desligada; o perfil `SEG-RETORNO-TERCEIROS-5902-O0-CST50` precisa da
-  revisão IBS/CBS e da liberação contra a homologação, como na remessa. Retorno 5903 e 5916
-  ainda não têm perfil (produção vai exigir um).
+- Retorno de **conserto** (5916): cBenef (SC840008 ou SC840007, Art. 27, I) e cEnq — com a contadora.
+- Produção da aba nasce desligada; o perfil 5902 precisa de nova revisão, homologação e liberação
+  depois do cEnq 109. Retorno 5903 e 5916 ainda não têm perfil (produção vai exigir um).
