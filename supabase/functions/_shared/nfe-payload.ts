@@ -9,6 +9,7 @@ import {
   ehNaturezaRetornoTerceiros,
   lerOrigemRetornoTerceiros,
   motivoItemForaDoRetornoTerceiros,
+  natOpRetornoTerceiros,
   RETORNO_REMESSA_TERCEIROS,
   textoFiscoRetornoTerceiros,
   textoRetornoTerceiros,
@@ -989,7 +990,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
     ...(remessaConserto ? textosRemessaConserto() : []),
     // O texto do retorno ja traz numero, serie, data e chave da origem; a linha generica da
     // chave referenciada seria repeticao.
-    ...(origemRetorno ? [textoRetornoTerceiros(origemRetorno)] : []),
+    ...(origemRetorno ? [textoRetornoTerceiros(origemRetorno, String(items[0]?.cfop ?? ""))] : []),
     ...(origemDevolucao ? [textoDevolucaoCompra(origemDevolucao)] : []),
     ...(origemImportacao ? [origemImportacao.textoComplementar] : []),
     ...(itensExcecaoAliquota12.length > 0 || !destinacao
@@ -1179,7 +1180,8 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
   const dataHora = dataHoraNfeSaoPaulo(agora);
 
   return {
-    natureza_operacao: natureza.descricao,
+    // Retorno de terceiros: o 5903 (nao aplicado) tem natOp proprio (fiscal/retorno-remessa-terceiros.ts).
+    natureza_operacao: retornoTerceiros ? natOpRetornoTerceiros(retornoTerceiros, String(items[0]?.cfop ?? "")) : natureza.descricao,
     // Serie decidida em 05/09/2026: a SEGAU emite pelo ERP na serie 2 em
     // producao; a serie 1 fica com o emissor antigo ate o fim das implantacoes.
     // Sem enviar a serie, a Focus numeraria na serie dela e poderia colidir

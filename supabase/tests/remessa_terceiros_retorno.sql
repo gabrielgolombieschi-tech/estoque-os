@@ -78,6 +78,20 @@ insert into f.perfil_operacao (
   '55', '109', '08', '08', 1, 0,
   'INTERNA', array['SC']::text[], '1', 0, 'REVISAO', 'teste', false, '2026-09-16'
 );
+-- Perfil 5903 (material nao aplicado), como o SEG-RETORNO-TERCEIROS-5903-O0-CST50 da migration 20260918170000.
+insert into f.perfil_operacao (
+  id, tenant_id, empresa_id, codigo, nome, modelo, natureza_operacao, natureza_texto, crt,
+  cfop_interno, cst_icms, aliquota_icms, cbenef, cbenef_aplicacao, beneficio_texto_legal,
+  cst_ipi, ipi_codigo_enquadramento_legal, cst_pis, cst_cofins, finalidade_emissao, consumidor_final,
+  ambito_destino, ufs_destino, indicador_ie_destinatario, origem_mercadoria, faixa_automacao, justificativa_faixa,
+  habilitado_producao, vigencia_inicio, rotulo_usuario, legenda_usuario
+) values (
+  '1e160000-0000-4000-8000-000000000303', '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002',
+  'TESTE-RETORNO-5903-O0', 'Retorno terceiros nao aplicado teste', 'NFE', 'RETORNO_REMESSA_TERCEIROS', 'RETORNO DE MERCADORIA P/ INDUSTRIALIZACAO NAO APLICADA', '3',
+  '5903', '50', 0, 'SC840008', 'COM_BENEFICIO', 'ICMS suspenso (teste)',
+  '55', '109', '08', '08', 1, 0,
+  'INTERNA', array['SC']::text[], '1', 0, 'REVISAO', 'teste', false, '2026-09-18', 'Voltou sem usar', 'Ex.: lata fechada, sobra devolvida como veio.'
+);
 
 create temporary table retorno_ids (nome text primary key, id uuid not null) on commit drop;
 grant all on retorno_ids to authenticated;
@@ -312,9 +326,10 @@ begin
      or (select cfop_retorno from f.remessas_terceiros where id = v_rem) <> '5903' then
     raise exception 'volumes da tela nao prevaleceram: %', row_to_json(v_sf);
   end if;
-  -- CFOP 5903 nao tem perfil: item sem perfil (producao vai exigir um).
-  if (select perfil_operacao_id from f.solicitacao_item where solicitacao_id = v_sf.id) is not null then
-    raise exception 'item do 5903 ganhou perfil do 5902';
+  -- CFOP 5903 tem perfil proprio (TESTE-RETORNO-5903-O0, como o SEG-RETORNO-TERCEIROS-5903-O0-CST50): o item
+  -- recebe esse perfil, nao o do 5902.
+  if (select perfil_operacao_id from f.solicitacao_item where solicitacao_id = v_sf.id) is distinct from '1e160000-0000-4000-8000-000000000303'::uuid then
+    raise exception 'item do 5903 nao ganhou o perfil 5903: %', (select perfil_operacao_id from f.solicitacao_item where solicitacao_id = v_sf.id);
   end if;
   delete from retorno_ids where nome in ('op', 'sol');
   insert into retorno_ids values ('op', (v_res->>'operacao_id')::uuid), ('sol', (v_res->>'solicitacao_id')::uuid);
@@ -545,6 +560,32 @@ begin
     raise exception 'aceitou segundo teste da mesma chave';
   exception when sqlstate '23505' then
     if sqlerrm not like 'Teste de homologacao da NF-e % ja existe%' then raise; end if;
+  end;
+
+  -- Situacao em linguagem simples (migration 20260918170000): a) usado -> 5902, b) nao usado -> 5903,
+  -- c) parcial recusado no banco; o CFOP continua aceito para chamadas antigas.
+  v_res := f.fn_remessa_terceiros_retorno_criar(p_remessa_id => v_teste, p_situacao => 'USADO');
+  if v_res->>'cfop' <> '5902' or v_res->>'situacao' <> 'USADO'
+     or (select cfop from f.solicitacao_item where solicitacao_id = (v_res->>'solicitacao_id')::uuid) <> '5902'
+     or (select sf.operacao_snapshot#>>'{retorno_terceiros,situacao}' from f.solicitacao_faturamento sf where sf.id = (v_res->>'solicitacao_id')::uuid) <> 'USADO' then
+    raise exception 'situacao USADO nao virou 5902: %', v_res;
+  end if;
+  v_res := f.fn_remessa_terceiros_retorno_criar(p_remessa_id => v_teste, p_situacao => 'nao_usado');
+  if v_res->>'cfop' <> '5903' or v_res->>'situacao' <> 'NAO_USADO'
+     or (select cfop from f.solicitacao_item where solicitacao_id = (v_res->>'solicitacao_id')::uuid) <> '5903'
+     or (select perfil_operacao_id from f.solicitacao_item where solicitacao_id = (v_res->>'solicitacao_id')::uuid) <> '1e160000-0000-4000-8000-000000000303' then
+    raise exception 'situacao NAO_USADO nao virou 5903 com o perfil 5903: %', v_res;
+  end if;
+  begin
+    perform f.fn_remessa_terceiros_retorno_criar(p_remessa_id => v_teste, p_situacao => 'PARCIAL');
+    raise exception 'banco aceitou retorno parcial';
+  exception when sqlstate '22023' then
+    if sqlerrm not like 'Retorno parcial (parte usada, parte devolvida) ainda nao esta disponivel%' then raise; end if;
+  end;
+  begin
+    perform f.fn_remessa_terceiros_retorno_criar(p_remessa_id => v_teste, p_situacao => 'CONSERTADO');
+    raise exception 'aceitou CONSERTADO numa industrializacao';
+  exception when sqlstate '22023' then null;
   end;
 
   -- Retorno do teste: solicitacao e operacao marcadas como teste.

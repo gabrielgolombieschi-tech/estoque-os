@@ -134,6 +134,39 @@ Tintas. Texto proposto (xCorrecao):
 A CC-e não altera valor, quantidade, data nem partes (Ajuste SINIEF 07/05, cláusula 14-A, § 1º-A);
 só o campo de enquadramento. Envio, se aprovado, pelo ciclo de vida da NF-e (evento CARTA_CORRECAO).
 
+## Modal em linguagem simples e perfil 5903 (18/09/2026, migration `20260918170000`)
+
+Princípio (vale para o ERP): código fiscal nunca aparece sozinho — opção em linguagem simples,
+exemplo curto e o código pequeno ao lado; a pessoa escolhe a situação e o sistema deriva o código.
+
+- **Modal "Gerar retorno"**: no lugar do seletor de CFOP, a pergunta "O que aconteceu com o material do
+  cliente?" com três opções: **Foi usado no produto** (Ex.: tinta aplicada, peça montada. O material
+  volta dentro do produto. · CFOP 5902), **Voltou sem usar** (Ex.: lata fechada, sobra devolvida como
+  veio. · CFOP 5903) e **Parte usada, parte devolvida** (desabilitada: "Ainda não disponível. Fale com o
+  responsável fiscal."). Fora de SC o mesmo desenho deriva 6902/6903 e, sem perfil para o CFOP, a opção
+  fica desabilitada com a mesma legenda. Conserto mantém as duas opções de sempre (5916/5903) no
+  mesmo padrão de legenda. Rótulo e legenda vêm de `f.perfil_operacao.rotulo_usuario` /
+  `legenda_usuario` (preenchidos no 5902 e no 5903).
+- **Banco deriva o CFOP**: `fn_remessa_terceiros_retorno_criar(p_remessa_id, p_cfop, p_modalidade_frete,
+  p_observacao, p_volumes, p_situacao)` — `USADO` → 5902, `NAO_USADO` → 5903, conserto `CONSERTADO` →
+  5916; `PARCIAL` é recusado no banco ("Retorno parcial ... ainda nao esta disponivel"), não só na
+  tela. `p_cfop` continua aceito para chamadas antigas. A situação fica em `operacao_fiscal.dados_json`
+  e em `operacao_snapshot.retorno_terceiros`.
+- **Perfil `SEG-RETORNO-TERCEIROS-5903-O0-CST50`**: cópia do 5902 com CFOP 5903, mesma tributação
+  (ICMS 50/SC840008, IPI 55/109, PIS/COFINS 08, IBS/CBS 410/410999), evidência própria, produção
+  desabilitada até revisão e liberação do Gabriel. natOp `RETORNO DE MERCADORIA P/ INDUSTRIALIZACAO NAO
+  APLICADA` (o texto completo pedido tem 88 caracteres e o leiaute aceita 60); infCpl do 5903:
+  `RETORNO DA MERCADORIA RECEBIDA PARA INDUSTRIALIZACAO PELA NF-E N. {nNF} SERIE {serie} DE {data}, CHAVE
+  {chave}, NAO APLICADA NO REFERIDO PROCESSO: O MATERIAL VOLTA SEM TER SIDO UTILIZADO, COMO FOI RECEBIDO.
+  MERCADORIA DE TERCEIROS. SEM COBRANCA.` (montador, `natOpRetornoTerceiros`/`textoRetornoTerceiros`).
+- **Produção desligada**: a linha mostra "Emissão real desligada para esta aba. Peça a um
+  administrador para ligar." no lugar do botão que sumia; só ADMIN vê o botão de ligar.
+- **Conferência antes de liberar** (`app/faturamento/perfis/ConferenciaRetornoTerceiros.tsx`): na tela de
+  liberar perfil, quando a solicitação é de retorno de terceiros, um quadro "Confira se o que está
+  voltando é igual ao que o cliente mandou" compara remessa × retorno homologado (produto, NCM,
+  quantidade, unidade, valor unitário, valor total, chave referenciada); igual em cinza, divergência em
+  vermelho; casas decimais não contam; nada bloqueia.
+
 ## Pendências
 
 - Retorno de **conserto** (5916): cBenef (SC840008 ou SC840007, Art. 27, I) e cEnq — com a contadora.

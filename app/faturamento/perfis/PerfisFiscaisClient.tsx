@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import ConferenciaRetornoTerceiros from "./ConferenciaRetornoTerceiros";
 
 type PerfilFiscal = {
   id: string;
@@ -1027,6 +1028,9 @@ export default function PerfisFiscaisClient({ retorno, perfilInicial, solicitaca
                         ? `${homologacoes.length} solicitacao(oes) com homologacao autorizada para este perfil.`
                         : "Nenhuma homologacao autorizada encontrada para este perfil."}
                     </div>
+                    {release.solicitacaoId && String(selected.natureza_operacao ?? "").startsWith("RETORNO_REMESSA_TERCEIROS")
+                      ? <ConferenciaRetornoTerceiros solicitacaoId={release.solicitacaoId} />
+                      : null}
                   </div>
                   <label className="space-y-1.5 text-sm text-zinc-300" htmlFor="justificativa-liberacao">
                     <span>Justificativa da liberacao</span>

@@ -68,6 +68,12 @@ type Emissao = {
 };
 type Operacao = { id: string; solicitacao_id: string | null; status: string; dados_json: { perfil_codigo?: string | null; remessa_terceiros_id?: string } | null };
 type ResultadoArquivo = { nome: string; ok: boolean; texto: string };
+type PerfilRetorno = {
+  codigo: string; natureza_operacao: string; ambito_destino: string | null; cfop_interno: string | null; cfop_externo: string | null;
+  habilitado_producao: boolean; producao_homologacao_solicitacao_id: string | null; rotulo_usuario: string | null; legenda_usuario: string | null;
+};
+/** Opcao em linguagem simples do modal: a pessoa diz o que aconteceu; o CFOP aparece pequeno ao lado. */
+type OpcaoSituacao = { situacao: string; rotulo: string; legenda: string; cfop: string | null; habilitada: boolean };
 type ProducaoStatus = {
   pronta?: boolean;
   motivo?: string | null;
@@ -76,11 +82,6 @@ type ProducaoStatus = {
 };
 
 const CFOPS_ORIGEM = ["5901", "6901", "5915", "6915"];
-const CFOP_DESCRICAO: Record<string, string> = {
-  "5902": "Retorno de mercadoria utilizada na industrialização por encomenda",
-  "5903": "Retorno de mercadoria recebida para industrialização e não aplicada",
-  "5916": "Retorno de mercadoria recebida para conserto ou reparo",
-};
 // Padrao 0, como a Segau ja emitia no Vertex (NF 3427, 23/09/2025).
 const MODALIDADES_FRETE: Array<[string, string]> = [
   ["0", "0 · Por conta do remetente (SEGAU paga)"],
@@ -137,12 +138,40 @@ function corPrazo(dias: number) {
 function tipoRotulo(tipo: Remessa["tipo"]) {
   return tipo === "INDUSTRIALIZACAO" ? "Industrialização" : tipo === "CONSERTO" ? "Conserto" : "Outro";
 }
-/** CFOPs de retorno possiveis: 5902/5903 (industrializacao), 5916/5903 (conserto); 6xxx fora da UF do remetente. */
-function cfopsRetorno(remessa: Remessa, ufEmpresa: string | null) {
-  const base = remessa.tipo === "CONSERTO" ? ["5916", "5903"] : remessa.tipo === "INDUSTRIALIZACAO" ? ["5902", "5903"] : ["5903"];
+const LEGENDA_INDISPONIVEL = "Ainda não disponível. Fale com o responsável fiscal.";
+/**
+ * Opcoes do modal por tipo de remessa. O CFOP e derivado da situacao (o banco faz o mesmo em
+ * fn_remessa_terceiros_retorno_criar e recusa o parcial); rotulo e legenda vem do perfil do CFOP
+ * (f.perfil_operacao.rotulo_usuario/legenda_usuario) quando ele existe. Industrializacao sem perfil para o
+ * CFOP (ex.: 6902/6903 fora de SC) fica desabilitada; conserto segue como estava.
+ */
+function opcoesSituacao(remessa: Remessa, ufEmpresa: string | null, perfis: PerfilRetorno[]): OpcaoSituacao[] {
   const ufRemetente = (remessa.emitente_endereco?.uf ?? "").toUpperCase();
   const interestadual = Boolean(ufEmpresa) && Boolean(ufRemetente) && ufRemetente !== ufEmpresa;
-  return base.map((c) => ({ cfop: interestadual ? `6${c.slice(1)}` : c, descricao: CFOP_DESCRICAO[c] ?? c }));
+  const cfopDe = (base: string) => (interestadual ? `6${base.slice(1)}` : base);
+  const perfilDe = (cfop: string) => perfis.find((p) => (interestadual ? p.cfop_externo === cfop && p.ambito_destino === "INTERESTADUAL" : p.cfop_interno === cfop && p.ambito_destino === "INTERNA"));
+  const monta = (situacao: string, base: string, rotulo: string, legenda: string, exigePerfil: boolean): OpcaoSituacao => {
+    const cfop = cfopDe(base);
+    const perfil = perfilDe(cfop);
+    const habilitada = !exigePerfil || Boolean(perfil);
+    return {
+      situacao, cfop,
+      rotulo: perfil?.rotulo_usuario?.trim() || rotulo,
+      legenda: habilitada ? (perfil?.legenda_usuario?.trim() || legenda) : LEGENDA_INDISPONIVEL,
+      habilitada,
+    };
+  };
+  if (remessa.tipo === "CONSERTO") {
+    return [
+      monta("CONSERTADO", "5916", "Foi consertado e volta ao cliente", "Ex.: equipamento reparado devolvido.", false),
+      monta("NAO_USADO", "5903", "Voltou sem conserto", "Ex.: devolvido como veio, sem reparo.", false),
+    ];
+  }
+  return [
+    monta("USADO", "5902", "Foi usado no produto", "Ex.: tinta aplicada, peça montada. O material volta dentro do produto.", true),
+    monta("NAO_USADO", "5903", "Voltou sem usar", "Ex.: lata fechada, sobra devolvida como veio.", true),
+    { situacao: "PARCIAL", cfop: null, rotulo: "Parte usada, parte devolvida", legenda: LEGENDA_INDISPONIVEL, habilitada: false },
+  ];
 }
 
 export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string; empresaId: string }) {
@@ -158,6 +187,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
   const [empresa, setEmpresa] = useState<{ uf: string | null; cnpj: string | null }>({ uf: null, cnpj: null });
   const [producaoLigada, setProducaoLigada] = useState(false);
   const [perfisLiberados, setPerfisLiberados] = useState<string[]>([]);
+  const [perfisRetorno, setPerfisRetorno] = useState<PerfilRetorno[]>([]);
   const [papel, setPapel] = useState<string | null>(null);
   // Teste de homologacao: importa a remessa em linha propria (is_teste), mesmo com a chave ja usada;
   // so homologa (producao bloqueada no banco), nao conta prazo e fica na secao "Testes".
@@ -165,7 +195,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
 
   // Modal "Gerar NF-e de retorno"
   const [modal, setModal] = useState<Remessa | null>(null);
-  const [cfop, setCfop] = useState("");
+  const [situacao, setSituacao] = useState("");
   const [modalidade, setModalidade] = useState(MODALIDADE_FRETE_PADRAO);
   const [observacao, setObservacao] = useState("");
   const [qVol, setQVol] = useState("");
@@ -189,7 +219,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
       supabase.schema("f").from("retorno_terceiros_config").select("producao_ligada").eq("empresa_id", empresaId).maybeSingle(),
       // Perfil liberado PARA ESTA solicitacao: o link "Liberar perfil" some da linha. Liberado
       // para outra homologacao (retorno gerado de novo), o link volta.
-      supabase.schema("f").from("perfil_operacao").select("codigo,habilitado_producao,producao_homologacao_solicitacao_id").eq("modelo", "NFE").like("natureza_operacao", "RETORNO_REMESSA_TERCEIROS%"),
+      supabase.schema("f").from("perfil_operacao").select("codigo,natureza_operacao,ambito_destino,cfop_interno,cfop_externo,habilitado_producao,producao_homologacao_solicitacao_id,rotulo_usuario,legenda_usuario").eq("modelo", "NFE").like("natureza_operacao", "RETORNO_REMESSA_TERCEIROS%").is("vigencia_fim", null),
     ]);
     if (it.error) throw it.error;
     if (em.error) throw em.error;
@@ -200,6 +230,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
     setEmissoes((em.data ?? []) as Emissao[]);
     setOperacoes((ops.data ?? []) as Operacao[]);
     setProducaoLigada(Boolean((cfg.data as { producao_ligada?: boolean } | null)?.producao_ligada));
+    setPerfisRetorno((perfis.data ?? []) as PerfilRetorno[]);
     setPerfisLiberados(((perfis.data ?? []) as Array<{ codigo: string; habilitado_producao: boolean; producao_homologacao_solicitacao_id: string | null }>)
       .filter((p) => p.habilitado_producao && p.producao_homologacao_solicitacao_id)
       .map((p) => `${p.codigo}|${p.producao_homologacao_solicitacao_id}`));
@@ -273,9 +304,9 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
 
   // ---------------------------------------------------------------- 3 · gerar retorno
   function abrirModal(r: Remessa) {
-    const opcoes = cfopsRetorno(r, empresa.uf);
+    const opcoes = opcoesSituacao(r, empresa.uf, perfisRetorno);
     setModal(r);
-    setCfop(opcoes[0]?.cfop ?? "");
+    setSituacao(opcoes.find((o) => o.habilitada)?.situacao ?? "");
     setModalidade(MODALIDADE_FRETE_PADRAO);
     setObservacao(r.obs ?? "");
     setQVol("");
@@ -293,7 +324,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
         : null;
       const { data, error } = await supabase.schema("f").rpc("fn_remessa_terceiros_retorno_criar", {
         p_remessa_id: modal.id,
-        p_cfop: cfop,
+        p_situacao: situacao,
         p_modalidade_frete: Number(modalidade),
         p_observacao: observacao.trim() || null,
         p_volumes: volumesTela,
@@ -441,6 +472,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
                         {aberta && homAutorizada && linkPerfil && (!producaoLigada || r.is_teste) ? <Link href={linkPerfil} className={button}>Liberar perfil</Link> : null}
                         {aberta && homAutorizada && linkPerfil && producaoLigada && !r.is_teste ? <Link href={linkPerfil} className={button}>Liberar perfil para produção</Link> : null}
                         {r.is_teste ? <button type="button" className="text-xs text-red-300 underline" disabled={ocupado} onClick={() => void excluirTeste(r)}>Excluir teste</button> : null}
+                        {aberta && !r.is_teste && homAutorizada && !producaoLigada ? <span className="max-w-xs text-right text-xs text-amber-300">Emissão real desligada para esta aba. Peça a um administrador para ligar.</span> : null}
                         {podeProduzir ? <button type="button" className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50" disabled={ocupado} onClick={() => void emitirProducao(r)}>Emitir NF-e real (produção)</button> : null}
                       </div>
                     </td>
@@ -546,7 +578,18 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <label className={label}>CFOP do retorno<select aria-label="CFOP do retorno" className={`${field} w-full`} value={cfop} onChange={(e) => setCfop(e.target.value)}>{cfopsRetorno(modal, empresa.uf).map((o) => <option key={o.cfop} value={o.cfop}>{o.cfop} · {o.descricao}</option>)}</select></label>
+              <fieldset className="space-y-2 md:col-span-2">
+                <legend className="text-sm font-medium">O que aconteceu com o material do cliente?</legend>
+                {opcoesSituacao(modal, empresa.uf, perfisRetorno).map((o) => (
+                  <label key={o.situacao} className={`flex items-start gap-3 rounded border p-3 ${o.habilitada ? (situacao === o.situacao ? "border-sky-600 bg-sky-950/30" : "border-zinc-700 hover:border-zinc-500") : "cursor-not-allowed border-zinc-800 opacity-60"}`}>
+                    <input type="radio" name="situacao-retorno" aria-label={o.rotulo} className="mt-1" value={o.situacao} checked={situacao === o.situacao} disabled={!o.habilitada} onChange={() => setSituacao(o.situacao)} />
+                    <span className="flex-1">
+                      <span className="flex flex-wrap items-center gap-2"><span className="text-sm">{o.rotulo}</span>{o.cfop ? <span className="font-mono text-xs text-zinc-500">CFOP {o.cfop}</span> : null}</span>
+                      <span className="block text-xs text-zinc-400">{o.legenda}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
               <label className={label}>Modalidade do frete<select aria-label="Modalidade do frete do retorno" className={`${field} w-full`} value={modalidade} onChange={(e) => setModalidade(e.target.value)}>{MODALIDADES_FRETE.map(([c, r]) => <option key={c} value={c}>{r}</option>)}</select></label>
             </div>
             {modalidade !== "9" ? (
@@ -562,7 +605,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
             <label className={label}>Observação (vai nas informações complementares, depois do texto do retorno)<textarea aria-label="Observação do retorno" className={`${field} min-h-16 w-full`} value={observacao} onChange={(e) => setObservacao(e.target.value)} maxLength={500} /></label>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={button} onClick={() => setModal(null)}>Cancelar</button>
-              <button type="button" className={primario} disabled={busy === "gerar" || !cfop} onClick={() => void gerarEHomologar()}>{busy === "gerar" ? "Gerando..." : "Emitir em homologação"}</button>
+              <button type="button" className={primario} disabled={busy === "gerar" || !situacao} onClick={() => void gerarEHomologar()}>{busy === "gerar" ? "Gerando..." : "Emitir em homologação"}</button>
             </div>
           </div>
         </div>

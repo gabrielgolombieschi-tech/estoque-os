@@ -1133,6 +1133,17 @@ assert.equal("icms_valor" in itemT, false);
 assert.equal(itemT.codigo_beneficio_fiscal, "SC840008", "cBenef do retorno, nao o SC840007 da origem");
 assert.equal(itemT.ipi_situacao_tributaria, "55");
 assert.equal(itemT.ipi_codigo_enquadramento_legal, "109", "cEnq do retorno (art. 43, VII), nao o 108 da remessa");
+// 5903 (material nao aplicado): natOp proprio dentro de 60 caracteres e infCpl dizendo que volta sem uso.
+{
+  const naoAplicado = montarPayloadNfe(contextoRetorno({}, [itemRetorno({ cfop: "5903" })]));
+  assert.equal(naoAplicado.natureza_operacao, "RETORNO DE MERCADORIA P/ INDUSTRIALIZACAO NAO APLICADA");
+  assert.ok(naoAplicado.natureza_operacao.length <= 60, "natOp aceita 60 caracteres");
+  assert.match(naoAplicado.informacoes_adicionais_contribuinte, /NAO APLICADA NO REFERIDO PROCESSO: O MATERIAL VOLTA SEM TER SIDO UTILIZADO, COMO FOI RECEBIDO\. MERCADORIA DE TERCEIROS\. SEM COBRANCA\./);
+  assert.doesNotMatch(naoAplicado.informacoes_adicionais_contribuinte, /RETORNO INTEGRAL/);
+  assert.equal(naoAplicado.items[0].ipi_codigo_enquadramento_legal, "109");
+  assert.equal(naoAplicado.items[0].codigo_beneficio_fiscal, "SC840008");
+  assert.equal(naoAplicado.informacoes_adicionais_fisco, retorno.informacoes_adicionais_fisco, "infAdFisco igual ao do 5902");
+}
 assert.equal("ipi_valor" in itemT, false);
 assert.equal(itemT.pis_situacao_tributaria, "08");
 assert.equal(itemT.cofins_situacao_tributaria, "08");

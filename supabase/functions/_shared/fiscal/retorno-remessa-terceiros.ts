@@ -96,8 +96,27 @@ export function lerOrigemRetornoTerceiros(valor: unknown): OrigemRetornoTerceiro
   return { numero, serie, dataEmissao, chave };
 }
 
-/** Frase do infCpl, antes da observacao livre. */
-export function textoRetornoTerceiros(origem: OrigemRetornoTerceiros) {
+/** CFOPs de material NAO aplicado (5903/6903): natOp e infCpl proprios. */
+export function ehRetornoNaoAplicado(cfop: string | null | undefined) {
+  return cfop === "5903" || cfop === "6903";
+}
+
+/**
+ * natOp do retorno. O 5903 (material recebido para industrializacao e nao aplicado) tem texto proprio;
+ * o pedido do Gabriel em 18/09/2026 ("RETORNO DE MERCADORIA RECEBIDA PARA INDUSTRIALIZACAO E NAO
+ * APLICADA NO REFERIDO PROCESSO") tem 88 caracteres e natOp aceita 60: fica a forma curta abaixo e o
+ * texto completo vai no infCpl.
+ */
+export function natOpRetornoTerceiros(natureza: NaturezaRetornoTerceiros, cfop: string | null | undefined) {
+  if (natureza === "RETORNO_REMESSA_TERCEIROS" && ehRetornoNaoAplicado(cfop)) return "RETORNO DE MERCADORIA P/ INDUSTRIALIZACAO NAO APLICADA";
+  return RETORNO_REMESSA_TERCEIROS.naturezas[natureza].natOp;
+}
+
+/** Frase do infCpl, antes da observacao livre. No 5903 diz que o material volta sem ter sido aplicado. */
+export function textoRetornoTerceiros(origem: OrigemRetornoTerceiros, cfop?: string | null) {
+  if (ehRetornoNaoAplicado(cfop)) {
+    return `RETORNO DA MERCADORIA RECEBIDA PARA INDUSTRIALIZACAO PELA NF-E N. ${origem.numero} SERIE ${origem.serie} DE ${origem.dataEmissao}, CHAVE ${origem.chave}, NAO APLICADA NO REFERIDO PROCESSO: O MATERIAL VOLTA SEM TER SIDO UTILIZADO, COMO FOI RECEBIDO. MERCADORIA DE TERCEIROS. SEM COBRANCA.`;
+  }
   return `RETORNO INTEGRAL DA MERCADORIA RECEBIDA PELA NF-E N. ${origem.numero} SERIE ${origem.serie} DE ${origem.dataEmissao}, CHAVE ${origem.chave}. MERCADORIA DE TERCEIROS. SEM COBRANCA.`;
 }
 
