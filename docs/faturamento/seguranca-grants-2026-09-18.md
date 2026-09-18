@@ -96,8 +96,23 @@ cliente).
 `authenticated`, 14 `authenticated`+`service_role`, 11 só o dono, 5 com `service_role`). O baseline
 faz `REVOKE ... FROM PUBLIC` e `GRANT ... TO authenticated` nelas, mas o privilégio padrão do
 Supabase em `public` dá `anon` e `service_role` explicitamente na criação, e o revoke do PUBLIC não
-tira esses grants; no online eles foram fechados fora das migrations. Proposta (não feita): migration
-que espelha as ACLs do online nessas 48, para o rebuild ficar igual.
+tira esses grants; no online eles foram fechados fora das migrations. **Resolvida em 18/09/2026 com o
+ok do Gabriel** (migration `20260918140000_public_rpcs_acl_igual_ao_online.sql`): revoke de tudo e
+grant só do que o online tem em cada uma das 48 (18 só `authenticated`, 16 `authenticated` +
+`service_role`, 3 só `service_role`, 11 só o dono); no online é um no-op. O assert final varre todos os
+schemas expostos (public, graphql_public, f, m, c, a): nenhuma função `app_*`/`fn_*` executável pelo
+anon. Local recriado do zero depois disso: varredura 0, ACLs das 48 iguais às do online.
+
+**Nota sobre o "carriage return" no claim de homologação** (relato de 18/09): a primeira comparação de
+md5 local × online deu "DIFERENTE" para `fn_nfe_cancelamento_homologacao_claim`. Não era quebra de
+linha: a definição não tem `` em nenhum dos lados (0 caracteres) e o md5 é o mesmo
+(`eae3e85e…`). O que aconteceu foi uma falha transitória do `scripts/db-query.js` ao obter as
+credenciais pela CLI ("Falha ao obter credenciais via Supabase CLI"), e a checagem em lote pegou a
+mensagem de erro no lugar do md5. Já as migrations antigas aplicadas com CRLF deixaram `` no corpo
+de 162 funções do online (f 60, public 82, m 9, a 6, c 5), sem efeito funcional; o índice do git está
+todo em LF, as migrations ativas estão em LF na árvore (as 127 com EOL misto são de
+`supabase/migrations/_arquivo/`), e o `.gitattributes` novo fixa `eol=lf` para `*.sql`,
+`supabase/migrations/**` e `supabase/tests/**` sem alterar nada já aplicado.
 
 ## 4. Default privileges (migration `20260918080000_default_privileges_funcoes_sem_anon_public.sql`)
 

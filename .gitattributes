@@ -1,0 +1,6 @@
+# Migrations e testes SQL sempre com LF: o mesmo texto entra no banco pelo db push (Linux) e pelo
+# psql local (Windows), e o corpo das funcoes fica identico nos dois. O indice ja esta em LF; isto
+# so impede o checkout em CRLF (core.autocrlf=true no Windows) e normaliza o que for gravado.
+*.sql text eol=lf
+supabase/migrations/** text eol=lf
+supabase/tests/** text eol=lf
