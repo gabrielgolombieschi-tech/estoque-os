@@ -497,5 +497,155 @@ begin
 end;
 $test$;
 
+-- 6 ---------------------------------------------------------------- remessa de TESTE de homologacao
+-- (migration 20260918160000): a mesma chave da remessa real (reaberta no fim do bloco 4) entra em
+-- linha propria com a caixa marcada; sem a caixa continua recusada; o retorno do teste so homologa;
+-- a producao e recusada no banco; a exclusao apaga o teste e a real fica intacta.
+reset role;
+select set_config('request.jwt.claim.sub', '1e160000-0000-4000-8000-000000000010', true);
+select set_config('request.jwt.claims', '{"sub":"1e160000-0000-4000-8000-000000000010","role":"authenticated"}', true);
+set local role authenticated;
+do $test$
+declare
+  v_xml text := (select xml from xml_origem);
+  v_real uuid := (select id from retorno_ids where nome = 'remessa');
+  v_real_antes jsonb := (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = (select id from retorno_ids where nome = 'remessa'));
+  v_res jsonb;
+  v_teste uuid;
+begin
+  -- Sem a caixa: chave repetida continua recusada.
+  begin
+    perform f.fn_remessa_terceiros_importar(v_xml);
+    raise exception 'importou a chave da remessa real sem a caixa de teste';
+  exception when sqlstate '23505' then
+    if sqlerrm not like 'NF-e % ja importada.' then raise; end if;
+  end;
+  begin
+    perform f.fn_remessa_terceiros_importar(v_xml, false);
+    raise exception 'importou a chave da remessa real com p_teste false';
+  exception when sqlstate '23505' then null;
+  end;
+
+  -- Com a caixa: linha propria, is_teste, ABERTA; a real nao muda.
+  v_res := f.fn_remessa_terceiros_importar(v_xml, true);
+  v_teste := (v_res->>'remessa_id')::uuid;
+  if (v_res->>'teste')::boolean is not true or v_teste = v_real
+     or (select (r.is_teste, r.status, r.chave) from f.remessas_terceiros r where r.id = v_teste) is distinct from (true, 'ABERTA'::text, '42260660621141000404550010009003561304254706'::text)
+     or (select count(*) from f.remessas_terceiros_itens where remessa_id = v_teste) <> 1 then
+    raise exception 'importacao de teste errada: %', v_res;
+  end if;
+  if (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = v_real) <> v_real_antes then
+    raise exception 'a remessa real mudou com a importacao de teste';
+  end if;
+  insert into retorno_ids values ('teste', v_teste);
+
+  -- Um teste por chave.
+  begin
+    perform f.fn_remessa_terceiros_importar(v_xml, true);
+    raise exception 'aceitou segundo teste da mesma chave';
+  exception when sqlstate '23505' then
+    if sqlerrm not like 'Teste de homologacao da NF-e % ja existe%' then raise; end if;
+  end;
+
+  -- Retorno do teste: solicitacao e operacao marcadas como teste.
+  v_res := f.fn_remessa_terceiros_retorno_criar(v_teste, '5902', 0::smallint, 'TESTE DE HOMOLOGACAO', null);
+  if (v_res->>'teste')::boolean is not true
+     or (select o.dados_json->>'remessa_teste' from f.operacao_fiscal o where o.id = (v_res->>'operacao_id')::uuid) <> 'true'
+     or (select sf.operacao_snapshot#>>'{retorno_terceiros,teste}' from f.solicitacao_faturamento sf where sf.id = (v_res->>'solicitacao_id')::uuid) <> 'true'
+     or (select cst_ipi || '/' || ipi_codigo_enquadramento_legal || '/' || cbenef from f.solicitacao_item where solicitacao_id = (v_res->>'solicitacao_id')::uuid) <> '55/109/SC840008' then
+    raise exception 'retorno de teste nao ficou marcado: %', v_res;
+  end if;
+  insert into retorno_ids values ('op_teste', (v_res->>'operacao_id')::uuid), ('sol_teste', (v_res->>'solicitacao_id')::uuid);
+
+  -- A real nao pode ser excluida por esta funcao.
+  begin
+    perform f.fn_remessa_terceiros_teste_excluir(v_real);
+    raise exception 'excluiu a remessa real';
+  exception when sqlstate '22023' then null;
+  end;
+end;
+$test$;
+
+-- Emissoes do teste (como a Edge, com service_role): homologacao autorizada so carimba; producao e recusada
+-- pelo gatilho do teste mesmo com o portao do perfil desligado (segue desligado desde o bloco 4).
+reset role;
+select set_config('request.jwt.claim.sub', '', true);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+do $test$
+declare
+  v_real uuid := (select id from retorno_ids where nome = 'remessa');
+  v_teste uuid := (select id from retorno_ids where nome = 'teste');
+  v_sol uuid := (select id from retorno_ids where nome = 'sol_teste');
+  v_real_antes jsonb := (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = (select id from retorno_ids where nome = 'remessa'));
+  v_r f.remessas_terceiros%rowtype;
+begin
+  insert into f.documento_fiscal (id, tenant_id, empresa_id, chave_acesso, modelo, serie, numero, operacao, natureza, cliente_id, nfe_status, origem, valor_total)
+  values ('1e160000-0000-4000-8000-000000000504', '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002', 'PENDENTE:T', '55', '2', '73', 'SAIDA', 'PRODUTO', 916001, 'RASCUNHO', 'EMITIDO', 1600);
+  insert into f.documento_fiscal_emissao (documento_fiscal_id, solicitacao_id, tenant_id, empresa_id, referencia_externa, ambiente, status)
+  values ('1e160000-0000-4000-8000-000000000504', v_sol, '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002', 'NFEH-RET-T', 'HOMOLOGACAO', 'RASCUNHO');
+  update f.documento_fiscal_emissao set status = 'AUTORIZADA', chave_acesso = '42260913671448000189550020000000731000000003', numero = 73, serie = 2, autorizado_em = now()
+  where documento_fiscal_id = '1e160000-0000-4000-8000-000000000504';
+  select * into v_r from f.remessas_terceiros where id = v_teste;
+  if v_r.status <> 'ABERTA' or v_r.homologada_em is null or v_r.nfe_homologacao_id <> '1e160000-0000-4000-8000-000000000504' or v_r.nfe_retorno_id is not null then
+    raise exception 'homologacao do teste nao carimbou (ou baixou): %', row_to_json(v_r);
+  end if;
+  if (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = v_real) <> v_real_antes then
+    raise exception 'a remessa real mudou com a homologacao do teste';
+  end if;
+
+  -- Producao do teste: recusada no banco.
+  begin
+    insert into f.documento_fiscal (id, tenant_id, empresa_id, chave_acesso, modelo, serie, numero, operacao, natureza, cliente_id, nfe_status, origem, valor_total)
+    values ('1e160000-0000-4000-8000-000000000505', '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002', 'PENDENTE:U', '55', '2', '74', 'SAIDA', 'PRODUTO', 916001, 'RASCUNHO', 'EMITIDO', 1600);
+    insert into f.documento_fiscal_emissao (documento_fiscal_id, solicitacao_id, tenant_id, empresa_id, referencia_externa, ambiente, status)
+    values ('1e160000-0000-4000-8000-000000000505', v_sol, '1e160000-0000-4000-8000-000000000001', '1e160000-0000-4000-8000-000000000002', 'NFEP-RET-T', 'PRODUCAO', 'RASCUNHO');
+    raise exception 'banco aceitou emissao de producao de um retorno de teste';
+  exception when sqlstate '55000' then
+    if sqlerrm not like 'Producao bloqueada: retorno de remessa de terceiros de TESTE%' then raise; end if;
+  end;
+  if exists (select 1 from f.documento_fiscal_emissao where solicitacao_id = v_sol and ambiente = 'PRODUCAO') then
+    raise exception 'emissao de producao do teste ficou gravada';
+  end if;
+  select * into v_r from f.remessas_terceiros where id = v_teste;
+  if v_r.status <> 'ABERTA' or v_r.nfe_retorno_id is not null or v_r.retornada_em is not null then
+    raise exception 'teste foi baixado: %', row_to_json(v_r);
+  end if;
+end;
+$test$;
+
+-- Excluir o teste (usuario ADMIN): solicitacao cancelada, linha apagada, real intacta.
+reset role;
+select set_config('request.jwt.claim.sub', '1e160000-0000-4000-8000-000000000010', true);
+select set_config('request.jwt.claims', '{"sub":"1e160000-0000-4000-8000-000000000010","role":"authenticated"}', true);
+set local role authenticated;
+do $test$
+declare
+  v_real uuid := (select id from retorno_ids where nome = 'remessa');
+  v_teste uuid := (select id from retorno_ids where nome = 'teste');
+  v_sol uuid := (select id from retorno_ids where nome = 'sol_teste');
+  v_op uuid := (select id from retorno_ids where nome = 'op_teste');
+  v_real_antes jsonb := (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = (select id from retorno_ids where nome = 'remessa'));
+  v_res jsonb;
+begin
+  v_res := f.fn_remessa_terceiros_teste_excluir(v_teste);
+  if (v_res->>'excluida')::boolean is not true
+     or exists (select 1 from f.remessas_terceiros where id = v_teste)
+     or exists (select 1 from f.remessas_terceiros_itens where remessa_id = v_teste)
+     or (select status from f.solicitacao_faturamento where id = v_sol) <> 'CANCELADA'
+     or (select status from f.operacao_fiscal where id = v_op) <> 'CANCELADA' then
+    raise exception 'exclusao do teste incompleta: %', v_res;
+  end if;
+  if (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = v_real) is distinct from v_real_antes then
+    raise exception 'a remessa real mudou com a exclusao do teste: antes=% depois=%', v_real_antes,
+      (select to_jsonb(r) - 'updated_at' from f.remessas_terceiros r where r.id = v_real);
+  end if;
+  -- Depois de excluido, um novo teste da mesma chave volta a ser aceito.
+  v_res := f.fn_remessa_terceiros_importar((select xml from xml_origem), true);
+  if (v_res->>'teste')::boolean is not true then
+    raise exception 'novo teste apos exclusao nao entrou: %', v_res;
+  end if;
+end;
+$test$;
+
 reset role;
 rollback;

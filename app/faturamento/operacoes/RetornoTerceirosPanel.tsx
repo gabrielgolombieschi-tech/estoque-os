@@ -48,6 +48,7 @@ type Remessa = {
   cfop_retorno: string | null;
   retornada_em: string | null;
   obs: string | null;
+  is_teste: boolean;
 };
 type Item = { id: string; remessa_id: string; n_item: number; c_prod: string; x_prod: string; ncm: string | null; cfop_origem: string; u_com: string; q_com: number | string; v_un_com: number | string; v_prod: number | string; orig: number | null };
 type Emissao = {
@@ -158,6 +159,9 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
   const [producaoLigada, setProducaoLigada] = useState(false);
   const [perfisLiberados, setPerfisLiberados] = useState<string[]>([]);
   const [papel, setPapel] = useState<string | null>(null);
+  // Teste de homologacao: importa a remessa em linha propria (is_teste), mesmo com a chave ja usada;
+  // so homologa (producao bloqueada no banco), nao conta prazo e fica na secao "Testes".
+  const [teste, setTeste] = useState(false);
 
   // Modal "Gerar NF-e de retorno"
   const [modal, setModal] = useState<Remessa | null>(null);
@@ -171,7 +175,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase.schema("f").from("remessas_terceiros")
-      .select("id,chave,numero,serie,emitente_cnpj,emitente_nome,emitente_ie,emitente_endereco,cfop_origem,nat_op,dh_emi,data_entrada,prazo_retorno,tipo,valor_total,status,transporte_origem,solicitacao_retorno_id,nfe_homologacao_id,homologada_em,nfe_retorno_id,cfop_retorno,retornada_em,obs")
+      .select("id,chave,numero,serie,emitente_cnpj,emitente_nome,emitente_ie,emitente_endereco,cfop_origem,nat_op,dh_emi,data_entrada,prazo_retorno,tipo,valor_total,status,transporte_origem,solicitacao_retorno_id,nfe_homologacao_id,homologada_em,nfe_retorno_id,cfop_retorno,retornada_em,obs,is_teste")
       .order("dh_emi", { ascending: true }).limit(200);
     if (error) throw error;
     const lista = (data ?? []) as Remessa[];
@@ -254,10 +258,10 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
           saida.push({ nome: arquivo.name, ok: false, texto: textoErro(e) });
           continue;
         }
-        const { data, error } = await supabase.schema("f").rpc("fn_remessa_terceiros_importar", { p_xml: xml });
+        const { data, error } = await supabase.schema("f").rpc("fn_remessa_terceiros_importar", { p_xml: xml, p_teste: teste });
         if (error) throw error;
-        const r = data as { emitente?: string; numero?: string; serie?: string; tipo?: string; itens?: number; valor_total?: number; prazo_retorno?: string };
-        saida.push({ nome: arquivo.name, ok: true, texto: `${r.emitente} · NF-e ${r.numero}/${r.serie} · ${tipoRotulo((r.tipo ?? "OUTRO") as Remessa["tipo"])} · ${r.itens} item(ns) · R$ ${formatMoneyBR(numero(r.valor_total))} · retorno até ${dataBR(r.prazo_retorno)}` });
+        const r = data as { emitente?: string; numero?: string; serie?: string; tipo?: string; itens?: number; valor_total?: number; prazo_retorno?: string; teste?: boolean };
+        saida.push({ nome: arquivo.name, ok: true, texto: `${r.teste ? "TESTE DE HOMOLOGAÇÃO · " : ""}${r.emitente} · NF-e ${r.numero}/${r.serie} · ${tipoRotulo((r.tipo ?? "OUTRO") as Remessa["tipo"])} · ${r.itens} item(ns) · R$ ${formatMoneyBR(numero(r.valor_total))} · retorno até ${dataBR(r.prazo_retorno)}` });
       } catch (e) {
         saida.push({ nome: arquivo.name, ok: false, texto: textoErro(e) });
       }
@@ -344,6 +348,16 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
     } catch (e) { avisar(await erroFunction(e), true); } finally { setBusy(null); await carregar().catch(() => {}); }
   }
 
+  async function excluirTeste(r: Remessa) {
+    if (!window.confirm(`Excluir o teste de homologação da NF-e ${r.numero}/${r.serie} (${r.emitente_nome})? A solicitação e a homologação do teste são canceladas; a remessa real de mesma chave não muda.`)) return;
+    setBusy(r.id); avisar("");
+    try {
+      const { error } = await supabase.schema("f").rpc("fn_remessa_terceiros_teste_excluir", { p_remessa_id: r.id });
+      if (error) throw error;
+      avisar("Teste de homologação excluído.");
+    } catch (e) { avisar(textoErro(e), true); } finally { setBusy(null); await carregar().catch(() => {}); }
+  }
+
   async function abrirArquivo(e: Emissao, arquivo: "DANFE" | "XML") {
     const aba = window.open("about:blank", "_blank");
     if (aba) aba.opener = null;
@@ -370,9 +384,69 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
     } catch (e) { avisar(textoErro(e), true); } finally { setBusy(null); await carregar().catch(() => {}); }
   }
 
-  const listadas = remessas.filter((r) => filtroStatus === "TODAS" || r.status === filtroStatus);
+  const listadas = remessas.filter((r) => !r.is_teste && (filtroStatus === "TODAS" || r.status === filtroStatus));
+  const testes = remessas.filter((r) => r.is_teste);
   const itensDe = (id: string) => itens.filter((i) => i.remessa_id === id);
   const volumesOrigemModal = modal?.transporte_origem?.volumes ?? [];
+
+  function linhaRemessa(r: Remessa) {
+                const dias = diasDesde(r.dh_emi);
+                const hom = emissoes.find((e) => e.solicitacao_id === r.solicitacao_retorno_id && e.ambiente === "HOMOLOGACAO");
+                const prod = emissoes.find((e) => e.solicitacao_id === r.solicitacao_retorno_id && e.ambiente === "PRODUCAO");
+                const op = operacoes.find((o) => o.solicitacao_id === r.solicitacao_retorno_id);
+                const ocupado = busy === r.id;
+                const aberta = r.status === "ABERTA";
+                const homAutorizada = hom?.status === "AUTORIZADA";
+                const podeHomologar = aberta && Boolean(r.solicitacao_retorno_id) && !prod && (!hom || ["RASCUNHO", "REJEITADA", "ERRO"].includes(hom.status));
+                const podeProduzir = aberta && !r.is_teste && producaoLigada && homAutorizada && (!prod || ["RASCUNHO", "REJEITADA", "ERRO"].includes(prod.status));
+                const perfilCodigo = op?.dados_json?.perfil_codigo ?? null;
+                const linkPerfil = perfilCodigo && r.solicitacao_retorno_id && !perfisLiberados.includes(`${perfilCodigo}|${r.solicitacao_retorno_id}`)
+                  ? `/faturamento/perfis?perfil=${encodeURIComponent(perfilCodigo)}&solicitacao=${r.solicitacao_retorno_id}&retorno=/faturamento/operacoes?aba=RETORNO`
+                  : null;
+                return (
+                  <tr key={r.id} className="align-top">
+                    <td className="py-2 pr-2 font-mono text-xs" title={r.chave}>{r.chave.slice(0, 8)}…{r.chave.slice(-6)}</td>
+                    <td className="py-2 pr-2"><div>{r.emitente_nome}</div><div className="text-xs text-zinc-500">{cnpjFormatado(r.emitente_cnpj)}<br />{r.emitente_endereco?.cidade ?? "?"}/{r.emitente_endereco?.uf ?? "?"}</div></td>
+                    <td className="py-2 pr-2 whitespace-nowrap">{r.numero}/{r.serie}</td>
+                    <td className="py-2 pr-2 whitespace-nowrap">{dataBR(r.dh_emi)}</td>
+                    <td className="py-2 pr-2 tabular-nums">{dias}</td>
+                    <td className="py-2 pr-2"><span className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${corPrazo(dias)}`}>{dataBR(r.prazo_retorno)}{dias > 180 ? " · vencido" : ""}</span></td>
+                    <td className="py-2 pr-2 text-right tabular-nums whitespace-nowrap">R$ {formatMoneyBR(numero(r.valor_total))}</td>
+                    <td className="py-2 pr-2">{r.cfop_origem}<div className="text-xs text-zinc-500">{tipoRotulo(r.tipo)}</div></td>
+                    <td className="py-2 pr-2">
+                      <div>{r.status === "ABERTA" ? "Aberta" : r.status === "RETORNADA" ? "Retornada" : "Cancelada"}</div>
+                      {r.is_teste ? <span className="mt-1 inline-block rounded-full border border-violet-800 px-2 py-0.5 text-xs text-violet-300">TESTE de homologação</span> : null}
+                      {r.homologada_em ? <span className="mt-1 inline-block rounded-full border border-sky-800 px-2 py-0.5 text-xs text-sky-300">homologada em {dataBR(r.homologada_em)}</span> : null}
+                      {r.retornada_em ? <div className="text-xs text-zinc-500">retorno {r.cfop_retorno} em {dataBR(r.retornada_em)}</div> : null}
+                    </td>
+                    <td className="py-2 pr-2 text-xs">
+                      {[hom, prod].filter((e): e is Emissao => Boolean(e)).map((e) => (
+                        <div key={e.documento_fiscal_id} className="flex flex-wrap items-center gap-1">
+                          <span className="text-zinc-500">{e.ambiente === "PRODUCAO" ? "Prod." : "Hom."}:</span>
+                          <span>{e.status}{e.numero ? ` · NF-e ${e.serie}/${e.numero}` : ""}</span>
+                          {e.status === "REJEITADA" || e.status === "ERRO" ? <span className="text-red-300">{e.codigo_status ? `cStat ${e.codigo_status} · ` : ""}{e.mensagem}</span> : null}
+                          {e.status === "AUTORIZADA" ? <>
+                            <button type="button" className="underline" disabled={busy === e.documento_fiscal_id || !e.danfe_path} onClick={() => void abrirArquivo(e, "DANFE")}>DANFE</button>
+                            <button type="button" className="underline" disabled={busy === e.documento_fiscal_id || !e.xml_path} onClick={() => void abrirArquivo(e, "XML")}>XML</button>
+                            <Link href={`/faturamento/nfe/${e.documento_fiscal_id}?retorno=/faturamento/operacoes?aba=RETORNO`} className="underline">Ciclo de vida</Link>
+                          </> : null}
+                        </div>
+                      ))}
+                      {!hom && !prod ? <span className="text-zinc-500">—</span> : null}
+                    </td>
+                    <td className="py-2 text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        {aberta ? <button type="button" className={primario} disabled={ocupado || busy === "gerar"} onClick={() => abrirModal(r)}>Gerar retorno</button> : null}
+                        {podeHomologar ? <button type="button" className={button} disabled={ocupado} onClick={() => void emitirHomologacao(r)}>{hom ? "Tentar homologação de novo" : "Emitir em homologação"}</button> : null}
+                        {aberta && homAutorizada && linkPerfil && (!producaoLigada || r.is_teste) ? <Link href={linkPerfil} className={button}>Liberar perfil</Link> : null}
+                        {aberta && homAutorizada && linkPerfil && producaoLigada && !r.is_teste ? <Link href={linkPerfil} className={button}>Liberar perfil para produção</Link> : null}
+                        {r.is_teste ? <button type="button" className="text-xs text-red-300 underline" disabled={ocupado} onClick={() => void excluirTeste(r)}>Excluir teste</button> : null}
+                        {podeProduzir ? <button type="button" className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50" disabled={ocupado} onClick={() => void emitirProducao(r)}>Emitir NF-e real (produção)</button> : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+  }
 
   return (
     <div className="space-y-5">
@@ -389,6 +463,7 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
         <h3 className="font-medium">1 · Importar remessa recebida (XML)</h3>
         <p className="text-sm text-zinc-400">XML autorizado (nfeProc) com a SEGAU como destinatária e todos os itens em 5901/6901/5915/6915. Pode enviar vários de uma vez.</p>
         <input aria-label="Arquivos XML" type="file" accept=".xml,text/xml,application/xml" multiple disabled={busy === "importar"} className="block text-sm text-zinc-300 file:mr-3 file:rounded file:border file:border-zinc-600 file:bg-zinc-900 file:px-3 file:py-2 file:text-sm file:text-zinc-100 hover:file:bg-zinc-800" onChange={(e) => { void importarArquivos(e.target.files); e.target.value = ""; }} />
+        <label className="flex items-center gap-2 text-sm text-zinc-300"><input aria-label="Teste de homologação" type="checkbox" checked={teste} onChange={(e) => setTeste(e.target.checked)} /> Teste de homologação: aceita XML de chave já importada, grava em linha própria (não entra na lista nem no prazo) e só emite em homologação</label>
         {busy === "importar" ? <p className="text-sm text-zinc-400">Importando...</p> : null}
         {resultados.length > 0 ? (
           <ul className="divide-y divide-zinc-800 rounded border border-zinc-800 text-sm">
@@ -417,62 +492,22 @@ export default function RetornoTerceirosPanel({ empresaId }: { tenantId: string;
             <table className="w-full min-w-[960px] text-sm">
               <thead className="text-left text-xs uppercase text-zinc-500"><tr><th className="py-2 pr-3">Chave</th><th className="py-2 pr-3">Remetente</th><th className="py-2 pr-3">Nº/Série</th><th className="py-2 pr-3">Emissão</th><th className="py-2 pr-3">Dias</th><th className="py-2 pr-3">Prazo</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pr-3">CFOP</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">NF-e de retorno</th><th className="py-2 text-right">Ações</th></tr></thead>
               <tbody className="divide-y divide-zinc-800">
-                {listadas.map((r) => {
-                  const dias = diasDesde(r.dh_emi);
-                  const hom = emissoes.find((e) => e.solicitacao_id === r.solicitacao_retorno_id && e.ambiente === "HOMOLOGACAO");
-                  const prod = emissoes.find((e) => e.solicitacao_id === r.solicitacao_retorno_id && e.ambiente === "PRODUCAO");
-                  const op = operacoes.find((o) => o.solicitacao_id === r.solicitacao_retorno_id);
-                  const ocupado = busy === r.id;
-                  const aberta = r.status === "ABERTA";
-                  const homAutorizada = hom?.status === "AUTORIZADA";
-                  const podeHomologar = aberta && Boolean(r.solicitacao_retorno_id) && !prod && (!hom || ["RASCUNHO", "REJEITADA", "ERRO"].includes(hom.status));
-                  const podeProduzir = aberta && producaoLigada && homAutorizada && (!prod || ["RASCUNHO", "REJEITADA", "ERRO"].includes(prod.status));
-                  const perfilCodigo = op?.dados_json?.perfil_codigo ?? null;
-                  const linkPerfil = perfilCodigo && r.solicitacao_retorno_id && !perfisLiberados.includes(`${perfilCodigo}|${r.solicitacao_retorno_id}`)
-                    ? `/faturamento/perfis?perfil=${encodeURIComponent(perfilCodigo)}&solicitacao=${r.solicitacao_retorno_id}&retorno=/faturamento/operacoes?aba=RETORNO`
-                    : null;
-                  return (
-                    <tr key={r.id} className="align-top">
-                      <td className="py-2 pr-2 font-mono text-xs" title={r.chave}>{r.chave.slice(0, 8)}…{r.chave.slice(-6)}</td>
-                      <td className="py-2 pr-2"><div>{r.emitente_nome}</div><div className="text-xs text-zinc-500">{cnpjFormatado(r.emitente_cnpj)}<br />{r.emitente_endereco?.cidade ?? "?"}/{r.emitente_endereco?.uf ?? "?"}</div></td>
-                      <td className="py-2 pr-2 whitespace-nowrap">{r.numero}/{r.serie}</td>
-                      <td className="py-2 pr-2 whitespace-nowrap">{dataBR(r.dh_emi)}</td>
-                      <td className="py-2 pr-2 tabular-nums">{dias}</td>
-                      <td className="py-2 pr-2"><span className={`inline-block whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${corPrazo(dias)}`}>{dataBR(r.prazo_retorno)}{dias > 180 ? " · vencido" : ""}</span></td>
-                      <td className="py-2 pr-2 text-right tabular-nums whitespace-nowrap">R$ {formatMoneyBR(numero(r.valor_total))}</td>
-                      <td className="py-2 pr-2">{r.cfop_origem}<div className="text-xs text-zinc-500">{tipoRotulo(r.tipo)}</div></td>
-                      <td className="py-2 pr-2">
-                        <div>{r.status === "ABERTA" ? "Aberta" : r.status === "RETORNADA" ? "Retornada" : "Cancelada"}</div>
-                        {r.homologada_em ? <span className="mt-1 inline-block rounded-full border border-sky-800 px-2 py-0.5 text-xs text-sky-300">homologada em {dataBR(r.homologada_em)}</span> : null}
-                        {r.retornada_em ? <div className="text-xs text-zinc-500">retorno {r.cfop_retorno} em {dataBR(r.retornada_em)}</div> : null}
-                      </td>
-                      <td className="py-2 pr-2 text-xs">
-                        {[hom, prod].filter((e): e is Emissao => Boolean(e)).map((e) => (
-                          <div key={e.documento_fiscal_id} className="flex flex-wrap items-center gap-1">
-                            <span className="text-zinc-500">{e.ambiente === "PRODUCAO" ? "Prod." : "Hom."}:</span>
-                            <span>{e.status}{e.numero ? ` · NF-e ${e.serie}/${e.numero}` : ""}</span>
-                            {e.status === "REJEITADA" || e.status === "ERRO" ? <span className="text-red-300">{e.codigo_status ? `cStat ${e.codigo_status} · ` : ""}{e.mensagem}</span> : null}
-                            {e.status === "AUTORIZADA" ? <>
-                              <button type="button" className="underline" disabled={busy === e.documento_fiscal_id || !e.danfe_path} onClick={() => void abrirArquivo(e, "DANFE")}>DANFE</button>
-                              <button type="button" className="underline" disabled={busy === e.documento_fiscal_id || !e.xml_path} onClick={() => void abrirArquivo(e, "XML")}>XML</button>
-                              <Link href={`/faturamento/nfe/${e.documento_fiscal_id}?retorno=/faturamento/operacoes?aba=RETORNO`} className="underline">Ciclo de vida</Link>
-                            </> : null}
-                          </div>
-                        ))}
-                        {!hom && !prod ? <span className="text-zinc-500">—</span> : null}
-                      </td>
-                      <td className="py-2 text-right">
-                        <div className="flex flex-col items-end gap-1">
-                          {aberta ? <button type="button" className={primario} disabled={ocupado || busy === "gerar"} onClick={() => abrirModal(r)}>Gerar retorno</button> : null}
-                          {podeHomologar ? <button type="button" className={button} disabled={ocupado} onClick={() => void emitirHomologacao(r)}>{hom ? "Tentar homologação de novo" : "Emitir em homologação"}</button> : null}
-                          {aberta && homAutorizada && linkPerfil && !producaoLigada ? <Link href={linkPerfil} className={button}>Liberar perfil</Link> : null}
-                          {aberta && homAutorizada && linkPerfil && producaoLigada ? <Link href={linkPerfil} className={button}>Liberar perfil para produção</Link> : null}
-                          {podeProduzir ? <button type="button" className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50" disabled={ocupado} onClick={() => void emitirProducao(r)}>Emitir NF-e real (produção)</button> : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {listadas.map(linhaRemessa)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-violet-900 p-4">
+        <h3 className="font-medium">Testes de homologação</h3>
+        <p className="text-sm text-zinc-400">Remessas importadas com a caixa &quot;Teste de homologação&quot;: servem para homologar e liberar o perfil (por exemplo depois de uma mudança fiscal) sem tocar na remessa real de mesma chave. Não entram na lista acima, não contam prazo e não emitem em produção: o banco recusa a emissão real de um teste.</p>
+        {testes.length === 0 ? <p className="text-sm text-zinc-500">Nenhum teste.</p> : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] text-sm">
+              <thead className="text-left text-xs uppercase text-zinc-500"><tr><th className="py-2 pr-3">Chave</th><th className="py-2 pr-3">Remetente</th><th className="py-2 pr-3">Nº/Série</th><th className="py-2 pr-3">Emissão</th><th className="py-2 pr-3">Dias</th><th className="py-2 pr-3">Prazo</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pr-3">CFOP</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">NF-e de retorno</th><th className="py-2 text-right">Ações</th></tr></thead>
+              <tbody className="divide-y divide-zinc-800">
+                {testes.map(linhaRemessa)}
               </tbody>
             </table>
           </div>

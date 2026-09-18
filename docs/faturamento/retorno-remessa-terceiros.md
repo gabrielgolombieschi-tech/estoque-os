@@ -106,9 +106,23 @@ apareceram como a pagar).
   e no perfil `SEG-RETORNO-TERCEIROS-5902-O0-CST50`, que **voltou para revisão** (produção
   desabilitada; o portão `fn_nfe_producao_pronta` só reabre com revisão, homologação posterior a ela
   e liberação). A remessa de conserto (`remessa-conserto.ts`, 5915/5916) continua com 108: pendente.
-- Não houve homologação de teste: `f.fn_remessa_terceiros_retorno_criar` só gera retorno de remessa
-  ABERTA e a importação recusa chave repetida, então a remessa WEG 900356 (RETORNADA) não serve sem
-  mexer no status. A próxima remessa de terceiros importada homologa com o cEnq novo.
+- **Importação de TESTE de homologação** (migration `20260918160000_retorno_terceiros_remessa_de_teste.sql`,
+  mesmo dia): caixa "Teste de homologação" no importador da aba. Marcada, o XML de chave já
+  importada entra em linha própria (`f.remessas_terceiros.is_teste`), sem tocar na remessa real: o
+  índice único da chave vale só entre as reais (um teste por chave). O teste fica na seção "Testes de
+  homologação" (fora de "em nosso poder", do prazo e de `v_remessas_abertas`), só gera retorno em
+  homologação, a produção é recusada no banco (gatilho `aab_remessa_terceiros_teste_bloqueia_producao`
+  em `f.documento_fiscal_emissao`, além da tela), o gatilho de baixa só carimba a homologação e
+  "Excluir teste" (`f.fn_remessa_terceiros_teste_excluir`) cancela a solicitação e apaga a linha.
+  Executado em 18/09/2026 com a NF-e 900356 da WEG: **homologação NF-e 2/69 autorizada** (cStat 100,
+  protocolo 342260000953934) com CFOP 5902, cEnq **109**, cBenef SC840008, ICMS CST 50, IPI CST 55,
+  infAdFisco com o art. 27, II e o art. 43, VII; a remessa real continuou RETORNADA.
+- Liberação do perfil pelo fluxo normal: `fn_perfil_operacao_nfe_liberar_producao` não distingue
+  teste. Como a 2/69 saiu **antes** da nova revisão do perfil (a migration 150000 zerou a revisão), a
+  ordem é: revisar o perfil na tela de perfis → na seção Testes, "Gerar retorno" de novo (nova
+  homologação, posterior à revisão) → "Liberar perfil" na linha do teste. A liberação vale para a
+  solicitação do teste (produção bloqueada); cada remessa real seguinte tem a sua homologação e
+  liberação, como sempre.
 
 ### Rascunho de CC-e da NF-e 2/20 (não enviada; decisão da contadora)
 
