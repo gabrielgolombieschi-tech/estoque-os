@@ -37,3 +37,28 @@ export function responderOptions(request: Request) {
   return request.method === "OPTIONS" ? new Response("ok", { headers: corsHeaders }) : null;
 }
 
+/**
+ * Registra quem confirmou a emissao. O token do usuario ja chega nesta funcao; as escritas e que
+ * vao pelo cliente de servico, onde o gatilho de auditoria nao acha claims nenhuma. Aqui o autor
+ * e lido do token e passado explicitamente para o SQL.
+ *
+ * Nunca derruba a emissao: registrar autor e auditoria, nao autorizacao. Se falhar, a nota segue.
+ */
+export async function registrarAutorEmissao(
+  admin: SupabaseClient,
+  usuario: SupabaseClient,
+  documentoFiscalId: string | null,
+): Promise<void> {
+  if (!documentoFiscalId) return;
+  try {
+    const { data, error } = await usuario.auth.getUser();
+    if (error || !data?.user?.id) return;
+    await admin.schema("f").rpc("fn_emissao_registrar_autor", {
+      p_documento_fiscal_id: documentoFiscalId,
+      p_usuario_id: data.user.id,
+    });
+  } catch {
+    // Silencio proposital: ver o comentario acima.
+  }
+}
+

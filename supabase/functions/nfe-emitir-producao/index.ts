@@ -1,6 +1,6 @@
 import { aplicarRetorno } from "../_shared/nfe-retorno.ts";
 import { chamarFocus, focusConfigurado, normalizarFocus } from "../_shared/focus-nfe.ts";
-import { adminClient, json, mensagemErro, responderOptions, userClient } from "../_shared/nfe-http.ts";
+import { adminClient, json, mensagemErro, registrarAutorEmissao, responderOptions, userClient } from "../_shared/nfe-http.ts";
 import {
   montarPayloadNfe,
   type ContextoEmissao,
@@ -584,6 +584,8 @@ Deno.serve(async (request) => {
       throw new Error("O RPC atomico nao devolveu a emissao de producao reservada.");
     }
     documentoId = claim.documento_fiscal_id;
+    // Quem confirmou a emissao na tela. Nao bloqueia nada; so registra.
+    await registrarAutorEmissao(admin, usuario, documentoId);
     if (!claim.deve_enviar) {
       return json({
         documento_fiscal_id: documentoId,

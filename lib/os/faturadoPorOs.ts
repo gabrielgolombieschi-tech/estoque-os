@@ -27,8 +27,10 @@ export function shouldIncludeFaturamentoDocumento(row: DocumentoFaturadoRow): bo
   const nfseStatus = String(row.nfse_status ?? "").trim().toUpperCase();
   const nfeStatus = String(row.nfe_status ?? "").trim().toUpperCase();
 
+  // Regra estrita, igual a f.fn_documento_esta_emitido (20260919160000): so conta situacao
+  // explicitamente EMITIDA. Antes, NF-e sem situacao contava como emitida — um "sim" por omissao.
+  // Hoje nao ha nenhum documento de saida nessa condicao; a mudanca fecha a porta.
   if (modelo === "NFSE") return nfseStatus === "EMITIDA";
-  if (!nfeStatus) return true;
   return nfeStatus === "EMITIDA";
 }
 

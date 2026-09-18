@@ -32,14 +32,19 @@ type PendenciaRow = {
   status: string;
 };
 
-type DocumentoRow = {
-  id: string;
-  os_id_import: number | null;
-  modelo: string | null;
-  nfe_status: string | null;
-  nfse_status: string | null;
-  valor_total: number | string | null;
+// Status de faturamento calculado no banco (f.v_os_faturamento_status): nota cancelada nunca
+// conta e situacao vazia tambem nao. Vem pronto, uma linha por venda, sem consulta por linha.
+type FaturamentoRow = {
+  os_id: number;
+  status_faturamento: StatusFaturamento;
+  origem_status: string | null;
+  valor_faturado: number | string | null;
+  saldo_a_faturar: number | string | null;
+  notas_emitidas: number | null;
+  notas_canceladas: number | null;
 };
+
+type StatusFaturamento = "FATURADA" | "PARCIAL" | "NAO_FATURADA";
 
 type CompraStatus = "NENHUMA" | "PENDENTE" | "EM_PEDIDO" | "RECEBIDO";
 
@@ -55,6 +60,12 @@ const COMPRA_LABEL: Record<CompraStatus, string> = {
   PENDENTE: "Aguardando compra",
   EM_PEDIDO: "Em pedido",
   RECEBIDO: "Recebido",
+};
+
+const FATURAMENTO_LABEL: Record<StatusFaturamento, string> = {
+  FATURADA: "Faturada",
+  PARCIAL: "Parcial",
+  NAO_FATURADA: "Não faturada",
 };
 
 function hasAny(caps: Capabilities | null, keys: CapabilityKey[]) {
@@ -73,11 +84,25 @@ function dateBR(value: string | null | undefined) {
   return new Intl.DateTimeFormat("pt-BR").format(date);
 }
 
-function documentoEmitido(documento: DocumentoRow) {
-  const modelo = String(documento.modelo ?? "").toUpperCase();
-  if (modelo === "NFSE") return String(documento.nfse_status ?? "").toUpperCase() === "EMITIDA";
-  const status = String(documento.nfe_status ?? "").toUpperCase();
-  return !status || status === "EMITIDA";
+function statusFaturamento(row: FaturamentoRow | undefined): StatusFaturamento {
+  const status = String(row?.status_faturamento ?? "").toUpperCase();
+  return status === "FATURADA" || status === "PARCIAL" ? status : "NAO_FATURADA";
+}
+
+function faturamentoClass(status: StatusFaturamento) {
+  if (status === "FATURADA") return "border-emerald-800 bg-emerald-950/50 text-emerald-300";
+  if (status === "PARCIAL") return "border-amber-800 bg-amber-950/40 text-amber-300";
+  return "border-zinc-700 bg-zinc-900 text-zinc-400";
+}
+
+// O que a coluna explica quando o usuario passa o mouse: de onde veio o status e o que falta.
+function faturamentoTitulo(row: FaturamentoRow | undefined, status: StatusFaturamento) {
+  if (status === "PARCIAL") return `Faturado R$ ${formatMoneyBR(n(row?.valor_faturado))} · falta R$ ${formatMoneyBR(n(row?.saldo_a_faturar))}`;
+  if (status === "FATURADA" && String(row?.origem_status ?? "") === "STATUS_ORDEM") {
+    return "Marcada como faturada na própria ordem, sem nota emitida por este ERP.";
+  }
+  if (status === "FATURADA") return `Faturado R$ ${formatMoneyBR(n(row?.valor_faturado))} em ${row?.notas_emitidas ?? 0} nota(s).`;
+  return n(row?.notas_canceladas) > 0 ? "Sem nota válida: a que existia foi cancelada." : "Nenhuma nota emitida.";
 }
 
 function compraStatus(rows: PendenciaRow[]): CompraStatus {
@@ -113,7 +138,7 @@ export default function VendasClient() {
 
   const [vendas, setVendas] = useState<VendaRow[]>([]);
   const [pendencias, setPendencias] = useState<PendenciaRow[]>([]);
-  const [documentos, setDocumentos] = useState<DocumentoRow[]>([]);
+  const [faturamento, setFaturamento] = useState<FaturamentoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,32 +186,30 @@ export default function VendasClient() {
       setVendas(rows);
       if (rows.length === 0) {
         setPendencias([]);
-        setDocumentos([]);
+        setFaturamento([]);
         return;
       }
 
       const ids = rows.map((row) => row.id);
-      const [pendenciaResult, documentoResult] = await Promise.all([
+      const [pendenciaResult, faturamentoResult] = await Promise.all([
         supabase.schema("m").rpc("vendas_compras_resumo"),
         supabase
           .schema("f")
-          .from("documento_fiscal")
-          .select("id,os_id_import,modelo,nfe_status,nfse_status,valor_total")
+          .from("v_os_faturamento_status")
+          .select("os_id,status_faturamento,origem_status,valor_faturado,saldo_a_faturar,notas_emitidas,notas_canceladas")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
-          .eq("operacao", "SAIDA")
-          .is("deleted_at", null)
-          .in("os_id_import", ids),
+          .in("os_id", ids),
       ]);
 
       if (pendenciaResult.error) throw pendenciaResult.error;
       setPendencias(Array.isArray(pendenciaResult.data) ? (pendenciaResult.data as PendenciaRow[]) : []);
-      setDocumentos(documentoResult.error ? [] : ((documentoResult.data ?? []) as DocumentoRow[]));
+      setFaturamento(faturamentoResult.error ? [] : ((faturamentoResult.data ?? []) as FaturamentoRow[]));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível carregar as vendas.");
       setVendas([]);
       setPendencias([]);
-      setDocumentos([]);
+      setFaturamento([]);
     } finally {
       setLoading(false);
     }
@@ -207,14 +230,14 @@ export default function VendasClient() {
     return map;
   }, [pendencias]);
 
-  const documentosByVenda = useMemo(() => {
-    const map = new Map<number, DocumentoRow[]>();
-    for (const row of documentos) {
-      if (!row.os_id_import) continue;
-      map.set(row.os_id_import, [...(map.get(row.os_id_import) ?? []), row]);
+  const faturamentoByVenda = useMemo(() => {
+    const map = new Map<number, FaturamentoRow>();
+    for (const row of faturamento) {
+      if (!row.os_id) continue;
+      map.set(row.os_id, row);
     }
     return map;
-  }, [documentos]);
+  }, [faturamento]);
 
   const q = String(searchParams.get("q") ?? "");
   const status = String(searchParams.get("status") ?? "");
@@ -230,8 +253,7 @@ export default function VendasClient() {
     return vendas.filter((row) => {
       const rowStatus = String(row.status_fluxo ?? row.status ?? "em_andamento");
       const rowCompra = compraStatus(pendenciasByVenda.get(row.id) ?? []);
-      const docs = documentosByVenda.get(row.id) ?? [];
-      const isFaturado = rowStatus === "faturada" || docs.some(documentoEmitido);
+      const rowFaturamento = statusFaturamento(faturamentoByVenda.get(row.id));
       const opened = String(row.data_abertura ?? "").slice(0, 10);
       if (term && !`${row.codigo} ${row.cliente_nome} ${row.descricao_servico ?? ""}`.toLocaleLowerCase("pt-BR").includes(term)) return false;
       if (status && rowStatus !== status) return false;
@@ -240,11 +262,10 @@ export default function VendasClient() {
       if (from && opened < from) return false;
       if (to && opened > to) return false;
       if (compra && rowCompra !== compra) return false;
-      if (faturado === "SIM" && !isFaturado) return false;
-      if (faturado === "NAO" && isFaturado) return false;
+      if (faturado && rowFaturamento !== faturado) return false;
       return true;
     });
-  }, [cliente, compra, documentosByVenda, faturado, from, pendenciasByVenda, q, status, to, vendas, vendedor]);
+  }, [cliente, compra, faturado, faturamentoByVenda, from, pendenciasByVenda, q, status, to, vendas, vendedor]);
 
   const clientes = useMemo(
     () =>
@@ -266,10 +287,10 @@ export default function VendasClient() {
     const itensCompra = pendencias.filter((row) => row.status === "PENDENTE").length;
     const aguardandoFaturamento = vendas.filter((row) => {
       const rowStatus = String(row.status_fluxo ?? row.status);
-      return rowStatus === "concluida" && !(documentosByVenda.get(row.id) ?? []).some(documentoEmitido);
+      return rowStatus === "concluida" && statusFaturamento(faturamentoByVenda.get(row.id)) !== "FATURADA";
     }).length;
     return { emAndamento, valorAberto, itensCompra, aguardandoFaturamento };
-  }, [documentosByVenda, pendencias, vendas]);
+  }, [faturamentoByVenda, pendencias, vendas]);
 
   if (!ready && permissionsLoading) return <div className="py-12 text-center text-zinc-400">Carregando permissões...</div>;
   if (!canView) return <div className="py-12 text-center text-zinc-400">Acesso negado.</div>;
@@ -325,7 +346,8 @@ export default function VendasClient() {
             {Object.entries(COMPRA_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
           <select value={faturado} onChange={(event) => setFilter("faturado", event.target.value)} className="self-end rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm">
-            <option value="">Faturada ou não</option><option value="SIM">Faturada</option><option value="NAO">Não faturada</option>
+            <option value="">Todo status de faturamento</option>
+            {Object.entries(FATURAMENTO_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
       </section>
@@ -344,7 +366,7 @@ export default function VendasClient() {
                 <th className="whitespace-nowrap px-3 py-3 text-right">Valor</th>
                 <th className="whitespace-nowrap px-3 py-3">Compra</th>
                 <th className="whitespace-nowrap px-3 py-3">Status</th>
-                <th className="whitespace-nowrap px-3 py-3">Faturada</th>
+                <th className="whitespace-nowrap px-3 py-3">Faturamento</th>
                 <th className="whitespace-nowrap px-3 py-3">Vendedor</th>
               </tr>
             </thead>
@@ -354,7 +376,8 @@ export default function VendasClient() {
               {!loading && filtered.map((row) => {
                 const rowStatus = String(row.status_fluxo ?? row.status ?? "em_andamento");
                 const purchase = compraStatus(pendenciasByVenda.get(row.id) ?? []);
-                const billed = rowStatus === "faturada" || (documentosByVenda.get(row.id) ?? []).some(documentoEmitido);
+                const faturamentoRow = faturamentoByVenda.get(row.id);
+                const billed = statusFaturamento(faturamentoRow);
                 return (
                   <tr key={row.id} className="hover:bg-zinc-900/40">
                     <td className="whitespace-nowrap px-3 py-3"><Link href={`/comercial/vendas/${row.id}`} className="font-medium text-sky-300 hover:underline">{row.codigo}</Link></td>
@@ -368,7 +391,12 @@ export default function VendasClient() {
                     <td className="whitespace-nowrap px-3 py-3">
                       <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-1 text-xs ${statusClass(rowStatus)}`}>{STATUS_LABEL[rowStatus] ?? rowStatus}</span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3">{billed ? <span className="text-emerald-300">Sim</span> : <span className="text-zinc-500">Não</span>}</td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <span
+                        title={faturamentoTitulo(faturamentoRow, billed)}
+                        className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-1 text-xs ${faturamentoClass(billed)}`}
+                      >{FATURAMENTO_LABEL[billed]}</span>
+                    </td>
                     <td className="whitespace-nowrap px-3 py-3 text-zinc-400">{row.vendedor || "—"}</td>
                   </tr>
                 );
