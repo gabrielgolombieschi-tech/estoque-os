@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe versao="4.00" Id="NFe42260913671448000189550020000000251536196350"><ide><cUF>42</cUF><cNF>53619635</cNF><natOp>RETORNO DE MERCADORIA UTILIZADA NA INDUSTRIALIZACAO</natOp><mod>55</mod><serie>2</serie><nNF>25</nNF><dhEmi>2026-09-18T06:45:57-03:00</dhEmi><dhSaiEnt>2026-09-18T06:45:57-03:00</dhSaiEnt><tpNF>1</tpNF><idDest>1</idDest><cMunFG>4209102</cMunFG><tpImp>1</tpImp><tpEmis>1</tpEmis><cDV>0</cDV><tpAmb>1</tpAmb><finNFe>1</finNFe><indFinal>0</indFinal><indPres>9</indPres><indIntermed>0</indIntermed><procEmi>0</procEmi><verProc>0.1.0</verProc><NFref><refNFe>42260760621141000404550010009085421545851279</refNFe></NFref></ide><emit><CNPJ>13671448000189</CNPJ><xNome>ELETRICA SEGAU LTDA</xNome><xFant>SEGAU</xFant><enderEmit><xLgr>Rua Dona Francisca</xLgr><nro>8300</nro><xCpl>Cond. Perini Business Park, Bloco 1, Modulo B, Box Singapura</xCpl><xBairro>Zona Industrial Norte</xBairro><cMun>4209102</cMun><xMun>Joinville</xMun><UF>SC</UF><CEP>89219600</CEP><cPais>1058</cPais><xPais>Brasil</xPais><fone>4734735171</fone></enderEmit><IE>257686835</IE><CRT>3</CRT></emit><dest><CNPJ>60621141000404</CNPJ><xNome>WEG TINTAS LTDA</xNome><enderDest><xLgr>RODOVIA BR 280 - KM50</xLgr><nro>6918</nro><xCpl>BLOCO A</xCpl><xBairro>CAIXA D AGUA</xBairro><cMun>4206504</cMun><xMun>Guaramirim</xMun><UF>SC</UF><CEP>89270000</CEP><cPais>1058</cPais><xPais>Brasil</xPais><fone>4732764000</fone></enderDest><indIEDest>1</indIEDest><IE>257843876</IE></dest><autXML><CNPJ>10458754000143</CNPJ></autXML><det nItem="1"><prod><cProd>000000000050017810</cProd><cEAN>SEM GTIN</cEAN><xProd>TINTAS PARA INDUSTRIALIZAÇAO</xProd><NCM>32099019</NCM><cBenef>SC840008</cBenef><CFOP>5902</CFOP><uCom>UN</uCom><qCom>12.0000</qCom><vUnCom>72.31</vUnCom><vProd>867.72</vProd><cEANTrib>SEM GTIN</cEANTrib><uTrib>UN</uTrib><qTrib>12.0000</qTrib><vUnTrib>72.31</vUnTrib><indTot>1</indTot></prod><imposto><ICMS><ICMS40><orig>0</orig><CST>50</CST></ICMS40></ICMS><IPI><cEnq>109</cEnq><IPINT><CST>55</CST></IPINT></IPI><PIS><PISNT><CST>08</CST></PISNT></PIS><COFINS><COFINSNT><CST>08</CST></COFINSNT></COFINS><IBSCBS><CST>410</CST><cClassTrib>410999</cClassTrib></IBSCBS></imposto><vItem>867.72</vItem></det><total><ICMSTot><vBC>0</vBC><vICMS>0</vICMS><vICMSDeson>0</vICMSDeson><vFCP>0</vFCP><vBCST>0</vBCST><vST>0</vST><vFCPST>0</vFCPST><vFCPSTRet>0</vFCPSTRet><vProd>867.72</vProd><vFrete>0</vFrete><vSeg>0</vSeg><vDesc>0</vDesc><vII>0</vII><vIPI>0</vIPI><vIPIDevol>0</vIPIDevol><vPIS>0</vPIS><vCOFINS>0</vCOFINS><vOutro>0</vOutro><vNF>867.72</vNF></ICMSTot><IBSCBSTot><vBCIBSCBS>0</vBCIBSCBS><gIBS><gIBSUF><vDif>0</vDif><vDevTrib>0</vDevTrib><vIBSUF>0</vIBSUF></gIBSUF><gIBSMun><vDif>0</vDif><vDevTrib>0</vDevTrib><vIBSMun>0</vIBSMun></gIBSMun><vIBS>0</vIBS><vCredPres>0</vCredPres><vCredPresCondSus>0</vCredPresCondSus></gIBS><gCBS><vDif>0</vDif><vDevTrib>0</vDevTrib><vCBS>0</vCBS><vCredPres>0</vCredPres><vCredPresCondSus>0</vCredPresCondSus></gCBS></IBSCBSTot><vNFTot>867.72</vNFTot></total><transp><modFrete>0</modFrete><vol><qVol>12</qVol><esp>VOLUMES</esp><pesoL>52.800</pesoL><pesoB>52.800</pesoB></vol></transp><pag><detPag><tPag>90</tPag><vPag>0</vPag></detPag></pag><infAdic><infAdFisco>ICMS SUSPENSO CONFORME ANEXO 2, ART. 27, II, DO RICMS-SC. RETORNO DA NF-E 908542 DE 03/07/2026. IPI SUSPENSO CONFORME ART. 43, VII, DO RIPI (DECRETO 7.212/2010).</infAdFisco><infCpl>RETORNO INTEGRAL DA MERCADORIA RECEBIDA PELA NF-E N. 908542 SERIE 1 DE 03/07/2026, CHAVE 42260760621141000404550010009085421545851279. MERCADORIA DE TERCEIROS. SEM COBRANCA.</infCpl></infAdic><infRespTec><CNPJ>07504505000132</CNPJ><xContato>Ricardo Acras</xContato><email>contato@focusnfe.com.br</email><fone>41991820810</fone></infRespTec></infNFe><Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><Reference URI="#NFe42260913671448000189550020000000251536196350"><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><DigestValue>KkbbjXAHRh7c0U4AP3xnR7DvvxM=</DigestValue></Reference></SignedInfo><SignatureValue>AzsBmpi0FXyPsZoutlQcOnLJgtJ+sLirJ0ZuPpCiW1Kh7U7LDgQPbvOX95C51/5DqxsekLyt7fla
+0J+1/vSUTMac2KuHc2LD30WGEf08o9DW7aLV/9ZTBs321uo9tiztgeo96cguGtMqRm/ebmL0Rhe0
+fe51f400YZuNti195qLrr2ufZ32QZTnprAWzzRagKUeZs6CGr49F0IAyHi4UFsMiXjMjadGzM4e/
+yowYBLcRSMy41RrDYtn260ZAnA99JYNLinrCU+y5mKFvmYLHLyHYpGTbonTPtn9Gj9GfdHFwM5X/
++Zb9z6JEq/qvcel8EZoEK6PhNH4bN0jGsdTmGA==</SignatureValue><KeyInfo><X509Data><X509Certificate>MIIH3jCCBcagAwIBAgIIZT0WOr7qsBswDQYJKoZIhvcNAQELBQAwdjELMAkGA1UEBhMCQlIxEzAR
+BgNVBAoTCklDUC1CcmFzaWwxNjA0BgNVBAsTLVNlY3JldGFyaWEgZGEgUmVjZWl0YSBGZWRlcmFs
+IGRvIEJyYXNpbCAtIFJGQjEaMBgGA1UEAxMRQUMgU0FGRVdFQiBSRkIgdjUwHhcNMjYwOTAxMTcy
+NTU4WhcNMjcwOTAxMTcyNTU4WjCB9DELMAkGA1UEBhMCQlIxEzARBgNVBAoTCklDUC1CcmFzaWwx
+CzAJBgNVBAgTAlNDMRIwEAYDVQQHEwlKT0lOVklMTEUxNjA0BgNVBAsTLVNlY3JldGFyaWEgZGEg
+UmVjZWl0YSBGZWRlcmFsIGRvIEJyYXNpbCAtIFJGQjEWMBQGA1UECxMNUkZCIGUtQ05QSiBBMTEX
+MBUGA1UECxMOODM3OTcxOTEwMDAxOTExGTAXBgNVBAsTEHZpZGVvY29uZmVyZW5jaWExKzApBgNV
+BAMTIkVMRVRSSUNBIFNFR0FVIExUREE6MTM2NzE0NDgwMDAxODkwggEiMA0GCSqGSIb3DQEBAQUA
+A4IBDwAwggEKAoIBAQC7spM+M12xSH36QmqoXbpgZcbjJGvsY4lRp7yMIZOfWXIGcJw9yYk0tzAu
+YmE859Ked1cignV9FUtHR4BQSeDlYwnw0TrqCPA20AHJL8vTfnEPaf02wEuF6WNtfpBZ16O1D6Ae
+0wBt0du/9DgIlvu3a45wqrwCM723a1sm5T0IXhHFeTcShay6iQSTFQFVpEVKBTJOfuMf4kvPptTa
+oekTdU8Bz5vofvBQ9/39Lc/EC76J8Ue6oBPazxrq/zs20tp7nyVUfLFL4nhUkcEK/5CYZlNjNUJk
+1mOMYJg5HoU9NnTU0wLVYTrMZPiZMmwNjK09mZWpSKUEA9eg+ucUdlsRAgMBAAGjggLvMIIC6zAf
+BgNVHSMEGDAWgBQpXkvVRky7/hanY8EdxCby3djzBTAOBgNVHQ8BAf8EBAMCBeAwaQYDVR0gBGIw
+YDBeBgZgTAECATMwVDBSBggrBgEFBQcCARZGaHR0cDovL3JlcG9zaXRvcmlvLmFjc2FmZXdlYi5j
+b20uYnIvYWMtc2FmZXdlYnJmYi9kcGMtYWNzYWZld2VicmZiLnBkZjCBrgYDVR0fBIGmMIGjME+g
+TaBLhklodHRwOi8vcmVwb3NpdG9yaW8uYWNzYWZld2ViLmNvbS5ici9hYy1zYWZld2VicmZiL2xj
+ci1hYy1zYWZld2VicmZidjUuY3JsMFCgTqBMhkpodHRwOi8vcmVwb3NpdG9yaW8yLmFjc2FmZXdl
+Yi5jb20uYnIvYWMtc2FmZXdlYnJmYi9sY3ItYWMtc2FmZXdlYnJmYnY1LmNybDCBtwYIKwYBBQUH
+AQEEgaowgacwUQYIKwYBBQUHMAKGRWh0dHA6Ly9yZXBvc2l0b3Jpby5hY3NhZmV3ZWIuY29tLmJy
+L2FjLXNhZmV3ZWJyZmIvYWMtc2FmZXdlYnJmYnY1LnA3YjBSBggrBgEFBQcwAoZGaHR0cDovL3Jl
+cG9zaXRvcmlvMi5hY3NhZmV3ZWIuY29tLmJyL2FjLXNhZmV3ZWJyZmIvYWMtc2FmZXdlYnJmYnY1
+LnA3YjCBtwYDVR0RBIGvMIGsgRRHQUJSSUVMQFNFR0FVLkNPTS5CUqAmBgVgTAEDAqAdExtHQUJS
+SUVMIEdPTE9NQklFU0NISSBNRU5ERVOgGQYFYEwBAwOgEBMOMTM2NzE0NDgwMDAxODmgOAYFYEwB
+AwSgLxMtMjUwOTE5ODQwNDgyNDUyNDk4OTAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwoBcGBWBM
+AQMHoA4TDDAwMDAwMDAwMDAwMDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwCQYDVR0T
+BAIwADANBgkqhkiG9w0BAQsFAAOCAgEAOp0xZ2aGwnLzJCItCfYimFBxC1LCaOjFNyXAC0IInDOh
+O5uRG44Db3IokAUH5natks9pD3/evw6a0Gg+Qu3dVV9fvk9f8SyKPwGUmNzaIy8WgdnTNtwBo54r
+G18nbIWo/L/p9NVKTGrdZWsppuiVm4IdC9t3AtKcKzsWit//cpXGENM2M3hmzJz1XRLOQ1UfVM3a
+MtqAWTj4llkiv1Toy3FbUo/XANVe1bdo87CbA6l3bfLUE9S6VeAM/S6z6ORyY8GKRu7whxrF3ZPa
+plOeaIjyf8qfFPRMkHfH8Hpiaonqje5NrNZRqsAqB0NVbftElzASGNrCnUDFjhet09oep9WwT+Lv
++OW4BsyuaDaclR1kMdNYpw/gOituNuzrnoEsWevFVHvqnyR54tRyMARthY4l/fvJ9jfkwyrJVmD3
+aJ7Yt5AP0DGP/18vgK90WD/KpR6e/J5Lix6a5x8opQ663jvvYQInk/APF0eAPgxcYzle28m8Jd+8
+Eh3WMQxJQxAbpyBggXO7j1Dby0tKHyOUQAUIh7qPultDBNr075qWY1CemnoahVbAKFIWYnjFnfLt
+5Tc47KMS4JAp9GowF7IA/ZpOQX8/Ou0YMM0TdZAHXEt1gwajMYM0zYIqXhs6i1C7dmKOoKzzigmY
+zqB3zm4r2ukh+It6l2neggncQOjduPc=</X509Certificate></X509Data></KeyInfo></Signature></NFe><protNFe versao="4.00"><infProt><tpAmb>1</tpAmb><verAplic>SVRS2609090815DR</verAplic><chNFe>42260913671448000189550020000000251536196350</chNFe><dhRecbto>2026-09-18T06:45:58-03:00</dhRecbto><nProt>242260442413978</nProt><digVal>KkbbjXAHRh7c0U4AP3xnR7DvvxM=</digVal><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo></infProt></protNFe></nfeProc>

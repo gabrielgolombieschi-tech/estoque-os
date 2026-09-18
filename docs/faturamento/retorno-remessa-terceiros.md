@@ -8,8 +8,21 @@ notas iguais. Homologação do retorno: **NF-e 2/60** (chave
 do ajuste de natOp/infAdFisco/frete e ficou só como histórico); perfil liberado contra a 2/60,
 produção da aba ligada e **nota real emitida em 16/09/2026: NF-e 2/20**, chave
 42260913671448000189550020000000201907656978, protocolo 242260439667531 — remessa
-RETORNADA, operação RETORNO CONCLUIDA, sem título financeiro. Manual com telas:
-`Dropbox/Projeto_Estoque/Manual-Retorno-Remessa-Terceiros.docx`.
+RETORNADA, operação RETORNO CONCLUIDA, sem título financeiro.
+
+**Segunda nota real, 18/09/2026, já com cEnq 109 e o modal em linguagem simples:** NF-e 908542/1 da
+WEG (tintas para industrialização, 12 UN, R$ 867,72, chave 42260760621141000404550010009085421545851279,
+XML em `docs/fiscal/exemplos/`), material aplicado → "Foi usado no produto" (5902). Perfil 5902
+revisado pela tela às 06:40, homologação **NF-e 2/71** (protocolo 342260000953956) às 06:43,
+liberação para essa solicitação (`0fc9a299-dc4d-4a27-a205-a7ca6ce7e581`) às 06:44 e **nota real NF-e
+2/25** às 06:45, chave 42260913671448000189550020000000251536196350, protocolo 242260442413978. XML
+conferido: CFOP 5902, cEnq 109, cBenef SC840008, ICMS 50/IPI 55/PIS-COFINS 08, IBS/CBS 410/410999,
+refNFe = chave da 908542, item espelho, modFrete 0, 12 volumes 52,8 kg, tPag 90. Remessa RETORNADA,
+operação RETORNO CONCLUIDA, zero títulos e zero movimentações de estoque ligados à nota. Prints de
+cada passo, DANFE e XML em `docs/faturamento/retorno-terceiros-manual/`; **manual do operador**
+(equipe de faturamento) em `docs/faturamento/manual-operador-retorno-terceiros.md` e
+`Dropbox/Projeto_Estoque/Manual-Retorno-Remessa-Terceiros.docx` (revisado com as telas desta nota;
+a versão de 16/09 fica no histórico do Dropbox).
 
 Portão do banco: `f.fn_nfe_producao_preparar_e_claimar` compara o payload real com o da
 homologação e, desde a migration 20260917120000, tolera `notas_referenciadas` (só a nota
@@ -170,5 +183,9 @@ exemplo curto e o código pequeno ao lado; a pessoa escolhe a situação e o sis
 ## Pendências
 
 - Retorno de **conserto** (5916): cBenef (SC840008 ou SC840007, Art. 27, I) e cEnq — com a contadora.
-- Produção da aba nasce desligada; o perfil 5902 precisa de nova revisão, homologação e liberação
-  depois do cEnq 109. Retorno 5903 e 5916 ainda não têm perfil (produção vai exigir um).
+- Perfil 5902: revisado e liberado em 18/09/2026 para a NF-e 2/71/2/25. Cada remessa nova continua
+  exigindo homologar e liberar de novo (liberação por solicitação). Perfil 5903 existe, mas sem
+  revisão: revisar no primeiro caso real de "Voltou sem usar". 5916 ainda não tem perfil.
+- CC-e da NF-e 2/20 (cEnq 108 → 109): rascunho acima, decisão da contadora, sem urgência.
+- A remessa de TESTE da WEG 900356 foi excluída em 18/09/2026 depois da nota real (a homologação
+  2/70 do 5903 ficou cancelada); para novo teste, importar de novo com a caixa marcada.
