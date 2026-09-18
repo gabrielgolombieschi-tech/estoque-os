@@ -1999,6 +1999,7 @@ export default function OvNfeDraftsPanel({
                           ele é contribuinte e vai revender, usar como insumo ou receber em consignação; <strong>17%</strong> quando
                           a mercadoria para nele (manutenção, uso e consumo, ativo imobilizado) ou ele não é contribuinte. Se o cliente
                           exige 12% na OC, a exceção aparece na etapa seguinte. Vem informada na OC dele e sai nas informações complementares da nota.
+                          {" "}<a href="/manuais/vender-peca-importada.html" target="_blank" rel="noreferrer" className="text-sky-300 underline" data-testid="ajuda-vender-peca-importada">Manual: vender peça que nós importamos</a>
                         </p>
                         <label className={`${label} mt-4 block max-w-md`}>Destinação declarada
                           <select

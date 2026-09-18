@@ -112,6 +112,35 @@ na linha (motivo "fechar com OC 1309011, total 4.563,40"; CST 50 e 9,75% gravado
 total conferido **4.563,40**. Emissão não feita: fica no botão "Emitir em homologação" até a
 revisão do perfil ser salva.
 
+## Homologação final — NF-e 2/81 (18/09/2026, "Concluir a OV")
+
+Revisão do perfil SEG-VENDA-TERCEIROS-SC-5102-O1-CST00 salva pela tela às 11:54 (campos
+conferidos contra o esperado: 5102, origem 1, ICMS 00 a 12%, IPI 50/999, PIS/COFINS 01, IBS/CBS
+000/000001/0,1/0/0,9, destinações REVENDA/INSUMO/CONSIGNADO, indFinal 0; justificativa "Campos
+conferidos em validação fiscal externa em 18/09/2026, a pedido de Gabriel G. Mendes, para a
+OV-SEG-00004-026 (OC 1309011)"). **Produção não liberada** (decisão do Gabriel). Rascunho 89fbf7ff
+emitido em homologação pela tela.
+
+| Campo do XML | Valor |
+| --- | --- |
+| nNF / série / tpAmb / cStat / protocolo | 81 / 2 / 2 / 100 / 342260000955033 |
+| chave | 42260913671448000189550020000000811320649631 |
+| dhEmi | 2026-09-18T11:55:24-03:00 |
+| natOp / CFOP / indFinal / indPres / xPed | VENDA MERCADORIA ADQ. REC. DE TERCEIROS / 5102 / 0 / 9 / 1309011 |
+| item | CQM1HCPU61, NCM 85371020, 1 UN × 4.158,00, orig 1 |
+| ICMS | CST 00, modBC 3, vBC 4.158,00, 12%, vICMS 498,96 (IPI fora da base) |
+| IPI | CST 50, cEnq 999, 9,75%, **vIPI 405,40** (ajuste de meio centavo) |
+| PIS / COFINS | 01, base 3.659,04: 60,37 / 278,09 |
+| IBS / CBS | 000 / 000001, base 3.320,58: 3,32 / 0 / 29,89 |
+| vNF | **4.563,40** (= OC 1309011) |
+| cobr / dup | nFat OV-SEG-00004-026, 4.563,40 · dup 001 · 02/11/2026 · 4.563,40 (tPag 15, indPag 1) |
+| transp | modFrete 1, TEDE TRANSPORTES LTDA (02.484.555/0010-72), 1 volume, 1,000 kg |
+| infCpl | "Destinação informada pelo destinatário: insumo de produção. Alíquota interna de ICMS de 12% - operação destinada a contribuinte do imposto - Lei 10.297/96, art. 19, III, "n", e Lei 17.878/2019 \| Pedido de compra do cliente: 1309011" (sem texto de exceção, sem vTotTrib) |
+
+Manual da equipe: `docs/faturamento/manual-operador-vender-peca-importada.md` (também em
+`public/manuais/vender-peca-importada.html`, ligado na conferência da OV, e docx/pdf no Dropbox).
+Próximo passo do Gabriel: capítulo 7 do manual (liberar o perfil para a 2/81 e emitir a real).
+
 **Regra de arredondamento usada** (`supabase/functions/_shared/nfe-payload.ts`, `round()`):
 `Math.round((v + Number.EPSILON) * 100) / 100`, meio para cima. `vIPI = round(vProd × 9,75 / 100)` =
 round(405,405) = **405,41**. Para a nota fechar em 4.563,40 é preciso decidir: (a) arredondar o

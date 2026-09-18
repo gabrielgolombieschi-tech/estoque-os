@@ -58,6 +58,8 @@ produção enviada trava. Desativar limpa tudo. Retorna valor exato, padrão e p
 
 Rascunho com 1 UN × 4.158,00 (motivo da diferença para o orçado: "Orçado inclui IPI"), destino
 SC, destinação INSUMO (Utilização "Aquisição de Mercadoria Insumos" na OC), sem exceção de 12%,
-ajuste do meio centavo com o motivo "fechar com OC 1309011, total 4.563,40". Esperado na NF-e:
-vProd 4.158,00, IPI 50 9,75% **405,40**, vBC ICMS 4.158,00 (IPI fora da base), ICMS 12% 498,96,
-PIS 60,37, COFINS 278,09 (base 3.659,04), base IBS/CBS 3.320,58, indFinal 0, **vNF 4.563,40**.
+ajuste do meio centavo com o motivo "fechar com OC 1309011, total 4.563,40". Saiu na NF-e 2/81
+de homologação (18/09/2026 11:55, cStat 100, protocolo 342260000955033): vProd 4.158,00, IPI 50
+9,75% **405,40**, vBC ICMS 4.158,00 (IPI fora da base), ICMS 12% 498,96, PIS 60,37, COFINS 278,09
+(base 3.659,04), base IBS/CBS 3.320,58, indFinal 0, **vNF 4.563,40**. A SEFAZ aceitou o vIPI
+arredondado para baixo.
