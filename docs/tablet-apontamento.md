@@ -109,7 +109,8 @@ horas." O caminho para OS encerrada é o do sistema web (Apontamentos), que acei
 
 ## Tarefas no tablet
 
-Depois do PIN o tablet oferece **Apontar horas**, **Minhas tarefas** e **Finalizar**.
+Depois do PIN o tablet oferece **Apontar horas**, **Horas internas**, **Falta ou
+afastamento** (desde 18/09/2026, ver abaixo), **Minhas tarefas** e **Finalizar**.
 "Minhas tarefas" mostra as tarefas do colaborador identificado (agendadas e sem
 data) e permite marcar como concluída, com confirmação. O tablet não cria, cancela
 nem reagenda tarefa e não vê aprovações. Regras, permissões e telas do web e do app
@@ -126,3 +127,37 @@ pessoa não sair pensando que fechou o serviço inteiro.
 Folga, férias e outras ausências também aparecem na lista, porque moram na mesma
 tabela; o tablet mostra o rótulo da ausência no lugar da OS e do cliente, e o tempo
 (dias ou horas), já que não existe OS para mostrar.
+
+## Falta ou afastamento pela própria pessoa (18/09/2026)
+
+Migration `supabase/migrations/20260918180000_tablet_falta_e_afastamento.sql`; teste no
+bloco 8 de `supabase/tests/tablet_apontamento_pin.sql`. Pedido do Gabriel: "que o próprio
+pessoal que falte ou que vai se afastar por uma ou duas horas já deixe registrado ali no
+app". O menu do tablet ganhou **Falta ou afastamento** (e "Atividade interna" passou a se
+chamar **Horas internas**, o nome que ele usa: manutenção do galpão, treinamento, exames).
+
+- **Três perguntas, sem teclado**: o dia inteiro ou algumas horas? que dia? por quê? O
+  motivo é escolhido numa lista curta (doente, consulta médica ou exame, cheguei atrasado,
+  saí mais cedo, problema pessoal ou na família, prefiro não informar). Em horas, a duração
+  entra no teclado numérico como nas horas de OS.
+- **O que grava**: `public.tarefas` com categoria **`falta`** (sempre sem atestado; o
+  atestado continua sendo marcado pela coordenação com `app_tarefas_marcar_atestado`),
+  tipo agendada, 1 dia, medida `dias` ou `horas`, descrição = motivo, participante = quem
+  digitou o PIN. **Não reserva o dia** (regra de 20260917130000) e **não grava hora**: é
+  ausência, não apontamento. `criado_por_user_id` = conta do tablet e
+  **`tarefas.criado_por_sessao_id`** = sessão do PIN (coluna nova), como
+  `concluida_por_sessao_id` já fazia na conclusão.
+- **Janela**: hoje e os 15 dias anteriores, mais **30 dias para a frente** ("vou me afastar
+  amanhã"). Fora disso, `data_fora_da_janela` e a tela manda procurar a coordenação.
+- **Registro em dobro**: dia inteiro em cima de qualquer ausência pendente do dia, ou
+  qualquer coisa em cima de um dia inteiro, é recusado com `ja_registrada` (a mensagem cita o
+  que existe). Duas saídas de algumas horas no mesmo dia podem (consulta de manhã, saída mais
+  cedo). Antes de registrar, a tela mostra "Você já tem registrado" com as ausências
+  pendentes da janela (`app_tablet_ausencias`).
+- **Idempotência**: chave por registro em `tarefas_operacoes` (operação `tablet_falta`), o
+  mesmo mecanismo da conclusão pelo tablet; reenviar a mesma chave devolve `repetido`.
+- **RPCs**: `app_tablet_ausencias(p_sessao_token)` e
+  `app_tablet_registrar_falta(p_sessao_token, p_data, p_medida, p_horas, p_minutos, p_motivo, p_chave)`.
+- Depois do registro, "Minhas tarefas" do tablet, a agenda, a tela de Ausências do app e o
+  painel de TV mostram a falta como qualquer outra (a falta sem atestado não desconta a meta
+  da semana: o buraco aparece, que é o que se quer ver).

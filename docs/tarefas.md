@@ -230,7 +230,10 @@ mensagem do servidor ao salvar, não antes.
   atalhos de dias e, em ausência, a escolha entre dias inteiros e horas do dia. O
   badge da aba soma tarefas de hoje e atrasadas que a pessoa vê com as horas pendentes
   de aprovação (conjuntos disjuntos, sem contagem dupla).
-- **Tablet**: depois do PIN, Apontar horas / Minhas tarefas / Finalizar.
+- **Tablet**: depois do PIN, Apontar horas / Horas internas / Falta ou afastamento /
+  Minhas tarefas / Finalizar. A falta registrada pela própria pessoa (18/09/2026, migration
+  `20260918180000`) entra como `falta` sem atestado, sem reservar o dia, com a sessão do PIN
+  em `tarefas.criado_por_sessao_id`; detalhes em [tablet-apontamento.md](tablet-apontamento.md).
   "Minhas tarefas" lista e conclui **a parte da pessoa**; quando a tarefa tem mais
   gente, a tela avisa. Nada de administração nem aprovação.
 - **Televisão**: `/painel-tv/colaboradores`. As listas de tarefa lá são de trabalho.

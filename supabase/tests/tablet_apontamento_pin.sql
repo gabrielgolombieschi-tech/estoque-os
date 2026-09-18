@@ -637,4 +637,130 @@ begin
   if v_custo <> 525 then raise exception 'custo do dia util com 10h: % (esperado 9h x 50 + 1h x 50 x 1,5)', v_custo; end if;
 end $custo$;
 
+-- 8. Falta ou afastamento pela propria pessoa (20260918180000): dia inteiro ou
+-- algumas horas, janela de 15 dias atras a 30 a frente, sem reservar o dia, com
+-- idempotencia pela chave e sem registro em dobro do dia inteiro.
+-- O bloco 5 desautorizou o tablet: o diretor autoriza de novo.
+select pg_temp.como('19000000-0000-4000-8000-000000000005');
+set local role authenticated;
+do $reautoriza$
+declare r jsonb;
+begin
+  r := public.web_tablet_salvar('19000000-0000-4000-8000-000000000001', 'Tablet da producao', 60, true);
+  if not (r->>'sucesso')::boolean then raise exception 'reautorizar o tablet falhou: %', r; end if;
+end $reautoriza$;
+reset role;
+select pg_temp.sistema();
+select pg_temp.como('19000000-0000-4000-8000-000000000001');
+set local role authenticated;
+do $falta$
+declare
+  r jsonb;
+  token text;
+  hoje date;
+  chave uuid := gen_random_uuid();
+  v_tarefa uuid;
+begin
+  r := public.app_tablet_identificar('0042');
+  if not (r->>'sucesso')::boolean then raise exception 'PIN da ANA recusado: %', r; end if;
+  token := r->>'sessao_token';
+  hoje := (r->>'hoje')::date;
+
+  -- 8a. Nada registrado ainda; a janela vem do servidor.
+  r := public.app_tablet_ausencias(token);
+  if not (r->>'sucesso')::boolean then raise exception 'ausencias falhou: %', r; end if;
+  if jsonb_array_length(r->'registradas') <> 0 then raise exception 'ANA ja tinha ausencia: %', r; end if;
+  if (r->'janela'->>'de')::date <> hoje - 15 or (r->'janela'->>'ate')::date <> hoje + 30 then raise exception 'janela errada: %', r; end if;
+
+  -- 8b. Recusas: sessao invalida, sem chave, medida, data fora da janela, duracao.
+  r := public.app_tablet_registrar_falta('token-invalido', hoje, 'dias', null, null, 'Doente', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'sessao_invalida' then raise exception 'token invalido passou: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje, 'dias', null, null, 'Doente', null);
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'chave' then raise exception 'sem chave passou: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje, 'semana', null, null, 'Doente', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'medida' then raise exception 'medida invalida passou: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje - 16, 'dias', null, null, 'Doente', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'data_fora_da_janela' then raise exception 'hoje-16 passou: %', r; end if;
+  if (r->'janela'->>'ate')::date <> hoje + 30 then raise exception 'recusa por data sem janela: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje + 31, 'dias', null, null, 'Doente', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'data_fora_da_janela' then raise exception 'hoje+31 passou: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje, 'horas', 0, 0, 'Consulta', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'duracao' then raise exception 'zero horas passou: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje, 'horas', 24, 0, 'Consulta', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'duracao' then raise exception '24h em horas passou (devia ser dia inteiro): %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje, 'horas', 1, 75, 'Consulta', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'duracao' then raise exception '75 minutos passou: %', r; end if;
+
+  -- 8c. Dia inteiro hoje: grava falta sem atestado, sem OS, sem reserva, com o rastro da sessao.
+  r := public.app_tablet_registrar_falta(token, hoje, 'dias', null, null, 'Doente', chave);
+  if not (r->>'sucesso')::boolean then raise exception 'falta do dia inteiro recusada: %', r; end if;
+  if r->>'medida' <> 'dias' or r->>'horas' is not null or r->>'motivo' <> 'Doente' or r->>'colaborador_nome' <> 'ANA' then raise exception 'resposta da falta: %', r; end if;
+  if jsonb_array_length(r->'registradas') <> 1 then raise exception 'recibo sem a falta: %', r; end if;
+  v_tarefa := (r->>'tarefa_id')::uuid;
+
+  -- Mesma chave de novo: nada duplica.
+  r := public.app_tablet_registrar_falta(token, hoje, 'dias', null, null, 'Doente', chave);
+  if not (r->>'sucesso')::boolean or not (r->>'repetido')::boolean or (r->>'tarefa_id')::uuid <> v_tarefa then raise exception 'reenvio duplicou ou falhou: %', r; end if;
+
+  -- Dia inteiro em cima do dia inteiro, ou horas em cima do dia inteiro: recusa.
+  r := public.app_tablet_registrar_falta(token, hoje, 'dias', null, null, 'Doente', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'ja_registrada' then raise exception 'dia inteiro em dobro passou: %', r; end if;
+  if r->'erros'->0->>'mensagem' not like '%uma falta registrada em%(dia inteiro)%' then raise exception 'mensagem do dobro: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje, 'horas', 2, 0, 'Consulta médica', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'ja_registrada' then raise exception 'horas em cima do dia inteiro passou: %', r; end if;
+
+  -- 8d. Algumas horas ontem (2h) e mais uma saida no mesmo dia (1h30): as duas podem.
+  r := public.app_tablet_registrar_falta(token, hoje - 1, 'horas', 2, 0, 'Consulta médica ou exame', gen_random_uuid());
+  if not (r->>'sucesso')::boolean then raise exception 'afastamento de 2h recusado: %', r; end if;
+  if r->>'medida' <> 'horas' or (r->>'horas')::numeric <> 2 or (r->>'minutos')::integer <> 120 then raise exception 'resposta do afastamento: %', r; end if;
+  r := public.app_tablet_registrar_falta(token, hoje - 1, 'horas', 1, 30, 'Saí mais cedo', gen_random_uuid());
+  if not (r->>'sucesso')::boolean or (r->>'horas')::numeric <> 1.5 then raise exception 'segunda saida no mesmo dia recusada: %', r; end if;
+  -- Dia inteiro em cima das horas: recusa, citando as horas que ja existem.
+  r := public.app_tablet_registrar_falta(token, hoje - 1, 'dias', null, null, 'Doente', gen_random_uuid());
+  if (r->>'sucesso')::boolean or r->'erros'->0->>'tipo' <> 'ja_registrada' then raise exception 'dia inteiro em cima das horas passou: %', r; end if;
+  if r->'erros'->0->>'mensagem' not like '%(2 h)%' then raise exception 'mensagem devia citar as 2 h: %', r; end if;
+
+  -- 8e. Amanha, sem motivo: entra com o texto padrao. Futuro dentro dos 30 dias vale.
+  r := public.app_tablet_registrar_falta(token, hoje + 1, 'horas', 1, 0, '   ', gen_random_uuid());
+  if not (r->>'sucesso')::boolean then raise exception 'afastamento de amanha recusado: %', r; end if;
+  if r->>'motivo' <> 'Registrada pela própria pessoa no tablet' then raise exception 'motivo padrao: %', r; end if;
+
+  -- 8f. A lista do tablet e "Minhas tarefas" enxergam o que foi registrado.
+  r := public.app_tablet_ausencias(token);
+  if jsonb_array_length(r->'registradas') <> 4 then raise exception 'esperava 4 registradas: %', r; end if;
+  if not (r->'registradas'->0->>'pelo_tablet')::boolean then raise exception 'registro sem marca do tablet: %', r; end if;
+  r := public.app_tablet_tarefas(token);
+  if not (r->>'sucesso')::boolean then raise exception 'tarefas do tablet falhou: %', r; end if;
+  if not exists (select 1 from jsonb_array_elements(r->'agendadas') as x where (x->>'id')::uuid = v_tarefa and x->>'categoria' = 'falta') then
+    raise exception 'a falta nao apareceu em Minhas tarefas: %', r;
+  end if;
+end $falta$;
+reset role;
+select pg_temp.sistema();
+
+-- O que ficou no banco: falta sem atestado, sem OS, sem reserva, criada pela conta do
+-- tablet com a sessao do PIN, e a operacao guardada para o reenvio.
+do $falta_banco$
+declare
+  v_tarefa public.tarefas;
+begin
+  select t.* into v_tarefa
+  from public.tarefas as t
+  join public.tarefas_participantes as p on p.tarefa_id = t.id
+  where p.colaborador_id = '19000000-0000-4000-8000-000000000101' and t.medida = 'dias' and t.categoria = 'falta';
+  if v_tarefa.id is null then raise exception 'falta da ANA nao esta no banco'; end if;
+  if v_tarefa.os_id is not null or v_tarefa.tipo <> 'agendada' or v_tarefa.dias <> 1 or v_tarefa.horas is not null then raise exception 'falta gravada errada: %', to_jsonb(v_tarefa); end if;
+  if v_tarefa.criado_por_user_id <> '19000000-0000-4000-8000-000000000001' then raise exception 'criado_por devia ser a conta do tablet'; end if;
+  if v_tarefa.criado_por_sessao_id is null then raise exception 'sem a sessao do PIN na falta'; end if;
+  if exists (select 1 from public.tablet_sessoes s where s.id = v_tarefa.criado_por_sessao_id and s.colaborador_id <> '19000000-0000-4000-8000-000000000101') then
+    raise exception 'sessao da falta e de outra pessoa';
+  end if;
+  if exists (select 1 from public.tarefas_reservas r where r.tarefa_id = v_tarefa.id) then raise exception 'a falta reservou o dia'; end if;
+  if not exists (select 1 from public.tarefas_operacoes op where op.tarefa_id = v_tarefa.id and op.operacao = 'tablet_falta') then raise exception 'operacao do tablet nao registrada'; end if;
+  if (select count(*) from public.tarefas t join public.tarefas_participantes p on p.tarefa_id = t.id
+      where p.colaborador_id = '19000000-0000-4000-8000-000000000101' and t.categoria = 'falta') <> 4 then
+    raise exception 'esperava 4 faltas da ANA no banco';
+  end if;
+end $falta_banco$;
+
 rollback;
