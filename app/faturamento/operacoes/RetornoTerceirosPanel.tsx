@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyBR } from "@/lib/decimal";
 import { parseNfeXml } from "@/lib/nfe/parseNfeXml";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { modalidadesFrete, rotuloDoPerfil, textoOpcao } from "@/lib/fiscal/rotulos";
 
 /**
  * Retorno de mercadoria de terceiros.
@@ -83,13 +84,7 @@ type ProducaoStatus = {
 
 const CFOPS_ORIGEM = ["5901", "6901", "5915", "6915"];
 // Padrao 0, como a Segau ja emitia no Vertex (NF 3427, 23/09/2025).
-const MODALIDADES_FRETE: Array<[string, string]> = [
-  ["0", "0 · Por conta do remetente (SEGAU paga)"],
-  ["1", "1 · Por conta do destinatário"],
-  ["3", "3 · Por conta do destinatário, transporte próprio"],
-  ["4", "4 · Por conta do remetente, transporte próprio"],
-  ["9", "9 · Sem frete"],
-];
+const MODALIDADES_FRETE: Array<[string, string]> = modalidadesFrete(["0", "1", "3", "4", "9"]).map((m) => [m.codigo, textoOpcao(m)]);
 const MODALIDADE_FRETE_PADRAO = "0";
 const field = "rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
 const label = "space-y-1 text-xs text-zinc-400";
@@ -154,12 +149,8 @@ function opcoesSituacao(remessa: Remessa, ufEmpresa: string | null, perfis: Perf
     const cfop = cfopDe(base);
     const perfil = perfilDe(cfop);
     const habilitada = !exigePerfil || Boolean(perfil);
-    return {
-      situacao, cfop,
-      rotulo: perfil?.rotulo_usuario?.trim() || rotulo,
-      legenda: habilitada ? (perfil?.legenda_usuario?.trim() || legenda) : LEGENDA_INDISPONIVEL,
-      habilitada,
-    };
+    const texto = rotuloDoPerfil(perfil, { rotulo, exemplo: legenda });
+    return { situacao, cfop, rotulo: texto.rotulo, legenda: habilitada ? texto.exemplo : LEGENDA_INDISPONIVEL, habilitada };
   };
   if (remessa.tipo === "CONSERTO") {
     return [

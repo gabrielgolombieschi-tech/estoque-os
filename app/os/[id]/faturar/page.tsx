@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { formatMoneyBR } from "@/lib/decimal";
+import { DESTINACOES_CLIENTE, efeitoDestinacao, formasPagamentoNfe, modalidadesFrete, ORIGENS_MERCADORIA, textoOpcao } from "@/lib/fiscal/rotulos";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
 import FaturarNfseOs, { type PerfilServico, type RefazerNfse } from "./FaturarNfseOs";
 import ExcecaoIcms12Destinatario, {
@@ -57,14 +58,8 @@ type Produto = { id: number; codigo: string; nome: string; unidade: string | nul
 // Grupo vol (X26) da NF-e. Espécie, marca e numeração são opcionais; peso, não.
 type Volume = { quantidade: string; especie: string; marca: string; numeracao: string; peso_liquido: string; peso_bruto: string };
 type Transportador = { nome: string; documento: string; inscricao_estadual: string; endereco: string; municipio: string; uf: string };
-const MODALIDADES_FRETE: Array<[string, string]> = [
-  ["9", "9 · Sem frete"],
-  ["0", "0 · Por conta do emitente (CIF)"],
-  ["1", "1 · Por conta do destinatário (FOB)"],
-  ["2", "2 · Por conta de terceiros"],
-  ["3", "3 · Transporte próprio, por conta do remetente"],
-  ["4", "4 · Transporte próprio, por conta do destinatário"],
-];
+// Textos em lib/fiscal/rotulos.ts (texto simples na frente, codigo entre parenteses).
+const MODALIDADES_FRETE: Array<[string, string]> = modalidadesFrete(["9", "0", "1", "2", "3", "4"]).map((m) => [m.codigo, textoOpcao(m)]);
 type Linha = { chave: number; produto: Produto | null; busca: string; resultados: Produto[]; buscou: string | null; descricao: string; quantidade: string; valor_unitario: string };
 type Parcela = { dias: string; valor: string };
 type Perfil = {
@@ -86,18 +81,10 @@ type ProducaoStatus = { pronta?: boolean; motivo?: string | null; preflight_conf
 type ItemConferido = { ordem: number; descricao: string; quantidade: number | string; valor_unitario: number | string; cfop: string | null; aliquota_icms: number | string | null; aliquota_ipi: number | string | null; cst_ipi: string | null; aliquota_pis: number | string | null; aliquota_cofins: number | string | null; ncm: string | null; origem_mercadoria: number | null; tributacao_fonte: string | null };
 type Pendencia = { entidade?: string; id?: unknown; campo?: string; mensagem?: string; rota?: string };
 
-const DESTINACOES: Array<[string, string, number]> = [
-  ["USO_CONSUMO", "Uso e consumo próprio", 17],
-  ["ATIVO_IMOBILIZADO", "Vai para o ativo imobilizado", 17],
-  ["REVENDA", "Vai revender", 12],
-  ["INSUMO", "Vai usar como insumo de produção", 12],
-  ["MANUTENCAO", "Vai usar em manutenção", 17],
-  ["CONSIGNADO", "Recebe em consignação", 12],
-];
-const FORMAS_PAGAMENTO: Array<[string, string]> = [
-  ["15", "15 · Boleto bancário"], ["01", "01 · Dinheiro"], ["03", "03 · Cartão de crédito"], ["04", "04 · Cartão de débito"],
-  ["17", "17 · PIX"], ["18", "18 · Transferência bancária"], ["05", "05 · Crédito loja"], ["99", "99 · Outros"],
-];
+// Destinacao: rotulo, exemplo e efeito (12%/17%, IPI na base) vem de lib/fiscal/rotulos.ts, com a mesma regra do
+// montador; a aliquota da tupla e a de destinatario contribuinte, como antes.
+const DESTINACOES: Array<[string, string, number]> = DESTINACOES_CLIENTE.map((d) => [d.codigo, d.rotulo, efeitoDestinacao(d.codigo, true)?.aliquota ?? 17]);
+const FORMAS_PAGAMENTO: Array<[string, string]> = formasPagamentoNfe(["15", "01", "03", "04", "17", "18", "05", "99"]).map((f) => [f.codigo, textoOpcao(f)]);
 const PAPEIS_FATURAR = ["FATURAMENTO", "FINANCEIRO", "ADMIN", "DIRETOR"];
 
 const field = "w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500 disabled:opacity-60";
@@ -921,7 +908,7 @@ export default function FaturarOsPage() {
                 <div className="grid gap-2 md:grid-cols-3">
                   <label className={label}>Descrição<input className={field} value={novoProduto.nome} onChange={(e) => setNovoProduto({ ...novoProduto, nome: e.target.value })} /></label>
                   <label className={label}>NCM (8 dígitos)<input className={field} value={novoProduto.ncm} onChange={(e) => setNovoProduto({ ...novoProduto, ncm: e.target.value })} placeholder="8537.10.19" /></label>
-                  <label className={label}>Origem da mercadoria<select className={field} value={novoProduto.origem} onChange={(e) => setNovoProduto({ ...novoProduto, origem: e.target.value })}><option value="">Confirme...</option><option value="0">0 · Nacional</option><option value="1">1 · Estrangeira, importação direta</option><option value="2">2 · Estrangeira, mercado interno</option><option value="3">3 · Nacional, conteúdo importado 40 a 70%</option><option value="5">5 · Nacional, conteúdo importado até 40%</option><option value="8">8 · Nacional, conteúdo importado acima de 70%</option></select></label>
+                  <label className={label}>De onde vem a mercadoria? (origem)<select className={field} value={novoProduto.origem} onChange={(e) => setNovoProduto({ ...novoProduto, origem: e.target.value })}><option value="">Confirme...</option>{ORIGENS_MERCADORIA.map((o) => <option key={o.codigo} value={o.codigo}>{textoOpcao(o)}</option>)}</select>{novoProduto.origem ? <span className="text-xs text-zinc-500">{ORIGENS_MERCADORIA.find((o) => o.codigo === novoProduto.origem)?.exemplo} <span className="font-mono">orig {novoProduto.origem}</span></span> : null}</label>
                   <label className={label}>Unidade tributável<input className={field} value={novoProduto.unidade} onChange={(e) => setNovoProduto({ ...novoProduto, unidade: e.target.value })} /></label>
                   <label className={label}>CST IPI<select className={field} value={novoProduto.cst_ipi} onChange={(e) => setNovoProduto({ ...novoProduto, cst_ipi: e.target.value })}><option value="">Confirme...</option><option value="50">50 · Saída tributada</option><option value="51">51 · Saída tributável com alíquota zero</option><option value="52">52 · Saída isenta</option><option value="53">53 · Saída não tributada</option><option value="54">54 · Saída imune</option><option value="55">55 · Saída com suspensão</option><option value="99">99 · Outras saídas</option></select></label>
                   <label className={label}>Alíquota IPI (%){novoProduto.cst_ipi === "50" || novoProduto.cst_ipi === "99" ? " · obrigatória" : ""}<input className={field} inputMode="decimal" value={novoProduto.aliquota_ipi} onChange={(e) => setNovoProduto({ ...novoProduto, aliquota_ipi: e.target.value })} placeholder="9,75" /></label>
@@ -966,7 +953,12 @@ export default function FaturarOsPage() {
               </div>
             )}
           </div>
-          <label className={label}>Destinação declarada pelo cliente (decide a alíquota interna)<select className={field} value={destinacao} onChange={(e) => setDestinacao(e.target.value)} disabled={Boolean(emissao && emissao.status !== "RASCUNHO")}><option value="">Confirme...</option>{DESTINACOES.map(([c, r, a]) => <option key={c} value={c}>{r} · {a}%</option>)}</select></label>
+          <label className={label}>O que o cliente vai fazer com a mercadoria? (decide a alíquota interna)<select className={field} value={destinacao} onChange={(e) => setDestinacao(e.target.value)} disabled={Boolean(emissao && emissao.status !== "RASCUNHO")}><option value="">Confirme...</option>{DESTINACOES_CLIENTE.map((d) => <option key={d.codigo} value={d.codigo}>{d.rotulo}</option>)}</select>{(() => {
+            const d = DESTINACOES_CLIENTE.find((x) => x.codigo === destinacao);
+            const contribuinte = String(cliente?.indicador_ie ?? "").trim() === "1";
+            const efeito = destinacao ? efeitoDestinacao(destinacao, contribuinte) : null;
+            return d ? <span className="text-xs text-zinc-500">{d.exemplo} <strong className="text-zinc-300">{efeito?.texto}</strong>{!contribuinte ? " (cliente não contribuinte do ICMS: sempre 17%)" : ""} <span className="font-mono">({d.codigo})</span></span> : null;
+          })()}</label>
           <label className={label}>Presença do comprador<select className={field} value={presenca} onChange={(e) => setPresenca(e.target.value)}><option value="1">1 · Presencial</option><option value="2">2 · Internet</option><option value="3">3 · Teleatendimento</option><option value="5">5 · Fora do estabelecimento</option><option value="9">9 · Outros</option></select></label>
           <label className={label}>Modalidade do frete<select className={field} value={modalidadeFrete} onChange={(e) => {
             const proxima = e.target.value;
@@ -975,7 +967,7 @@ export default function FaturarOsPage() {
             // dos produtos das linhas. Peso ausente no cadastro fica em branco para
             // digitar — nesta fase nada é obrigatório no produto.
             if (proxima !== "9" && volumes.length === 0) setVolumes([{ quantidade: "1", especie: "", marca: "", numeracao: "", peso_liquido: decimal(pesoSugerido.liquido || ""), peso_bruto: decimal(pesoSugerido.bruto || "") }]);
-          }}>{MODALIDADES_FRETE.map(([codigo, rotulo]) => <option key={codigo} value={codigo}>{rotulo}</option>)}</select><span className="text-xs text-zinc-500">Fora do 9, a nota exige transportador e ao menos um volume com peso.</span></label>
+          }}>{MODALIDADES_FRETE.map(([codigo, rotulo]) => <option key={codigo} value={codigo}>{rotulo}</option>)}</select><span className="text-xs text-zinc-500">Fora de &quot;Sem frete&quot;, a nota exige transportador e ao menos um volume com peso. <span className="font-mono">modFrete {modalidadeFrete}</span></span></label>
         </div>
 
         <ExcecaoIcms12Destinatario
@@ -1028,7 +1020,7 @@ export default function FaturarOsPage() {
       <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
         <h2 className="font-semibold">Pagamento e informações complementares</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <label className={label}>Forma de pagamento<select className={field} value={pagamentoForma} onChange={(e) => setPagamentoForma(e.target.value)}>{FORMAS_PAGAMENTO.map(([c, r]) => <option key={c} value={c}>{r}</option>)}</select></label>
+          <label className={label}>Forma de pagamento<select className={field} value={pagamentoForma} onChange={(e) => setPagamentoForma(e.target.value)}>{FORMAS_PAGAMENTO.map(([c, r]) => <option key={c} value={c}>{r}</option>)}</select><span className="text-xs text-zinc-500"><span className="font-mono">tPag {pagamentoForma}</span></span></label>
           <label className={label}>À vista ou a prazo<select className={field} value={pagamentoIndicador} onChange={(e) => setPagamentoIndicador(e.target.value)}><option value="0">0 · À vista</option><option value="1">1 · A prazo</option></select></label>
           {pagamentoForma === "99" ? <label className={label}>Descrição (obrigatória no 99)<input className={field} value={pagamentoDescricao} onChange={(e) => setPagamentoDescricao(e.target.value)} maxLength={60} /></label> : null}
         </div>

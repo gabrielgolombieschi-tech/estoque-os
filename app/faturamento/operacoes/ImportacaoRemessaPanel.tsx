@@ -19,6 +19,7 @@ import {
   type DirRemessa,
 } from "@/lib/importacao/dir-remessa";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { FORMAS_PAGAMENTO_AP, textoOpcao } from "@/lib/fiscal/rotulos";
 
 /**
  * Importacao por remessa expressa (courier): NF-e de ENTRADA emitida pela Segau para a
@@ -73,7 +74,7 @@ const field = "rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text
 const label = "space-y-1 text-xs text-zinc-400";
 const button = "rounded border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40";
 const primario = "rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50";
-const FORMAS_PAGAMENTO = ["BOLETO", "PIX", "TRANSFERENCIA", "CARTAO", "DINHEIRO", "OUTROS"];
+// Formas de pagamento do contas a pagar: lib/fiscal/rotulos.ts (FORMAS_PAGAMENTO_AP).
 const TIPOS_ANEXO: Array<[string, string]> = [["GNRE", "GNRE"], ["NOTA_DEBITO", "Nota de débito"], ["INVOICE", "Invoice"], ["OUTRO", "Outro"]];
 
 /** Valor vindo do banco ou da Edge: numero, ou texto com ponto decimal ("844.28"); "844,28" tambem entra. */
@@ -587,7 +588,7 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
               <label className={label}>Emissão<input aria-label="Emissão da nota de débito" type="date" className={`${field} w-full`} value={nd.emissao} onChange={(e) => setNd((s) => ({ ...s, emissao: e.target.value }))} /></label>
               <label className={label}>Paga em (vazio = pagar depois)<input aria-label="Data de pagamento da nota de débito" type="date" className={`${field} w-full`} value={nd.pago_em} onChange={(e) => setNd((s) => ({ ...s, pago_em: e.target.value }))} /></label>
               <label className={label}>Conta bancária que pagou<select aria-label="Conta bancária" className={`${field} w-full`} value={nd.conta_bancaria_id} onChange={(e) => setNd((s) => ({ ...s, conta_bancaria_id: e.target.value }))}><option value="">—</option>{contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>
-              <label className={label}>Forma<select aria-label="Forma de pagamento" className={`${field} w-full`} value={nd.forma_pagamento} onChange={(e) => setNd((s) => ({ ...s, forma_pagamento: e.target.value }))}>{FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}</select></label>
+              <label className={label}>Forma<select aria-label="Forma de pagamento" className={`${field} w-full`} value={nd.forma_pagamento} onChange={(e) => setNd((s) => ({ ...s, forma_pagamento: e.target.value }))}>{FORMAS_PAGAMENTO_AP.map((f) => <option key={f.codigo} value={f.codigo}>{textoOpcao(f)}</option>)}</select></label>
               <label className={`${label} md:col-span-2`}>Motivo de compra do título<select aria-label="Motivo de compra" className={`${field} w-full`} value={nd.motivo_compra_id} onChange={(e) => setNd((s) => ({ ...s, motivo_compra_id: e.target.value }))}><option value="">—</option>{motivos.map((m) => <option key={m.id} value={m.id}>{m.codigo} · {m.nome}</option>)}</select></label>
             </div>
             <p className="text-xs text-zinc-500">A nota de débito ({dir.courier.nome ?? "courier"}) normalmente soma II + ICMS/GNRE + serviços + armazenagem. Com a data de pagamento e a conta, o título já nasce baixado quando a nota real for autorizada; sem elas, fica aprovado para baixa no financeiro. Nunca duplica um título já lançado com o mesmo número. O rateio do título segue o destino: 3556 no plano de consumo, 3551 em investimento, 3101/3102 em estoque (o motivo sugerido muda com o CFOP).</p>

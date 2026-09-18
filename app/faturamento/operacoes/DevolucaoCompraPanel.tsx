@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyBR } from "@/lib/decimal";
 import { parseNfeXml } from "@/lib/nfe/parseNfeXml";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { modalidadesFrete, textoOpcao } from "@/lib/fiscal/rotulos";
 
 /**
  * Devolucao de compra ao fornecedor.
@@ -48,14 +49,7 @@ const CFOP_DESCRICAO: Record<string, string> = {
   "6201": "Devolução de compra para industrialização (fora de SC)",
   "6556": "Devolução de compra de material de uso ou consumo (fora de SC)",
 };
-const MODALIDADES_FRETE: Array<[string, string]> = [
-  ["0", "0 · Por conta do remetente (SEGAU paga)"],
-  ["1", "1 · Por conta do destinatário (fornecedor paga)"],
-  ["2", "2 · Por conta de terceiros"],
-  ["3", "3 · Transporte próprio, por conta do remetente"],
-  ["4", "4 · Transporte próprio, por conta do destinatário"],
-  ["9", "9 · Sem frete"],
-];
+const MODALIDADES_FRETE: Array<[string, string]> = modalidadesFrete(["0", "1", "2", "3", "4", "9"]).map((m) => [m.codigo, textoOpcao(m)]);
 const field = "rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
 const label = "space-y-1 text-xs text-zinc-400";
 const button = "rounded border border-zinc-600 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40";

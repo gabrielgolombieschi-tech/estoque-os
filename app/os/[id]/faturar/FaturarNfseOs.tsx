@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { formasPagamentoNfe, textoOpcao } from "@/lib/fiscal/rotulos";
 import { formatMoneyBR } from "@/lib/decimal";
 import { codigoTributacaoExigeObra } from "@/supabase/functions/_shared/fiscal/nfse-obra";
 import { hojeSaoPaulo, pendenciaCompetenciaNfse } from "@/supabase/functions/_shared/fiscal/nfse-competencia";
@@ -21,9 +22,7 @@ const R$ = (value: number) => `R$ ${formatMoneyBR(value)}`;
 const field = "w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500 disabled:opacity-60";
 const label = "block text-xs text-zinc-400";
 const botao = "rounded-md border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-40";
-const FORMAS_PAGAMENTO: Array<[string, string]> = [
-  ["15", "15 · Boleto bancário"], ["17", "17 · PIX"], ["18", "18 · Transferência bancária"], ["01", "01 · Dinheiro"], ["03", "03 · Cartão de crédito"], ["99", "99 · Outros"],
-];
+const FORMAS_PAGAMENTO: Array<[string, string]> = formasPagamentoNfe(["15", "17", "18", "01", "03", "99"]).map((f) => [f.codigo, textoOpcao(f)]);
 
 export type PerfilServico = {
   id: string; codigo: string; nome: string; item_servico: string | null; faixa_automacao: string; habilitado_producao: boolean; justificativa_faixa: string | null; vigencia_inicio: string | null; vigencia_fim: string | null;
