@@ -5,12 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTenantEmpresa } from "@/lib/auth/hooks";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails } from "@/lib/nfe/emailsCliente";
+import EmailsEntregaNfe, { registrarEmailsEntregaNfe } from "@/components/faturamento/EmailsEntregaNfe";
 
 type Evento ={ id: string; tipo: string; status: string; justificativa: string | null; protocolo: string | null; destinatarios: string[] | null; sequencia: number | null; resposta?: Record<string, unknown> | null; created_at: string };
 type Contexto = {
   documento: { serie: string | null; numero: string | null } | null;
   emissao: { status: string; ambiente: string; xml_path: string | null; danfe_path: string | null; autorizado_em: string | null };
-  cliente: { nome: string; email: string | null; email_financeiro: string | null } | null;
+  cliente: { id: number; nome: string; email: string | null; email_financeiro: string | null } | null;
   empresa_fiscal: { email_fisco: string | null; certificado_validade_em: string | null; dias_certificado: number | null } | null;
   cancelamento: { limite_em: string | null; segundos_restantes: number; pode_cancelar: boolean; deve_estornar: boolean };
   cfops_estorno_propostos: string[];
@@ -88,6 +89,8 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
   const [justificativa, setJustificativa] = useState("");
   const [correcao, setCorrecao] = useState("");
   const [emails, setEmails] = useState("");
+  // Muda a cada envio para a lista de e-mails do cliente recarregar com o que foi cadastrado.
+  const [emailsSalvosEm, setEmailsSalvosEm] = useState(0);
   const [senhaPfx, setSenhaPfx] = useState("");
   const [pfx, setPfx] = useState<File | null>(null);
   const [emailFisco, setEmailFisco] = useState("");
@@ -176,10 +179,15 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
   async function enviarAoCliente() {
     if (!ctx || ctx.emissao.ambiente !== "PRODUCAO" || ctx.emissao.status !== "AUTORIZADA") return;
     const destinatarios = separarEmails(emails);
+    if (destinatarios.length === 0) { setFeedback("Informe ao menos um e-mail para a entrega."); return; }
     if (!window.confirm(
       `Enviar XML e DANFE da NF-e ${ctx.emissao.ambiente} para:\n\n${destinatarios.join("\n")}\n\nConfirme somente após revisar os dois arquivos.`,
     )) return;
-    await invoke({ acao: "EMAIL", emails: destinatarios });
+    const resultado = await invoke({ acao: "EMAIL", emails: destinatarios });
+    if (!resultado) return;
+    // E-mail novo digitado aqui entra na lista do cliente para a proxima nota.
+    await registrarEmailsEntregaNfe(supabase, ctx.cliente?.id ?? null, destinatarios);
+    setEmailsSalvosEm((atual) => atual + 1);
   }
 
   async function lerCertificado() {
@@ -265,16 +273,18 @@ export default function NfeLifecyclePanel({ documentoId }: { documentoId: string
       <div className="space-y-3 rounded border border-zinc-800 p-3">
         <h3 className="text-sm font-medium">Entregar ao cliente</h3>
         <div className="flex flex-wrap gap-2"><button className={button} disabled={busy || !ctx.emissao.danfe_path} onClick={()=>void abrirArquivo("DANFE")}>Baixar DANFE</button><button className={button} disabled={busy || !ctx.emissao.danfe_path} onClick={()=>void abrirArquivo("DANFE", true)}>Imprimir DANFE</button><button className={button} disabled={busy || !ctx.emissao.xml_path} onClick={()=>void abrirArquivo("XML")}>Baixar XML</button></div>
-        <input className={`${input} w-full`} value={emails} onChange={(e)=>setEmails(e.target.value)} placeholder="E-mails separados por vírgula"/>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-          <span>Cadastro do cliente:</span>
-          {emailsDoCadastro(ctx).map((c) => c.proprio ? (
-            <span key={c.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro.">{c.rotulo}: {c.email} · é da própria empresa</span>
-          ) : (
-            <button key={c.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEmails(c.email)}>{c.rotulo}: {c.email}</button>
-          ))}
-          {emailsDoCadastro(ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
-        </div>
+        <EmailsEntregaNfe
+          clienteId={ctx.cliente?.id ?? null}
+          ctx={ctx}
+          valor={emails}
+          recarregarEm={emailsSalvosEm}
+          onChange={setEmails}
+        />
+        {emailsDoCadastro(ctx).some((c) => c.proprio) ? (
+          <div className="text-xs text-rose-200">
+            O cadastro do cliente traz {emailsDoCadastro(ctx).filter((c) => c.proprio).map((c) => `${c.rotulo}: ${c.email}`).join(", ")} — é do domínio da própria empresa emitente. Corrija no cadastro; a lista não deixa escolher esse endereço.
+          </div>
+        ) : null}
         <button className={button} disabled={busy || !producao || !autorizada || !emails.trim() || !ctx.emissao.xml_path || !ctx.emissao.danfe_path} onClick={()=>void enviarAoCliente()}>Revisado: enviar XML + DANFE</button>
         {homologacao ? <p className="text-xs text-amber-300">Documentos de homologação podem ser baixados para conferência, mas nunca são enviados ao cliente por esta tela.</p> : null}
       </div>

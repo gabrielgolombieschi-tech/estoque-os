@@ -6,7 +6,9 @@
 // como destinataria da nota da Portobello.
 
 export type ContatoNfe = {
-  cliente?: { email?: string | null; email_financeiro?: string | null } | null;
+  // O id vem do contexto do ciclo (f.fn_nfe_ciclo_contexto) e e o que liga a entrega a lista
+  // de e-mails do cliente (public.clientes_emails_nfe).
+  cliente?: { id?: number | null; email?: string | null; email_financeiro?: string | null } | null;
   empresa_fiscal?: { email_fisco?: string | null } | null;
 };
 

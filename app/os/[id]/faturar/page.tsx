@@ -9,6 +9,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { formatMoneyBR } from "@/lib/decimal";
 import { DESTINACOES_CLIENTE, efeitoDestinacao, formasPagamentoNfe, modalidadesFrete, ORIGENS_MERCADORIA, textoOpcao } from "@/lib/fiscal/rotulos";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
+import EmailsEntregaNfe, { registrarEmailsEntregaNfe } from "@/components/faturamento/EmailsEntregaNfe";
 import FaturarNfseOs, { type PerfilServico, type RefazerNfse } from "./FaturarNfseOs";
 import ExcecaoIcms12Destinatario, {
   confirmacaoExcecaoIcms12,
@@ -781,6 +782,8 @@ export default function FaturarOsPage() {
   type EntregaCtx = ContatoNfe & { eventos?: Array<{ tipo: string; status: string; destinatarios: string[] | null }> };
   const [entrega, setEntrega] = useState<{ documentoId: string | null; ctx: EntregaCtx | null; emails: string; enviadoPara: string[] | null; enviando: boolean }>({ documentoId: null, ctx: null, emails: "", enviadoPara: null, enviando: false });
   const [dialogoConcluir, setDialogoConcluir] = useState(false);
+  // Muda a cada envio para a lista de e-mails do cliente recarregar com o que foi cadastrado.
+  const [emailsSalvosEm, setEmailsSalvosEm] = useState(0);
   useEffect(() => {
     const docId = notaProducaoAutorizada?.documento_fiscal_id ?? null;
     if (!docId) { setEntrega((atual) => atual.documentoId ? { documentoId: null, ctx: null, emails: "", enviadoPara: null, enviando: false } : atual); return; }
@@ -806,6 +809,9 @@ export default function FaturarOsPage() {
       if (error) throw error;
       if (data?.error) throw new Error(String(data.error));
       setEntrega((atual) => ({ ...atual, enviando: false, enviadoPara: destinatarios }));
+      // E-mail novo digitado aqui entra na lista do cliente para a proxima nota.
+      await registrarEmailsEntregaNfe(supabase, entrega.ctx?.cliente?.id ?? cliente?.id ?? null, destinatarios);
+      setEmailsSalvosEm((atual) => atual + 1);
       setAviso(`XML e DANFE da NF-e ${notaProducaoAutorizada.serie}/${notaProducaoAutorizada.numero} enviados para ${destinatarios.join(", ")}.`);
       setDialogoConcluir(true);
     } catch (cause) { setEntrega((atual) => ({ ...atual, enviando: false })); setErro(await erroFunction(cause)); }
@@ -1133,16 +1139,18 @@ export default function FaturarOsPage() {
             <span className="flex flex-wrap gap-2"><button type="button" className={botao} disabled={!notaProducaoAutorizada.danfe_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "DANFE")}>DANFE</button><button type="button" className={botao} disabled={!notaProducaoAutorizada.xml_path} onClick={() => void abrirArquivo(notaProducaoAutorizada, "XML")}>XML</button><Link className={botao} href={`/faturamento/nfe/${notaProducaoAutorizada.documento_fiscal_id}`}>Ciclo de vida</Link></span>
           </div>
           {notaProducaoAutorizada.chave_acesso ? <div className="text-xs text-zinc-400">Chave <code>{notaProducaoAutorizada.chave_acesso}</code></div> : null}
-          <input className={field} value={entrega.emails} onChange={(e) => setEntrega((atual) => ({ ...atual, emails: e.target.value }))} placeholder="E-mails separados por vírgula" />
-          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-            <span>Cadastro do cliente:</span>
-            {emailsDoCadastro(entrega.ctx).map((c) => c.proprio ? (
-              <span key={c.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro fiscal.">{c.rotulo}: {c.email} · é da própria empresa</span>
-            ) : (
-              <button key={c.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEntrega((atual) => ({ ...atual, emails: c.email }))}>{c.rotulo}: {c.email}</button>
-            ))}
-            {entrega.ctx && emailsDoCadastro(entrega.ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
-          </div>
+          <EmailsEntregaNfe
+            clienteId={entrega.ctx?.cliente?.id ?? cliente?.id ?? null}
+            ctx={entrega.ctx}
+            valor={entrega.emails}
+            recarregarEm={emailsSalvosEm}
+            onChange={(proximo) => setEntrega((atual) => ({ ...atual, emails: proximo }))}
+          />
+          {emailsDoCadastro(entrega.ctx).some((c) => c.proprio) ? (
+            <div className="text-xs text-rose-200">
+              O cadastro do cliente traz {emailsDoCadastro(entrega.ctx).filter((c) => c.proprio).map((c) => `${c.rotulo}: ${c.email}`).join(", ")} — é do domínio da própria empresa emitente. Corrija no cadastro fiscal; a lista não deixa escolher esse endereço.
+            </div>
+          ) : null}
           {entrega.enviadoPara ? <div className="text-xs text-emerald-300">Já enviado para {entrega.enviadoPara.join(", ")}. Enviar de novo repete o e-mail.</div> : null}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40" disabled={entrega.enviando || ocupado || !entrega.emails.trim() || !notaProducaoAutorizada.xml_path || !notaProducaoAutorizada.danfe_path} onClick={() => void enviarEntrega()}>{entrega.enviando ? "Enviando..." : "Revisado: enviar XML + DANFE"}</button>

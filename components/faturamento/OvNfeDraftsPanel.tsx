@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyBR } from "@/lib/decimal";
 import { emailPadraoCliente, emailsDoCadastro, separarEmails, type ContatoNfe } from "@/lib/nfe/emailsCliente";
+import EmailsEntregaNfe, { registrarEmailsEntregaNfe } from "@/components/faturamento/EmailsEntregaNfe";
 import { ratearParcelas } from "@/lib/faturamento/parcelas";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
@@ -904,6 +905,8 @@ export default function OvNfeDraftsPanel({
   // mais de uma nota real. Mesmo caminho da tela da OS: fn_nfe_ciclo_contexto para os
   // e-mails do cadastro, nfe-ciclo {acao EMAIL} para enviar.
   const [entregas, setEntregas] = useState<Record<string, EntregaNota>>({});
+  // Muda a cada envio para a lista de e-mails do cliente recarregar com o que foi cadastrado.
+  const [emailsSalvosEm, setEmailsSalvosEm] = useState(0);
   const [destinoUf, setDestinoUf] = useState("");
   const [resolucaoPerfis, setResolucaoPerfis] = useState<ResolucaoPerfis | null>(null);
   const [excecaoIcms12, setExcecaoIcms12] = useState<ExcecaoIcms12Ativa | null>(null);
@@ -1190,6 +1193,9 @@ export default function OvNfeDraftsPanel({
         ...atual,
         [documentoId]: { ...atual[documentoId], enviando: false, enviadoPara: destinatarios },
       }));
+      // E-mail novo digitado aqui entra na lista do cliente para a proxima nota.
+      await registrarEmailsEntregaNfe(supabase, entrega?.ctx?.cliente?.id ?? draft.cliente_id, destinatarios);
+      setEmailsSalvosEm((atual) => atual + 1);
       avisar(draft.id, `XML e DANFE da NF-e ${rotuloNota} enviados para ${destinatarios.join(", ")}.`);
     } catch (cause) {
       setEntregas((atual) => ({ ...atual, [documentoId]: { ...atual[documentoId], enviando: false } }));
@@ -1908,27 +1914,21 @@ export default function OvNfeDraftsPanel({
                 <div className="space-y-2 rounded-lg border border-emerald-900/60 bg-emerald-950/10 p-3">
                   <div className="text-sm font-medium text-emerald-200">Entregar ao cliente</div>
                   <p className="text-xs text-zinc-400">A Focus envia XML e DANFE anexados. Confirme depois de revisar os dois arquivos acima.</p>
-                  <input
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500"
-                    value={entrega?.emails ?? ""}
-                    onChange={(event) => setEntregas((atual) => ({
+                  <EmailsEntregaNfe
+                    clienteId={entrega?.ctx?.cliente?.id ?? draft.cliente_id}
+                    ctx={entrega?.ctx ?? null}
+                    valor={entrega?.emails ?? ""}
+                    recarregarEm={emailsSalvosEm}
+                    onChange={(proximo) => setEntregas((atual) => ({
                       ...atual,
-                      [draft.emissao!.documento_fiscal_id]: { ...atual[draft.emissao!.documento_fiscal_id], emails: event.target.value },
+                      [draft.emissao!.documento_fiscal_id]: { ...atual[draft.emissao!.documento_fiscal_id], emails: proximo },
                     }))}
-                    placeholder="E-mails separados por vírgula"
                   />
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                    <span>Cadastro do cliente:</span>
-                    {emailsDoCadastro(entrega?.ctx).map((contato) => contato.proprio ? (
-                      <span key={contato.rotulo} className="rounded border border-rose-900/60 bg-rose-950/30 px-2 py-0.5 text-rose-200" title="Endereço do domínio da própria empresa emitente gravado no cadastro do cliente; corrija no cadastro fiscal.">{contato.rotulo}: {contato.email} · é da própria empresa</span>
-                    ) : (
-                      <button key={contato.rotulo} type="button" className="rounded border border-zinc-700 px-2 py-0.5 hover:bg-zinc-800" onClick={() => setEntregas((atual) => ({
-                        ...atual,
-                        [draft.emissao!.documento_fiscal_id]: { ...atual[draft.emissao!.documento_fiscal_id], emails: contato.email },
-                      }))}>{contato.rotulo}: {contato.email}</button>
-                    ))}
-                    {entrega?.ctx && emailsDoCadastro(entrega.ctx).length === 0 ? <span>nenhum e-mail cadastrado</span> : null}
-                  </div>
+                  {emailsDoCadastro(entrega?.ctx).some((contato) => contato.proprio) ? (
+                    <div className="text-xs text-rose-200">
+                      O cadastro do cliente traz {emailsDoCadastro(entrega?.ctx).filter((contato) => contato.proprio).map((contato) => `${contato.rotulo}: ${contato.email}`).join(", ")} — é do domínio da própria empresa emitente. Corrija no cadastro fiscal; a lista não deixa escolher esse endereço.
+                    </div>
+                  ) : null}
                   {entrega?.enviadoPara ? <div className="text-xs text-emerald-300">Já enviado para {entrega.enviadoPara.join(", ")}. Enviar de novo repete o e-mail.</div> : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
