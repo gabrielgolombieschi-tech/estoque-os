@@ -35,15 +35,15 @@ const comum = {
   consumidor_final: 0, permite_deducao_material: false,
   tributos_aprox_federal_pct: 13.45,
 };
-// Texto legal da retencao federal: Lei 10.833/2003, arts. 30 e 31 (a regra) e IN SRF 459/2004 (a
-// instrucao que manda o valor retido constar no documento fiscal). Decisao do Gabriel em
-// 18/09/2026, na NFS-e da OS 298: sai a citacao da IN RFB 2.141/2023 que estava nas frases desde
-// 06/09/2026. Divergencia a confirmar com a contadora, registrada em docs/faturamento.
-const CITACAO_RETENCAO = "Lei 10.833/2003, arts. 30 e 31, e IN SRF 459/2004";
-const SEM_RETENCAO = `Serviço não sujeito à retenção de PIS/COFINS/CSLL, conforme ${CITACAO_RETENCAO}.`;
-// Texto do contador (06/09/2026) para o 14.01 com CRF e sem IRRF, com a citacao de 18/09/2026.
-const COM_CRF = "SERVIÇO SUJEITO À RETENÇÃO DE CRF À ALÍQUOTA DE 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) CONFORME LEI 10.833/2003, ARTS. 30 E 31, E IN SRF 459/2004. TRIBUTOS INCIDENTES SOBRE O PREÇO CONFORME LEI 12.741/2012.";
-const LAUDOS = `Serviço sujeito à retenção de IRRF (1,5%) conforme Art. 714 do RIR/2018, e CRF (4,65%, sendo PIS 0,65%, COFINS 3,0% e CSLL 1,0%) conforme ${CITACAO_RETENCAO}. Valor aproximado dos tributos conforme Lei 12.741/2012: {VTOTTRIB}.`;
+// Texto legal da retencao federal: so a lei, sem nenhuma instrucao normativa. Decisao do Gabriel
+// em 18/09/2026 (NFS-e da OS 298): a contadora indicou a IN RFB 2.141/2023 em 06/09 e as notas
+// antigas citavam a IN SRF 459/2004; o texto fica neutro ate alinhar com ela. A Lei 10.833/2003,
+// arts. 30 e 31, e a regra da retencao de PIS/COFINS/CSLL e basta para o documento fiscal.
+const CITACAO_RETENCAO = "conforme Lei 10.833/2003, arts. 30 e 31";
+const SEM_RETENCAO = `Serviço não sujeito à retenção de PIS/COFINS/CSLL, ${CITACAO_RETENCAO}.`;
+// Texto exato pedido pelo Gabriel em 18/09/2026 para o 14.01 (CRF sem IRRF).
+const COM_CRF = `Serviço sujeito à retenção de PIS/COFINS/CSLL à alíquota de 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) ${CITACAO_RETENCAO}.`;
+const LAUDOS = `Serviço sujeito à retenção de IRRF (1,5%) conforme Art. 714 do RIR/2018, e de PIS/COFINS/CSLL à alíquota de 4,65% (PIS 0,65%; COFINS 3,0%; CSLL 1,0%) ${CITACAO_RETENCAO}. Valor aproximado dos tributos conforme Lei 12.741/2012: {VTOTTRIB}.`;
 const valores = {
   // 14.06 (14.06.01): instalacao/montagem = empreitada com escopo fechado. ISS 5% sempre Joinville, sem retencao
   // (excecao: tomador substituto tributario, no cadastro do cliente). Sem INSS: cessao de mao de obra a Segau nao faz;
@@ -95,7 +95,7 @@ const valores = {
 };
 const campos = valores[codigo];
 if (!campos) { console.error("Sem valores definidos para", codigo, "- disponiveis:", Object.keys(valores).join(", ")); process.exit(1); }
-const justificativa = process.argv[3] ?? `Revisao fiscal conforme respostas do contador de 06/09/2026 (docs/faturamento/respostas-contador-2026-09-06.md), com os dois ajustes decididos por Gabriel G. Mendes em 18/09/2026 na NFS-e da OS 298 (CREMER): texto legal da retencao federal passa a citar a Lei 10.833/2003, arts. 30 e 31, e a IN SRF 459/2004, saindo a IN RFB 2.141/2023; cIndOp do grupo de bem movel passa de 050103 para 050102, porque nao ha destinatario distinto do tomador. Seguem: ISS sempre Joinville sem retencao salvo substituto tributario; INSS so em cessao de mao de obra ou obra civil (07.02); CRF padrao no 14.01; PIS/COFINS proprios 1,65/7,60 (agora tambem enviados como valor na DPS); 020201 no 07.02 (bem imovel). Perfil ${codigo}.`;
+const justificativa = process.argv[3] ?? "Texto legal neutro (só a Lei 10.833/2003), validado externamente em 18/09/2026 a pedido de Gabriel G. Mendes";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
 const { error: loginError } = await supabase.auth.signInWithPassword({ email: process.env.E2E_EMAIL ?? "", password: process.env.E2E_PASSWORD ?? "" });

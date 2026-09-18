@@ -1,0 +1,47 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Faturar serviço (NFS-e) de uma OS — manual</title><style>
+  @page { size: A4 portrait; margin: 12mm; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: #111; background: #fff; font-size: 11pt; margin: 0; }
+  h1 { font-size: 20pt; color: #0f4c81; margin: 0 0 8pt; border-bottom: 2px solid #0f4c81; padding-bottom: 4pt; }
+  h2 { font-size: 14pt; color: #0f4c81; margin: 16pt 0 6pt; page-break-after: avoid; }
+  p { margin: 4pt 0 6pt; line-height: 1.35; }
+  p.aviso { background: #fff4d6; border-left: 4px solid #c98a00; padding: 5pt 8pt; }
+  p.passo { margin-top: 10pt; }
+  p.passo .n { display: inline-block; background: #0f4c81; color: #fff; font-weight: 700; padding: 1pt 6pt; border-radius: 3pt; font-size: 9.5pt; }
+  p.fig { text-align: center; margin: 6pt 0 2pt; page-break-inside: avoid; }
+  p.fig img { max-width: 100%; border: 1px solid #ccc; }
+  p.legenda { font-size: 9pt; color: #444; text-align: center; margin: 0 0 10pt; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; font-size: 9.5pt; }
+  th, td { border: 1px solid #bbb; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  th { background: #0f4c81; color: #fff; }
+  ul { margin: 2pt 0 6pt 18pt; padding: 0; }
+  li { margin: 3pt 0; line-height: 1.35; }
+
+  @media screen { body { max-width: 960px; margin: 0 auto; padding: 16px; } }
+</style></head><body><h1>Faturar serviço (NFS-e) de uma OS — manual da equipe</h1>
+<p>Onde: <strong>OS › a OS › Faturar › NFS-e</strong>. Telas de 18/09/2026, da OS 298 (CREMER, adequação de máquina à NR-12, R$ 58.000,00 → NFS-e real nº 62). Quem faz: perfil FATURAMENTO, FINANCEIRO ou ADMIN.</p>
+<p>Serviço é NFS-e; mercadoria é NF-e. Nesta tela sai <strong>uma nota de serviço</strong> com o valor combinado; o material que a equipe usou na OS entra como <strong>custo</strong>, não como venda — ele não aparece na nota e não baixa estoque de novo.</p>
+<h2>1 · Antes de começar</h2>
+<ul><li>O <strong>valor combinado</strong> com o cliente (o orçado da OS) e a <strong>forma de pagamento</strong> (quantos dias).</li><li>O <strong>número do pedido de compra (OC)</strong> do cliente, quando houver. Alguns clientes recusam a nota sem ele — nesses, o campo é obrigatório e a tela avisa.</li><li>O que o cliente vai receber, <strong>em uma frase</strong>: o resultado entregue. Nunca escreva "mão de obra" nem horas: isso muda o enquadramento da nota e o sistema recusa.</li><li>Se o cliente avisou que <strong>vai reter o ISS</strong>. Quando não avisou, quem recolhe é a Segau.</li></ul>
+<h2>2 · Passo a passo</h2>
+<p class="passo"><span class="n">Passo 1</span> <strong>Escolher o serviço.</strong> Na OS, botão <strong>Faturar</strong>, aba NFS-e. Em <strong>Operação de serviço</strong> confira o perfil: o sistema mostra o código com a explicação em português (ex.: <strong>14.01 · conserto, manutenção ou adequação de máquina do cliente</strong>). Se o serviço não for esse, troque o perfil no alto da tela.</p>
+<p class="fig"><img src="./01-perfil-e-codigo-do-servico.png" alt="O código do serviço vem com a explicação e um exemplo ao lado."></p><p class="legenda">O código do serviço vem com a explicação e um exemplo ao lado.</p>
+<p class="passo"><span class="n">Passo 2</span> <strong>Conferir a linha e o valor.</strong> Em <strong>Linhas da NFS-e</strong>, o valor vem do saldo da OS. Escreva a descrição do serviço: o resultado entregue, sem "mão de obra" e sem horas. O total da linha é o valor da nota.</p>
+<p class="fig"><img src="./02-linhas-da-nota.png" alt="Uma linha por OS, com a descrição do resultado e o valor."></p><p class="legenda">Uma linha por OS, com a descrição do resultado e o valor.</p>
+<p class="passo"><span class="n">Passo 3</span> <strong>Retenções e local.</strong> As retenções vêm da regra do serviço e do cadastro do cliente; você só mexe quando a tela deixa. <strong>ISS retido pelo tomador?</strong> — marque só se o cliente avisou que vai reter, porque isso muda o valor que a Segau recebe. Confira o município da prestação e a competência (mês da emissão).</p>
+<p class="fig"><img src="./03-retencoes-iss.png" alt="Retenções: o que é regra do serviço aparece travado; o ISS retido tem a legenda de quando marcar."></p><p class="legenda">Retenções: o que é regra do serviço aparece travado; o ISS retido tem a legenda de quando marcar.</p>
+<p class="passo"><span class="n">Passo 4</span> <strong>Pagamento, pedido e observações.</strong> Preencha o <strong>pedido de compra do tomador</strong> (obrigatório nos clientes que exigem: a tela marca em vermelho e não deixa conferir sem ele), a forma de pagamento e os <strong>dias</strong> do vencimento. A <strong>observação livre</strong> entra no fim da descrição da nota — o cliente lê. A <strong>observação interna</strong> fica só no ERP.</p>
+<p class="fig"><img src="./04-pedido-e-observacao-interna.png" alt="Pedido obrigatório, parcela de 60 dias, observação livre (vai na nota) e observação interna (não vai)."></p><p class="legenda">Pedido obrigatório, parcela de 60 dias, observação livre (vai na nota) e observação interna (não vai).</p>
+<p class="passo"><span class="n">Passo 5</span> <strong>Conferir e emitir o ensaio.</strong> Clique em <strong>Salvar rascunho e conferir</strong>. O sistema calcula tudo e mostra a prévia. Confira o quadro verde: <strong>valor − retenções = você recebe</strong>. Depois, <strong>Emitir NFS-e em homologação</strong> — é um ensaio, sem valor fiscal, para o sistema conferir a nota antes da real.</p>
+<p class="fig"><img src="./05-previa-liquido-e-discriminacao.png" alt="Prévia: o líquido em destaque, os impostos, o IBS/CBS e a descrição final que vai na nota."></p><p class="legenda">Prévia: o líquido em destaque, os impostos, o IBS/CBS e a descrição final que vai na nota.</p>
+<h2>3 · Conferência final (antes da nota real)</h2>
+<p>Leia em voz alta, com a OC do cliente na mão:</p>
+<table><tr><th>Confira</th><th>Na OS 298 ficou</th></tr><tr><td>Tomador (nome e CNPJ)</td><td>CREMER S.A. · 82.641.325/0001-18</td></tr><tr><td>Valor da nota</td><td>R$ 58.000,00</td></tr><tr><td>Você recebe (líquido)</td><td>R$ 55.303,00</td></tr><tr><td>Retenção do cliente</td><td>R$ 2.697,00 (PIS/COFINS/CSLL, 4,65%)</td></tr><tr><td>ISS</td><td>R$ 2.900,00 pago pela Segau em Joinville (não desconta do que recebemos)</td></tr><tr><td>Vencimento</td><td>60 dias</td></tr><tr><td>Pedido de compra na descrição</td><td>148753</td></tr><tr><td>Descrição</td><td>o resultado entregue, sem "mão de obra" e sem horas</td></tr></table>
+<p class="aviso"><strong>A NFS-e não aceita carta de correção de valor nem de retenção.</strong> Errou valor, retenção, tomador ou descrição: só substituindo (nota nova que referencia a errada) ou cancelando — em Joinville, até o último dia do mês em que a nota foi emitida. Por isso a conferência é agora, não depois.</p>
+<h2>4 · A nota real</h2>
+<p>A nota real só sai depois que o responsável fiscal <strong>liberar o perfil para aquele ensaio</strong>. Com a liberação feita, aparece o botão <strong>Emitir NFS-e real (produção)</strong>. Confirme e espere o retorno: a tela passa a mostrar <strong>AUTORIZADA · NFS-e REAL</strong> com número, código de verificação, DANFSe e XML.</p>
+<p class="fig"><img src="./06-nota-real-autorizada.png" alt="Nota real autorizada: número, código de verificação e os botões de DANFSe, XML e envio por e-mail."></p><p class="legenda">Nota real autorizada: número, código de verificação e os botões de DANFSe, XML e envio por e-mail.</p>
+<p>Envie ao cliente a <strong>DANFSe</strong> e o <strong>XML</strong> (botão Enviar por e-mail) junto com o boleto do vencimento combinado.</p>
+<h2>5 · O que o sistema faz sozinho depois da nota</h2>
+<ul><li><strong>Contas a receber</strong>: um título com o valor <strong>líquido</strong> (o que o cliente vai pagar), na data do vencimento.</li><li><strong>Saldo da OS</strong>: o valor faturado entra e o saldo a faturar cai — na OS 298 foi a zero.</li><li><strong>Arquivos</strong>: DANFSe e XML ficam guardados na nota, para reenviar quando precisar.</li><li><strong>Marcar a OS como faturada</strong> continua sendo um clique seu, depois de a OS estar concluída.</li></ul>
+<h2>6 · Quando a tela trava (e o que fazer)</h2>
+<table><tr><th>O que aparece</th><th>O que fazer</th></tr><tr><td>"Este cliente exige o número do pedido de compra (OC)"</td><td>Preencha o campo do pedido. Se o cliente não usa OC, peça ao cadastro para desmarcar a exigência na ficha dele.</td></tr><tr><td>"MÃO DE OBRA é proibido na descrição"</td><td>Descreva o resultado entregue (o que foi adequado, instalado, consertado), não o esforço.</td></tr><tr><td>"Perfil de serviço precisa estar liberado para esta homologação"</td><td>Normal: o ensaio saiu, falta o responsável fiscal liberar o perfil para ele. Chame quem cuida do fiscal.</td></tr><tr><td>Bloqueios com nome de campo (cadastro do cliente, competência, município)</td><td>Cada bloqueio traz o caminho para corrigir. Corrija e clique em Reconferir.</td></tr><tr><td>"Competência precisa ser no mês da emissão"</td><td>Ajuste a competência para o mês em que a nota vai sair.</td></tr><tr><td>Ensaio REJEITADA</td><td>Abra o detalhe, leia o motivo e chame o responsável fiscal. Não tente de novo sem entender.</td></tr></table></body></html>

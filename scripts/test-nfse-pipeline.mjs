@@ -174,17 +174,16 @@ cenario("14.01 da OS 298: PIS/COFINS proprios, CRF retida e cIndOp 050102", () =
   assert.equal(valorLiquidoNfse(contexto({ servico: servicoCremer }).solicitacao.operacao_snapshot.servico), 55303);
 });
 
-// Base do IBS/CBS na NFS-e: hoje o ERP reproduz o que o ambiente nacional devolveu nas NFS-e 32 e
-// 37 de agosto/2026 — servico menos o ISS (58.000 - 2.900 = 55.100). Excluir tambem PIS e COFINS
-// proprios (LC 214/2025, art. 12, §2º, IV), como a NF-e faz, daria 49.735,00. A DPS nao leva a
-// base; quem calcula e o ambiente nacional. Enquanto a diferenca nao for decidida, o teste fixa o
-// comportamento observado, para ninguem mudar sem querer.
-cenario("IBS/CBS da OS 298: base = servico - ISS (comportamento do ambiente nacional)", () => {
-  assert.deepEqual(calcularIbsCbsNfse({ valorServico: 58000, valorIss: 2900, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), {
-    base: 55100, ibsUf: 55.1, ibsMun: 0, cbs: 495.9, total: 551,
+// Base do IBS/CBS na NFS-e: valor menos ISS, PIS e COFINS proprios (LC 214/2025, art. 12, §2º).
+// Numeros do DANFSe devolvido pelo ambiente nacional na NFS-e de teste 21 da OS 298 (18/09/2026):
+// exclusoes 8.265,00, base 49.735,00, IBS 49,74, CBS 447,62.
+cenario("IBS/CBS da OS 298: base = servico - ISS - PIS - COFINS (retorno do ambiente nacional)", () => {
+  assert.deepEqual(calcularIbsCbsNfse({ valorServico: 58000, valorIss: 2900, valorPis: 957, valorCofins: 4408, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), {
+    base: 49735, ibsUf: 49.74, ibsMun: 0, cbs: 447.62, total: 497.36,
   });
-  const comPisCofinsFora = 58000 - 2900 - 957 - 4408;
-  assert.equal(comPisCofinsFora, 49735, "a base pedida pelo Gabriel em 18/09/2026 exclui tambem PIS e COFINS proprios");
+  assert.equal(58000 - 2900 - 957 - 4408, 49735, "exclusoes de 8.265,00");
+  // Desconto incondicional, quando houver, sai da base junto.
+  assert.equal(calcularIbsCbsNfse({ valorServico: 58000, valorDesconto: 1000, valorIss: 2900, valorPis: 957, valorCofins: 4408, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }).base, 48735);
 });
 
 cenario("cIndOp: perfil 050103 sem destinatario distinto vira 050102; com destinatario distinto fica", () => {
@@ -252,7 +251,9 @@ cenario("perfil revisado: cIndOp e totais aproximados vem do snapshot", () => {
   assert.equal(p.valor_total_tributos_municipais, 46.9);
 });
 
-cenario("IBS/CBS no centavo: notas 32 e 37 reais (base = servico - ISS, meio-par)", () => {
+// Notas 32 e 37: emitidas antes de a DPS levar PIS e COFINS proprios, entao sem esses valores a
+// base continua sendo servico menos ISS — e a conta tem de reproduzi-las igual.
+cenario("IBS/CBS no centavo: notas 32 e 37 reais (sem PIS/COFINS informados, meio-par)", () => {
   assert.deepEqual(calcularIbsCbsNfse({ valorServico: 3500, valorIss: 175, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), { base: 3325, ibsUf: 3.32, ibsMun: 0, cbs: 29.92, total: 33.24 });
   assert.deepEqual(calcularIbsCbsNfse({ valorServico: 42298.75, valorIss: 1268.96, ibsUf: 0.1, ibsMun: 0, cbs: 0.9 }), { base: 41029.79, ibsUf: 41.03, ibsMun: 0, cbs: 369.27, total: 410.3 });
   assert.equal(arredondarMeioPar(3.325), 3.32);

@@ -104,14 +104,22 @@ export function arredondarMeioPar(valor: number, casas = 2) {
 }
 
 /**
- * IBS/CBS da NFS-e (LC 214/2025 art. 12 §2): base = valor do servico - ISS
- * (proprio ou retido), aliquotas do perfil (2026: IBS UF 0,10%, IBS mun 0%,
- * CBS 0,90%). Reproduz as NFS-e 32 (3.500 -> 3.325; 3,32; 29,92) e 37
- * (42.298,75 -> 41.029,79; 41,03; 369,27) de agosto/2026. Usado na previa e
- * na conferencia do retorno; a DPS leva so CST, cClassTrib e cIndOp.
+ * IBS/CBS da NFS-e (LC 214/2025 art. 12 §2): base = valor do servico - desconto
+ * incondicional - ISS - PIS proprio - COFINS proprio, aliquotas do perfil (2026:
+ * IBS UF 0,10%, IBS mun 0%, CBS 0,90%).
+ *
+ * Ate 18/09/2026 a conta tirava so o ISS, porque era isso que o ambiente nacional
+ * devolvia nas NFS-e 32 (3.500 -> 3.325) e 37 (42.298,75 -> 41.029,79) de agosto —
+ * notas emitidas antes de a DPS levar PIS e COFINS proprios. Com os dois valores na
+ * nota, o DANFSe da NFS-e de teste 21 (OS 298) voltou com exclusoes de 8.265,00
+ * (ISS 2.900 + PIS 957 + COFINS 4.408), base 49.735,00, IBS 49,74 e CBS 447,62.
+ * Sem PIS/COFINS informados (valores zero) a conta continua a mesma de antes.
+ *
+ * Usado na previa; a DPS leva so CST, cClassTrib e cIndOp, e os valores que valem
+ * na nota autorizada sao os devolvidos pelo ambiente nacional.
  */
-export function calcularIbsCbsNfse(params: { valorServico: number; valorIss: number; ibsUf: number; ibsMun: number; cbs: number }) {
-  const base = round(params.valorServico - params.valorIss);
+export function calcularIbsCbsNfse(params: { valorServico: number; valorIss: number; ibsUf: number; ibsMun: number; cbs: number; valorPis?: number; valorCofins?: number; valorDesconto?: number }) {
+  const base = round(params.valorServico - (params.valorDesconto ?? 0) - params.valorIss - (params.valorPis ?? 0) - (params.valorCofins ?? 0));
   const ibsUf = arredondarMeioPar(base * params.ibsUf / 100);
   const ibsMun = arredondarMeioPar(base * params.ibsMun / 100);
   const cbs = arredondarMeioPar(base * params.cbs / 100);

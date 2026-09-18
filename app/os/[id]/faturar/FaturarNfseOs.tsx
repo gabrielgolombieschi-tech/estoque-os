@@ -85,7 +85,7 @@ type Previa = {
   valor_bruto: number; aliquota_iss: number; valor_iss: number; iss_retido: boolean; valor_irrf: number; valor_pcc: number; valor_inss: number; valor_liquido: number; parcelas: Array<{ numero: string; dias: number; valor: number | null }> | null; descricao_servico: string; codigo_tributacao_nacional: string; codigo_nbs: string | null; municipio_prestacao_ibge: string; data_competencia: string;
   municipio_incidencia_iss?: string | null; tributacao_fonte?: string | null; item_servico?: string | null;
   valor_deducoes?: number | null; base_iss?: number | null; base_inss?: number | null;
-  ibs_cbs?: { base: number; ibs_uf: number; ibs_mun: number; cbs: number; total: number } | null;
+  ibs_cbs?: { base: number; ibs_uf: number; ibs_mun: number; cbs: number; total: number; exclusoes?: number | null; pis_proprio?: number | null; cofins_proprio?: number | null } | null;
   obra?: Partial<Record<keyof LocalObra, string | null>> | null;
   tributos_aprox?: { federal_pct: number | null; municipal_pct: number | null; federal: number; municipal: number } | null;
   campos_conferir?: Array<{ campo: string; motivo: string; prazo?: string }> | null;
@@ -182,6 +182,8 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
   const [pedidoCliente, setPedidoCliente] = useState("");
   const [pedidoItem, setPedidoItem] = useState("");
   const [observacao, setObservacao] = useState("");
+  // IBS/CBS devolvido pelo ambiente nacional (f.fn_nfse_ibs_cbs_retorno, lido do XML arquivado).
+  const [ibsRetorno, setIbsRetorno] = useState<{ tem_retorno?: boolean; base?: number | string | null; ibs_uf?: number | string | null; ibs_mun?: number | string | null; cbs?: number | string | null; municipio_incidencia_nome?: string | null } | null>(null);
   // Observacao interna (f.solicitacao_faturamento.observacao_interna): fica no ERP, nunca na nota.
   const [observacaoInterna, setObservacaoInterna] = useState("");
   const [solicitacao, setSolicitacao] = useState<Solicitacao | null>(null);
@@ -389,6 +391,17 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
       complemento: (clienteNfse.complemento ?? "").replace(/\s+/g, " ").trim(), bairro: clienteNfse.bairro ?? "",
     });
   }, [clienteNfse, exigeObra]);
+  // Nota autorizada: le o IBS/CBS que o ambiente nacional devolveu, do XML arquivado.
+  useEffect(() => {
+    const docId = emissao?.status === "AUTORIZADA" ? emissao.documento_fiscal_id : null;
+    if (!docId) return;
+    let ativo = true;
+    void supabase.schema("f").rpc("fn_nfse_ibs_cbs_retorno", { p_documento_fiscal_id: docId }).then(({ data, error }) => {
+      if (!ativo || error) return;
+      setIbsRetorno(data as { tem_retorno?: boolean } | null);
+    });
+    return () => { ativo = false; };
+  }, [emissao?.documento_fiscal_id, emissao?.status, supabase]);
   useEffect(() => {
     if (!emissao || !["ENVIANDO", "PROCESSANDO"].includes(emissao.status)) return;
     const timer = window.setInterval(() => void carregar(), 5000);
@@ -838,7 +851,14 @@ export default function FaturarNfseOs(props: FaturarNfseOsProps) {
             <div className="text-xs text-zinc-400">cTribNac {previa.codigo_tributacao_nacional}{previa.codigo_nbs ? ` · NBS ${previa.codigo_nbs}` : ""} · prestação em {previa.municipio_prestacao_ibge}{previa.municipio_incidencia_iss ? ` · ISS incide em ${previa.municipio_incidencia_iss}` : ""} · competência {previa.data_competencia}</div>
             {previa.obra ? <div className="text-xs text-zinc-400">Obra: {previa.obra.codigo_obra ? `CNO ${previa.obra.codigo_obra}` : `${previa.obra.logradouro ?? ""}, ${previa.obra.numero ?? ""}${previa.obra.complemento ? ` · ${previa.obra.complemento}` : ""} · ${previa.obra.bairro ?? ""} · CEP ${previa.obra.cep ?? ""}`}</div> : null}
             {num(previa.valor_deducoes) > 0 ? <div className="text-xs text-zinc-400">Material deduzido {R$(num(previa.valor_deducoes))} · base do ISS e do INSS {R$(num(previa.base_iss))} (LC 116/2003, art. 7º, § 2º, I)</div> : null}
-            {previa.ibs_cbs ? <div className="text-xs text-zinc-400">IBS/CBS (base = serviço − ISS {R$(num(previa.ibs_cbs.base))}): IBS UF {R$(num(previa.ibs_cbs.ibs_uf))} · IBS mun {R$(num(previa.ibs_cbs.ibs_mun))} · CBS {R$(num(previa.ibs_cbs.cbs))} · total {R$(num(previa.ibs_cbs.total))} (informativo em 2026; calculado pelo ambiente nacional)</div> : null}
+            {previa.ibs_cbs ? <div className="text-xs text-zinc-400">IBS/CBS · prévia (base = serviço − ISS − PIS − COFINS {R$(num(previa.ibs_cbs.base))}{num(previa.ibs_cbs.exclusoes) > 0 ? `, exclusões ${R$(num(previa.ibs_cbs.exclusoes))}` : ""}): IBS UF {R$(num(previa.ibs_cbs.ibs_uf))} · IBS mun {R$(num(previa.ibs_cbs.ibs_mun))} · CBS {R$(num(previa.ibs_cbs.cbs))} · total {R$(num(previa.ibs_cbs.total))} (informativo em 2026)</div> : null}
+            {/* Na nota autorizada vale o que o ambiente nacional devolveu, lido do XML arquivado. */}
+            {ibsRetorno?.tem_retorno ? (
+              <div className="text-xs text-emerald-300" data-testid="ibs-cbs-retorno">
+                IBS/CBS · devolvido pelo ambiente nacional: base {R$(num(ibsRetorno.base))} · IBS UF {R$(num(ibsRetorno.ibs_uf))} · IBS mun {R$(num(ibsRetorno.ibs_mun))} · CBS {R$(num(ibsRetorno.cbs))}
+                {ibsRetorno.municipio_incidencia_nome ? ` · incidência ${ibsRetorno.municipio_incidencia_nome}` : ""}
+              </div>
+            ) : null}
             {previa.tributos_aprox ? <div className="text-xs text-zinc-400">Tributos aproximados (Lei 12.741, tabela por subitem): federal {decimal(previa.tributos_aprox.federal_pct) || "?"}% {R$(num(previa.tributos_aprox.federal))} · municipal {decimal(previa.tributos_aprox.municipal_pct) || "?"}% {R$(num(previa.tributos_aprox.municipal))}</div> : null}
             <label className={label}>Discriminação (montada pelo ERP; não editável)<textarea className={`${field} min-h-24`} readOnly value={previa.descricao_servico} /></label>
             {previa.tributacao_fonte === "PERFIL"
