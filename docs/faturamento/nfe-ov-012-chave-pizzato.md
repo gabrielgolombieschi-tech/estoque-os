@@ -9,22 +9,36 @@ Venda de uma chave de segurança Pizzato importada por conta e ordem, para a Por
 | Item | 1828 · NG2D1D411AF30 · CHAVE DE SEGURANÇA COM TRAVA E ATUADOR PLÁSTICO · NCM 8536.50.90 · 1 UN |
 | Importação | **Por conta e ordem**: NF-e **8509/1** da PRANA COMERCIO EXTERIOR (17.737.980/0001-02), 22/10/2024, natureza "REMESSA POR CONTA E ORDEM DE TERC.", CFOP 5949, IPI 9,75% destacado, `orig` 1, **DI 2422904512** desembaraçada no Porto de Itajaí em 18/10/2024 |
 
-## Onde a nota está hoje
+## A nota 2/34 foi cancelada
 
-**Existe nota real, e ela está errada.** A NF-e **2/34** foi autorizada em produção em **18/09/2026
-14:48:34** (protocolo 242260443480461, chave 4226 0913 6714 4800 0189 5500 2000 0000 3411 1562
-8253), com mercadoria 3.441,82, IPI 335,58 e total 3.777,40, CST 00 a 12% sem cBenef.
-
-Duas coisas mudaram depois dela:
+A NF-e **2/34** chegou a ser autorizada em produção em 18/09/2026 14:48:34, com mercadoria
+3.441,82, IPI 335,58 e total 3.777,40, CST 00 a 12% sem cBenef. Duas coisas mudaram depois dela:
 
 1. **O IPI da OC é por fora.** Os 3.777,40 são o valor da mercadoria. Com IPI de 9,75% (368,30) a
    nota fecha em **4.145,70**, não em 3.777,40.
 2. **O ICMS sai pelo benefício de automação**, não pela alíquota da alínea "n".
 
-O cancelamento é do Gabriel, pela tela. A janela normal de cancelamento do ERP é de 24 horas da
-autorização, ou seja, até **19/09/2026 14:48:34**; depois disso a SEFAZ rejeita com o código 501 e
-o caminho passa a ser a NF-e de estorno (natureza 999). Estoque: a baixa de 1 UN do item 1828
-ficou registrada em 18/09/2026 14:37, presa à OV e não à nota; o saldo do item é 12.
+Com autorização expressa do Gabriel, a nota foi cancelada no mesmo dia, dentro da janela de 24
+horas, pelo ciclo de vida da tela.
+
+| Evento de cancelamento | |
+| --- | --- |
+| cStat | **135** · Evento registrado e vinculado a NF-e |
+| Protocolo | 242260443613047 |
+| Data e hora | 18/09/2026 15:43:19 |
+| Justificativa | Erro no valor da mercadoria e no enquadramento do ICMS. Nota sera reemitida com os dados corretos. |
+
+Antes de cancelar, confirmei que a mercadoria não circulou pelo ERP: não existe módulo de
+expedição, coleta ou CT-e, nenhum documento referencia a chave, e os únicos eventos da nota eram
+envio, autorização e download.
+
+Efeitos conferidos depois do cancelamento:
+
+- título a receber "NFE 34/2" de 3.777,40 ficou **cancelado**, com valor em aberto zerado;
+- as duas solicitações antigas ficaram **canceladas**, e a homologação 2/82 foi encerrada junto;
+- o saldo da OV voltou a 1 UN por 3.777,40;
+- a baixa de estoque continua **uma só**, de 18/09 às 14:37, presa à OV e não à nota. Saldo do
+  item: 12.
 
 ## As duas leituras fiscais do dia
 
@@ -73,21 +87,38 @@ entra quando nenhum perfil com lista casa com o NCM da linha. Simulação contra
 Atenção a uma consequência: com as destinações copiadas do perfil de origem 2, a **manutenção** de
 um item da lista com origem 1 passa a sair pelo benefício, onde antes ia para o perfil de 17%.
 
-## Como a nota deve sair
+## A homologação refeita: NF-e 2/83
 
-Mercadoria 3.777,40, IPI por fora, ICMS pela base reduzida, destinação insumo.
+Autorizada em 18/09/2026 15:49:25, cStat 100, protocolo 342260000956121, chave 4226 0913 6714 4800
+0189 5500 2000 0000 8314 4553 5601. Solicitação `3158a494`. Perfil resolvido pela tela sem
+intervenção: `SEG-VENDA-TERCEIROS-SC-5102-O1-CST20-AUTOMACAO`.
 
 | Campo | Valor |
 | --- | ---: |
-| vProd | 3.777,40 |
-| IPI (CST 50, cEnq 999, 9,75%) | 368,30 |
-| vBC do ICMS (70,588%) | 2.666,39 |
+| natOp / CFOP / indFinal | VENDA MERCADORIA ADQ. REC. DE TERCEIROS · 5102 · 0 |
+| orig / vProd | 1 · 3.777,40 |
+| IPI CST 50, cEnq 999, 9,75% (base 3.777,40) | 368,30 |
+| ICMS CST 20 · pRedBC 29,412 · vBC | 2.666,39 |
 | pICMS 17% → vICMS | 453,29 |
+| cBenef | SC820006 |
+| vICMSDeson / motDesICMS | não enviados, como na 2/15 |
 | PIS 1,65% / COFINS 7,6% sobre 3.324,11 | 54,85 / 252,63 |
 | Base de IBS/CBS | 3.016,63 |
 | **vNF** | **4.145,70** |
 
-O IPI fica fora da base do ICMS porque a destinação segue em operação tributada.
+Duplicata 001, vencimento 02/11/2026, 4.145,70, forma 15 (boleto), indicador 1. Fatura
+OV-SEG-00012-026. modFrete 1, TEDE TRANSPORTES, 1 volume.
+
+Informações complementares, na íntegra:
+
+> Base de cálculo reduzida - produtos da indústria de automação, informática e telecomunicações -
+> RICMS/SC-01, Anexo 2, Art. 7º, VII | Destinação informada pelo destinatário: insumo de produção |
+> Pedido de compra do cliente: 1312773 | Cod. cliente: 313852
+
+**Nenhum centavo divergiu do esperado.** A base reduzida sai de 3.777,40 × 70,588% = 2.666,3911,
+arredondado para 2.666,39 na segunda casa, sem empate de meio centavo; o ICMS sai de 2.666,39 ×
+17% = 453,2863, arredondado para 453,29. O IPI fica fora da base do ICMS porque a destinação segue
+em operação tributada.
 
 ## Evidência do benefício: de onde veio a lista de NCMs
 
@@ -204,9 +235,56 @@ com cBenef SC820006, e foi autorizada. A 2/13, mesma configuração e mesmo clie
 informada", ou seja, não é recusa do CST nem da alíquota. Não há registro de recusa da Portobello
 por causa do CST 20.
 
-## O que falta
+## Passo a passo para emitir a nota real
 
-1. **Gabriel cancela a NF-e 2/34** pela tela, dentro da janela de 24 horas.
-2. **Gabriel salva a revisão fiscal** do perfil `SEG-VENDA-TERCEIROS-SC-5102-O1-CST20-AUTOMACAO`.
-3. Homologar a nota nova com os valores da tabela acima.
-4. Confirmar o F30 contra F31 antes da nota real.
+A revisão do perfil já está salva (18/09/2026 15:46, justificativa do Gabriel). Falta liberar o
+perfil **para esta homologação** e emitir. São dois lugares.
+
+**Antes de tudo, confirme a peça.** O caminhão leva o **F30**; a entrada com DI ligada ao item 1828
+descreve F31. Veja a seção sobre isso mais abaixo.
+
+### Liberar o perfil para esta homologação
+
+1. Abra **Faturamento › Perfis fiscais**.
+2. No campo de busca, escreva `O1-CST20-AUTOMACAO` e clique no cartão do perfil.
+3. Desça até **Liberação separada para produção**.
+4. Clique em **Atualizar homologações**. A NF-e **2/83** deve aparecer na lista, marcada como
+   posterior à última revisão.
+5. Selecione a solicitação `3158a494-9a27-486e-8776-4b49aecd7e77`.
+6. Escreva a justificativa da liberação, algo como: "Conferida a NF-e 2/83 autorizada em
+   homologação: CST 20, base reduzida 29,412%, cBenef SC820006, IPI 50/999, total 4.145,70."
+7. Marque a caixa de confirmação da liberação vinculada a esta homologação.
+8. Clique em **Conferir e liberar para esta homologação**.
+
+Se alguma pendência aparecer, ela diz exatamente o que falta. A liberação não emite nada.
+
+### Emitir a nota real
+
+1. Abra a **OV-SEG-00012-026**, aba **Faturamento**.
+2. No cartão da NF-e, clique em **Conferir e emitir em produção**. O botão só aparece depois da
+   liberação acima.
+3. Confira a tela de conferência e clique em **Emitir NF-e real em produção**.
+4. Aguarde a autorização e confira, antes de entregar:
+
+| Conferência final | |
+| --- | --- |
+| Cliente | PBG S/A |
+| Mercadoria | 3.777,40 |
+| IPI | 368,30 |
+| **Total** | **4.145,70** |
+| ICMS | 453,29 |
+| Vencimento | 45 dias, 02/11/2026 |
+| Pedido | 1312773 |
+| Peça | conferida como **F30** |
+
+5. Baixe o DANFE e o XML e envie ao cliente pelo campo de e-mails da própria tela.
+
+## Para depois
+
+Duas coisas que esta nota deixou claras e que ainda não foram feitas:
+
+1. **Campo na OV: "IPI incluso no preço" ou "IPI por fora"**, obrigatório quando o item é
+   equiparado a industrial. Foi exatamente essa ambiguidade que gerou a nota errada: a mesma OC de
+   3.777,40 foi lida das duas formas no mesmo dia. Hoje o valor da linha não diz qual das duas é.
+2. **Quadro no manual de venda de peça importada**: peça na lista de automação sai com base
+   reduzida e cBenef SC820006; peça fora da lista sai a 12% ou 17%, conforme a destinação.
