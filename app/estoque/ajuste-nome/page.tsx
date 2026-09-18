@@ -5,7 +5,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenant, applyTenantEmpresa } from "@/lib/db/scopes";
 import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
-import { textoBusca } from "@/lib/text";
+import { aplicarBuscaItem, correspondeBuscaItem } from "@/lib/itens/busca";
 
 type ItemNomeRow = {
   id: number;
@@ -138,18 +138,19 @@ export default function AjusteNomePage() {
 
   const loadFornecedores = useCallback(async () => {
     if (tenantEmpresaLoading) return;
-    if (!tenantId) return;
+    if (!tenantId || !empresaId) return;
 
     const { data, error } = await applyTenant(
       supabase.from("fornecedores").select("id,nome,ativo"),
       tenantId
     )
+      .eq("empresa_id", empresaId)
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .limit(1000);
 
     if (!error) setFornecedores((data ?? []) as unknown as Fornecedor[]);
-  }, [supabase, tenantEmpresaLoading, tenantId]);
+  }, [empresaId, supabase, tenantEmpresaLoading, tenantId]);
 
   const resolveFornecedorIdsByTerm = useCallback(
     async (termRaw: string): Promise<number[] | null> => {
@@ -159,11 +160,12 @@ export default function AjusteNomePage() {
       let base = fornecedores;
       if (base.length === 0) {
         if (tenantEmpresaLoading) return [];
-        if (!tenantId) return [];
+        if (!tenantId || !empresaId) return [];
         const { data } = await applyTenant(
           supabase.from("fornecedores").select("id,nome,ativo"),
           tenantId
         )
+          .eq("empresa_id", empresaId)
           .eq("ativo", true)
           .order("nome", { ascending: true })
           .limit(1000);
@@ -171,11 +173,11 @@ export default function AjusteNomePage() {
       }
 
       return base
-        .filter((f) => normalizeSearchTerm(f.nome).includes(term))
+        .filter((f) => correspondeBuscaItem([f.nome], term))
         .map((f) => f.id)
         .filter((id) => Number.isFinite(id));
     },
-    [fornecedores, supabase, tenantEmpresaLoading, tenantId]
+    [empresaId, fornecedores, supabase, tenantEmpresaLoading, tenantId]
   );
 
   const load = useCallback(async () => {
@@ -200,6 +202,7 @@ export default function AjusteNomePage() {
         tenantId,
         empresaId
       )
+        .eq("empresa_id", empresaId)
         .eq("tipo", "produto")
         .eq("controla_estoque", true)
         .order("id", { ascending: false });
@@ -218,9 +221,7 @@ export default function AjusteNomePage() {
       const codigo = String(filtros.codigo ?? "").trim();
       if (codigo) query = query.ilike("codigo_interno", `%${codigo}%`);
 
-      // nome_busca e a coluna gerada sem acento.
-      const produto = String(filtros.produto ?? "").trim();
-      if (produto) query = query.ilike("nome_busca", `%${textoBusca(produto)}%`);
+      query = aplicarBuscaItem(query, filtros.produto, "nome_item_busca");
 
       if (filtros.ativos === "ativos") query = query.eq("ativo", true);
 

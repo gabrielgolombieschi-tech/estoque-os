@@ -98,46 +98,12 @@ type ConfirmOptions = {
   destructive?: boolean;
 };
 
-type LookupSearchTerm = {
-  raw: string;
-  normalized: string;
-};
 
 const LOOKUP_FETCH_LIMIT = 150;
 const LOOKUP_RESULT_LIMIT = 50;
 
 function hasAny(caps: Capabilities | null, keys: CapabilityKey[]): boolean {
   return requireAny(caps, keys);
-}
-
-function normalizeLookupText(value: string | null | undefined): string {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
-}
-
-function parseLookupTerms(value: string | null | undefined): LookupSearchTerm[] {
-  return String(value ?? "")
-    .trim()
-    .split(/\s+/)
-    .map((raw) => raw.trim())
-    .filter(Boolean)
-    .map((raw) => ({
-      raw,
-      normalized: normalizeLookupText(raw),
-    }))
-    .filter((term) => term.normalized.length > 0);
-}
-
-function pickLookupSeedTerm(terms: LookupSearchTerm[]): string {
-  return [...terms].sort((a, b) => b.normalized.length - a.normalized.length)[0]?.raw ?? "";
-}
-
-function matchesLookupTerms(values: Array<string | null | undefined>, terms: LookupSearchTerm[]): boolean {
-  if (terms.length === 0) return true;
-  const haystack = values.map((value) => normalizeLookupText(value)).join(" ");
-  return terms.every((term) => haystack.includes(term.normalized));
 }
 
 type VendedoresApiResponse = {
@@ -1066,19 +1032,14 @@ export default function OrcamentoPage() {
 
     const nomeTerm = (nextNome ?? lookupNome).trim();
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
-    const nomeTerms = parseLookupTerms(nomeTerm);
-    const fornecedorTerms = parseLookupTerms(fornecedorTerm);
-    const nomeSeedTerm = pickLookupSeedTerm(nomeTerms);
-    const fornecedorSeedTerm = pickLookupSeedTerm(fornecedorTerms);
 
     try {
       if (lookupBuscarConjuntos) {
-        // A RPC ja compara sem acento; o filtro daqui de baixo so aplica os
-        // demais termos digitados, porque o banco recebe apenas o maior deles.
+        // A RPC aplica todos os termos antes do limite de resultados.
         const { data: conjuntoData, error: conjuntoError } = await supabase.rpc("search_orcamento_conjuntos", {
           p_tenant_id: tenantId,
           p_empresa_id: empresaId,
-          p_term: nomeSeedTerm || null,
+          p_term: nomeTerm || null,
           p_limit: LOOKUP_FETCH_LIMIT,
         });
 
@@ -1105,7 +1066,6 @@ export default function OrcamentoPage() {
         });
 
         const conjuntoRows = Array.from(conjuntoMap.values())
-          .filter((row) => matchesLookupTerms([row.codigo, row.nome], nomeTerms))
           .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
           .slice(0, LOOKUP_RESULT_LIMIT);
 
@@ -1119,8 +1079,8 @@ export default function OrcamentoPage() {
       const { data: itemData, error: itemError } = await supabase.rpc("search_orcamento_itens", {
         p_tenant_id: tenantId,
         p_empresa_id: empresaId,
-        p_term: nomeSeedTerm || null,
-        p_fornecedor: fornecedorSeedTerm || null,
+        p_term: nomeTerm || null,
+        p_fornecedor: fornecedorTerm || null,
         p_limit: LOOKUP_FETCH_LIMIT,
       });
       if (itemError) {
@@ -1130,8 +1090,6 @@ export default function OrcamentoPage() {
       }
 
       const baseRows = ((itemData ?? []) as ItemLookupBaseRow[])
-        .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
-        .filter((row) => matchesLookupTerms([row.fornecedor], fornecedorTerms))
         .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
         .slice(0, LOOKUP_RESULT_LIMIT);
 

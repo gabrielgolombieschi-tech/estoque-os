@@ -6,7 +6,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { parseDecimalBR } from "@/lib/decimal";
-import { textoBusca } from "@/lib/text";
+import { aplicarBuscaItem } from "@/lib/itens/busca";
 
 /**
  * Preenchimento em massa do peso dos produtos (fase 1 do grupo vol da NF-e).
@@ -57,11 +57,9 @@ export default function PesosClient() {
         supabase.from("itens").select("id,codigo_interno,nome,unidade_medida,peso_liquido,peso_bruto").eq("ativo", true),
         tenantId,
         empresaId,
-      ).order("codigo_interno").limit(PAGINA);
+      ).eq("empresa_id", empresaId).order("codigo_interno").limit(PAGINA);
       if (soSemPeso) query = query.or("peso_bruto.is.null,peso_bruto.eq.0");
-      const termo = busca.trim();
-      // nome_busca e a coluna gerada sem acento (o codigo nao tem acento).
-      if (termo) query = query.or(`codigo_interno.ilike.%${termo}%,nome_busca.ilike.%${textoBusca(termo)}%`);
+      query = aplicarBuscaItem(query, busca);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -77,7 +75,7 @@ export default function PesosClient() {
       })));
 
       const { count } = await applyTenantEmpresa(
-        supabase.from("itens").select("id", { count: "exact", head: true }).eq("ativo", true).or("peso_bruto.is.null,peso_bruto.eq.0"),
+        supabase.from("itens").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId).eq("ativo", true).or("peso_bruto.is.null,peso_bruto.eq.0"),
         tenantId,
         empresaId,
       );

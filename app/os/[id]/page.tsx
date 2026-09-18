@@ -152,10 +152,6 @@ type SortValue = string | number | null;
 type SortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
 type SortDir = "asc" | "desc";
 
-type LookupSearchTerm = {
-  raw: string;
-  normalized: string;
-};
 
 const statusBadge: Record<string, string> = {
   aberta: "bg-blue-500/15 text-blue-300 border-blue-500/30",
@@ -171,36 +167,6 @@ const DESPESA_ITEM_ID_MIN = 1;
 const DESPESA_ITEM_ID_MAX = 99;
 const LOOKUP_FETCH_LIMIT = 150;
 const LOOKUP_RESULT_LIMIT = 50;
-
-function normalizeLookupText(value: string | null | undefined): string {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
-}
-
-function parseLookupTerms(value: string | null | undefined): LookupSearchTerm[] {
-  return String(value ?? "")
-    .trim()
-    .split(/\s+/)
-    .map((raw) => raw.trim())
-    .filter(Boolean)
-    .map((raw) => ({
-      raw,
-      normalized: normalizeLookupText(raw),
-    }))
-    .filter((term) => term.normalized.length > 0);
-}
-
-function pickLookupSeedTerm(terms: LookupSearchTerm[]): string {
-  return [...terms].sort((a, b) => b.normalized.length - a.normalized.length)[0]?.raw ?? "";
-}
-
-function matchesLookupTerms(values: Array<string | null | undefined>, terms: LookupSearchTerm[]): boolean {
-  if (terms.length === 0) return true;
-  const haystack = values.map((value) => normalizeLookupText(value)).join(" ");
-  return terms.every((term) => haystack.includes(term.normalized));
-}
 
 function isDespesaItemId(itemId: number | null | undefined) {
   const value = Number(itemId ?? NaN);
@@ -1914,16 +1880,12 @@ export default function OsDetailPage() {
 
     const nomeTerm = (nextNome ?? lookupNome).trim();
     const fornecedorTerm = (nextFornecedor ?? lookupFornecedor).trim();
-    const nomeTerms = parseLookupTerms(nomeTerm);
-    const fornecedorTerms = parseLookupTerms(fornecedorTerm);
-    const nomeSeedTerm = pickLookupSeedTerm(nomeTerms);
-    const fornecedorSeedTerm = pickLookupSeedTerm(fornecedorTerms);
 
     const { data: itemData, error: itemError } = await supabase.rpc("search_os_itens", {
       p_tenant_id: effectiveTenantId,
       p_empresa_id: effectiveEmpresaId,
-      p_term: nomeSeedTerm || null,
-      p_fornecedor: fornecedorSeedTerm || null,
+      p_term: nomeTerm || null,
+      p_fornecedor: fornecedorTerm || null,
       p_despesa_only: isDespesaMode,
       p_limit: LOOKUP_FETCH_LIMIT,
     });
@@ -1935,8 +1897,6 @@ export default function OsDetailPage() {
     }
 
     const baseRows = ((itemData ?? []) as ItemLookupBaseRow[])
-      .filter((row) => matchesLookupTerms([row.nome, row.codigo_interno, row.fabricante], nomeTerms))
-      .filter((row) => matchesLookupTerms([row.fornecedor], fornecedorTerms))
       .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
       .slice(0, LOOKUP_RESULT_LIMIT);
 

@@ -19,6 +19,7 @@ import {
   type DirRemessa,
 } from "@/lib/importacao/dir-remessa";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { aplicarBuscaItem } from "@/lib/itens/busca";
 import { FORMAS_PAGAMENTO_AP, textoOpcao } from "@/lib/fiscal/rotulos";
 
 /**
@@ -285,11 +286,19 @@ export default function ImportacaoRemessaPanel({ tenantId, empresaId }: { tenant
   // ---------------------------------------------------------------- 2 · itens do catalogo
   async function buscarItem(indice: number, termo: string) {
     setItens((lista) => lista.map((i, k) => (k === indice ? { ...i, busca: termo } : i)));
-    const t = termo.trim().replace(/[%,()]/g, "");
-    if (t.length < 2) return;
-    const { data } = await supabase.from("itens").select("id,codigo_interno,nome,unidade_medida,ncm,fabricante")
-      .eq("empresa_id", empresaId).eq("ativo", true).or(`codigo_interno.ilike.%${t}%,nome.ilike.%${t}%`).order("nome").limit(8);
-    setItens((lista) => lista.map((i, k) => (k === indice ? { ...i, sugestoes: (data ?? []) as ItemCatalogo[] } : i)));
+    const t = termo.trim();
+    if (t.length < 2) {
+      setItens((lista) => lista.map((i, k) => (k === indice ? { ...i, sugestoes: [] } : i)));
+      return;
+    }
+    const consulta = aplicarBuscaItem(
+      supabase.from("itens").select("id,codigo_interno,nome,unidade_medida,ncm,fabricante")
+        .eq("tenant_id", tenantId).eq("empresa_id", empresaId).eq("ativo", true),
+      t,
+    );
+    const { data, error } = await consulta.order("nome").limit(8);
+    if (error) avisar(error.message, true);
+    setItens((lista) => lista.map((i, k) => (k === indice && i.busca === termo ? { ...i, sugestoes: (data ?? []) as ItemCatalogo[] } : i)));
   }
   function escolherItem(indice: number, item: ItemCatalogo) {
     setItens((lista) => lista.map((i, k) => (k === indice ? {

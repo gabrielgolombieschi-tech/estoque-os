@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
-import { textoBusca } from "@/lib/text";
+import { aplicarBuscaItem } from "@/lib/itens/busca";
 
 type ItemRow = {
   id: string;
@@ -326,23 +326,24 @@ export default function BaixaOsPage() {
   }, []);
 
   const loadItemLookup = useCallback(async (term: string) => {
+    if (!tenantId || !empresaId) {
+      setItemLookupRows([]);
+      setItemLookupLoading(false);
+      return;
+    }
     setItemLookupLoading(true);
     setItemLookupError(null);
 
     let query = supabase
       .from("itens")
       .select("id,codigo_interno,nome,descricao,finalidade,tipo,controla_estoque,preco_unitario")
+      .eq("tenant_id", tenantId)
+      .eq("empresa_id", empresaId)
       .eq("ativo", true)
       .order("nome", { ascending: true })
       .limit(30);
 
-    const trimmed = term.trim();
-    if (trimmed) {
-      // nome_busca e a coluna gerada sem acento; o codigo e alfanumerico e nao
-      // precisa dela. Assim "armario" acha ARMÁRIO.
-      const likeTerm = `%${trimmed}%`;
-      query = query.or(`nome_busca.ilike.%${textoBusca(trimmed)}%,codigo_interno.ilike.${likeTerm}`);
-    }
+    query = aplicarBuscaItem(query, term);
 
     const { data, error } = await query;
 
@@ -355,7 +356,7 @@ export default function BaixaOsPage() {
 
     setItemLookupRows((data ?? []) as ItemLookupRow[]);
     setItemLookupLoading(false);
-  }, [supabase]);
+  }, [empresaId, supabase, tenantId]);
 
   const openItemLookup = useCallback(
     (rowId: string) => {

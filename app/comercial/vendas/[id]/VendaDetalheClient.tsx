@@ -1,5 +1,7 @@
 "use client";
 
+import { textoBusca as normalizeLookupText } from "@/lib/text";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -73,7 +75,6 @@ type ItemLookupRow = {
 
 type ItemLookupSortKey = "id" | "codigo" | "descricao" | "fornecedor" | "ultima" | "preco" | "estoque";
 type SortDirection = "asc" | "desc";
-type LookupSearchTerm = { raw: string; normalized: string };
 
 type VendaItem = {
   id: number;
@@ -197,32 +198,6 @@ function errorMessage(cause: unknown) {
 
 const ITEM_LOOKUP_FETCH_LIMIT = 150;
 const ITEM_LOOKUP_RESULT_LIMIT = 50;
-
-function normalizeLookupText(value: string | null | undefined) {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
-}
-
-function parseLookupTerms(value: string | null | undefined): LookupSearchTerm[] {
-  return String(value ?? "")
-    .trim()
-    .split(/\s+/)
-    .map((raw) => raw.trim())
-    .filter(Boolean)
-    .map((raw) => ({ raw, normalized: normalizeLookupText(raw) }));
-}
-
-function pickLookupSeedTerm(terms: LookupSearchTerm[]) {
-  return [...terms].sort((a, b) => b.normalized.length - a.normalized.length)[0]?.raw ?? "";
-}
-
-function matchesLookupTerms(values: Array<string | null | undefined>, terms: LookupSearchTerm[]) {
-  if (terms.length === 0) return true;
-  const haystack = values.map((value) => normalizeLookupText(value)).join(" ");
-  return terms.every((term) => haystack.includes(term.normalized));
-}
 
 export default function VendaDetalheClient() {
   const params = useParams<{ id: string }>();
@@ -533,14 +508,12 @@ export default function VendaDetalheClient() {
     setLookupBusy(true);
     const nome = (nextNome ?? lookupNome).trim();
     const fornecedor = (nextFornecedor ?? lookupFornecedor).trim();
-    const nomeTerms = parseLookupTerms(nome);
-    const fornecedorTerms = parseLookupTerms(fornecedor);
 
     const { data, error: searchError } = await supabase.rpc("search_os_itens", {
       p_tenant_id: tenantId,
       p_empresa_id: empresaId,
-      p_term: pickLookupSeedTerm(nomeTerms) || null,
-      p_fornecedor: pickLookupSeedTerm(fornecedorTerms) || null,
+      p_term: nome || null,
+      p_fornecedor: fornecedor || null,
       p_despesa_only: false,
       p_limit: ITEM_LOOKUP_FETCH_LIMIT,
     });
@@ -553,8 +526,6 @@ export default function VendaDetalheClient() {
     }
 
     const rows = ((data ?? []) as ItemLookupRow[])
-      .filter((item) => matchesLookupTerms([item.nome, item.codigo_interno, item.fabricante], nomeTerms))
-      .filter((item) => matchesLookupTerms([item.fornecedor], fornecedorTerms))
       .sort((a, b) => String(a.nome ?? "").localeCompare(String(b.nome ?? ""), "pt-BR", { sensitivity: "base" }))
       .slice(0, ITEM_LOOKUP_RESULT_LIMIT);
     setLookupRows(rows);

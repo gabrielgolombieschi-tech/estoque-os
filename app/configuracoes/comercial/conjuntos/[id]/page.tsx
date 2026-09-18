@@ -10,6 +10,7 @@ import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny, type Capabilities, type CapabilityKey } from "@/lib/auth/capabilities";
 import { getItemByCodigo, getItemById } from "@/lib/comercial/orcamentos.service";
 import { textoBusca } from "@/lib/text";
+import { aplicarBuscaItem } from "@/lib/itens/busca";
 import { getSuggestedOrcamentoUnitPrice, mapOrcamentoError, toSupabaseErrorLike, upperTrim } from "@/lib/comercial/utils";
 import { formatMoneyBR, parseMoneyBR, parseDecimalBR } from "@/lib/decimal";
 import { ensureConfig, getConfig, getConjuntoCategorias } from "@/src/services/configOrcamento";
@@ -400,16 +401,7 @@ export default function ConjuntoEditPage() {
         .eq("ativo", true)
         .in("tipo", ["produto", "servico"]);
 
-      if (term) {
-        const parsed = Number(term);
-        const like = `%${term}%`;
-        // nome_busca e a coluna gerada sem acento; o codigo nao tem acento.
-        const likeNome = `%${textoBusca(term)}%`;
-        q =
-          Number.isFinite(parsed) && parsed > 0
-            ? q.or(`id.eq.${parsed},codigo_interno.ilike.${like},nome_busca.ilike.${likeNome}`)
-            : q.or(`codigo_interno.ilike.${like},nome_busca.ilike.${likeNome}`);
-      }
+      q = aplicarBuscaItem(q, term);
       if (fornecedorTerm) q = q.ilike("fornecedores.nome_busca", `%${textoBusca(fornecedorTerm)}%`);
 
       const { data, error } = await q.order("nome", { ascending: true }).limit(50);

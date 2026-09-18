@@ -7,7 +7,7 @@ import { applyTenant } from "@/lib/db/scopes";
 import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny } from "@/lib/auth/capabilities";
-import { textoBusca } from "@/lib/text";
+import { aplicarBuscaItem } from "@/lib/itens/busca";
 
 type ItemTipo = "produto" | "servico" | "despesa";
 type ItemFinalidade = "consumo" | "materia_prima" | "revenda" | "imobilizado" | "outros" | "fabricado";
@@ -80,6 +80,7 @@ export default function ItensImprimirPage() {
 
   const te = useTenantEmpresa();
   const tenantId = te.tenantId;
+  const empresaId = te.empresaId;
   const tenantEmpresaLoading = te.loading;
   const empresaPapel = String(te.empresa?.papel ?? "")
     .trim()
@@ -116,7 +117,7 @@ export default function ItensImprimirPage() {
     const run = async () => {
       setErr(null);
       if (tenantEmpresaLoading) return;
-      if (!tenantId) {
+      if (!tenantId || !empresaId) {
         setErr("Tenant não carregado.");
         setLoading(false);
         return;
@@ -130,17 +131,21 @@ export default function ItensImprimirPage() {
         const ativoNorm = parseAtivoParam(ativo);
         const codigoNorm = normalizeQ(codigo);
         const produtoNorm = String(produto ?? "").trim();
-        const qNorm = normalizeQ(q);
+        const qNorm = String(q ?? "").trim();
 
         const fornecedorTermRaw = String(fornecedorTerm ?? "").trim();
         const fornecedorTermNorm = normalizeSearchTerm(fornecedorTerm);
         let fornecedorIdsByTerm: number[] | null = null;
         if (!fornecedorId && fornecedorTermNorm) {
-          const { data: fs, error: fErr } = await applyTenant(
-            supabase.from("fornecedores").select("id,nome"),
-            tenantId
-          )
-            .ilike("nome_busca", `%${textoBusca(fornecedorTermRaw)}%`)
+          const fornecedoresQuery = aplicarBuscaItem(
+            applyTenant(
+              supabase.from("fornecedores").select("id,nome").eq("empresa_id", empresaId),
+              tenantId
+            ),
+            fornecedorTermRaw,
+            "nome_busca_termos"
+          );
+          const { data: fs, error: fErr } = await fornecedoresQuery
             .order("nome", { ascending: true })
             .limit(2000);
 
@@ -165,7 +170,7 @@ export default function ItensImprimirPage() {
         let qb = supabase
           .from("itens")
           .select("id,codigo_interno,nome,tipo,finalidade,ativo,fornecedor_id", { count: "exact" });
-        qb = applyTenant(qb, tenantId);
+        qb = applyTenant(qb, tenantId).eq("empresa_id", empresaId);
 
         if (id) {
           const parsed = Number(id);
@@ -188,19 +193,15 @@ export default function ItensImprimirPage() {
 
         if (codigoNorm && codigoNorm.trim()) {
           const cc = codigoNorm.trim();
-          qb = qb.or(`codigo_interno.ilike.%${cc}%,codigo_barras.ilike.%${cc}%`);
+          qb = /^\d+$/.test(cc)
+            ? qb.or(`codigo_interno.eq.${cc},codigo_barras.eq.${cc}`)
+            : qb.or(`codigo_interno.ilike.%${cc}%,codigo_barras.ilike.%${cc}%`);
         }
 
-        // nome_busca e a coluna gerada sem acento; codigo interno e de barras
-        // sao alfanumericos e seguem no ilike normal.
-        if (produtoNorm && produtoNorm.trim()) {
-          const pp = produtoNorm.trim();
-          qb = qb.ilike("nome_busca", `%${textoBusca(pp)}%`);
-        }
+        qb = aplicarBuscaItem(qb, produtoNorm, "nome_item_busca");
 
-        if (!codigoNorm && !produtoNorm && qNorm && qNorm.trim()) {
-          const qq = qNorm.trim();
-          qb = qb.or(`codigo_interno.ilike.%${qq}%,nome_busca.ilike.%${textoBusca(qq)}%`);
+        if (!codigoNorm && !produtoNorm) {
+          qb = aplicarBuscaItem(qb, qNorm);
         }
 
         qb = qb.order("nome", { ascending: true });
@@ -230,7 +231,7 @@ export default function ItensImprimirPage() {
         const map: Record<number, string> = {};
         for (const group of chunk(fornecedorIds, FORNECEDORES_PAGE_SIZE)) {
           const { data: fs, error: fErr } = await applyTenant(
-            supabase.from("fornecedores").select("id,nome").in("id", group),
+            supabase.from("fornecedores").select("id,nome").eq("empresa_id", empresaId).in("id", group),
             tenantId
           );
           if (fErr) continue;
@@ -247,7 +248,7 @@ export default function ItensImprimirPage() {
             setFornecedorFiltroNome("(não encontrado)");
           } else {
             const { data: f, error: fErr } = await applyTenant(
-              supabase.from("fornecedores").select("nome").eq("id", parsed),
+              supabase.from("fornecedores").select("nome").eq("empresa_id", empresaId).eq("id", parsed),
               tenantId
             ).maybeSingle();
             if (fErr) setFornecedorFiltroNome("(não encontrado)");
@@ -272,7 +273,7 @@ export default function ItensImprimirPage() {
 
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantEmpresaLoading, tenantId, id, q, codigo, produto, fornecedorId, tipo, finalidade, ativo]);
+  }, [tenantEmpresaLoading, tenantId, empresaId, id, q, codigo, produto, fornecedorId, fornecedorTerm, tipo, finalidade, ativo]);
 
   const pages = useMemo(() => {
     if (rows.length === 0) return [[] as PrintItem[]];
@@ -291,7 +292,7 @@ export default function ItensImprimirPage() {
   }
 
   const filtros: Array<{ label: string; value: string }> = [];
-  const qNorm = normalizeQ(q);
+  const qNorm = String(q ?? "").trim();
   const codigoNorm = normalizeQ(codigo);
   const produtoNorm = String(produto ?? "").trim();
   const tipoNorm = (String(tipo ?? "").trim() as ItemTipo | "") || "";

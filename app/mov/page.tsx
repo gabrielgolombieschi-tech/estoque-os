@@ -7,6 +7,7 @@ import { useTenantEmpresa } from "@/lib/auth/useTenantEmpresa";
 import { applyTenantEmpresa } from "@/lib/db/scopes";
 import { usePermissions } from "@/components/auth/PermissionsProvider";
 import { requireAny } from "@/lib/auth/capabilities";
+import { normalizarBuscaItem } from "@/lib/itens/busca";
 
 type MovTipo = "entrada" | "saida" | "ajuste";
 
@@ -127,16 +128,6 @@ export default function MovimentacoesPage() {
     return motivo.replace(/\bOS\s+\d+\b/i, `OS ${osNumero}`);
   }
 
-  function osTextoBusca(r: MovRow): string {
-    const numeroOs = osNumeroExibicao(r);
-    if (!numeroOs) return "";
-    return [
-      `OS ${numeroOs}`,
-      r.os?.cliente_nome ?? "",
-      r.os?.descricao_servico ?? "",
-    ].join(" ");
-  }
-
   function usuarioExibicao(r: MovRow, importadoresMap?: Map<number, string>): string {
     const realizadoPor = String(r.realizado_por ?? "").trim();
     if (realizadoPor && realizadoPor.toLowerCase() !== "system-backfill") return realizadoPor;
@@ -203,7 +194,7 @@ export default function MovimentacoesPage() {
     return next;
   }
 
-  async function load() {
+  async function load(limparFiltros = false) {
     setErr(null);
     if (tenantEmpresaLoading) return;
     if (!tenantId || !empresaId) {
@@ -211,12 +202,20 @@ export default function MovimentacoesPage() {
       return;
     }
 
+    // A busca precisa acontecer antes do limite para encontrar tambem movimentos antigos.
+    const term = normalizarBuscaItem(limparFiltros ? "" : q).trim();
+    const campos =
+      "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,origem_nf_entrada_id,origem_os_id,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida),nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(criado_em,fornecedor_id,numero,serie,chave,fornecedores(nome))";
+    const consulta = term
+      ? supabase.rpc("movimentacoes_buscar", {
+          p_tenant_id: tenantId,
+          p_empresa_id: empresaId,
+          p_busca: term,
+          p_limite: 1000,
+        }).select(campos)
+      : supabase.from("movimentacoes").select(campos);
     const { data, error } = await applyTenantEmpresa(
-      supabase
-        .from("movimentacoes")
-        .select(
-          "id,item_id,tipo,quantidade,motivo,realizado_por,data_movimentacao,origem_nf_entrada_id,origem_os_id,itens:itens!movimentacoes_item_id_fkey(codigo_interno,nome,unidade_medida),nf:nf_entrada!movimentacoes_origem_nf_entrada_id_fkey(criado_em,fornecedor_id,numero,serie,chave,fornecedores(nome))"
-        ),
+      consulta,
       tenantId,
       empresaId
     )
@@ -262,7 +261,7 @@ export default function MovimentacoesPage() {
     );
     setNfImportadoresByNfId(importadoresMap);
 
-    const fornecedorIdRaw = fornecedorFiltroId.trim();
+    const fornecedorIdRaw = limparFiltros ? "" : fornecedorFiltroId.trim();
     if (fornecedorIdRaw) {
       const fornecedorId = Number.parseInt(fornecedorIdRaw, 10);
       if (!Number.isFinite(fornecedorId)) {
@@ -273,32 +272,20 @@ export default function MovimentacoesPage() {
       list = list.filter((r) => Number(r.nf?.fornecedor_id ?? 0) === fornecedorId);
     }
 
-    const term = q.trim().toLowerCase();
-    if (term) {
-      list = list.filter((r) => {
-        const cod = (r.itens?.codigo_interno ?? "").toLowerCase();
-        const nome = (r.itens?.nome ?? "").toLowerCase();
-        const mot = motivoExibicao(r).toLowerCase();
-        const forn = (r.nf?.fornecedores?.nome ?? "").toLowerCase();
-        const os = osTextoBusca(r).toLowerCase();
-        return cod.includes(term) || nome.includes(term) || mot.includes(term) || forn.includes(term) || os.includes(term);
-      });
-    }
+    if (!limparFiltros && tipo !== "todos") list = list.filter((r) => r.tipo === tipo);
 
-    if (tipo !== "todos") list = list.filter((r) => r.tipo === tipo);
-
-    const motTerm = motivoFiltro.trim().toLowerCase();
+    const motTerm = limparFiltros ? "" : motivoFiltro.trim().toLowerCase();
     if (motTerm) {
       list = list.filter((r) => motivoExibicao(r).toLowerCase().includes(motTerm));
     }
 
-    const usuarioTerm = usuarioFiltro.trim().toLowerCase();
+    const usuarioTerm = limparFiltros ? "" : usuarioFiltro.trim().toLowerCase();
     if (usuarioTerm) {
       list = list.filter((r) => usuarioExibicao(r, importadoresMap).toLowerCase().includes(usuarioTerm));
     }
 
-    const ini = dataInicio ? new Date(dataInicio) : null;
-    const fim = dataFim ? new Date(dataFim) : null;
+    const ini = !limparFiltros && dataInicio ? new Date(dataInicio) : null;
+    const fim = !limparFiltros && dataFim ? new Date(dataFim) : null;
     if (ini || fim) {
       list = list.filter((r) => {
         const d = new Date(dataReferencia(r));
@@ -312,11 +299,11 @@ export default function MovimentacoesPage() {
       });
     }
 
-    if (somenteNfImportacao) {
+    if (!limparFiltros && somenteNfImportacao) {
       list = list.filter((r) => isNfImportacao(r));
     }
 
-    const nfTermRaw = nfFiltroRapido.trim().toLowerCase();
+    const nfTermRaw = limparFiltros ? "" : nfFiltroRapido.trim().toLowerCase();
     const nfTermDigits = nfTermRaw.replace(/\D+/g, "");
     if (nfTermRaw) {
       list = list.filter((r) => {
@@ -335,7 +322,7 @@ export default function MovimentacoesPage() {
     }
 
     list = list.sort((a, b) => {
-      if (nfImportacaoNoTopo) {
+      if (limparFiltros || nfImportacaoNoTopo) {
         const aNf = isNfImportacao(a) ? 1 : 0;
         const bNf = isNfImportacao(b) ? 1 : 0;
         if (bNf !== aNf) return bNf - aNf;
@@ -387,7 +374,7 @@ export default function MovimentacoesPage() {
         </div>
 
         <button
-          onClick={load}
+          onClick={() => void load()}
           className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
         >
           Atualizar
@@ -494,7 +481,7 @@ export default function MovimentacoesPage() {
           <div className="flex items-end">
             <div className="flex gap-2 w-full">
               <button
-                onClick={load}
+                onClick={() => void load()}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-full"
               >
                 Aplicar
@@ -511,7 +498,7 @@ export default function MovimentacoesPage() {
                   setSomenteNfImportacao(false);
                   setNfImportacaoNoTopo(true);
                   setNfFiltroRapido("");
-                  void load();
+                  void load(true);
                 }}
                 className="px-3 py-2 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 w-full"
               >
