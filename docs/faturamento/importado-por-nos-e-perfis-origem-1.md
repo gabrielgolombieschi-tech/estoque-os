@@ -137,8 +137,9 @@ emitido em homologação pela tela.
 | transp | modFrete 1, TEDE TRANSPORTES LTDA (02.484.555/0010-72), 1 volume, 1,000 kg |
 | infCpl | "Destinação informada pelo destinatário: insumo de produção. Alíquota interna de ICMS de 12% - operação destinada a contribuinte do imposto - Lei 10.297/96, art. 19, III, "n", e Lei 17.878/2019 \| Pedido de compra do cliente: 1309011" (sem texto de exceção, sem vTotTrib) |
 
-Manual da equipe: `docs/faturamento/manual-operador-vender-peca-importada.md` (também em
-`public/manuais/vender-peca-importada.html`, ligado na conferência da OV, e docx/pdf no Dropbox).
+Manual da equipe: `docs/faturamento/manual-operador-vender-peca-importada.md` (também na tela,
+`/manuais/vender-peca-importada`, atrás do login: a página lê `manuais/vender-peca-importada/`
+pela rota `/api/manuais/...` com o Bearer da sessão; e docx/pdf no Dropbox).
 Próximo passo do Gabriel: capítulo 7 do manual (liberar o perfil para a 2/81 e emitir a real).
 
 **Regra de arredondamento usada** (`supabase/functions/_shared/nfe-payload.ts`, `round()`):

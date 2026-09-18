@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/estoque/importar/normalizar-itens": ["./docs/padroes-cadastro/catalogo-paineis-eletricos.yaml"],
     "/api/itens/agente-cadastro/sugerir": ["./docs/padroes-cadastro/catalogo-paineis-eletricos.yaml"],
+    // Manuais da equipe (texto e prints com dados de cliente) ficam fora de public/ e sao
+    // lidos em runtime pela rota autenticada /api/manuais/...
+    "/api/manuais/[...caminho]": ["./manuais/**/*"],
   },
 };
 
