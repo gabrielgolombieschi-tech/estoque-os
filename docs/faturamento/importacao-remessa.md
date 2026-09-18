@@ -103,25 +103,24 @@ anexos, estoque e contas a pagar, cancelar).
 9. Item importado pela Segau (3101/3102): alíquota de IPI da TIPI para o NCM no cadastro fiscal,
    para a saída futura destacar o IPI (a equiparação é marcada pelo ERP; a alíquota não).
 
-## Proposta: pagamento ao exportador (US$ 45,00 = R$ 437,97), ainda não feito
+## Pagamento ao exportador (US$ 86,12 pelo PayPal, no cartão de crédito): não implementado
 
-Hoje o valor da mercadoria entra no custo (vProd da DIR) sem título e sem pagamento no ERP. O
-lugar natural é o mesmo dos demais pagamentos por cartão: `f.titulo` AP com `f.pagamento` de
-forma `CARTAO` (312 pagamentos assim hoje, contra as contas SICREDI e SANTANDER, ou seja, a
-fatura do cartão debitada na conta). Fluxo proposto, a decidir:
+Decisão do Gabriel em 18/09/2026: **aguarda a contadora criar o plano de despesa financeira**;
+até lá o valor da mercadoria entra no custo (vProd da DIR) sem título e sem pagamento no ERP.
+Como será quando entrar:
 
-1. Cadastrar o exportador como fornecedor sem CNPJ (o cadastro já aceita documento nulo; há 41
-   fornecedores assim) com o país no nome/observação, criado pela importação quando não existir.
-2. Na importação, um bloco "pagamento ao exportador": forma (cartão corporativo, PayPal,
-   transferência internacional), data, conta bancária debitada (a do cartão ou uma conta nova
-   "PAYPAL"/"CARTAO", o tipo hoje só aceita BANCO ou CAIXA) e o valor em reais efetivamente
-   debitado (fatura do cartão, com IOF e spread).
-3. Na nota real, título AP `origem = IMPORTACAO` para o exportador no valor debitado, baixado
-   por `f.registrar_pagamento_ap_v2` como a nota de débito; rateio: o valor aduaneiro da DIR no
-   plano do destino (consumo/estoque/investimento) e a diferença (IOF + variação cambial) num
-   plano de despesa financeira, que hoje não existe no plano de contas (nada com "financeira",
-   "IOF" ou "câmbio").
-4. O custo de estoque continua o da DIR (vProd + II + courier), sem a variação cambial.
+- Forma **CARTAO via PayPal**, no padrão dos pagamentos em cartão que o ERP já registra
+  (`f.titulo` AP + `f.pagamento` de forma `CARTAO` contra a conta bancária em que a fatura do
+  cartão é debitada; hoje SICREDI, SANTANDER e CAIXA).
+- O **valor em reais vem da fatura do cartão** (câmbio do PayPal + IOF), não da DIR.
+- A **diferença** entre o valor da fatura e os **R$ 437,97 da DIR** vai para o plano de despesa
+  financeira (que ainda não existe: nada com "financeira", "IOF" ou "câmbio" no plano de contas).
+- Exportador como fornecedor sem CNPJ (o cadastro aceita documento nulo; há 41 assim), criado
+  pela importação quando não existir; o custo de estoque continua o da DIR (vProd + II + courier).
+
+Nota de débito da UPS 2953830 (R$ 557,25, 10/09/2026): paga via PayPal com o cartão de crédito;
+baixa de forma CARTAO na conta do cartão, com a observação "Pago via PayPal; aparece na fatura
+como PayPal".
 
 ## Backlog (decisão do Gabriel em 18/09/2026, não fazer agora)
 

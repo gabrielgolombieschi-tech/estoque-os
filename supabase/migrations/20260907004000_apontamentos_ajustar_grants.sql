@@ -22,22 +22,22 @@ grant execute on function public.app_sou_responsavel_os(integer) to authenticate
 grant execute on function public.app_lancar_apontamentos_lote(integer, date, uuid, jsonb, text, boolean) to authenticated;
 grant execute on function public.app_editar_apontamento(uuid, numeric, uuid, text, boolean, text) to authenticated;
 
+-- A sobrecarga de cinco parametros de app_editar_apontamento (20260906230000) nasceu com o EXECUTE
+-- padrao (PUBLIC e anon juntos) e nenhuma migration a fechava: num banco recriado do zero o assert
+-- abaixo a apontava. Em producao ja esta fechada (postgres e authenticated). Registrado em 18/09/2026.
+do $fecha_sobrecarga$
+begin
+  if to_regprocedure('public.app_editar_apontamento(uuid, numeric, uuid, text, boolean)') is not null then
+    revoke all on function public.app_editar_apontamento(uuid, numeric, uuid, text, boolean) from public, anon;
+    grant execute on function public.app_editar_apontamento(uuid, numeric, uuid, text, boolean) to authenticated;
+  end if;
+end;
+$fecha_sobrecarga$;
+
 do $assert$
 declare
   v_acl text;
-  v_fn regprocedure;
 begin
-  -- Banco recriado do zero (18/09/2026): outras sobrecargas dessas funcoes nascem com o EXECUTE
-  -- padrao (anon junto). Fecha todas antes de conferir; em producao ja estavam fechadas.
-  for v_fn in
-    select p.oid::regprocedure
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname in ('app_sou_responsavel_os', 'app_lancar_apontamentos_lote', 'app_editar_apontamento', 'fn_usuario_pode_alterar_apontamento')
-  loop
-    execute format('revoke all on function %s from public, anon', v_fn);
-  end loop;
   for v_acl in
     select coalesce(p.proacl::text, '')
     from pg_proc p
