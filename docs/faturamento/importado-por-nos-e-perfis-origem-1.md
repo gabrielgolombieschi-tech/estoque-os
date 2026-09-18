@@ -54,8 +54,10 @@ foi incluída a mão na tela da venda, cujo campo de valor vem preenchido com
 fragilidade geral: (1) a tela sugere o preço do cadastro mesmo quando a OV veio de um orçamento
 com o mesmo item; (2) nada alerta quando a soma das linhas difere do `orcado` da OV — só o
 painel de faturar mostra "Diferença" na hora de compor a nota, e ele sugere preços rateando o
-`orcado` (por isso os rascunhos antigos já saíam com 4.563,40). Não corrigido: descrito para
-decidir depois.
+`orcado` (por isso os rascunhos antigos já saíam com 4.563,40). Corrigido em 18/09/2026 à
+tarde: a tela sugere o preço do orçamento e a OV avisa quando as linhas não fecham com o
+orçado; o rascunho só nasce com o motivo (ver `faturamento-os-vs-ov.md`, seção "Linhas da OV
+× orçamento").
 
 O cadastro fiscal do item 3629 também não veio da entrada: o `audit_log` mostra NCM e origem
 digitados em 02/09, origem trocada para 2 em 03/09 e para 0/2 em 04–05/09, CST IPI 53 em 03/09.

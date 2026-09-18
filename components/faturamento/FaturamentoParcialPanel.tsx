@@ -20,6 +20,7 @@ type OrigemItem = {
   finalidade: string | null;
   quantidade: number | string;
   valor_unitario: number | string;
+  valor_total: number | string | null;
   desconto_valor: number | string | null;
 };
 
@@ -36,12 +37,17 @@ type Props = {
   codigo: string;
   tipo: "OS" | "OV";
   valorVenda?: number | string | null;
+  // Orcado da OV (ordens_servico.orcado). Quando as linhas nao somam esse valor, o rascunho
+  // so nasce com o motivo da diferenca (f.fn_solicitacao_faturamento_criar_parcial).
+  valorOrcado?: number | string | null;
+  codigoOrcamento?: string | null;
   descricaoSugestao?: string | null;
   podeCompor: boolean;
   onSolicitacaoCriada?: (solicitacaoId: string) => void;
 };
 
 const EPSILON = 0.0000001;
+const MOTIVO_DIVERGENCIA_MIN = 15;
 
 // Venda compoe a nota; componente sai do estoque e nao entra nela. Linha antiga fica
 // nula ate alguem classificar — e e essa a decisao que o pop-up pede.
@@ -119,11 +125,15 @@ function FaturamentoOvPanel({
   codigo,
   tipo,
   valorVenda,
+  valorOrcado,
+  codigoOrcamento,
   podeCompor,
   onSolicitacaoCriada,
 }: Props) {
   const supabase = useMemo(() => supabaseBrowser(), []);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [somaLinhasOv, setSomaLinhasOv] = useState(0);
+  const [motivoDivergencia, setMotivoDivergencia] = useState("");
   const [quantidades, setQuantidades] = useState<Record<number, string>>({});
   const [precosUnitarios, setPrecosUnitarios] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -147,7 +157,7 @@ function FaturamentoOvPanel({
         }),
         supabase
           .from("os_itens")
-          .select("id,finalidade,quantidade,valor_unitario,desconto_valor")
+          .select("id,finalidade,quantidade,valor_unitario,valor_total,desconto_valor")
           .eq("tenant_id", tenantId)
           .eq("empresa_id", empresaId)
           .eq("os_id", osId),
@@ -158,6 +168,13 @@ function FaturamentoOvPanel({
       const origemPorId = new Map(
         ((origemResult.data ?? []) as OrigemItem[]).map((item) => [item.id, item])
       );
+      // Todas as linhas da OV (venda e componente), a mesma conta que o banco faz.
+      setSomaLinhasOv(((origemResult.data ?? []) as OrigemItem[]).reduce(
+        (total, item) => total + (item.valor_total === null || item.valor_total === undefined
+          ? numero(item.quantidade) * numero(item.valor_unitario) - numero(item.desconto_valor)
+          : numero(item.valor_total)),
+        0
+      ));
       const next = ((saldoResult.data ?? []) as SaldoItem[]).map((item) => {
         const origem = origemPorId.get(item.os_item_id);
         return {
@@ -213,6 +230,11 @@ function FaturamentoOvPanel({
     [itensSelecionados]
   );
   const diferencaOv = totalSolicitacao - numero(valorVenda);
+  // Linhas da OV x orcado. Sem orcado nao ha com o que comparar (mesma regra do banco).
+  const orcado = numero(valorOrcado);
+  const divergenciaOrcado = orcado > 0 && Math.abs(somaLinhasOv - orcado) > 0.009;
+  const motivoOk = motivoDivergencia.trim().length >= MOTIVO_DIVERGENCIA_MIN;
+  const travadoPelaDivergencia = divergenciaOrcado && !motivoOk;
 
   function abrirClassificacao() {
     setError(null);
@@ -279,6 +301,10 @@ function FaturamentoOvPanel({
       setError(`Informe um preço unitário de venda válido para a linha ${precoInvalido.item.os_item_id}.`);
       return;
     }
+    if (travadoPelaDivergencia) {
+      setError(`As linhas somam R$ ${formatMoneyBR(somaLinhasOv)}, o orçamento fechado é R$ ${formatMoneyBR(orcado)}. Escreva o motivo da diferença (${MOTIVO_DIVERGENCIA_MIN} caracteres ou mais) para salvar o rascunho.`);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -296,11 +322,13 @@ function FaturamentoOvPanel({
           p_itens_quantidades: itens,
           p_os_item_ids: itens.map((item) => item.os_item_id),
           p_natureza_operacao: "VENDA_MERCADORIA_TERCEIROS",
+          p_divergencia_motivo: divergenciaOrcado ? motivoDivergencia.trim() : null,
         });
       if (rpcError) throw rpcError;
       const solicitacaoId = String(data ?? "");
       setOk(`Solicitação ${solicitacaoId.slice(0, 8)} criada em rascunho. Nenhuma nota foi emitida.`);
       setOpen(false);
+      setMotivoDivergencia("");
       await carregar();
       onSolicitacaoCriada?.(solicitacaoId);
     } catch (cause) {
@@ -470,7 +498,28 @@ function FaturamentoOvPanel({
                   <label className="text-xs text-zinc-500">Quantidade a faturar<input aria-label={`Quantidade a faturar — ${item.descricao}`} value={quantidades[item.os_item_id] ?? ""} onChange={(event) => { setError(null); setQuantidades((current) => ({ ...current, [item.os_item_id]: event.target.value })); }} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-right text-sm text-zinc-100" /></label>
                 </div>
               ))}
-              <p className="text-xs text-zinc-500">Os preços sugeridos rateiam o valor total da OV proporcionalmente ao custo das linhas. O custo nunca é enviado para a NF-e.</p>
+              <p className="text-xs text-zinc-500">Os preços sugeridos rateiam o valor total da OV proporcionalmente ao valor das linhas. O valor da linha nunca é enviado para a NF-e; o que vai é o preço unitário de venda acima.</p>
+              {divergenciaOrcado ? (
+                <div role="alert" data-testid="divergencia-orcado" className="space-y-2 rounded-lg border border-amber-800 bg-amber-950/25 p-3">
+                  <div className="text-sm text-amber-100">
+                    As linhas somam <strong>R$ {formatMoneyBR(somaLinhasOv)}</strong>, o orçamento fechado é <strong>R$ {formatMoneyBR(orcado)}</strong>. Confira antes de faturar.
+                    {codigoOrcamento ? <span className="text-amber-200/80"> Orçamento {codigoOrcamento}.</span> : null}
+                  </div>
+                  <p className="text-xs text-amber-200/80">A OV continua aberta. O rascunho da NF-e só é salvo depois que alguém confirma a diferença e diz o motivo. O motivo fica gravado na solicitação, com quem confirmou e quando.</p>
+                  <label className="block text-xs text-amber-200">
+                    Motivo da diferença
+                    <textarea
+                      aria-label="Motivo da diferença entre as linhas e o orçamento"
+                      value={motivoDivergencia}
+                      onChange={(event) => { setError(null); setMotivoDivergencia(event.target.value); }}
+                      rows={2}
+                      placeholder="Ex.: frete cobrado à parte na OC; item X ficou fora da OV por pedido do cliente"
+                      className="mt-1 w-full rounded-md border border-amber-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                    />
+                  </label>
+                  {!motivoOk ? <div className="text-xs text-amber-300">Faltam {Math.max(MOTIVO_DIVERGENCIA_MIN - motivoDivergencia.trim().length, 0)} caracteres para liberar o rascunho.</div> : <div className="text-xs text-emerald-300">Motivo registrado; o rascunho pode ser salvo.</div>}
+                </div>
+              ) : null}
             </div>
             <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 bg-zinc-950 p-4">
               <div className="space-y-1">
@@ -479,7 +528,7 @@ function FaturamentoOvPanel({
                 <div className="text-xs text-zinc-400">Valor da OV: R$ {formatMoneyBR(numero(valorVenda))}</div>
                 {Math.abs(diferencaOv) > 0.009 ? <div className="text-xs text-amber-300">Diferença: {diferencaOv > 0 ? "+" : "-"} R$ {formatMoneyBR(Math.abs(diferencaOv))}. Confira; isso não impede salvar o rascunho.</div> : <div className="text-xs text-emerald-300">A soma das linhas fecha com o valor da OV.</div>}
               </div>
-              <div className="flex gap-2"><button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900">Cancelar</button><button type="button" onClick={() => void confirmar()} disabled={saving || itensSelecionados.length === 0} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">{saving ? "Salvando..." : "Salvar rascunho da NF-e"}</button></div>
+              <div className="flex gap-2"><button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-md border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-900">Cancelar</button><button type="button" onClick={() => void confirmar()} disabled={saving || itensSelecionados.length === 0 || travadoPelaDivergencia} title={travadoPelaDivergencia ? "Escreva o motivo da diferença entre as linhas e o orçamento." : undefined} className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50">{saving ? "Salvando..." : "Salvar rascunho da NF-e"}</button></div>
             </div>
           </div>
         </div>

@@ -36,6 +36,16 @@ type Venda = {
   pedido_compra: string | null;
 };
 
+// Orcamento fechado que deu origem a OV (m.orcamento.os_id): o preco de cada item, ja com o
+// acrescimo da condicao de pagamento, e o que se sugere ao incluir a linha (pedido do
+// Gabriel, 18/09/2026, depois da OV-SEG-00004-026 nascer com o preco do cadastro).
+type OrcamentoOrigem = {
+  id: string;
+  codigo: string | null;
+  total_liquido: number | string | null;
+  itens: Map<number, { valor_unitario: number; valor_unitario_liquido: number; quantidade: number }>;
+};
+
 type ItemMeta = {
   id: number;
   codigo_interno: string | null;
@@ -263,6 +273,8 @@ export default function VendaDetalheClient() {
   const [lookupSortDirection, setLookupSortDirection] = useState<SortDirection>("asc");
   const [novaQuantidade, setNovaQuantidade] = useState("1");
   const [novoValor, setNovoValor] = useState("0");
+  const [orcamentoOrigem, setOrcamentoOrigem] = useState<OrcamentoOrigem | null>(null);
+  const [origemPrecoNovo, setOrigemPrecoNovo] = useState<string | null>(null);
   const [baixarEstoque, setBaixarEstoque] = useState(true);
   const [documentoSelecionado, setDocumentoSelecionado] = useState("");
   const [nfeDraftRefresh, setNfeDraftRefresh] = useState(0);
@@ -270,6 +282,13 @@ export default function VendaDetalheClient() {
 
   const itemById = useMemo(() => new Map(catalogo.map((item) => [item.id, item])), [catalogo]);
   const pedidoById = useMemo(() => new Map(pedidos.map((pedido) => [pedido.id, pedido])), [pedidos]);
+  // Mesma conta do banco (sum(os_itens.valor_total)); a linha sem valor_total entra por qtd x unitario.
+  const somaLinhas = useMemo(
+    () => itens.reduce((total, item) => total + (item.valor_total === null || item.valor_total === undefined
+      ? n(item.quantidade) * n(item.valor_unitario)
+      : n(item.valor_total)), 0),
+    [itens]
+  );
   const sortedLookupRows = useMemo(() => {
     const direction = lookupSortDirection === "asc" ? 1 : -1;
     const value = (item: ItemLookupRow): string | number | null => {
@@ -318,6 +337,42 @@ export default function VendaDetalheClient() {
       if (vendaError) throw vendaError;
       if (!vendaData) throw new Error("Venda não encontrada ou já convertida em OS.");
       setVenda(vendaData);
+
+      // Orcamento de origem (quando a OV veio de um orcamento fechado): precos por item.
+      // Se a leitura falhar a tela segue com o preco do cadastro, avisando na legenda.
+      try {
+        const { data: orcData } = await supabase
+          .schema("m")
+          .from("orcamento")
+          .select("id,codigo,total_liquido")
+          .eq("os_id", vendaId)
+          .is("deleted_at", null)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle<{ id: string; codigo: string | null; total_liquido: number | string | null }>();
+        if (orcData) {
+          const { data: orcItens } = await supabase
+            .schema("m")
+            .from("orcamento_item")
+            .select("item_id,valor_unitario,valor_unitario_liquido,quantidade")
+            .eq("orcamento_id", orcData.id)
+            .is("deleted_at", null);
+          const mapa = new Map<number, { valor_unitario: number; valor_unitario_liquido: number; quantidade: number }>();
+          for (const linha of (orcItens ?? []) as Array<{ item_id: number | null; valor_unitario: number | string | null; valor_unitario_liquido: number | string | null; quantidade: number | string | null }>) {
+            if (linha.item_id === null || mapa.has(linha.item_id)) continue;
+            mapa.set(linha.item_id, {
+              valor_unitario: n(linha.valor_unitario),
+              valor_unitario_liquido: n(linha.valor_unitario_liquido ?? linha.valor_unitario),
+              quantidade: n(linha.quantidade),
+            });
+          }
+          setOrcamentoOrigem({ id: orcData.id, codigo: orcData.codigo, total_liquido: orcData.total_liquido, itens: mapa });
+        } else {
+          setOrcamentoOrigem(null);
+        }
+      } catch {
+        setOrcamentoOrigem(null);
+      }
 
       const [itensResult, comprasResult, documentosResult, eventosResult, saldoResult] =
         await Promise.all([
@@ -454,13 +509,22 @@ export default function VendaDetalheClient() {
     setNovoItemSelecionado(item);
     setNovoItemId(String(item.id));
     setNovoItemBusca(`${item.codigo_interno} - ${item.nome}`);
-    setNovoValor(String(n(item.preco_unitario)));
+    // Preco: o do orcamento fechado (com o acrescimo da condicao) quando o item esta nele;
+    // senao o preco de tabela do cadastro, e a legenda diz qual dos dois foi.
+    const doOrcamento = orcamentoOrigem?.itens.get(item.id);
+    if (doOrcamento) {
+      setNovoValor(String(doOrcamento.valor_unitario_liquido));
+      setOrigemPrecoNovo(`Preço do orçamento ${orcamentoOrigem?.codigo ?? ""}`.trim());
+    } else {
+      setNovoValor(String(n(item.preco_unitario)));
+      setOrigemPrecoNovo(orcamentoOrigem ? "Preço de tabela (item fora do orçamento)" : "Preço de tabela do cadastro");
+    }
     setShowItemLookup(false);
     setTimeout(() => {
       novaQuantidadeRef.current?.focus();
       novaQuantidadeRef.current?.select();
     }, 0);
-  }, []);
+  }, [orcamentoOrigem]);
 
   const buscarItensNoLocalizador = useCallback(async (nextNome?: string, nextFornecedor?: string) => {
     if (!tenantId || !empresaId) return;
@@ -587,6 +651,7 @@ export default function VendaDetalheClient() {
       setNovoItemSelecionado(null);
       setNovaQuantidade("1");
       setNovoValor("0");
+      setOrigemPrecoNovo(null);
     }, "Item adicionado à venda.");
   }, [baixarEstoque, empresaId, novaQuantidade, novoItemId, novoValor, run, supabase, venda?.codigo, vendaId]);
 
@@ -768,6 +833,16 @@ export default function VendaDetalheClient() {
           </div>
         </div>
 
+        {/* Linhas x orcado: a OV nao trava, mas o rascunho de NF-e so nasce com o motivo
+            (f.fn_solicitacao_faturamento_criar_parcial, 20260918240000). */}
+        {n(venda.orcado) > 0 && Math.abs(somaLinhas - n(venda.orcado)) > 0.009
+          && !(saldo && n(saldo.valor_faturado) > 0 && n(saldo.saldo) <= 0.009) ? (
+          <div role="alert" data-testid="alerta-orcado" className="rounded-md border border-amber-800 bg-amber-950/25 px-3 py-2 text-sm text-amber-100">
+            As linhas somam <strong>R$ {formatMoneyBR(somaLinhas)}</strong>, o orçamento fechado é <strong>R$ {formatMoneyBR(n(venda.orcado))}</strong>. Confira antes de faturar.
+            {orcamentoOrigem?.codigo ? <span className="text-amber-200/80"> Orçamento {orcamentoOrigem.codigo}.</span> : null}
+          </div>
+        ) : null}
+
         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
           <div><div className="text-xs text-zinc-500">Abertura</div>{dateBR(venda.data_abertura)}</div>
           <div><div className="text-xs text-zinc-500">Vendedor</div>{venda.vendedor || "—"}</div>
@@ -912,6 +987,8 @@ export default function VendaDetalheClient() {
           codigo={venda.codigo}
           tipo="OV"
           valorVenda={venda.orcado || venda.valor_total}
+          valorOrcado={venda.orcado}
+          codigoOrcamento={orcamentoOrigem?.codigo ?? null}
           podeCompor={canFaturar && status !== "cancelada"}
         onSolicitacaoCriada={() => {
           setNfeDraftRefresh((current) => current + 1);
@@ -982,8 +1059,9 @@ export default function VendaDetalheClient() {
                 />
               </label>
               <label className="text-xs text-zinc-500">
-                Custo unitário
-                <input value={novoValor} onChange={(event) => setNovoValor(event.target.value)} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200" />
+                Valor unitário
+                <input aria-label="Valor unitário do item" value={novoValor} onChange={(event) => setNovoValor(event.target.value)} inputMode="decimal" className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200" />
+                {origemPrecoNovo ? <span data-testid="origem-preco" className={`mt-1 block text-[11px] ${origemPrecoNovo.startsWith("Preço do orçamento") ? "text-emerald-300" : "text-amber-300"}`}>{origemPrecoNovo}</span> : null}
               </label>
               <div className="text-xs text-zinc-500">
                 Estoque

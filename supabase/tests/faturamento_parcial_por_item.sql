@@ -290,4 +290,68 @@ begin
 end;
 $test$;
 
+-- Linhas x orcado (20260918240000): OV cujas linhas nao somam o orcado so ganha rascunho
+-- com o motivo da diferenca; OV que fecha, ou sem orcado, segue como antes.
+insert into public.ordens_servico (
+  id, numero_os, cliente_nome, cliente_id, status, os_num,
+  tenant_id, empresa_id, status_fluxo, tipo_documento, codigo, numero_doc, orcado
+)
+values
+  (915103, 'OV-PARCIAL-3', 'CLIENTE TESTE PARCIAL', 915100, 'em_andamento', 915103,
+   '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002',
+   'em_andamento', 'OV', 'OV-PARCIAL-003', 3, 500),
+  (915104, 'OV-PARCIAL-4', 'CLIENTE TESTE PARCIAL', 915100, 'em_andamento', 915104,
+   '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002',
+   'em_andamento', 'OV', 'OV-PARCIAL-004', 4, 200);
+insert into public.os_itens (id, os_id, item_id, quantidade, valor_unitario, valor_total, tenant_id, empresa_id, finalidade)
+values
+  (915103, 915103, 915100, 2, 100, 200, '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002', 'venda'),
+  (915104, 915104, 915100, 2, 100, 200, '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002', 'venda');
+
+do $divergencia$
+declare
+  v_id uuid;
+  v_div jsonb;
+  v_msg text;
+begin
+  -- Sem motivo: para, e a mensagem diz os dois valores.
+  begin
+    perform f.fn_solicitacao_faturamento_criar_parcial(
+      '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002', 915103,
+      '[{"os_item_id":915103,"quantidade":1,"valor_unitario":250}]'::jsonb, array[915103]);
+    raise exception 'rascunho de OV divergente criado sem motivo';
+  exception when invalid_parameter_value then
+    get stacked diagnostics v_msg = message_text;
+    if v_msg not like '%OV-PARCIAL-003 somam R$ 200,00 e o orcamento fechado e R$ 500,00%' then
+      raise exception 'mensagem da divergencia: %', v_msg;
+    end if;
+  end;
+  -- Motivo curto: para.
+  begin
+    perform f.fn_solicitacao_faturamento_criar_parcial(
+      '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002', 915103,
+      '[{"os_item_id":915103,"quantidade":1,"valor_unitario":250}]'::jsonb, array[915103],
+      'VENDA_MERCADORIA_TERCEIROS', 'curto');
+    raise exception 'motivo curto aceito';
+  exception when invalid_parameter_value then null;
+  end;
+  -- Com motivo: cria e guarda os dois valores, o motivo e quando.
+  v_id := f.fn_solicitacao_faturamento_criar_parcial(
+    '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002', 915103,
+    '[{"os_item_id":915103,"quantidade":1,"valor_unitario":250}]'::jsonb, array[915103],
+    'VENDA_MERCADORIA_TERCEIROS', 'Cliente fechou frete por fora; linha ficou com o valor da mercadoria');
+  select divergencia_orcamento into v_div from f.solicitacao_faturamento where id = v_id;
+  if v_div is null or (v_div->>'soma_linhas')::numeric <> 200 or (v_div->>'orcado')::numeric <> 500
+     or v_div->>'motivo' not like 'Cliente fechou frete%' or v_div->>'confirmado_em' is null then
+    raise exception 'divergencia_orcamento gravada errada: %', v_div;
+  end if;
+  -- OV que fecha: sem motivo e sem registro.
+  v_id := f.fn_solicitacao_faturamento_criar_parcial(
+    '15100000-0000-4000-8000-000000000001', '15100000-0000-4000-8000-000000000002', 915104,
+    '[{"os_item_id":915104,"quantidade":1,"valor_unitario":100}]'::jsonb, array[915104]);
+  select divergencia_orcamento into v_div from f.solicitacao_faturamento where id = v_id;
+  if v_div is not null then raise exception 'OV que fecha nao devia registrar divergencia: %', v_div; end if;
+end;
+$divergencia$;
+
 rollback;

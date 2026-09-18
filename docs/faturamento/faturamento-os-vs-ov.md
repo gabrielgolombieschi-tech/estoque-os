@@ -50,6 +50,44 @@ Valor acima do saldo gera aviso na tela, não exceção no banco. Isso é intenc
 
 Quando o pedido/HH vale zero, a função devolve a conta numérica, mas a tela mostra **Sem teto cadastrado** e não calcula excesso.
 
+### Linhas da OV × orçamento (18/09/2026)
+
+Pedido do Gabriel depois da OV-SEG-00004-026 nascer com o preço do cadastro (1.650,00) em vez
+do preço do orçamento (4.563,40). Migration `20260918240000_ov_divergencia_orcamento_no_rascunho.sql`.
+
+**Preço sugerido ao incluir a linha.** A tela da venda lê o orçamento de origem
+(`m.orcamento.os_id = OV`, itens em `m.orcamento_item`). Ao escolher um item no localizador, o
+campo "Valor unitário" (antes rotulado "Custo unitário") vem com `valor_unitario_liquido` do
+orçamento, que já traz o acréscimo da condição de pagamento; a legenda diz
+**Preço do orçamento SEG-xxx-026**. Item que não está no orçamento vem com o preço de tabela do
+cadastro e a legenda **Preço de tabela (item fora do orçamento)**. O valor continua editável.
+
+**Aviso na OV.** No cabeçalho da venda, quando `sum(os_itens.valor_total)` difere de
+`ordens_servico.orcado`: "As linhas somam R$ X, o orçamento fechado é R$ Y. Confira antes de
+faturar." A OV não trava: itens, compras e histórico seguem normais.
+
+**Rascunho da NF-e.** `f.fn_solicitacao_faturamento_criar_parcial` ganhou o parâmetro
+`p_divergencia_motivo text default null`. Com `orcado` cadastrado (> 0) e linhas que não somam o
+orçado, a função recusa (`22023`) sem um motivo de 15 caracteres ou mais (máximo 500) e a
+mensagem repete os dois valores. Com o motivo, o rascunho nasce e
+`f.solicitacao_faturamento.divergencia_orcamento` guarda `soma_linhas`, `orcado`, `motivo`,
+`confirmado_por` (auth.uid()) e `confirmado_em`. OV sem `orcado` (nulo ou zero) não é comparada,
+como o "Sem teto cadastrado" da OS. O painel de faturar mostra o mesmo aviso dentro do modal, com
+o campo "Motivo da diferença", e só habilita "Salvar rascunho da NF-e" com o motivo preenchido.
+
+A assinatura antiga de 6 parâmetros foi removida (wrapper e impl) para o PostgREST não ficar
+ambíguo; a chamada sem o 7º parâmetro continua válida pelo default.
+
+OVs abertas em 18/09/2026 com essa divergência (não corrigidas): OV-SEG-00010-026 (4.585,00 ×
+2.401,40), 00009 (4.821,00 × 3.272,91; o orçamento SEG-426-026 fecha 5.588,12), 00008 (2.209,98
+× 1.421,28), 00006 (300,95 × 273,29), 00005 (1.665,00 × 1.214,34), 00002 (2.219,88 × 1.145,56) e
+00001 (2.121,79 × 0, sem linhas). Todas vão pedir o motivo na hora do rascunho.
+
+Testes: `supabase/tests/faturamento_parcial_por_item.sql` (bloco "Linhas x orcado": sem motivo
+recusa, motivo curto recusa, com motivo grava, OV que fecha não registra);
+`faturamento_os_vs_ov.sql` e `nfe_excecao_icms_12_destinatario.sql` tiveram o `orcado` das
+OVs de fixture igualado às linhas.
+
 ### Produto opcional e emissão fiscal
 
 A linha livre pode ficar sem `item_id`; isso cobre composição e aprovação de descrições como mão de obra, start-up e ajuste de escopo. Nesse caso, o documento interno mantém a descrição, quantidade, unidade e valor e usa um código operacional da linha.

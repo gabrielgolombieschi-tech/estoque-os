@@ -162,7 +162,7 @@ values
     '15200000-0000-4000-8000-000000000001',
     '15200000-0000-4000-8000-000000000002',
     'em_andamento', 'OV', 'OV-RPC-001', 4,
-    'VENDA CRIADA PELA RPC', 200
+    'VENDA CRIADA PELA RPC', 20
   );
 
 -- A OV 915202 veio de um orcamento com preco comercial 50. O valor 20 que

@@ -105,9 +105,9 @@ insert into public.ordens_servico (
   id, numero_os, cliente_nome, cliente_id, status, os_num, tenant_id, empresa_id,
   status_fluxo, tipo_documento, codigo, numero_doc, descricao_servico, orcado
 ) values
-  (912001, 'OV-EXC-1', 'PBG S/A', 912001, 'em_andamento', 912001, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OV', 'OV-EXC-001', 1, 'VENDA MANUTENCAO', 5000),
-  (912002, 'OV-EXC-2', 'CONDOMINIO SEM IE', 912002, 'em_andamento', 912002, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OV', 'OV-EXC-002', 2, 'VENDA NAO CONTRIBUINTE', 5000),
-  (912003, 'OV-EXC-3', 'INDUSTRIA PR', 912003, 'em_andamento', 912003, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OV', 'OV-EXC-003', 3, 'VENDA PR', 5000),
+  (912001, 'OV-EXC-1', 'PBG S/A', 912001, 'em_andamento', 912001, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OV', 'OV-EXC-001', 1, 'VENDA MANUTENCAO', 4921),
+  (912002, 'OV-EXC-2', 'CONDOMINIO SEM IE', 912002, 'em_andamento', 912002, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OV', 'OV-EXC-002', 2, 'VENDA NAO CONTRIBUINTE', 100),
+  (912003, 'OV-EXC-3', 'INDUSTRIA PR', 912003, 'em_andamento', 912003, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OV', 'OV-EXC-003', 3, 'VENDA PR', 100),
   (912004, 'OS-EXC-4', 'PBG S/A', 912001, 'em_andamento', 912004, '1e120000-0000-4000-8000-000000000001', '1e120000-0000-4000-8000-000000000002', 'em_andamento', 'OS', 'OS-EXC-004', 4, 'PAINEL PARA MANUTENCAO', 5000);
 
 insert into public.os_itens (id, os_id, item_id, quantidade, valor_unitario, valor_total, tenant_id, empresa_id, finalidade)
