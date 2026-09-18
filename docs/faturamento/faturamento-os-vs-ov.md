@@ -83,6 +83,19 @@ OVs abertas em 18/09/2026 com essa divergência (não corrigidas): OV-SEG-00010-
 × 1.421,28), 00006 (300,95 × 273,29), 00005 (1.665,00 × 1.214,34), 00002 (2.219,88 × 1.145,56) e
 00001 (2.121,79 × 0, sem linhas). Todas vão pedir o motivo na hora do rascunho.
 
+**Orçado que inclui IPI (só relato, 18/09/2026).** Na OV-SEG-00004-026 o orçado (4.563,40) é o
+total da OC com o IPI, e a linha é a mercadoria (4.158,00): o aviso dispara e o motivo gravado foi
+"Orçado inclui IPI". Para o aviso somar o IPI previsto quando o item é equiparado a industrial,
+sem mudar o orçado: (1) na tela, `somaLinhas` passaria a somar, por linha, `valor_total × alíquota
+de IPI do cadastro fiscal / 100` quando `fiscal_itens.equiparado_industrial` e CST IPI 50/99
+(mesma leitura que o Faturar OS já faz em `ipiLinhas`, com o arredondamento por item do montador),
+e o texto diria "As linhas somam R$ 4.158,00 + IPI previsto R$ 405,41 = R$ 4.563,41"; (2) no banco,
+`fn_solicitacao_faturamento_criar_ov_impl` faria a mesma soma com `left join public.fiscal_itens`
+antes de comparar com o orçado; (3) a diferença de meio centavo continuaria aparecendo (4.563,41 ×
+4.563,40) até o ajuste de meio centavo ser ligado, então a comparação deveria tolerar R$ 0,01 por
+linha equiparada, ou considerar a marca `arredondar_empate_para_baixo` quando já houver rascunho.
+Não implementado.
+
 Testes: `supabase/tests/faturamento_parcial_por_item.sql` (bloco "Linhas x orcado": sem motivo
 recusa, motivo curto recusa, com motivo grava, OV que fecha não registra);
 `faturamento_os_vs_ov.sql` e `nfe_excecao_icms_12_destinatario.sql` tiveram o `orcado` das

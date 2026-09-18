@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   dataHoraNfeSaoPaulo,
   dataVencimentoSaoPaulo,
+  empateMeioCentavo,
   montarPayloadNfe,
   validarPayloadProducaoContraHomologacao,
 } from "../supabase/functions/_shared/nfe-payload.ts";
@@ -971,6 +972,55 @@ const importadoManutencao17 = montarPayloadNfe(contexto({
 }));
 assert.equal(importadoManutencao17.items[0].icms_base_calculo, 5008.33);
 assert.equal(importadoManutencao17.items[0].icms_valor, 851.42);
+
+// Ajuste de meio centavo por item (20260918270000). OV-SEG-00004-026 com a OC de valor
+// fechado: vProd 4.158,00 x 9,75% = 405,405. Regra geral (meio para cima) da 405,41 e a nota
+// fecha em 4.563,41; com a marca do item o IPI desce para 405,40 e a nota fecha em 4.563,40,
+// igual a OC. A marca fora do empate e erro, e ICMS ainda nao entra.
+const linhaInsumo4158 = (extra = {}) => linha({
+  codigo_produto: "CQM1HCPU61", ncm: "85371020", quantidade: 1, valor_unitario: 4158,
+  aliquota_icms: 12, cbenef: null, origem_mercadoria: 1, equiparado_industrial: true,
+  cst_ipi: "50", aliquota_ipi: 9.75, ...extra,
+});
+const contextoInsumo = (itens) => contexto({
+  solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: "INSUMO", consumidor_final: 0 } }),
+  itens,
+});
+const marcaEmpate = { arredondar_empate_para_baixo: true, arredondar_empate_tributo: "IPI", arredondar_empate_motivo: "fechar com OC 1309011, total 4.563,40" };
+const empatePadrao = montarPayloadNfe(contextoInsumo([linhaInsumo4158()]));
+assert.equal(empatePadrao.items[0].ipi_valor, 405.41, "regra geral: meio centavo sobe");
+assert.equal(empatePadrao.items[0].icms_base_calculo, 4158, "insumo: IPI fora da base do ICMS");
+assert.equal(empatePadrao.items[0].icms_valor, 498.96);
+assert.equal(empatePadrao.consumidor_final, 0);
+assert.equal(empatePadrao.valor_total, 4563.41);
+const empateBaixo = montarPayloadNfe(contextoInsumo([linhaInsumo4158(marcaEmpate)]));
+assert.equal(empateBaixo.items[0].ipi_valor, 405.40, "marca do item: meio centavo desce");
+assert.equal(empateBaixo.items[0].icms_base_calculo, 4158);
+assert.equal(empateBaixo.items[0].icms_valor, 498.96);
+assert.equal(empateBaixo.items[0].pis_valor, 60.37);
+assert.equal(empateBaixo.items[0].cofins_valor, 278.09);
+assert.equal(empateBaixo.valor_total, 4563.40, "nota fecha com a OC");
+assert.doesNotMatch(empateBaixo.informacoes_adicionais_contribuinte, /exigência do destinatário|art\. 26, § 6/);
+// Fora do empate a marca e recusada (a linha mudou depois da confirmacao).
+assert.throws(
+  () => montarPayloadNfe(contextoInsumo([linhaInsumo4158({ ...marcaEmpate, valor_unitario: 4158.01 })])),
+  /não cai em empate de meio centavo \(valor exato 405,4060\)/,
+);
+// ICMS ainda nao.
+assert.throws(
+  () => montarPayloadNfe(contextoInsumo([linhaInsumo4158({ ...marcaEmpate, arredondar_empate_tributo: "ICMS" })])),
+  /só vale para o IPI por enquanto/,
+);
+// Marca desligada = exatamente o de sempre (nenhum snapshot muda).
+assert.deepEqual(
+  montarPayloadNfe(contextoInsumo([linhaInsumo4158({ arredondar_empate_para_baixo: false, arredondar_empate_tributo: null })])).items[0],
+  empatePadrao.items[0],
+);
+assert.equal(empateMeioCentavo(405.405), true);
+assert.equal(empateMeioCentavo(4158 * 9.75 / 100), true);
+assert.equal(empateMeioCentavo(405.4051), false);
+assert.equal(empateMeioCentavo(405.41), false);
+assert.equal(empateMeioCentavo(0.005), true);
 
 // Com a excecao, a frase "Destinacao informada pelo destinatario" nao se repete.
 assert.doesNotMatch(fabExcecao.informacoes_adicionais_contribuinte, /Destinação informada pelo destinatário/);

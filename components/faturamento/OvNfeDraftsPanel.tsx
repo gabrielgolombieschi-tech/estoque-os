@@ -98,6 +98,11 @@ type SolicitacaoItem = {
   valor_unitario: number | string;
   valor_desconto: number | string | null;
   ordem: number;
+  // Ajuste de meio centavo por item (20260918270000): so em empate exato o IPI desce.
+  arredondar_empate_para_baixo?: boolean | null;
+  arredondar_empate_tributo?: string | null;
+  arredondar_empate_motivo?: string | null;
+  arredondar_empate_em?: string | null;
 };
 
 type Emissao = {
@@ -290,25 +295,43 @@ function arredondarMoeda(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function totaisItensNfe(
-  itens: Array<Pick<SolicitacaoItem, "quantidade" | "valor_unitario" | "valor_desconto" | "aliquota_ipi">>,
-) {
+/** Mesma conta de nfe-payload.ts: terceira casa 5 e nada depois, com tolerancia de ponto flutuante. */
+function empateMeioCentavo(valor: number) {
+  const milesimos = valor * 1000;
+  const inteiro = Math.round(milesimos);
+  return Math.abs(milesimos - inteiro) < 1e-6 && inteiro % 10 === 5;
+}
+
+type ItemParaTotais = Pick<SolicitacaoItem, "quantidade" | "valor_unitario" | "valor_desconto" | "aliquota_ipi" | "arredondar_empate_para_baixo" | "arredondar_empate_tributo">;
+
+/** IPI de um item como o montador calcula: exato, padrao (meio para cima) e, em empate de meio centavo, para baixo. */
+function ipiDoItemNfe(item: ItemParaTotais) {
+  const bruto = arredondarMoeda(numero(item.quantidade) * numero(item.valor_unitario));
+  const baseIpi = arredondarMoeda(bruto - numero(item.valor_desconto));
+  const exato = baseIpi * numero(item.aliquota_ipi) / 100;
+  const empate = empateMeioCentavo(exato);
+  const padrao = arredondarMoeda(exato);
+  const paraBaixo = empate ? (Math.round(exato * 1000) - 5) / 1000 : padrao;
+  const ajusteAtivo = item.arredondar_empate_para_baixo === true && String(item.arredondar_empate_tributo ?? "").toUpperCase() === "IPI";
+  return { exato, empate, padrao, paraBaixo, ajusteAtivo, valor: ajusteAtivo && empate ? paraBaixo : padrao };
+}
+
+function totaisItensNfe(itens: ItemParaTotais[]) {
   let valorProdutos = 0;
   let valorDesconto = 0;
   let valorIpi = 0;
   for (const item of itens) {
     const bruto = arredondarMoeda(numero(item.quantidade) * numero(item.valor_unitario));
     const desconto = numero(item.valor_desconto);
-    const baseIpi = arredondarMoeda(bruto - desconto);
     valorProdutos = arredondarMoeda(valorProdutos + bruto);
     valorDesconto = arredondarMoeda(valorDesconto + desconto);
-    valorIpi = arredondarMoeda(valorIpi + arredondarMoeda(baseIpi * numero(item.aliquota_ipi) / 100));
+    valorIpi = arredondarMoeda(valorIpi + ipiDoItemNfe(item).valor);
   }
   return { valorLiquido: arredondarMoeda(valorProdutos - valorDesconto), valorIpi };
 }
 
 function totalNotaNfe(
-  itens: Array<Pick<SolicitacaoItem, "quantidade" | "valor_unitario" | "valor_desconto" | "aliquota_ipi">>,
+  itens: ItemParaTotais[],
   frete: unknown,
   seguro: unknown,
   outrasDespesas: unknown,
@@ -893,6 +916,38 @@ export default function OvNfeDraftsPanel({
   const podeEditarFiscal = has("fiscal_itens.write") === true;
   const [vincularSimilar, setVincularSimilar] = useState<{ draft: Draft; itemId: number; descricao: string } | null>(null);
   const [justificativaDescarte, setJustificativaDescarte] = useState("");
+  // Ajuste de meio centavo por item (f.fn_solicitacao_item_arredondar_empate): motivo digitado
+  // por linha antes de confirmar. O banco recusa fora do empate exato.
+  const [motivoEmpate, setMotivoEmpate] = useState<Record<string, string>>({});
+  async function alternarEmpate(draft: Draft, item: SolicitacaoItem, ativar: boolean) {
+    try {
+      // O CST e a aliquota do IPI ja resolvidos na tela vao junto: o rascunho da OV so os grava
+      // na linha ao emitir, e o banco confere o empate com o que esta na linha.
+      const form = itensForm.find((value) => value.id === item.id);
+      const { error } = await supabase.schema("f").rpc("fn_solicitacao_item_arredondar_empate", {
+        p_solicitacao_item_id: item.id,
+        p_tributo: "IPI",
+        p_ativar: ativar,
+        p_motivo: ativar ? (motivoEmpate[item.id] ?? "").trim() : null,
+        p_cst_ipi: ativar && form?.cst_ipi ? form.cst_ipi : null,
+        p_aliquota_ipi: ativar && form?.cst_ipi ? paraNumero(form.aliquota_ipi) : null,
+      });
+      if (error) throw error;
+      // O bloco e o total conferido mudam na hora; o recarregamento confirma com o que o banco gravou.
+      const marca = ativar
+        ? { arredondar_empate_para_baixo: true, arredondar_empate_tributo: "IPI", arredondar_empate_motivo: (motivoEmpate[item.id] ?? "").trim(), arredondar_empate_em: new Date().toISOString() }
+        : { arredondar_empate_para_baixo: false, arredondar_empate_tributo: null, arredondar_empate_motivo: null, arredondar_empate_em: null };
+      setDrafts((current) => current.map((d) => d.id === draft.id
+        ? { ...d, itens: d.itens.map((linha) => linha.id === item.id ? { ...linha, ...marca } : linha) }
+        : d));
+      avisar(draft.id, ativar
+        ? "Ajuste de meio centavo confirmado: o IPI deste item arredonda para baixo e a nota fecha com o pedido do cliente."
+        : "Ajuste de meio centavo desfeito: o IPI volta à regra geral (meio para cima).");
+      await carregar();
+    } catch (cause) {
+      avisar(draft.id, cause && typeof cause === "object" && "message" in cause ? String((cause as { message: unknown }).message) : String(cause), true);
+    }
+  }
 
   const carregar = useCallback(async () => {
     if (!tenantId || !empresaId || !Number.isInteger(ovId) || ovId <= 0) return;
@@ -901,7 +956,7 @@ export default function OvNfeDraftsPanel({
       const { data: itensData, error: itensError } = await supabase
         .schema("f")
         .from("solicitacao_item")
-        .select("id,solicitacao_id,item_id,codigo_produto,descricao,ncm,cfop,cst_icms,csosn,cst_ipi,ipi_codigo_enquadramento_legal,cst_pis,cst_cofins,cbenef,origem_mercadoria,unidade_tributavel,numero_fci,perfil_operacao_id,reducao_base_icms_percentual,icms_modalidade_base_calculo,aliquota_icms,aliquota_ipi,aliquota_pis,aliquota_cofins,cst_ibs_cbs,cclass_trib,cclass_trib_versao,ibs_cbs_json,quantidade,unidade,valor_unitario,valor_desconto,ordem")
+        .select("id,solicitacao_id,item_id,codigo_produto,descricao,ncm,cfop,cst_icms,csosn,cst_ipi,ipi_codigo_enquadramento_legal,cst_pis,cst_cofins,cbenef,origem_mercadoria,unidade_tributavel,numero_fci,perfil_operacao_id,reducao_base_icms_percentual,icms_modalidade_base_calculo,aliquota_icms,aliquota_ipi,aliquota_pis,aliquota_cofins,cst_ibs_cbs,cclass_trib,cclass_trib_versao,ibs_cbs_json,quantidade,unidade,valor_unitario,valor_desconto,ordem,arredondar_empate_para_baixo,arredondar_empate_tributo,arredondar_empate_motivo,arredondar_empate_em")
         .eq("tenant_id", tenantId)
         .eq("empresa_id", empresaId)
         .eq("origem_tipo", "OV")
@@ -2142,6 +2197,39 @@ export default function OvNfeDraftsPanel({
                               <div className="space-y-2"><div className="flex items-center justify-between"><h4 className="text-sm font-medium text-zinc-300">IPI da operação e identificação do produto</h4>{ipiOperacao?.fonte ? <span className={`text-xs ${ipiOperacao.fonte === "FIXTURE_HOMOLOGACAO" ? "text-amber-300" : "text-sky-300"}`}>🔒 {ipiOperacao.fonte === "FIXTURE_HOMOLOGACAO" ? "fixture provisória · pergunta 4 ao contador" : "perfil de operação"}</span> : null}</div><div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                                 <label className={label}>NCM <span className="text-sky-300">🔒 produto</span><input disabled className={`${field} opacity-70`} value={produto?.ncm ?? item.ncm ?? ""} readOnly /></label><label className={label}>CST IPI <span className="text-sky-300">🔒 operação</span><input disabled className={`${field} opacity-70`} value={form.cst_ipi} readOnly /></label><label className={label}>cEnq IPI <span className="text-sky-300">🔒 operação</span><input disabled className={`${field} opacity-70`} value={form.ipi_codigo_enquadramento_legal} readOnly /></label><label className={label}>Alíquota IPI (%) <span className="text-sky-300">🔒 operação</span><input disabled className={`${field} opacity-70`} value={form.aliquota_ipi} readOnly /></label><label className={label}>Unidade tributável <span className="text-sky-300">🔒 produto</span><input disabled className={`${field} opacity-70`} value={produto?.unidade_tributavel ?? item.unidade_tributavel ?? ""} readOnly /></label><label className={label}>FCI <span className="text-sky-300">🔒 produto</span><input disabled className={`${field} opacity-70`} value={form.numero_fci} readOnly /></label>
                               </div></div>
+                              {(() => {
+                                // Empate de meio centavo no IPI desta linha: so aparece quando ha empate (ou o
+                                // ajuste ja esta ligado). Regra geral intacta; o ajuste e por item, com motivo.
+                                const ipi = ipiDoItemNfe({ ...item, aliquota_ipi: paraNumero(form.aliquota_ipi) ?? item.aliquota_ipi });
+                                if (!ipi.empate && !ipi.ajusteAtivo) return null;
+                                const travado = autorizada || processando || ambienteConferencia === "PRODUCAO" || busyId === draft.id;
+                                const totalCom = (ligado: boolean) => operacao
+                                  ? totalDaConferencia(draft.itens.map((linha) => linha.id === item.id ? { ...linha, arredondar_empate_para_baixo: ligado, arredondar_empate_tributo: "IPI" } : linha), itensForm, operacao)
+                                  : 0;
+                                const exato = ipi.exato.toFixed(3).replace(".", ",");
+                                const motivo = motivoEmpate[item.id] ?? "";
+                                if (ipi.ajusteAtivo && !ipi.empate) {
+                                  return <div role="alert" data-testid="empate-meio-centavo" className="space-y-2 rounded border border-red-900 bg-red-950/30 p-3 text-sm text-red-100">
+                                    <div>O ajuste de meio centavo está marcado, mas o IPI desta linha não cai mais em empate (valor exato {exato}). A emissão vai parar até desfazer.</div>
+                                    <button type="button" disabled={travado} onClick={() => void alternarEmpate(draft, item, false)} className="rounded-md border border-red-700 px-3 py-1.5 text-xs font-medium text-red-100 hover:bg-red-900/40 disabled:opacity-40">Desfazer o ajuste</button>
+                                  </div>;
+                                }
+                                if (ipi.ajusteAtivo) {
+                                  return <div role="status" data-testid="empate-meio-centavo" className="space-y-1 rounded border border-emerald-900 bg-emerald-950/20 p-3 text-sm text-emerald-100">
+                                    <div>Ajuste de meio centavo ativo: IPI <strong>R$ {formatMoneyBR(ipi.paraBaixo)}</strong> em vez de {formatMoneyBR(ipi.padrao)}; total da nota <strong>R$ {formatMoneyBR(totalCom(true))}</strong>.</div>
+                                    <div className="text-xs text-emerald-200/80">Motivo: {item.arredondar_empate_motivo}{item.arredondar_empate_em ? ` · confirmado em ${new Date(item.arredondar_empate_em).toLocaleString("pt-BR")}` : ""}</div>
+                                    <button type="button" disabled={travado} onClick={() => void alternarEmpate(draft, item, false)} className="rounded-md border border-emerald-700 px-3 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-900/40 disabled:opacity-40">Desfazer o ajuste</button>
+                                  </div>;
+                                }
+                                return <div role="alert" data-testid="empate-meio-centavo" className="space-y-2 rounded border border-amber-800 bg-amber-950/25 p-3 text-sm text-amber-100">
+                                  <div>O IPI deu exatamente meio centavo ({exato}). Padrão: <strong>{formatMoneyBR(ipi.padrao)}</strong>, total {formatMoneyBR(totalCom(false))}. Arredondar para baixo (<strong>{formatMoneyBR(ipi.paraBaixo)}</strong>, total {formatMoneyBR(totalCom(true))}) para fechar com o pedido do cliente?</div>
+                                  <label className="block text-xs text-amber-200">Motivo do ajuste
+                                    <textarea aria-label="Motivo do ajuste de meio centavo" value={motivo} onChange={(event) => setMotivoEmpate((current) => ({ ...current, [item.id]: event.target.value }))} rows={2} disabled={travado} placeholder="Ex.: fechar com OC 1309011, total 4.563,40" className="mt-1 w-full rounded-md border border-amber-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100" />
+                                  </label>
+                                  <button type="button" disabled={travado || motivo.trim().length < 10} onClick={() => void alternarEmpate(draft, item, true)} className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-40">Arredondar para baixo</button>
+                                  {motivo.trim().length < 10 ? <span className="ml-2 text-xs text-amber-300">Escreva o motivo (10 caracteres ou mais).</span> : null}
+                                </div>;
+                              })()}
                               <div className="space-y-2"><h4 className="text-sm font-medium text-zinc-300">IBS/CBS</h4><div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
                                 {([['cst_ibs_cbs','CST IBS/CBS'],['cclass_trib','cClassTrib'],['aliquota_ibs_uf','IBS UF (%)'],['aliquota_ibs_mun','IBS municipal (%)'],['aliquota_cbs','CBS (%)']] as const).map(([campo, rotulo]) => <label key={campo} className={label}>{rotulo} <span className="text-emerald-300">🔒 lei 2026</span><input disabled readOnly className={`${field} cursor-not-allowed border-emerald-900 bg-emerald-950/30 text-emerald-100`} value={form[campo]} /></label>)}
                               </div></div>

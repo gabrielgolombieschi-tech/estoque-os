@@ -228,6 +228,39 @@ function round(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Empate de meio centavo: terceira casa 5 e nada depois (405,405), com tolerancia de ponto
+ * flutuante na terceira casa. So nesse caso o ajuste por item pode arredondar para baixo.
+ */
+export function empateMeioCentavo(valor: number) {
+  const milesimos = valor * 1000;
+  const inteiro = Math.round(milesimos);
+  return Math.abs(milesimos - inteiro) < 1e-6 && inteiro % 10 === 5;
+}
+
+/**
+ * Arredonda um tributo do item. A regra geral e round() (meio para cima) e nao muda; com a
+ * marca "arredondar empate para baixo" (f.solicitacao_item, 20260918270000) e SO em empate
+ * exato de meio centavo, o valor desce (405,405 -> 405,40; diferenca maxima R$ 0,01). Marca
+ * ligada fora do empate e erro: a linha mudou depois da confirmacao e alguem precisa desfazer.
+ */
+function arredondarTributo(exato: number, tributo: "IPI" | "ICMS", item: Record<string, unknown>, codigo: string) {
+  const ligado = item.arredondar_empate_para_baixo === true;
+  const tributoDaMarca = String(item.arredondar_empate_tributo ?? "").toUpperCase();
+  if (ligado && tributoDaMarca !== "IPI") {
+    throw new Error(`Solicitação incompleta: item ${codigo}, o ajuste de meio centavo só vale para o IPI por enquanto.`);
+  }
+  if (!ligado || tributoDaMarca !== tributo) return round(exato);
+  if (!empateMeioCentavo(exato)) {
+    throw new Error(
+      `Solicitação incompleta: item ${codigo}, o ajuste de meio centavo está marcado mas o ${tributo} `
+      + `não cai em empate de meio centavo (valor exato ${exato.toFixed(4).replace(".", ",")}). `
+      + "Desfaça o ajuste na conferência ou confirme de novo.",
+    );
+  }
+  return (Math.round(exato * 1000) - 5) / 1000;
+}
+
 function requiredText(value: unknown, label: string) {
   const normalized = text(value);
   if (!normalized) throw new Error(`Solicitação incompleta: ${label}.`);
@@ -585,7 +618,7 @@ export function montarPayloadNfe(contexto: ContextoEmissao, agora = new Date()) 
         + `Use o CST 50 para destacar o IPI ou zere a alíquota.`,
       );
     }
-    const ipiValor = aliquotaIpi === null ? 0 : round(base * aliquotaIpi / 100);
+    const ipiValor = aliquotaIpi === null ? 0 : arredondarTributo(base * aliquotaIpi / 100, "IPI", item as Record<string, unknown>, codigo);
     // Rede final da trava da TIPI: a conferencia ja recusa NCM tributado saindo sem IPI
     // (f.fn_os_nfe_conferir_homologacao), e aqui a nota nao passa nem que a solicitacao
     // tenha sido montada por outro caminho. A aliquota da TIPI vem no item, resolvida

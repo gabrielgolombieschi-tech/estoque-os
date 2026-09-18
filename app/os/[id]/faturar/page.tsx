@@ -78,7 +78,25 @@ type Solicitacao = {
 };
 type Emissao = { solicitacao_id: string; documento_fiscal_id: string; status: string; ambiente: string; chave_acesso: string | null; numero: number | null; serie: number | null; mensagem: string | null; codigo_status: number | null; danfe_path: string | null; xml_path: string | null };
 type ProducaoStatus = { pronta?: boolean; motivo?: string | null; preflight_confirmacao_pronto?: boolean; resumo_confirmacao?: { nome_destinatario?: string; documento_destinatario_mascarado?: string | null; valor_total?: number | string; contexto_hash?: string } | null };
-type ItemConferido = { ordem: number; descricao: string; quantidade: number | string; valor_unitario: number | string; cfop: string | null; aliquota_icms: number | string | null; aliquota_ipi: number | string | null; cst_ipi: string | null; aliquota_pis: number | string | null; aliquota_cofins: number | string | null; ncm: string | null; origem_mercadoria: number | null; tributacao_fonte: string | null };
+type ItemConferido = { id: string; ordem: number; descricao: string; quantidade: number | string; valor_unitario: number | string; cfop: string | null; aliquota_icms: number | string | null; aliquota_ipi: number | string | null; cst_ipi: string | null; aliquota_pis: number | string | null; aliquota_cofins: number | string | null; ncm: string | null; origem_mercadoria: number | null; tributacao_fonte: string | null; arredondar_empate_para_baixo?: boolean | null; arredondar_empate_tributo?: string | null; arredondar_empate_motivo?: string | null; arredondar_empate_em?: string | null };
+
+/** Mesma conta de nfe-payload.ts: empate de meio centavo = terceira casa 5 e nada depois (tolerancia de ponto flutuante). */
+function empateMeioCentavo(valor: number) {
+  const milesimos = valor * 1000;
+  const inteiro = Math.round(milesimos);
+  return Math.abs(milesimos - inteiro) < 1e-6 && inteiro % 10 === 5;
+}
+/** IPI de um item conferido: exato, padrao (meio para cima), para baixo (so em empate) e o que vale hoje. */
+function ipiConferido(i: ItemConferido) {
+  const cent = (v: number) => Math.round(v * 100) / 100;
+  const base = cent(num(i.quantidade) * num(i.valor_unitario));
+  const exato = base * num(i.aliquota_ipi) / 100;
+  const empate = empateMeioCentavo(exato);
+  const padrao = cent(exato);
+  const paraBaixo = empate ? (Math.round(exato * 1000) - 5) / 1000 : padrao;
+  const ajusteAtivo = i.arredondar_empate_para_baixo === true && String(i.arredondar_empate_tributo ?? "").toUpperCase() === "IPI";
+  return { exato, empate, padrao, paraBaixo, ajusteAtivo, valor: ajusteAtivo && empate ? paraBaixo : padrao };
+}
 type Pendencia = { entidade?: string; id?: unknown; campo?: string; mensagem?: string; rota?: string };
 
 // Destinacao: rotulo, exemplo e efeito (12%/17%, IPI na base) vem de lib/fiscal/rotulos.ts, com a mesma regra do
@@ -370,7 +388,7 @@ export default function FaturarOsPage() {
         }
         if (ativa.observacao && !/^Emissao da OS|^Composi[cç][aã]o (parcial|livre)/i.test(ativa.observacao)) setObservacao(ativa.observacao);
         if (ativa.pedido_cliente) setPedidoCliente(ativa.pedido_cliente);
-        const { data: its } = await supabase.schema("f").from("solicitacao_item").select("ordem,descricao,quantidade,valor_unitario,cfop,aliquota_icms,aliquota_ipi,cst_ipi,aliquota_pis,aliquota_cofins,ncm,origem_mercadoria,tributacao_fonte").eq("solicitacao_id", ativa.id).order("ordem");
+        const { data: its } = await supabase.schema("f").from("solicitacao_item").select("id,ordem,descricao,quantidade,valor_unitario,cfop,aliquota_icms,aliquota_ipi,cst_ipi,aliquota_pis,aliquota_cofins,ncm,origem_mercadoria,tributacao_fonte,arredondar_empate_para_baixo,arredondar_empate_tributo,arredondar_empate_motivo,arredondar_empate_em").eq("solicitacao_id", ativa.id).order("ordem");
         setItensConferidos((its as ItemConferido[] | null) ?? []);
         setConferida(Boolean(((its as ItemConferido[] | null) ?? [])[0]?.cfop));
       } else {
@@ -653,6 +671,19 @@ export default function FaturarOsPage() {
   }
 
   const totalConferido = itensConferidos.reduce((s, i) => s + num(i.quantidade) * num(i.valor_unitario), 0);
+  // Ajuste de meio centavo por item: motivo por linha, confirmado pela RPC (que recusa fora do empate).
+  const [motivoEmpate, setMotivoEmpate] = useState<Record<string, string>>({});
+  async function alternarEmpate(item: ItemConferido, ativar: boolean) {
+    setOcupado(true); setErro(null);
+    try {
+      const { error } = await supabase.schema("f").rpc("fn_solicitacao_item_arredondar_empate", {
+        p_solicitacao_item_id: item.id, p_tributo: "IPI", p_ativar: ativar, p_motivo: ativar ? (motivoEmpate[item.id] ?? "").trim() : null,
+      });
+      if (error) throw error;
+      setAviso(ativar ? "Ajuste de meio centavo confirmado: o IPI da linha arredonda para baixo." : "Ajuste de meio centavo desfeito.");
+      await carregar();
+    } catch (cause) { setErro(textoErro(cause)); } finally { setOcupado(false); }
+  }
   // Consumidor final (uso/consumo ou ativo): o IPI entra na base do ICMS, como o
   // builder ja faz em supabase/functions/_shared/nfe-payload.ts. Sem isso a previa
   // mostrava um ICMS menor que o do XML e assustava quem conferia a nota.
@@ -663,7 +694,8 @@ export default function FaturarOsPage() {
     // um centavo longe do XML — e um centavo basta para a contabilidade parar a nota.
     const cent = (v: number) => Math.round(v * 100) / 100;
     const base = (i: ItemConferido) => cent(num(i.quantidade) * num(i.valor_unitario));
-    const ipiDoItem = (i: ItemConferido) => cent(base(i) * num(i.aliquota_ipi) / 100);
+    // Ajuste de meio centavo por item (20260918270000): em empate exato e com a marca, desce.
+    const ipiDoItem = (i: ItemConferido) => ipiConferido(i).valor;
     const icmsDoItem = (i: ItemConferido) => cent((base(i) + (consumidorFinal ? ipiDoItem(i) : 0)) * num(i.aliquota_icms) / 100);
     // PIS/COFINS sobre a mercadoria menos o ICMS destacado (STF, Tema 69), igual ao
     // builder da NF-e em supabase/functions/_shared/nfe-payload.ts.
@@ -1046,6 +1078,18 @@ export default function FaturarOsPage() {
             {itensConferidos[0]?.tributacao_fonte === "FIXTURE_HOMOLOGACAO" ? <div className="md:col-span-4 text-xs text-amber-300">Valores da fixture provisória de homologação. Nenhum perfil 5101/6101 recebeu valor fiscal.</div> : null}
           </div>
         ) : <div className="text-sm text-zinc-400">Salve a conferência para ver os impostos calculados e os bloqueios.</div>}
+        {conferida ? itensConferidos.map((i) => {
+          // Empate de meio centavo no IPI da linha: aviso so quando ha empate (ou o ajuste ja esta ligado).
+          const ipi = ipiConferido(i);
+          if (!ipi.empate && !ipi.ajusteAtivo) return null;
+          const travado = ocupado || autorizada || emProcessamento;
+          const totalCom = (ligado: boolean) => Math.round((totalConferido + itensConferidos.reduce((s, x) => s + (x.id === i.id ? (ligado ? ipi.paraBaixo : ipi.padrao) : ipiConferido(x).valor), 0)) * 100) / 100;
+          const exato = ipi.exato.toFixed(3).replace(".", ",");
+          const motivo = motivoEmpate[i.id] ?? "";
+          if (ipi.ajusteAtivo && !ipi.empate) return <div key={i.id} role="alert" data-testid="empate-meio-centavo" className="space-y-2 rounded border border-red-900 bg-red-950/30 p-3 text-sm text-red-100"><div>Linha {i.ordem} · {i.descricao}: o ajuste de meio centavo está marcado, mas o IPI não cai mais em empate (valor exato {exato}). A emissão vai parar até desfazer.</div><button type="button" className={botao} disabled={travado} onClick={() => void alternarEmpate(i, false)}>Desfazer o ajuste</button></div>;
+          if (ipi.ajusteAtivo) return <div key={i.id} role="status" data-testid="empate-meio-centavo" className="space-y-1 rounded border border-emerald-900 bg-emerald-950/20 p-3 text-sm text-emerald-100"><div>Linha {i.ordem} · {i.descricao}: ajuste de meio centavo ativo, IPI <strong>{R$(ipi.paraBaixo)}</strong> em vez de {R$(ipi.padrao)}; total da nota <strong>{R$(totalCom(true))}</strong>.</div><div className="text-xs text-emerald-200/80">Motivo: {i.arredondar_empate_motivo}{i.arredondar_empate_em ? ` · confirmado em ${new Date(i.arredondar_empate_em).toLocaleString("pt-BR")}` : ""}</div><button type="button" className={botao} disabled={travado} onClick={() => void alternarEmpate(i, false)}>Desfazer o ajuste</button></div>;
+          return <div key={i.id} role="alert" data-testid="empate-meio-centavo" className="space-y-2 rounded border border-amber-800 bg-amber-950/25 p-3 text-sm text-amber-100"><div>Linha {i.ordem} · {i.descricao}: o IPI deu exatamente meio centavo ({exato}). Padrão: <strong>{R$(ipi.padrao)}</strong>, total {R$(totalCom(false))}. Arredondar para baixo (<strong>{R$(ipi.paraBaixo)}</strong>, total {R$(totalCom(true))}) para fechar com o pedido do cliente?</div><label className="block text-xs text-amber-200">Motivo do ajuste<textarea aria-label="Motivo do ajuste de meio centavo" value={motivo} onChange={(e) => setMotivoEmpate((c) => ({ ...c, [i.id]: e.target.value }))} rows={2} disabled={travado} placeholder="Ex.: fechar com OC 1309011, total 4.563,40" className={`${field} mt-1 min-h-12`} /></label><button type="button" className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-40" disabled={travado || motivo.trim().length < 10} onClick={() => void alternarEmpate(i, true)}>Arredondar para baixo</button>{motivo.trim().length < 10 ? <span className="ml-2 text-xs text-amber-300">Escreva o motivo (10 caracteres ou mais).</span> : null}</div>;
+        }) : null}
         <div className="flex flex-wrap items-center gap-2">
           {!emissao || emissao.status === "RASCUNHO" || emissao.status === "REJEITADA" || emissao.status === "ERRO" ? (
             <button type="button" className={botao} disabled={ocupado || Boolean(motivoBloqueioOs) || !destinacao} onClick={() => void conferir()}>{solicitacao ? "Reconferir" : "Salvar rascunho e conferir"}</button>

@@ -99,8 +99,18 @@ IPI 9,75%.
 | Preço | Feito. `os_itens` 6394: 4.563,40 → **4.158,00** (migration `20260918250000`, audit_log). O `orcado` da OV segue 4.563,40 (total da nota); a OV mostra o aviso de linhas × orçado e o rascunho pede o motivo, que é este: "OC 1309011 total 4.563,40 já com IPI; mercadoria 4.158,00 + IPI 9,75%". |
 | Estoque do 3629 | Feito. Migration `20260918260000`: saída −1 de estorno do ajuste fantasma de 02/09 (saldo 1 → 0) e custo 437,97 / **995,22** na saída 12634 da OV (trava de imutabilidade desligada só na transação, audit_log gravado). `custo_medio` já era 995,22. |
 | Legenda na tela | Feito. Abaixo do campo de destinação (conferência da OV e Faturar OS): "Veja o campo Utilização no pedido do cliente. Copie o que está escrito lá; não deduza pelo tipo de peça." |
-| Homologação | **Parada, dois motivos.** (1) Pré-requisito: o perfil SEG-VENDA-TERCEIROS-SC-5102-O1-CST00 (12%) **não tem revisão salva** (`revisao_fiscal_em` nulo, nenhum evento em `perfil_operacao_revisao_evento`); só o -O2- foi revisado em 05/09. (2) Arredondamento: o montador dá **vIPI 405,41 e vNF 4.563,41**, não 4.563,40. |
+| Homologação | **Parada pelo pré-requisito** (conferido de novo na rodada seguinte): o perfil SEG-VENDA-TERCEIROS-SC-5102-O1-CST00 (12%) **não tem revisão salva** (`revisao_fiscal_em` nulo, nenhum evento em `perfil_operacao_revisao_evento`); só os -O2- foram revisados. O arredondamento foi resolvido pelo ajuste de meio centavo por item (`ajuste-meio-centavo.md`). |
 | Manual "Vender peça que nós importamos" | Não feito: depende das telas da homologação. |
+
+Rodada seguinte, ainda em 18/09 (pedido "Destravar e fechar"): a homologação 2/73 (manutenção +
+exceção) foi **abandonada pelo fluxo normal** (solicitação b054ba1c CANCELADA, saldo devolvido);
+rascunho novo **89fbf7ff** com 1 UN × 4.158,00, motivo da diferença para o orçado gravado em
+`divergencia_orcamento` ("Orçado inclui IPI: OC 1309011 é valor fechado em 4.563,40 = mercadoria
+4.158,00 + IPI 9,75%"), conferência com destino SC + destinação INSUMO (perfil resolvido
+SEG-VENDA-TERCEIROS-SC-5102-O1-CST00, sem a seção de exceção), **ajuste de meio centavo ligado**
+na linha (motivo "fechar com OC 1309011, total 4.563,40"; CST 50 e 9,75% gravados na linha):
+total conferido **4.563,40**. Emissão não feita: fica no botão "Emitir em homologação" até a
+revisão do perfil ser salva.
 
 **Regra de arredondamento usada** (`supabase/functions/_shared/nfe-payload.ts`, `round()`):
 `Math.round((v + Number.EPSILON) * 100) / 100`, meio para cima. `vIPI = round(vProd × 9,75 / 100)` =
