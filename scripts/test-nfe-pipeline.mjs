@@ -940,6 +940,38 @@ assert.throws(
   () => comExcecao([linha({ ncm: "90328911", aliquota_icms: 12, cbenef: null })], { consumidor_final: 0 }),
   /mantém indFinal = 1/,
 );
+// Excecao + manutencao + item importado pela propria empresa (origem 1, equiparado a
+// industrial, IPI da TIPI): os 12% vem da exigencia da OC e o IPI fica DENTRO da base,
+// porque manutencao nao e industrializacao nem revenda (CF art. 155, § 2º, XI). Caso da
+// OV-SEG-00004-026 (CQM1H-CPU61, 18/09/2026): vBC = 4.563,40 + 444,93 = 5.008,33.
+const linhaImportada = (aliquota) => linha({
+  codigo_produto: "CQM1HCPU61", ncm: "85371020", quantidade: 1, valor_unitario: 4563.4,
+  aliquota_icms: aliquota, cbenef: null, origem_mercadoria: 1, equiparado_industrial: true,
+  cst_ipi: "50", aliquota_ipi: 9.75,
+});
+const importadoExcecao = comExcecao([linhaImportada(12)]);
+assert.equal(importadoExcecao.items[0].ipi_valor, 444.93);
+assert.equal(importadoExcecao.items[0].icms_aliquota, 12);
+assert.equal(importadoExcecao.items[0].icms_base_calculo, 5008.33, "excecao: 12% com o IPI dentro da base");
+assert.equal(importadoExcecao.items[0].icms_valor, 601);
+assert.equal(importadoExcecao.valor_total, 5008.33);
+assert.equal(importadoExcecao.consumidor_final, 1);
+// Sem a excecao, o mesmo par (12% + IPI na base) continua bloqueado pela trava.
+assert.throws(
+  () => montarPayloadNfe(contexto({
+    solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: "MANUTENCAO", consumidor_final: 0 } }),
+    itens: [linhaImportada(12)],
+  })),
+  /nessa mesma condição o IPI fica fora da base do ICMS \(CF art\. 155, § 2º, XI\)\. A nota está com os dois ao mesmo tempo/,
+);
+// E a 17% (sem excecao) o IPI entra na base e nada bloqueia: 4.563,40 + 444,93 a 17%.
+const importadoManutencao17 = montarPayloadNfe(contexto({
+  solicitacao: solicitacao({ operacao_snapshot: { ...solicitacao().operacao_snapshot, destinacao_mercadoria: "MANUTENCAO", consumidor_final: 1 } }),
+  itens: [linhaImportada(17)],
+}));
+assert.equal(importadoManutencao17.items[0].icms_base_calculo, 5008.33);
+assert.equal(importadoManutencao17.items[0].icms_valor, 851.42);
+
 // Com a excecao, a frase "Destinacao informada pelo destinatario" nao se repete.
 assert.doesNotMatch(fabExcecao.informacoes_adicionais_contribuinte, /Destinação informada pelo destinatário/);
 assert.doesNotMatch(revendaExcecao.informacoes_adicionais_contribuinte, /Destinação informada pelo destinatário/);

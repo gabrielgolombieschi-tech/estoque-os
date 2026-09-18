@@ -31,7 +31,10 @@ Para não contribuinte a opção não aparece.
 - Itens **com** SC820006: seguem a regra própria (CST 20, pRedBC 29,412).
 - indFinal = 1, mesmo que o perfil fiscal diga 0.
 - IPI não muda. Na manutenção ele continua dentro da base do ICMS: item FAB (CFOP 5101)
-  tem vBC = vProd + vIPI.
+  tem vBC = vProd + vIPI. Vale também na revenda de item importado pela própria empresa
+  (origem 1, equiparado a industrial, CFOP 5102): NF-e 2/73 de homologação da OV-SEG-00004-026
+  (18/09/2026), vBC 4.563,40 + 444,93 = 5.008,33 a 12%. Sem a exceção o mesmo par é bloqueado
+  por `conflitoIpiNaBaseComAliquota`; os dois lados estão em `scripts/test-nfe-pipeline.mjs`.
 - vTotTrib segue a regra existente (IBPT, só com indFinal = 1).
 - Informações complementares, com N = nItem:
   `Itens N: ICMS à alíquota de 12% (RICMS/SC-01, art. 26, III, "n") aplicada por

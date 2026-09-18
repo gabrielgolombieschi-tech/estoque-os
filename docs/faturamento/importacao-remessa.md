@@ -208,6 +208,15 @@ UPS (APROVADO) e o estoque não mudaram. Prints, XML e DANFE em
 `NFe-2-68-importacao-UPS-homologacao-teste-rts.*` (fora do git). O perfil 3556 está revisado e
 **não liberado**: liberar pela tela de perfis usando a 2/68 antes da próxima nota real.
 
+## Item importado por nós marcado à mão (18/09/2026)
+
+A 2/24 saiu em 3556 e não marcou o item 3629 como importado pela Segau. Para revender com o IPI
+destacado (equiparação do RIPI art. 9º, I) nasceu o caminho manual na aba fiscal do item —
+"Importado por nós (DIR/DI no nosso CNPJ)" — que grava origem 1, equiparação, IPI 50 com a TIPI,
+DIR, nota de entrada, quem e quando (`20260918210000`). O rótulo `dados_json.motivo_compra` desta
+importação (dizia ESTOQUE com o id de CONSUMO_PRODUCAO) foi corrigido em `20260918200000`. Detalhes
+em [importado-por-nos-e-perfis-origem-1.md](importado-por-nos-e-perfis-origem-1.md).
+
 ## Backlog (decisão do Gabriel em 18/09/2026, não fazer agora)
 
 - Campo estruturado "destino" na importação (uso próprio / industrialização / revenda) decidindo o

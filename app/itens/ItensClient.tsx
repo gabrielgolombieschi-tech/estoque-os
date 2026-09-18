@@ -12,6 +12,7 @@ import { requireAny } from "@/lib/auth/capabilities";
 import { normalizarUnidadesNoNome } from "@/lib/itens/normalizacaoNome";
 import { normalizarConversaoCadastro, ORIGENS_MERCADORIA } from "@/lib/itens/cadastroNormalizacao";
 import CadastroItemAgenteModal from "./CadastroItemAgenteModal";
+import ImportadoPorNosFiscal from "@/components/itens/ImportadoPorNosFiscal";
 import { alertaCadastroNcm } from "@/lib/itens/alertasNcm";
 
 type Fornecedor = { id: number; nome: string; ativo: boolean };
@@ -2158,6 +2159,24 @@ export default function ItensClient({
                       </select>
                     </div>
                   </div>
+
+                  {/* Importacao direta pela propria empresa: marca origem 1, equiparacao e
+                      IPI da TIPI de uma vez, com DIR/DI e nota de entrada como prova. */}
+                  {editingId ? (
+                    <ImportadoPorNosFiscal
+                      itemId={editingId}
+                      podeEditar={Boolean(canEditFiscal)}
+                      onAplicado={(resultado) => {
+                        setFiscalForm((s) => ({
+                          ...s,
+                          origem: String(resultado.origem),
+                          cst_ipi: resultado.cst_ipi ?? s.cst_ipi,
+                          aliq_ipi: resultado.aliq_ipi === null || resultado.aliq_ipi === undefined ? s.aliq_ipi : Number(resultado.aliq_ipi),
+                        }));
+                        void load();
+                      }}
+                    />
+                  ) : null}
 
                   {/* Alerta, nao trava: o cadastro salva do mesmo jeito. */}
                   {alertaCadastroNcm(fiscalForm.ncm) ? (
