@@ -176,7 +176,8 @@ export type CadastroItemAgenteConfirmarPayload = {
   fornecedor_id: number;
   codigo: string;
   quantidade_referencia: number;
-  preco_unitario_confirmado: number;
+  /** Nulo cadastra sem preço; o estoque inicial entra sem custo. */
+  preco_unitario_confirmado: number | null;
   peso_referencia_kg: number | null;
   cotacao_token: string;
   model: string | null;
@@ -629,6 +630,8 @@ export default function CadastroItemAgenteModal({
   const pesquisaPreco = sugestao?.pesquisa_preco ?? null;
   const precoFinal = pesquisaPreco?.preco_final_brl ?? pesquisaPreco?.preco_unitario_brl ?? null;
   const precoConfirmadoNumero = parseNumeroOpcional(precoInput);
+  // Preço em branco é aceito (a pessoa informa depois); só o valor digitado e inválido trava.
+  const precoInvalido = precoInput.trim() !== "" && (precoConfirmadoNumero === null || precoConfirmadoNumero <= 0);
   const totalEstimado = quantidadeReferencia !== null && precoConfirmadoNumero !== null ? quantidadeReferencia * precoConfirmadoNumero : null;
   const isUnidadeKg = (sugestao?.unidade_medida ?? "").trim().toUpperCase() === "KG";
   const pesoReferenciaNumero = parseNumeroOpcional(pesoInput);
@@ -770,8 +773,8 @@ export default function CadastroItemAgenteModal({
       setErro("Confirme o grupo sugerido ou revise a classificação antes de cadastrar.");
       return;
     }
-    if (precoConfirmadoNumero === null || precoConfirmadoNumero <= 0) {
-      setErro("Informe um preço unitário válido maior que zero antes de confirmar.");
+    if (precoInvalido) {
+      setErro("Informe um preço unitário maior que zero ou deixe o campo vazio para cadastrar sem preço.");
       return;
     }
     const conversao = normalizarConversaoCadastro(sugestao.unidade_medida, sugestao.unidade_compra, sugestao.fator_conversao_estoque);
@@ -795,7 +798,7 @@ export default function CadastroItemAgenteModal({
       fornecedor_id: fornecedor,
       codigo: codigoNormalizado,
       quantidade_referencia: quantidadeReferencia,
-      preco_unitario_confirmado: precoConfirmadoNumero,
+      preco_unitario_confirmado: precoInput.trim() ? precoConfirmadoNumero : null,
       peso_referencia_kg: isUnidadeKg ? pesoReferenciaNumero : null,
       cotacao_token: rascunho.cotacaoToken,
       model: rascunho.model,
@@ -1083,7 +1086,7 @@ export default function CadastroItemAgenteModal({
                 </label>
                 <label>
                   <span className={FIELD_LABEL_CLASS}>
-                    Preço por {sugestao.unidade_compra || sugestao.unidade_medida || "unidade"} (R$) *
+                    Preço por {sugestao.unidade_compra || sugestao.unidade_medida || "unidade"} (R$)
                   </span>
                   <input
                     className={INPUT_CLASS}
@@ -1094,8 +1097,11 @@ export default function CadastroItemAgenteModal({
                   />
                   <span className="mt-1 block text-[11px] text-zinc-500">
                     {precoFinal !== null
-                      ? "Sugerido pela pesquisa do agente; ajuste se você já tiver um preço mais atual."
-                      : "O agente não encontrou um preço verificável nesta pesquisa; informe o valor antes de confirmar."}
+                      ? "Sugerido pela pesquisa do agente; ajuste se tiver um preço mais atual, ou apague para cadastrar sem preço."
+                      : "O agente não encontrou um preço verificável nesta pesquisa; informe o valor ou deixe em branco para cadastrar sem preço."}
+                    {!precoInput.trim() && quantidadeReferencia !== null && quantidadeReferencia > 0
+                      ? " O estoque inicial entra sem custo."
+                      : ""}
                   </span>
                 </label>
               </div>
@@ -1362,8 +1368,7 @@ export default function CadastroItemAgenteModal({
                 disabled={
                   busy === "confirmar" ||
                   (!sugestao.grupo_id && (!aceitarNovoGrupo || !sugestao.novo_grupo)) ||
-                  precoConfirmadoNumero === null ||
-                  precoConfirmadoNumero <= 0
+                  precoInvalido
                 }
                 className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
               >

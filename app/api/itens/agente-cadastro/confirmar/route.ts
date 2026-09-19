@@ -280,7 +280,7 @@ async function registrarAuditoria(input: {
   fornecedorId: number;
   codigo: string;
   quantidade: number;
-  precoConfirmado: number;
+  precoConfirmado: number | null;
   sugestao: Record<string, unknown>;
   pesquisa: PesquisaPreco;
   fontes: unknown[];
@@ -333,7 +333,7 @@ async function registrarEstoqueInicial(input: {
   empresaId: string;
   itemId: number;
   quantidade: number;
-  precoConfirmado: number;
+  precoConfirmado: number | null;
   usuario: string;
 }): Promise<number | null> {
   const { data, error } = await input.supabase
@@ -377,9 +377,14 @@ export async function POST(req: NextRequest) {
     const quantidade = normalizarQuantidade(body.quantidade_referencia ?? body.quantidade);
     const sugestao = asRecord(body.sugestao);
     const fiscalRaw = asRecord(body.fiscal_sugerido);
-    // A pessoa usuária pode ajustar o preço sugerido pela pesquisa ou informar um
-    // preço que já conhece; o servidor apenas exige um valor positivo e plausível.
-    const precoConfirmado = numero(body.preco_unitario_confirmado ?? body.preco_unitario, 0.01, 999999999);
+    // A pessoa usuária pode ajustar o preço sugerido pela pesquisa, informar um
+    // preço que já conhece ou deixar em branco: no recadastramento a prateleira é
+    // contada agora e o valor chega numa segunda rodada. Sem preço, o item fica
+    // com 0 (como o catálogo guarda) e o estoque inicial entra sem custo, igual a
+    // um ajuste de inventário.
+    const precoRaw = body.preco_unitario_confirmado ?? body.preco_unitario;
+    const precoInformado = precoRaw !== null && precoRaw !== undefined && String(precoRaw).trim() !== "";
+    const precoConfirmado = precoInformado ? numero(precoRaw, 0.01, 999999999) : null;
     const unidadeEstoque = normalizarUnidade(sugestao?.unidade_medida);
     const unidadeCompraRaw = texto(sugestao?.unidade_compra, 10);
     const unidadeCompraInformada = unidadeCompraRaw ? normalizarUnidade(unidadeCompraRaw) : null;
@@ -393,7 +398,9 @@ export async function POST(req: NextRequest) {
     if (!codigo) return jsonError(400, "Informe o código do produto.");
     if (quantidade === null) return jsonError(400, "Informe uma quantidade válida (0 ou mais).");
     if (!sugestao) return jsonError(400, "A proposta do agente é obrigatória para confirmar o cadastro.");
-    if (precoConfirmado === null) return jsonError(422, "Informe um preço unitário válido maior que zero antes de confirmar.");
+    if (precoInformado && precoConfirmado === null) {
+      return jsonError(422, "Informe um preço unitário maior que zero ou deixe o campo vazio para cadastrar sem preço.");
+    }
     if (conversao.erro) return jsonError(422, conversao.erro);
     if (fiscalRaw && origemFiscalConfirmada(fiscalRaw.origem) === null) {
       return jsonError(422, "Selecione uma origem válida entre 0 e 8.");
@@ -401,7 +408,7 @@ export async function POST(req: NextRequest) {
 
     const fatorAplicado = fatorConversaoEstoque ?? 1;
     const quantidadeEstoque = quantidade * fatorAplicado;
-    const custoUnitarioEstoque = precoConfirmado / fatorAplicado;
+    const custoUnitarioEstoque = precoConfirmado === null ? null : precoConfirmado / fatorAplicado;
 
     // A quantidade informada agora também define o estoque inicial do item; sem
     // permissão de estoque, a pessoa só pode cadastrar com quantidade zero.
@@ -521,10 +528,10 @@ export async function POST(req: NextRequest) {
         estoque_ideal: 0,
         // O preço gravado no cadastro é o valor revisado e confirmado pela
         // pessoa usuária, não necessariamente o preço bruto da pesquisa.
-        custo_ultima_compra: custoUnitarioEstoque,
-        custo_medio: custoUnitarioEstoque,
-        preco_unitario: custoUnitarioEstoque,
-        data_atualizacao_preco: agora,
+        custo_ultima_compra: custoUnitarioEstoque ?? 0,
+        custo_medio: custoUnitarioEstoque ?? 0,
+        preco_unitario: custoUnitarioEstoque ?? 0,
+        data_atualizacao_preco: custoUnitarioEstoque === null ? null : agora,
         margem_lucro_percentual: margem,
         fornecedor_id: fornecedorId,
         fabricante: texto(sugestao.fabricante, 150)?.toUpperCase() ?? null,
@@ -616,7 +623,8 @@ export async function POST(req: NextRequest) {
 
     const mensagemEstoque =
       quantidade > 0
-        ? estoqueAviso ?? `Estoque inicial de ${quantidadeEstoque} ${unidadeEstoque} lançado ao confirmar.`
+        ? estoqueAviso ??
+          `Estoque inicial de ${quantidadeEstoque} ${unidadeEstoque} lançado ao confirmar${custoUnitarioEstoque === null ? ", sem custo até o preço ser informado" : ""}.`
         : "Nenhuma quantidade foi informada; o item foi cadastrado sem estoque inicial.";
 
     return NextResponse.json(
